@@ -5,8 +5,10 @@ Essential knowledge for AI agents working in this repository.
 Documentation source of truth:
 
 - start with `docs/README.md`
+- read `docs/TRADEOS_BIBLE.md` for doctrine and source-of-truth hierarchy
 - read `docs/ENGINEERING_COMMAND_CENTER.md` immediately after environment verification
 - verify current implementation claims in `docs/CURRENT_STATE.md`
+- verify executable work state in `docs/SPRINT_BACKLOG.md`
 - read `docs/SESSION_HANDOFF.md` for the latest completed-session context
 - use `docs/agent-prompts/AGENT_STARTUP_CHECKLIST.md` before substantial work
 - use `docs/agent-prompts/AGENT_COMPLETION_CHECKLIST.md` before handoff

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-07-28
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -42,7 +42,7 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 
 ## Current milestone
 
-The Bible foundation has landed (S001, `DONE`). Sprint execution is open: select the lowest-numbered eligible `READY` sprint per `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. S003 (solo-maintainer governance calibration) is the current first candidate.
+The Bible foundation has landed (S001, `DONE`). Sprint execution is open after active overlapping PRs are resolved: select the lowest-numbered eligible `READY` sprint per `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. S003 (solo-maintainer governance calibration) is the current first candidate on `origin/main`.
 
 Completed foundation work includes:
 
@@ -71,14 +71,13 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 At the last verified handoff:
 
 - PR #30 owns Settings/Brand Studio web and related current-state scope (open — do not duplicate or touch its files from another branch);
-- PR #35 owns first-party operational truth alignment with the Bible (open);
+- PR #35 owns first-party operational truth alignment with the Bible (open draft while this branch is validated);
 - PR #31 (Bible foundation), #32 (Volume 3 expansion, merged into #31's branch), #33 (knowledge-engine Phase A), #34 (knowledge-engine Phase B), #27, #28, and #29 are all merged.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
 ## Current blockers and risks
 
-- The final validation pass must be rerun after adding the governance owner document.
 - Entry-point READMEs and legacy generator scripts contain stale material, but useful setup, competitive, pricing, and historical evidence must be preserved before archive or removal decisions.
 - `packages/knowledge-engine/**` (9,986 files) received its separate segmented audit on 2026-07-16. Phase A documentation/governance guardrails (root README, corrected canonical-path docs, focused `docs/DOC_OWNERSHIP.yml` rules, historical notices on conflicting runtime guidance, a package-scoped `.gitignore`) and Phase B pipeline path-canonicalization (`PATHS.md`, `path-manifest.json`, a marker-validated Python resolver, and a fix for divergent generated-export copies) have both landed via PR #33 and #34. The package still contains a confirmed 4,746-tracked-file self-nested exact-duplicate tree and ~1,400 vendored third-party skill directories with incomplete license coverage; both are documented but intentionally untouched pending founder-approved Phase C migration work — do not begin archive or deletion in this package without that approval.
 - Ruleset and branch-protection facts must be verified directly in GitHub before being stated as current.
@@ -130,7 +129,7 @@ Every agent must:
 
 ## Next engineer starts here
 
-Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md), [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md). Then select the lowest-numbered eligible `READY` sprint from [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md). Do not begin archive, deletion, README consolidation, or ruleset mutation outside a sprint's stated scope, and do not begin Phase C of the knowledge-engine cleanup without explicit founder sign-off.
+Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md), [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md). If PR #35 is still open, finish that review/merge decision before selecting new work. Otherwise select the lowest-numbered eligible `READY` sprint from [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md). Do not begin archive, deletion, README consolidation, or ruleset mutation outside a sprint's stated scope, and do not begin Phase C of the knowledge-engine cleanup without explicit founder sign-off.
 
 ## Source-of-truth links
 

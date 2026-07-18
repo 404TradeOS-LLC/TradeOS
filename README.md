@@ -19,8 +19,10 @@ The focus is no longer feature chasing. Current work is centered on:
 Start here for current implementation truth:
 
 - [docs/README.md](docs/README.md)
+- [docs/TRADEOS_BIBLE.md](docs/TRADEOS_BIBLE.md)
 - [docs/ENGINEERING_COMMAND_CENTER.md](docs/ENGINEERING_COMMAND_CENTER.md)
 - [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md)
+- [docs/SPRINT_BACKLOG.md](docs/SPRINT_BACKLOG.md)
 - [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)

@@ -1,175 +1,181 @@
-# TradeOS Cost Book — API (MVP Backend)
+# TradeOS Backend API
 
-Node.js + TypeScript + Express backend implementing the MVP modules from the planning documents in [`../docs`](../docs): Cost Database, Labor Database, Material Database, Equipment Database, Assemblies Database, Estimate Engine, Proposal Generator, and Admin Dashboard.
+Express + TypeScript backend for the TradeOS RC1 platform.
 
-Database access uses Prisma against PostgreSQL/Supabase. `prisma/migrations/` is the authoritative, tracked migration history (Prisma's own `_prisma_migrations` bookkeeping table records what's been applied) — `prisma/schema.prisma` is the matching ORM schema. There is no separate hand-written SQL file outside this directory; RLS policies and helper functions that Prisma's schema language can't express are committed as raw SQL inside `prisma/migrations/<name>/migration.sql`, the same as any other migration.
+For current product and implementation truth, start with:
+
+- [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md)
+- [../docs/API_REFERENCE.md](../docs/API_REFERENCE.md)
+- [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
+- [../docs/modules/](../docs/modules/)
 
 ## Project Structure
 
-```
-api/
-  server.ts            Express app entrypoint, route mounting, middleware
-  routes/               One router per module
-  controllers/          Request validation (zod) + calls into module services
-  middleware/            error handling, auth, and request-scoped RLS sessions
+```text
+backend/
+  server.ts              Express app setup, route mounting, middleware
+  start.ts               long-lived process entrypoint
+  routes/                one router per route group
+  controllers/           Zod validation and HTTP response shaping
+  middleware/            auth, RLS session, rate limiting, error handling
+  views/                 lightweight internal admin HTML views
 db/
   client.ts              Prisma client with request transaction routing
-  requestSession.ts      Async-local transaction and PostgreSQL session values
-  seed/seed.ts           Sample data seed script
+  requestSession.ts      async-local transaction and PostgreSQL session values
+  seed/seed.ts           sample data seed script
 modules/
-  cost-database/         Division/Category/Subcategory/CostItem hierarchy + unit cost calc
-  labor-database/        Labor rates, burdened rate, labor cost calc
-  material-database/     Materials, waste factor, bulk import, stale-price detection
-  equipment-database/    Equipment ownership/operating cost, hourly/daily cost calc
-  assemblies-database/   Composed cost items (supports nested assemblies), recursive roll-up
-  estimate-engine/        Pricing formulas (formulas.ts) + estimate/line-item orchestration
-  proposal-generator/     PDF proposal generation (pdfkit)
-  admin-dashboard/        Org settings, pricing-update review queue
+  */service.ts           business services, independent of Express
+  */types.ts             module contracts
 prisma/
-  schema.prisma           ORM schema
-  migrations/              Tracked migration history (source of truth for schema + RLS)
+  schema.prisma          ORM schema
+  migrations/            tracked migration history, including raw SQL for RLS
 scripts/
-  deploy-migrations.sh     Production rollout: prisma migrate deploy + app-role provisioning
-  provision-app-role.sh    Idempotent restricted-role create/update + grants
-tests/                    Jest test suite (Estimate Engine formulas)
+  deploy-migrations.sh   production rollout and app-role provisioning
+  test-integration-db.sh disposable PostgreSQL integration harness
+tests/                   Jest unit and live RLS integration tests
 ```
 
-Each module under `modules/` exposes a `types.ts` (interfaces) and `service.ts` (the class implementing its logic), independent of Express — the API layer in `api/` is a thin adapter on top.
-
-The server also exposes an internal admin page at `/admin/member-history` for browsing membership audit history with a bearer token, org id, and membership id — it shares the same visual shell (layout, palette, table/chip/pagination styling) as `/admin` and `/admin/pricing-history`, not a separately-styled page.
+Services take `orgId` explicitly and do not depend on Express request objects. Controllers own HTTP validation and call services.
 
 ## Prerequisites
 
 - Node.js 20+
-- A PostgreSQL database (local Postgres, or a Supabase project's connection string)
-- A `psql` client on `PATH` — required by `scripts/deploy-migrations.sh`/`scripts/provision-app-role.sh`, not by the running API itself. On macOS via Homebrew, `psql` is keg-only: `brew install libpq` and add `$(brew --prefix libpq)/bin` to `PATH`.
+- PostgreSQL or Supabase connection strings
+- `psql` on `PATH` for migration deployment and live integration tests
+- Docker for `npm run test:integration`
+
+On macOS via Homebrew, `psql` is installed with `brew install libpq`; add `$(brew --prefix libpq)/bin` to `PATH`.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env        # then edit DATABASE_URL, DATABASE_ADMIN_URL, and APP_DB_ROLE_PASSWORD
+cp .env.example .env
 ```
 
-## Running Migrations
+Edit `.env` with `DATABASE_URL`, `DATABASE_ADMIN_URL`, `APP_DB_ROLE_PASSWORD`, `AUTH_JWT_SECRET`, and any optional scheduler/provisioning settings needed for local work.
 
-`prisma/migrations/` is the authoritative, tracked migration history. **Migrations and the restricted application role must be applied/provisioned through an elevated connection** (`DATABASE_ADMIN_URL`) — the role the running API connects as (`DATABASE_URL`) is deliberately never given permission to run DDL or grant privileges to itself.
+## Migrations
 
-For a fresh database, or to roll out a new migration to an existing one:
+`prisma/migrations/` is the authoritative tracked migration history. RLS policies and helper functions that Prisma cannot express are committed as raw SQL inside migration folders.
+
+Apply migrations and provision the restricted application role through an elevated connection:
 
 ```bash
-npm run db:deploy           # = scripts/deploy-migrations.sh: prisma migrate deploy, then (re)provisions the app role
+npm run db:deploy
 npm run prisma:generate
 ```
 
-`scripts/deploy-migrations.sh` is the one command to wire into CI/CD or a manual release step — it's the same path `npm run test:integration` exercises on every run, so there's no drift between how this gets tested and how it actually gets deployed. It's idempotent: re-running it after nothing has changed reports "No pending migrations to apply" and updates (rather than recreates) the application role.
-
-[`../.github/workflows/deploy-migrations.yml`](../.github/workflows/deploy-migrations.yml) is a worked GitHub Actions example calling this script: manually dispatchable, or triggered automatically on a push to `main` that touches `app/prisma/migrations/**`. It runs against the `production` GitHub Environment, reading `DATABASE_ADMIN_URL`/`APP_DB_ROLE_PASSWORD`/`APP_DB_ROLE_NAME` from that environment's secrets — configure required reviewers on the `production` environment (repo Settings → Environments) so a real rollout always needs a human approval, not just a green CI run. Verified locally with [`act`](https://github.com/nektos/act) (`brew install act`) against the disposable test database — see the workflow file's header comment for the exact command.
-
-If you only need to (re)provision the role — e.g. to rotate its password — without touching schema:
+Provision only the application role, for example during password rotation:
 
 ```bash
 npm run db:provision-role
 ```
 
-For local development against a schema you're actively iterating on (not a tracked production rollout), `npm run prisma:migrate` (`prisma migrate dev`) still works as usual and will prompt to create a new migration for any drift from the last one.
+Local schema iteration can use:
 
-Forced RLS applies even to the table owner, so deploying request-session code (`db/requestSession.ts`) before or atomically with any migration that adds `force row level security` to a new table is required — the same constraint that existed when these were hand-written SQL files.
+```bash
+npm run prisma:migrate
+```
 
-## Seeding Sample Data
+Forced RLS applies even to table owners, so request-session code and RLS migrations must be deployed together for new protected tables.
+
+## Seeding
 
 ```bash
 npm run db:seed
 ```
 
-This creates one sample organization, a Sitework → Excavation → Residential Excavation hierarchy, a labor rate, a material, an equipment record, two cost items, a customer, a project, and one common assembly template (see below) — enough to immediately exercise the estimate → proposal flow below.
+The seed creates a sample organization and enough customer/project/costbook data to exercise the estimate-to-document workflow locally. Seeded backend users and memberships are not proof that hosted web-login credentials are ready.
 
-Assemblies can be flagged `isTemplate: true` (`GET/POST /api/v1/assemblies`, filterable via `GET /api/v1/assemblies/templates`) to mark them as reusable starting points an estimator browses for quick adds, as distinct from one-off assemblies built for a specific job. Adding one to an estimate is unchanged — `POST /api/v1/estimates/:id/line-items` already accepted `assemblyId` and resolves its rolled-up unit cost in one call, regardless of whether it's flagged as a template. Templates are org-scoped, not a shared cross-tenant catalog: forced RLS hides a `NULL` `org_id` row from every tenant (`org_id = current_app_org_id()` is never true when `org_id` is `NULL`), so each org maintains its own template library rather than drawing from a shared system-wide one.
-
-## Running the API
+## Running The API
 
 ```bash
-npm run dev      # ts-node + nodemon, restarts on file change
+npm run dev
 # or
 npm run build && npm start
 ```
 
-The API listens on `http://localhost:4000` by default (see `PORT` in `.env`). Health check: `GET /health`.
-
-All `/api/v1/*` routes run through bearer-token auth (`api/middleware/auth.ts`): the middleware verifies an HS256 JWT, resolves the signed-in user, and checks that the user belongs to the requested organization. Request headers cannot impersonate another organization. The remaining request runs in a Prisma transaction with transaction-local `app.user_id`, `app.org_id`, and `app.role` PostgreSQL settings so forced RLS can enforce the same boundary in the database.
-
-`RLS_TRANSACTION_TIMEOUT_MS` controls request transaction lifetime and defaults to 60 seconds. Long-running or queued work should run outside HTTP request handlers with its own scoped database session.
-
-Background workers should call `runWithBackgroundDatabaseSession`. It verifies an active membership and derives the worker role from the database before opening the scoped job transaction. `modules/supplier-integration/worker.ts`'s `runSupplierPriceSyncJob` is a working example: it has no HTTP route and is invoked by the scheduler described below instead.
-
-First-owner organization creation is isolated at `POST /api/v1/platform/organizations`. It requires `x-platform-provisioning-key` to match the separately configured `PLATFORM_PROVISIONING_SECRET` and atomically creates the organization, owner identity, owner membership, and initial audit record. The route is rate-limited per client IP (`PLATFORM_PROVISIONING_RATE_LIMIT_MAX` per `PLATFORM_PROVISIONING_RATE_LIMIT_WINDOW_MS`, defaulting to 5 per 15 minutes) and supports an optional `PLATFORM_PROVISIONING_ALLOWED_IPS` allowlist as defense in depth. Keep this route behind network controls in production — the in-app allowlist is a backstop, not a substitute for infrastructure-level restrictions.
-
-For local development, seed the database and then use the printed dev token from `npm run db:seed`, or sign your own JWT with `AUTH_JWT_SECRET`. The token must include `sub`, `orgId`, and `role` claims.
-
-## Trying the Core Loop End-to-End
-
-After seeding:
+The API listens on `http://localhost:4000` by default. Health check:
 
 ```bash
-# 1. Create an estimate against the seeded project (replace <projectId> with the seeded project's id)
-curl -X POST localhost:4000/api/v1/estimates -H "Content-Type: application/json" \
-  -d '{"projectId": "<projectId>", "overheadPct": 10}'
-
-# 2. Add a line item referencing the seeded cost item (replace ids accordingly)
-curl -X POST localhost:4000/api/v1/estimates/<estimateId>/line-items -H "Content-Type: application/json" \
-  -d '{"costItemId": "<costItemId>", "quantity": 25}'
-
-# 3. Set markup-mode pricing
-curl -X POST localhost:4000/api/v1/estimates/<estimateId>/pricing-mode -H "Content-Type: application/json" \
-  -d '{"mode": "markup", "markupPct": 20}'
-
-# 4. Generate the PDF proposal
-curl -X POST localhost:4000/api/v1/estimates/<estimateId>/proposals/generate -o proposal.pdf
+curl localhost:4000/health
 ```
 
-(Note: the proposal route is mounted at `/api/v1/proposals/:id/generate`, where `:id` is the estimate id — adjust the example above accordingly.)
+All `/api/v1/*` routes run through bearer-token auth except explicitly public auth and platform-provisioning routes. Request-controlled tenant headers cannot impersonate another organization. Authenticated requests run inside a Prisma transaction with transaction-local PostgreSQL settings:
+
+- `app.user_id`
+- `app.org_id`
+- `app.role`
+- `app.session_source`
+
+Background workers should use `runWithBackgroundDatabaseSession` so RLS boundaries match HTTP requests.
+
+## Core Local Loop
+
+Protected route examples require a bearer token:
+
+```bash
+curl -X POST localhost:4000/api/v1/estimates \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"projectId": "<projectId>", "overheadPct": 10}'
+
+curl -X POST localhost:4000/api/v1/estimates/<estimateId>/line-items \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"costItemId": "<costItemId>", "quantity": 25}'
+
+curl -X POST localhost:4000/api/v1/proposals/preview/<estimateId> \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+curl localhost:4000/api/v1/proposals/<proposalId>/pdf \
+  -H "Authorization: Bearer <token>" \
+  -o proposal.pdf
+```
+
+See [../docs/API_REFERENCE.md](../docs/API_REFERENCE.md) for mounted route groups.
 
 ## Structured AI Estimating
 
 The backend exposes a review-first structured estimating path for contractor-language scopes:
 
-```bash
+```text
 POST /api/v1/estimates/<estimateId>/ai-estimator/draft
 POST /api/v1/estimates/<estimateId>/ai-estimator/apply
 ```
 
-Draft generation parses scope text, uses the read-only Knowledge Runtime for candidate matches, resolves candidates to existing org-scoped cost items or assemblies, and retrieves pricing through the existing costbook services. Drafts require `billing.write`, are rate-limited, include server-signed review tokens for resolved lines, and record a non-sensitive activity event without storing the full prompt.
+Draft generation parses scope text, uses the read-only Knowledge Runtime for candidate matches, resolves candidates to existing org-scoped cost items or assemblies, and retrieves pricing through existing costbook services.
 
-Apply accepts only reviewed line items with matching server-signed review tokens, validates accepted targets server-side, serializes concurrent apply requests per estimate, and writes line items through `EstimateEngineService.addLineItem`. Generated output never writes estimate lines directly to Prisma. AI-reviewed lines carry a server-built `sourceKey` so retries and concurrent replays can reconcile to the existing line instead of creating duplicates.
+Apply accepts only reviewed line items with matching server-signed review tokens, validates accepted targets server-side, serializes concurrent apply requests per estimate, and writes through `EstimateEngineService.addLineItem`. Generated output never writes estimate lines directly to Prisma.
+
+Current limitation: the active web assist surface still uses the older reviewable `/ai-suggestions` contract, so structured estimator frontend integration is partial.
+
+## Supplier Integration
+
+Supplier records and supplier price-update review queues are implemented. Supplier-fed price changes are staged for review rather than applied automatically.
+
+The actual live feed fetcher is still a stub returning no quotes. Operators can configure either the in-process scheduler or an external cron path using `SUPPLIER_PRICE_SYNC_JOBS`, but each target must be listed explicitly with org, user, and supplier IDs.
 
 ## Testing
 
 ```bash
 npm test
 npm run test:integration
+npm run lint
+npm run build
 ```
 
-GitHub Actions runs the same backend verification path in [`../.github/workflows/verify-repository.yml`](../.github/workflows/verify-repository.yml), including live integration with `psql` installed on the runner.
+`npm run test:integration` recreates a disposable PostgreSQL Docker container, applies tracked Prisma migrations through `scripts/deploy-migrations.sh`, creates a restricted non-superuser application role, and proves RLS behavior against the live database.
 
-`npm run test:integration` recreates a disposable PostgreSQL 16 Docker container, applies all tracked Prisma migrations through `scripts/deploy-migrations.sh`, creates a restricted non-superuser application role, and proves RLS behavior against the live database. Coverage includes same-org access, cross-org read/write denial, viewer write denial, admin audit access, provisioning, background-job scope, and material price history visibility.
+Repository CI mirrors the backend verification path in [../.github/workflows/verify-repository.yml](../.github/workflows/verify-repository.yml).
 
-The internal admin shell is available at `/admin`, `/admin/pricing-history`, and `/admin/member-history`. The first two provide stale-price summaries, filtered immutable material price history, and recent membership activity; the third is the focused membership audit utility (filter by action type/date range, paginated, with per-membership before/after snapshots) — all three now share one visual system (`api/views/adminShell.view.ts`'s CSS and layout), not separately-styled pages.
+## Not Yet Implemented Or Not Proven
 
-`GET/POST /api/v1/suppliers` and `GET/PATCH/DELETE /api/v1/suppliers/:id` manage supplier contact records. `apiIntegrationKey` is write-only — responses only ever report `hasApiIntegrationKey: true/false`, never the stored value. Deleting a supplier that has any `supplier_price_updates` history (pending, approved, or rejected) fails: that foreign key is `ON DELETE RESTRICT`, the same protection `material_price_audits` gives materials.
-
-Supplier-fed price changes are staged for review rather than applied automatically: `POST /api/v1/supplier-integrations/queue` enqueues a proposal (snapshotting the material's current price), `GET /api/v1/supplier-integrations/queue` lists the queue (filterable by `status`/`supplierId`/`materialId`), and `POST /api/v1/supplier-integrations/queue/:id/approve` or `/reject` resolves it — approval applies the price change and writes the same `material_price_audits` trail a manual edit would, and is restricted to admin/owner by RLS (an estimator can enqueue but not approve). The actual feed fetch (`SupplierIntegrationService`'s `fetchFeed` constructor argument) is still a stub returning no quotes — see Not Yet Implemented below — but the queue, review, audit, and worker plumbing around it are real and RLS-enforced.
-
-`runSupplierPriceSyncJob` is triggered one of two ways — there's no platform-wide auto-discovery of organizations/suppliers, since that would need a database connection that bypasses RLS, which this app deliberately never gives background jobs (each sync target must be listed explicitly, naming the org, supplier, and an existing user with an active membership in that org to run as):
-- **In-process scheduler** (`modules/supplier-integration/scheduler.ts`, started from `api/server.ts`): set both `SUPPLIER_PRICE_SYNC_CRON_SCHEDULE` (a standard 5-field cron expression) and `SUPPLIER_PRICE_SYNC_JOBS` (a JSON array of `{orgId, userId, supplierId, label?}`) and the API process runs every configured target on that schedule. Leave either unset and it no-ops at boot.
-- **External cron / k8s CronJob / systemd timer**: run `npm run jobs:supplier-price-sync` on your own schedule instead. It reads the same `SUPPLIER_PRICE_SYNC_JOBS`, runs each target once, logs per-target results, and exits non-zero if any target failed (so the external scheduler can alert) — without needing the in-process timer at all.
-
-Either path isolates failures per target: one job spec with a bad `userId` or revoked membership logs an error and is skipped, it doesn't stop the rest of the configured targets from running.
-
-The centralized error handler (`api/middleware/errorHandler.ts`) maps the common Prisma constraint-violation codes to clean 4xx responses instead of a generic 500: `P2002` (unique constraint, e.g. a duplicate division code) → 409, `P2003` (foreign key constraint, e.g. deleting a supplier or material with price-update/audit history) → 409, `P2025` (record not found) → 404. Every controller benefits from this automatically; no module needed its own try/catch. Prisma error codes this app hasn't actually encountered yet still fall through to the generic 500 rather than guessing at a status — see `mapPrismaKnownRequestError` if you need to add one.
-
-## Not Yet Implemented (by design, MVP scope)
-
-- Production migration rollout automation and managed secret configuration (provisioning now has app-level rate limiting and an optional IP allowlist, but infrastructure-level network controls — security groups, ALB rules — still need to be configured per deployment)
-- Live supplier price feed ingestion — `SupplierIntegrationService`'s feed fetcher is still a stub returning no quotes; the queue/review/audit/worker/scheduler persistence it would feed into is implemented and RLS-enforced
-- Auto-discovery of which organizations/suppliers to sync — targets are listed explicitly via `SUPPLIER_PRICE_SYNC_JOBS` rather than discovered, since discovery would need a database connection that bypasses RLS
-- Full customer-facing frontend (the server-rendered internal admin shell is implemented)
+- Live supplier feed ingestion.
+- Public payment processing or subscription billing.
+- Accounting, payroll, inventory, route-optimization, and fleet integrations.
+- Production topology, backup/restore rehearsal, hosted preview health, environment approvals, and GitHub ruleset state. These require live external verification.
+- Full unification of Brand Studio document frame rendering across proposal, contract, invoice, and portal documents.

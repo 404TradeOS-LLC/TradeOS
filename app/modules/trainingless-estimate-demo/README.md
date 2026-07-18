@@ -1,6 +1,8 @@
 # Trainingless Estimate Demo
 
-This module powers the local TradeOS demo for a "trainingless" AI estimating flow.
+This module powers a local TradeOS demo for a "trainingless" AI estimating flow.
+
+It is not the production AI estimating contract. The current production path is the review-first AI Estimate Assist and structured estimator flow documented in [`../../../docs/modules/ai-estimate-assist.md`](../../../docs/modules/ai-estimate-assist.md).
 
 ## What it does
 
