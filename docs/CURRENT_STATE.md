@@ -11,13 +11,20 @@ related_code:
   - app/backend/routes
   - web/src/app
   - web/src/components/dashboard/needs-attention-card.tsx
+  - web/src/components/dashboard/owner-dashboard-data.ts
+  - web/src/components/dashboard/owner-dashboard-header.tsx
+  - web/src/components/dashboard/owner-kpi-card.tsx
+  - web/src/components/dashboard/owner-today-schedule.tsx
+  - web/src/components/dashboard/ai-assistant-placeholder-panel.tsx
+  - web/src/components/dashboard/owner-activity-feed.tsx
+  - web/src/components/dashboard/owner-quick-actions.tsx
   - web/src/components/estimate-assist/ai-estimate-assist.tsx
   - .github/workflows/verify-repository.yml
 ---
 
 # Current State
 
-Last reconciled against `origin/main` commit `4ee9b55` on 2026-07-28 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below.
+Last reconciled against `origin/main` commit `c7b8464` on 2026-07-28 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below.
 
 ## Current milestone
 
@@ -40,6 +47,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Jobs and scheduling: job creation, assignment, scheduling, rescheduling, dispatcher coordination, and field-status workflows
 - Project tasks
 - Activity, notifications, recents, saved views, feature flags, and search-oriented intelligence primitives
+- Owner dashboard foundation: morning command-center shell, KPI cards, "Needs attention" decision queues, mock schedule, UI-only AI briefing, activity timeline, and quick actions across existing contractor workflows
 - Brand Studio
 - Settings and organization operations
 - Customer portal document views
@@ -60,8 +68,9 @@ See module docs in `docs/modules/`.
 - Structured AI estimator apply now uses server-signed review tokens, server-side active target validation, per-estimate apply serialization, and optional estimate-line `sourceKey` duplicate protection for reviewed AI lines; Docker-backed live RLS integration verification passed locally on this branch
 - Route-level `requirePermissions` checks were added to `app/backend/controllers/{aiEstimateAssist,crm,estimateEngine,projectTasks,proposals}.controller.ts`, closing a gap where those routes previously relied on org-membership alone (no route-level permission check). Customer and estimate mutation endpoints also now record `ActivityTimelineService` events (see [modules/activity-and-intelligence.md](modules/activity-and-intelligence.md)).
 
-## Recent internal cleanup
+## Recent verified changes
 
+- The owner dashboard (`web/src/app/(app)/dashboard/page.tsx`) now presents the logged-in contractor homepage as a morning command center. It keeps the existing authenticated app shell and live project-detail fan-out, adds unique route metadata, derives the company name from organization settings, composes reusable KPI/header/schedule/activity/quick-action components, and includes a UI-only AI Assistant briefing placeholder with no model calls or estimator-runtime writes. The schedule and owner activity feed use typed mock data only; no new backend endpoint, billing change, auth change, estimator runtime change, or `packages/knowledge-engine/**` change was introduced.
 - The dashboard (`web/src/app/(app)/dashboard/page.tsx`) now composes a "Needs attention" section from the existing per-project data fan-out it already fetches (draft/ready estimates, proposals awaiting a response, invoices that are sent, overdue, or partially paid, and projects with no estimate yet), each linking directly into the existing estimate builder, AI Estimate Assist, proposal, and invoice pages. AI assist is only offered for draft estimates, since a `ready` estimate's line items are locked. No new backend endpoints, aggregation service, or design system were introduced; the new `web/src/components/dashboard/needs-attention-card.tsx` component reuses `Card`, `StatusBadge`, `EmptyState`, and `Button` plus the existing `createEstimateAction` server action.
 - The AI Estimate Assist review panel (`web/src/components/estimate-assist/ai-estimate-assist.tsx`) now also surfaces the resolved target's `matchMethod` (already returned by the backend but previously unused by the frontend) next to the existing match-score badge, making the "why this was matched" provenance more visible without adding any new backend field.
 - Five duplicate private `round2()` rounding helpers (in `cost-database`, `assemblies-database`, `change-orders`, `estimate-engine`, and `knowledge-runtime` services) were consolidated to import the one already exported from `app/modules/estimate-engine/formulas.ts`. No rounding behavior changed.

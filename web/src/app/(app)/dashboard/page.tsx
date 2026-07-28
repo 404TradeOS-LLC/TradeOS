@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { getKnowledgeStats, getProject, listProjects } from "@/lib/api";
-import { buildProjectActivity, formatCurrency, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
+import type { Metadata } from "next";
+import { getKnowledgeStats, getOrganizationSettings, getProject, listProjects, type JobSummary } from "@/lib/api";
+import { formatCurrency, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { isTerminalStatus, jobStatuses } from "@/domain";
 import {
   NeedsAttentionCard,
   type AttentionEstimateRow,
@@ -13,6 +15,22 @@ import {
   type AttentionProposalRow,
   type AttentionStartRow,
 } from "@/components/dashboard/needs-attention-card";
+import { AIAssistantPlaceholderPanel } from "@/components/dashboard/ai-assistant-placeholder-panel";
+import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
+import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
+import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
+import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
+import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
+import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
+import { mergeTradeOsSettingsDraft } from "@/lib/settings";
+
+export const metadata: Metadata = {
+  title: "Owner Dashboard | TradeOS",
+  description: "Morning command center for contractor owners to review jobs, estimates, invoices, schedule pressure, and activity.",
+};
+
+const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
+const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
 
 // Proposal money fields come off the wire as Prisma Decimal-serialized
 // strings on this endpoint (unlike estimates/invoices, which are normalized
@@ -25,39 +43,102 @@ function toProposalAmount(proposal: { finalPrice: number | null; priceHigh: numb
   return Number.isFinite(value) ? value : null;
 }
 
+function toValidDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function getZonedDayOrdinal(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return Date.UTC(year, month - 1, day) / 86_400_000;
+}
+
+function getSafeTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+function isSameDay(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  return date ? getZonedDayOrdinal(date, timeZone) === getZonedDayOrdinal(comparison, timeZone) : false;
+}
+
+function isSameWeek(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  if (!date) return false;
+  const comparisonDay = getZonedDayOrdinal(comparison, timeZone);
+  const weekStart = comparisonDay - new Date(comparisonDay * 86_400_000).getUTCDay();
+  const targetDay = getZonedDayOrdinal(date, timeZone);
+
+  return targetDay >= weekStart && targetDay < weekStart + 7;
+}
+
+function isPastDue(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  return date ? getZonedDayOrdinal(date, timeZone) < getZonedDayOrdinal(comparison, timeZone) : false;
+}
+
+function isActionableJob(job: Pick<JobSummary, "status" | "archivedAt">) {
+  return !job.archivedAt && ACTIONABLE_JOB_STATUSES.has(job.status);
+}
+
+function getProjectScopeLabel(projectCount: number) {
+  if (projectCount === 0) return "loaded project set";
+  if (projectCount === 1) return "1 loaded project";
+  if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) return `${projectCount} loaded projects`;
+  return `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+}
+
 export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
-  const projects = token ? await listProjects(token) : [];
+  const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
   const [projectDetails, knowledgeStats] = token
     ? await Promise.all([
-        Promise.all(projects.slice(0, 8).map((project) => getProject(token, project.id))),
+        Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
         getKnowledgeStats(token),
       ])
     : [[], null];
 
-  const activeJobs = projectDetails.filter((project) => project.status === "active").length;
-  const jobsWithFieldActivity = projectDetails.filter((project) => project.siteVisits.length > 0 || project.tasks.length > 0).length;
-  const pendingContracts = projectDetails.flatMap((project) => project.contracts).filter((contract) => ["sent", "viewed"].includes(contract.status)).length;
-  const pendingInvoices = projectDetails
+  const now = new Date();
+  const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
+  const companyName = settings.companyName;
+  const timeZone = getSafeTimeZone(settings.timezone);
+  const projectScopeLabel = getProjectScopeLabel(projectDetails.length);
+  const currentDateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(now);
+  const allJobs = projectDetails.flatMap((project) => project.jobs);
+  const actionableJobs = allJobs.filter(isActionableJob);
+  const todayLiveJobs = actionableJobs.filter((job) => job.status !== "unscheduled" && isSameDay(job.scheduledStart, now, timeZone)).length;
+  const unscheduledJobs = actionableJobs.filter((job) => job.status === "unscheduled" || !job.scheduledStart).length;
+  const overdueTasks = projectDetails
+    .flatMap((project) => project.tasks)
+    .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now, timeZone)).length;
+  const openEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
+  const invoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
     .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
-  const revenuePipeline = projectDetails
-    .flatMap((project) => project.proposals)
-    .filter((proposal) => ["sent", "viewed", "accepted"].includes(getProposalDisplayStatus(proposal)))
-    .reduce((sum, proposal) => sum + (toProposalAmount(proposal) ?? 0), 0);
-  const openChangeOrders = projectDetails.flatMap((project) => project.changeOrders).filter((changeOrder) => changeOrder.status !== "rejected").length;
-  const estimateLeadTimes = projectDetails
-    .filter((project) => project.estimates[0])
-    .map((project) => {
-      const firstEstimate = [...project.estimates].sort((a, b) => a.version - b.version)[0];
-      return (new Date(firstEstimate.createdAt ?? project.createdAt).getTime() - new Date(project.createdAt).getTime()) / (1000 * 60 * 60);
-    })
-    .filter((hours) => Number.isFinite(hours) && hours >= 0);
-  const averageEstimateLeadTime = estimateLeadTimes.length
-    ? `${Math.round(estimateLeadTimes.reduce((sum, hours) => sum + hours, 0) / estimateLeadTimes.length)}h`
-    : "N/A";
-  const recentActivity = projectDetails.flatMap((project) => buildProjectActivity(project)).slice(0, 6);
-  const aiAcceptanceRate = "Not logged";
+  const revenueThisWeek = projectDetails
+    .flatMap((project) => project.invoices)
+    .filter((invoice) => invoice.status === "paid" && isSameWeek(invoice.paidAt, now, timeZone))
+    .reduce((sum, invoice) => sum + invoice.amount, 0);
 
   const attentionEstimates: AttentionEstimateRow[] = projectDetails.flatMap((project) =>
     project.estimates
@@ -107,110 +188,69 @@ export default async function DashboardPage() {
       projectName: project.name,
       customerName: project.customer?.name ?? "No customer linked",
     }));
+  const notificationCount = attentionEstimates.length + attentionProposals.length + attentionInvoices.length + attentionReadyToStart.length;
+  const ownerKpis = buildOwnerKpis({
+    todaysJobs: todayLiveJobs,
+    openEstimates,
+    revenueThisWeek: formatCurrency(revenueThisWeek),
+    invoicesWaiting,
+    unscheduledJobs,
+    overdueTasks,
+    scopeLabel: projectScopeLabel,
+  });
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Signed in as {session?.email}. Track the full project lifecycle from lead through estimating, active work, and completion.
-        </p>
-      </div>
+      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} />
+
+      <OwnerKpiGrid kpis={ownerKpis} />
 
       <NeedsAttentionCard
         estimates={attentionEstimates}
         proposals={attentionProposals}
         invoices={attentionInvoices}
         readyToStart={attentionReadyToStart}
+        scopeLabel={projectScopeLabel}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <SummaryMetricCard label="Active jobs" value={String(activeJobs)} />
-        <SummaryMetricCard label="Jobs with field activity" value={String(jobsWithFieldActivity)} />
-        <SummaryMetricCard label="Revenue pipeline" value={formatCurrency(revenuePipeline)} />
-        <SummaryMetricCard label="Pending contracts" value={String(pendingContracts)} />
-        <SummaryMetricCard label="Pending invoices" value={String(pendingInvoices)} />
-        <SummaryMetricCard label="Open change orders" value={String(openChangeOrders)} />
-        <SummaryMetricCard
-          label="Knowledge coverage"
-          value={knowledgeStats ? `${knowledgeStats.tradesCount} trades / ${knowledgeStats.assembliesCount} assemblies` : "Unavailable"}
-        />
-        <SummaryMetricCard label="Avg estimate lead time" value={averageEstimateLeadTime} />
-        <SummaryMetricCard label="AI suggestion acceptance" value={aiAcceptanceRate} />
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <OwnerTodaySchedule items={[]} />
+        <AIAssistantPlaceholderPanel />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Customers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-sm text-muted-foreground">Save the homeowners, property managers, or builders you send bids and invoices to.</p>
-            <Link href="/customers" className={buttonVariants({ variant: "outline" })}>
-              Open customers
-            </Link>
-          </CardContent>
-        </Card>
+      <OwnerActivityFeed
+        entries={[]}
+        emptyState={
+          <EmptyState
+            title="No live owner activity source is connected yet."
+            description="This dashboard foundation does not fabricate customer, job, invoice, or review activity. Live activity can appear here once an authoritative activity feed is wired."
+          />
+        }
+      />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-sm text-muted-foreground">Track each job from site visit notes through estimate, proposal, contract, and invoicing.</p>
-            <p className="mb-4 text-sm text-muted-foreground">Each project now acts as its own operational workspace for field execution, documents, tasks, and change orders.</p>
-            <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
-              Open projects
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <OwnerQuickActions actions={ownerQuickActions} />
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle>Quick actions</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <Link href="/projects" className={buttonVariants()}>
-              Open project workspace
-            </Link>
-            <Link href="/customers/new" className={buttonVariants({ variant: "outline" })}>
-              Add customer
-            </Link>
-            <Link href="/projects/new" className={buttonVariants({ variant: "outline" })}>
-              Create project
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Create a project to start the operational timeline.</p>
-            ) : (
-              recentActivity.map((item) => (
-                <div key={item.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium text-foreground">{item.title}</div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{item.category}</div>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle>Knowledge Runtime Coverage</CardTitle>
+          <CardDescription>Read-only estimating knowledge remains visible without adding AI execution to the owner dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="font-mono text-lg font-medium tabular-nums text-foreground">
+            {knowledgeStats ? `${knowledgeStats.tradesCount} trades / ${knowledgeStats.assembliesCount} assemblies` : "Unavailable"}
+          </p>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Operational queues</CardTitle>
+          <CardDescription>
+            Signed in as {session?.email}. Project workspace status remains connected to the live project, proposal, contract, invoice, and
+            change-order data already loaded by the dashboard.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-col gap-3">
           {projectDetails.length === 0 ? (
             <p className="text-sm text-muted-foreground">No projects yet.</p>
           ) : (
