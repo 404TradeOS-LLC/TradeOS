@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-18
+last_verified: 2026-07-28
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -17,7 +17,7 @@ related_code:
 
 # Current State
 
-Last verified against the repository on 2026-07-15.
+Last reconciled against `origin/main` commit `4ee9b55` on 2026-07-28 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below.
 
 ## Current milestone
 
@@ -76,7 +76,7 @@ See module docs in `docs/modules/`.
 
 - Supplier feed connectors are not live
 - Cost-item and assembly combined name-or-code substring search can still degrade into scan-heavy plans because only `name` columns are trigram-indexed today
-- Documentation governance was missing before this branch and is being added here
+- Documentation governance is implemented; ongoing governance work should update `docs/DOC_OWNERSHIP.yml`, `docs/README.md`, and `docs/REPOSITORY_GOVERNANCE.md` together when ownership policy changes
 - Production deployment state and environment approvals are not inferred from code and must be verified per environment
 - Some older implementation notes and planning artifacts required archiving because they conflicted with the live repository
 

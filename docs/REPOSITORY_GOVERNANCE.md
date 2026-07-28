@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-07-28
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -153,7 +153,7 @@ A PR is ready for human review only when:
 - review threads are resolved;
 - the PR description accurately states current scope, validation, limitations, and remaining risks.
 
-For PR #31, the ownership-triggered governance update is intentional. The final changed-file scope is therefore 13 docs files, not the earlier 12-file expectation. Final local and GitHub validation must use the latest branch head.
+Branch-specific changed-file counts, temporary PR blockers, and validation notes belong in `docs/SESSION_HANDOFF.md` or the pull request body. Do not preserve them as durable governance policy after the branch lands.
 
 ## Pull request templates
 
