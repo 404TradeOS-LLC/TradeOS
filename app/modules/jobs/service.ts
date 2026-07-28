@@ -170,16 +170,25 @@ export class JobsService {
     const terminalStatuses = [...TERMINAL_JOB_STATUSES];
     const inProgressStatuses = [...IN_PROGRESS_JOB_STATUSES];
 
+    // archivedAt: null on every query below, matching buildJobWhere's default
+    // list() behavior (archivedAt: filters.archived ? { not: null } : null,
+    // i.e. archived jobs are hidden unless explicitly requested). A job's
+    // archivedAt is set independently of its status (JobsService.archive()
+    // never forces a terminal status), so without this an archived-but-
+    // non-terminal-status job would inflate these counts while being
+    // correctly absent from the work-queue list below them — a real
+    // "misleading totals" mismatch between the KPI strip and the list.
     const [activeJobs, unscheduledJobs, scheduledToday, overdueActionable, needsAttention] = await Promise.all([
       this.db.job.count({
-        where: { orgId, status: { notIn: terminalStatuses } },
+        where: { orgId, archivedAt: null, status: { notIn: terminalStatuses } },
       }),
       this.db.job.count({
-        where: { orgId, status: "unscheduled" },
+        where: { orgId, archivedAt: null, status: "unscheduled" },
       }),
       this.db.job.count({
         where: {
           orgId,
+          archivedAt: null,
           status: { notIn: terminalStatuses },
           scheduledStart: { gte: todayStart, lt: todayEnd },
         },
@@ -187,6 +196,7 @@ export class JobsService {
       this.db.job.count({
         where: {
           orgId,
+          archivedAt: null,
           status: { in: inProgressStatuses },
           scheduledStart: { lt: now },
         },
@@ -201,6 +211,7 @@ export class JobsService {
       this.db.job.count({
         where: {
           orgId,
+          archivedAt: null,
           OR: [
             { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
             { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },

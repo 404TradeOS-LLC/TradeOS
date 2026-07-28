@@ -482,6 +482,26 @@ describe("JobsService", () => {
       expect(overdueCall.where.status.in).toEqual(["scheduled", "dispatched", "traveling", "on_site", "paused"]);
     });
 
+    it("excludes archived jobs from every count query, even when status is non-terminal", async () => {
+      // JobsService.archive() sets archivedAt independently of status (a
+      // "scheduled" job can be archived without ever becoming "completed" or
+      // "cancelled"). Without archivedAt: null on every count() where-clause,
+      // an archived-but-non-terminal job would inflate these KPI counts while
+      // being correctly absent from the work-queue list, whose buildJobWhere
+      // already defaults to archivedAt: null.
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      await service.getDispatchSummary("org-1", { role: "owner" });
+
+      const calls = mockDb.job.count.mock.calls.map((call) => call[0]);
+      expect(calls).toHaveLength(5);
+      for (const call of calls) {
+        expect(call.where.archivedAt).toBeNull();
+      }
+    });
+
     it("computes needsAttention with a single OR'd count call, not a sum of separate counts", async () => {
       mockDb.organizationSettings.findUnique.mockResolvedValue(null);
       mockDb.job.count.mockResolvedValue(0);

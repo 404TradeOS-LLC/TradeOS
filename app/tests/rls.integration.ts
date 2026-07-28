@@ -1163,6 +1163,39 @@ describe("live organization row-level security", () => {
     expect(afterOrgB.activeJobs).toBeGreaterThanOrEqual(1);
     expect(afterOrgB.scope).toEqual({ source: "organization", role: "owner" });
 
+    // JobsService.archive() sets archivedAt independently of status — an
+    // archived job can still have a non-terminal status like "dispatched".
+    // This mirrors dispatchOverdueJobA exactly (same status, same overdue
+    // scheduledStart, same unassigned state) except it is archived, so it
+    // must NOT move any of the counts above: archived jobs are excluded from
+    // the work-queue list by buildJobWhere's default archivedAt: null filter,
+    // and the summary counts must agree with that, not silently include it.
+    await adminClient.job.create({
+      data: {
+        id: "10000000-0000-0000-0000-000000000118",
+        orgId: orgA,
+        projectId: projectA,
+        customerId: customerA,
+        serviceAddressId: serviceAddressA,
+        jobNumber: "JOB-2026-000005",
+        title: "Org A Archived (Non-Terminal Status) Job",
+        jobType: "HVAC Service",
+        status: "dispatched",
+        priority: "high",
+        scheduledStart: new Date("2020-01-01T00:00:00.000Z"),
+        scheduledEnd: new Date("2020-01-01T02:00:00.000Z"),
+        archivedAt: new Date(),
+        createdById: adminUser,
+      },
+    });
+
+    const afterArchived = await inSession(adminUser, orgA, "admin", async () =>
+      new JobsService().getDispatchSummary(orgA, { role: "admin" })
+    );
+    expect(afterArchived.activeJobs).toBe(after.activeJobs);
+    expect(afterArchived.overdueActionable).toBe(after.overdueActionable);
+    expect(afterArchived.needsAttention).toBe(after.needsAttention);
+
     // Read-only aggregate: a non-admin, non-dispatcher, unassigned session
     // must not be blocked by an application-level permission check (no
     // ApiError thrown). Note this app's jobs_select_policy RLS (see
