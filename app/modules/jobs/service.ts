@@ -7,6 +7,7 @@ import { jobStatuses, JobStatus } from "../../domain/contracts";
 import {
   AddJobAssignmentInput,
   CreateJobInput,
+  DispatchSummaryDTO,
   JobActivityDTO,
   JobAssignmentDTO,
   JobDTO,
@@ -26,6 +27,16 @@ import {
   UpdateJobAssignmentInput,
   UpdateJobInput,
 } from "./types";
+import {
+  TERMINAL_JOB_STATUSES,
+  IN_PROGRESS_JOB_STATUSES,
+  getOrgDayBoundaryUtc,
+  getRollingWindowUtc,
+  isJobOverdue,
+  isJobUnassigned,
+  jobNeedsAttention,
+  resolveOrgTimezone,
+} from "./dispatchRules";
 
 const activityService = new ActivityTimelineService();
 
@@ -57,6 +68,26 @@ const jobDetailInclude = {
   },
 } satisfies Prisma.JobInclude;
 
+// Lightweight include used by JobsService.list — the dispatcher-workspace
+// list view needs project/customer names and active-assignment info, but not
+// the full detail payload (equipment, tasks, site visits, notes, activity)
+// that jobDetailInclude pulls for a single job's detail page.
+const jobListInclude = {
+  project: {
+    select: { id: true, name: true, siteAddress: true },
+  },
+  customer: {
+    select: { id: true, name: true },
+  },
+  assignments: {
+    where: { removedAt: null },
+    select: {
+      userId: true,
+      user: { select: { id: true, fullName: true, email: true } },
+    },
+  },
+} satisfies Prisma.JobInclude;
+
 export class JobsService {
   constructor(
     private readonly db: PrismaClient = prisma,
@@ -66,12 +97,18 @@ export class JobsService {
   async list(filters: JobListFilters): Promise<PaginatedJobsDTO> {
     const pageSize = clamp(filters.pageSize, 25, 1, 100);
     const page = clamp(filters.page, 1, 1, 10_000);
-    const where = buildJobWhere(filters);
+    // Captured once for the whole call - both for the where-clause's own
+    // needsAttention predicate and for judging every returned row against
+    // the same instant, rather than drifting row-to-row or disagreeing with
+    // which rows were actually selected.
+    const now = new Date();
+    const where = buildJobWhere(filters, now);
 
     const [total, rows] = await Promise.all([
       this.db.job.count({ where }),
       this.db.job.findMany({
         where,
+        include: jobListInclude,
         orderBy: [
           { archivedAt: "asc" },
           { scheduledStart: "asc" },
@@ -83,7 +120,7 @@ export class JobsService {
     ]);
 
     return {
-      items: rows.map(toJobSummaryDTO),
+      items: rows.map((row) => toDispatchAwareJobSummaryDTO(row, now)),
       page,
       pageSize,
       total,
@@ -95,6 +132,107 @@ export class JobsService {
       ...filters,
       archived: false,
     });
+  }
+
+  /**
+   * Read-only dispatch-attention aggregate for the Dispatcher Workspace
+   * overview. Deliberately count()-only (never findMany) so this stays cheap
+   * to poll. orgId is passed explicitly and applied to every where clause,
+   * matching this file's existing pattern (see buildJobWhere /
+   * scopedJobAccessWhere) of scoping tenant queries explicitly even though
+   * the request-scoped Prisma transaction already enforces org isolation via
+   * RLS. No assertManager call is required — this mirrors read actions like
+   * getById that don't gate on an elevated role, since it's an aggregate
+   * read, not a mutation.
+   *
+   * IMPORTANT: none of the count() queries below filter by actor/assignment
+   * — but the jobs table's own RLS select policy still silently narrows
+   * every one of them to only jobs the caller is assigned to, for any role
+   * other than owner/admin/dispatcher (see jobs_select_policy in
+   * prisma/migrations/20260714120000_add_job_scheduling_engine, and the live
+   * proof in tests/rls.integration.ts's "scopes the dispatch summary..."
+   * test, where a viewer session's counts come back as 0). `actor.role` is
+   * accepted here only to honestly label that narrowing in the response
+   * (`scope`), not to add another application-level filter — the same
+   * MANAGER_ROLES set used elsewhere in this file already matches the DB
+   * policy's admin/owner/dispatcher check.
+   */
+  async getDispatchSummary(orgId: string, actor: { role: string }): Promise<DispatchSummaryDTO> {
+    const now = new Date();
+
+    const settingsRow = await this.db.organizationSettings.findUnique({
+      where: { orgId },
+      select: { settingsJson: true },
+    });
+    const { timezone, isFallback } = resolveOrgTimezone(readOrgTimezoneSetting(settingsRow?.settingsJson));
+
+    const { startUtc: todayStart, endUtc: todayEnd } = getOrgDayBoundaryUtc(now, timezone);
+    const { startUtc: weekStart, endUtc: weekEnd } = getRollingWindowUtc(now, timezone, 7);
+
+    const terminalStatuses = [...TERMINAL_JOB_STATUSES];
+    const inProgressStatuses = [...IN_PROGRESS_JOB_STATUSES];
+
+    // archivedAt: null on every query below, matching buildJobWhere's default
+    // list() behavior (archivedAt: filters.archived ? { not: null } : null,
+    // i.e. archived jobs are hidden unless explicitly requested). A job's
+    // archivedAt is set independently of its status (JobsService.archive()
+    // never forces a terminal status), so without this an archived-but-
+    // non-terminal-status job would inflate these counts while being
+    // correctly absent from the work-queue list below them — a real
+    // "misleading totals" mismatch between the KPI strip and the list.
+    const [activeJobs, unscheduledJobs, scheduledToday, overdueActionable, needsAttention] = await Promise.all([
+      this.db.job.count({
+        where: { orgId, archivedAt: null, status: { notIn: terminalStatuses } },
+      }),
+      this.db.job.count({
+        where: { orgId, archivedAt: null, status: "unscheduled" },
+      }),
+      this.db.job.count({
+        where: {
+          orgId,
+          archivedAt: null,
+          status: { notIn: terminalStatuses },
+          scheduledStart: { gte: todayStart, lt: todayEnd },
+        },
+      }),
+      this.db.job.count({
+        where: {
+          orgId,
+          archivedAt: null,
+          status: { in: inProgressStatuses },
+          scheduledStart: { lt: now },
+        },
+      }),
+      // A single OR'd count covering all three attention predicates
+      // (overdue / unassigned-and-active / unscheduled) — NOT a sum of three
+      // separate counts, which would double-count jobs matching more than
+      // one predicate. See dispatchRules.jobNeedsAttention's own doc comment
+      // for the same warning. buildNeedsAttentionWhere is the single shared
+      // definition of this OR clause - buildJobWhere's ?needsAttention=true
+      // list filter reuses the exact same function, so the summary count
+      // and the work-queue list can never silently diverge on what "needs
+      // attention" means.
+      this.db.job.count({
+        where: {
+          orgId,
+          archivedAt: null,
+          ...buildNeedsAttentionWhere(now),
+        },
+      }),
+    ]);
+
+    return {
+      activeJobs,
+      unscheduledJobs,
+      scheduledToday,
+      overdueActionable,
+      needsAttention,
+      timezone: { source: isFallback ? "utc_fallback" : "organization", value: timezone },
+      todayRangeUtc: { start: todayStart.toISOString(), end: todayEnd.toISOString() },
+      weekRangeUtc: { start: weekStart.toISOString(), end: weekEnd.toISOString() },
+      generatedAt: now.toISOString(),
+      scope: { source: MANAGER_ROLES.has(actor.role) ? "organization" : "assigned_only", role: actor.role },
+    };
   }
 
   async getById(orgId: string, jobId: string, actor: { userId: string; role: string }): Promise<JobDTO> {
@@ -1081,8 +1219,84 @@ function scopedJobAccessWhere(orgId: string, actor: { userId: string; role: stri
   return { orgId };
 }
 
-function buildJobWhere(filters: JobListFilters): Prisma.JobWhereInput {
+/**
+ * Prisma where-clause form of dispatchRules.jobNeedsAttention, expressed as
+ * a single OR'd condition since a JS predicate can't be passed into a
+ * Prisma query. Shared by buildJobWhere (the ?needsAttention=true list
+ * filter) and JobsService.getDispatchSummary (the needsAttention count) so
+ * "which jobs need attention" is defined in exactly one place, not two
+ * independently-maintained copies of the same OR array.
+ */
+function buildNeedsAttentionWhere(now: Date): Prisma.JobWhereInput {
+  const terminalStatuses = [...TERMINAL_JOB_STATUSES];
+  const inProgressStatuses = [...IN_PROGRESS_JOB_STATUSES];
+  return {
+    OR: [
+      { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
+      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },
+      { status: "unscheduled" },
+    ],
+  };
+}
+
+function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput {
   const search = filters.search?.trim();
+
+  // Each optional predicate is pushed as its own object into a single AND
+  // array rather than spread directly onto the returned where-object.
+  // Several of these need their own top-level `OR` key (search,
+  // needsAttention) or `assignments` key (technicianId, unassigned/assigned)
+  // - a single JS object literal can only hold one value per key, so
+  // spreading two of them together would let the later one silently
+  // overwrite the earlier one instead of combining. Prisma's `AND` array
+  // combines separate where-objects with real AND semantics even when they
+  // share a key name, so this composes safely regardless of which optional
+  // filters are active together.
+  const conditions: Prisma.JobWhereInput[] = [];
+
+  if (filters.scheduledFrom) conditions.push({ scheduledStart: { gte: filters.scheduledFrom } });
+  if (filters.scheduledTo) conditions.push({ scheduledStart: { lte: filters.scheduledTo } });
+
+  if (filters.technicianId) {
+    conditions.push({
+      assignments: {
+        some: {
+          userId: filters.technicianId,
+          removedAt: null,
+        },
+      },
+    });
+  }
+
+  // Tri-state: true -> only unassigned jobs, false -> only assigned jobs,
+  // undefined (omitted) -> no assignment filter at all. Branching on strict
+  // equality (not truthiness) is required here: `unassigned ? ... : {}`
+  // would treat `false` the same as `undefined` and silently return every
+  // job for an explicit "assigned" filter request.
+  if (filters.unassigned === true) {
+    conditions.push({ assignments: { none: { removedAt: null } } });
+  } else if (filters.unassigned === false) {
+    conditions.push({ assignments: { some: { removedAt: null } } });
+  }
+
+  if (filters.needsAttention === true) {
+    conditions.push(buildNeedsAttentionWhere(now));
+  }
+
+  if (search) {
+    conditions.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { jobNumber: { contains: search, mode: "insensitive" } },
+        { jobType: { contains: search, mode: "insensitive" } },
+        { project: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { serviceAddress: { addressLine1: { contains: search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
   return {
     ...scopedJobAccessWhere(filters.orgId, filters.auth),
     status: filters.status,
@@ -1090,38 +1304,7 @@ function buildJobWhere(filters: JobListFilters): Prisma.JobWhereInput {
     projectId: filters.projectId,
     customerId: filters.customerId,
     archivedAt: filters.archived ? { not: null } : null,
-    scheduledStart: filters.scheduledFrom || filters.scheduledTo ? {} : undefined,
-    ...(filters.scheduledFrom || filters.scheduledTo
-      ? {
-          AND: [
-            filters.scheduledFrom ? { scheduledStart: { gte: filters.scheduledFrom } } : {},
-            filters.scheduledTo ? { scheduledStart: { lte: filters.scheduledTo } } : {},
-          ],
-        }
-      : {}),
-    ...(filters.technicianId
-      ? {
-          assignments: {
-            some: {
-              userId: filters.technicianId,
-              removedAt: null,
-            },
-          },
-        }
-      : {}),
-    ...(search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            { jobNumber: { contains: search, mode: "insensitive" } },
-            { jobType: { contains: search, mode: "insensitive" } },
-            { project: { name: { contains: search, mode: "insensitive" } } },
-            { customer: { name: { contains: search, mode: "insensitive" } } },
-            { serviceAddress: { addressLine1: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
+    ...(conditions.length > 0 ? { AND: conditions } : {}),
   };
 }
 
@@ -1214,6 +1397,59 @@ function toJobSummaryDTO(row: {
     scheduledEnd: row.scheduledEnd?.toISOString() ?? null,
     archivedAt: row.archivedAt?.toISOString() ?? null,
   };
+}
+
+// Enriches the base summary DTO with the dispatcher-workspace fields that
+// only JobsService.list populates: parent project/customer summaries,
+// currently-active assigned technicians, and the three dispatchRules-derived
+// attention booleans. `now` is captured once per list() call by the caller
+// and threaded through here so every row in a page is judged consistently.
+function toDispatchAwareJobSummaryDTO(
+  row: {
+    id: string;
+    jobNumber: string;
+    title: string;
+    jobType: string;
+    status: string;
+    priority: string;
+    scheduledStart: Date | null;
+    scheduledEnd: Date | null;
+    archivedAt: Date | null;
+    project: { id: string; name: string; siteAddress: string | null } | null;
+    customer: { id: string; name: string } | null;
+    assignments: { userId: string; user: { id: string; fullName: string | null; email: string } }[];
+  },
+  now: Date
+): JobSummaryDTO {
+  const activeAssignmentCount = row.assignments.length;
+  return {
+    ...toJobSummaryDTO(row),
+    project: row.project
+      ? { id: row.project.id, name: row.project.name, siteAddress: row.project.siteAddress }
+      : null,
+    customer: row.customer ? { id: row.customer.id, name: row.customer.name } : null,
+    assignedTechnicians: row.assignments.map((assignment) => ({
+      userId: assignment.userId,
+      name: assignment.user.fullName ?? assignment.user.email,
+    })),
+    isOverdue: isJobOverdue({ status: row.status, scheduledStart: row.scheduledStart }, now),
+    isUnassigned: isJobUnassigned({ status: row.status, activeAssignmentCount }),
+    needsAttention: jobNeedsAttention(
+      { status: row.status, scheduledStart: row.scheduledStart, activeAssignmentCount },
+      now
+    ),
+  };
+}
+
+// Narrow, defensive read of `settings_json.timezone` — organizationSettings
+// stores an arbitrary Partial<OrganizationSettingsSnapshot> as JSON (see
+// modules/settings/service.ts's own isSettingsSnapshot guard), so this
+// treats anything other than a present string field as "no timezone set"
+// and lets dispatchRules.resolveOrgTimezone apply its own UTC fallback.
+function readOrgTimezoneSetting(settingsJson: Prisma.JsonValue | null | undefined): string | null {
+  if (!settingsJson || typeof settingsJson !== "object" || Array.isArray(settingsJson)) return null;
+  const value = (settingsJson as Record<string, unknown>).timezone;
+  return typeof value === "string" ? value : null;
 }
 
 function toAssignmentDTO(row: {

@@ -49,6 +49,9 @@ const mockDb = {
   comment: {
     findMany: jest.fn(),
   },
+  organizationSettings: {
+    findUnique: jest.fn(),
+  },
   $queryRaw: jest.fn(),
 };
 
@@ -143,7 +146,9 @@ describe("JobsService", () => {
     mockDb.job.count.mockResolvedValue(0);
     mockDb.job.create.mockResolvedValue(scheduledJob);
     mockDb.job.findFirst.mockResolvedValue(scheduledJob);
+    mockDb.job.findMany.mockResolvedValue([]);
     mockDb.comment.findMany.mockResolvedValue([]);
+    mockDb.organizationSettings.findUnique.mockResolvedValue(null);
   });
 
   it("creates a scheduled job and seeds technician assignments", async () => {
@@ -286,5 +291,332 @@ describe("JobsService", () => {
         }),
       })
     );
+  });
+
+  describe("list", () => {
+    // buildJobWhere composes optional predicates as separate entries in a
+    // shared `AND` array (rather than spreading each one directly onto the
+    // where-object), since more than one of them can need the same
+    // top-level key (`assignments` for technicianId/unassigned, `OR` for
+    // search/needsAttention) and a single JS object can only hold one value
+    // per key. These assertions check the AND array's contents accordingly.
+    function andConditions(where: unknown): unknown[] {
+      const and = (where as { AND?: unknown[] })?.AND;
+      return Array.isArray(and) ? and : [];
+    }
+
+    it("builds an assignments.none where clause for the unassigned filter", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        unassigned: true,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.orgId).toBe("org-1");
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+
+      const countWhere = mockDb.job.count.mock.calls[0][0].where;
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+    });
+
+    it("builds an assignments.some where clause for unassigned: false (assigned-only), not the same as omitted", async () => {
+      // Regression guard: `filters.unassigned ? X : {}` would treat
+      // `unassigned: false` identically to omitted (no filter at all,
+      // returning every job) instead of actively filtering to only jobs
+      // that currently have an active assignment.
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        unassigned: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.orgId).toBe("org-1");
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
+
+      const countWhere = mockDb.job.count.mock.calls[0][0].where;
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
+    });
+
+    it("does not add an assignments filter when unassigned is omitted", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.assignments).toBeUndefined();
+      for (const condition of andConditions(findManyWhere)) {
+        expect((condition as { assignments?: unknown }).assignments).toBeUndefined();
+      }
+    });
+
+    it("filters to only jobs needing attention when needsAttention: true, reusing the same OR clause getDispatchSummary uses", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: true,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      const orCondition = andConditions(findManyWhere).find((condition) => Array.isArray((condition as { OR?: unknown }).OR)) as
+        | { OR: unknown[] }
+        | undefined;
+      expect(orCondition).toBeDefined();
+      expect(orCondition!.OR).toHaveLength(3);
+      expect(orCondition!.OR).toEqual(
+        expect.arrayContaining([
+          { status: { in: ["scheduled", "dispatched", "traveling", "on_site", "paused"] }, scheduledStart: { lt: expect.any(Date) } },
+          { status: { notIn: ["completed", "cancelled"] }, assignments: { none: { removedAt: null } } },
+          { status: "unscheduled" },
+        ])
+      );
+    });
+
+    it("does not add a needsAttention filter when omitted or explicitly false", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(andConditions(findManyWhere).some((condition) => Array.isArray((condition as { OR?: unknown }).OR))).toBe(false);
+    });
+
+    it("combines needsAttention and search as two independent AND-array entries without one silently overwriting the other's OR clause", async () => {
+      // Regression guard: before buildJobWhere composed its optional
+      // predicates via a shared AND array, two blocks that each wrote a
+      // top-level `OR` key (search's text-match OR, and needsAttention's
+      // attention-predicate OR) would collide on the same object property -
+      // only the last one spread onto the where-object would survive.
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: true,
+        search: "furnace",
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      const orClauses = andConditions(findManyWhere)
+        .map((condition) => (condition as { OR?: unknown[] }).OR)
+        .filter((or): or is unknown[] => Array.isArray(or));
+
+      expect(orClauses).toHaveLength(2);
+      const needsAttentionOr = orClauses.find((or) => or.length === 3);
+      const searchOr = orClauses.find((or) => or.length === 7);
+      expect(needsAttentionOr).toBeDefined();
+      expect(searchOr).toBeDefined();
+      expect(searchOr).toContainEqual({ title: { contains: "furnace", mode: "insensitive" } });
+    });
+
+    it("enriches list rows with project/customer/assignedTechnicians and dispatch-attention booleans", async () => {
+      mockDb.job.findMany.mockResolvedValue([
+        {
+          id: "job-overdue",
+          jobNumber: "JOB-2026-000010",
+          title: "Overdue dispatched job",
+          jobType: "HVAC Service",
+          status: "dispatched",
+          priority: "high",
+          scheduledStart: new Date("2020-01-01T00:00:00.000Z"),
+          scheduledEnd: new Date("2020-01-01T02:00:00.000Z"),
+          archivedAt: null,
+          project: { id: "project-9", name: "Riverside Remodel", siteAddress: "9 River Rd" },
+          customer: { id: "customer-9", name: "Riverside Co" },
+          assignments: [],
+        },
+        {
+          id: "job-assigned",
+          jobNumber: "JOB-2026-000011",
+          title: "Assigned upcoming job",
+          jobType: "Plumbing",
+          status: "scheduled",
+          priority: "medium",
+          scheduledStart: new Date("2099-01-01T00:00:00.000Z"),
+          scheduledEnd: new Date("2099-01-01T02:00:00.000Z"),
+          archivedAt: null,
+          project: null,
+          customer: null,
+          assignments: [
+            { userId: "tech-1", user: { id: "tech-1", fullName: "Tech One", email: "tech1@example.com" } },
+            { userId: "tech-2", user: { id: "tech-2", fullName: null, email: "tech2@example.com" } },
+          ],
+        },
+      ]);
+
+      const service = new JobsService(mockDb as never);
+      const result = await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      });
+
+      expect(result.items).toHaveLength(2);
+
+      const overdueItem = result.items.find((item) => item.id === "job-overdue")!;
+      expect(overdueItem.project).toEqual({ id: "project-9", name: "Riverside Remodel", siteAddress: "9 River Rd" });
+      expect(overdueItem.customer).toEqual({ id: "customer-9", name: "Riverside Co" });
+      expect(overdueItem.assignedTechnicians).toEqual([]);
+      expect(overdueItem.isOverdue).toBe(true);
+      expect(overdueItem.isUnassigned).toBe(true);
+      expect(overdueItem.needsAttention).toBe(true);
+
+      const assignedItem = result.items.find((item) => item.id === "job-assigned")!;
+      expect(assignedItem.project).toBeNull();
+      expect(assignedItem.customer).toBeNull();
+      expect(assignedItem.assignedTechnicians).toEqual([
+        { userId: "tech-1", name: "Tech One" },
+        { userId: "tech-2", name: "tech2@example.com" },
+      ]);
+      expect(assignedItem.isOverdue).toBe(false);
+      expect(assignedItem.isUnassigned).toBe(false);
+      expect(assignedItem.needsAttention).toBe(false);
+    });
+  });
+
+  describe("getDispatchSummary", () => {
+    it("runs count-only queries and derives an org timezone from settingsJson", async () => {
+      mockDb.organizationSettings.findUnique.mockResolvedValue({
+        settingsJson: { timezone: "America/New_York" },
+      });
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      const summary = await service.getDispatchSummary("org-1", { role: "owner" });
+
+      expect(mockDb.organizationSettings.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { orgId: "org-1" } })
+      );
+      expect(summary.timezone).toEqual({ source: "organization", value: "America/New_York" });
+      expect(mockDb.job.count).toHaveBeenCalledTimes(5);
+      expect(typeof summary.generatedAt).toBe("string");
+      expect(typeof summary.todayRangeUtc.start).toBe("string");
+      expect(typeof summary.weekRangeUtc.start).toBe("string");
+    });
+
+    it("falls back to UTC when no organization timezone setting is present", async () => {
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      const summary = await service.getDispatchSummary("org-1", { role: "owner" });
+
+      expect(summary.timezone).toEqual({ source: "utc_fallback", value: "UTC" });
+    });
+
+    it("labels the scope as organization-wide for owner/admin/dispatcher and assigned-only for every other role", async () => {
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+      const service = new JobsService(mockDb as never);
+
+      for (const role of ["owner", "admin", "dispatcher"]) {
+        const summary = await service.getDispatchSummary("org-1", { role });
+        expect(summary.scope).toEqual({ source: "organization", role });
+      }
+
+      for (const role of ["technician", "viewer", "estimator"]) {
+        const summary = await service.getDispatchSummary("org-1", { role });
+        expect(summary.scope).toEqual({ source: "assigned_only", role });
+      }
+    });
+
+    it("scopes every count query to the organization and uses the correct status sets", async () => {
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      await service.getDispatchSummary("org-1", { role: "owner" });
+
+      const calls = mockDb.job.count.mock.calls.map((call) => call[0]);
+      for (const call of calls) {
+        expect(call.where.orgId).toBe("org-1");
+      }
+
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            where: expect.objectContaining({
+              orgId: "org-1",
+              status: { notIn: ["completed", "cancelled"] },
+            }),
+          }),
+          expect.objectContaining({
+            where: expect.objectContaining({ orgId: "org-1", status: "unscheduled" }),
+          }),
+        ])
+      );
+
+      const overdueCall = calls.find(
+        (call) =>
+          call.where.status &&
+          typeof call.where.status === "object" &&
+          "in" in call.where.status &&
+          call.where.scheduledStart
+      );
+      expect(overdueCall).toBeDefined();
+      expect(overdueCall.where.status.in).toEqual(["scheduled", "dispatched", "traveling", "on_site", "paused"]);
+    });
+
+    it("excludes archived jobs from every count query, even when status is non-terminal", async () => {
+      // JobsService.archive() sets archivedAt independently of status (a
+      // "scheduled" job can be archived without ever becoming "completed" or
+      // "cancelled"). Without archivedAt: null on every count() where-clause,
+      // an archived-but-non-terminal job would inflate these KPI counts while
+      // being correctly absent from the work-queue list, whose buildJobWhere
+      // already defaults to archivedAt: null.
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      await service.getDispatchSummary("org-1", { role: "owner" });
+
+      const calls = mockDb.job.count.mock.calls.map((call) => call[0]);
+      expect(calls).toHaveLength(5);
+      for (const call of calls) {
+        expect(call.where.archivedAt).toBeNull();
+      }
+    });
+
+    it("computes needsAttention with a single OR'd count call, not a sum of separate counts", async () => {
+      mockDb.organizationSettings.findUnique.mockResolvedValue(null);
+      mockDb.job.count.mockResolvedValue(0);
+
+      const service = new JobsService(mockDb as never);
+      await service.getDispatchSummary("org-1", { role: "owner" });
+
+      // Exactly 5 count() calls total for the whole summary: activeJobs,
+      // unscheduledJobs, scheduledToday, overdueActionable, and ONE combined
+      // needsAttention call — never 3 extra calls that get summed in JS.
+      expect(mockDb.job.count).toHaveBeenCalledTimes(5);
+
+      const orCall = mockDb.job.count.mock.calls
+        .map((call) => call[0])
+        .find((call) => Array.isArray(call.where.OR));
+      expect(orCall).toBeDefined();
+      expect(orCall.where.OR).toHaveLength(3);
+      expect(orCall.where.OR).toEqual(
+        expect.arrayContaining([
+          { status: { in: ["scheduled", "dispatched", "traveling", "on_site", "paused"] }, scheduledStart: { lt: expect.any(Date) } },
+          {
+            status: { notIn: ["completed", "cancelled"] },
+            assignments: { none: { removedAt: null } },
+          },
+          { status: "unscheduled" },
+        ])
+      );
+    });
   });
 });

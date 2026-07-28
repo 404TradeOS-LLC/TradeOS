@@ -73,6 +73,19 @@ const reopenSchema = reasonSchema.extend({
   status: z.enum(["unscheduled", "scheduled"]).optional(),
 });
 
+// z.coerce.boolean() is `Boolean(value)` under the hood, so any nonempty
+// query string - including the literal string "false" - coerces to `true`.
+// `unassigned` needs a genuine assigned/unassigned/omitted tri-state (the
+// dispatcher UI sends `unassigned=false` for "Assigned"), so it gets a
+// strict parser instead: only the exact strings "true"/"false" are
+// accepted, anything else fails validation (ZodError -> the existing
+// centralized 400 handling), consistent with how the rest of this schema
+// already rejects malformed values rather than silently coercing them.
+const strictOptionalBooleanParam = z
+  .enum(["true", "false"])
+  .transform((value) => value === "true")
+  .optional();
+
 const listJobsQuerySchema = z.object({
   status: z.enum(jobStatuses).optional(),
   priority: z.enum(jobPriorities).optional(),
@@ -83,6 +96,8 @@ const listJobsQuerySchema = z.object({
   scheduledTo: z.string().datetime().optional(),
   archived: z.coerce.boolean().optional(),
   search: z.string().trim().optional(),
+  unassigned: strictOptionalBooleanParam,
+  needsAttention: strictOptionalBooleanParam,
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
@@ -141,10 +156,17 @@ export const jobsController = {
         scheduledTo: query.scheduledTo ? new Date(query.scheduledTo) : undefined,
         archived: query.archived,
         search: query.search,
+        unassigned: query.unassigned,
+        needsAttention: query.needsAttention,
         page: query.page,
         pageSize: query.pageSize,
       })
     );
+  },
+
+  async dispatchSummary(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    res.json(await service.getDispatchSummary(requireOrgId(req), auth));
   },
 
   async getById(req: Request, res: Response) {

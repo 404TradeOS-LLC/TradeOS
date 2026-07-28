@@ -608,3 +608,94 @@ export function getContract(token: string, id: string) {
     status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft"),
   }));
 }
+
+// --- Dispatcher Workspace ---
+//
+// Consumes the jobs list/summary endpoints described in the dispatcher
+// workspace API contract. These job records are additive/separate from
+// `JobSummary` above (which is scoped to a single project's job list) - the
+// dispatch list is org-wide, paginated, and carries project/customer/
+// technician context the project-scoped summary does not.
+
+export interface DispatchJobTechnician {
+  userId: string;
+  name: string;
+}
+
+export interface DispatchJob {
+  id: string;
+  jobNumber: string;
+  title: string;
+  status: JobStatus;
+  priority: string | null;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  project: { id: string; name: string; siteAddress: string | null } | null;
+  customer: { id: string; name: string } | null;
+  assignedTechnicians: DispatchJobTechnician[];
+  isOverdue: boolean;
+  isUnassigned: boolean;
+  needsAttention: boolean;
+}
+
+export interface DispatchJobListResponse {
+  items: DispatchJob[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface DispatchJobListParams {
+  status?: string;
+  priority?: string;
+  technicianId?: string;
+  unassigned?: boolean;
+  needsAttention?: boolean;
+  scheduledFrom?: string;
+  scheduledTo?: string;
+  projectId?: string;
+  customerId?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export function listJobsForDispatch(token: string, params: DispatchJobListParams = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.priority) query.set("priority", params.priority);
+  if (params.technicianId) query.set("technicianId", params.technicianId);
+  if (params.unassigned != null) query.set("unassigned", String(params.unassigned));
+  if (params.needsAttention != null) query.set("needsAttention", String(params.needsAttention));
+  if (params.scheduledFrom) query.set("scheduledFrom", params.scheduledFrom);
+  if (params.scheduledTo) query.set("scheduledTo", params.scheduledTo);
+  if (params.projectId) query.set("projectId", params.projectId);
+  if (params.customerId) query.set("customerId", params.customerId);
+  if (params.search) query.set("search", params.search);
+  if (params.page != null) query.set("page", String(params.page));
+  if (params.pageSize != null) query.set("pageSize", String(params.pageSize));
+  const qs = query.toString();
+
+  return apiFetch<DispatchJobListResponse>(`/api/v1/jobs${qs ? `?${qs}` : ""}`, { token });
+}
+
+export interface DispatchSummary {
+  activeJobs: number;
+  unscheduledJobs: number;
+  scheduledToday: number;
+  overdueActionable: number;
+  needsAttention: number;
+  timezone: { source: "organization" | "utc_fallback"; value: string };
+  todayRangeUtc: { start: string; end: string };
+  weekRangeUtc: { start: string; end: string };
+  generatedAt: string;
+  // Honest labeling for whether these counts are org-wide or narrowed to
+  // only the caller's assigned jobs (the backend's jobs-table RLS policy
+  // narrows non-owner/admin/dispatcher callers automatically - see
+  // DispatchSummaryDTO in app/modules/jobs/types.ts).
+  scope: { source: "organization" | "assigned_only"; role: string };
+}
+
+export function getDispatchSummary(token: string) {
+  return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token });
+}

@@ -5,6 +5,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const jobsRouter = Router();
 jobsRouter.post("/", asyncHandler(jobsController.create));
 jobsRouter.get("/", asyncHandler(jobsController.list));
+jobsRouter.get("/dispatch-summary", asyncHandler(jobsController.dispatchSummary));
 jobsRouter.get("/:jobId", asyncHandler(jobsController.getById));
 jobsRouter.patch("/:jobId", asyncHandler(jobsController.update));
 jobsRouter.delete("/:jobId", asyncHandler(jobsController.remove));
