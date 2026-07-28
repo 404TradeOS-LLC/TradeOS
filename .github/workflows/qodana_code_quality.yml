@@ -18,15 +18,29 @@ jobs:
   qodana:
     name: Qodana code quality
     runs-on: ubuntu-latest
+    env:
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Record advisory rollout state
+        id: rollout
+        shell: bash
+        run: |
+          if [ -n "${QODANA_TOKEN:-}" ]; then
+            echo "token_present=true" >> "$GITHUB_OUTPUT"
+            echo "Qodana token detected; running advisory scan." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+            echo "QODANA_TOKEN is not configured; skipping the advisory Qodana scan." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Qodana Scan
+        if: steps.rollout.outputs.token_present == 'true'
         uses: JetBrains/qodana-action@v2026.1
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+        continue-on-error: true
         with:
           pr-mode: true
           use-caches: true
@@ -36,3 +50,20 @@ jobs:
           upload-result: true
           artifact-name: qodana-report
           push-fixes: none
+
+      - name: Write advisory skip note
+        if: steps.rollout.outputs.token_present != 'true'
+        shell: bash
+        run: |
+          cat <<'EOF' > "${RUNNER_TEMP}/qodana-skip-note.txt"
+          Qodana advisory scan skipped because QODANA_TOKEN is not configured.
+          Add the repository secret QODANA_TOKEN to enable the JS/TS advisory scan.
+          EOF
+
+      - name: Upload advisory skip note
+        if: steps.rollout.outputs.token_present != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qodana-report
+          path: ${{ runner.temp }}/qodana-skip-note.txt
+          if-no-files-found: error

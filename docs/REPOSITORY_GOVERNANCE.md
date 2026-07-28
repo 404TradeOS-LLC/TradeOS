@@ -51,7 +51,7 @@ Expected verification jobs are:
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
-`Qodana Code Quality` is advisory during initial baseline stabilization. Do not add it to required branch protection until findings volume, false positives, and failure behavior are reviewed and the ruleset is intentionally updated.
+`Qodana Code Quality` is advisory during initial baseline stabilization. It must use the repository `QODANA_TOKEN` secret when available, upload its report artifact, and degrade cleanly when the token is not configured rather than blocking unrelated work with a hard infrastructure failure. Do not add it to required branch protection until findings volume, false positives, token management, and failure behavior are reviewed and the ruleset is intentionally updated.
 
 ## Solo-maintainer review posture
 

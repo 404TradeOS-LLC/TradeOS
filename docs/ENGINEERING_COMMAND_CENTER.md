@@ -93,7 +93,7 @@ Expected CI jobs include:
 - `App integration tests`;
 - `Web lint and build`.
 
-`Qodana Code Quality` is an advisory JS/TS scan for `app/` and `web/` during baseline rollout. Treat findings as actionable review input, but do not require the check in branch protection until governance is explicitly updated.
+`Qodana Code Quality` is an advisory JS/TS scan for `app/` and `web/` during baseline rollout. It uses the repository `QODANA_TOKEN` secret when configured, uploads an artifact either with scan results or a token-missing advisory note, and must not become a required branch-protection gate until governance is explicitly updated.
 
 Documentation foundation work must run:
 

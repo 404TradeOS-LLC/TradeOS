@@ -103,7 +103,7 @@ Run tests for the checker with:
 npm run docs:test
 ```
 
-Workflow changes must also keep the governance docs aligned. Qodana code-quality rollout is documented as advisory until its baseline is verified and branch protection is intentionally updated.
+Workflow changes must also keep the governance docs aligned. Qodana code-quality rollout is documented as advisory until its baseline is verified and branch protection is intentionally updated; the workflow should use `secrets.QODANA_TOKEN` when present and otherwise publish a non-blocking advisory artifact instead of failing for missing token infrastructure alone.
 
 ## `DOC_OWNERSHIP.yml` format
 
