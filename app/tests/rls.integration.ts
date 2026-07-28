@@ -14,6 +14,7 @@ import { AssembliesDatabaseService } from "../modules/assemblies-database/servic
 import { ProposalsService } from "../modules/proposals/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { ContractsService } from "../modules/contracts/service";
+import { JobsService } from "../modules/jobs/service";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -1073,6 +1074,120 @@ describe("live organization row-level security", () => {
       currentTransaction().contractEvent.findMany({ where: { contractId: contract.id } })
     );
     expect(hiddenContractEvents).toEqual([]);
+  });
+
+  it("scopes the dispatch summary to the requesting org and does not require an elevated role to read", async () => {
+    // Baseline before adding this test's own fixtures, since jobA (created in
+    // beforeAll) already has a scheduledStart in the past and so already
+    // contributes to activeJobs/overdueActionable/needsAttention. Asserting
+    // on the DELTA rather than an absolute count keeps this robust to that
+    // shared fixture (and to any future fixture additions elsewhere in this
+    // file) while still proving real org-scoped isolation.
+    const before = await inSession(adminUser, orgA, "admin", async () =>
+      new JobsService().getDispatchSummary(orgA, { role: "admin" })
+    );
+
+    const dispatchOverdueJobA = "10000000-0000-0000-0000-000000000115";
+    const dispatchUnscheduledJobA = "10000000-0000-0000-0000-000000000116";
+    const dispatchOverdueJobB = "20000000-0000-0000-0000-000000000117";
+
+    await adminClient.job.createMany({
+      data: [
+        {
+          id: dispatchOverdueJobA,
+          orgId: orgA,
+          projectId: projectA,
+          customerId: customerA,
+          serviceAddressId: serviceAddressA,
+          jobNumber: "JOB-2026-000002",
+          title: "Org A Overdue Unassigned Job",
+          jobType: "HVAC Service",
+          status: "dispatched",
+          priority: "high",
+          scheduledStart: new Date("2020-01-01T00:00:00.000Z"),
+          scheduledEnd: new Date("2020-01-01T02:00:00.000Z"),
+          createdById: adminUser,
+        },
+        {
+          id: dispatchUnscheduledJobA,
+          orgId: orgA,
+          projectId: projectA,
+          customerId: customerA,
+          serviceAddressId: serviceAddressA,
+          jobNumber: "JOB-2026-000003",
+          title: "Org A Unscheduled Job",
+          jobType: "HVAC Service",
+          status: "unscheduled",
+          priority: "medium",
+          createdById: adminUser,
+        },
+        // Mirrors dispatchOverdueJobA exactly (same shape/status/date) but in
+        // org B — proves an org-B job can never inflate org A's counts.
+        {
+          id: dispatchOverdueJobB,
+          orgId: orgB,
+          projectId: projectB,
+          customerId: customerB,
+          serviceAddressId: serviceAddressB,
+          jobNumber: "JOB-2026-000004",
+          title: "Org B Overdue Unassigned Job",
+          jobType: "Electrical Service",
+          status: "dispatched",
+          priority: "high",
+          scheduledStart: new Date("2020-01-01T00:00:00.000Z"),
+          scheduledEnd: new Date("2020-01-01T02:00:00.000Z"),
+          createdById: otherUser,
+        },
+      ],
+    });
+
+    const after = await inSession(adminUser, orgA, "admin", async () =>
+      new JobsService().getDispatchSummary(orgA, { role: "admin" })
+    );
+
+    // Exactly the two org-A jobs, never the org-B one.
+    expect(after.activeJobs - before.activeJobs).toBe(2);
+    expect(after.unscheduledJobs - before.unscheduledJobs).toBe(1);
+    expect(after.overdueActionable - before.overdueActionable).toBe(1);
+    // Both new org-A jobs need attention for different reasons (overdue vs.
+    // unscheduled) — this is a real cross-check, at the database level, of
+    // the single OR'd count the unit tests already verify the shape of.
+    expect(after.needsAttention - before.needsAttention).toBe(2);
+    // admin is one of MANAGER_ROLES, so these counts are correctly labeled
+    // as organization-wide, not narrowed.
+    expect(after.scope).toEqual({ source: "organization", role: "admin" });
+
+    const afterOrgB = await inSession(otherUser, orgB, "owner", async () =>
+      new JobsService().getDispatchSummary(orgB, { role: "owner" })
+    );
+    expect(afterOrgB.activeJobs).toBeGreaterThanOrEqual(1);
+    expect(afterOrgB.scope).toEqual({ source: "organization", role: "owner" });
+
+    // Read-only aggregate: a non-admin, non-dispatcher, unassigned session
+    // must not be blocked by an application-level permission check (no
+    // ApiError thrown). Note this app's jobs_select_policy RLS (see
+    // prisma/migrations/20260714120000_add_job_scheduling_engine) restricts
+    // *row visibility* on the jobs table itself to admin/owner/dispatcher or
+    // an assignee — a "viewer" role session legitimately sees zero job rows
+    // (same as the pre-existing "limits technician job visibility" test
+    // above proves for direct job reads), so this asserts the call succeeds
+    // and returns a well-formed summary, not that it sees the same counts an
+    // admin would.
+    const viewerSummary = await inSession(viewerUser, orgA, "viewer", async () =>
+      new JobsService().getDispatchSummary(orgA, { role: "viewer" })
+    );
+    expect(viewerSummary).toMatchObject({
+      activeJobs: expect.any(Number),
+      unscheduledJobs: expect.any(Number),
+      scheduledToday: expect.any(Number),
+      overdueActionable: expect.any(Number),
+      needsAttention: expect.any(Number),
+    });
+    expect(viewerSummary.activeJobs).toBe(0);
+    // The DTO's scope field is what lets the frontend honestly label these
+    // as "assigned only" rather than presenting a role-narrowed 0 as if it
+    // were a real organization-wide "zero active jobs" total.
+    expect(viewerSummary.scope).toEqual({ source: "assigned_only", role: "viewer" });
   });
 });
 

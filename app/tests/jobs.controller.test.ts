@@ -2,6 +2,7 @@ const create = jest.fn();
 const list = jest.fn();
 const schedule = jest.fn();
 const archive = jest.fn();
+const getDispatchSummary = jest.fn();
 
 jest.mock("../modules/jobs/service", () => ({
   JobsService: jest.fn().mockImplementation(() => ({
@@ -9,6 +10,7 @@ jest.mock("../modules/jobs/service", () => ({
     list,
     schedule,
     archive,
+    getDispatchSummary,
     getById: jest.fn(),
     update: jest.fn(),
     reschedule: jest.fn(),
@@ -107,6 +109,57 @@ describe("jobsController", () => {
         pageSize: 10,
       })
     );
+  });
+
+  it("parses the unassigned filter for the jobs index", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { unassigned: "true" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.list(req, res);
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ unassigned: true }));
+  });
+
+  it("returns the dispatch summary for the authenticated org, requiring no elevated role", async () => {
+    const summary = {
+      activeJobs: 3,
+      unscheduledJobs: 1,
+      scheduledToday: 2,
+      overdueActionable: 1,
+      needsAttention: 2,
+      timezone: { source: "organization", value: "America/New_York" },
+      todayRangeUtc: { start: "2026-07-28T04:00:00.000Z", end: "2026-07-29T04:00:00.000Z" },
+      weekRangeUtc: { start: "2026-07-28T04:00:00.000Z", end: "2026-08-04T04:00:00.000Z" },
+      generatedAt: "2026-07-28T12:00:00.000Z",
+      scope: { source: "assigned_only", role: "technician" },
+    };
+    getDispatchSummary.mockResolvedValue(summary);
+    const auth = {
+      // technician is the lowest-privilege canonical role in this app — this
+      // proves the endpoint doesn't gate on an elevated role, just auth.
+      userId: "tech-1",
+      orgId: "org-1",
+      role: "technician",
+    };
+    const req = {
+      orgId: "org-1",
+      auth,
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.dispatchSummary(req, res);
+
+    // The controller passes the full auth context through so the service
+    // can label whether these counts are org-wide or narrowed to the
+    // caller's own assigned jobs (see DispatchSummaryDTO.scope) — it does
+    // not use it to gate access, per the comment above.
+    expect(getDispatchSummary).toHaveBeenCalledWith("org-1", auth);
+    expect(res.json).toHaveBeenCalledWith(summary);
   });
 
   it("converts scheduling payloads into Dates", async () => {

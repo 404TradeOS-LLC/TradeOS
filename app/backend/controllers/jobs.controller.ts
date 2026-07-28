@@ -83,6 +83,7 @@ const listJobsQuerySchema = z.object({
   scheduledTo: z.string().datetime().optional(),
   archived: z.coerce.boolean().optional(),
   search: z.string().trim().optional(),
+  unassigned: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
@@ -141,10 +142,16 @@ export const jobsController = {
         scheduledTo: query.scheduledTo ? new Date(query.scheduledTo) : undefined,
         archived: query.archived,
         search: query.search,
+        unassigned: query.unassigned,
         page: query.page,
         pageSize: query.pageSize,
       })
     );
+  },
+
+  async dispatchSummary(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    res.json(await service.getDispatchSummary(requireOrgId(req), auth));
   },
 
   async getById(req: Request, res: Response) {
