@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-07-28
 source_of_truth: false
 related_code:
   - app/modules/jobs
   - app/backend/routes/jobs.routes.ts
   - app/prisma/schema.prisma
   - web/src/app/(app)/projects/[id]/page.tsx
+  - web/src/app/(app)/dispatch/page.tsx
+  - web/src/components/dispatch
 ---
 
 # Jobs and Scheduling
@@ -30,9 +32,12 @@ Own first-class field-execution jobs, technician assignments, scheduling and res
 ## Routes
 
 - `/api/v1/jobs`
+- `/api/v1/jobs/dispatch-summary`
 - `/api/v1/jobs/:jobId/*`
 - `/api/v1/schedule`
 - `/api/v1/schedule/conflicts`
+
+`GET /api/v1/jobs/dispatch-summary` is a read-only, count()-only aggregate (never `findMany`) of org-wide dispatch-attention metrics: active/unscheduled/scheduled-today/overdue/needs-attention job counts, plus the organization-timezone-aware `today`/`this week` UTC boundaries the frontend uses to build its own `scheduledFrom`/`scheduledTo` filters (never computed client-side). It requires authentication but no elevated role — the existing `jobs_select_policy` RLS policy already narrows every count to only the caller's assigned jobs for non-manager roles, and the response's `scope` field labels that narrowing honestly rather than presenting a role-scoped count as an org-wide total. `GET /api/v1/jobs` also gained an `unassigned` boolean filter and now returns additive `project`/`customer`/`assignedTechnicians`/`isOverdue`/`isUnassigned`/`needsAttention` fields per job.
 
 Current supported operational scope:
 
@@ -65,12 +70,14 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 ## Frontend surfaces
 
 - jobs currently surface through the project workspace and related project detail pages
+- a dedicated Dispatcher Workspace now exists at `web/src/app/(app)/dispatch/page.tsx` (`/dispatch`, linked from the authenticated nav): an org-wide, filterable work queue plus the dispatch-attention summary strip above, both consuming only the routes documented here — no new backend module, no fabricated data, no drag-and-drop/GPS/route-optimization/map/notification features
 
 ## Tests
 
 - `app/tests/jobs.service.test.ts`
 - `app/tests/jobs.controller.test.ts`
 - `app/tests/jobs.migration.test.ts`
+- `app/tests/dispatchRules.test.ts`
 - `app/tests/rls.integration.ts`
 
 ## Known limitations
@@ -83,4 +90,4 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 ## Last verified date
 
-2026-07-14
+2026-07-28
