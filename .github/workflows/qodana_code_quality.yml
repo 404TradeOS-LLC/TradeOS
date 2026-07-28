@@ -28,7 +28,7 @@ jobs:
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
-          args: -i,app,-i,web
+          args: -i app -i web
           pr-mode: true
           use-caches: true
           cache-default-branch-only: true
