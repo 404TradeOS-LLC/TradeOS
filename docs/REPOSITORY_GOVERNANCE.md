@@ -6,6 +6,7 @@ source_of_truth: true
 related_code:
   - AGENTS.md
   - .github/workflows/docs-consistency.yml
+  - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
@@ -126,6 +127,12 @@ The Bible does not replace:
 - module docs for detailed implementation contracts;
 - accepted ADRs for active architectural rationale;
 - research docs for supporting evidence.
+
+## Production migration history reconciliation
+
+Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL.
+
+The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, maps `DATABASE_ADMIN_URL` to Prisma's `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
 
 ## Session continuity
 

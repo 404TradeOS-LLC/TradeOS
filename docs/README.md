@@ -16,6 +16,7 @@ related_code:
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
+  - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
 ---
 
@@ -39,6 +40,8 @@ Use these files first:
 - `docs/ROADMAP.md` for future work only
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, and label taxonomy
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
+
+Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only.
 
 ## Current versus archived
 
