@@ -132,7 +132,7 @@ The Bible does not replace:
 
 Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL.
 
-The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, maps `DATABASE_ADMIN_URL` to Prisma's `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
+The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, shares the production migration concurrency group, scopes `DATABASE_ADMIN_URL` to the Prisma steps as `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
 
 ## Session continuity
 

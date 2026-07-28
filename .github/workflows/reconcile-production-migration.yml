@@ -8,7 +8,7 @@ name: Reconcile production migration history
 #
 # History-only scope:
 # - uses the production GitHub Environment approval gate
-# - maps DATABASE_ADMIN_URL to Prisma's required DATABASE_URL input
+# - maps DATABASE_ADMIN_URL to Prisma's required DATABASE_URL input only for the Prisma steps
 # - runs only `prisma migrate resolve --applied` and `prisma migrate status`
 # - does not create, alter, or drop database schema objects, policies, or buckets
 
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: reconcile-production-migration-20260728120000-add-settings-asset-uploads
+  group: deploy-migrations-production
   cancel-in-progress: false
 
 jobs:
@@ -30,8 +30,6 @@ jobs:
     defaults:
       run:
         working-directory: app
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +45,11 @@ jobs:
           echo "0f224dc9c71ac0b61fddb4db02b8afe1789229eebc0beb97094be8bae268a761  prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql" | sha256sum --check
 
       - name: Mark migration as already applied
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
         run: npx prisma migrate resolve --applied 20260728120000_add_settings_asset_uploads
 
       - name: Print migration status
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
         run: npx prisma migrate status
