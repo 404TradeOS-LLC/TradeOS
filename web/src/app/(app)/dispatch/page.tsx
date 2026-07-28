@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DispatchFilterBar } from "@/components/dispatch/dispatch-filter-bar";
+import { DispatchPagination } from "@/components/dispatch/dispatch-pagination";
 import { DispatchSummaryStrip } from "@/components/dispatch/dispatch-summary-strip";
 import { DispatchWorkQueueTable } from "@/components/dispatch/dispatch-work-queue-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 const PAGE_SIZE = 25;
 
 interface DispatchSearchParams {
+  view?: string;
   status?: string;
   scheduled?: string;
   assigned?: string;
@@ -37,6 +39,22 @@ function toErrorMessage(error: unknown, fallback: string) {
 // inclusive boundary that GET /api/v1/jobs's `scheduledTo` filter expects.
 function toInclusiveEndBoundary(exclusiveEndIso: string): string {
   return new Date(new Date(exclusiveEndIso).getTime() - 1).toISOString();
+}
+
+// Builds a /dispatch URL preserving every current filter except the ones
+// explicitly overridden - used by pagination so Previous/Next never drop
+// the active status/scheduled/assigned/search/view filters.
+function buildDispatchHref(query: DispatchSearchParams, overrides: Partial<DispatchSearchParams>): string {
+  const merged = { ...query, ...overrides };
+  const params = new URLSearchParams();
+  if (merged.view && merged.view !== "attention") params.set("view", merged.view);
+  if (merged.status) params.set("status", merged.status);
+  if (merged.scheduled && merged.scheduled !== "all") params.set("scheduled", merged.scheduled);
+  if (merged.assigned && merged.assigned !== "all") params.set("assigned", merged.assigned);
+  if (merged.q) params.set("q", merged.q);
+  if (merged.page && merged.page !== "1") params.set("page", merged.page);
+  const qs = params.toString();
+  return qs ? `/dispatch?${qs}` : "/dispatch";
 }
 
 export default async function DispatchPage({ searchParams }: { searchParams: Promise<DispatchSearchParams> }) {
@@ -58,7 +76,18 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   const requestedPage = Number.parseInt(query.page ?? "1", 10);
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
+  // Dispatchers land on "jobs needing attention" by default - this is the
+  // whole point of the workspace (see the page copy and summary strip
+  // below) - not every unarchived job in the org. The default is explicit
+  // (visible and changeable via the "View" filter, not a hidden default),
+  // shareable via ?view=all, and there is always a reachable way back to
+  // the full queue: the View select itself, and the empty state's "Clear
+  // filters" action, which points at ?view=all rather than looping back to
+  // this same default.
+  const view = query.view === "all" ? "all" : "attention";
+
   const params: DispatchJobListParams = { page, pageSize: PAGE_SIZE };
+  if (view === "attention") params.needsAttention = true;
   if (query.status) params.status = query.status;
   if (query.q) params.search = query.q;
   if (query.assigned === "unassigned") params.unassigned = true;
@@ -100,7 +129,12 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   }
 
   const isFiltered = Boolean(
-    query.status || query.q || (query.assigned && query.assigned !== "all") || (query.scheduled && query.scheduled !== "all") || page > 1
+    view === "attention" ||
+      query.status ||
+      query.q ||
+      (query.assigned && query.assigned !== "all") ||
+      (query.scheduled && query.scheduled !== "all") ||
+      page > 1
   );
 
   return (
@@ -122,9 +156,11 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
         <>
           {summary ? <DispatchSummaryStrip summary={summary} /> : null}
 
-          <DispatchFilterBar status={query.status} scheduled={query.scheduled} assigned={query.assigned} q={query.q} />
+          <DispatchFilterBar view={view} status={query.status} scheduled={query.scheduled} assigned={query.assigned} q={query.q} />
 
-          <DispatchWorkQueueTable jobs={jobs} isFiltered={isFiltered} total={total} />
+          <DispatchWorkQueueTable jobs={jobs} isFiltered={isFiltered} total={total} timezone={summary?.timezone.value ?? "UTC"} />
+
+          <DispatchPagination page={page} pageSize={PAGE_SIZE} total={total} buildHref={(targetPage) => buildDispatchHref(query, { page: String(targetPage) })} />
         </>
       )}
     </div>

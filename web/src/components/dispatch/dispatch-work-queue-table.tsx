@@ -4,7 +4,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
-import { formatDateTime } from "@/lib/document-workflow";
 import type { DispatchJob } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +11,18 @@ interface DispatchWorkQueueTableProps {
   jobs: DispatchJob[];
   isFiltered: boolean;
   total: number;
+  /**
+   * IANA timezone to render schedule times in - the organization's
+   * configured timezone (or "UTC" when the caller is on the fallback path).
+   * Deliberately NOT using the shared `formatDateTime` helper from
+   * `@/lib/document-workflow`, which has no `timeZone` option and formats
+   * using the Next.js server process's own local timezone - on a
+   * deployment where that isn't the organization's configured timezone,
+   * the table would silently disagree with the summary strip's caption
+   * ("times use the organization timezone") and with the org-tz-aware
+   * "today"/"this week" filters above it.
+   */
+  timezone: string;
 }
 
 function AttentionIndicator({ job }: { job: DispatchJob }) {
@@ -42,16 +53,33 @@ function AttentionIndicator({ job }: { job: DispatchJob }) {
   );
 }
 
-export function DispatchWorkQueueTable({ jobs, isFiltered, total }: DispatchWorkQueueTableProps) {
+/**
+ * Formats an ISO instant in a specific IANA timezone. Falls back to "UTC"
+ * (labeled) for an empty/invalid timezone rather than silently falling
+ * through to the runtime's default - `resolveOrgTimezone` on the backend
+ * already guarantees `timezone` is a validated IANA string or "UTC", but
+ * this stays defensive in case a future caller passes something else
+ * through, so the fallback is truthful instead of just crashing or
+ * quietly rendering in the wrong zone.
+ */
+function formatScheduleInZone(value: string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(value));
+  } catch {
+    return `${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value))} (UTC)`;
+  }
+}
+
+export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: DispatchWorkQueueTableProps) {
   if (jobs.length === 0) {
     return (
       <TableSection title="Work queue" description="Jobs needing dispatcher attention.">
         {isFiltered ? (
           <EmptyState
             title="No jobs match these filters"
-            description="Try widening the schedule range, clearing the status or assignment filter, or searching a different term."
+            description="Try widening the schedule range, clearing the status or assignment filter, switching the view to All jobs, or searching a different term."
             action={
-              <Link href="/dispatch" className={buttonVariants({ variant: "outline" })}>
+              <Link href="/dispatch?view=all" className={buttonVariants({ variant: "outline" })}>
                 Clear filters
               </Link>
             }
@@ -104,7 +132,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total }: DispatchWork
                 <StatusBadge status={job.status} />
               </td>
               <td className="px-3 py-3 whitespace-nowrap text-sm text-foreground">
-                {job.scheduledStart ? formatDateTime(job.scheduledStart) : <span className="text-muted-foreground">Unscheduled</span>}
+                {job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : <span className="text-muted-foreground">Unscheduled</span>}
               </td>
               <td className="px-3 py-3 text-sm text-foreground">
                 {job.assignedTechnicians.length > 0 ? (

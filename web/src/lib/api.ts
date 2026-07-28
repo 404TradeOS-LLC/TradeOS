@@ -650,6 +650,7 @@ export interface DispatchJobListParams {
   priority?: string;
   technicianId?: string;
   unassigned?: boolean;
+  needsAttention?: boolean;
   scheduledFrom?: string;
   scheduledTo?: string;
   projectId?: string;
@@ -665,6 +666,7 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
   if (params.priority) query.set("priority", params.priority);
   if (params.technicianId) query.set("technicianId", params.technicianId);
   if (params.unassigned != null) query.set("unassigned", String(params.unassigned));
+  if (params.needsAttention != null) query.set("needsAttention", String(params.needsAttention));
   if (params.scheduledFrom) query.set("scheduledFrom", params.scheduledFrom);
   if (params.scheduledTo) query.set("scheduledTo", params.scheduledTo);
   if (params.projectId) query.set("projectId", params.projectId);
