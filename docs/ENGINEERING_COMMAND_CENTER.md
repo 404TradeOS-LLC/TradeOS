@@ -12,6 +12,7 @@ related_code:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SESSION_HANDOFF.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - .github/workflows/reconcile-production-migration.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -81,6 +82,7 @@ Always verify GitHub before editing. This summary is not a substitute for live P
 - Entry-point READMEs and legacy generator scripts contain stale material, but useful setup, competitive, pricing, and historical evidence must be preserved before archive or removal decisions.
 - `packages/knowledge-engine/**` (9,986 files) received its separate segmented audit on 2026-07-16. Phase A documentation/governance guardrails (root README, corrected canonical-path docs, focused `docs/DOC_OWNERSHIP.yml` rules, historical notices on conflicting runtime guidance, a package-scoped `.gitignore`) and Phase B pipeline path-canonicalization (`PATHS.md`, `path-manifest.json`, a marker-validated Python resolver, and a fix for divergent generated-export copies) have both landed via PR #33 and #34. The package still contains a confirmed 4,746-tracked-file self-nested exact-duplicate tree and ~1,400 vendored third-party skill directories with incomplete license coverage; both are documented but intentionally untouched pending founder-approved Phase C migration work — do not begin archive or deletion in this package without that approval.
 - Ruleset and branch-protection facts must be verified directly in GitHub before being stated as current.
+- Production migration history reconciliation for `20260728120000_add_settings_asset_uploads` is a one-time, manual, `production` Environment-gated workflow. It records Prisma history only and must not be confused with normal migration deployment.
 
 ## Required verification
 
