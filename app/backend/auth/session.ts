@@ -9,7 +9,18 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
   return basePrisma.$transaction(async (transaction) => {
     await transaction.$queryRaw(Prisma.sql`select set_config('app.auth_subject', ${claims.sub}, true)`);
 
-    const user = await transaction.appUser.findUnique({ where: { authSubject: claims.sub } });
+    // Explicit select, not a bare findUnique: Prisma's default is to select
+    // every scalar column, which would include password_hash (added by a
+    // later migration than production currently has applied). Every
+    // authenticated request runs this query, so a bare select fails closed
+    // for the entire API the moment the AppUser model gains any column not
+    // yet present in the deployed schema. List only the fields this function
+    // actually reads below (id, isActive, email) -- all present since the
+    // very first migration.
+    const user = await transaction.appUser.findUnique({
+      where: { authSubject: claims.sub },
+      select: { id: true, isActive: true, email: true },
+    });
     if (!user || !user.isActive) {
       throw new ApiError(403, "Authenticated user is not provisioned in this organization");
     }
