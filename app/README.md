@@ -129,8 +129,15 @@ curl -X POST localhost:4000/api/v1/estimates/<estimateId>/line-items \
 curl -X POST localhost:4000/api/v1/proposals/preview/<estimateId> \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{}'
+  -d '{}' \
+  -o proposal-preview.pdf
 
+curl -X POST localhost:4000/api/v1/proposals \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"estimateId": "<estimateId>"}'
+
+# Use the `id` from the persisted proposal response as `<proposalId>`.
 curl localhost:4000/api/v1/proposals/<proposalId>/pdf \
   -H "Authorization: Bearer <token>" \
   -o proposal.pdf
