@@ -111,7 +111,7 @@ describe("jobsController", () => {
     );
   });
 
-  it("parses the unassigned filter for the jobs index", async () => {
+  it("parses unassigned=true strictly as the boolean true (only unassigned jobs)", async () => {
     list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
     const req = {
       query: { unassigned: "true" },
@@ -123,6 +123,77 @@ describe("jobsController", () => {
     await jobsController.list(req, res);
 
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ unassigned: true }));
+  });
+
+  it("parses unassigned=false strictly as the boolean false (only assigned jobs), not truthy-coerced to true", async () => {
+    // Regression guard: z.coerce.boolean() is `Boolean(value)`, so the
+    // nonempty string "false" would otherwise coerce to `true` here,
+    // silently flipping an "Assigned" filter request into "Unassigned".
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { unassigned: "false" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.list(req, res);
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ unassigned: false }));
+  });
+
+  it("passes unassigned as undefined when the query param is omitted entirely", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: {},
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.list(req, res);
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ unassigned: undefined }));
+  });
+
+  it("rejects a malformed unassigned value instead of silently coercing it to a truthy filter", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { unassigned: "yes" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await expect(jobsController.list(req, res)).rejects.toThrow();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("parses needsAttention=true for the dispatcher workspace's default attention-only queue view", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { needsAttention: "true" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.list(req, res);
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ needsAttention: true }));
+  });
+
+  it("rejects a malformed needsAttention value the same way it rejects a malformed unassigned value", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { needsAttention: "1" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await expect(jobsController.list(req, res)).rejects.toThrow();
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("returns the dispatch summary for the authenticated org, requiring no elevated role", async () => {

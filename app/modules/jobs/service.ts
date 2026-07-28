@@ -97,10 +97,12 @@ export class JobsService {
   async list(filters: JobListFilters): Promise<PaginatedJobsDTO> {
     const pageSize = clamp(filters.pageSize, 25, 1, 100);
     const page = clamp(filters.page, 1, 1, 10_000);
-    const where = buildJobWhere(filters);
-    // Captured once for the whole call so every row in this response is
-    // judged against the same instant, rather than drifting row-to-row.
+    // Captured once for the whole call - both for the where-clause's own
+    // needsAttention predicate and for judging every returned row against
+    // the same instant, rather than drifting row-to-row or disagreeing with
+    // which rows were actually selected.
     const now = new Date();
+    const where = buildJobWhere(filters, now);
 
     const [total, rows] = await Promise.all([
       this.db.job.count({ where }),
@@ -205,18 +207,16 @@ export class JobsService {
       // (overdue / unassigned-and-active / unscheduled) — NOT a sum of three
       // separate counts, which would double-count jobs matching more than
       // one predicate. See dispatchRules.jobNeedsAttention's own doc comment
-      // for the same warning; this is that function's logic expressed in
-      // Prisma where-clause form since a JS predicate can't be passed into
-      // a count query.
+      // for the same warning. buildNeedsAttentionWhere is the single shared
+      // definition of this OR clause - buildJobWhere's ?needsAttention=true
+      // list filter reuses the exact same function, so the summary count
+      // and the work-queue list can never silently diverge on what "needs
+      // attention" means.
       this.db.job.count({
         where: {
           orgId,
           archivedAt: null,
-          OR: [
-            { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
-            { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },
-            { status: "unscheduled" },
-          ],
+          ...buildNeedsAttentionWhere(now),
         },
       }),
     ]);
@@ -1219,8 +1219,84 @@ function scopedJobAccessWhere(orgId: string, actor: { userId: string; role: stri
   return { orgId };
 }
 
-function buildJobWhere(filters: JobListFilters): Prisma.JobWhereInput {
+/**
+ * Prisma where-clause form of dispatchRules.jobNeedsAttention, expressed as
+ * a single OR'd condition since a JS predicate can't be passed into a
+ * Prisma query. Shared by buildJobWhere (the ?needsAttention=true list
+ * filter) and JobsService.getDispatchSummary (the needsAttention count) so
+ * "which jobs need attention" is defined in exactly one place, not two
+ * independently-maintained copies of the same OR array.
+ */
+function buildNeedsAttentionWhere(now: Date): Prisma.JobWhereInput {
+  const terminalStatuses = [...TERMINAL_JOB_STATUSES];
+  const inProgressStatuses = [...IN_PROGRESS_JOB_STATUSES];
+  return {
+    OR: [
+      { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
+      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },
+      { status: "unscheduled" },
+    ],
+  };
+}
+
+function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput {
   const search = filters.search?.trim();
+
+  // Each optional predicate is pushed as its own object into a single AND
+  // array rather than spread directly onto the returned where-object.
+  // Several of these need their own top-level `OR` key (search,
+  // needsAttention) or `assignments` key (technicianId, unassigned/assigned)
+  // - a single JS object literal can only hold one value per key, so
+  // spreading two of them together would let the later one silently
+  // overwrite the earlier one instead of combining. Prisma's `AND` array
+  // combines separate where-objects with real AND semantics even when they
+  // share a key name, so this composes safely regardless of which optional
+  // filters are active together.
+  const conditions: Prisma.JobWhereInput[] = [];
+
+  if (filters.scheduledFrom) conditions.push({ scheduledStart: { gte: filters.scheduledFrom } });
+  if (filters.scheduledTo) conditions.push({ scheduledStart: { lte: filters.scheduledTo } });
+
+  if (filters.technicianId) {
+    conditions.push({
+      assignments: {
+        some: {
+          userId: filters.technicianId,
+          removedAt: null,
+        },
+      },
+    });
+  }
+
+  // Tri-state: true -> only unassigned jobs, false -> only assigned jobs,
+  // undefined (omitted) -> no assignment filter at all. Branching on strict
+  // equality (not truthiness) is required here: `unassigned ? ... : {}`
+  // would treat `false` the same as `undefined` and silently return every
+  // job for an explicit "assigned" filter request.
+  if (filters.unassigned === true) {
+    conditions.push({ assignments: { none: { removedAt: null } } });
+  } else if (filters.unassigned === false) {
+    conditions.push({ assignments: { some: { removedAt: null } } });
+  }
+
+  if (filters.needsAttention === true) {
+    conditions.push(buildNeedsAttentionWhere(now));
+  }
+
+  if (search) {
+    conditions.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { jobNumber: { contains: search, mode: "insensitive" } },
+        { jobType: { contains: search, mode: "insensitive" } },
+        { project: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { name: { contains: search, mode: "insensitive" } } },
+        { serviceAddress: { addressLine1: { contains: search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
   return {
     ...scopedJobAccessWhere(filters.orgId, filters.auth),
     status: filters.status,
@@ -1228,47 +1304,7 @@ function buildJobWhere(filters: JobListFilters): Prisma.JobWhereInput {
     projectId: filters.projectId,
     customerId: filters.customerId,
     archivedAt: filters.archived ? { not: null } : null,
-    scheduledStart: filters.scheduledFrom || filters.scheduledTo ? {} : undefined,
-    ...(filters.scheduledFrom || filters.scheduledTo
-      ? {
-          AND: [
-            filters.scheduledFrom ? { scheduledStart: { gte: filters.scheduledFrom } } : {},
-            filters.scheduledTo ? { scheduledStart: { lte: filters.scheduledTo } } : {},
-          ],
-        }
-      : {}),
-    ...(filters.technicianId
-      ? {
-          assignments: {
-            some: {
-              userId: filters.technicianId,
-              removedAt: null,
-            },
-          },
-        }
-      : {}),
-    ...(filters.unassigned
-      ? {
-          assignments: {
-            none: {
-              removedAt: null,
-            },
-          },
-        }
-      : {}),
-    ...(search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            { jobNumber: { contains: search, mode: "insensitive" } },
-            { jobType: { contains: search, mode: "insensitive" } },
-            { project: { name: { contains: search, mode: "insensitive" } } },
-            { customer: { name: { contains: search, mode: "insensitive" } } },
-            { serviceAddress: { addressLine1: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
+    ...(conditions.length > 0 ? { AND: conditions } : {}),
   };
 }
 

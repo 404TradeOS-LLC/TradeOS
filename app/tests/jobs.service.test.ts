@@ -294,6 +294,17 @@ describe("JobsService", () => {
   });
 
   describe("list", () => {
+    // buildJobWhere composes optional predicates as separate entries in a
+    // shared `AND` array (rather than spreading each one directly onto the
+    // where-object), since more than one of them can need the same
+    // top-level key (`assignments` for technicianId/unassigned, `OR` for
+    // search/needsAttention) and a single JS object can only hold one value
+    // per key. These assertions check the AND array's contents accordingly.
+    function andConditions(where: unknown): unknown[] {
+      const and = (where as { AND?: unknown[] })?.AND;
+      return Array.isArray(and) ? and : [];
+    }
+
     it("builds an assignments.none where clause for the unassigned filter", async () => {
       const service = new JobsService(mockDb as never);
 
@@ -303,21 +314,33 @@ describe("JobsService", () => {
         unassigned: true,
       });
 
-      expect(mockDb.job.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            orgId: "org-1",
-            assignments: { none: { removedAt: null } },
-          }),
-        })
-      );
-      expect(mockDb.job.count).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            assignments: { none: { removedAt: null } },
-          }),
-        })
-      );
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.orgId).toBe("org-1");
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+
+      const countWhere = mockDb.job.count.mock.calls[0][0].where;
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+    });
+
+    it("builds an assignments.some where clause for unassigned: false (assigned-only), not the same as omitted", async () => {
+      // Regression guard: `filters.unassigned ? X : {}` would treat
+      // `unassigned: false` identically to omitted (no filter at all,
+      // returning every job) instead of actively filtering to only jobs
+      // that currently have an active assignment.
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        unassigned: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.orgId).toBe("org-1");
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
+
+      const countWhere = mockDb.job.count.mock.calls[0][0].where;
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
     });
 
     it("does not add an assignments filter when unassigned is omitted", async () => {
@@ -328,11 +351,76 @@ describe("JobsService", () => {
         auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
       });
 
-      expect(mockDb.job.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.not.objectContaining({ assignments: expect.anything() }),
-        })
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.assignments).toBeUndefined();
+      for (const condition of andConditions(findManyWhere)) {
+        expect((condition as { assignments?: unknown }).assignments).toBeUndefined();
+      }
+    });
+
+    it("filters to only jobs needing attention when needsAttention: true, reusing the same OR clause getDispatchSummary uses", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: true,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      const orCondition = andConditions(findManyWhere).find((condition) => Array.isArray((condition as { OR?: unknown }).OR)) as
+        | { OR: unknown[] }
+        | undefined;
+      expect(orCondition).toBeDefined();
+      expect(orCondition!.OR).toHaveLength(3);
+      expect(orCondition!.OR).toEqual(
+        expect.arrayContaining([
+          { status: { in: ["scheduled", "dispatched", "traveling", "on_site", "paused"] }, scheduledStart: { lt: expect.any(Date) } },
+          { status: { notIn: ["completed", "cancelled"] }, assignments: { none: { removedAt: null } } },
+          { status: "unscheduled" },
+        ])
       );
+    });
+
+    it("does not add a needsAttention filter when omitted or explicitly false", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(andConditions(findManyWhere).some((condition) => Array.isArray((condition as { OR?: unknown }).OR))).toBe(false);
+    });
+
+    it("combines needsAttention and search as two independent AND-array entries without one silently overwriting the other's OR clause", async () => {
+      // Regression guard: before buildJobWhere composed its optional
+      // predicates via a shared AND array, two blocks that each wrote a
+      // top-level `OR` key (search's text-match OR, and needsAttention's
+      // attention-predicate OR) would collide on the same object property -
+      // only the last one spread onto the where-object would survive.
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        needsAttention: true,
+        search: "furnace",
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      const orClauses = andConditions(findManyWhere)
+        .map((condition) => (condition as { OR?: unknown[] }).OR)
+        .filter((or): or is unknown[] => Array.isArray(or));
+
+      expect(orClauses).toHaveLength(2);
+      const needsAttentionOr = orClauses.find((or) => or.length === 3);
+      const searchOr = orClauses.find((or) => or.length === 7);
+      expect(needsAttentionOr).toBeDefined();
+      expect(searchOr).toBeDefined();
+      expect(searchOr).toContainEqual({ title: { contains: "furnace", mode: "insensitive" } });
     });
 
     it("enriches list rows with project/customer/assignedTechnicians and dispatch-attention booleans", async () => {

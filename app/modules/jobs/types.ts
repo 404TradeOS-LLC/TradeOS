@@ -20,6 +20,7 @@ export interface JobListFilters {
   archived?: boolean;
   search?: string;
   unassigned?: boolean;
+  needsAttention?: boolean;
   page?: number;
   pageSize?: number;
 }
