@@ -104,6 +104,14 @@ describe("getOrgDayBoundaryUtc", () => {
    * guards against); round-tripping through Intl itself, rather than
    * hand-computing an expected UTC instant, is what actually proves the
    * boundary lands on the correct local calendar day and time.
+   *
+   * Uses `hourCycle: "h23"` (0-23, midnight = "00") rather than
+   * `hour12: false` - per the Intl.DateTimeFormat spec, an explicit
+   * `hour12` option always overrides `hourCycle`, and different ICU
+   * builds default `hour12: false` to different hour cycles (some render
+   * exact local midnight as "24:00:00" instead of "00:00:00"). Pinning
+   * `hourCycle` explicitly (with no `hour12` present to override it) is
+   * the only way to get a consistent, environment-independent result.
    */
   function formatInZone(instant: Date, timezone: string): string {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -114,7 +122,7 @@ describe("getOrgDayBoundaryUtc", () => {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-      hour12: false,
+      hourCycle: "h23",
     }).formatToParts(instant);
     const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "??";
     return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
