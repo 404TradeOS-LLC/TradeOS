@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { CalendarClock, CloudRain, Sparkles, UserRoundX } from "lucide-react";
+import { CalendarClock, ClipboardCheck, Sparkles, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -12,18 +12,17 @@ interface OwnerBriefingItem {
   label: string;
   value: string;
   icon: ComponentType<{ className?: string }>;
-  tone: "neutral" | "warning";
 }
 
 const OWNER_BRIEFING_ITEMS: OwnerBriefingItem[] = [
-  { label: "Scheduled jobs", value: "8", icon: CalendarClock, tone: "neutral" },
-  { label: "Estimates awaiting approval", value: "2", icon: Sparkles, tone: "neutral" },
-  { label: "Weather watch", value: "Rain after 3 PM", icon: CloudRain, tone: "warning" },
-  { label: "Capacity risk", value: "One technician overloaded", icon: UserRoundX, tone: "warning" },
+  { label: "Schedule briefing", value: "Connect live schedule source", icon: CalendarClock },
+  { label: "Estimate follow-up", value: "Use Needs attention today", icon: ClipboardCheck },
+  { label: "Dispatch actions", value: "Open project workspaces", icon: Wrench },
+  { label: "AI recommendations", value: "Not connected in this foundation", icon: Sparkles },
 ];
 
 const ASSISTANT_BRIEFING_COPY =
-  "Good morning. Today you have: 8 scheduled jobs, 2 estimates awaiting approval, rain expected after 3 PM, one technician overloaded. Suggested actions: Review, Schedule, Open Dispatch.";
+  "AI owner briefings are not connected yet. This panel is a disabled dashboard foundation slot; use the live KPI and Needs attention cards for current project signals.";
 
 const SUGGESTED_ACTIONS = ["Review", "Schedule", "Open Dispatch"];
 
@@ -34,10 +33,10 @@ export function AIAssistantPlaceholderPanel({ className }: AIAssistantPlaceholde
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>AI Assistant</CardTitle>
-            <CardDescription>Owner briefing placeholder for the dashboard foundation.</CardDescription>
+            <CardDescription>Non-live owner briefing placeholder for the dashboard foundation.</CardDescription>
           </div>
           <div className="rounded-full border border-border/70 bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
-            UI preview
+            Not connected
           </div>
         </div>
       </CardHeader>
@@ -51,18 +50,10 @@ export function AIAssistantPlaceholderPanel({ className }: AIAssistantPlaceholde
             return (
               <div
                 key={item.label}
-                className={cn(
-                  "rounded-xl border border-border/60 bg-background/80 p-4",
-                  item.tone === "warning" ? "ring-1 ring-primary/20" : ""
-                )}
+                className="rounded-xl border border-border/60 bg-background/80 p-4"
               >
                 <div className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      "rounded-lg border border-border/60 p-2 text-muted-foreground",
-                      item.tone === "warning" ? "bg-primary/10 text-primary" : "bg-muted/30"
-                    )}
-                  >
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-muted-foreground">
                     <Icon className="size-4" aria-hidden="true" />
                   </div>
                   <div className="min-w-0">

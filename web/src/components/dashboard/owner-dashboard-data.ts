@@ -29,6 +29,7 @@ export interface OwnerKpiInput {
   invoicesWaiting: number;
   unscheduledJobs: number;
   overdueTasks: number;
+  scopeLabel: string;
 }
 
 export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
@@ -37,7 +38,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "todays-jobs",
       label: "Today's Jobs",
       value: String(input.todaysJobs),
-      helper: "Scheduled for field execution today",
+      helper: `Scheduled for field execution today in the ${input.scopeLabel}`,
       icon: CalendarClock,
       tone: "neutral",
     },
@@ -45,7 +46,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "open-estimates",
       label: "Open Estimates",
       value: String(input.openEstimates),
-      helper: "Draft or ready estimates awaiting follow-through",
+      helper: `Draft or ready estimates in the ${input.scopeLabel}`,
       icon: ClipboardCheck,
       tone: "neutral",
     },
@@ -53,7 +54,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "revenue-this-week",
       label: "Revenue This Week",
       value: input.revenueThisWeek,
-      helper: "Paid invoices recorded this week",
+      helper: `Paid invoices recorded this week in the ${input.scopeLabel}`,
       icon: CircleDollarSign,
       tone: "success",
     },
@@ -61,7 +62,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "invoices-waiting",
       label: "Invoices Waiting",
       value: String(input.invoicesWaiting),
-      helper: "Sent, overdue, or partially paid invoices",
+      helper: `Sent, overdue, or partially paid invoices in the ${input.scopeLabel}`,
       icon: ReceiptText,
       tone: input.invoicesWaiting > 0 ? "attention" : "neutral",
     },
@@ -69,7 +70,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "unscheduled-jobs",
       label: "Unscheduled Jobs",
       value: String(input.unscheduledJobs),
-      helper: "Jobs that still need a calendar slot",
+      helper: `Active jobs that still need a calendar slot in the ${input.scopeLabel}`,
       icon: AlertTriangle,
       tone: input.unscheduledJobs > 0 ? "attention" : "neutral",
     },
@@ -77,7 +78,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       id: "overdue-tasks",
       label: "Overdue Tasks",
       value: String(input.overdueTasks),
-      helper: "Open project tasks past due",
+      helper: `Open project tasks past due in the ${input.scopeLabel}`,
       icon: ListTodo,
       tone: input.overdueTasks > 0 ? "attention" : "neutral",
     },
@@ -94,81 +95,6 @@ export interface OwnerScheduleItem {
   status: "scheduled" | "dispatched" | "on_site";
 }
 
-export const mockTodayScheduleItems: OwnerScheduleItem[] = [
-  {
-    id: "sched-1",
-    timeWindow: "7:30 AM",
-    title: "Roof leak triage",
-    customer: "Morgan Lee",
-    address: "1428 Maple Ridge Dr.",
-    crew: "Avery + Luis",
-    status: "dispatched",
-  },
-  {
-    id: "sched-2",
-    timeWindow: "8:15 AM",
-    title: "Kitchen lighting rough-in",
-    customer: "Hannah Patel",
-    address: "88 Meridian Ave.",
-    crew: "North crew",
-    status: "scheduled",
-  },
-  {
-    id: "sched-3",
-    timeWindow: "9:00 AM",
-    title: "Panel replacement closeout",
-    customer: "Oak Street HOA",
-    address: "420 Oak St.",
-    crew: "Dana",
-    status: "on_site",
-  },
-  {
-    id: "sched-4",
-    timeWindow: "10:30 AM",
-    title: "Bathroom remodel walkthrough",
-    customer: "Jamie Rivera",
-    address: "712 Fletcher Pl.",
-    crew: "Remodel crew",
-    status: "scheduled",
-  },
-  {
-    id: "sched-5",
-    timeWindow: "12:00 PM",
-    title: "Supply pickup and staging",
-    customer: "TradeOS warehouse",
-    address: "West yard",
-    crew: "Luis",
-    status: "scheduled",
-  },
-  {
-    id: "sched-6",
-    timeWindow: "1:15 PM",
-    title: "Riverside HVAC follow-up",
-    customer: "Riverside Commons",
-    address: "31 River Rd.",
-    crew: "Avery",
-    status: "scheduled",
-  },
-  {
-    id: "sched-7",
-    timeWindow: "2:45 PM",
-    title: "Storm damage inspection",
-    customer: "Chen Residence",
-    address: "506 Birch Ct.",
-    crew: "Dana + Luis",
-    status: "scheduled",
-  },
-  {
-    id: "sched-8",
-    timeWindow: "4:00 PM",
-    title: "Change order review",
-    customer: "Cedar Mill Builders",
-    address: "144 Cedar Mill Ln.",
-    crew: "Owner",
-    status: "scheduled",
-  },
-];
-
 export type OwnerActivityTone = "success" | "info" | "warning";
 
 export interface OwnerActivityEntry {
@@ -180,45 +106,6 @@ export interface OwnerActivityEntry {
   actor: string;
   tone: OwnerActivityTone;
 }
-
-export const mockOwnerActivityEntries: OwnerActivityEntry[] = [
-  {
-    id: "recent-estimate-approved",
-    title: "Recent estimate approved",
-    description: "Kitchen lighting upgrade estimate v3 was approved and is ready for proposal follow-through.",
-    occurredAt: "2026-07-18T14:10:00.000Z",
-    category: "Estimate",
-    actor: "Morgan Lee",
-    tone: "success",
-  },
-  {
-    id: "invoice-paid",
-    title: "Invoice paid",
-    description: "Final invoice for the Oak Street panel replacement was paid in full.",
-    occurredAt: "2026-07-18T12:35:00.000Z",
-    category: "Invoice",
-    actor: "TradeOS Payments",
-    tone: "success",
-  },
-  {
-    id: "job-completed",
-    title: "Job completed",
-    description: "The Riverside HVAC service call was marked complete by the field team.",
-    occurredAt: "2026-07-17T21:20:00.000Z",
-    category: "Job",
-    actor: "Avery Chen",
-    tone: "info",
-  },
-  {
-    id: "customer-review-received",
-    title: "Customer review received",
-    description: "The homeowner left a five-star review after the completed bathroom remodel walkthrough.",
-    occurredAt: "2026-07-17T16:05:00.000Z",
-    category: "Customer",
-    actor: "Jamie Rivera",
-    tone: "warning",
-  },
-];
 
 export interface OwnerQuickAction {
   id: string;

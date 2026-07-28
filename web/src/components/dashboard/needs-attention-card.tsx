@@ -63,11 +63,13 @@ export function NeedsAttentionCard({
   proposals,
   invoices,
   readyToStart,
+  scopeLabel,
 }: {
   estimates: AttentionEstimateRow[];
   proposals: AttentionProposalRow[];
   invoices: AttentionInvoiceRow[];
   readyToStart: AttentionStartRow[];
+  scopeLabel: string;
 }) {
   const hasAnything = estimates.length + proposals.length + invoices.length + readyToStart.length > 0;
 
@@ -75,7 +77,7 @@ export function NeedsAttentionCard({
     <Card className="border-border/70">
       <CardHeader>
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>The decisions and next steps across every project, ahead of the summary metrics below.</CardDescription>
+        <CardDescription>The decisions and next steps found in the {scopeLabel}, ahead of the summary metrics below.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {!hasAnything ? (

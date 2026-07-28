@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getKnowledgeStats, getOrganizationSettings, getProject, listProjects } from "@/lib/api";
+import { getKnowledgeStats, getOrganizationSettings, getProject, listProjects, type JobSummary } from "@/lib/api";
 import { formatCurrency, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { isTerminalStatus, jobStatuses } from "@/domain";
 import {
   NeedsAttentionCard,
   type AttentionEstimateRow,
@@ -14,12 +16,7 @@ import {
   type AttentionStartRow,
 } from "@/components/dashboard/needs-attention-card";
 import { AIAssistantPlaceholderPanel } from "@/components/dashboard/ai-assistant-placeholder-panel";
-import {
-  buildOwnerKpis,
-  mockOwnerActivityEntries,
-  mockTodayScheduleItems,
-  ownerQuickActions,
-} from "@/components/dashboard/owner-dashboard-data";
+import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
 import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
 import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
 import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
@@ -32,6 +29,9 @@ export const metadata: Metadata = {
   description: "Morning command center for contractor owners to review jobs, estimates, invoices, schedule pressure, and activity.",
 };
 
+const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
+const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
+
 // Proposal money fields come off the wire as Prisma Decimal-serialized
 // strings on this endpoint (unlike estimates/invoices, which are normalized
 // server-side) - coerce before arithmetic so `sum + amount` doesn't silently
@@ -43,38 +43,64 @@ function toProposalAmount(proposal: { finalPrice: number | null; priceHigh: numb
   return Number.isFinite(value) ? value : null;
 }
 
-function isSameDay(value: string | null | undefined, comparison: Date) {
-  if (!value) return false;
+function toValidDate(value: string | null | undefined) {
+  if (!value) return null;
   const date = new Date(value);
-  return (
-    Number.isFinite(date.getTime()) &&
-    date.getFullYear() === comparison.getFullYear() &&
-    date.getMonth() === comparison.getMonth() &&
-    date.getDate() === comparison.getDate()
-  );
+  return Number.isFinite(date.getTime()) ? date : null;
 }
 
-function isSameWeek(value: string | null | undefined, comparison: Date) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return false;
+function getZonedDayOrdinal(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
 
-  const start = new Date(comparison);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - start.getDay());
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-
-  return date >= start && date < end;
+  return Date.UTC(year, month - 1, day) / 86_400_000;
 }
 
-function isPastDue(value: string | null | undefined, comparison: Date) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return false;
-  date.setHours(23, 59, 59, 999);
-  return date < comparison;
+function getSafeTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+function isSameDay(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  return date ? getZonedDayOrdinal(date, timeZone) === getZonedDayOrdinal(comparison, timeZone) : false;
+}
+
+function isSameWeek(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  if (!date) return false;
+  const comparisonDay = getZonedDayOrdinal(comparison, timeZone);
+  const weekStart = comparisonDay - new Date(comparisonDay * 86_400_000).getUTCDay();
+  const targetDay = getZonedDayOrdinal(date, timeZone);
+
+  return targetDay >= weekStart && targetDay < weekStart + 7;
+}
+
+function isPastDue(value: string | null | undefined, comparison: Date, timeZone: string) {
+  const date = toValidDate(value);
+  return date ? getZonedDayOrdinal(date, timeZone) < getZonedDayOrdinal(comparison, timeZone) : false;
+}
+
+function isActionableJob(job: Pick<JobSummary, "status" | "archivedAt">) {
+  return !job.archivedAt && ACTIONABLE_JOB_STATUSES.has(job.status);
+}
+
+function getProjectScopeLabel(projectCount: number) {
+  if (projectCount === 0) return "loaded project set";
+  if (projectCount === 1) return "1 loaded project";
+  if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) return `${projectCount} loaded projects`;
+  return `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
 }
 
 export default async function DashboardPage() {
@@ -82,31 +108,36 @@ export default async function DashboardPage() {
   const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
   const [projectDetails, knowledgeStats] = token
     ? await Promise.all([
-        Promise.all(projects.slice(0, 8).map((project) => getProject(token, project.id))),
+        Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
         getKnowledgeStats(token),
       ])
     : [[], null];
 
   const now = new Date();
-  const companyName = mergeTradeOsSettingsDraft(settingsResponse?.settings).companyName;
+  const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
+  const companyName = settings.companyName;
+  const timeZone = getSafeTimeZone(settings.timezone);
+  const projectScopeLabel = getProjectScopeLabel(projectDetails.length);
   const currentDateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone,
     weekday: "long",
     month: "long",
     day: "numeric",
   }).format(now);
   const allJobs = projectDetails.flatMap((project) => project.jobs);
-  const todayLiveJobs = allJobs.filter((job) => isSameDay(job.scheduledStart, now)).length;
-  const unscheduledJobs = allJobs.filter((job) => job.status === "unscheduled" || !job.scheduledStart).length;
+  const actionableJobs = allJobs.filter(isActionableJob);
+  const todayLiveJobs = actionableJobs.filter((job) => job.status !== "unscheduled" && isSameDay(job.scheduledStart, now, timeZone)).length;
+  const unscheduledJobs = actionableJobs.filter((job) => job.status === "unscheduled" || !job.scheduledStart).length;
   const overdueTasks = projectDetails
     .flatMap((project) => project.tasks)
-    .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now)).length;
+    .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now, timeZone)).length;
   const openEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
   const invoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
     .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
   const revenueThisWeek = projectDetails
     .flatMap((project) => project.invoices)
-    .filter((invoice) => invoice.status === "paid" && isSameWeek(invoice.paidAt, now))
+    .filter((invoice) => invoice.status === "paid" && isSameWeek(invoice.paidAt, now, timeZone))
     .reduce((sum, invoice) => sum + invoice.amount, 0);
 
   const attentionEstimates: AttentionEstimateRow[] = projectDetails.flatMap((project) =>
@@ -159,12 +190,13 @@ export default async function DashboardPage() {
     }));
   const notificationCount = attentionEstimates.length + attentionProposals.length + attentionInvoices.length + attentionReadyToStart.length;
   const ownerKpis = buildOwnerKpis({
-    todaysJobs: Math.max(todayLiveJobs, mockTodayScheduleItems.length),
+    todaysJobs: todayLiveJobs,
     openEstimates,
     revenueThisWeek: formatCurrency(revenueThisWeek),
     invoicesWaiting,
     unscheduledJobs,
     overdueTasks,
+    scopeLabel: projectScopeLabel,
   });
 
   return (
@@ -178,14 +210,23 @@ export default async function DashboardPage() {
         proposals={attentionProposals}
         invoices={attentionInvoices}
         readyToStart={attentionReadyToStart}
+        scopeLabel={projectScopeLabel}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <OwnerTodaySchedule items={mockTodayScheduleItems} />
+        <OwnerTodaySchedule items={[]} />
         <AIAssistantPlaceholderPanel />
       </div>
 
-      <OwnerActivityFeed entries={mockOwnerActivityEntries} />
+      <OwnerActivityFeed
+        entries={[]}
+        emptyState={
+          <EmptyState
+            title="No live owner activity source is connected yet."
+            description="This dashboard foundation does not fabricate customer, job, invoice, or review activity. Live activity can appear here once an authoritative activity feed is wired."
+          />
+        }
+      />
 
       <OwnerQuickActions actions={ownerQuickActions} />
 

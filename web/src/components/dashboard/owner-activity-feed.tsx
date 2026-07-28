@@ -21,8 +21,8 @@ const toneStyles: Record<OwnerActivityTone, string> = {
 export function OwnerActivityFeed({
   entries,
   title = "Owner activity",
-  description = "A concise timeline of customer, job, estimate, and payment milestones.",
-  emptyState = <EmptyState title="No owner activity yet." description="Approved estimates, paid invoices, completed jobs, and customer reviews will appear here." />,
+  description = "A concise timeline of customer, job, estimate, and payment milestones when a live activity source is connected.",
+  emptyState = <EmptyState title="No owner activity yet." description="Live customer, job, estimate, and payment milestones will appear here once an authoritative activity feed is wired." />,
 }: OwnerActivityFeedProps) {
   return (
     <Card className="border-border/70">
