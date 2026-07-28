@@ -119,17 +119,36 @@ function addCalendarDays(parts: LocalCalendarParts, days: number): LocalCalendar
 
 /**
  * Computes the UTC instant corresponding to local midnight (00:00:00.000) on
- * the given local calendar day in `timezone`, without iterative guessing:
- * treat the Y/M/D as if it were a UTC instant ("naive" instant), read the
- * real UTC offset in effect for the timezone at that naive instant, then
- * shift by that offset. This is correct for real calendar-day boundaries
- * (including on DST-transition days themselves, since transitions occur at
- * a specific local clock time, not at every possible local midnight).
+ * the given local calendar day in `timezone`.
+ *
+ * Treats the Y/M/D as if it were a UTC instant ("naive" instant), reads the
+ * UTC offset in effect *at that naive instant*, and shifts by it to get a
+ * first candidate. That single-pass approach is correct for the vast
+ * majority of zones/dates, but is WRONG whenever the offset in effect at the
+ * naive instant differs from the offset actually in effect at the resulting
+ * candidate instant — which happens for zones whose DST transition falls at
+ * or near local midnight itself (e.g. America/Santiago), where reading the
+ * offset at the naive instant can select the wrong side of the transition
+ * and land the boundary an hour (or more) into the wrong local day.
+ *
+ * Fixed by re-resolving the offset AT the candidate instant and recomputing
+ * if it changed, iterating to a fixed point (bounded, since a real timezone
+ * transition is a single step at one instant, not an oscillation — this
+ * always converges in at most a couple of iterations).
  */
 function utcInstantForLocalMidnight(year: number, month: number, day: number, timezone: string): Date {
   const naiveUtcMs = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
-  const offsetMinutes = readUtcOffsetMinutes(new Date(naiveUtcMs), timezone);
-  return new Date(naiveUtcMs - offsetMinutes * 60_000);
+  let offsetMinutes = readUtcOffsetMinutes(new Date(naiveUtcMs), timezone);
+  let candidateMs = naiveUtcMs - offsetMinutes * 60_000;
+
+  for (let i = 0; i < 4; i++) {
+    const resolvedOffsetMinutes = readUtcOffsetMinutes(new Date(candidateMs), timezone);
+    if (resolvedOffsetMinutes === offsetMinutes) break;
+    offsetMinutes = resolvedOffsetMinutes;
+    candidateMs = naiveUtcMs - offsetMinutes * 60_000;
+  }
+
+  return new Date(candidateMs);
 }
 
 /**

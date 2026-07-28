@@ -95,6 +95,74 @@ describe("getOrgDayBoundaryUtc", () => {
     expect(startUtc.toISOString()).toBe("2026-12-31T00:00:00.000Z");
     expect(endUtc.toISOString()).toBe("2027-01-01T00:00:00.000Z");
   });
+
+  /**
+   * Reads the Y/M/D/H/M/S that `instant` formats to in `timezone`, as a
+   * "YYYY-MM-DD HH:mm:ss" string, for exact round-trip assertions below.
+   * A single-pass naive-offset lookup can select the wrong side of a DST
+   * transition that falls at/near local midnight (see the bug this test
+   * guards against); round-tripping through Intl itself, rather than
+   * hand-computing an expected UTC instant, is what actually proves the
+   * boundary lands on the correct local calendar day and time.
+   */
+  function formatInZone(instant: Date, timezone: string): string {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(instant);
+    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "??";
+    return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+  }
+
+  it("resolves local midnight correctly for a DST transition that falls at/near local midnight itself (America/Santiago), not just the offset in effect at the naive UTC instant", () => {
+    // Chile's DST transition falls at local midnight (rather than 2am, like
+    // the US) on the first Saturday of April: for 2026 that's 2026-04-04
+    // going into 2026-04-05. A single-pass "read the offset at the naive
+    // UTC instant, then shift by it" implementation can pick the wrong
+    // side of that transition and land an hour or more into the previous
+    // local day (this is exactly what was reported: the un-fixed code
+    // returned 2026-04-05T03:00:00.000Z, which formats as 2026-04-04
+    // 23:00:00 in America/Santiago, not local midnight of 2026-04-05).
+    const { startUtc, endUtc } = getOrgDayBoundaryUtc(new Date("2026-04-05T12:00:00.000Z"), "America/Santiago");
+
+    expect(formatInZone(startUtc, "America/Santiago")).toBe("2026-04-05 00:00:00");
+    expect(formatInZone(endUtc, "America/Santiago")).toBe("2026-04-06 00:00:00");
+    // Guard against the specific regression: the wrong single-pass answer.
+    expect(startUtc.toISOString()).not.toBe("2026-04-05T03:00:00.000Z");
+  });
+
+  it("classifies a job scheduled just before vs. just after the (corrected) local-midnight boundary on opposite sides of it, across the Santiago transition", () => {
+    const { startUtc, endUtc } = getOrgDayBoundaryUtc(new Date("2026-04-05T12:00:00.000Z"), "America/Santiago");
+
+    const oneMsBeforeStart = new Date(startUtc.getTime() - 1);
+    const oneMsAfterStart = new Date(startUtc.getTime() + 1);
+    const oneMsBeforeEnd = new Date(endUtc.getTime() - 1);
+    const oneMsAfterEnd = new Date(endUtc.getTime() + 1);
+
+    // Mirrors the [gte: startUtc, lt: endUtc) "today" comparison
+    // JobsService.getDispatchSummary actually performs.
+    const isWithinToday = (instant: Date) => instant.getTime() >= startUtc.getTime() && instant.getTime() < endUtc.getTime();
+
+    expect(isWithinToday(oneMsBeforeStart)).toBe(false);
+    expect(isWithinToday(oneMsAfterStart)).toBe(true);
+    expect(isWithinToday(oneMsBeforeEnd)).toBe(true);
+    expect(isWithinToday(oneMsAfterEnd)).toBe(false);
+
+    expect(formatInZone(oneMsBeforeStart, "America/Santiago")).toBe("2026-04-04 23:59:59");
+    expect(formatInZone(oneMsAfterEnd, "America/Santiago")).toBe("2026-04-06 00:00:00");
+  });
+
+  it("resolves local midnight correctly just before and after a standard (non-midnight) DST transition too (America/New_York spring-forward day)", () => {
+    const { startUtc, endUtc } = getOrgDayBoundaryUtc(new Date("2026-03-08T18:00:00.000Z"), "America/New_York");
+    expect(formatInZone(startUtc, "America/New_York")).toBe("2026-03-08 00:00:00");
+    expect(formatInZone(endUtc, "America/New_York")).toBe("2026-03-09 00:00:00");
+  });
 });
 
 describe("getRollingWindowUtc", () => {
