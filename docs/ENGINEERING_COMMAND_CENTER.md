@@ -12,6 +12,8 @@ related_code:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SESSION_HANDOFF.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - .github/workflows/qodana_code_quality.yml
+  - qodana.yaml
 ---
 
 # TradeOS Engineering Command Center
@@ -90,6 +92,8 @@ Expected CI jobs include:
 - `App lint, unit tests, and build`;
 - `App integration tests`;
 - `Web lint and build`.
+
+`Qodana Code Quality` is an advisory JS/TS scan for `app/` and `web/` during baseline rollout. Treat findings as actionable review input, but do not require the check in branch protection until governance is explicitly updated.
 
 Documentation foundation work must run:
 

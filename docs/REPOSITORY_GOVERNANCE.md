@@ -7,6 +7,8 @@ related_code:
   - AGENTS.md
   - .github/workflows/docs-consistency.yml
   - .github/workflows/verify-repository.yml
+  - .github/workflows/qodana_code_quality.yml
+  - qodana.yaml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -48,6 +50,8 @@ Expected verification jobs are:
 - `Web lint and build`.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
+
+`Qodana Code Quality` is advisory during initial baseline stabilization. Do not add it to required branch protection until findings volume, false positives, and failure behavior are reviewed and the ruleset is intentionally updated.
 
 ## Solo-maintainer review posture
 

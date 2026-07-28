@@ -17,6 +17,8 @@ related_code:
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
   - .github/workflows/verify-repository.yml
+  - .github/workflows/qodana_code_quality.yml
+  - qodana.yaml
 ---
 
 # TradeOS Documentation
@@ -100,6 +102,8 @@ Run tests for the checker with:
 ```bash
 npm run docs:test
 ```
+
+Workflow changes must also keep the governance docs aligned. Qodana code-quality rollout is documented as advisory until its baseline is verified and branch protection is intentionally updated.
 
 ## `DOC_OWNERSHIP.yml` format
 
