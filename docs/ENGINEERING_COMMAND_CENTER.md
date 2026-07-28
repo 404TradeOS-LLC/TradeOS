@@ -71,7 +71,7 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 At the last verified handoff:
 
 - PR #30 owns Settings/Brand Studio web and related current-state scope (open — do not duplicate or touch its files from another branch);
-- PR #35 owns first-party operational truth alignment with the Bible (open draft while this branch is validated);
+- PR #35 owns first-party operational truth alignment with the Bible until it lands or is closed;
 - PR #31 (Bible foundation), #32 (Volume 3 expansion, merged into #31's branch), #33 (knowledge-engine Phase A), #34 (knowledge-engine Phase B), #27, #28, and #29 are all merged.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.

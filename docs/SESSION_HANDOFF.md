@@ -22,7 +22,7 @@ PR #35 (`docs/first-party-truth-repair`) has been rebased onto current `origin/m
 
 - PR #31 (Bible foundation), #32 (Volume 3 expansion, merged into #31's branch), #33 (knowledge-engine Phase A), #34 (knowledge-engine Phase B), #27, #28, and #29 are all **merged**.
 - PR #30 — Settings Console brand-asset persistence — open; owns Settings/Brand Studio web and related current-state scope; do not touch or duplicate from another branch.
-- PR #35 — first-party operational truth alignment with the Bible — open draft until this rebased branch validates and GitHub checks pass.
+- PR #35 — first-party operational truth alignment with the Bible — open until its review/merge decision is complete.
 - PR #40 — Owner Dashboard Foundation — open draft and separate from this branch; do not touch from PR #35.
 - PR #42 — Dependabot `fast-uri` bump — open and unrelated to this branch.
 
@@ -42,7 +42,7 @@ PR #35 (`docs/first-party-truth-repair`) has been rebased onto current `origin/m
 
 ## Current blocker
 
-PR #35 remains draft until local validation and GitHub checks pass. It should not be merged or marked ready before that evidence exists.
+No validation blocker remains for PR #35. It should not be merged from an agent session; a human/founder should make the review and merge decision.
 
 ## Next eligible sprint
 
@@ -50,4 +50,4 @@ After PR #35 is merged or closed, S003 — Solo-maintainer governance calibratio
 
 ## Exact next safe action
 
-Finish PR #35 validation, push the rebased branch with `--force-with-lease`, wait for required GitHub checks, and leave it as draft unless explicitly approved to mark ready. Do not merge PR #35 here, do not touch PR #30 or PR #40, and do not begin any Phase C duplicate-tree work without explicit founder authorization.
+If PR #35 is still draft, mark it ready only after final review confirms no defects and checks remain green; otherwise wait for the human/founder merge decision. Do not merge PR #35 here, do not touch PR #30 or PR #40, and do not begin any Phase C duplicate-tree work without explicit founder authorization.
