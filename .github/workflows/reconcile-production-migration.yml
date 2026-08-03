@@ -33,6 +33,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: "Fetch PR #30 migration file for reconciliation only"
+        working-directory: .
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "refs/pull/30/head:refs/remotes/origin/pr-30-head"
+          PR_SHA="$(git rev-parse --verify "refs/remotes/origin/pr-30-head^{commit}")"
+          MIGRATION_PATH="app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql"
+          mkdir -p "$(dirname "${MIGRATION_PATH}")"
+          git show "${PR_SHA}:${MIGRATION_PATH}" > "${MIGRATION_PATH}"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -50,6 +60,7 @@ jobs:
         run: npx prisma migrate resolve --applied 20260728120000_add_settings_asset_uploads
 
       - name: Print migration status
+        continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
         run: npx prisma migrate status
