@@ -38,7 +38,8 @@ promoting another sprint.
 - marked S003 `DONE` with its merged PR and merge SHA as evidence;
 - aligned the Bible and Command Center with the completed sprint; and
 - left S004 and every later sprint unchanged because no sprint is currently
-  marked `READY`.
+  marked `READY`;
+- opened draft PR #74 for this isolated completion-evidence branch.
 
 ## Verification
 
@@ -49,8 +50,10 @@ promoting another sprint.
 - documentation ownership check: passed against `origin/main`
 - `git diff --check`: passed
 - complete four-file diff review: passed; no unrelated changes
+- draft PR #74 creation: passed
 
 ## Next exact safe action
 
-Publish this branch and open one draft completion-evidence PR. Do not start
-another sprint from this branch.
+Review draft PR #74 at its exact published head. Merge it only after the branch
+is current, every required check passes, and review finds no blockers. Do not
+start another sprint from this branch.

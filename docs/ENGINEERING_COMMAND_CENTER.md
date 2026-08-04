@@ -72,7 +72,8 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub state verified on 2026-08-04 after S003 merged:
+Live GitHub state verified on 2026-08-04 after S003 merged and before the
+completion-evidence branch was created:
 
 - no pull requests were open;
 - PR #73 was merged as `9b3ebb24`;
@@ -82,8 +83,8 @@ Live GitHub state verified on 2026-08-04 after S003 merged:
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
-This small completion-evidence branch owns only the S003 status and handoff
-update. Do not promote or start another sprint from it.
+Draft PR #74 now owns only the S003 status and handoff update. Do not promote
+or start another sprint from it.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
