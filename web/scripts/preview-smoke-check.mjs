@@ -76,7 +76,7 @@ const SECRET_PATTERNS = [
 
 const ROUTES = [
   // path, expectation
-  { path: "/", expect: "redirect-to-login-or-dashboard" },
+  { path: "/", expect: "redirect-to-login" },
   { path: "/login", expect: "ok" },
   { path: "/signup", expect: "ok" },
   { path: "/dashboard", expect: "redirect-to-login" },
@@ -138,13 +138,6 @@ async function checkRoute({ path, expect }) {
       logResult(
         status >= 300 && status < 400 && !!location && location.includes("/login"),
         `${path} redirects unauthenticated requests to /login`,
-        `got ${status} location=${location ?? "(none)"}`
-      );
-      break;
-    case "redirect-to-login-or-dashboard":
-      logResult(
-        status >= 300 && status < 400 && !!location && (location.includes("/login") || location.includes("/dashboard")),
-        `${path} redirects to /login or /dashboard`,
         `got ${status} location=${location ?? "(none)"}`
       );
       break;
