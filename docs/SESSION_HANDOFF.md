@@ -39,9 +39,9 @@ Prepare a reviewable database-security hardening change for the validated Supaba
 - passed: TypeScript lint and backend build
 - passed: PostgreSQL parser validation of the complete migration SQL
 - passed: documentation checker tests, documentation ownership check, and final whitespace/diff review
-- blocked: `npm run test:integration` cannot start because `docker` is not installed in the current environment; the live tests are present but must run in CI or a Docker-capable workstation
-- pending at handoff: remote push and pull-request creation; no production deployment has been attempted
+- passed in GitHub Actions: Docker-backed `npm run test:integration`, including the new migration-history and auth-record negative/positive cases
+- pull request: PR #65 is open with all repository, documentation, integration, and Vercel checks passing; no production deployment has been attempted
 
 ## Next exact safe action
 
-Run the repository documentation gates and final diff review, commit and push the branch, open a security-hardening pull request, and require the GitHub App integration job to prove the migration and live RLS tests before merge. After merge, use the normal approval-gated production migration workflow; then rerun Supabase security advisors to confirm the targeted findings clear.
+Complete independent review and merge PR #65. After merge, use the normal approval-gated production migration workflow; then rerun Supabase security advisors to confirm the targeted findings clear.

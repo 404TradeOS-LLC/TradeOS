@@ -100,7 +100,7 @@ See module docs in `docs/modules/`.
 
 - the repository now includes `20260804020000_harden_database_security_boundaries`, which enables RLS on Prisma migration history without forcing it for the table-owning migration administrator, revokes runtime/public migration-history privileges, pins the eight existing RLS helper functions to an empty search path, and replaces three permissive auth-record update checks with guarded policies plus immutable identity triggers
 - `app/scripts/sql/provision-app-role.sql` reapplies the `_prisma_migrations` privilege exception after its broad runtime table grant, preserving the boundary on every idempotent role provisioning run
-- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build pass on the security-hardening branch; the Docker-backed live RLS integration harness is added but remains unexecuted in the current environment because Docker is unavailable
+- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build pass on the security-hardening branch; GitHub Actions also completed the Docker-backed live RLS integration suite successfully
 - merging this branch does not change the live database by itself; normal production rollout remains manual and Environment-approval-gated through the tracked migration deployment workflow
 
 - migration `20260703090000_add_search_trgm_indexes` enables PostgreSQL `pg_trgm`
