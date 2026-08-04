@@ -44,9 +44,9 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 ## Current milestone
 
 The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
-governance calibration) is now the active sprint on
-`docs/s003-solo-maintainer-governance`, based on `main` commit `cdadd24d`.
-It is documentation-only and must not change GitHub settings.
+governance calibration) is complete: PR #73 merged on 2026-08-04 as
+`9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. No sprint is currently marked
+`READY`; completing S003 does not implicitly promote S004 or any later sprint.
 
 Completed foundation work includes:
 
@@ -72,17 +72,19 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub state verified on 2026-08-04 before S003 started:
+Live GitHub state verified on 2026-08-04 after S003 merged and before the
+completion-evidence branch was created:
 
 - no pull requests were open;
+- PR #73 was merged as `9b3ebb24`;
 - PR #49 was closed unmerged and Qodana was deferred;
 - PR #51 was merged as `cdadd24d`;
 - PR #64 was closed unmerged as obsolete;
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
-Draft PR #73 now owns S003's governance-documentation scope. Do not start
-another sprint until it reaches a merge or close decision.
+Draft PR #74 now owns only the S003 status and handoff update. Do not promote
+or start another sprint from it.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -147,10 +149,11 @@ Every agent must:
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Finish the S003 documentation review before selecting another sprint. Do not
-begin archive, deletion, README consolidation, or ruleset mutation outside a
-sprint's stated scope, and do not begin Phase C of the knowledge-engine cleanup
-without explicit founder sign-off.
+Re-evaluate the backlog explicitly before selecting another sprint because no
+sprint is currently marked `READY`. Do not begin archive, deletion, README
+consolidation, or ruleset mutation outside a sprint's stated scope, and do not
+begin Phase C of the knowledge-engine cleanup without explicit founder
+sign-off.
 
 ## Source-of-truth links
 
