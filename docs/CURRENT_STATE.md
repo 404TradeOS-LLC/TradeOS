@@ -27,12 +27,15 @@ related_code:
   - web/src/app/actions/settings.ts
   - web/src/lib/storage.ts
   - web/src/lib/settingsAssetUpload.ts
+  - web/src/lib/envSecurity.test.ts
+  - web/scripts/preview-smoke-check.mjs
+  - web/.env.example
   - .github/workflows/verify-repository.yml
 ---
 
 # Current State
 
-Last reconciled against `origin/main` commit `7059428` on 2026-08-04 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below. The database-security migration is merged on `main`; repository state does not by itself prove production deployment state, which must be verified through the approval-gated migration workflow.
+Last reconciled against `origin/main` commit `2d80214a` on 2026-08-04 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
@@ -93,6 +96,8 @@ See module docs in `docs/modules/`.
 
 - A Dispatcher Workspace (`/dispatch`, linked from the authenticated nav) was added as a founder-directed feature branch, outside the numbered sprint queue (the closest backlog item, S030 "Dispatcher workspace end-to-end verification", is still `PLANNED` and blocked on S012, which is not `DONE` — see [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md); this branch does not claim S030 completion). It reuses the existing `Job`/`JobAssignment` model and `GET /api/v1/jobs` list endpoint (now with an additive `unassigned` filter and additive `project`/`customer`/`assignedTechnicians`/`isOverdue`/`isUnassigned`/`needsAttention` DTO fields) plus one new read-only aggregate route, `GET /api/v1/jobs/dispatch-summary` (count()-only, never `findMany`). A new pure-logic module, `app/modules/jobs/dispatchRules.ts`, is the single source of truth for terminal-status exclusion, overdue/unassigned/unscheduled "needs attention" predicates, and organization-timezone-aware day/week boundary math (derived from `domain/contracts.ts`'s canonical `jobStatuses`, validated via built-in `Intl` — no new dependency). Organization timezone is read from the existing but previously-unused `organizationSettings.settingsJson.timezone` field, with an honest UTC-fallback label surfaced in the UI when it is absent or invalid. Because the underlying `jobs_select_policy` RLS policy already narrows job visibility to owner/admin/dispatcher or an assignee, the summary endpoint's response includes a `scope` field so a non-manager caller's narrower counts are never presented as an org-wide total. No new database migration, canonical status, lifecycle transition, or privileged role check was introduced.
 
+- Web frontend deployment foundation: the separate `tradeos-costbook-web` Vercel project now has READY Preview and production deployments, including a production deployment from `main` commit `2d80214a` on 2026-08-04. `web/.env.example` documents the frontend's server-only and browser-visible configuration contract with placeholders only, while `web/src/lib/envSecurity.test.ts` guards against importing `SUPABASE_SERVICE_ROLE_KEY` into a `"use client"` dependency graph. `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and `web/scripts/preview-smoke-check.mjs` provide repeatable validation for existing Preview deployments. Repository state cannot prove that every Vercel environment value is present or correct, so environment configuration remains a deployment check. No CORS, cookie, proxy/middleware, or backend auth code changed.
+
 ## Known blockers and unresolved technical debt
 
 - Supplier feed connectors are not live
@@ -129,10 +134,11 @@ Frontend commands defined in `web/package.json`:
 
 - `npm run lint`
 - `npm run build`
+- `npm test` (framework-free `node --test` against `src/**/*.test.ts`; today this is `web/src/lib/envSecurity.test.ts`, which statically checks that `SUPABASE_SERVICE_ROLE_KEY` never leaks into a `NEXT_PUBLIC_`-prefixed name and never becomes reachable from a `"use client"` import graph)
 
 Current CI workflows:
 
-- `.github/workflows/verify-repository.yml` runs backend lint, unit tests, build, integration tests, and frontend lint/build
+- `.github/workflows/verify-repository.yml` runs backend lint, unit tests, build, integration tests, and frontend unit tests/lint/build
 - `.github/workflows/deploy-migrations.yml` runs tracked database rollout logic for migration changes
 
 ## Module documentation
