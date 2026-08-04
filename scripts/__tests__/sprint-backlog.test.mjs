@@ -100,5 +100,13 @@ test("first eligible READY sprint is mechanically selected", () => {
     const dependencies = field(block, "Dependencies");
     return (dependencies.match(/S\d{3}/g) ?? []).every((sprintId) => statuses.get(sprintId) === "DONE");
   });
-  assert.equal(eligible?.id, "S003");
+  const nextEligibleSection = backlog.split("## Next Eligible Sprint")[1] ?? "";
+  if (eligible) {
+    assert.ok(
+      nextEligibleSection.includes(eligible.id),
+      `Next Eligible Sprint does not identify computed sprint ${eligible.id}`
+    );
+  } else {
+    assert.match(nextEligibleSection, /No other sprint is\s+currently marked `READY`/);
+  }
 });

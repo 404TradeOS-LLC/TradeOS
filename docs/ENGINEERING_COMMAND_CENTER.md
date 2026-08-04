@@ -43,7 +43,10 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 
 ## Current milestone
 
-The Bible foundation has landed (S001, `DONE`). Sprint execution is open after active overlapping PRs are resolved: select the lowest-numbered eligible `READY` sprint per `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. S003 (solo-maintainer governance calibration) is the current first candidate on `origin/main`.
+The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
+governance calibration) is now the active sprint on
+`docs/s003-solo-maintainer-governance`, based on `main` commit `cdadd24d`.
+It is documentation-only and must not change GitHub settings.
 
 Completed foundation work includes:
 
@@ -69,14 +72,17 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-At the last verified handoff:
+Live GitHub state verified on 2026-08-04 before S003 started:
 
-- PR #51 owns the frontend environment contract, server/client secret-boundary regression test, and Preview smoke-check documentation while it is under repair;
-- PR #49 remains draft pending the founder decision to configure `QODANA_TOKEN` or abandon Qodana;
-- PR #64 was closed as obsolete after its comparison against `main` showed no remaining file diff;
-- PR #30 is merged; Settings/Brand Studio asset persistence is now on `main`;
-- PR #35 owns first-party operational truth alignment with the Bible until it lands or is closed;
-- PR #31 (Bible foundation), #32 (Volume 3 expansion, merged into #31's branch), #33 (knowledge-engine Phase A), #34 (knowledge-engine Phase B), #27, #28, and #29 are all merged.
+- no pull requests were open;
+- PR #49 was closed unmerged and Qodana was deferred;
+- PR #51 was merged as `cdadd24d`;
+- PR #64 was closed unmerged as obsolete;
+- PR #30 was merged as `2d80214a`; and
+- PR #35 was merged as `c7b84643`.
+
+Draft PR #73 now owns S003's governance-documentation scope. Do not start
+another sprint until it reaches a merge or close decision.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -84,7 +90,10 @@ Always verify GitHub before editing. This summary is not a substitute for live P
 
 - Entry-point READMEs and legacy generator scripts contain stale material, but useful setup, competitive, pricing, and historical evidence must be preserved before archive or removal decisions.
 - `packages/knowledge-engine/**` (9,986 files) received its separate segmented audit on 2026-07-16. Phase A documentation/governance guardrails (root README, corrected canonical-path docs, focused `docs/DOC_OWNERSHIP.yml` rules, historical notices on conflicting runtime guidance, a package-scoped `.gitignore`) and Phase B pipeline path-canonicalization (`PATHS.md`, `path-manifest.json`, a marker-validated Python resolver, and a fix for divergent generated-export copies) have both landed via PR #33 and #34. The package still contains a confirmed 4,746-tracked-file self-nested exact-duplicate tree and ~1,400 vendored third-party skill directories with incomplete license coverage; both are documented but intentionally untouched pending founder-approved Phase C migration work — do not begin archive or deletion in this package without that approval.
-- Ruleset and branch-protection facts must be verified directly in GitHub before being stated as current.
+- The live default-branch rulesets were verified read-only for S003 on
+  2026-08-04. Their IDs and exact observed controls are recorded in
+  [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md); external state must be
+  rechecked before later claims or changes.
 - Production migration changes remain manual and `production` Environment-gated. Reconciliation records existing schema state in Prisma history; it must not be confused with executing a normal migration deployment.
 - Settings/Brand Studio asset persistence must keep the `project-files` bucket private and all service-role access server-only. Metadata writes are restricted to the authenticated organization's generated `organizations/<orgId>/brand-assets/<assetKey>-<uuid>` namespace, passive raster formats up to 6 MB, and the four supported asset slots; reads must stay behind the authenticated same-org proxy.
 
@@ -135,7 +144,13 @@ Every agent must:
 
 ## Next engineer starts here
 
-Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md), [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md). If PR #35 is still open, finish that review/merge decision before selecting new work. Otherwise select the lowest-numbered eligible `READY` sprint from [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md). Do not begin archive, deletion, README consolidation, or ruleset mutation outside a sprint's stated scope, and do not begin Phase C of the knowledge-engine cleanup without explicit founder sign-off.
+Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
+[SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
+[agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
+Finish the S003 documentation review before selecting another sprint. Do not
+begin archive, deletion, README consolidation, or ruleset mutation outside a
+sprint's stated scope, and do not begin Phase C of the knowledge-engine cleanup
+without explicit founder sign-off.
 
 ## Source-of-truth links
 
