@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { apiFetch, ApiClientError, Estimate } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
 import { FormActionState } from "./customers";
 
 const MAX_PROJECT_PHOTOS = 4;
@@ -440,20 +441,6 @@ export async function deleteProjectFileAction(formData: FormData): Promise<void>
 function buildProjectFilePath(projectId: string, fileName: string) {
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
   return `${projectId}/${crypto.randomUUID()}-${sanitizedName}`;
-}
-
-function buildStorageObjectUrl(bucket: string, path: string, isPublicBucket: boolean) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured.");
-  }
-
-  const objectAccessSegment = isPublicBucket ? "public" : "authenticated";
-  return `${supabaseUrl}/storage/v1/object/${objectAccessSegment}/${bucket}/${path}`;
-}
-
-function isPublicStorageBucket() {
-  return (process.env.SUPABASE_STORAGE_BUCKET_PUBLIC ?? "true").toLowerCase() === "true";
 }
 
 function splitTextareaLines(value: string) {

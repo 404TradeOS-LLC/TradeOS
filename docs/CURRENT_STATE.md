@@ -24,12 +24,15 @@ related_code:
   - web/src/app/(app)/dispatch/page.tsx
   - web/src/components/dispatch
   - app/modules/jobs/dispatchRules.ts
+  - web/src/app/actions/settings.ts
+  - web/src/lib/storage.ts
+  - web/src/lib/settingsAssetUpload.ts
   - .github/workflows/verify-repository.yml
 ---
 
 # Current State
 
-Last reconciled against `origin/main` commit `39abee2` on 2026-08-04 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below. The database-security migration described below is branch-local until its pull request merges and the approval-gated production migration workflow deploys it.
+Last reconciled against `origin/main` commit `7059428` on 2026-08-04 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below. The database-security migration is merged on `main`; repository state does not by itself prove production deployment state, which must be verified through the approval-gated migration workflow.
 
 ## Current milestone
 
@@ -85,6 +88,8 @@ See module docs in `docs/modules/`.
 - `claude.md` was renamed to `CLAUDE.md` — both names pointed at the same file only because of this machine's case-insensitive filesystem; git tracked the lowercase name, which would not resolve as `CLAUDE.md` on a case-sensitive filesystem (Linux CI, most Docker images).
 - Explicitly *not* removed: `web/src/components/ui/checkbox.tsx` and the `lucide-react` dependency — both are live (used by Brand Studio and Settings consoles), and `@supabase/supabase-js` — it is a required peer dependency of the actively-used `@supabase/ssr` package, not a dead dependency.
 - Two new shared components (`web/src/components/shared/{list-row-link,line-item-row}.tsx`) replace hand-rolled, non-truncation-safe row markup that had drifted across the customers list/detail pages, the projects list page, and the recent-documents card. `ListRowLink` is the standard "link to a detail page" row; `LineItemRow` is the equivalent for the invoice detail page's priced line items. Both guard against a long name/description pushing trailing content (price, status badge) off the card on narrow viewports, which the prior per-page copies didn't. See `docs/ui-guide.md`. The Estimate Builder's own line-item list (metric tiles, assembly/cost-item picker, sticky pricing rail) is a different, richer layout and intentionally doesn't use `LineItemRow`.
+- Settings Console's brand asset uploader (logo/dark logo/icon/watermark) previously staged an ephemeral `URL.createObjectURL()` blob straight into the settings draft, which silently broke on page reload since it was never actually persisted anywhere durable. It now uploads to the same private Supabase Storage bucket project files already use via `uploadSettingsAssetAction` (`web/src/app/actions/settings.ts`), records bucket/path metadata in `settings_asset_uploads`, and serves image bytes through the authenticated server-side proxy at `web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts`.
+- Follow-up hardening on the settings asset uploader: `assetKey` is validated against a strict allowlist (`logoUrl`, `darkLogoUrl`, `iconUrl`, `watermarkUrl` — the only four settings asset fields that exist) via `validateSettingsAssetUpload` (`web/src/lib/settingsAssetUpload.ts`), uploads use a server-only service-role Supabase client after session/org/permission checks, and the backend independently pins metadata to the authenticated organization's generated `project-files` namespace. Only passive raster formats up to 6 MB are accepted, and the proxy returns `nosniff` plus a restrictive CSP. Uploading before "Save changes" can still leave an orphaned storage object if the user abandons the form without saving — tracked as non-blocking technical debt, not fixed here.
 
 - A Dispatcher Workspace (`/dispatch`, linked from the authenticated nav) was added as a founder-directed feature branch, outside the numbered sprint queue (the closest backlog item, S030 "Dispatcher workspace end-to-end verification", is still `PLANNED` and blocked on S012, which is not `DONE` — see [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md); this branch does not claim S030 completion). It reuses the existing `Job`/`JobAssignment` model and `GET /api/v1/jobs` list endpoint (now with an additive `unassigned` filter and additive `project`/`customer`/`assignedTechnicians`/`isOverdue`/`isUnassigned`/`needsAttention` DTO fields) plus one new read-only aggregate route, `GET /api/v1/jobs/dispatch-summary` (count()-only, never `findMany`). A new pure-logic module, `app/modules/jobs/dispatchRules.ts`, is the single source of truth for terminal-status exclusion, overdue/unassigned/unscheduled "needs attention" predicates, and organization-timezone-aware day/week boundary math (derived from `domain/contracts.ts`'s canonical `jobStatuses`, validated via built-in `Intl` — no new dependency). Organization timezone is read from the existing but previously-unused `organizationSettings.settingsJson.timezone` field, with an honest UTC-fallback label surfaced in the UI when it is absent or invalid. Because the underlying `jobs_select_policy` RLS policy already narrows job visibility to owner/admin/dispatcher or an assignee, the summary endpoint's response includes a `scope` field so a non-manager caller's narrower counts are never presented as an org-wide total. No new database migration, canonical status, lifecycle transition, or privileged role check was introduced.
 
@@ -95,13 +100,15 @@ See module docs in `docs/modules/`.
 - Documentation governance is implemented; ongoing governance work should update `docs/DOC_OWNERSHIP.yml`, `docs/README.md`, and `docs/REPOSITORY_GOVERNANCE.md` together when ownership policy changes
 - Production deployment state and environment approvals are not inferred from code and must be verified per environment
 - Some older implementation notes and planning artifacts required archiving because they conflicted with the live repository
+- Settings brand asset uploads (`uploadSettingsAssetAction`) use the private `project-files` bucket through a server-only Supabase service-role client and authenticated proxy; no service credential or direct public/signed Supabase Storage URL is returned to the browser
+- Settings brand asset uploads can leave an orphaned storage object if a user uploads a file but abandons the settings form before pressing "Save changes" — non-blocking, no cleanup logic exists for this yet
 
 ## Recent verified infrastructure facts
 
 - the repository now includes `20260804020000_harden_database_security_boundaries`, which enables RLS on Prisma migration history without forcing it for the table-owning migration administrator, revokes runtime/public migration-history privileges, pins the eight existing RLS helper functions to an empty search path, and replaces three permissive auth-record update checks with guarded policies plus immutable identity triggers
 - `app/scripts/sql/provision-app-role.sql` reapplies the `_prisma_migrations` privilege exception after its broad runtime table grant, preserving the boundary on every idempotent role provisioning run
-- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build pass on the security-hardening branch; GitHub Actions also completed the Docker-backed live RLS integration suite successfully
-- merging this branch does not change the live database by itself; normal production rollout remains manual and Environment-approval-gated through the tracked migration deployment workflow
+- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build passed before the security-hardening change merged as PR #65; GitHub Actions also completed the Docker-backed live RLS integration suite successfully
+- merging application or migration code does not change the live database by itself; normal production rollout remains manual and Environment-approval-gated through the tracked migration deployment workflow
 
 - migration `20260703090000_add_search_trgm_indexes` enables PostgreSQL `pg_trgm`
 - the migration adds GIN trigram indexes on `cost_items.name`, `assemblies.name`, `materials.name`, and `suppliers.name`

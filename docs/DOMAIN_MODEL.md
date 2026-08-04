@@ -18,6 +18,7 @@ The tenant boundary for all application data.
 
 - persistent model: `Organization`
 - owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, and branding
+- Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
 
 ## User
 

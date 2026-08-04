@@ -4,44 +4,42 @@ owner: platform
 last_verified: 2026-08-04
 source_of_truth: true
 related_code:
-  - app/prisma/migrations/20260804020000_harden_database_security_boundaries/migration.sql
-  - app/scripts/sql/provision-app-role.sql
-  - app/tests/databaseSecurityHardening.migration.test.ts
-  - app/tests/rls.integration.ts
+  - app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql
+  - app/modules/settings/service.ts
+  - web/src/app/actions/settings.ts
+  - web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts
+  - web/src/lib/settingsAssetUpload.ts
 ---
 
 # TradeOS Session Handoff
 
 ## Current mission
 
-Prepare a reviewable database-security hardening change for the validated Supabase/PostgreSQL findings without modifying the live database or touching the dirty PR #62 worktree.
+Rebase, repair, verify, and merge PR #30 so Settings/Brand Studio assets persist in private Supabase Storage instead of browser-only object URLs.
 
 ## Branch and scope
 
-- worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-security-hardening`
-- branch: `agent/security-hardening-20260804`, based on `origin/main` commit `39abee2`
-- allowed scope: the new hardening migration, runtime-role provisioning exception, focused migration/live RLS tests, and required source-of-truth documentation
-- excluded scope: live Supabase DDL, production deployment, workflow changes, PR #30 application/schema work, and all edits in the existing dirty PR #62 worktree
+- worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-pr30`
+- branch: `repair/pr30`, rebased onto `origin/main` commit `7059428`
+- allowed scope: PR #30 application/schema changes, conflict repair, focused regression fixes, required documentation, CI remediation, review, and merge
+- excluded scope: new live Supabase DDL, unrelated product work, and edits in other contributors' worktrees
 
 ## Implemented
 
-- enables non-forced RLS on `public._prisma_migrations` and removes runtime/public/externally exposed role privileges while preserving table-owner migration access;
-- reapplies the `_prisma_migrations` privilege exception after every broad application-role table grant;
-- replaces the three `WITH CHECK (true)` auth update policies with result-row predicates and adds triggers that prevent cross-organization/user/token identity reassignment;
-- pins the eight existing request-context helper functions to `search_path = ''`, schema-qualifying the helper-to-helper calls;
-- adds focused static regressions plus live negative and positive integration coverage;
-- updates the domain, current-state, and auth/tenancy documentation.
+- rebased all 14 PR commits onto current `main` and preserved the hardened production-reconciliation workflow already landed by PR #62;
+- persists the four supported Settings/Brand Studio asset types to the private `project-files` bucket and records organization-scoped metadata in `settings_asset_uploads`;
+- restricts uploads and deletes to authorized organization admins through server actions and a server-only Supabase service-role client;
+- rejects arbitrary bucket/path metadata at the backend, accepts only passive raster formats up to 6 MB, and serves assets through an authenticated organization-scoped proxy without exposing service credentials;
+- adds migration, service, contract, and frontend validation tests plus required implementation and operations documentation.
 
 ## Verification
 
-- passed: focused migration regression test (3 tests)
-- passed: full backend unit suite (59 suites, 437 tests)
-- passed: TypeScript lint and backend build
-- passed: PostgreSQL parser validation of the complete migration SQL
-- passed: documentation checker tests, documentation ownership check, and final whitespace/diff review
-- passed in GitHub Actions: Docker-backed `npm run test:integration`, including the new migration-history and auth-record negative/positive cases
-- pull request: PR #65 is open with all repository, documentation, integration, and Vercel checks passing; no production deployment has been attempted
+- passed locally: frontend unit tests (14 tests)
+- passed locally: focused backend tests (3 suites, 27 tests)
+- passed locally: full backend unit suite (62 suites, 465 tests), TypeScript lint, and backend build
+- passed locally: documentation checker tests (38 tests), documentation ownership check, and whitespace/diff review
+- pending: clean GitHub Actions verification after the rebased head is pushed; the local runtime could not install a fresh frontend dependency tree because its npm cache returned corrupt tarballs
 
 ## Next exact safe action
 
-Complete independent review and merge PR #65. After merge, use the normal approval-gated production migration workflow; then rerun Supabase security advisors to confirm the targeted findings clear.
+Push the rebased branch with an exact force-with-lease, wait for every required GitHub check, complete final review, record the solo-maintainer review audit, and squash-merge PR #30 only if the verified head remains unchanged.
