@@ -132,6 +132,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Supporting documents link to the canonical owner instead of redefining it.
 - One sprint runs per branch and pull request.
 - Only merged evidence may mark a sprint `DONE`.
+- Completing a sprint does not implicitly promote a `PLANNED` sprint to
+  `READY`; readiness must be explicit in the backlog after dependency and
+  overlap checks.
 - Open PR overlap blocks a sprint from `READY` status.
 - Every completed sprint updates its evidence and the session handoff.
 - Live external controls such as GitHub rulesets must be verified read-only

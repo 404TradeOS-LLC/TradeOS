@@ -39,20 +39,20 @@ Acceptance: PR #27 merged with green checks and no source-of-truth conflicts.
 Evidence: PR #27 merged on 2026-07-16 as `279bdae26e2fc1856c7cc28e6756529c0ec508e7`.
 
 ### S003 — Solo-maintainer governance calibration
-Status: IN_REVIEW
+Status: DONE
 Dependencies: none
 Objective: Document and verify the current solo-maintainer ruleset posture without changing GitHub settings.
 Allowed paths: governance docs, sprint evidence, and the existing sprint-backlog selector test only.
 Forbidden paths: GitHub ruleset changes, disabling PRs, required checks, force-push protection, or deletion protection.
 Acceptance: `main` requires PRs, required checks, up-to-date branches, conversation resolution, and zero approvals.
 Founder decision required: NO.
-Evidence: Draft PR #73 opened 2026-08-04 from
-`docs/s003-solo-maintainer-governance`. Read-only GitHub REST verification
+Evidence: PR #73 merged on 2026-08-04 as
+`9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. Its read-only GitHub verification
 confirmed active default-branch rulesets #18958081 and #19465256, mandatory
 pull requests, zero required approvals, review-thread resolution, strict
 up-to-date status checks, deletion and non-fast-forward protection, and the
-four expected required check names. No GitHub setting changed.
-The selector test now validates the computed current backlog result instead of
+four expected required check names. No GitHub setting changed. The merged
+selector test validates the computed current backlog result instead of
 permanently hard-coding S003 as `READY`.
 
 ### S004 — Session handoff normalization
@@ -370,7 +370,7 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 ## Next Eligible Sprint
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
-checking live PRs, worktrees, and dependencies. S003 is `IN_REVIEW` in draft
-PR #73 and owns the active governance-documentation scope. No other sprint is
-currently marked `READY`, so another sprint must not start until S003 reaches
-a merge or close decision and the backlog is re-evaluated.
+checking live PRs, worktrees, and dependencies. S003 is `DONE` after PR #73
+merged as `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. No other sprint is
+currently marked `READY`; the backlog must be explicitly re-evaluated before
+another sprint starts.
