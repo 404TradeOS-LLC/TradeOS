@@ -67,6 +67,40 @@ TradeOS is currently operated by one repository maintainer. The intended solo-ma
 
 Do not weaken CI, up-to-date requirements, deletion protection, force-push protection, or PR requirements to compensate for the zero-approval setting.
 
+## Verified default-branch controls
+
+On 2026-08-04, S003 performed a read-only verification of the live GitHub
+configuration at `main` commit `cdadd24d`. No repository setting or ruleset
+was changed.
+
+The active `TradeOS Main Branch Protection` ruleset
+([ID 18958081](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/18958081))
+targets the default branch and contains:
+
+- deletion and non-fast-forward protection;
+- mandatory pull requests with zero required approving reviews;
+- required review-thread resolution, with neither code-owner review nor
+  last-push approval required;
+- strict required-status-check enforcement, which requires the branch to be
+  current before merge;
+- the exact required checks `Docs consistency`,
+  `App lint, unit tests, and build`, `App integration tests`, and
+  `Web lint and build`;
+- linear-history enforcement;
+- allowed pull-request merge methods of merge and squash; and
+- Copilot review on pushes and draft pull requests.
+
+The separate active
+`Code Quality Copilot review for default branch` ruleset
+([ID 19465256](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/19465256))
+also targets the default branch and requests Copilot review on pushes and draft
+pull requests.
+
+GitHub's unauthenticated public ruleset response does not disclose bypass
+actors, so this verification makes no claim about bypass-actor configuration.
+Re-run the live read-only inspection before changing these statements or
+editing repository controls.
+
 ## Merge posture
 
 - prefer squash merge for normal feature, fix, and documentation PRs;

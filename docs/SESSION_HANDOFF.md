@@ -4,61 +4,52 @@ owner: platform
 last_verified: 2026-08-04
 source_of_truth: true
 related_code:
-  - .github/workflows/verify-repository.yml
-  - docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md
-  - web/.env.example
-  - web/scripts/preview-smoke-check.mjs
-  - web/src/lib/envSecurity.test.ts
+  - docs/REPOSITORY_GOVERNANCE.md
+  - docs/SPRINT_BACKLOG.md
+  - docs/ENGINEERING_COMMAND_CENTER.md
+  - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
 # TradeOS Session Handoff
 
 ## Current mission
 
-Rebase, repair, verify, review, and merge PR #51 while retaining its useful
-frontend environment-security and Preview-deployment checks.
+Execute S003, solo-maintainer governance calibration, using read-only live
+GitHub evidence and without changing repository settings.
 
 ## Branch and scope
 
-- worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-pr51`
-- branch: `repair/pr51`, rebased onto `origin/main` commit `2d80214a`
-- allowed scope: the frontend environment contract, environment-security
-  regression test, Preview smoke check/checklist, required CI wiring, and
-  current coordination documentation
-- excluded scope: live secret changes, Vercel project creation, database
-  mutations, Qodana configuration, and unrelated product work
+- worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-s003`
+- branch: `docs/s003-solo-maintainer-governance`
+- base: `origin/main` commit `cdadd24d`
+- allowed scope: governance documentation and S003 sprint evidence
+- excluded scope: GitHub ruleset/settings mutations, workflows, application
+  code, database changes, Qodana configuration, and unrelated product work
 
 ## Implemented
 
-- preserved `.env.example` with placeholders only and clarified the boundary
-  between the frontend and backend Vercel projects;
-- preserved and tightened the static import-graph checks that prevent the
-  Supabase service-role secret from entering a Client Component graph;
-- wired frontend unit tests into the repository verification workflow;
-- aligned the frontend CI job with Node 24, matching Vercel and the current
-  Supabase packages' supported runtime, after the first remote run showed that
-  Node 20 could not execute the TypeScript test glob;
-- preserved the dependency-free Preview HTTP smoke checker, added Dispatcher
-  coverage and target-URL validation, and removed a misleading claim that
-  browser HTML could prove a server-only backend host;
-- replaced obsolete pre-deployment and pre-migration assertions with a
-  reusable checklist for the existing `tradeos-costbook-web` project;
-- left PR #49 draft pending the `QODANA_TOKEN` decision and closed obsolete
-  PR #64.
+- closed PR #49 unmerged and deferred Qodana;
+- verified there were no remaining open pull requests before starting S003;
+- created the isolated S003 worktree from exact `main` commit `cdadd24d`;
+- read the two active default-branch rulesets through GitHub's public REST API;
+- confirmed the solo-maintainer posture: pull requests required, zero approval
+  count, resolved conversations, strict up-to-date checks, deletion and
+  non-fast-forward protection, and the four expected required check names;
+- recorded the two live ruleset IDs and their observed controls without
+  changing GitHub settings; and
+- removed stale active-PR guidance for already-merged or closed PRs.
 
 ## Verification
 
-- passed locally: 17 frontend unit tests, ESLint, and TypeScript no-emit check
-- passed locally: 38 documentation-checker tests, documentation ownership
-  check, `git diff --check`, smoke-script syntax, and a full local HTTP fixture
-  run across every smoke route
-- local `next build` reached font compilation but could not download Google
-  Fonts through this runtime's restricted network; GitHub/Vercel build results
-  remain the authoritative build gate
-- pending remotely: exact-head publish, GitHub Actions, Vercel Preview,
-  final review audit, and squash merge
+- live GitHub ruleset verification: passed read-only
+- open-PR overlap check: passed; zero open PRs before the S003 branch
+- documentation tests: 38/38 passed
+- documentation ownership check: passed against `origin/main`
+- `git diff --check`: passed
+- initial three-file diff review: passed; governance documentation only
+- draft PR creation: pending
 
 ## Next exact safe action
 
-Publish the repaired head only if the remote PR head is unchanged, then wait
-for GitHub and Vercel checks before the final review and squash merge.
+Run the required documentation checks, review the complete diff against
+`origin/main`, then publish the branch and open one draft S003 pull request.
