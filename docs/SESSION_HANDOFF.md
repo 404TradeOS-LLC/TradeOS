@@ -1,41 +1,47 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-03
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
-  - .github/workflows/reconcile-production-migration.yml
-  - app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql
-  - docs/ENGINEERING_COMMAND_CENTER.md
-  - docs/REPOSITORY_GOVERNANCE.md
-  - docs/SPRINT_BACKLOG.md
+  - app/prisma/migrations/20260804020000_harden_database_security_boundaries/migration.sql
+  - app/scripts/sql/provision-app-role.sql
+  - app/tests/databaseSecurityHardening.migration.test.ts
+  - app/tests/rls.integration.ts
 ---
 
 # TradeOS Session Handoff
 
 ## Current mission
 
-Repair PR #62 so the one-time production history reconciliation can safely materialize PR #30's migration file, verify its pinned checksum, and record `20260728120000_add_settings_asset_uploads` as already applied without executing migration SQL.
+Prepare a reviewable database-security hardening change for the validated Supabase/PostgreSQL findings without modifying the live database or touching the dirty PR #62 worktree.
 
-## Live pull-request state
+## Branch and scope
 
-- PR #61 is merged on `main` as `0c86a7a`.
-- PR #62 is the only branch authorized to change the temporary reconciliation workflow and its required operating documentation. It must remain unmerged until its real diff is reviewed and fresh required checks pass.
-- PR #30 remains open and owns the Settings/Brand Studio asset-persistence implementation and migration file. Do not copy or modify its application, schema, or migration scope from another branch.
-- PR #56 is approved but remains behind `main`; its dependency update is unrelated to this reconciliation repair.
+- worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-security-hardening`
+- branch: `agent/security-hardening-20260804`, based on `origin/main` commit `39abee2`
+- allowed scope: the new hardening migration, runtime-role provisioning exception, focused migration/live RLS tests, and required source-of-truth documentation
+- excluded scope: live Supabase DDL, production deployment, workflow changes, PR #30 application/schema work, and all edits in the existing dirty PR #62 worktree
 
-## Completed in this branch
+## Implemented
 
-- added a fail-closed fetch of `refs/pull/30/head` that materializes only the target migration file;
-- preserved the pinned SHA-256 checksum gate before any production database access;
-- kept `prisma migrate resolve --applied` hard-fail and made the later `prisma migrate status` diagnostic;
-- preserved manual dispatch, the `production` Environment gate, the shared migration concurrency group, and the prohibition on `prisma migrate deploy` or migration SQL;
-- updated the workflow's required owner documentation.
+- enables non-forced RLS on `public._prisma_migrations` and removes runtime/public/externally exposed role privileges while preserving table-owner migration access;
+- reapplies the `_prisma_migrations` privilege exception after every broad application-role table grant;
+- replaces the three `WITH CHECK (true)` auth update policies with result-row predicates and adds triggers that prevent cross-organization/user/token identity reassignment;
+- pins the eight existing request-context helper functions to `search_path = ''`, schema-qualifying the helper-to-helper calls;
+- adds focused static regressions plus live negative and positive integration coverage;
+- updates the domain, current-state, and auth/tenancy documentation.
 
-## Current blocker
+## Verification
 
-No production history change occurs from merging this branch alone. PR #62 still needs review, fresh required checks, and merge. The manual reconciliation must then be dispatched from `main`, pass the production Environment approval gate, and complete the hard-fail resolve step before PR #30 proceeds.
+- passed: focused migration regression test (3 tests)
+- passed: full backend unit suite (59 suites, 437 tests)
+- passed: TypeScript lint and backend build
+- passed: PostgreSQL parser validation of the complete migration SQL
+- passed: documentation checker tests, documentation ownership check, and final whitespace/diff review
+- passed in GitHub Actions: Docker-backed `npm run test:integration`, including the new migration-history and auth-record negative/positive cases
+- pull request: PR #65 is open with all repository, documentation, integration, and Vercel checks passing; no production deployment has been attempted
 
 ## Next exact safe action
 
-Review PR #62's final diff and required checks. If green, squash-merge it; then run **Actions -> Reconcile production migration history** from `main`, approve the production Environment gate, and verify the resolve step reports `20260728120000_add_settings_asset_uploads` as applied before rebasing PR #30.
+Complete independent review and merge PR #65. After merge, use the normal approval-gated production migration workflow; then rerun Supabase security advisors to confirm the targeted findings clear.

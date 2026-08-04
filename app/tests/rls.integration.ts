@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import {
   getRequestDatabaseClient,
   runWithBackgroundDatabaseSession,
@@ -70,6 +70,10 @@ const paymentA = "10000000-0000-0000-0000-000000000111";
 const jobA = "10000000-0000-0000-0000-000000000112";
 const jobB = "20000000-0000-0000-0000-000000000113";
 const technicianAssignmentA = "10000000-0000-0000-0000-000000000114";
+const inviteA = "10000000-0000-0000-0000-000000000115";
+const refreshTokenA = "10000000-0000-0000-0000-000000000116";
+const passwordResetTokenA = "10000000-0000-0000-0000-000000000117";
+const replacementRefreshTokenA = "10000000-0000-0000-0000-000000000118";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -96,6 +100,35 @@ describe("live organization row-level security", () => {
         { id: otherMembership, orgId: orgB, userId: otherUser, role: "owner", status: "active" },
         { id: estimatorMembership, orgId: orgA, userId: estimatorUser, role: "estimator", status: "active" },
       ],
+    });
+    await adminClient.organizationInvite.create({
+      data: {
+        id: inviteA,
+        orgId: orgA,
+        email: "invitee@example.com",
+        role: "technician",
+        tokenHash: "integration-invite-token-hash",
+        invitedByUserId: adminUser,
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+    });
+    await adminClient.authRefreshToken.create({
+      data: {
+        id: refreshTokenA,
+        orgId: orgA,
+        userId: adminUser,
+        membershipId: adminMembership,
+        tokenHash: "integration-refresh-token-hash",
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+    });
+    await adminClient.passwordResetToken.create({
+      data: {
+        id: passwordResetTokenA,
+        userId: adminUser,
+        tokenHash: "integration-password-reset-token-hash",
+        expiresAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
     });
     await adminClient.division.createMany({
       data: [
@@ -471,6 +504,94 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("keeps Prisma migration history inaccessible to the runtime role", async () => {
+    const adminRows = await adminClient.$queryRaw<Array<{ migration_name: string }>>`
+      select migration_name
+      from public._prisma_migrations
+      order by finished_at desc nulls last
+      limit 1
+    `;
+    expect(adminRows).toHaveLength(1);
+
+    await expect(
+      appClient.$queryRaw`
+        select migration_name
+        from public._prisma_migrations
+        limit 1
+      `
+    ).rejects.toThrow();
+  });
+
+  it("rejects auth-record identity reassignment during login lookup", async () => {
+    await expect(
+      inLoginLookupSession((transaction) =>
+        transaction.organizationInvite.update({
+          where: { id: inviteA },
+          data: { orgId: orgB },
+        })
+      )
+    ).rejects.toThrow("organization invite identity fields are immutable");
+
+    await expect(
+      inLoginLookupSession((transaction) =>
+        transaction.authRefreshToken.update({
+          where: { id: refreshTokenA },
+          data: { userId: otherUser },
+        })
+      )
+    ).rejects.toThrow("refresh token identity fields are immutable");
+
+    await expect(
+      inLoginLookupSession((transaction) =>
+        transaction.passwordResetToken.update({
+          where: { id: passwordResetTokenA },
+          data: { userId: otherUser },
+        })
+      )
+    ).rejects.toThrow("password reset token identity fields are immutable");
+  });
+
+  it("preserves legitimate invite, refresh-token, and password-reset updates", async () => {
+    const acceptedAt = new Date("2026-08-04T02:10:00.000Z");
+    const revokedAt = new Date("2026-08-04T02:11:00.000Z");
+    const consumedAt = new Date("2026-08-04T02:12:00.000Z");
+
+    const invite = await inLoginLookupSession((transaction) =>
+      transaction.organizationInvite.update({
+        where: { id: inviteA },
+        data: { acceptedAt, status: "accepted" },
+      })
+    );
+    expect(invite).toMatchObject({ id: inviteA, orgId: orgA, acceptedAt, status: "accepted" });
+
+    const refreshToken = await inLoginLookupSession((transaction) =>
+      transaction.authRefreshToken.update({
+        where: { id: refreshTokenA },
+        data: { revokedAt, lastUsedAt: revokedAt, replacedById: replacementRefreshTokenA },
+      })
+    );
+    expect(refreshToken).toMatchObject({
+      id: refreshTokenA,
+      orgId: orgA,
+      userId: adminUser,
+      revokedAt,
+      lastUsedAt: revokedAt,
+      replacedById: replacementRefreshTokenA,
+    });
+
+    const passwordResetToken = await inLoginLookupSession((transaction) =>
+      transaction.passwordResetToken.update({
+        where: { id: passwordResetTokenA },
+        data: { consumedAt },
+      })
+    );
+    expect(passwordResetToken).toMatchObject({
+      id: passwordResetTokenA,
+      userId: adminUser,
+      consumedAt,
+    });
   });
 
   it("enforces organization settings visibility and admin-only writes", async () => {
@@ -1226,6 +1347,13 @@ describe("live organization row-level security", () => {
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
   return runWithDatabaseSession(appClient, { userId, orgId, role }, operation, "integration-test");
+}
+
+function inLoginLookupSession<T>(operation: (transaction: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return appClient.$transaction(async (transaction) => {
+    await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+    return operation(transaction);
+  });
 }
 
 function currentTransaction() {

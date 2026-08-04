@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-04
 source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
   - app/backend/middleware/databaseSession.ts
   - app/db/requestSession.ts
   - app/modules/auth/service.ts
+  - app/prisma/migrations/20260804020000_harden_database_security_boundaries/migration.sql
+  - app/scripts/sql/provision-app-role.sql
   - app/backend/routes/auth.routes.ts
   - app/backend/routes/account.routes.ts
   - app/backend/routes/organizationProvisioning.routes.ts
@@ -62,6 +64,13 @@ Special constraints:
 - organization provisioning uses a separate high-entropy secret
 - team invites are currently limited to `dispatcher` and `technician`
 
+## Database security invariants
+
+- `OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` retain their organization/user/token identity across updates, including during transaction-local login lookup; only the lifecycle fields used by invite acceptance, token rotation, and password reset consumption remain mutable
+- update policies validate the resulting row rather than using an unconditional `WITH CHECK (true)` expression
+- request-context RLS helper functions have fixed empty search paths; helpers that call another application function use schema-qualified references
+- `public._prisma_migrations` is administrator-only deployment state and is excluded from runtime application-role privileges after every role-provisioning run
+
 ## Frontend surfaces
 
 - `/login`
@@ -75,6 +84,7 @@ Special constraints:
 - `app/tests/platformProvisioningAuth.test.ts`
 - `app/tests/platformProvisioningRateLimit.test.ts`
 - `app/tests/rls.integration.ts`
+- `app/tests/databaseSecurityHardening.migration.test.ts`
 
 ## Known limitations
 
@@ -87,4 +97,4 @@ Special constraints:
 
 ## Last verified date
 
-2026-07-14
+2026-08-04
