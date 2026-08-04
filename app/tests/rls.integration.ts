@@ -73,6 +73,7 @@ const technicianAssignmentA = "10000000-0000-0000-0000-000000000114";
 const inviteA = "10000000-0000-0000-0000-000000000115";
 const refreshTokenA = "10000000-0000-0000-0000-000000000116";
 const passwordResetTokenA = "10000000-0000-0000-0000-000000000117";
+const replacementRefreshTokenA = "10000000-0000-0000-0000-000000000118";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -568,7 +569,7 @@ describe("live organization row-level security", () => {
     const refreshToken = await inLoginLookupSession((transaction) =>
       transaction.authRefreshToken.update({
         where: { id: refreshTokenA },
-        data: { revokedAt, lastUsedAt: revokedAt, replacedById: "replacement-token-hash" },
+        data: { revokedAt, lastUsedAt: revokedAt, replacedById: replacementRefreshTokenA },
       })
     );
     expect(refreshToken).toMatchObject({
@@ -577,7 +578,7 @@ describe("live organization row-level security", () => {
       userId: adminUser,
       revokedAt,
       lastUsedAt: revokedAt,
-      replacedById: "replacement-token-hash",
+      replacedById: replacementRefreshTokenA,
     });
 
     const passwordResetToken = await inLoginLookupSession((transaction) =>
