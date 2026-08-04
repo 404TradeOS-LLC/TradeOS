@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-28
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
   - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
+  - app/prisma/migrations/20260804020000_harden_database_security_boundaries/migration.sql
+  - app/scripts/sql/provision-app-role.sql
   - app/backend/routes
   - web/src/app
   - web/src/components/dashboard/needs-attention-card.tsx
@@ -27,7 +29,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `c7b8464` on 2026-07-28 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below.
+Last reconciled against `origin/main` commit `39abee2` on 2026-08-04 for merged PR evidence, documentation truth, and source-of-truth status. Runtime implementation claims remain grounded in the code paths and merged evidence named below. The database-security migration described below is branch-local until its pull request merges and the approval-gated production migration workflow deploys it.
 
 ## Current milestone
 
@@ -95,6 +97,11 @@ See module docs in `docs/modules/`.
 - Some older implementation notes and planning artifacts required archiving because they conflicted with the live repository
 
 ## Recent verified infrastructure facts
+
+- the repository now includes `20260804020000_harden_database_security_boundaries`, which enables RLS on Prisma migration history without forcing it for the table-owning migration administrator, revokes runtime/public migration-history privileges, pins the eight existing RLS helper functions to an empty search path, and replaces three permissive auth-record update checks with guarded policies plus immutable identity triggers
+- `app/scripts/sql/provision-app-role.sql` reapplies the `_prisma_migrations` privilege exception after its broad runtime table grant, preserving the boundary on every idempotent role provisioning run
+- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build pass on the security-hardening branch; the Docker-backed live RLS integration harness is added but remains unexecuted in the current environment because Docker is unavailable
+- merging this branch does not change the live database by itself; normal production rollout remains manual and Environment-approval-gated through the tracked migration deployment workflow
 
 - migration `20260703090000_add_search_trgm_indexes` enables PostgreSQL `pg_trgm`
 - the migration adds GIN trigram indexes on `cost_items.name`, `assemblies.name`, `materials.name`, and `suppliers.name`

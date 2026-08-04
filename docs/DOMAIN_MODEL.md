@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -25,6 +25,20 @@ An authenticated identity stored in `AppUser`.
 
 - organization access is not implied by user existence
 - organization access comes through `OrganizationMembership`
+
+## Authentication control records
+
+`OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` are security-control records, not ordinary tenant-editable entities.
+
+- invitation ownership (`orgId`, email, role, token, inviter, and expiry) is immutable after creation; invite acceptance may update only lifecycle fields such as status and acceptance time
+- refresh-token ownership (`orgId`, user, membership, token, and expiry) is immutable after creation; rotation may update only usage, revocation, and replacement metadata
+- password-reset-token ownership (`userId`, token, and expiry) is immutable after creation; reset completion may update only consumption metadata
+
+These invariants are enforced in PostgreSQL as well as in application service behavior so a login-lookup transaction cannot reassign an existing auth record across organizations or users.
+
+## Migration history
+
+`public._prisma_migrations` is deployment control-plane state rather than application data. It remains writable by the Prisma migration administrator/table owner, has row-level security enabled, and is intentionally outside the runtime application role's table privileges.
 
 ## Customer
 

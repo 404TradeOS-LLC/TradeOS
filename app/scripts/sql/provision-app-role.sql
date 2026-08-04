@@ -29,6 +29,13 @@ where not exists (select 1 from pg_roles where rolname = :'role_name')
 
 grant usage on schema public to :"role_name";
 grant select, insert, update, delete on all tables in schema public to :"role_name";
+
+-- Prisma migration history is an administrator-only control plane. Keep this
+-- explicit exception after the broad table grant so every idempotent role
+-- reprovision preserves the boundary for both existing and newly-created
+-- application roles.
+revoke all privileges on table public._prisma_migrations from :"role_name";
+
 grant usage, select on all sequences in schema public to :"role_name";
 grant execute on all functions in schema public to :"role_name";
 
