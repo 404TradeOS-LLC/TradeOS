@@ -22,7 +22,8 @@ GitHub evidence and without changing repository settings.
 - worktree: `/workspace/scratch/4cb5ccb0c480/TradeOScostbook-s003`
 - branch: `docs/s003-solo-maintainer-governance`
 - base: `origin/main` commit `cdadd24d`
-- allowed scope: governance documentation and S003 sprint evidence
+- allowed scope: governance documentation, S003 sprint evidence, and the
+  existing sprint-backlog governance test required to validate that evidence
 - excluded scope: GitHub ruleset/settings mutations, workflows, application
   code, database changes, Qodana configuration, and unrelated product work
 
@@ -36,8 +37,13 @@ GitHub evidence and without changing repository settings.
   count, resolved conversations, strict up-to-date checks, deletion and
   non-fast-forward protection, and the four expected required check names;
 - recorded the two live ruleset IDs and their observed controls without
-  changing GitHub settings; and
-- removed stale active-PR guidance for already-merged or closed PRs.
+  changing GitHub settings;
+- removed stale active-PR guidance for already-merged or closed PRs;
+- opened draft PR #73 for the isolated S003 branch; and
+- moved S003 to `IN_REVIEW` only after PR #73 existed;
+- replaced the stale test assertion that permanently hard-coded S003 as the
+  first `READY` sprint with a check against the backlog's computed current
+  selection narrative.
 
 ## Verification
 
@@ -47,9 +53,13 @@ GitHub evidence and without changing repository settings.
 - documentation ownership check: passed against `origin/main`
 - `git diff --check`: passed
 - initial three-file diff review: passed; governance documentation only
-- draft PR creation: pending
+- draft PR #73 creation: passed at initial head `03184990`
+- final documentation tests after the sprint-evidence update: 38/38 passed
+- final documentation ownership check: passed against `origin/main`
+- final `git diff --check`: passed
 
 ## Next exact safe action
 
-Run the required documentation checks, review the complete diff against
-`origin/main`, then publish the branch and open one draft S003 pull request.
+Run the required documentation checks and complete six-file diff review,
+publish the final exact head to draft PR #73, then wait for GitHub checks and
+review findings before any merge decision.

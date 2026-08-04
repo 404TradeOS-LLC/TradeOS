@@ -81,6 +81,9 @@ Live GitHub state verified on 2026-08-04 before S003 started:
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
+Draft PR #73 now owns S003's governance-documentation scope. Do not start
+another sprint until it reaches a merge or close decision.
+
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
 ## Current blockers and risks

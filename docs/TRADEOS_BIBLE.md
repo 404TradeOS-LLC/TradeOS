@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-18
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -134,6 +134,12 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Only merged evidence may mark a sprint `DONE`.
 - Open PR overlap blocks a sprint from `READY` status.
 - Every completed sprint updates its evidence and the session handoff.
+- Live external controls such as GitHub rulesets must be verified read-only
+  before being described as current; their detailed evidence belongs in
+  `docs/REPOSITORY_GOVERNANCE.md`.
+- A zero-approval solo-maintainer posture must not weaken pull-request,
+  required-check, up-to-date-branch, conversation-resolution, deletion, or
+  non-fast-forward protections.
 - Broad roadmap priorities do not override the numbered sprint queue.
 - Agents may not invent replacement architecture when an existing source-of-truth contract applies.
 - Destructive documentation consolidation requires an audit, preservation plan, and founder approval.
