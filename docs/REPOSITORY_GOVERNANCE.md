@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-03
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -47,7 +47,10 @@ Expected verification jobs are:
 - `Docs consistency`;
 - `App lint, unit tests, and build`;
 - `App integration tests`;
-- `Web lint and build`.
+- `Web lint and build` (includes frontend unit tests before lint and build).
+
+The frontend job must run `npm test` before lint/build so server/client
+environment-boundary regressions are part of the merge gate.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
@@ -135,7 +138,7 @@ Normal production schema rollout uses the protected migration deployment process
 
 The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, shares the production migration concurrency group, scopes `DATABASE_ADMIN_URL` to the Prisma steps as `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by diagnostic `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
 
-Until PR #30 lands, the target migration file is not present on `main`. The reconciliation workflow may therefore fetch `refs/pull/30/head` only to materialize `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql`. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
+PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
 
 ## Session continuity
 

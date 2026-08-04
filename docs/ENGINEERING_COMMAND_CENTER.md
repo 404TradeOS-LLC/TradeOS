@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-03
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -71,7 +71,10 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 At the last verified handoff:
 
-- PR #30 owns Settings/Brand Studio web and related current-state scope (open — do not duplicate or touch its files from another branch);
+- PR #51 owns the frontend environment contract, server/client secret-boundary regression test, and Preview smoke-check documentation while it is under repair;
+- PR #49 remains draft pending the founder decision to configure `QODANA_TOKEN` or abandon Qodana;
+- PR #64 was closed as obsolete after its comparison against `main` showed no remaining file diff;
+- PR #30 is merged; Settings/Brand Studio asset persistence is now on `main`;
 - PR #35 owns first-party operational truth alignment with the Bible until it lands or is closed;
 - PR #31 (Bible foundation), #32 (Volume 3 expansion, merged into #31's branch), #33 (knowledge-engine Phase A), #34 (knowledge-engine Phase B), #27, #28, and #29 are all merged.
 
@@ -82,7 +85,7 @@ Always verify GitHub before editing. This summary is not a substitute for live P
 - Entry-point READMEs and legacy generator scripts contain stale material, but useful setup, competitive, pricing, and historical evidence must be preserved before archive or removal decisions.
 - `packages/knowledge-engine/**` (9,986 files) received its separate segmented audit on 2026-07-16. Phase A documentation/governance guardrails (root README, corrected canonical-path docs, focused `docs/DOC_OWNERSHIP.yml` rules, historical notices on conflicting runtime guidance, a package-scoped `.gitignore`) and Phase B pipeline path-canonicalization (`PATHS.md`, `path-manifest.json`, a marker-validated Python resolver, and a fix for divergent generated-export copies) have both landed via PR #33 and #34. The package still contains a confirmed 4,746-tracked-file self-nested exact-duplicate tree and ~1,400 vendored third-party skill directories with incomplete license coverage; both are documented but intentionally untouched pending founder-approved Phase C migration work — do not begin archive or deletion in this package without that approval.
 - Ruleset and branch-protection facts must be verified directly in GitHub before being stated as current.
-- Production migration history reconciliation for `20260728120000_add_settings_asset_uploads` is a one-time, manual, `production` Environment-gated workflow. Until PR #30 lands, it materializes only that checksum-pinned migration file from `refs/pull/30/head`; the fetch, path lookup, checksum, and `migrate resolve` must fail closed. The later `migrate status` output is diagnostic because known earlier migrations remain pending. This records Prisma history only and must not be confused with normal migration deployment.
+- Production migration changes remain manual and `production` Environment-gated. Reconciliation records existing schema state in Prisma history; it must not be confused with executing a normal migration deployment.
 - Settings/Brand Studio asset persistence must keep the `project-files` bucket private and all service-role access server-only. Metadata writes are restricted to the authenticated organization's generated `organizations/<orgId>/brand-assets/<assetKey>-<uuid>` namespace, passive raster formats up to 6 MB, and the four supported asset slots; reads must stay behind the authenticated same-org proxy.
 
 ## Required verification
@@ -92,7 +95,7 @@ Expected CI jobs include:
 - `Docs consistency`;
 - `App lint, unit tests, and build`;
 - `App integration tests`;
-- `Web lint and build`.
+- `Web lint and build` (includes frontend unit tests before lint and build).
 
 Documentation foundation work must run:
 

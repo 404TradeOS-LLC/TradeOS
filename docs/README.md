@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-03
+last_verified: 2026-08-04
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -89,6 +89,10 @@ Agent templates under `docs/agent-prompts/` define startup, completion, and work
 ## Documentation enforcement
 
 Documentation changes are enforced in the same branch and pull request as relevant code changes.
+
+The repository verification workflow also runs the frontend's framework-free
+unit tests before lint and build, so source-level environment-security guards
+are enforced on pull requests rather than remaining local-only checks.
 
 The enforcement flow is:
 
