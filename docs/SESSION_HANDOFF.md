@@ -35,6 +35,9 @@ frontend environment-security and Preview-deployment checks.
 - preserved and tightened the static import-graph checks that prevent the
   Supabase service-role secret from entering a Client Component graph;
 - wired frontend unit tests into the repository verification workflow;
+- aligned the frontend CI job with Node 24, matching Vercel and the current
+  Supabase packages' supported runtime, after the first remote run showed that
+  Node 20 could not execute the TypeScript test glob;
 - preserved the dependency-free Preview HTTP smoke checker, added Dispatcher
   coverage and target-URL validation, and removed a misleading claim that
   browser HTML could prove a server-only backend host;
