@@ -103,6 +103,14 @@ AI estimating routes under `/api/v1/estimates`:
 
 `ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
 
+Settings asset storage metadata routes under `/api/v1/settings`:
+
+- `GET /api/v1/settings/assets/:assetKey` — any authenticated org member; returns the current storage bucket/path/content-type/size for one of `logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, or 404 if nothing has been uploaded for that slot
+- `POST /api/v1/settings/assets` — requires `team.manage`/`company.manage`/`settings.manage` (same gate as `PATCH /api/v1/settings`); accepts only the private `project-files` bucket, the authenticated organization's generated brand-asset path, a supported raster image content type, and a size up to 6 MB; persists new storage metadata and returns the previous record (if any) so the caller can delete the superseded storage object
+- `DELETE /api/v1/settings/assets/:assetKey` — same permission gate; deletes the metadata record and returns it (if any) for the caller to delete the underlying storage object
+
+These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
+
 ## Detailed module links
 
 - [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)

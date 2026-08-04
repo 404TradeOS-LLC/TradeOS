@@ -48,6 +48,7 @@ model Organization {
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
   settings       OrganizationSettings?
+  settingsAssetUploads SettingsAssetUpload[]
   brandProfile   BrandProfile?
   brandAssets    BrandAsset[]
   brandDocumentSettings BrandDocumentSettings?
@@ -79,6 +80,26 @@ model OrganizationSettings {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("organization_settings")
+}
+
+model SettingsAssetUpload {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  assetKey      String   @map("asset_key")
+  storageBucket String   @map("storage_bucket")
+  storagePath   String   @map("storage_path")
+  contentType   String   @map("content_type")
+  sizeBytes     Int      @map("size_bytes")
+  uploadedBy    String?  @map("uploaded_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploader     AppUser?     @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, assetKey])
+  @@index([orgId])
+  @@map("settings_asset_uploads")
 }
 
 model BrandProfile {
@@ -182,6 +203,7 @@ model AppUser {
 
   memberships  OrganizationMembership[]
   reviewedSupplierPriceUpdates SupplierPriceUpdate[]
+  settingsAssetUploads SettingsAssetUpload[]
   activityEvents ActivityEvent[]
   proposalDeliveries ProposalDelivery[]
   invoiceDeliveries InvoiceDelivery[]

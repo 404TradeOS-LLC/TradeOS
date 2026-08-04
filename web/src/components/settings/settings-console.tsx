@@ -23,7 +23,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
+import { removeSettingsAssetAction, uploadSettingsAssetAction } from "@/app/actions/settings";
 import { clientFetch } from "@/lib/clientApi";
+import { validateSettingsAssetUpload } from "@/lib/settingsAssetUpload";
 import { cn } from "@/lib/utils";
 import { type OrganizationSettingsResponse, type SettingsRoleProfile, type SettingsTeamMember, type TradeOsSettingsDraft } from "@/lib/settings";
 import {
@@ -99,6 +101,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
   const [isSaving, setIsSaving] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [uploadingAssetKeys, setUploadingAssetKeys] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const dirty = isDirtyDraft(draft, savedDraft);
@@ -360,17 +363,94 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function handleAssetUpload(asset: SettingsAssetDefinition, event: ChangeEvent<HTMLInputElement>) {
+  async function handleAssetUpload(asset: SettingsAssetDefinition, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
-    const previewUrl = URL.createObjectURL(file);
-    updateDraft(asset.key, previewUrl as TradeOsSettingsDraft[typeof asset.key]);
-    showToast({
-      tone: "info",
-      title: `${asset.label} ready to save`,
-      description: `${file.name} was staged locally as a placeholder asset.`,
+    const assetKey = String(asset.key);
+
+    // Cheap client-side checks (file type / size) so obviously invalid files fail
+    // instantly instead of waiting on a network round trip. The server call
+    // below re-runs the same checks and remains the real authority.
+    const clientValidationError = validateSettingsAssetUpload({
+      assetKey,
+      file: { size: file.size, type: file.type },
     });
+    if (clientValidationError) {
+      showToast({
+        tone: "error",
+        title: `${asset.label} upload failed`,
+        description: clientValidationError,
+      });
+      return;
+    }
+
+    setUploadingAssetKeys((current) => new Set(current).add(assetKey));
+
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("assetKey", assetKey);
+      const result = await uploadSettingsAssetAction(formData);
+
+      if (!result.url) {
+        showToast({
+          tone: "error",
+          title: `${asset.label} upload failed`,
+          description: result.error ?? "Something went wrong.",
+        });
+        return;
+      }
+
+      updateDraft(asset.key, result.url as TradeOsSettingsDraft[typeof asset.key]);
+      showToast({
+        tone: "info",
+        title: `${asset.label} ready to save`,
+        description: `${file.name} uploaded — press Save changes to apply it.`,
+      });
+    } finally {
+      setUploadingAssetKeys((current) => {
+        const next = new Set(current);
+        next.delete(assetKey);
+        return next;
+      });
+    }
+  }
+
+  // Unlike other settings fields, removal takes effect immediately: it
+  // deletes the underlying storage object and its metadata record (see
+  // removeSettingsAssetAction), not just a display string. The field is
+  // still staged to "" in the draft afterward so "Save changes" reflects the
+  // removal consistently with every other settings field.
+  async function handleAssetRemove(asset: SettingsAssetDefinition) {
+    const assetKey = String(asset.key);
+    setUploadingAssetKeys((current) => new Set(current).add(assetKey));
+
+    try {
+      const result = await removeSettingsAssetAction(assetKey);
+      if (!result.ok) {
+        showToast({
+          tone: "error",
+          title: `${asset.label} removal failed`,
+          description: result.error ?? "Something went wrong.",
+        });
+        return;
+      }
+
+      updateDraft(asset.key, "" as TradeOsSettingsDraft[typeof asset.key]);
+      showToast({
+        tone: "info",
+        title: `${asset.label} removed`,
+        description: "Press Save changes to apply the removal to your organization settings.",
+      });
+    } finally {
+      setUploadingAssetKeys((current) => {
+        const next = new Set(current);
+        next.delete(assetKey);
+        return next;
+      });
+    }
   }
 
   async function saveChanges() {
@@ -600,6 +680,8 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                 draft={draft}
                 onChange={updateDraft}
                 onAssetUpload={handleAssetUpload}
+                onAssetRemove={handleAssetRemove}
+                uploadingAssetKeys={uploadingAssetKeys}
               />
             ))
           )}
@@ -621,12 +703,16 @@ function SettingsCard({
   draft,
   onChange,
   onAssetUpload,
+  onAssetRemove,
+  uploadingAssetKeys,
 }: {
   card: SettingsCardDefinition;
   section: SettingsSectionDefinition;
   draft: TradeOsSettingsDraft;
   onChange: <K extends keyof TradeOsSettingsDraft>(key: K, value: TradeOsSettingsDraft[K]) => void;
   onAssetUpload: (asset: SettingsAssetDefinition, event: ChangeEvent<HTMLInputElement>) => void;
+  onAssetRemove: (asset: SettingsAssetDefinition) => void;
+  uploadingAssetKeys: Set<string>;
 }) {
   return (
     <Card id={`card-${section.id}-${card.id}`} className="rounded-[24px] border-border/70">
@@ -668,6 +754,8 @@ function SettingsCard({
                   asset={asset}
                   previewUrl={typeof previewValue === "string" ? previewValue : ""}
                   onUpload={onAssetUpload}
+                  onRemove={onAssetRemove}
+                  isUploading={uploadingAssetKeys.has(String(asset.key))}
                 />
               );
             })}
@@ -796,11 +884,15 @@ function AssetCard({
   asset,
   previewUrl,
   onUpload,
+  onRemove,
+  isUploading,
 }: {
   sectionId: string;
   asset: SettingsAssetDefinition;
   previewUrl: string;
   onUpload: (asset: SettingsAssetDefinition, event: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (asset: SettingsAssetDefinition) => void;
+  isUploading: boolean;
 }) {
   const id = `asset-${sectionId}-${String(asset.key)}`;
 
@@ -811,11 +903,31 @@ function AssetCard({
           <h3 className="text-sm font-semibold text-foreground">{asset.label}</h3>
           <p className="text-sm text-muted-foreground">{asset.description}</p>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted">
-          <Upload className="size-4" />
-          Upload
-          <input type="file" accept={asset.accept} className="hidden" onChange={(event) => onUpload(asset, event)} />
-        </label>
+        <div className="flex shrink-0 items-center gap-2">
+          {previewUrl && !isUploading ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(asset)}>
+              Remove
+            </Button>
+          ) : null}
+          <label
+            aria-busy={isUploading}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition",
+              isUploading ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-muted"
+            )}
+          >
+            {isUploading ? <LoaderCircle className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            {isUploading ? "Uploading…" : "Upload"}
+            <input
+              type="file"
+              aria-label={`Upload ${asset.label}`}
+              accept={asset.accept}
+              className="hidden"
+              disabled={isUploading}
+              onChange={(event) => onUpload(asset, event)}
+            />
+          </label>
+        </div>
       </div>
       <div className="mt-4 overflow-hidden rounded-2xl border border-border/70 bg-background">
         {previewUrl ? (
@@ -823,7 +935,7 @@ function AssetCard({
           <img src={previewUrl} alt={`${asset.label} preview`} className="h-36 w-full object-contain bg-muted/20 p-4" />
         ) : (
           <div className="grid h-36 place-items-center bg-[linear-gradient(135deg,rgba(17,24,39,0.03),rgba(217,119,6,0.08))] p-4 text-center text-sm text-muted-foreground">
-            Placeholder preview. Uploaded assets appear here before backend storage is connected.
+            No asset uploaded yet.
           </div>
         )}
       </div>

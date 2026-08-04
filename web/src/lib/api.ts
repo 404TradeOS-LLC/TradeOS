@@ -79,6 +79,60 @@ export function getOrganizationSettings(token: string) {
   return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token });
 }
 
+export type SettingsAssetKey = "logoUrl" | "darkLogoUrl" | "iconUrl" | "watermarkUrl";
+
+export interface SettingsAssetUploadResponse {
+  assetKey: SettingsAssetKey;
+  storageBucket: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  updatedAt: string;
+}
+
+export interface RecordSettingsAssetUploadResponse {
+  current: SettingsAssetUploadResponse;
+  previous: SettingsAssetUploadResponse | null;
+}
+
+// Server-only lookup used by the brand-asset proxy route to resolve where an
+// asset's bytes currently live before streaming them via the service_role
+// Supabase client. Returns null (never throws) when nothing has been
+// uploaded for that slot yet, matching the proxy route's 404-as-empty-state
+// handling.
+export async function getSettingsAssetUpload(token: string, assetKey: SettingsAssetKey) {
+  try {
+    return await apiFetch<SettingsAssetUploadResponse>(`/api/v1/settings/assets/${assetKey}`, { token });
+  } catch (err) {
+    if (err instanceof ApiClientError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+// Persists new storage metadata after the caller has already uploaded bytes
+// to Supabase Storage via the service_role client. Returns the previous
+// record (if any) so the caller can delete the now-superseded object.
+export function recordSettingsAssetUpload(
+  token: string,
+  input: { assetKey: SettingsAssetKey; storageBucket: string; storagePath: string; contentType: string; sizeBytes: number }
+) {
+  return apiFetch<RecordSettingsAssetUploadResponse>("/api/v1/settings/assets", {
+    token,
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+// Deletes the metadata row for an explicit "Remove" action. Returns the
+// deleted record (if any) so the caller can delete the underlying storage
+// object; a no-op-shaped response if nothing was set.
+export function clearSettingsAssetUpload(token: string, assetKey: SettingsAssetKey) {
+  return apiFetch<{ cleared: SettingsAssetUploadResponse | null }>(`/api/v1/settings/assets/${assetKey}`, {
+    token,
+    method: "DELETE",
+  });
+}
+
 export function getBrandStudioProfile(token: string) {
   return apiFetch<BrandProfile>("/api/v1/brand-studio/profile", { token });
 }

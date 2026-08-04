@@ -3,7 +3,17 @@ import { AdminDashboardService } from "../admin-dashboard/service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
-import { OrganizationSettingsDTO, OrganizationSettingsSnapshot, SettingsRoleProfileDTO, SettingsTeamMemberDTO, UpdateOrganizationSettingsInput } from "./types";
+import {
+  OrganizationSettingsDTO,
+  OrganizationSettingsSnapshot,
+  RecordSettingsAssetUploadInput,
+  RecordSettingsAssetUploadResult,
+  SettingsAssetKey,
+  SettingsAssetUploadDTO,
+  SettingsRoleProfileDTO,
+  SettingsTeamMemberDTO,
+  UpdateOrganizationSettingsInput,
+} from "./types";
 import { canonicalRoles, isLegacyRole, normalizeRole } from "../../domain";
 
 export class OrganizationSettingsService {
@@ -89,6 +99,76 @@ export class OrganizationSettingsService {
     };
   }
 
+  // Read-only lookup used by the web app's server-side asset proxy route to
+  // resolve the current storage location for a brand asset before generating
+  // bytes/a signed URL via the service_role Supabase client. Any org member
+  // may read (matches this module's existing select-policy posture).
+  async getAssetUpload(orgId: string, assetKey: SettingsAssetKey): Promise<SettingsAssetUploadDTO | null> {
+    const row = await prisma.settingsAssetUpload.findUnique({
+      where: { orgId_assetKey: { orgId, assetKey } },
+    });
+    if (!row) return null;
+    return toAssetUploadDTO(row);
+  }
+
+  // Persists new storage metadata for one asset slot and returns whatever the
+  // previous record was (if any) so the caller -- which alone has access to
+  // Supabase Storage -- can delete the old object only after this new record
+  // has been durably persisted. Never deletes storage bytes itself; this
+  // service only ever touches the application's own Postgres schema.
+  async recordAssetUpload(
+    orgId: string,
+    input: RecordSettingsAssetUploadInput,
+    auth: AuthContext
+  ): Promise<RecordSettingsAssetUploadResult> {
+    assertSettingsAssetStorageLocation(orgId, input);
+
+    const organization = await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true } });
+    if (!organization) throw new ApiError(404, `Organization ${orgId} not found`);
+
+    const previousRow = await prisma.settingsAssetUpload.findUnique({
+      where: { orgId_assetKey: { orgId, assetKey: input.assetKey } },
+    });
+
+    const row = await prisma.settingsAssetUpload.upsert({
+      where: { orgId_assetKey: { orgId, assetKey: input.assetKey } },
+      update: {
+        storageBucket: input.storageBucket,
+        storagePath: input.storagePath,
+        contentType: input.contentType,
+        sizeBytes: input.sizeBytes,
+        uploadedBy: auth.userId,
+      },
+      create: {
+        orgId,
+        assetKey: input.assetKey,
+        storageBucket: input.storageBucket,
+        storagePath: input.storagePath,
+        contentType: input.contentType,
+        sizeBytes: input.sizeBytes,
+        uploadedBy: auth.userId,
+      },
+    });
+
+    return {
+      current: toAssetUploadDTO(row),
+      previous: previousRow ? toAssetUploadDTO(previousRow) : null,
+    };
+  }
+
+  // Deletes the metadata row for an explicit "Remove" action and returns the
+  // deleted record (if any) so the caller can delete the underlying storage
+  // object. A no-op (returns null) if nothing was set, so this is safe to
+  // call unconditionally.
+  async clearAssetUpload(orgId: string, assetKey: SettingsAssetKey): Promise<SettingsAssetUploadDTO | null> {
+    const row = await prisma.settingsAssetUpload.findUnique({
+      where: { orgId_assetKey: { orgId, assetKey } },
+    });
+    if (!row) return null;
+    await prisma.settingsAssetUpload.delete({ where: { id: row.id } });
+    return toAssetUploadDTO(row);
+  }
+
   private async getTeamMembers(orgId: string): Promise<SettingsTeamMemberDTO[]> {
     const members = await this.adminDashboard.listOrganizationMembers(orgId);
     return members.map((member) => ({
@@ -102,6 +182,38 @@ export class OrganizationSettingsService {
       updatedAt: member.updatedAt,
     }));
   }
+}
+
+const SETTINGS_ASSET_STORAGE_BUCKET = "project-files";
+const SETTINGS_ASSET_OBJECT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function assertSettingsAssetStorageLocation(orgId: string, input: RecordSettingsAssetUploadInput): void {
+  const expectedPrefix = `organizations/${orgId}/brand-assets/${input.assetKey}-`;
+  const objectId = input.storagePath.startsWith(expectedPrefix) ? input.storagePath.slice(expectedPrefix.length) : "";
+  if (
+    input.storageBucket !== SETTINGS_ASSET_STORAGE_BUCKET ||
+    !SETTINGS_ASSET_OBJECT_ID_PATTERN.test(objectId)
+  ) {
+    throw new ApiError(400, "Invalid settings asset storage location");
+  }
+}
+
+function toAssetUploadDTO(row: {
+  assetKey: string;
+  storageBucket: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  updatedAt: Date;
+}): SettingsAssetUploadDTO {
+  return {
+    assetKey: row.assetKey as SettingsAssetKey,
+    storageBucket: row.storageBucket,
+    storagePath: row.storagePath,
+    contentType: row.contentType,
+    sizeBytes: row.sizeBytes,
+    updatedAt: row.updatedAt,
+  };
 }
 
 function emptyToNull(value: string): string | null {

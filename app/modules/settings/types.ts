@@ -96,3 +96,28 @@ export interface SettingsRoleProfileDTO {
   memberCount: number;
   status: "system";
 }
+
+export const SETTINGS_ASSET_KEYS = ["logoUrl", "darkLogoUrl", "iconUrl", "watermarkUrl"] as const;
+export type SettingsAssetKey = (typeof SETTINGS_ASSET_KEYS)[number];
+
+export interface RecordSettingsAssetUploadInput {
+  assetKey: SettingsAssetKey;
+  storageBucket: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+export interface SettingsAssetUploadDTO {
+  assetKey: SettingsAssetKey;
+  storageBucket: string;
+  storagePath: string;
+  contentType: string;
+  sizeBytes: number;
+  updatedAt: Date;
+}
+
+export interface RecordSettingsAssetUploadResult {
+  current: SettingsAssetUploadDTO;
+  previous: SettingsAssetUploadDTO | null;
+}

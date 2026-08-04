@@ -8,6 +8,7 @@ related_code:
   - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
+  - .github/workflows/deploy-migrations.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/

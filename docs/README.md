@@ -12,12 +12,14 @@ related_code:
   - .github/ISSUE_TEMPLATE/
   - .github/labels.yml
   - docs/DOC_OWNERSHIP.yml
+  - docs/DEPLOYMENT_GUIDE.md
   - packages/knowledge-engine/README.md
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
+  - .github/workflows/deploy-migrations.yml
 ---
 
 # TradeOS Documentation
@@ -39,6 +41,7 @@ Use these files first:
 - `docs/WORKFLOW_LIFECYCLES.md` for status vocabulary and transition rules
 - `docs/ROADMAP.md` for future work only
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, and label taxonomy
+- `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
@@ -75,6 +78,7 @@ Global source-of-truth files define shared rules.
 - `WORKFLOW_LIFECYCLES.md` answers how statuses move
 - `ROADMAP.md` answers what is next
 - `REPOSITORY_GOVERNANCE.md` answers how repository work must be isolated, verified, triaged, labeled, reviewed, and merged
+- `DEPLOYMENT_GUIDE.md` answers how production deployment, migration rollout, and explicit migration-history reconciliation are operated
 
 Module docs under `docs/modules/` inherit those shared rules and should not redefine them. Module docs should link back to the global file instead of copying role or lifecycle rules.
 
@@ -142,6 +146,7 @@ Rename handling:
 - [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md)
 - [ROADMAP.md](ROADMAP.md)
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
+- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [modules/](modules/)
 - [decisions/](decisions/)

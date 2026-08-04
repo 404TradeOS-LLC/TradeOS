@@ -246,9 +246,9 @@ export const settingsSections: SettingsSectionDefinition[] = [
         title: "Identity Assets",
         description: "Keep logos and icons ready for the app shell, documents, and portals.",
         assets: [
-          { key: "logoUrl", label: "Logo", description: "Primary light-surface logo.", accept: "image/*", keywords: ["logo"] },
-          { key: "darkLogoUrl", label: "Dark logo", description: "Optimized for dark backgrounds.", accept: "image/*", keywords: ["dark logo"] },
-          { key: "iconUrl", label: "Favicon / Icon", description: "Shown in tabs, shortcuts, and compact UI.", accept: "image/*", keywords: ["favicon", "icon"] },
+          { key: "logoUrl", label: "Logo", description: "Primary light-surface logo.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["logo"] },
+          { key: "darkLogoUrl", label: "Dark logo", description: "Optimized for dark backgrounds.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["dark logo"] },
+          { key: "iconUrl", label: "Favicon / Icon", description: "Shown in tabs, shortcuts, and compact UI.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["favicon", "icon"] },
         ],
       },
       {
@@ -377,10 +377,10 @@ export const settingsSections: SettingsSectionDefinition[] = [
         title: "Brand Asset Library",
         description: "Upload every surface TradeOS needs to feel like your company.",
         assets: [
-          { key: "logoUrl", label: "Logo", description: "Default brand mark.", accept: "image/*", keywords: ["logo"] },
-          { key: "darkLogoUrl", label: "Dark logo", description: "For dark PDFs and portals.", accept: "image/*", keywords: ["dark logo"] },
-          { key: "iconUrl", label: "Icon", description: "Compact app and favicon mark.", accept: "image/*", keywords: ["favicon", "icon"] },
-          { key: "watermarkUrl", label: "Watermark", description: "Optional faint document backdrop.", accept: "image/*", keywords: ["watermark"] },
+          { key: "logoUrl", label: "Logo", description: "Default brand mark.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["logo"] },
+          { key: "darkLogoUrl", label: "Dark logo", description: "For dark PDFs and portals.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["dark logo"] },
+          { key: "iconUrl", label: "Icon", description: "Compact app and favicon mark.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["favicon", "icon"] },
+          { key: "watermarkUrl", label: "Watermark", description: "Optional faint document backdrop.", accept: "image/png,image/jpeg,image/webp,image/gif,image/x-icon", keywords: ["watermark"] },
         ],
       },
       {

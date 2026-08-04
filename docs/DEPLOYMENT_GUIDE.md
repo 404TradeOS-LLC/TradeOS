@@ -153,6 +153,42 @@ It does two things:
 1. runs `prisma migrate deploy` against `DATABASE_ADMIN_URL`
 2. reprovisions the restricted app role if `APP_DB_ROLE_PASSWORD` is set
 
+### Migration history reconciliation
+
+If a production schema object already exists because it was created outside Prisma's
+recorded migration history, do not rerun that SQL. First verify the live table,
+constraints, indexes, forced RLS state, policies, and any related external resource
+against the migration file. When the live schema matches exactly, reconcile Prisma's
+history only:
+
+```bash
+npx prisma migrate resolve --applied <migration_folder_name>
+```
+
+For PR #30, production project `kssaceuetdjwfqnbzhly` already contains the
+`settings_asset_uploads` table and private `project-files` bucket shape described by
+`20260728120000_add_settings_asset_uploads`. The migration file checksum verified for
+that release gate is:
+
+```text
+0f224dc9c71ac0b61fddb4db02b8afe1789229eebc0beb97094be8bae268a761
+```
+
+The approved reconciliation command is:
+
+```bash
+npx prisma migrate resolve --applied 20260728120000_add_settings_asset_uploads
+```
+
+Run it only with explicit production approval, then run `npx prisma migrate status`
+against the same production database before merging application code. PR #30 ships a
+one-time manual workflow for this exact case:
+`.github/workflows/reconcile-production-migration.yml`. It uses the `production`
+GitHub Environment, maps the existing `DATABASE_ADMIN_URL` secret to Prisma's
+`DATABASE_URL`, verifies the migration file checksum above, runs only the
+`migrate resolve --applied` command, and then prints `migrate status`. It must not be
+reused for ordinary migration deployment and must not replace `npm run db:deploy`.
+
 ### 3. Build the applications
 
 Backend:
