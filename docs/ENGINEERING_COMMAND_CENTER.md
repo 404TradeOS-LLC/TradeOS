@@ -95,7 +95,7 @@ Expected CI jobs include:
 - `Docs consistency`;
 - `App lint, unit tests, and build`;
 - `App integration tests`;
-- `Web tests, lint, and build`.
+- `Web lint and build` (includes frontend unit tests before lint and build).
 
 Documentation foundation work must run:
 
