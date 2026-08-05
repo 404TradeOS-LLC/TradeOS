@@ -132,10 +132,11 @@ make the sample runtime-critical or TradeOS-authored.
 
 The canonical Loki sample backend lockfile at
 `agent-skills/skills/loki-mode/examples/todo-app-generated/backend/` was also refreshed on
-2026-08-05. It updates Express 4.22.1 to 4.22.2, `express-rate-limit` 8.3.1 to 8.6.2,
-`ip-address` 10.1.0 to 10.4.0, and their patched transitive dependencies. A clean Node 24
-install, TypeScript build, and package audit pass with zero vulnerabilities; the nested
-`knowledge-engine/knowledge-engine/` duplicate remains deliberately untouched.
+2026-08-05. It raises the `express-rate-limit` floor from 8.3.1 to 8.6.2 and resolves Express
+4.22.2, `ip-address` 10.4.0, and their patched transitive dependencies. The target registry
+packages are signed and provenance-attested. A clean Node 24 install, TypeScript build, package
+signature audit, live rate-limit smoke test, and package audit pass with zero vulnerabilities;
+the nested `knowledge-engine/knowledge-engine/` duplicate remains deliberately untouched.
 
 ## 5. Generated outputs and offline tooling
 
