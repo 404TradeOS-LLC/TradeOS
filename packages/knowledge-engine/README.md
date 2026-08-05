@@ -130,6 +130,14 @@ to 8.5.25, Vite from 7.3.2 to 8.2.0, and `@vitejs/plugin-react` from 4.7.0 to 6.
 production build, and package audit pass with zero vulnerabilities; this maintenance does not
 make the sample runtime-critical or TradeOS-authored.
 
+The canonical Loki sample backend lockfile at
+`agent-skills/skills/loki-mode/examples/todo-app-generated/backend/` was also refreshed on
+2026-08-05. It raises the `express-rate-limit` floor from 8.3.1 to 8.6.2 and resolves Express
+4.22.2, `ip-address` 10.4.0, and their patched transitive dependencies. The target registry
+packages are signed and provenance-attested. A clean Node 24 install, TypeScript build, package
+signature audit, live rate-limit smoke test, and package audit pass with zero vulnerabilities;
+the nested `knowledge-engine/knowledge-engine/` duplicate remains deliberately untouched.
+
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.
