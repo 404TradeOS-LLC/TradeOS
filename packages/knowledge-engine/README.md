@@ -125,10 +125,10 @@ as aspirational, not implemented.
 
 Dependency maintenance verified on 2026-08-05: the canonical Loki sample frontend lockfile at
 `agent-skills/skills/loki-mode/examples/todo-app-generated/frontend/` updates PostCSS from 8.5.6
-to 8.5.25. A clean install and production build pass for that vendored sample. Its package audit
-still reports seven development-tool vulnerabilities in the Babel/esbuild/Vite chain, tracked by
-the separate Vite 8 maintenance lane; this update does not make the sample runtime-critical or
-TradeOS-authored.
+to 8.5.25, Vite from 7.3.2 to 8.2.0, and `@vitejs/plugin-react` from 4.7.0 to 6.0.5. Its
+`picomatch` override now permits the Vite 8-compatible 4.0.5 line. A clean Node 24 install,
+production build, and package audit pass with zero vulnerabilities; this maintenance does not
+make the sample runtime-critical or TradeOS-authored.
 
 ## 5. Generated outputs and offline tooling
 
