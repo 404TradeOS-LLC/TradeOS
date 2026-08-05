@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-08-05
 source_of_truth: true
 related_code:
   - app/modules/knowledge-runtime/README.md
@@ -122,6 +122,13 @@ without a license/provenance review.**
 `agent-skills/agents/README.md` is a first-party catalog of 19 "worker agent" roles, but only a
 handful currently have a corresponding prompt file in `prompts/agents/`. Treat the unlisted roles
 as aspirational, not implemented.
+
+Dependency maintenance verified on 2026-08-05: the canonical Loki sample frontend lockfile at
+`agent-skills/skills/loki-mode/examples/todo-app-generated/frontend/` updates PostCSS from 8.5.6
+to 8.5.25. A clean install and production build pass for that vendored sample. Its package audit
+still reports seven development-tool vulnerabilities in the Babel/esbuild/Vite chain, tracked by
+the separate Vite 8 maintenance lane; this update does not make the sample runtime-critical or
+TradeOS-authored.
 
 ## 5. Generated outputs and offline tooling
 
