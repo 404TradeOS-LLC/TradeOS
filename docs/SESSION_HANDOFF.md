@@ -38,7 +38,7 @@ fresh dependency, PR, worktree, infrastructure, and founder-decision evidence.
 - verified the remaining security-hardening worktree touches only
   `packages/knowledge-engine/**`, outside S004's docs/docs-test scope;
 - verified S004 needs no external infrastructure or founder decision;
-- promoted only S004 to `READY` and left every later sprint unchanged; and
+- promoted only S004 to `READY` and left every later sprint unchanged;
 - recorded S004 as the mechanically selected next eligible sprint; and
 - opened draft PR #75 for this isolated readiness update.
 
