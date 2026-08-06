@@ -1,39 +1,25 @@
 # AGENTS.md — TradeOS RC1 Developer Guide
 
-Essential knowledge for AI agents working in this repository.
+Essential repository-specific engineering guidance for AI agents.
 
-Documentation source of truth:
+## Canonical execution contract
 
-- start with `docs/README.md`
-- read `docs/TRADEOS_BIBLE.md` for doctrine and source-of-truth hierarchy
-- read `docs/ENGINEERING_COMMAND_CENTER.md` immediately after environment verification
-- verify current implementation claims in `docs/CURRENT_STATE.md`
-- verify executable work state in `docs/SPRINT_BACKLOG.md`
-- read `docs/SESSION_HANDOFF.md` for the latest completed-session context
-- use `docs/agent-prompts/AGENT_STARTUP_CHECKLIST.md` before substantial work
-- use `docs/agent-prompts/AGENT_COMPLETION_CHECKLIST.md` before handoff
-- use `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, worktree lifecycle, and PR-readiness expectations
+- `docs/TRADEOS_BIBLE.md` owns doctrine and the source-of-truth hierarchy.
+- `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` owns the sole executable
+  [startup](docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+  and
+  [completion](docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow)
+  flows for every agent task.
+- `docs/REPOSITORY_GOVERNANCE.md` owns branch, worktree, PR-readiness, review,
+  merge, and cleanup policy.
+- `docs/SPRINT_BACKLOG.md` owns executable sprint state, and
+  `docs/SESSION_HANDOFF.md` owns immediate continuity.
+- `docs/README.md` is the documentation index; it does not define a competing
+  execution flow.
 
-## Worktree discipline
-
-Before substantial work:
-
-- verify the exact worktree path, exact branch, clean working tree requirement, upstream branch, and active worktree list
-- verify the remote repository target and fetch origin before trusting local branch comparisons
-- inspect the Command Center and latest Session Handoff before interpreting current priorities
-- confirm the allowed paths, forbidden paths, and explicit task scope before editing
-- review likely documentation impact before code or workflow changes
-
-Required rule:
-
-- do not interpret `continue` as permission to select another task or broaden scope
-
-Before handoff:
-
-- update `docs/SESSION_HANDOFF.md` for every substantive or PR-ready session
-- update `docs/ENGINEERING_COMMAND_CENTER.md` only when mission-critical operating context changed
-- report the exact final `git status --short --branch`
-- report PR readiness and any remaining documentation work in the same branch
+Follow the canonical protocol before using the engineering guidance below.
+Supporting checklists and worktree contracts are compatibility or lane-specific
+references only. `continue` resumes only the current bounded mission.
 
 ## Big picture
 

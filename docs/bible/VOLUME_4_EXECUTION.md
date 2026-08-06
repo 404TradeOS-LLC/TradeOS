@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-08-06
 source_of_truth: true
 ---
 
@@ -141,25 +141,14 @@ Large initiatives must be decomposed into:
 
 A sprint is too small when it creates administrative overhead without producing a useful, verifiable outcome.
 
-## 9. Sprint selection algorithm
+## 9. Sprint selection doctrine
 
-Every autonomous execution session must:
-
-1. fetch `origin`;
-2. verify exact repository path, branch, worktree, cleanliness, remote, and upstream;
-3. read the Bible, Command Center, Current State, Sprint Backlog, Session Handoff, and Next Sprint Protocol;
-4. inspect live open PRs, recent merges, and active worktrees;
-5. ignore `DONE`, `IN_REVIEW`, `BLOCKED`, `DEFERRED`, and `CANCELLED` sprints;
-6. select the lowest-numbered `READY` sprint whose dependencies remain satisfied;
-7. verify no scope overlap appeared since the backlog was last updated;
-8. state mission, allowed paths, forbidden paths, tests, stop conditions, and expected PR before editing;
-9. create an isolated branch and worktree;
-10. execute exactly one sprint;
-11. update evidence, docs, and handoff;
-12. push and open or update one draft PR;
-13. stop rather than automatically beginning a second sprint.
-
-If no sprint qualifies, report the exact blocker.
+Autonomous execution selects the lowest-numbered eligible `READY` sprint,
+executes exactly one sprint in an isolated branch and worktree, and stops after
+handoff. The sole executable selection sequence is the
+[Sprint Selection and Execution](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#sprint-selection-and-execution)
+section of the Next Sprint Protocol. If no sprint qualifies, the agent reports
+the exact blocker instead of inventing work.
 
 ## 10. Founder command
 
@@ -275,82 +264,32 @@ The coordinating agent or founder must maintain a mission map containing:
 
 When overlap is discovered, stop one lane and redirect it to review, validation, or a different volume rather than allowing competing implementations.
 
-## 16. Agent startup protocol
+## 16. Agent startup doctrine
 
-Every agent begins by reporting:
+No editing begins until repository identity, authority, live overlap, mission
+scope, validation, documentation impact, and stop conditions are known. The
+sole executable sequence and required evidence are defined by the
+[Canonical Startup Flow](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow).
 
-- exact path;
-- branch;
-- HEAD;
-- base HEAD;
-- clean or dirty state;
-- upstream state;
-- open PR relationship;
-- mission;
-- allowed scope;
-- forbidden scope;
-- validation plan;
-- stop conditions.
+## 17. Agent completion doctrine
 
-No editing begins until these facts are known.
+Every agent proves scope, validation, documentation, repository state, and the
+next safe action before handoff. The sole executable sequence is the
+[Canonical Completion Flow](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow).
 
-## 17. Agent completion protocol
+## 18. Founder Summary doctrine
 
-Every agent finishes by:
-
-1. reviewing the complete diff against the intended base;
-2. confirming no unrelated file entered scope;
-3. running all required tests;
-4. updating documentation required by ownership rules;
-5. updating the sprint record when applicable;
-6. replacing or updating the session handoff;
-7. committing focused changes;
-8. fetching remote state again;
-9. pushing safely;
-10. opening or updating one PR;
-11. reporting final branch status and HEAD;
-12. stating readiness and the exact next action.
-
-## 18. Founder Summary contract
-
-A completion report must include:
-
-- Mission;
-- Outcome;
-- Branch and worktree;
-- Original HEAD;
-- Final HEAD;
-- Files changed;
-- Work completed;
-- Tests passed;
-- Tests failed or blocked;
-- Scope verification;
-- Push result;
-- PR status and URL;
-- Remaining risks;
-- Ready to merge: YES or NO;
-- Exact next safe action.
-
-Do not hide blocked validation in narrative text.
+Completion reports expose outcomes, evidence, blocked checks, repository and
+PR state, residual risk, and the backlog-derived next safe action. The
+canonical completion flow owns the exact report contract; supporting documents
+must not restate it or hide blocked validation in narrative text.
 
 ## 19. Pull request lifecycle
 
-The standard lifecycle is:
-
-1. create branch and isolated worktree;
-2. implement within sprint scope;
-3. run focused tests;
-4. run complete required validation;
-5. inspect final diff;
-6. commit and push;
-7. open a draft PR;
-8. complete self-audit and CI;
-9. correct defects;
-10. mark ready when reviewable;
-11. merge through protected workflow;
-12. sync local `main`;
-13. record completion evidence;
-14. clean branch and worktree when safe.
+Repository Governance owns the operational PR and worktree lifecycle. Durable
+execution invariants are: implementation remains scoped; draft publication
+precedes `IN_REVIEW`; required checks and review precede merge; merge evidence
+precedes `DONE`; and verified merge precedes cleanup.
 
 ## 20. Draft PR policy
 

@@ -1,41 +1,20 @@
 ---
-status: current
+status: compatibility
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-06
 source_of_truth: false
 related_code:
-  - docs/README.md
-  - docs/DOC_OWNERSHIP.yml
+  - AGENTS.md
+  - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
 # Agent Completion Checklist
 
-Every task report must include:
+This compatibility entrypoint intentionally does not define a second
+completion checklist. Complete the
+[Canonical Completion Flow](NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow)
+in `NEXT_SPRINT_PROTOCOL.md`.
 
-- files created
-- files modified
-- documentation impact
-- whether `docs/ENGINEERING_COMMAND_CENTER.md` changed and why
-- whether `docs/SESSION_HANDOFF.md` was refreshed
-- tests and checks run
-- checks passed
-- checks failed
-- checks blocked by environment
-- commit list
-- exact final `git status --short --branch`
-- upstream state
-- PR readiness
-- known limitations
-- deferred work
-
-Always include:
-
-- whether scope stayed inside the allowed paths
-- whether explicit exclusions stayed untouched
-- whether any stop condition was encountered
-- whether final branch state is ready for review without extra documentation work
-- the next exact task for the next session
-
-Required rule:
-
-“The task is incomplete when code changes require documentation updates that are not included in the same branch and PR.”
+Task- or lane-specific contracts may add validation or evidence, but they may
+not reorder, weaken, or restate the canonical flow. Documentation required by
+ownership rules remains part of the same branch and PR.

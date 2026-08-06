@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -50,8 +50,9 @@ normalization) is complete: PR #80 merged on 2026-08-06 as
 `f8179c739cdb7691de2cb3d776f9e7c5da34084f`. PR #81 recorded its completion
 evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
 `36a87bea`; a pre-implementation audit then found its readiness record omitted
-explicit forbidden paths and named tests. The isolated readiness-gate repair
-must land before implementation proceeds. No later sprint has been promoted.
+explicit forbidden paths and named tests. PR #83 repaired those gates and
+merged as `ee5000b4`. S005 implementation is now isolated on
+`agent/s005-agent-contracts`; no later sprint has been promoted.
 
 Completed foundation work includes:
 
@@ -77,12 +78,11 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after the isolated S005
-readiness-gate repair was published:
+Live GitHub and worktree state verified on 2026-08-06 after PR #83 merged and
+before the S005 implementation branch was published:
 
-- draft PR #83 is the sole open pull request and owns only the four required
-  governance owner documents for the readiness-gate repair;
-- no pull requests were open before that branch was published;
+- no pull requests are open;
+- PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
 - PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
 - PR #81 merged as `5efa9835`, recording S004 completion evidence;
 - PR #80 was merged as `f8179c73`, completing the S004 implementation;
@@ -105,8 +105,8 @@ The remaining security-hardening worktree has three uncommitted
 `packages/knowledge-engine/**` edits and does not overlap S005's `AGENTS.md`,
 `docs/agent-prompts/**`, or governance-doc scope.
 
-The clean `agent/s005-agent-contracts` worktree remains untouched while this
-readiness-gate repair is reviewed.
+The clean `agent/s005-agent-contracts` worktree is based on `ee5000b4` and owns
+only S005's allowed agent-contract and governance-doc scope.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -142,39 +142,24 @@ The exact required-check configuration remains live GitHub state.
 
 PR templates must capture startup verification, scope, documentation impact, risk review, and exact final status. Issue templates must capture area, priority, owner path, verification expectations, and stop conditions before work starts. Labels must follow the taxonomy in `.github/labels.yml`. See [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the full policy.
 
-## Session startup
+## Session execution
 
-Every agent must:
-
-1. verify repository path, worktree, branch, upstream, and clean state;
-2. fetch origin;
-3. read the Bible, Current State, Sprint Backlog, Session Handoff, and Next Sprint Protocol;
-4. inspect open PRs, recent merges, and worktree overlap;
-5. state mission, allowed paths, forbidden paths, validation, and stop conditions.
-
-## Session completion
-
-Every agent must:
-
-1. inspect the complete diff against the correct base;
-2. run required validation;
-3. update affected source-of-truth owners;
-4. update sprint evidence only when justified;
-5. replace the session handoff with concise current truth;
-6. confirm no unrelated changes;
-7. commit and push intentionally;
-8. open or update one PR;
-9. report the exact next safe action.
+The sole executable session contract is
+`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`: use its
+[Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+before editing and its
+[Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow)
+before handoff. This Command Center reports current operating context and does
+not restate those flows.
 
 ## Next engineer starts here
 
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Merge the isolated S005 readiness update before beginning its implementation
-in a separate branch. Do not begin archive, deletion, README consolidation, or
-ruleset mutation outside a sprint's stated scope, and do not begin Phase C of
-the knowledge-engine cleanup without explicit founder sign-off.
+Resume only S005 on `agent/s005-agent-contracts`. Do not begin archive,
+deletion, unrelated README consolidation, or ruleset mutation, and do not begin
+Phase C of the knowledge-engine cleanup without explicit founder sign-off.
 
 ## Source-of-truth links
 

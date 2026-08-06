@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -98,9 +98,10 @@ request and owns only that readiness promotion.
 Readiness correction: A pre-implementation audit found that the original
 promotion omitted explicit forbidden paths and named tests required by the
 Bible's Definition of Ready. This governance-only correction adds those gates
-without expanding S005 into `scripts/**` or runtime changes; it must merge
-before the untouched implementation worktree proceeds. Draft PR #83 owns only
-this correction.
+without expanding S005 into `scripts/**` or runtime changes. PR #83 merged that
+correction on 2026-08-06 as `ee5000b4eb62ebda1dd42d2a51572c41b98443d4`.
+Implementation is isolated on `agent/s005-agent-contracts`, based on that
+corrected `main`; it consolidates the contracts without adding a new test file.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 
@@ -405,6 +406,6 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
 checking live PRs, worktrees, and dependencies. S005 is the first `READY`
 sprint after its dependency, overlap, infrastructure, and founder-decision
-gates were verified on 2026-08-06. Merge the isolated readiness PR before
-starting S005 implementation in a separate branch; do not promote S006
+gates were verified and corrected on 2026-08-06. Its isolated implementation
+branch is active; publish and review that branch without promoting S006
 implicitly.
