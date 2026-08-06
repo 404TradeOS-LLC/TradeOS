@@ -48,8 +48,10 @@ governance calibration) is complete: PR #73 merged on 2026-08-04 as
 `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. S004 (session handoff
 normalization) is complete: PR #80 merged on 2026-08-06 as
 `f8179c739cdb7691de2cb3d776f9e7c5da34084f`. PR #81 recorded its completion
-evidence and merged as `5efa9835`. S005 is now the audited readiness candidate;
-no later sprint has been promoted implicitly.
+evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
+`36a87bea`; a pre-implementation audit then found its readiness record omitted
+explicit forbidden paths and named tests. The isolated readiness-gate repair
+must land before implementation proceeds. No later sprint has been promoted.
 
 Completed foundation work includes:
 
@@ -76,11 +78,12 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 ## Active PR coordination
 
 Live GitHub and worktree state verified on 2026-08-06 after the isolated S005
-readiness branch was published:
+readiness-gate repair was published:
 
-- draft PR #82 is the sole open pull request and owns only the four required
-  governance owner documents for S005 readiness;
-- no pull requests were open before that isolated branch was created;
+- draft PR #83 is the sole open pull request and owns only the four required
+  governance owner documents for the readiness-gate repair;
+- no pull requests were open before that branch was published;
+- PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
 - PR #81 merged as `5efa9835`, recording S004 completion evidence;
 - PR #80 was merged as `f8179c73`, completing the S004 implementation;
 - PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
@@ -101,6 +104,9 @@ readiness branch was published:
 The remaining security-hardening worktree has three uncommitted
 `packages/knowledge-engine/**` edits and does not overlap S005's `AGENTS.md`,
 `docs/agent-prompts/**`, or governance-doc scope.
+
+The clean `agent/s005-agent-contracts` worktree remains untouched while this
+readiness-gate repair is reviewed.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
