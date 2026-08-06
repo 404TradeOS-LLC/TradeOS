@@ -56,7 +56,7 @@ selector test validates the computed current backlog result instead of
 permanently hard-coding S003 as `READY`.
 
 ### S004 — Session handoff normalization
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S001
 Objective: Make `SESSION_HANDOFF.md` concise, current, and mechanically identify the next eligible sprint.
 Allowed paths: docs and docs tests.
@@ -73,6 +73,10 @@ Implementation evidence: `docs/s004-session-handoff` normalizes the handoff's
 terminal resume contract and adds a mechanical docs test in draft PR #80 at
 initial published head `0d419aa1`. S004 must not be marked `DONE` before that
 PR merges.
+Evidence: PR #80 merged on 2026-08-06 as
+`f8179c739cdb7691de2cb3d776f9e7c5da34084f`. The merged handoff is concise,
+ends with the required five-field resume contract, and is mechanically checked
+against the first eligible `READY` sprint or explicit `NONE` state.
 
 ### S005 — Agent contract consolidation
 Status: PLANNED
@@ -382,7 +386,7 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 ## Next Eligible Sprint
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
-checking live PRs, worktrees, and dependencies. S004 is the first eligible
-implementation sprint, but it is now `IN_REVIEW`; every later sprint remains
-`PLANNED`. No other sprint is currently marked `READY`; resume S004 from its
-implementation branch and do not promote S005 implicitly.
+checking live PRs, worktrees, and dependencies. S004 is `DONE` after PR #80
+merged as `f8179c73`; every later sprint remains `PLANNED`. No other sprint is
+currently marked `READY`; the backlog must be explicitly re-evaluated before
+another sprint starts.
