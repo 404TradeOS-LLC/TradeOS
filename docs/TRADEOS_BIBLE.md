@@ -138,6 +138,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - A readiness promotion records the checked dependency, pull-request,
   worktree, infrastructure, and founder-decision state so the next selection
   is evidence-backed rather than implied.
+- Readiness promotion is a governance-only change that lands before the
+  implementation branch; an implementation branch may not authorize its own
+  sprint.
 - Open PR overlap blocks a sprint from `READY` status.
 - Every completed sprint updates its evidence and the session handoff.
 - The session handoff ends with one mechanical resume contract containing
