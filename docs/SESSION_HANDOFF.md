@@ -22,7 +22,8 @@ related_code:
   flows; compatibility checklists and lane contracts link to those anchors.
 - Runtime, scripts, workflows, dependencies, repository settings, and
   `packages/**` remain untouched.
-- The S005 implementation PR has not been published yet.
+- Draft PR #84 owns the S005 implementation; its initial published head was
+  `11bd6c80`.
 
 ## Verification
 
@@ -40,11 +41,12 @@ related_code:
 - documentation tests: 39/39 passed
 - documentation ownership check: passed; every required owner is present
 - `git diff --check`: passed
+- draft PR publication: passed; PR #84 is the sole open pull request
 
 ## Next Eligible Sprint
 
-Sprint ID: S005
-Eligibility: S005 is READY and its corrected implementation branch owns only the allowed scope.
+Sprint ID: NONE
+Eligibility: S005 is IN_REVIEW in draft PR #84, no sprint is READY, and S005 cannot be marked DONE before merge evidence exists.
 Dependencies: S001 is DONE.
-Overlap check: The S005 branch owns agent-contract and governance documents; the security-hardening worktree is non-overlapping.
-Startup prompt: Validate and publish the S005 implementation as one draft PR, then stop without promoting S006.
+Overlap check: Draft PR #84 owns agent-contract and governance documents; the security-hardening worktree is non-overlapping.
+Startup prompt: Review PR #84 at its exact final head, require green checks, merge it, then record S005 completion evidence without promoting S006.

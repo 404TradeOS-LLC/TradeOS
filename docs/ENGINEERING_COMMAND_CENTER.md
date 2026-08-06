@@ -78,10 +78,12 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after PR #83 merged and
-before the S005 implementation branch was published:
+Live GitHub and worktree state verified on 2026-08-06 after the S005
+implementation branch was published:
 
-- no pull requests are open;
+- draft PR #84 is the sole open pull request and owns only S005's allowed
+  agent-contract and governance-doc scope;
+- its initial published head was `11bd6c80`;
 - PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
 - PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
 - PR #81 merged as `5efa9835`, recording S004 completion evidence;
@@ -105,8 +107,9 @@ The remaining security-hardening worktree has three uncommitted
 `packages/knowledge-engine/**` edits and does not overlap S005's `AGENTS.md`,
 `docs/agent-prompts/**`, or governance-doc scope.
 
-The clean `agent/s005-agent-contracts` worktree is based on `ee5000b4` and owns
-only S005's allowed agent-contract and governance-doc scope.
+The `agent/s005-agent-contracts` worktree is based on `ee5000b4`; its complete
+diff is visible in draft PR #84 and does not overlap the security-hardening
+worktree.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -157,9 +160,9 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Resume only S005 on `agent/s005-agent-contracts`. Do not begin archive,
-deletion, unrelated README consolidation, or ruleset mutation, and do not begin
-Phase C of the knowledge-engine cleanup without explicit founder sign-off.
+Review only S005 in draft PR #84. Do not begin archive, deletion, unrelated
+README consolidation, or ruleset mutation, and do not begin Phase C of the
+knowledge-engine cleanup without explicit founder sign-off.
 
 ## Source-of-truth links
 
