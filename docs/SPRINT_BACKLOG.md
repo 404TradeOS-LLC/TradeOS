@@ -56,7 +56,7 @@ selector test validates the computed current backlog result instead of
 permanently hard-coding S003 as `READY`.
 
 ### S004 — Session handoff normalization
-Status: READY
+Status: IN_REVIEW
 Dependencies: S001
 Objective: Make `SESSION_HANDOFF.md` concise, current, and mechanically identify the next eligible sprint.
 Allowed paths: docs and docs tests.
@@ -69,6 +69,10 @@ or superseded, leaving no external PR overlap with S004's docs/docs-test scope;
 the only other active worktree modifies `packages/knowledge-engine/**` and does
 not overlap S004; no external infrastructure is required; and no founder
 decision is unresolved.
+Implementation evidence: `docs/s004-session-handoff` normalizes the handoff's
+terminal resume contract and adds a mechanical docs test in draft PR #80 at
+initial published head `0d419aa1`. S004 must not be marked `DONE` before that
+PR merges.
 
 ### S005 — Agent contract consolidation
 Status: PLANNED
@@ -379,8 +383,6 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
 checking live PRs, worktrees, and dependencies. S004 is the first eligible
-`READY` sprint: S001 is `DONE`, PR #75 is the sole open pull request and owns
-only this readiness update, the remaining security-hardening worktree does not
-overlap S004's docs/docs-test scope, and no founder decision or
-external-infrastructure blocker remains. Execute S004 only after this readiness
-update merges, using a separate branch and worktree.
+implementation sprint, but it is now `IN_REVIEW`; every later sprint remains
+`PLANNED`. No other sprint is currently marked `READY`; resume S004 from its
+implementation branch and do not promote S005 implicitly.
