@@ -19,12 +19,13 @@ related_code:
 - This branch records only S004's completion evidence in the required four
   governance owner documents.
 - Every later sprint remains `PLANNED`; none was promoted implicitly.
-- The S004 completion-evidence PR has not been published yet.
+- Draft PR #81 owns the S004 completion evidence; its initial published head
+  was `9232a97b`.
 
 ## Verification
 
 - PR #80 merged-state and exact merge SHA: passed
-- open-PR check before branch creation: passed; zero open PRs
+- draft PR publication: passed; PR #81 is the sole open pull request
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
 - documentation tests: 39/39 passed
@@ -36,5 +37,5 @@ related_code:
 Sprint ID: NONE
 Eligibility: S004 is DONE, every later sprint is PLANNED, and none is eligible until an explicit readiness review.
 Dependencies: No READY sprint exists; future readiness must re-evaluate each sprint's declared dependencies.
-Overlap check: This branch owns only S004 completion evidence; the security-hardening worktree is non-overlapping.
-Startup prompt: Review and publish the S004 completion-evidence PR, then stop until the backlog explicitly marks another sprint READY.
+Overlap check: Draft PR #81 owns only S004 completion evidence; the security-hardening worktree is non-overlapping.
+Startup prompt: Review PR #81 at its exact final head, require green checks, merge it, then stop until the backlog explicitly marks another sprint READY.

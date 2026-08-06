@@ -69,10 +69,9 @@ or superseded, leaving no external PR overlap with S004's docs/docs-test scope;
 the only other active worktree modifies `packages/knowledge-engine/**` and does
 not overlap S004; no external infrastructure is required; and no founder
 decision is unresolved.
-Implementation evidence: `docs/s004-session-handoff` normalizes the handoff's
-terminal resume contract and adds a mechanical docs test in draft PR #80 at
-initial published head `0d419aa1`. S004 must not be marked `DONE` before that
-PR merges.
+Implementation evidence: `docs/s004-session-handoff` normalized the handoff's
+terminal resume contract and added a mechanical docs test in PR #80, initially
+published at head `0d419aa1` and later merged.
 Evidence: PR #80 merged on 2026-08-06 as
 `f8179c739cdb7691de2cb3d776f9e7c5da34084f`. The merged handoff is concise,
 ends with the required five-field resume contract, and is mechanically checked

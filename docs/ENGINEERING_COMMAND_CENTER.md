@@ -75,9 +75,10 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 ## Active PR coordination
 
 Live GitHub and worktree state verified on 2026-08-06 after PR #80 merged and
-before the S004 completion-evidence branch was published:
+draft PR #81 published the S004 completion evidence:
 
-- no pull requests were open;
+- PR #81 is the sole open pull request and owns only the four required
+  governance owner documents for S004 completion evidence;
 - PR #80 was merged as `f8179c73`, completing the S004 implementation;
 - PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
   isolated implementation branch was created;
