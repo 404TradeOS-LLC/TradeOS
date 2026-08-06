@@ -46,8 +46,9 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
 governance calibration) is complete: PR #73 merged on 2026-08-04 as
 `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. S004 (session handoff
-normalization) is now `IN_REVIEW` on `docs/s004-session-handoff`; no later
-sprint has been promoted implicitly.
+normalization) is complete: PR #80 merged on 2026-08-06 as
+`f8179c739cdb7691de2cb3d776f9e7c5da34084f`. No later sprint has been promoted
+implicitly.
 
 Completed foundation work includes:
 
@@ -73,11 +74,12 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after the S004
-implementation branch was published:
+Live GitHub and worktree state verified on 2026-08-06 after PR #80 merged and
+draft PR #81 published the S004 completion evidence:
 
-- draft PR #80 is the sole open pull request and owns only S004's governance
-  docs and docs-test scope;
+- PR #81 is the sole open pull request and owns only the four required
+  governance owner documents for S004 completion evidence;
+- PR #80 was merged as `f8179c73`, completing the S004 implementation;
 - PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
   isolated implementation branch was created;
 - every dependency pull request from the prior readiness audit is now merged,
@@ -160,11 +162,10 @@ Every agent must:
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Resume only S004 from `docs/s004-session-handoff` until its implementation PR
-merges and completion evidence is recorded. Do not begin archive, deletion,
-README consolidation, or ruleset mutation outside a sprint's stated scope, and
-do not begin Phase C of the knowledge-engine cleanup without explicit founder
-sign-off.
+Record only S004's merged completion evidence; no other sprint is currently
+`READY`. Do not begin archive, deletion, README consolidation, or ruleset
+mutation outside a sprint's stated scope, and do not begin Phase C of the
+knowledge-engine cleanup without explicit founder sign-off.
 
 ## Source-of-truth links
 

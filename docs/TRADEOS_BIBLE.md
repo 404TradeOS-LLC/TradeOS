@@ -142,7 +142,8 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Every completed sprint updates its evidence and the session handoff.
 - The session handoff ends with one mechanical resume contract containing
   `Sprint ID`, `Eligibility`, `Dependencies`, `Overlap check`, and `Startup
-  prompt`; `Sprint ID: NONE` is explicit when no sprint is eligible.
+  prompt`; `Sprint ID: NONE` is explicit when no sprint is eligible, and the
+  docs suite verifies the field order and computed sprint ID.
 - Live external controls such as GitHub rulesets must be verified read-only
   before being described as current; their detailed evidence belongs in
   `docs/REPOSITORY_GOVERNANCE.md`.
