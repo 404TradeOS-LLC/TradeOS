@@ -78,7 +78,7 @@ ends with the required five-field resume contract, and is mechanically checked
 against the first eligible `READY` sprint or explicit `NONE` state.
 
 ### S005 — Agent contract consolidation
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S001
 Objective: Remove duplicated or conflicting startup/completion rules and point all agents to the Bible and sprint protocol.
 Allowed paths: `AGENTS.md`, `docs/agent-prompts/**`, governance docs.
@@ -102,10 +102,13 @@ without expanding S005 into `scripts/**` or runtime changes. PR #83 merged that
 correction on 2026-08-06 as `ee5000b4eb62ebda1dd42d2a51572c41b98443d4`.
 Implementation is isolated on `agent/s005-agent-contracts`, based on that
 corrected `main`; it consolidates the contracts without adding a new test file.
-Implementation evidence: Draft PR #84 was published at initial head
-`11bd6c80`. The protocol is now the sole executable owner of startup and
-completion; supporting checklists and lane contracts preserve their paths while
-linking to the canonical anchors. S005 remains `IN_REVIEW` until that PR merges.
+Evidence: PR #84 merged on 2026-08-06 as
+`7d1c48376861468122347e19c41f0a007d7b5fc9`. The protocol is now the
+sole executable owner of startup and completion; supporting checklists and lane
+contracts preserve their paths while linking to the canonical anchors. The
+implementation passed 39/39 documentation tests, ownership validation,
+`git diff --check`, the broadened contract-link audit, both required GitHub
+workflows, and two independent exact-head review passes.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 
@@ -408,7 +411,6 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 ## Next Eligible Sprint
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
-checking live PRs, worktrees, and dependencies. S005 is `IN_REVIEW` in draft
-PR #84 after its dependency, overlap, infrastructure, founder-decision, and
-validation gates were verified and corrected. No other sprint is
-currently marked `READY`; review PR #84 without promoting S006 implicitly.
+checking live PRs, worktrees, and dependencies. S005 is `DONE` with merge
+evidence from PR #84. No other sprint is currently marked `READY`; do not
+promote or begin S006 implicitly.

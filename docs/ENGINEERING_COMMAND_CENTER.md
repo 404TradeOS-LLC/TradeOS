@@ -51,8 +51,9 @@ normalization) is complete: PR #80 merged on 2026-08-06 as
 evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
 `36a87bea`; a pre-implementation audit then found its readiness record omitted
 explicit forbidden paths and named tests. PR #83 repaired those gates and
-merged as `ee5000b4`. S005 implementation is now isolated on
-`agent/s005-agent-contracts`; no later sprint has been promoted.
+merged as `ee5000b4`. S005 is complete: PR #84 merged on 2026-08-06 as
+`7d1c48376861468122347e19c41f0a007d7b5fc9`. No later sprint has been
+promoted.
 
 Completed foundation work includes:
 
@@ -78,12 +79,13 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after the S005
-implementation branch was published:
+Live GitHub and worktree state verified on 2026-08-06 after S005 merged:
 
-- draft PR #84 is the sole open pull request and owns only S005's allowed
-  agent-contract and governance-doc scope;
-- its initial published head was `11bd6c80`;
+- no pull requests were open before the S005 completion-evidence branch was
+  published;
+- draft PR #85 is now the sole open pull request and contains only the four
+  governance owner documents required to record S005 completion;
+- PR #84 merged as `7d1c4837`, completing S005;
 - PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
 - PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
 - PR #81 merged as `5efa9835`, recording S004 completion evidence;
@@ -104,12 +106,8 @@ implementation branch was published:
 - PR #35 was merged as `c7b84643`.
 
 The remaining security-hardening worktree has three uncommitted
-`packages/knowledge-engine/**` edits and does not overlap S005's `AGENTS.md`,
-`docs/agent-prompts/**`, or governance-doc scope.
-
-The `agent/s005-agent-contracts` worktree is based on `ee5000b4`; its complete
-diff is visible in draft PR #84 and does not overlap the security-hardening
-worktree.
+`packages/knowledge-engine/**` edits and does not overlap this governance-only
+completion record.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -160,9 +158,9 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Review only S005 in draft PR #84. Do not begin archive, deletion, unrelated
-README consolidation, or ruleset mutation, and do not begin Phase C of the
-knowledge-engine cleanup without explicit founder sign-off.
+No sprint is currently `READY`. Verify live state, then stop without promoting
+S006 or beginning archive, deletion, unrelated README consolidation, ruleset
+mutation, or Phase C of the knowledge-engine cleanup.
 
 ## Source-of-truth links
 

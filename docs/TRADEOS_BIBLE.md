@@ -28,6 +28,11 @@ owned by the canonical startup flow in
 
 When an eligible `READY` sprint exists, the agent selects and executes it through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. The founder should not need to reconstruct a custom implementation prompt.
 
+S005 completed this operating-contract consolidation in PR #84, merged on
+2026-08-06 as `7d1c48376861468122347e19c41f0a007d7b5fc9`. The Next Sprint
+Protocol is the sole executable owner of startup and completion; supporting
+documents may define doctrine, lifecycle policy, or scoped additions only.
+
 ## Volume I — Vision
 
 Canonical doctrine: `docs/bible/VOLUME_1_VISION.md`
