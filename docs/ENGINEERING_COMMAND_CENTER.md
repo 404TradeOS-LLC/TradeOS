@@ -46,8 +46,8 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
 governance calibration) is complete: PR #73 merged on 2026-08-04 as
 `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. S004 (session handoff
-normalization) is now the first eligible `READY` sprint after an explicit
-dependency, PR, worktree, infrastructure, and founder-decision re-evaluation.
+normalization) is now `IN_REVIEW` on `docs/s004-session-handoff`; no later
+sprint has been promoted implicitly.
 
 Completed foundation work includes:
 
@@ -73,10 +73,12 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after the dependency
-maintenance sweep and before the S004 readiness branch was republished:
+Live GitHub and worktree state verified on 2026-08-06 after PR #75 merged and
+before the S004 implementation branch was published:
 
-- PR #75 is the sole open pull request and owns only this S004 readiness update;
+- no pull requests were open;
+- PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
+  isolated implementation branch was created;
 - every dependency pull request from the prior readiness audit is now merged,
   closed, or superseded, so no dependency PR overlaps S004's docs/docs-test
   scope;
@@ -90,11 +92,10 @@ maintenance sweep and before the S004 readiness branch was republished:
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
-Draft PR #75 owns only this S004 readiness update. The remaining
-security-hardening worktree has three uncommitted
+The S004 implementation branch owns only its governance docs and docs-test
+scope. The remaining security-hardening worktree has three uncommitted
 `packages/knowledge-engine/**` edits and does not overlap S004's docs/docs-test
-scope. S004 implementation must use a separate branch after this update
-merges.
+scope.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -159,10 +160,11 @@ Every agent must:
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-After the S004 readiness update merges, start S004 in its own clean worktree
-and branch. Do not begin archive, deletion, README consolidation, or ruleset
-mutation outside a sprint's stated scope, and do not begin Phase C of the
-knowledge-engine cleanup without explicit founder sign-off.
+Resume only S004 from `docs/s004-session-handoff` until its implementation PR
+merges and completion evidence is recorded. Do not begin archive, deletion,
+README consolidation, or ruleset mutation outside a sprint's stated scope, and
+do not begin Phase C of the knowledge-engine cleanup without explicit founder
+sign-off.
 
 ## Source-of-truth links
 

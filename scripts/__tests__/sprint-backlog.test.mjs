@@ -5,7 +5,9 @@ import path from "node:path";
 
 const repoRoot = process.cwd();
 const backlogPath = path.join(repoRoot, "docs", "SPRINT_BACKLOG.md");
+const handoffPath = path.join(repoRoot, "docs", "SESSION_HANDOFF.md");
 const backlog = fs.readFileSync(backlogPath, "utf8");
+const handoff = fs.readFileSync(handoffPath, "utf8");
 
 const validStatuses = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "DEFERRED", "CANCELLED"]);
 const mergedPrs = new Set(["20", "21", "22", "23", "24", "25", "26", "27", "28", "29"]);
@@ -109,4 +111,34 @@ test("first eligible READY sprint is mechanically selected", () => {
   } else {
     assert.match(nextEligibleSection, /No other sprint is\s+currently marked `READY`/);
   }
+});
+
+test("session handoff ends with a mechanical next-sprint resume contract", () => {
+  const sectionMarker = "## Next Eligible Sprint";
+  const sectionIndex = handoff.lastIndexOf(sectionMarker);
+  assert.notEqual(sectionIndex, -1, "SESSION_HANDOFF is missing its terminal Next Eligible Sprint section");
+
+  const resumeSection = handoff.slice(sectionIndex).trim();
+  const fieldValue = (name) => {
+    const match = resumeSection.match(new RegExp(`^${name}:\\s*(.+)$`, "m"));
+    assert.ok(match, `SESSION_HANDOFF is missing ${name}`);
+    return match[1].trim();
+  };
+
+  const blocks = sprintBlocks();
+  const statuses = new Map(blocks.map((block) => [block.id, field(block, "Status")]));
+  const eligible = blocks.find((block) => {
+    if (field(block, "Status") !== "READY") return false;
+    const dependencies = field(block, "Dependencies");
+    return (dependencies.match(/S\\d{3}/g) ?? []).every((sprintId) => statuses.get(sprintId) === "DONE");
+  });
+
+  assert.equal(fieldValue("Sprint ID"), eligible?.id ?? "NONE");
+  assert.ok(fieldValue("Eligibility").length > 0);
+  assert.ok(fieldValue("Dependencies").length > 0);
+  assert.ok(fieldValue("Overlap check").length > 0);
+  assert.ok(fieldValue("Startup prompt").length > 0);
+
+  const finalLine = handoff.trim().split("\n").at(-1);
+  assert.match(finalLine, /^Startup prompt:\s*.+$/, "Startup prompt must be the final handoff line");
 });
