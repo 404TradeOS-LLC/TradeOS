@@ -14,22 +14,20 @@ related_code:
 
 ## Current state
 
-- PR #83 repaired the missing S005 readiness gates and merged on 2026-08-06 as
-  `ee5000b4eb62ebda1dd42d2a51572c41b98443d4`.
-- S005 implementation is isolated on `agent/s005-agent-contracts`, based on
-  that corrected `main`.
-- The Next Sprint Protocol now owns the sole canonical startup and completion
-  flows; compatibility checklists and lane contracts link to those anchors.
-- Runtime, scripts, workflows, dependencies, repository settings, and
-  `packages/**` remain untouched.
-- Draft PR #84 owns the S005 implementation; its initial published head was
-  `11bd6c80`.
+- S005 is `DONE`. PR #84 merged on 2026-08-06 as
+  `7d1c48376861468122347e19c41f0a007d7b5fc9`.
+- The Next Sprint Protocol owns the sole executable startup and completion
+  flows; other agent-facing documents link to it and retain only doctrine,
+  repository lifecycle policy, or scoped additions.
+- No later sprint has been promoted to `READY`.
+- Runtime, scripts, workflows, dependencies, repository settings, database
+  files, and `packages/**` were not changed by S005.
 
 ## Verification
 
-- PR #83 merged-state and exact merge SHA: passed
-- pre-publication open-PR check: passed; zero open pull requests before draft
-  PR #84 was created
+- PR #84 merged-state and exact merge SHA: passed
+- live open-PR check before this evidence branch was published: passed; zero
+  open pull requests
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
 - three independent subagent audits: passed; conflicts, owner hierarchy, and
@@ -43,13 +41,14 @@ related_code:
 - documentation tests: 39/39 passed
 - documentation ownership check: passed; every required owner is present
 - `git diff --check`: passed
-- current open-PR check: passed; draft PR #84 is the sole open pull request;
-  verify its exact head again before review or merge
+- required GitHub workflows on PR #84: passed
+- independent exact-head review after blocker repair: passed; no content
+  blockers remained
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S005 is IN_REVIEW in draft PR #84, no sprint is READY, and S005 cannot be marked DONE before merge evidence exists.
+Eligibility: S005 is DONE with merged evidence, and no sprint is currently READY.
 Dependencies: S001 is DONE.
-Overlap check: Draft PR #84 owns agent-contract and governance documents; the security-hardening worktree is non-overlapping.
-Startup prompt: Review PR #84 at its exact final head, require green checks, merge it, then record S005 completion evidence without promoting S006.
+Overlap check: The remaining security-hardening worktree touches only packages/knowledge-engine/**; no eligible sprint or overlapping open PR exists.
+Startup prompt: Verify live state, then stop without promoting or beginning S006 until a separate readiness change is explicitly approved and merged.
