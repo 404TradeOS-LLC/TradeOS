@@ -45,8 +45,9 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 
 The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
 governance calibration) is complete: PR #73 merged on 2026-08-04 as
-`9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. No sprint is currently marked
-`READY`; completing S003 does not implicitly promote S004 or any later sprint.
+`9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. S004 (session handoff
+normalization) is now the first eligible `READY` sprint after an explicit
+dependency, PR, worktree, infrastructure, and founder-decision re-evaluation.
 
 Completed foundation work includes:
 
@@ -72,10 +73,16 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub state verified on 2026-08-04 after S003 merged and before the
-completion-evidence branch was created:
+Live GitHub and worktree state verified on 2026-08-06 after the dependency
+maintenance sweep and before the S004 readiness branch was republished:
 
-- no pull requests were open;
+- PR #75 is the sole open pull request and owns only this S004 readiness update;
+- every dependency pull request from the prior readiness audit is now merged,
+  closed, or superseded, so no dependency PR overlaps S004's docs/docs-test
+  scope;
+- PR #77 was merged as `0afc6f91` after its Next.js 16.3 build repair;
+- PR #79 was merged as `42a614e3` for the canonical Loki backend hardening;
+- PR #74 was merged as `573e8d61`;
 - PR #73 was merged as `9b3ebb24`;
 - PR #49 was closed unmerged and Qodana was deferred;
 - PR #51 was merged as `cdadd24d`;
@@ -83,8 +90,11 @@ completion-evidence branch was created:
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
-Draft PR #74 now owns only the S003 status and handoff update. Do not promote
-or start another sprint from it.
+Draft PR #75 owns only this S004 readiness update. The remaining
+security-hardening worktree has three uncommitted
+`packages/knowledge-engine/**` edits and does not overlap S004's docs/docs-test
+scope. S004 implementation must use a separate branch after this update
+merges.
 
 Always verify GitHub before editing. This summary is not a substitute for live PR state.
 
@@ -149,11 +159,10 @@ Every agent must:
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-Re-evaluate the backlog explicitly before selecting another sprint because no
-sprint is currently marked `READY`. Do not begin archive, deletion, README
-consolidation, or ruleset mutation outside a sprint's stated scope, and do not
-begin Phase C of the knowledge-engine cleanup without explicit founder
-sign-off.
+After the S004 readiness update merges, start S004 in its own clean worktree
+and branch. Do not begin archive, deletion, README consolidation, or ruleset
+mutation outside a sprint's stated scope, and do not begin Phase C of the
+knowledge-engine cleanup without explicit founder sign-off.
 
 ## Source-of-truth links
 
