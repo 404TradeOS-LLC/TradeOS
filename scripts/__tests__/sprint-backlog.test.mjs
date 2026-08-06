@@ -119,6 +119,15 @@ test("session handoff ends with a mechanical next-sprint resume contract", () =>
   assert.notEqual(sectionIndex, -1, "SESSION_HANDOFF is missing its terminal Next Eligible Sprint section");
 
   const resumeSection = handoff.slice(sectionIndex).trim();
+  const resumeLines = resumeSection.split("\n").filter((line) => line.trim().length > 0);
+  const expectedFields = ["Sprint ID", "Eligibility", "Dependencies", "Overlap check", "Startup prompt"];
+  assert.equal(resumeLines.length, expectedFields.length + 1, "resume contract must contain only its heading and five fields");
+  assert.deepEqual(
+    resumeLines.slice(1).map((line) => line.split(":", 1)[0]),
+    expectedFields,
+    "resume contract fields are missing, duplicated, or out of order"
+  );
+
   const fieldValue = (name) => {
     const match = resumeSection.match(new RegExp(`^${name}:\\s*(.+)$`, "m"));
     assert.ok(match, `SESSION_HANDOFF is missing ${name}`);
