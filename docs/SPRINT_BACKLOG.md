@@ -91,7 +91,8 @@ branch was created; the only other active worktree modifies
 `docs/agent-prompts/**`, or governance-doc scope; no external infrastructure is
 required; and no founder decision is unresolved. This readiness branch may own
 only the governance promotion and must merge before S005 implementation starts
-in a separate branch.
+in a separate branch. After publication, draft PR #82 is the sole open pull
+request and owns only that readiness promotion.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 

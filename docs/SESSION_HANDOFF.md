@@ -18,7 +18,8 @@ related_code:
   `5efa98351239a734b213d6a97140954e0823150a`.
 - This isolated branch promotes only S005 after a fresh readiness audit.
 - S005 depends on S001, which is `DONE`; every later sprint remains `PLANNED`.
-- The S005 readiness PR has not been published yet.
+- Draft PR #82 owns the S005 readiness promotion; its initial published head
+  was `f4f76a01`.
 
 ## Verification
 
@@ -29,11 +30,15 @@ related_code:
 - dependency check: passed; S001 is `DONE`
 - infrastructure check: passed; none required
 - founder-decision check: passed; none required
+- documentation tests: 39/39 passed
+- documentation ownership check: passed; all four required owner documents are present
+- `git diff --check`: passed
+- draft PR publication: passed; PR #82 is the sole open pull request
 
 ## Next Eligible Sprint
 
 Sprint ID: S005
 Eligibility: S005 is READY after its dependency, overlap, infrastructure, and founder-decision gates were verified.
 Dependencies: S001 is DONE.
-Overlap check: The isolated readiness branch owns only four governance documents; the security-hardening worktree is non-overlapping.
-Startup prompt: Publish and merge the S005 readiness PR, then implement S005 in a new isolated branch without promoting S006.
+Overlap check: Draft PR #82 owns only four governance documents; the security-hardening worktree is non-overlapping.
+Startup prompt: Review PR #82 at its exact final head, require green checks, merge it, then implement S005 in a new isolated branch without promoting S006.
