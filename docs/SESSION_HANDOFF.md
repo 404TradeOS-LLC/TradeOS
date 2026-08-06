@@ -28,6 +28,8 @@ related_code:
 - PR #84 merged-state and exact merge SHA: passed
 - live open-PR check before this evidence branch was published: passed; zero
   open pull requests
+- current open-PR check: passed; draft PR #85 is the sole open pull request and
+  owns only this four-document S005 completion record
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
 - three independent subagent audits: passed; conflicts, owner hierarchy, and

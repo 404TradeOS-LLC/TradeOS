@@ -83,6 +83,8 @@ Live GitHub and worktree state verified on 2026-08-06 after S005 merged:
 
 - no pull requests were open before the S005 completion-evidence branch was
   published;
+- draft PR #85 is now the sole open pull request and contains only the four
+  governance owner documents required to record S005 completion;
 - PR #84 merged as `7d1c4837`, completing S005;
 - PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
 - PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
