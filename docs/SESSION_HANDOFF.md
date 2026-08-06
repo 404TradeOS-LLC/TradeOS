@@ -14,31 +14,28 @@ related_code:
 
 ## Current state
 
-- S004 completion evidence landed in PR #81 on 2026-08-06 as
-  `5efa98351239a734b213d6a97140954e0823150a`.
-- This isolated branch promotes only S005 after a fresh readiness audit.
-- S005 depends on S001, which is `DONE`; every later sprint remains `PLANNED`.
-- Draft PR #82 owns the S005 readiness promotion; its initial published head
-  was `f4f76a01`.
+- PR #82 promoted S005 and merged on 2026-08-06 as
+  `36a87beaf4c3273af9e840d61e926a89e200fee6`.
+- A pre-implementation audit found the S005 record lacked forbidden paths and
+  named tests required by the Bible's Definition of Ready.
+- This isolated branch repairs only those readiness gates; the clean S005
+  implementation worktree remains untouched.
+- The readiness-gate repair PR has not been published yet.
 
 ## Verification
 
-- PR #81 merged-state and exact merge SHA: passed
-- open-PR check before branch creation: passed; zero open pull requests
+- PR #82 merged-state and exact merge SHA: passed
+- live open-PR check: passed; zero open pull requests
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
-- dependency check: passed; S001 is `DONE`
-- infrastructure check: passed; none required
-- founder-decision check: passed; none required
-- documentation tests: 39/39 passed
-- documentation ownership check: passed; all four required owner documents are present
-- `git diff --check`: passed
-- draft PR publication: passed; PR #82 is the sole open pull request
+- missing readiness fields reproduced: passed
+- scope correction: explicit forbidden paths and named tests added without
+  authorizing `scripts/**` or runtime changes
 
 ## Next Eligible Sprint
 
 Sprint ID: S005
-Eligibility: S005 is READY after its dependency, overlap, infrastructure, and founder-decision gates were verified.
+Eligibility: S005 is READY only after this governance-only readiness-gate correction merges.
 Dependencies: S001 is DONE.
-Overlap check: Draft PR #82 owns only four governance documents; the security-hardening worktree is non-overlapping.
-Startup prompt: Review PR #82 at its exact final head, require green checks, merge it, then implement S005 in a new isolated branch without promoting S006.
+Overlap check: The repair branch owns only four governance documents; both active worktrees are non-overlapping and the S005 implementation worktree is untouched.
+Startup prompt: Publish and merge the S005 readiness-gate repair, then fast-forward the clean implementation worktree and execute S005 without promoting S006.

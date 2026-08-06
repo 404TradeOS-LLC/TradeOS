@@ -82,6 +82,8 @@ Status: READY
 Dependencies: S001
 Objective: Remove duplicated or conflicting startup/completion rules and point all agents to the Bible and sprint protocol.
 Allowed paths: `AGENTS.md`, `docs/agent-prompts/**`, governance docs.
+Forbidden paths: runtime code, database schema or migrations, dependencies and lockfiles, CI/workflows, repository settings, and `packages/**`.
+Required tests: `npm run docs:test`; `npm run docs:check -- --base origin/main`; `git diff --check`; and a contract-link audit confirming only `NEXT_SPRINT_PROTOCOL.md` defines the canonical startup and completion flows.
 Acceptance: one canonical startup flow and one canonical completion flow.
 Founder decision required: NO.
 Readiness evidence: Verified 2026-08-06 against `main` commit `5efa9835`:
@@ -93,6 +95,11 @@ required; and no founder decision is unresolved. This readiness branch may own
 only the governance promotion and must merge before S005 implementation starts
 in a separate branch. After publication, draft PR #82 is the sole open pull
 request and owns only that readiness promotion.
+Readiness correction: A pre-implementation audit found that the original
+promotion omitted explicit forbidden paths and named tests required by the
+Bible's Definition of Ready. This governance-only correction adds those gates
+without expanding S005 into `scripts/**` or runtime changes; it must merge
+before the untouched implementation worktree proceeds.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 

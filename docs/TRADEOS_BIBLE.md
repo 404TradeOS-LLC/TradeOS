@@ -135,9 +135,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Completing a sprint does not implicitly promote a `PLANNED` sprint to
   `READY`; readiness must be explicit in the backlog after dependency and
   overlap checks.
-- A readiness promotion records the checked dependency, pull-request,
-  worktree, infrastructure, and founder-decision state so the next selection
-  is evidence-backed rather than implied.
+- A readiness promotion records scope, forbidden paths, named validation,
+  dependency, pull-request, worktree, infrastructure, and founder-decision
+  state so the next selection is evidence-backed rather than implied.
 - Readiness promotion is a governance-only change that lands before the
   implementation branch; an implementation branch may not authorize its own
   sprint.
