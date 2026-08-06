@@ -78,11 +78,21 @@ ends with the required five-field resume contract, and is mechanically checked
 against the first eligible `READY` sprint or explicit `NONE` state.
 
 ### S005 — Agent contract consolidation
-Status: PLANNED
+Status: READY
 Dependencies: S001
 Objective: Remove duplicated or conflicting startup/completion rules and point all agents to the Bible and sprint protocol.
 Allowed paths: `AGENTS.md`, `docs/agent-prompts/**`, governance docs.
 Acceptance: one canonical startup flow and one canonical completion flow.
+Founder decision required: NO.
+Readiness evidence: Verified 2026-08-06 against `main` commit `5efa9835`:
+S001 is `DONE`; no pull requests were open before this isolated readiness
+branch was created; the only other active worktree modifies
+`packages/knowledge-engine/**` and does not overlap S005's `AGENTS.md`,
+`docs/agent-prompts/**`, or governance-doc scope; no external infrastructure is
+required; and no founder decision is unresolved. This readiness branch may own
+only the governance promotion and must merge before S005 implementation starts
+in a separate branch. After publication, draft PR #82 is the sole open pull
+request and owns only that readiness promotion.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 
@@ -385,7 +395,8 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 ## Next Eligible Sprint
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
-checking live PRs, worktrees, and dependencies. S004 is `DONE` after PR #80
-merged as `f8179c73`; every later sprint remains `PLANNED`. No other sprint is
-currently marked `READY`; the backlog must be explicitly re-evaluated before
-another sprint starts.
+checking live PRs, worktrees, and dependencies. S005 is the first `READY`
+sprint after its dependency, overlap, infrastructure, and founder-decision
+gates were verified on 2026-08-06. Merge the isolated readiness PR before
+starting S005 implementation in a separate branch; do not promote S006
+implicitly.
