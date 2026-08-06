@@ -99,7 +99,8 @@ Readiness correction: A pre-implementation audit found that the original
 promotion omitted explicit forbidden paths and named tests required by the
 Bible's Definition of Ready. This governance-only correction adds those gates
 without expanding S005 into `scripts/**` or runtime changes; it must merge
-before the untouched implementation worktree proceeds.
+before the untouched implementation worktree proceeds. Draft PR #83 owns only
+this correction.
 
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 

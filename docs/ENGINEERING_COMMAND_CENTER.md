@@ -77,10 +77,12 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 before the isolated S005
+Live GitHub and worktree state verified on 2026-08-06 after the isolated S005
 readiness-gate repair was published:
 
-- no pull requests were open;
+- draft PR #83 is the sole open pull request and owns only the four required
+  governance owner documents for the readiness-gate repair;
+- no pull requests were open before that branch was published;
 - PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
 - PR #81 merged as `5efa9835`, recording S004 completion evidence;
 - PR #80 was merged as `f8179c73`, completing the S004 implementation;
