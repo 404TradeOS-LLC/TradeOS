@@ -1,57 +1,29 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-06
 source_of_truth: false
 related_code:
   - docs
   - .github
   - scripts/docs-check.mjs
+  - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - docs/REPOSITORY_GOVERNANCE.md
 ---
 
 # Docs Worktree Contract
 
-Use one linked worktree for one documentation-governance task.
+Follow the canonical [startup](NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+and [completion](NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow) flows.
+Repository Governance owns the shared branch and worktree lifecycle.
 
-Before editing:
+Documentation-specific additions:
 
-- verify path, branch, status, upstream, and worktree list
-- fetch origin before trusting the upstream comparison
-- read `docs/ENGINEERING_COMMAND_CENTER.md` and `docs/SESSION_HANDOFF.md`
-- confirm that changes stay inside allowed documentation and workflow paths
-- confirm forbidden runtime and product-code paths
-- identify which global docs, module docs, ADRs, or archive files will change
-- identify the source-of-truth files that control the task
-- record explicit stop conditions before editing
-- record explicit exclusions before editing
-
-Required startup checks:
-
-- exact worktree path
-- exact branch
-- clean working tree when a clean start is required
-- expected upstream branch
-- allowed paths and forbidden paths
-- no scope expansion and no reinterpretation of `continue`
-
-Required completion checks:
-
-- refresh `docs/SESSION_HANDOFF.md` for substantive or PR-ready work
-- update `docs/ENGINEERING_COMMAND_CENTER.md` only when engineering operating context changed
-- documentation impact reviewed
-- exact final `git status --short --branch` reported
-- commits and PR readiness reported
-- no required source-of-truth update left out of the branch
-
-Policy:
-
-- one clean main worktree
-- one linked worktree per active concurrent worker
-- short-lived feature branches
-- no permanent branch per module
-- no implementation directly on main
-- recovery worktrees are temporary
-- remove worktrees after merge and verification
-- verify the branch is merged or intentionally preserved before cleanup
-- use `git worktree remove`, not `rm -rf`
-- never use `rm -rf` for linked worktree cleanup
+- define the allowed documentation or governance paths and forbid runtime,
+  schema, dependency, and deployment changes unless the mission says otherwise;
+- identify the source-of-truth owner, supporting evidence, required ownership
+  updates, and any history that must be preserved before editing;
+- do not turn a documentation cleanup into architecture or product change;
+- run `npm run docs:test`, the ownership check against the intended base, and
+  `git diff --check`; and
+- update the Command Center only when operating context materially changes.

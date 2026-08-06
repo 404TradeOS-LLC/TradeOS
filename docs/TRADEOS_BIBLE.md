@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -21,7 +21,10 @@ The Bible does not replace live implementation evidence or detailed supporting r
 
 ## Operating Rule
 
-Every engineering or product session starts here, then reads the linked current-state, roadmap, sprint, governance, architecture, and handoff documents required by its mission before editing code or documentation.
+After repository identity and worktree state are verified, every engineering or
+product session starts its source-of-truth review here. The executable order is
+owned by the canonical startup flow in
+`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
 When an eligible `READY` sprint exists, the agent selects and executes it through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. The founder should not need to reconstruct a custom implementation prompt.
 
@@ -82,8 +85,10 @@ Live execution state remains in:
 - `docs/SPRINT_BACKLOG.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`
-- `docs/agent-prompts/AGENT_STARTUP_CHECKLIST.md`
-- `docs/agent-prompts/AGENT_COMPLETION_CHECKLIST.md`
+
+The Next Sprint Protocol owns the sole executable startup and completion flows.
+The legacy-named startup and completion checklists remain compatibility links,
+not independent contracts.
 
 ## Volume V — Business
 
@@ -130,6 +135,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 - One subject has one canonical owner.
 - Supporting documents link to the canonical owner instead of redefining it.
+- The Next Sprint Protocol owns one universal startup flow and one universal
+  completion flow; lane contracts may add requirements but may not restate or
+  weaken those flows.
 - One sprint runs per branch and pull request.
 - Only merged evidence may mark a sprint `DONE`.
 - Completing a sprint does not implicitly promote a `PLANNED` sprint to

@@ -14,33 +14,42 @@ related_code:
 
 ## Current state
 
-- PR #82 promoted S005 and merged on 2026-08-06 as
-  `36a87beaf4c3273af9e840d61e926a89e200fee6`.
-- A pre-implementation audit found the S005 record lacked forbidden paths and
-  named tests required by the Bible's Definition of Ready.
-- This isolated branch repairs only those readiness gates; the clean S005
-  implementation worktree remains untouched.
-- Draft PR #83 owns the readiness-gate repair; its initial published head was
-  `c0d08374`.
+- PR #83 repaired the missing S005 readiness gates and merged on 2026-08-06 as
+  `ee5000b4eb62ebda1dd42d2a51572c41b98443d4`.
+- S005 implementation is isolated on `agent/s005-agent-contracts`, based on
+  that corrected `main`.
+- The Next Sprint Protocol now owns the sole canonical startup and completion
+  flows; compatibility checklists and lane contracts link to those anchors.
+- Runtime, scripts, workflows, dependencies, repository settings, and
+  `packages/**` remain untouched.
+- Draft PR #84 owns the S005 implementation; its initial published head was
+  `11bd6c80`.
 
 ## Verification
 
-- PR #82 merged-state and exact merge SHA: passed
-- live open-PR check: passed; zero open pull requests
+- PR #83 merged-state and exact merge SHA: passed
+- pre-publication open-PR check: passed; zero open pull requests before draft
+  PR #84 was created
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
-- missing readiness fields reproduced: passed
-- scope correction: explicit forbidden paths and named tests added without
-  authorizing `scripts/**` or runtime changes
+- three independent subagent audits: passed; conflicts, owner hierarchy, and
+  required documentation were mapped before editing
+- canonical ownership: Bible for doctrine, Next Sprint Protocol for execution,
+  Repository Governance for lifecycle, Backlog for sprint state, and Handoff
+  for continuity
+- contract-link audit: passed; one executable startup flow and one executable
+  completion flow remain, with synonymous execution and retrieval duplicates
+  removed
 - documentation tests: 39/39 passed
-- documentation ownership check: passed; all four required owner documents are present
+- documentation ownership check: passed; every required owner is present
 - `git diff --check`: passed
-- draft PR publication: passed; PR #83 is the sole open pull request
+- current open-PR check: passed; draft PR #84 is the sole open pull request;
+  verify its exact head again before review or merge
 
 ## Next Eligible Sprint
 
-Sprint ID: S005
-Eligibility: S005 is READY only after this governance-only readiness-gate correction merges.
+Sprint ID: NONE
+Eligibility: S005 is IN_REVIEW in draft PR #84, no sprint is READY, and S005 cannot be marked DONE before merge evidence exists.
 Dependencies: S001 is DONE.
-Overlap check: Draft PR #83 owns only four governance documents; both active worktrees are non-overlapping and the S005 implementation worktree is untouched.
-Startup prompt: Review PR #83 at its exact final head, require green checks, merge it, then fast-forward the clean implementation worktree and execute S005 without promoting S006.
+Overlap check: Draft PR #84 owns agent-contract and governance documents; the security-hardening worktree is non-overlapping.
+Startup prompt: Review PR #84 at its exact final head, require green checks, merge it, then record S005 completion evidence without promoting S006.

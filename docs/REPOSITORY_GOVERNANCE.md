@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -112,6 +112,14 @@ editing repository controls.
 
 ## Branch and worktree lifecycle
 
+The executable agent startup and completion sequences are owned only by the
+[Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document
+owns the repository policy those flows enforce: branch and worktree lifecycle,
+PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists,
+and backend, frontend, docs, or recovery contracts may link to the canonical
+flows and add lane-specific requirements; they must not duplicate or weaken the
+general sequence.
+
 Use one clean `main` worktree plus one linked worktree per active mission.
 
 Standard flow:
@@ -176,14 +184,12 @@ PR #30 has landed, but the temporary reconciliation workflow still materializes 
 
 ## Session continuity
 
-Every contributor starts with:
-
-1. `AGENTS.md`;
-2. `docs/TRADEOS_BIBLE.md`;
-3. `docs/CURRENT_STATE.md`;
-4. `docs/SPRINT_BACKLOG.md`;
-5. `docs/SESSION_HANDOFF.md`;
-6. `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
+Every contributor uses the
+[Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+and
+[Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow).
+Those sections own the reading order, live-state checks, handoff requirements,
+and completion report; this policy does not define a competing checklist.
 
 `ENGINEERING_COMMAND_CENTER.md` is a concise operating overview, not a running log. `SESSION_HANDOFF.md` is replaced with current truth at the end of a substantive session.
 

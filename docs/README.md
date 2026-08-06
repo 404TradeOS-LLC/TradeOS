@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -30,7 +30,8 @@ This directory is the documentation entry point for implementation truth in Trad
 
 Use these files first:
 
-- `docs/ENGINEERING_COMMAND_CENTER.md` for the current engineering mission, verified priorities, and startup/completion protocol
+- `docs/ENGINEERING_COMMAND_CENTER.md` for the current engineering mission and verified priorities
+- `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` for the sole executable agent startup and completion flows
 - `docs/CURRENT_STATE.md` for verified implementation status
 - `docs/SESSION_HANDOFF.md` for the latest completed-session context and next exact task
 - `docs/PRODUCT_SCOPE.md` for product boundaries and non-goals
@@ -84,7 +85,9 @@ Module docs under `docs/modules/` inherit those shared rules and should not rede
 
 Decision records under `docs/decisions/` explain durable architectural choices.
 
-Agent templates under `docs/agent-prompts/` define startup, completion, and worktree contracts for concurrent contributors.
+`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` owns the canonical startup and
+completion flows. Other files under `docs/agent-prompts/` are compatibility
+links or lane-specific additions and do not define parallel general contracts.
 
 ## Documentation enforcement
 

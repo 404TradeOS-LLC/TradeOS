@@ -310,20 +310,14 @@ When two sources disagree:
 
 Agents must not choose whichever document best supports the task they want to do.
 
-## Retrieval protocol for agents
+## Scoped knowledge-retrieval additions
 
-Before substantial work, an agent reads only the minimum complete context set:
-
-1. `AGENTS.md`;
-2. `docs/TRADEOS_BIBLE.md`;
-3. the relevant Bible volume(s);
-4. `docs/CURRENT_STATE.md`;
-5. `docs/SPRINT_BACKLOG.md`;
-6. `docs/SESSION_HANDOFF.md`;
-7. relevant implementation and decision docs;
-8. live PR and branch state.
-
-Agents should not ingest the entire repository blindly when a scoped knowledge path exists.
+Agents use the
+[Canonical Startup Flow](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+for the repository-wide reading and live-state order. After that required flow,
+they retrieve only the relevant Bible volumes, implementation records, and
+decision documents needed for the declared task. They should not ingest the
+entire repository blindly when a scoped knowledge path exists.
 
 ## Answer construction protocol
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-16
+last_verified: 2026-08-06
 source_of_truth: true
 related_docs:
   - docs/TRADEOS_BIBLE.md
@@ -390,7 +390,9 @@ Prohibited: no secrets in docs, commits, logs, fixtures, screenshots, or PR bodi
 
 Implemented: repository governance requires one clean main worktree and one linked worktree per active mission, with no direct development on `main`.
 
-Required standard: every agent must verify path, branch, remote, status, upstream, active worktrees, allowed paths, forbidden paths, and stop conditions before editing.
+Required standard: every agent follows the canonical startup and completion
+flows in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; Repository Governance
+owns the branch and worktree lifecycle rather than lane-specific copies.
 
 Planned: stale branch and PR cleanup remains an active governance risk until old drafts are merged, closed, or refreshed.
 
@@ -468,9 +470,12 @@ Prohibited: no behavior-changing runtime PR should merge with stale docs because
 
 ## 43. Agent engineering rules
 
-Implemented: AGENTS.md, the Engineering Command Center, startup/completion checklists, and repository governance define agent operating behavior.
+Implemented: the Bible owns doctrine, the Next Sprint Protocol owns the sole
+executable startup and completion flows, and Repository Governance owns branch,
+worktree, review, merge, and cleanup policy.
 
-Required standard: agents must read current docs, verify live repo state, inspect overlap, state scope before editing, execute one mission per branch, and stop on ambiguity or conflicts.
+Required standard: `AGENTS.md`, the Command Center, compatibility checklists,
+and lane contracts link to those owners and add no competing general flow.
 
 Planned: autonomous sprint selection is governed by the Sprint Backlog and Next Sprint Protocol, not by broad prompt invention.
 
@@ -478,7 +483,10 @@ Prohibited: agents must not infer `continue` as permission to select unrelated w
 
 ## 44. Stop conditions
 
-Implemented: repository governance and agent prompts require stopping on path/branch mismatch, dirty unexpected state, stale remote assumptions, scope conflict, failed required checks, unavailable infrastructure, product ambiguity, or source-of-truth contradiction.
+Implemented: the canonical Stop Conditions in the Next Sprint Protocol govern
+path or branch mismatch, unexpected dirty state, stale remote assumptions,
+scope conflict, failed required checks, unavailable infrastructure, product
+ambiguity, and source-of-truth contradiction.
 
 Required standard: a stop condition is a safety feature, not a failure. Stop, report exact evidence, and wait for founder or reviewer direction when continuing would create risk.
 
