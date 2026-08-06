@@ -43,8 +43,8 @@ related_code:
 - documentation tests: 39/39 passed
 - documentation ownership check: passed; every required owner is present
 - `git diff --check`: passed
-- current open-PR check: passed; draft PR #84 is the sole open pull request at
-  head `5d746d54`
+- current open-PR check: passed; draft PR #84 is the sole open pull request;
+  verify its exact head again before review or merge
 
 ## Next Eligible Sprint
 
