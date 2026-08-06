@@ -135,6 +135,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Completing a sprint does not implicitly promote a `PLANNED` sprint to
   `READY`; readiness must be explicit in the backlog after dependency and
   overlap checks.
+- A readiness promotion records the checked dependency, pull-request,
+  worktree, infrastructure, and founder-decision state so the next selection
+  is evidence-backed rather than implied.
 - Open PR overlap blocks a sprint from `READY` status.
 - Every completed sprint updates its evidence and the session handoff.
 - Live external controls such as GitHub rulesets must be verified read-only

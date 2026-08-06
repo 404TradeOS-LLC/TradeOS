@@ -56,11 +56,19 @@ selector test validates the computed current backlog result instead of
 permanently hard-coding S003 as `READY`.
 
 ### S004 — Session handoff normalization
-Status: PLANNED
+Status: READY
 Dependencies: S001
 Objective: Make `SESSION_HANDOFF.md` concise, current, and mechanically identify the next eligible sprint.
 Allowed paths: docs and docs tests.
 Acceptance: handoff ends with sprint ID, eligibility, dependencies, overlap check, and startup prompt.
+Founder decision required: NO.
+Readiness evidence: Verified 2026-08-06 against `main` commit `0afc6f91`:
+S001 is `DONE`; PR #75 is the sole open pull request and owns only this
+readiness update; every dependency PR from the prior audit is merged, closed,
+or superseded, leaving no external PR overlap with S004's docs/docs-test scope;
+the only other active worktree modifies `packages/knowledge-engine/**` and does
+not overlap S004; no external infrastructure is required; and no founder
+decision is unresolved.
 
 ### S005 — Agent contract consolidation
 Status: PLANNED
@@ -370,7 +378,9 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 ## Next Eligible Sprint
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
-checking live PRs, worktrees, and dependencies. S003 is `DONE` after PR #73
-merged as `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. No other sprint is
-currently marked `READY`; the backlog must be explicitly re-evaluated before
-another sprint starts.
+checking live PRs, worktrees, and dependencies. S004 is the first eligible
+`READY` sprint: S001 is `DONE`, PR #75 is the sole open pull request and owns
+only this readiness update, the remaining security-hardening worktree does not
+overlap S004's docs/docs-test scope, and no founder decision or
+external-infrastructure blocker remains. Execute S004 only after this readiness
+update merges, using a separate branch and worktree.
