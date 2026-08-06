@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-06
 source_of_truth: true
 related_code:
   - AGENTS.md

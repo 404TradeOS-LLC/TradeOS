@@ -770,46 +770,18 @@ Prohibited patterns include:
 - silently changing founder intent;
 - continuing after a stop condition.
 
-## 50. Canonical execution checklist
+## 50. Execution assurance doctrine
 
-Before work:
+TradeOS work must begin from verified live state, remain inside one declared
+scope, produce explicit validation evidence, pass repository review and merge
+gates, and leave a durable handoff. This volume defines that assurance doctrine;
+it does not define a second executable sequence.
 
-- [ ] fetch origin;
-- [ ] verify repo, branch, worktree, HEAD, upstream, and cleanliness;
-- [ ] read current source-of-truth docs;
-- [ ] inspect open PRs, recent merges, and active worktrees;
-- [ ] select one eligible sprint;
-- [ ] define scope, tests, acceptance criteria, and stop conditions.
-
-Before push:
-
-- [ ] inspect full diff;
-- [ ] confirm allowed paths only;
-- [ ] run required validation;
-- [ ] update required docs;
-- [ ] fetch remote state again;
-- [ ] confirm branch did not move unexpectedly;
-- [ ] commit focused changes;
-- [ ] push without unsafe force.
-
-Before merge:
-
-- [ ] PR description matches reality;
-- [ ] required checks are green;
-- [ ] review findings are resolved;
-- [ ] branch is current as required;
-- [ ] migrations and deployment implications are understood;
-- [ ] remaining risks are explicit;
-- [ ] merge method follows repository policy.
-
-After merge:
-
-- [ ] verify merge commit;
-- [ ] sync local `main` with `--ff-only`;
-- [ ] record sprint evidence;
-- [ ] update handoff;
-- [ ] identify next eligible sprint;
-- [ ] clean branch and worktree only when safe.
+Use the [Canonical Startup Flow](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+and [Canonical Completion Flow](../agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow)
+for the sole executable agent lifecycle. Use
+[Repository Governance](../REPOSITORY_GOVERNANCE.md#branch-and-worktree-lifecycle)
+for branch, worktree, pull-request, review, merge, and cleanup requirements.
 
 ## 51. Operating promise
 

@@ -28,7 +28,8 @@ related_code:
 ## Verification
 
 - PR #83 merged-state and exact merge SHA: passed
-- live open-PR check: passed; zero open pull requests
+- pre-publication open-PR check: passed; zero open pull requests before draft
+  PR #84 was created
 - worktree overlap check: passed; the dirty security-hardening worktree touches
   only `packages/knowledge-engine/**`
 - three independent subagent audits: passed; conflicts, owner hierarchy, and
@@ -36,12 +37,14 @@ related_code:
 - canonical ownership: Bible for doctrine, Next Sprint Protocol for execution,
   Repository Governance for lifecycle, Backlog for sprint state, and Handoff
   for continuity
-- contract-link audit: passed; exactly one canonical startup heading and one
-  canonical completion heading remain
+- contract-link audit: passed; one executable startup flow and one executable
+  completion flow remain, with synonymous execution and retrieval duplicates
+  removed
 - documentation tests: 39/39 passed
 - documentation ownership check: passed; every required owner is present
 - `git diff --check`: passed
-- draft PR publication: passed; PR #84 is the sole open pull request
+- current open-PR check: passed; draft PR #84 is the sole open pull request at
+  head `5d746d54`
 
 ## Next Eligible Sprint
 
