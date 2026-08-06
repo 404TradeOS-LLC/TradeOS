@@ -20,7 +20,8 @@ related_code:
   database files, GitHub settings, and later sprints are excluded.
 - The handoff now ends with a fixed five-field resume contract, and a docs test
   verifies its structure and computed sprint ID.
-- The S004 implementation PR has not been published yet.
+- Draft PR #80 owns this implementation; its initial published head was
+  `0d419aa1`.
 
 ## Verification
 
@@ -31,11 +32,12 @@ related_code:
 - documentation tests: 39/39 passed
 - documentation ownership check: passed; all four required owner documents are present
 - `git diff --check`: passed
+- draft PR #80 publication: passed
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
 Eligibility: No sprint is eligible while S004 is IN_REVIEW and later sprints remain PLANNED.
 Dependencies: S004 depends on S001, which is DONE; no later sprint is promoted.
-Overlap check: The S004 docs scope is occupied only by this implementation branch; the security-hardening worktree is non-overlapping.
-Startup prompt: Review the S004 implementation branch, run the required docs checks, publish its draft PR, and do not start another sprint.
+Overlap check: Draft PR #80 solely owns S004's docs scope; the security-hardening worktree is non-overlapping.
+Startup prompt: Review PR #80 at its exact published head, require green checks, and do not start another sprint before it merges.

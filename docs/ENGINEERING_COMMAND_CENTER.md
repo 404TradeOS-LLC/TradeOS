@@ -73,10 +73,11 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after PR #75 merged and
-before the S004 implementation branch was published:
+Live GitHub and worktree state verified on 2026-08-06 after the S004
+implementation branch was published:
 
-- no pull requests were open;
+- draft PR #80 is the sole open pull request and owns only S004's governance
+  docs and docs-test scope;
 - PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
   isolated implementation branch was created;
 - every dependency pull request from the prior readiness audit is now merged,
@@ -92,8 +93,7 @@ before the S004 implementation branch was published:
 - PR #30 was merged as `2d80214a`; and
 - PR #35 was merged as `c7b84643`.
 
-The S004 implementation branch owns only its governance docs and docs-test
-scope. The remaining security-hardening worktree has three uncommitted
+The remaining security-hardening worktree has three uncommitted
 `packages/knowledge-engine/**` edits and does not overlap S004's docs/docs-test
 scope.
 

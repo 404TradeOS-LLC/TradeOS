@@ -70,8 +70,9 @@ the only other active worktree modifies `packages/knowledge-engine/**` and does
 not overlap S004; no external infrastructure is required; and no founder
 decision is unresolved.
 Implementation evidence: `docs/s004-session-handoff` normalizes the handoff's
-terminal resume contract and adds a mechanical docs test. The implementation
-PR is pending publication; S004 must not be marked `DONE` before that PR merges.
+terminal resume contract and adds a mechanical docs test in draft PR #80 at
+initial published head `0d419aa1`. S004 must not be marked `DONE` before that
+PR merges.
 
 ### S005 — Agent contract consolidation
 Status: PLANNED
