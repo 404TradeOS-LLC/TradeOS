@@ -4,7 +4,13 @@ import express, { Request, Response } from "express";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { requireAuth } from "./middleware/auth";
 import { databaseSession } from "./middleware/databaseSession";
-import { assignRequestId, parseTrustProxy, requestLogger, securityHeaders } from "./middleware/productionHardening";
+import {
+  assignRequestId,
+  buildCorsOriginHandler,
+  parseTrustProxy,
+  requestLogger,
+  securityHeaders,
+} from "./middleware/productionHardening";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
@@ -41,7 +47,7 @@ export function createServer() {
   app.use(assignRequestId);
   app.use(requestLogger);
   app.use(securityHeaders);
-  app.use(cors());
+  app.use(cors({ origin: buildCorsOriginHandler() }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
