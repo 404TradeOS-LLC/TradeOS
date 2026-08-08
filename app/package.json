@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/vendor-knowledge-engine.js && tsc -p tsconfig.json",
     "start": "node dist/backend/start.js",
     "dev": "nodemon --watch src --watch modules --watch backend --watch db --ext ts --exec ts-node backend/start.ts",
     "prisma:generate": "prisma generate",

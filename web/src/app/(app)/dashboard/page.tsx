@@ -109,7 +109,11 @@ export default async function DashboardPage() {
   const [projectDetails, knowledgeStats] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
-        getKnowledgeStats(token),
+        // Knowledge Engine stats are a supplementary panel, not a core
+        // dashboard dependency (the UI already renders "Unavailable" for
+        // null below) — a failure here must never crash the entire
+        // dashboard render into the generic error boundary.
+        getKnowledgeStats(token).catch(() => null),
       ])
     : [[], null];
 

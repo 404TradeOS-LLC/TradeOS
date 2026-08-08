@@ -97,6 +97,8 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 
+`/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
+
 AI estimating routes under `/api/v1/estimates`:
 
 - `POST /api/v1/estimates/:id/ai-suggestions`

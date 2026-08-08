@@ -18,8 +18,11 @@ export default async function AIEstimateAssistPage({
   const initialScope = initial.scopeOfWork.trim();
   const [knowledgeStats, knowledgeTrades] = token
     ? await Promise.all([
-        getKnowledgeStats(token),
-        getKnowledgeTrades(token),
+        // Both are supplementary context for the assist panel (it already
+        // renders sensible empty states for null/[]) — a failure here must
+        // never crash the whole page into the generic error boundary.
+        getKnowledgeStats(token).catch(() => null),
+        getKnowledgeTrades(token).catch(() => []),
       ])
     : [null, []];
 
