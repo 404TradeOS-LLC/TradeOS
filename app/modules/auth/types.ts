@@ -9,7 +9,9 @@ export interface SignupInput {
 }
 
 export interface SupabaseBootstrapInput {
-  organizationName: string;
+  // Required only when provisioning a brand-new organization — ignored
+  // when the caller already has an active membership.
+  organizationName?: string;
   regionCode?: string;
   authSubject: string;
   email: string;

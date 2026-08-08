@@ -26,7 +26,12 @@ const loginSchema = z
 
 const bootstrapSchema = z
   .object({
-    organizationName: z.string().trim().min(1).max(160),
+    // Optional: only required to provision a brand-new organization. A
+    // caller who already has an active membership is returned that
+    // existing state regardless of whether this is present (see
+    // AuthService.bootstrapSupabaseIdentity) — this lets the frontend
+    // safely call bootstrap on every login, not just right after signup.
+    organizationName: z.string().trim().min(1).max(160).optional(),
     regionCode: z.string().trim().min(1).max(64).optional(),
     fullName: z.string().trim().min(1).max(160).optional(),
   })

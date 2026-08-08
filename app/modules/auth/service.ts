@@ -366,6 +366,10 @@ export class AuthService {
       };
     }
 
+    if (!input.organizationName) {
+      throw new ApiError(400, "organizationName is required to create a new organization");
+    }
+
     const provisioned = await this.provisioning.provision({
       organizationName: input.organizationName,
       regionCode: input.regionCode,

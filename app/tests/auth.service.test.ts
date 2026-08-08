@@ -176,6 +176,92 @@ describe("AuthService", () => {
     expect(mockTransactionClient.passwordResetToken.create).toHaveBeenCalled();
   });
 
+  it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
+    mockBasePrisma.appUser.findFirst.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      fullName: "Owner Person",
+      memberships: [
+        {
+          id: "membership-1",
+          role: "owner",
+          createdAt: new Date("2024-01-01"),
+          organization: { id: "org-1", name: "Acme Co" },
+        },
+      ],
+    });
+
+    const service = new AuthService();
+    const result = await service.bootstrapSupabaseIdentity({
+      authSubject: "supabase:abc",
+      email: "owner@example.com",
+    });
+
+    expect(result.organization).toEqual({ id: "org-1", name: "Acme Co" });
+    expect(result.role).toBe("owner");
+    expect(mockProvision).not.toHaveBeenCalled();
+  });
+
+  it("bootstrapSupabaseIdentity ignores a supplied organizationName for an already-bootstrapped user (idempotent, no duplicate org)", async () => {
+    mockBasePrisma.appUser.findFirst.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      fullName: "Owner Person",
+      memberships: [
+        {
+          id: "membership-1",
+          role: "owner",
+          createdAt: new Date("2024-01-01"),
+          organization: { id: "org-1", name: "Acme Co" },
+        },
+      ],
+    });
+
+    const service = new AuthService();
+    const result = await service.bootstrapSupabaseIdentity({
+      authSubject: "supabase:abc",
+      email: "owner@example.com",
+      organizationName: "A Different Name Typed On A Stale Form",
+    });
+
+    expect(result.organization).toEqual({ id: "org-1", name: "Acme Co" });
+    expect(mockProvision).not.toHaveBeenCalled();
+  });
+
+  it("bootstrapSupabaseIdentity rejects provisioning a new organization without a name", async () => {
+    mockBasePrisma.appUser.findFirst.mockResolvedValue(null);
+
+    const service = new AuthService();
+    await expect(
+      service.bootstrapSupabaseIdentity({
+        authSubject: "supabase:new-user",
+        email: "new@example.com",
+      })
+    ).rejects.toThrow("organizationName is required");
+    expect(mockProvision).not.toHaveBeenCalled();
+  });
+
+  it("bootstrapSupabaseIdentity provisions a new organization for a brand-new identity", async () => {
+    mockBasePrisma.appUser.findFirst.mockResolvedValue(null);
+    mockProvision.mockResolvedValue({
+      organization: { id: "org-2", name: "New Co", regionCode: null },
+      owner: { userId: "user-2", membershipId: "membership-2", authSubject: "supabase:new-user", email: "new@example.com", role: "owner", status: "active" },
+    });
+
+    const service = new AuthService();
+    const result = await service.bootstrapSupabaseIdentity({
+      authSubject: "supabase:new-user",
+      email: "new@example.com",
+      organizationName: "New Co",
+    });
+
+    expect(result.organization).toEqual({ id: "org-2", name: "New Co" });
+    expect(result.role).toBe("owner");
+    expect(mockProvision).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationName: "New Co", owner: expect.objectContaining({ authSubject: "supabase:new-user" }) })
+    );
+  });
+
   it("allows owners to create dispatcher and technician invites", async () => {
     mockPrisma.organizationInvite.create.mockResolvedValue({
       id: "invite-1",

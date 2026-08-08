@@ -1,11 +1,12 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-28
+last_verified: 2026-08-08
 source_of_truth: true
 related_code:
   - app/backend/server.ts
   - app/backend/routes
+  - app/modules/auth
   - app/backend/middleware/auth.ts
   - app/backend/middleware/errorHandler.ts
 ---
@@ -37,6 +38,8 @@ Public routes are limited to:
 
 - `/api/v1/auth/*`
 - `/api/v1/platform/organizations`
+
+`POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id. See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle.
 
 ## Request and response conventions
 
