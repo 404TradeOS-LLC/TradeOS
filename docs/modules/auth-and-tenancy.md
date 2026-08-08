@@ -6,6 +6,7 @@ source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
   - app/backend/middleware/databaseSession.ts
+  - app/backend/middleware/productionHardening.ts
   - app/backend/auth/jwt.ts
   - app/db/requestSession.ts
   - app/modules/auth/service.ts
@@ -17,6 +18,8 @@ related_code:
   - app/backend/routes/account.routes.ts
   - app/backend/routes/organizationProvisioning.routes.ts
   - web/src/app/actions/auth.ts
+  - web/src/app/finish-setup/page.tsx
+  - web/src/app/finish-setup/finish-setup-form.tsx
   - web/src/lib/session.ts
 ---
 
@@ -55,7 +58,7 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request. Called from `web/src/app/actions/auth.ts` after both `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled) and every `loginAction` (best-effort — this is what actually bootstraps a user who confirmed their email asynchronously and is now logging in for the first time, since no session exists to call bootstrap from at signup time when confirmation is pending).
+- `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
 
 ## Permissions
@@ -79,25 +82,46 @@ Special constraints:
 
 - `/login`
 - `/signup`
+- `/finish-setup`
 - `web/src/app/actions/auth.ts`
 
 `signupAction` passes `emailRedirectTo: ${NEXT_PUBLIC_APP_URL}/login` to Supabase's `signUp()` and stores the typed organization name in Supabase's own user metadata (`options.data.organization_name`) so it survives the signup → email-confirmation → first-login round trip, where no application-side state exists yet to hold it. `NEXT_PUBLIC_APP_URL` must be set to this deployment's real origin in every environment (falls back to `http://localhost:3000` for local dev) — Supabase only honors `emailRedirectTo` when the same URL is also present in that Supabase project's Auth → URL Configuration → Redirect URLs allowlist; setting the env var alone does not change Supabase's own dashboard config, which must be updated separately (see `web/.env.example`).
+
+### Finish-setup recovery flow
+
+`loginAction` routes a successful sign-in to one of three outcomes, based on the result of its bootstrap call:
+
+1. **Bootstrap succeeds** (existing membership, or a new one provisioned from `organization_name` metadata) → `redirect("/dashboard")`.
+2. **Bootstrap fails with `organization_name_required`** (an authenticated identity with no application membership and no `organization_name` in Supabase user metadata — the state of any account created before `signupAction` started storing that metadata) → `redirect("/finish-setup")`.
+3. **Bootstrap fails for any other reason** (transient backend error, network failure, the `409` "user exists but has no active membership" edge case, etc.) → `loginAction` returns `{ error }` and stays on `/login`. It deliberately does **not** fall through to `/dashboard` in this case: every page under `(app)` calls backend endpoints that 403 for an unprovisioned identity, and letting that 403 surface mid-render is what previously crashed into the generic root `error.tsx` boundary in production ("Minified React error #441" — Next.js redacts the real server error message from the client-side error object in production, so the boundary alone can't distinguish this case and route intelligently; preventing the unprovisioned dashboard visit in the first place is the fix).
+
+`/finish-setup` (`web/src/app/finish-setup/page.tsx` + `finish-setup-form.tsx`) is a minimal, session-gated page — not part of the `(app)` route group, since that group's layout renders the full authenticated nav (Customers, Projects, Dispatch, Settings), all of which would 403 for a user who hasn't finished setup. Its only input is `organizationName`; `finishSetupAction`:
+
+- requires an active Supabase session (checked via the session cookie server-side, not a client-supplied token) and redirects unauthenticated callers to `/login` before calling bootstrap at all;
+- never reads `role`, `userId`, `organizationId`, or `authSubject` from the submitted form — identity comes exclusively from the verified session, matching every other entry point into `POST /api/v1/auth/bootstrap`;
+- calls the same idempotent `bootstrapOrganization` helper `loginAction`/`signupAction` use, so an already-provisioned identity that lands here again (a stale tab, a resubmit after a transient failure) safely no-ops instead of creating a second organization.
+
+The already-orphaned production account (`hello@404tradeos.com`, created before `organization_name` metadata capture existed) is expected to self-heal by completing this flow on its next login — no manual database intervention performed or needed.
 
 ## Tests
 
 - `app/tests/auth.service.test.ts`
 - `app/tests/auth.middleware.test.ts`
+- `app/tests/auth.controller.bootstrap.test.ts` — supertest-level trust-boundary coverage: a bootstrap request body carrying `role`/`userId`/`authSubject`/`organizationId` is rejected (`400`, Zod `.strict()`) before it ever reaches provisioning logic
+- `app/tests/trustProxy.test.ts` — proves `TRUST_PROXY=1` resolves `req.ip` from the single innermost `X-Forwarded-For` entry Vercel's edge appends (silencing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`) without trusting an attacker-prefixed chain
 - `app/tests/platformProvisioningAuth.test.ts`
 - `app/tests/platformProvisioningRateLimit.test.ts`
 - `app/tests/rls.integration.ts`
 - `app/tests/databaseSecurityHardening.migration.test.ts`
+- `web/src/app/actions/auth.test.ts` — source-shape pinning (no mock harness exists for Server Actions in `web/`; see the file's own header comment) covering the three-way `loginAction` routing outcome, the `finishSetupAction` auth/trust-boundary guarantees, and the `/finish-setup` page's session gate
 
 ## Known limitations
 
 - legacy roles still normalize at session time
 - TOTP exists as stored credential scaffolding but is not the primary documented login path
-- `loginAction`'s post-login bootstrap call is best-effort: a login that succeeds but whose bootstrap check fails (e.g. a transient backend error, or — should it ever occur — a confirmed identity whose Supabase user metadata is missing `organization_name`) still redirects to `/dashboard` rather than blocking the login, so a user can in principle reach the dashboard without a completed organization/membership. This was judged the safer failure mode (a returning user is never locked out over an unrelated bootstrap hiccup) but means the dashboard/data layer should not assume every authenticated session has a resolvable organization without checking.
+- a truly transient bootstrap failure (e.g. a momentary backend blip) on an *already-provisioned* returning user now surfaces a "please try again" message on `/login` instead of letting them through to `/dashboard` on that one attempt — a deliberate tradeoff versus the previous best-effort behavior, made because the old behavior's failure mode (silently continuing to a dashboard that then itself crashes for an *unprovisioned* user) was the exact production incident this recovery flow fixes, and `loginAction` cannot yet distinguish "already provisioned, just had a hiccup" from "not provisioned at all" without a second network round trip
 - `app/backend/auth/jwt.ts` verifies Supabase-issued JWTs by dynamically importing `jose` (`await import("jose")`); this project's CommonJS TypeScript build downlevels that into `require("jose")`, so `jose` must stay pinned to a version that ships a CommonJS build (currently `^4.15.9` — `jose` v5+ is ESM-only and throws `ERR_REQUIRE_ESM` at runtime, which is exactly what happened in production before this was caught; see `docs/CURRENT_STATE.md`). `app/tests/jwt.supabase.test.ts` exercises the real `jose` import path end-to-end and will fail the suite if this regresses.
+- `TRUST_PROXY` must be set to `"1"` in Vercel Production and Preview for the backend project (`tradeos-costbook`) — the code has correctly supported this since the repository's initial scaffolding, but the env var itself was never set in Vercel, so production logged `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` on every request (harmless — a warning, not a request failure — but see `app/.env.example` for why the value must be `"1"`, never `"true"`).
 
 ## Deferred work
 

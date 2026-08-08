@@ -91,7 +91,7 @@ Preferred frontend paths:
 - server components and server actions call `web/src/lib/api.ts`
 - interactive client components call `web/src/lib/clientApi.ts` through `web/src/app/api/proxy/[...path]/route.ts`
 - binary document downloads stream through `web/src/app/api/documents/[...path]/route.ts`
-- `web/src/app/actions/auth.ts`'s `signupAction`/`loginAction` are the one frontend surface that calls the backend directly via `web/src/lib/api.ts`'s `apiFetch` with a Supabase-issued bearer token, rather than going through the session-cookie-based proxy — this is how the frontend links a Supabase Auth identity to an application organization/membership (`POST /api/v1/auth/bootstrap`)
+- `web/src/app/actions/auth.ts`'s `signupAction`/`loginAction`/`finishSetupAction` are the one frontend surface that calls the backend directly via `web/src/lib/api.ts`'s `apiFetch` with a Supabase-issued bearer token, rather than going through the session-cookie-based proxy — this is how the frontend links a Supabase Auth identity to an application organization/membership (`POST /api/v1/auth/bootstrap`). `finishSetupAction` (backing the standalone `/finish-setup` page) is the recovery path `loginAction` redirects to when bootstrap reports an authenticated identity with no organization and no recoverable `organization_name` metadata — see [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md#finish-setup-recovery-flow)
 
 ## Source-of-truth contract locations
 
