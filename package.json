@@ -8,7 +8,7 @@
     "docs:test": "node --test scripts/__tests__/docs-check.test.mjs"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.1",
     "minimatch": "^10.0.1"
   }
 }
