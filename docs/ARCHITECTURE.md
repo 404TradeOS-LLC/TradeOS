@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-08
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -12,6 +12,7 @@ related_code:
   - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
   - web/src/lib/api.ts
   - web/src/lib/clientApi.ts
+  - web/src/app/actions/auth.ts
   - web/src/app/api/proxy/[...path]/route.ts
   - web/src/app/api/documents/[...path]/route.ts
 ---
@@ -90,6 +91,7 @@ Preferred frontend paths:
 - server components and server actions call `web/src/lib/api.ts`
 - interactive client components call `web/src/lib/clientApi.ts` through `web/src/app/api/proxy/[...path]/route.ts`
 - binary document downloads stream through `web/src/app/api/documents/[...path]/route.ts`
+- `web/src/app/actions/auth.ts`'s `signupAction`/`loginAction` are the one frontend surface that calls the backend directly via `web/src/lib/api.ts`'s `apiFetch` with a Supabase-issued bearer token, rather than going through the session-cookie-based proxy — this is how the frontend links a Supabase Auth identity to an application organization/membership (`POST /api/v1/auth/bootstrap`)
 
 ## Source-of-truth contract locations
 

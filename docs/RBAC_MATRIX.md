@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-28
+last_verified: 2026-08-08
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -76,6 +76,6 @@ Jobs have extra scope restrictions beyond the shared permission map:
 
 ## Current auth-specific constraints
 
-- first-owner provisioning creates an `owner`
+- first-owner provisioning creates an `owner`; this only happens once per identity — `POST /api/v1/auth/bootstrap` looks up an existing membership (by verified `authSubject`/email) before ever provisioning, so calling it again for an already-bootstrapped user (which the frontend now does on every login, not just at signup) returns their existing role and never creates a second organization or membership, and the client-supplied `organizationName` is ignored entirely once a membership already exists
 - team invites are currently limited to `dispatcher` and `technician` roles
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
