@@ -4,7 +4,34 @@ import { KnowledgeEnginePaths, KnowledgeRuntimeSourceFiles, KnowledgeSourceSnaps
 
 const REPO_MARKERS = ["packages/knowledge-engine/exports/json/costbook.json", "app/package.json"];
 
+// Vercel's `tradeos-costbook` project deploys with Root Directory "app", so
+// only files inside app/ end up in the deployed Lambda's filesystem —
+// packages/knowledge-engine/, a sibling of app/ at the repo root, is never
+// reachable there at runtime. scripts/vendor-knowledge-engine.js copies the
+// three data directories this loader needs into app/vendor/knowledge-engine/
+// as a build step specifically so this candidate resolves in production;
+// see that script for the full explanation. Checked first, ahead of the
+// repo-root search below, but harmless if absent (falls through) — nothing
+// about local development or tests changes.
+export function vendoredKnowledgeEngineRoot(): string {
+  return path.resolve(__dirname, "../../../vendor/knowledge-engine");
+}
+
+function hasVendoredKnowledgeEngine(root: string): boolean {
+  return fs.existsSync(path.join(root, "exports", "json", "costbook.json"));
+}
+
 export function resolveKnowledgeEnginePaths(): KnowledgeEnginePaths {
+  const vendoredRoot = vendoredKnowledgeEngineRoot();
+  if (hasVendoredKnowledgeEngine(vendoredRoot)) {
+    return {
+      repoRoot: vendoredRoot,
+      exportsDir: path.join(vendoredRoot, "exports"),
+      knowledgeDir: path.join(vendoredRoot, "knowledge"),
+      schemasDir: path.join(vendoredRoot, "schemas"),
+    };
+  }
+
   const candidates = new Set<string>([
     process.cwd(),
     path.resolve(process.cwd(), ".."),

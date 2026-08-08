@@ -1,11 +1,12 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-18
+last_verified: 2026-08-08
 source_of_truth: false
 related_code:
   - app/modules/ai-estimate-assist
   - app/modules/knowledge-runtime
+  - app/scripts/vendor-knowledge-engine.js
   - app/backend/routes/aiEstimateAssist.routes.ts
   - web/src/app/(app)/projects/[id]/estimates/[estimateId]/assist/page.tsx
   - web/src/components/estimate-assist
@@ -78,6 +79,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - all generated drafts require human review before line items are applied
 - live integration/RLS verification requires the Docker-backed `npm run test:integration` harness
 - generated-draft provenance is tokenized per resolved line rather than persisted as a signed draft-run record; apply relies on review tokens, server-side org target validation, human review status, and source-key replay protection
+- `packages/knowledge-engine/` (the actual data `knowledge-runtime` reads) lives outside `app/` at the repo root. Vercel's `tradeos-costbook` project deploys with Root Directory `app`, so that data is not present at runtime in production by default — `app/scripts/vendor-knowledge-engine.js` copies it into `app/vendor/knowledge-engine/` as a build step (`npm run build`), and `resolveKnowledgeEnginePaths()` (`app/modules/knowledge-runtime/loader.ts`) checks that location first, falling back to its original repo-root search for local development. This was previously broken in production — every knowledge-runtime route (including `GET /api/v1/knowledge/stats`, used by the dashboard and this page) threw `"Unable to locate the TradeOS repository root for Knowledge Engine loading"` — because JWT verification was itself broken until a separate fix, so no request had ever actually reached this code path in production before. `web/src/app/(app)/dashboard/page.tsx` and this page's `getKnowledgeStats`/`getKnowledgeTrades` calls are also now wrapped in `.catch()` fallbacks to their existing null/empty UI states, so a future knowledge-runtime failure degrades gracefully instead of crashing the whole page into the generic error boundary.
 
 ## Deferred work
 
@@ -85,4 +87,4 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 
 ## Last verified date
 
-2026-07-15
+2026-08-08

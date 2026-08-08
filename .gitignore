@@ -8,6 +8,7 @@ build/
 .dev-token
 .dev-server.pid
 app/.claude/skills/run-tradeos-costbook-api/screenshots/
+app/vendor/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .idea/
