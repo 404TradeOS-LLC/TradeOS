@@ -6,6 +6,7 @@ source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
   - app/backend/middleware/databaseSession.ts
+  - app/backend/auth/jwt.ts
   - app/db/requestSession.ts
   - app/modules/auth/service.ts
   - app/modules/auth/types.ts
@@ -96,6 +97,7 @@ Special constraints:
 - legacy roles still normalize at session time
 - TOTP exists as stored credential scaffolding but is not the primary documented login path
 - `loginAction`'s post-login bootstrap call is best-effort: a login that succeeds but whose bootstrap check fails (e.g. a transient backend error, or — should it ever occur — a confirmed identity whose Supabase user metadata is missing `organization_name`) still redirects to `/dashboard` rather than blocking the login, so a user can in principle reach the dashboard without a completed organization/membership. This was judged the safer failure mode (a returning user is never locked out over an unrelated bootstrap hiccup) but means the dashboard/data layer should not assume every authenticated session has a resolvable organization without checking.
+- `app/backend/auth/jwt.ts` verifies Supabase-issued JWTs by dynamically importing `jose` (`await import("jose")`); this project's CommonJS TypeScript build downlevels that into `require("jose")`, so `jose` must stay pinned to a version that ships a CommonJS build (currently `^4.15.9` — `jose` v5+ is ESM-only and throws `ERR_REQUIRE_ESM` at runtime, which is exactly what happened in production before this was caught; see `docs/CURRENT_STATE.md`). `app/tests/jwt.supabase.test.ts` exercises the real `jose` import path end-to-end and will fail the suite if this regresses.
 
 ## Deferred work
 
