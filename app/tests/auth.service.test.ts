@@ -237,7 +237,16 @@ describe("AuthService", () => {
         authSubject: "supabase:new-user",
         email: "new@example.com",
       })
-    ).rejects.toThrow("organizationName is required");
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: expect.stringContaining("organizationName is required"),
+      // Stable machine-readable discriminator the frontend relies on to
+      // route this specific case to a "finish setup" screen instead of
+      // either failing silently or sending the user to a dashboard that
+      // will 403 on every request — see web/src/app/actions/auth.ts's
+      // isOrganizationNameRequiredError.
+      details: { code: "organization_name_required" },
+    });
     expect(mockProvision).not.toHaveBeenCalled();
   });
 

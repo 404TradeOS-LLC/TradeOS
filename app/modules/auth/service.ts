@@ -367,7 +367,12 @@ export class AuthService {
     }
 
     if (!input.organizationName) {
-      throw new ApiError(400, "organizationName is required to create a new organization");
+      // `details.code` is a stable, machine-readable discriminator (message
+      // text alone is not something callers should parse) — the frontend
+      // uses it to route an authenticated-but-unprovisioned identity to a
+      // "finish setup" screen instead of either failing silently or
+      // redirecting to a dashboard that will 403 on every request.
+      throw new ApiError(400, "organizationName is required to create a new organization", { code: "organization_name_required" });
     }
 
     const provisioned = await this.provisioning.provision({
