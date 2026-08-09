@@ -25,6 +25,14 @@ related_code:
 
 This document defines the required repository workflow for TradeOS. The Bible defines doctrine, the Sprint Backlog defines executable work, and this file defines repository controls and merge discipline.
 
+## Monorepo and AI-agent boundary policy
+
+TradeOS first-party product capabilities remain in one governed monorepo unless a future architecture decision explicitly establishes a separate repository boundary. Codex projects, threads, or agent missions are context and execution boundaries, not repository boundaries; they should operate from the monorepo root while claiming only the paths required for the bounded mission.
+
+Athena is the shared AI/orchestration platform layer. Its canonical package location is `packages/athena/`, and it owns the AI kernel, tool registry, context engine, router, action framework, and shared AI interfaces. Athena must not own Costbook, estimating, dispatch, CRM, Field Tech, or other domain business rules. Domain implementations retain ownership of their data and invariants and expose capabilities to Athena through explicit contracts or tool registration.
+
+Existing `app/` and `web/` deployable boundaries remain authoritative during RC1 hardening. Do not perform broad code movement merely to make the repository resemble a target package layout. Introduce `packages/costbook/` only when shared Costbook logic has a demonstrated reusable package boundary. Any later repository split or dependency-direction change requires explicit architectural documentation and must preserve the source-of-truth hierarchy and CI/governance controls defined here.
+
 ## Live-state verification rule
 
 GitHub rulesets, branch protection, required checks, merge methods, and review requirements are external state. They must be verified directly in GitHub before being described as current.
