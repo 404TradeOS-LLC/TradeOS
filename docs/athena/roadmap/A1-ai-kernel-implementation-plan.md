@@ -14,6 +14,7 @@ related_docs:
   - ../13-deployment/README.md
   - ../contracts/README.md
   - ../reviews/A0.5-architecture-review.md
+  - ../reviews/A1-parallel-readiness-review.md
   - ../../TRADEOS_BIBLE.md
   - ../../ARCHITECTURE.md
   - ../../RBAC_MATRIX.md
@@ -29,7 +30,7 @@ Implementation posture: backend-first, feature-flagged, non-mutating, service-bo
 
 Codex owns this file: `docs/athena/roadmap/A1-ai-kernel-implementation-plan.md`.
 
-Claude owns `docs/athena/reviews/A1-parallel-readiness-review.md`. That file does not exist in this worktree as of this plan. This plan proceeds without blocking and treats the parallel review as pending. If Claude's review appears later, A1 must triage its findings before implementation starts and record each as included, deferred, or blocked in this file or a follow-up planning note.
+Claude owns `docs/athena/reviews/A1-parallel-readiness-review.md`. The file exists locally as Claude-owned review input and must not be edited or staged by Codex. This plan incorporates its A1-relevant findings by reference and records future-milestone findings as named prerequisites below.
 
 Current PR context at planning time:
 
@@ -37,6 +38,22 @@ Current PR context at planning time:
 - Base: `docs/athena-platform-bible`
 - Active PR: #99, `docs(athena): complete A0.5 architecture readiness review`
 - Existing unrelated dirty files were present under `app/package-lock.json` and `packages/knowledge-engine/**`; this plan must not stage, modify, or rely on them.
+
+## Parallel Review Findings Incorporated
+
+`docs/athena/reviews/A1-parallel-readiness-review.md` is treated as read-only evidence. A1 triage status:
+
+| Finding | Plan status | A1 action |
+| --- | --- | --- |
+| HIGH-P1/HIGH-P5: request-scoped Prisma transaction conflicts with pause/cancellation model | Included for A1 and named as pre-A2/A6 prerequisite | A1 kernel owns its own `AbortController`; mutating/pausable tools later must not reuse the ambient request transaction |
+| HIGH-P2: no execution persistence schema exists | Included | A1 exit requires a minimal application-service-owned execution record; in-memory-only state is not exit-complete |
+| HIGH-P3: invoices/proposals/contracts lack job-style assignment scoping | Deferred with named pre-A3/A4 prerequisite | No A1 business context; billing/document context cannot ship to non-owner/admin/dispatcher roles until scoped |
+| HIGH-P4: C011 telemetry has no typed runtime enforcement | Included | `athena:contracts` must validate every emitted `AthenaTelemetryRecord` shape |
+| MEDIUM-1/MEDIUM-2: Express request helpers are not reusable and `canonicalRole` is optional | Included | Athena policy adapter uses portable domain helpers and calls `normalizeRole()` itself |
+| MEDIUM-3: clarification/degraded lifecycle loop is uncapped | Included | A1 lifecycle includes a bounded round-trip counter |
+| MEDIUM-5: Athena gates are not wired into CI | Included | `athena:contracts` and `athena:smoke` must be wired into `verify-repository.yml` before A1 exit |
+| MEDIUM-6: cost telemetry has no enforcement backend | Included as non-goal | A1 records cost only; spend enforcement is deferred |
+| MEDIUM-4/MEDIUM-7/LOW-1/LOW-2 | Deferred | Checkpoint shape, idempotency generalization, tenant cache infrastructure, and selected-scope search filtering remain A3/A6 work |
 
 ## A1 Scope
 
@@ -72,6 +89,8 @@ A1 must not implement:
 - New authentication, tenant, estimator, costbook, knowledge, or RLS systems.
 - Direct Prisma/database access from Athena planner, model adapter, tool adapter, or prompt code.
 - A separate authorization model that competes with `app/domain/contracts.ts`, `docs/RBAC_MATRIX.md`, existing middleware, or service-owned object checks.
+- Reuse of the ambient request-scoped Prisma transaction for mutating or pausable tool execution.
+- Cost or token budget enforcement. A1 records cost metadata only.
 
 ## Required Backend Seams
 
@@ -89,6 +108,7 @@ A1 should add narrow backend seams in the existing `app/` deployable. File names
 | Telemetry/audit writer | `app/modules/athena-kernel/telemetry.ts` | Emit C011-shaped metadata with redaction and cost fields |
 | Error normalization | `app/modules/athena-kernel/errors.ts` | Map validation, authz, timeout, cancellation, provider, and service failures to user-safe errors |
 | Feature flags | Existing feature-flag/config seam, or `app/modules/athena-kernel/flags.ts` if needed | Keep kernel disabled unless explicitly enabled |
+| Execution store | `app/modules/athena-kernel/executionStore.ts` plus a minimal Prisma model if approved | Persist execution records and lifecycle transitions behind an application-service-owned seam |
 
 All A1 backend seams must preserve the existing module pattern:
 
@@ -112,6 +132,8 @@ A1 must reuse these current implementation contracts:
 - `app/backend/requestContext.ts`: provides controller-level auth, org, role, and permission helpers.
 - `app/domain/contracts.ts`: owns canonical roles, permission keys, lifecycle labels, and compatibility role normalization.
 
+Request-bound helpers from `app/backend/requestContext.ts`, including `requireOrgId`, `requirePermissions`, `requireRoles`, and `requireOrgAccess`, must not be reused inside the Athena policy adapter because Athena execution contexts do not carry an Express `Request`. A1 may reuse only portable domain helpers such as `normalizeRole`, `getRolePermissions`, `hasPermission`, and `hasAnyPermission`, and the Athena policy adapter must call `normalizeRole()` itself rather than trusting optional upstream `AuthContext.canonicalRole`.
+
 ## Dependency Direction
 
 All future business execution must follow:
@@ -131,6 +153,8 @@ Authenticated HTTP request
 ```
 
 A1 must not call application infrastructure directly except through existing platform seams needed for request/session context, feature flags, telemetry, and any approved execution-record persistence.
+
+The authenticated HTTP request may enter Athena while `databaseSession` holds the current request-scoped transaction open for normal TradeOS API behavior. A1 must not treat that transaction as a durable execution boundary, cancellation source, approval-pause container, or future tool-execution container.
 
 ## Execution Lifecycle And State Machine Plan
 
@@ -159,10 +183,26 @@ Implementation steps:
 
 1. Create execution metadata with `executionId`, `requestId`, `traceId`, `orgId`, actor, canonical role, request source, timestamps, and initial `created` state.
 2. Transition through state helpers only; direct status assignment is forbidden outside the lifecycle helper.
-3. Persist or otherwise record every transition with timestamp, reason code, and safe metadata.
+3. Persist every transition with timestamp, reason code, and safe metadata through the A1 execution store.
 4. Treat terminal states as immutable.
 5. Return a standard response envelope for success, denial, timeout, cancellation, and failure.
 6. Do not retry provider/model work in A1 unless it is explicitly non-mutating and bounded by the request deadline.
+
+A1 lifecycle cycles are bounded. The implementation must track clarification/degraded round trips per execution and force `failed` or `cancelled` after the configured cap is reached. The initial A1 default should be two round trips unless implementation evidence supports a smaller or larger bound.
+
+## A1 Execution Persistence Decision
+
+A1 exit requires a real execution record behind an Athena application-service seam. In-memory or per-request execution state is allowed only for unit tests, local prototypes, and fake-provider development; it is not A1 exit-complete and must be reported as a blocker if no durable store exists.
+
+Required A1 persistence behavior:
+
+- Store `executionId`, `requestId`, `traceId`, `orgId`, actor, canonical role, request source, final state, timestamps, safe summary, safe error code, and redaction mode.
+- Store lifecycle transitions or an equivalent timestamp history sufficient to reconstruct state movement for A1.
+- Persist through an application service/store seam, not through model, planner, prompt, provider, or tool code.
+- Enforce tenant scoping through the same RLS/request-session posture as the rest of TradeOS.
+- Include live RLS integration coverage if a Prisma table or migration is added.
+
+If A1 implementation chooses to split persistence into a prerequisite PR, the kernel implementation PR remains blocked from A1 exit until that storage slice lands.
 
 ## Minimal TypeScript Contract Plan
 
@@ -232,6 +272,7 @@ A1 should not expose hidden plans, prompt internals, chain-of-thought, raw model
 A1 propagation rules:
 
 - Actor, organization, role, and permissions come from `req.auth`, `req.orgId`, and `app/domain/contracts.ts`, never request-controlled tenant fields.
+- The Athena permission adapter normalizes roles with `normalizeRole()` and derives permissions from portable domain helpers; it does not trust optional `AuthContext.canonicalRole` or adapt Express `Request` helpers.
 - `requestId` comes from `res.locals.requestId` when available; otherwise the controller creates one through the existing request-ID middleware path.
 - `traceId` is generated at kernel entry and included in every kernel, provider, telemetry, and error record.
 - Any future background continuation must use `runWithBackgroundDatabaseSession` with tenant-qualified job names and active membership validation.
@@ -255,9 +296,11 @@ Required behavior:
 Recommended initial implementation targets:
 
 - Keep defaults conservative and environment-configurable.
-- Use `AbortController`/`AbortSignal` for provider cancellation.
+- Construct a kernel-owned `AbortController` at kernel entry and use its `AbortSignal` for provider cancellation.
 - Record cancellation reason as `user_cancelled`, `client_closed`, `deadline_exceeded`, `provider_timeout`, or `shutdown`.
 - Include request ID and trace ID in all timeout/cancellation errors.
+
+The kernel-owned `AbortController` is not derived from `databaseSession.ts`, `waitForResponse`, Express response `finish`/`close` listeners, or Prisma transaction timeout behavior. The kernel may listen to HTTP client disconnects and fire its own controller, but database-session response listeners are not the source of truth for Athena cancellation.
 
 ## Telemetry, Audit, And Cost Records
 
@@ -285,6 +328,7 @@ Cost attribution:
 
 - A1 records model/provider token counts and estimated cost when a provider returns them.
 - Missing provider usage data should be recorded as `unknown`, not estimated from prompt text unless a later budget policy defines that behavior.
+- A1 does not enforce token or spend limits. Cost enforcement requires separate budget/quota infrastructure and is deferred until at least A6.
 
 ## Feature Flags
 
@@ -317,6 +361,7 @@ Required test classes:
 - Cancellation tests for aborted request/provider work.
 - Error normalization tests for validation, authorization, timeout, cancellation, provider, service, and unknown failures.
 - Telemetry redaction tests proving no raw prompt, secrets, or unnecessary PII is logged by default.
+- `athena:contracts` shape-validation tests for every emitted `AthenaTelemetryRecord`, including required C011 fields and redaction mode.
 - Cost metadata tests for present and absent provider usage.
 - Feature flag tests proving the kernel is disabled by default.
 - Smoke test for authenticated no-op/draft path.
@@ -341,6 +386,8 @@ A1 must introduce or explicitly block on these named gates:
 | `npm run athena:eval` | May remain deferred until A5; A1 must not claim eval coverage |
 | `npm run athena:perf` | May remain deferred until A3/A5/A6; A1 must not claim perf coverage |
 
+Once `athena:contracts` and `athena:smoke` exist as scripts, they must also be wired into `.github/workflows/verify-repository.yml` as a job or required step before A1 counts as exit-complete. A script that exists only in `package.json` is not sufficient.
+
 Required repository checks before an A1 PR is ready:
 
 ```bash
@@ -364,8 +411,9 @@ Run `cd app && npm run test:integration` when A1 adds or touches database-backed
 6. Add kernel service orchestration through lifecycle states.
 7. Add timeout/cancellation handling.
 8. Add telemetry/audit/cost metadata writer behind a redacted interface.
-9. Add named `athena:contracts` and `athena:smoke` scripts or record explicit blockers before A1 exit.
-10. Add focused tests, then run the validation ladder.
+9. Add execution-store persistence or explicitly block A1 exit until the storage slice lands.
+10. Add named `athena:contracts` and `athena:smoke` scripts and wire them into `verify-repository.yml`, or record explicit blockers before A1 exit.
+11. Add focused tests, then run the validation ladder.
 
 Keep each implementation PR narrow. If persistence requires a migration, split the migration and RLS tests into a clearly reviewed slice before adding provider/model behavior.
 
@@ -374,10 +422,11 @@ Keep each implementation PR narrow. If persistence requires a migration, split t
 Current A1 risks:
 
 - Existing RBAC checks are often controller-owned. A1 must not assume service methods enforce every permission internally.
-- Persisted execution records may require a new schema and RLS policy. That migration is not part of this planning PR and must be explicitly reviewed before implementation.
+- Request-bound auth helpers are not reusable inside Athena policy code; the new policy seam must use portable domain helpers and normalize roles itself.
+- Persisted execution records require an explicit storage decision and likely a new schema and RLS policy. That migration is not part of this planning PR and must be explicitly reviewed before implementation.
 - Minimal observability is required before meaningful provider/tool work, but the current app only has request-level logging.
 - Dirty unrelated files in this worktree must be resolved or ignored carefully before any A1 implementation staging.
-- Claude's parallel A1 readiness review is pending; any blocker it identifies must be triaged before A1 starts.
+- Claude's parallel A1 readiness review is present locally and has been triaged into this plan, but the file remains Claude-owned and must not be staged by Codex.
 
 Block A1 implementation if:
 
@@ -385,7 +434,29 @@ Block A1 implementation if:
 - The kernel cannot run behind existing auth and request-scoped RLS.
 - The implementation would require direct Athena database access from the LLM, planner, model adapter, or tool adapter.
 - A1 cannot define `athena:contracts` and `athena:smoke` gates or explicitly mark them as blockers.
+- `athena:contracts` and `athena:smoke` exist only as package scripts and are not wired into CI before A1 exit.
+- A1 uses in-memory execution state as if it were crash-durable persistence.
 - Telemetry cannot correlate request ID, trace ID, execution ID, org ID, actor, final state, and safe error code.
+
+## Named Pre-Requisites For Later Milestones
+
+Pre-A2/A6 transaction prerequisite:
+
+- Mutating or pausable tool execution must never reuse the ambient request-scoped transaction created by `databaseSession`.
+- Each mutating attempt must open and close its own short transaction through an application service.
+- Approval waits happen between transactions, never inside one.
+- Re-entry should use the `runWithBackgroundDatabaseSession` re-authentication pattern or an equivalent service-owned scoped session that proves active membership and sets RLS variables before reading or writing tenant data.
+
+Pre-A3/A4 object-scope prerequisite:
+
+- Jobs and job assignments are the current object-scope precedent.
+- Invoices, proposals, and contracts must have assignment-scoped RLS or equivalent service-layer actor-scoped filters before Athena exposes those records to non-owner/admin/dispatcher roles.
+- Billing/document context providers must fail closed for technicians until that scoping exists and is tested.
+
+Pre-A6 idempotency/checkpoint prerequisite:
+
+- C005 `idempotencyKey` is necessary but not sufficient for real mutating tools.
+- A6 must define checkpoint shape and a generalized target-reconciliation hook before retry/resume behavior ships.
 
 ## Deferred Work
 
@@ -406,6 +477,7 @@ Deferred to A4:
 
 - Full action risk policy and approval classification.
 - Object-level policy adapters for business tools.
+- Invoice/proposal/contract assignment scoping before billing/document context reaches technician roles.
 
 Deferred to A5:
 
@@ -418,6 +490,8 @@ Deferred to A6:
 - Idempotent retries.
 - Approval pause/resume.
 - Compensation policies for irreversible business actions.
+- Short transaction-per-attempt execution for mutating or pausable tools.
+- Checkpoint shape and target reconciliation beyond a single idempotency key.
 
 Deferred to A7+:
 
@@ -435,16 +509,19 @@ A1 is complete only when all criteria below are met:
 - Authenticated request path uses existing `requireAuth` and `databaseSession`.
 - Actor, org, canonical role, permissions, request ID, trace ID, execution ID, and request source propagate through the kernel.
 - Lifecycle state transitions are implemented through a tested helper.
+- Lifecycle clarification/degraded round trips are capped and tested.
 - Terminal states are immutable.
+- Execution records and transition history persist behind an application-service-owned store; in-memory-only state is not exit-complete.
 - A1 can return a safe no-op or draft-only response.
 - Mutation requests are denied or safely refused.
 - Minimal AI context is bounded and contains no broad business provider sections.
 - Provider adapter supports fake/local test mode and deadline/cancellation.
-- Timeout, cancellation, and shutdown behavior are tested.
+- Timeout, cancellation, and shutdown behavior are tested with a kernel-owned `AbortController`.
 - Kernel results and failures use a normalized envelope with safe summaries.
 - Minimal C011-style telemetry/audit/cost metadata is emitted with redaction.
 - No raw prompts, private chain-of-thought, secrets, raw payment data, or unnecessary PII are logged by default.
 - `npm run athena:contracts` and `npm run athena:smoke` exist or the A1 PR explicitly remains blocked from completion.
+- `athena:contracts` and `athena:smoke` are wired into `.github/workflows/verify-repository.yml` before A1 is exit-complete.
 - Required docs, app tests, lint, build, and diff checks pass or documented blockers are accepted.
 - No production business tool, persistent memory, plugin, broad context provider, or autonomous write path ships in A1.
 
