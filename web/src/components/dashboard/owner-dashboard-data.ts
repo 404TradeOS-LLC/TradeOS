@@ -42,7 +42,11 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Scheduled for field execution today in the ${input.scopeLabel}`,
       icon: CalendarClock,
       tone: "neutral",
-      href: "/dispatch?scheduled=today",
+      // view=all is required: DispatchPage defaults an omitted `view` to
+      // "attention" (needsAttention=true), but this KPI counts every
+      // actionable job scheduled today regardless of attention status - the
+      // default filter would silently show fewer jobs than the tile.
+      href: "/dispatch?scheduled=today&view=all",
     },
     {
       id: "open-estimates",
@@ -75,7 +79,8 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Active jobs that still need a calendar slot in the ${input.scopeLabel}`,
       icon: AlertTriangle,
       tone: input.unscheduledJobs > 0 ? "attention" : "neutral",
-      href: "/dispatch?status=unscheduled",
+      // Same view=all reasoning as the "Today's Jobs" tile above.
+      href: "/dispatch?status=unscheduled&view=all",
     },
     {
       id: "overdue-tasks",

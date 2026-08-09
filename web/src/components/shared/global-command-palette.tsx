@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -47,19 +47,24 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
   const [recentItems, setRecentItems] = useState<PaletteItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const closePalette = () => {
+  const closePalette = useCallback(() => {
+    // Guard against a no-op close (e.g. Escape pressed while already closed,
+    // in an unrelated field) reusing a stale previouslyFocusedRef and
+    // yanking focus back to wherever the palette was last opened from.
+    if (!isOpen) return;
     setIsOpen(false);
     setQuery("");
     setResults([]);
     setActiveIndex(0);
     previouslyFocusedRef.current?.focus();
-  };
+    previouslyFocusedRef.current = null;
+  }, [isOpen]);
 
-  const openPalette = () => {
+  const openPalette = useCallback(() => {
     previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setIsOpen(true);
     setActiveIndex(0);
-  };
+  }, []);
 
   const togglePalette = () => {
     if (isOpen) {
@@ -86,7 +91,7 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  }, [isOpen, closePalette, openPalette]);
 
   useEffect(() => {
     if (!isOpen) return;
