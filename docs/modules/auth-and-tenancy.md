@@ -77,6 +77,7 @@ Special constraints:
 - update policies validate the resulting row rather than using an unconditional `WITH CHECK (true)` expression
 - request-context RLS helper functions have fixed empty search paths; helpers that call another application function use schema-qualified references
 - `public._prisma_migrations` is administrator-only deployment state and is excluded from runtime application-role privileges after every role-provisioning run
+- any lookup of a user/membership/organization performed *before* an authenticated request-scoped session exists (i.e. before `app.org_id` can be set) must explicitly set `app.login_lookup`, then `app.user_id` once the user is known, then `app.org_id` once their membership is known — in that order, each inside the same transaction — to satisfy `users_login_lookup_policy`, `memberships_login_lookup_policy`, and `organizations_select_policy`. `AuthService.login()`, `.refresh()`, `.requestPasswordReset()`, `.resetPassword()`, and `.acceptInvite()` all follow this three-step pattern. `bootstrapSupabaseIdentity`'s existing-user lookup did not (a single un-flagged `basePrisma.appUser.findFirst` with a nested `include`) until a production incident surfaced it — see Known Limitations below and `docs/CURRENT_STATE.md`.
 
 ## Frontend surfaces
 
@@ -111,7 +112,7 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 - `app/tests/trustProxy.test.ts` — proves `TRUST_PROXY=1` resolves `req.ip` from the single innermost `X-Forwarded-For` entry Vercel's edge appends (silencing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`) without trusting an attacker-prefixed chain
 - `app/tests/platformProvisioningAuth.test.ts`
 - `app/tests/platformProvisioningRateLimit.test.ts`
-- `app/tests/rls.integration.ts`
+- `app/tests/rls.integration.ts` (Docker-backed, live Postgres) — includes `bootstrapSupabaseIdentity finds an already-provisioned identity's real membership against live RLS, not a false 409`, the authoritative regression test for the RLS-context bug described above (a mocked Prisma client can't catch an RLS visibility gap)
 - `app/tests/databaseSecurityHardening.migration.test.ts`
 - `web/src/app/actions/auth.test.ts` — source-shape pinning (no mock harness exists for Server Actions in `web/`; see the file's own header comment) covering the three-way `loginAction` routing outcome, the `finishSetupAction` auth/trust-boundary guarantees, and the `/finish-setup` page's session gate
 

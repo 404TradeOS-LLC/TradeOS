@@ -343,26 +343,52 @@ export class AuthService {
   async bootstrapSupabaseIdentity(input: SupabaseBootstrapInput) {
     const normalizedEmail = input.email.toLowerCase();
 
-    const existingUser = await basePrisma.appUser.findFirst({
-      where: {
-        OR: [{ authSubject: input.authSubject }, { email: normalizedEmail }],
-      },
-      include: {
-        memberships: {
-          where: { status: "active" },
-          orderBy: { createdAt: "asc" },
-          include: { organization: true },
-        },
-      },
+    // Mirrors login()'s three-step app.login_lookup -> app.user_id -> app.org_id
+    // pattern (see the RLS policies added in migration
+    // 20260624120000_add_users_login_lookup_policy and hardened in
+    // 20260804020000_harden_database_security_boundaries). This lookup runs
+    // before any identity/org context is known, so without explicitly
+    // setting these session-local flags, organization_memberships' and
+    // organizations' RLS policies silently return zero rows regardless of
+    // what actually exists — a single un-flagged basePrisma.appUser.findFirst
+    // with a nested `include` (the previous implementation here) can see the
+    // user row but never their membership or organization, so every already
+    // -provisioned identity's second-and-later bootstrap call falsely hit the
+    // "no active membership" branch below. Confirmed against production: the
+    // real hello@404tradeos.com account was fully provisioned (owner role,
+    // active membership) yet got this exact false 409 on every login after
+    // the one that provisioned it.
+    const existing = await basePrisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+
+      const user = await transaction.appUser.findFirst({
+        where: { OR: [{ authSubject: input.authSubject }, { email: normalizedEmail }] },
+      });
+      if (!user) return null;
+
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
+
+      const membership = await transaction.organizationMembership.findFirst({
+        where: { userId: user.id, status: "active" },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!membership) return { user, membership: null, organization: null };
+
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.org_id', ${membership.orgId}, true)`);
+
+      const organization = await transaction.organization.findUnique({ where: { id: membership.orgId } });
+
+      return { user, membership, organization };
     });
 
-    if (existingUser) {
-      const membership = existingUser.memberships[0];
-      if (!membership) throw new ApiError(409, "User exists but has no active organization membership");
+    if (existing) {
+      if (!existing.membership || !existing.organization) {
+        throw new ApiError(409, "User exists but has no active organization membership");
+      }
       return {
-        user: { id: existingUser.id, email: existingUser.email, fullName: existingUser.fullName },
-        organization: { id: membership.organization.id, name: membership.organization.name },
-        role: membership.role,
+        user: { id: existing.user.id, email: existing.user.email, fullName: existing.user.fullName },
+        organization: { id: existing.organization.id, name: existing.organization.name },
+        role: existing.membership.role,
       };
     }
 
