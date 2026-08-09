@@ -23,11 +23,21 @@ export interface AthenaTool<TInput, TData> {
   permissions: string[];
   timeoutMs: number;
   idempotency: "required" | "optional" | "not_supported";
+  compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: unknown;
   outputSchema: unknown;
-  execute(input: TInput, context: AthenaToolContext): Promise<AthenaToolResult<TData>>;
+  execute(
+    input: TInput,
+    aiContext: AthenaAIContext,
+    execution: AthenaToolExecutionContext
+  ): Promise<AthenaToolResult<TData>>;
 }
 ```
+
+`AthenaToolExecutionContext` is separate from AI Context. It carries
+server-derived actor, organization, role, request ID, execution ID, trace ID,
+deadline, cancellation signal, approval state, and feature flags. Mutating tools
+must check timeout/cancellation before mutation and before returning success.
 
 ## Registration And Discovery
 
@@ -50,6 +60,7 @@ and plugin policy.
 | `outputSchema` | Must be standard result envelope |
 | `timeoutMs` | Maximum execution time |
 | `idempotency` | Required for mutating tools |
+| `compensationPolicy` | None, compensating action, service transaction, or draft only |
 
 ## Confirmation Policy
 
@@ -57,6 +68,18 @@ Tool risk is the default. The Action Engine may raise the required approval
 level based on amount, legal effect, customer visibility, destructive impact,
 low confidence, stale context, plugin source, or organization policy. It may not
 lower a high-risk tool below explicit approval.
+
+## Version 1 Required Versus Deferred Metadata
+
+Required in v1: ID, version, owner, permissions, risk, confirmation policy,
+timeout, idempotency policy, input schema, standard result envelope, service
+dependency, and compensation policy.
+
+Optional in v1: feature flag, deprecation notice, model hints, cost estimate,
+and first-party helper metadata.
+
+Deferred until the plugin milestone: marketplace metadata, external commercial
+terms, third-party distribution, and generalized provider compatibility.
 
 ## Versioning And Deprecation
 

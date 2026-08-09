@@ -43,10 +43,16 @@ ID, idempotency key, and safe metadata.
 - Application services publish events after successful business state changes.
 - Tools may request service actions but do not publish canonical events directly
   unless the service contract delegates that publisher role.
+- Tool-result `events` are references to service-published events unless a tool
+  has explicit delegated publisher authority.
 - Subscribers must be idempotent.
 - Subscribers must not depend on hidden LLM reasoning.
 - Failed subscribers do not roll back already-committed business state unless
   the service explicitly owns an atomic transaction.
+- Subscribers, replay workers, and dead-letter reprocessors must re-enter a
+  service-owned scoped database session with organization, actor or service
+  principal, role/capability context, and request/session source before reading
+  or writing tenant data.
 
 ## Versioning, Retries, And Replay
 
@@ -58,6 +64,10 @@ ID, idempotency key, and safe metadata.
 | Replay | Replays preserve original occurred time and mark replay metadata |
 | Ordering | Ordering is guaranteed only per aggregate where infrastructure supports it |
 | Dead letter | Exhausted events enter a dead-letter queue with safe payload and failure reason |
+
+Replay is not authorization. Replayed events must validate that referenced
+entities still belong to the event organization and that the subscriber still
+has permission to perform any side effect.
 
 ## Example Event
 
