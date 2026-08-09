@@ -1,13 +1,14 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SPRINT_BACKLOG.md
   - docs/ENGINEERING_COMMAND_CENTER.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - docs/TRADEOS_BIBLE.md
 ---
 
 # TradeOS Session Handoff
@@ -17,37 +18,42 @@ related_code:
 - S005 is `DONE`. PR #84 merged on 2026-08-06 as
   `7d1c48376861468122347e19c41f0a007d7b5fc9`.
 - Production auth/runtime recovery through PR #92 is merged on `main` as
-  `477fb2e919d4001772628c6a91fcded07555ba74`; that work is outside the numbered
-  lifecycle sprint and does not change S006's inventory-only scope.
-- S006 — Lifecycle compatibility inventory is promoted to `READY` on the
-  governance-only `docs/s006-readiness` branch. Its implementation must start
-  only after this readiness change merges and must use a separate branch/PR.
-- Concurrent UI-sprint work is owned separately by Claude. S006 may inspect UI
-  lifecycle values read-only, but its implementation is explicitly forbidden
-  from modifying `web/src/app/**` and `web/src/components/**`, preventing scope
-  overlap with that UI work.
+  `477fb2e919d4001772628c6a91fcded07555ba74`; S006 readiness PR #93 is merged
+  on `main` as `378c12e86410f4e9150953dd9d677c1701a3812d`.
+- S006 — Lifecycle compatibility inventory is the lowest-numbered `READY`
+  sprint. Draft PR #95 is its current implementation evidence.
+- Concurrent UI work is active in PR #94 and touches dashboard/shared frontend
+  surfaces plus `docs/SESSION_HANDOFF.md`, so later dashboard Costbook work
+  must reverify overlap before editing.
 - S006 is inventory-only: behavior changes, schema/migrations, backend/module
   runtime code, dependencies, workflows, environment configuration, repository
   settings, and `packages/**` are outside scope.
+- S027 — Intelligent Costbook production readiness now has a full readiness
+  contract in `docs/SPRINT_BACKLOG.md`, but it remains `BLOCKED` by active PR
+  overlap rather than executable.
 
 ## Verification
 
 - S001 dependency: passed; `DONE` with merged evidence
-- base commit for readiness review: `477fb2e919d4001772628c6a91fcded07555ba74`
-- live open-PR check before readiness branch publication: passed; zero open pull requests
-- repository search: passed; lifecycle values exist across shared contracts,
-  backend/controller surfaces, UI, portal-facing code, current workflow docs,
-  and archived compatibility references
-- parallel UI-work overlap control: passed by explicit S006 forbidden paths;
-  UI files are read-only evidence for S006
-- external infrastructure requirement: none
-- founder decision required: NO
-- readiness branch owns governance/continuity only; no product behavior change
+- current base for S027 readiness review: `378c12e86410f4e9150953dd9d677c1701a3812d`
+- live open-PR check: PR #94 overlaps dashboard/frontend and this handoff; PR
+  #96 overlaps Knowledge Runtime packaging; PR #95 owns S006 implementation
+  evidence; PR #89 is dependency-only and non-overlapping unless package work is
+  requested
+- Costbook source review: existing module docs identify live Costbook,
+  labor/material/equipment, assemblies, supplier queue, Knowledge Runtime, and
+  AI Estimate Assist seams to extend rather than rebuild
+- external infrastructure requirement for S027 readiness: none; implementation
+  must reverify Docker, `psql`, local database access, and supplier-feed
+  credentials before claiming integration coverage
+- founder decision required for S027: NO
+- readiness branch owns governance/continuity only; no product behavior,
+  schema, package, dependency, UI, or runtime change
 
 ## Next Eligible Sprint
 
 Sprint ID: S006
-Eligibility: READY on the readiness branch; implementation begins only after this governance-only readiness PR merges.
+Eligibility: READY on `main`; draft PR #95 is the current implementation evidence, and S027 remains BLOCKED by active overlap.
 Dependencies: S001 is DONE.
-Overlap check: Parallel UI work is isolated from S006 by forbidding modifications to web/src/app/** and web/src/components/**; no open PR existed when the readiness branch was created.
-Startup prompt: After the S006 readiness PR merges, create a new isolated S006 implementation branch from current main and produce the authoritative lifecycle compatibility matrix for projects, estimates, proposals, contracts, invoices, and jobs without changing runtime behavior.
+Overlap check: PR #95 owns S006 implementation evidence; PR #94 overlaps UI/dashboard docs; PR #96 overlaps Knowledge Runtime packaging; S006 remains the lowest-numbered READY sprint.
+Startup prompt: Continue or reconcile S006 lifecycle compatibility inventory from current main and PR #95 before promoting S027 to READY; do not begin Intelligent Costbook implementation until its active dashboard/UI and Knowledge Runtime overlap clears.

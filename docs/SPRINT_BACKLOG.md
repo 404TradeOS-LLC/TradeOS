@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -252,11 +252,18 @@ Dependencies: S023
 Objective: Eliminate remaining manual/AI line-item sort-order races.
 Acceptance: concurrent inserts produce deterministic order without collisions.
 
-### S027 — Cost book search performance
-Status: PLANNED
+### S027 — Intelligent Costbook production readiness
+Status: BLOCKED
 Dependencies: none
-Objective: Add evidence-backed trigram/index support for mixed name/code search where required.
-Acceptance: representative query plans avoid full scans and preserve RLS.
+Objective: Transform the placeholder-facing Costbook experience into a production-ready, AI-powered estimating system grounded in live backend APIs, tenant costbook data, supplier pricing, regional pricing, Knowledge Runtime retrieval, and review-first AI assistant workflows.
+Allowed paths: `app/modules/cost-database/**`, `app/modules/labor-database/**`, `app/modules/material-database/**`, `app/modules/equipment-database/**`, `app/modules/assemblies-database/**`, `app/modules/supplier-database/**`, `app/modules/supplier-integration/**`, `app/modules/knowledge-runtime/**`, `app/modules/ai-estimate-assist/**`, `app/backend/routes/*cost*`, `app/backend/routes/*labor*`, `app/backend/routes/*material*`, `app/backend/routes/*equipment*`, `app/backend/routes/*assembl*`, `app/backend/routes/*supplier*`, `app/backend/routes/knowledgeRuntime.routes.ts`, `app/backend/routes/aiEstimateAssist.routes.ts`, matching backend controllers where routes already use controller seams, `app/prisma/schema.prisma`, `app/prisma/migrations/**`, `app/tests/**`, `web/src/app/(app)/dashboard/**`, `web/src/app/(app)/costbook/**`, `web/src/app/(app)/projects/[id]/estimates/[estimateId]/assist/**`, `web/src/components/dashboard/**`, `web/src/components/estimate-assist/**`, new narrowly named `web/src/components/costbook/**`, `web/src/lib/api.ts`, `web/src/lib/clientApi.ts`, `packages/knowledge-engine/exports/json/costbook.json`, canonical package metadata under `packages/knowledge-engine/{README.md,PATHS.md,path-manifest.json}` only if Knowledge Engine source paths change, and required owner docs.
+Forbidden paths: broad application redesign; autonomous AI database writes; direct estimate-line writes outside `EstimateEngineService`; mock or placeholder production data; unreviewed supplier ingestion; public/signed supplier credentials; destructive `packages/knowledge-engine/**` cleanup; confirmed duplicate-tree deletion; unrelated lifecycle normalization; unrelated settings, branding, portal, dispatch, auth, billing, deployment, workflow, dependency, lockfile, CI, environment, repository-settings, and marketing changes.
+Required tests: `cd app && npm test`; `cd app && npm run test:integration`; `cd app && npm run lint`; `cd app && npm run build`; `cd web && npm test`; `cd web && npm run lint`; `cd web && npm run build`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `git diff --check`; plus focused backend service/controller tests for category browsing, pagination, filtering, sorting, full-text search, semantic search, assemblies, labor, materials, equipment, regional pricing, supplier pricing, statistics, Knowledge Runtime integration, and AI assistant tool behavior; focused frontend tests for dashboard Costbook wiring, Costbook loading skeletons, filters, pagination, and empty/error states; and E2E coverage for searching, browsing, selecting an item or assembly, and asking the assistant for drywall labor, flooring pricing, and cheaper alternatives.
+Acceptance: dashboard Costbook entry links to live Costbook APIs; no user-visible Costbook surface depends on mock data; users can browse categories and search/filter/sort/paginate assemblies, labor, material, equipment, regional, and supplier-backed pricing records; statistics expose total assemblies, total items, last pricing update, and supplier sync status; Knowledge Runtime search and semantic matching are integrated without creating a parallel AI architecture; AI assistant answers the required contractor prompts through validated, read-only retrieval/tool seams and keeps estimate writes review-first; loading states, optimistic interactions, caching, responsive layouts, accessibility, and regression coverage are complete; docs and source-of-truth records describe the production behavior accurately.
+Founder decision required: NO.
+Blocked by: active PR #94 overlaps dashboard UI and shared frontend surfaces required by S027; active PR #96 overlaps Knowledge Runtime packaging and production Costbook data availability; active draft PR #95 owns S006 implementation evidence; S006 remains the lowest-numbered `READY` sprint until completed or otherwise governed.
+Readiness evidence: Verified 2026-08-09 against `main` commit `378c12e86410f4e9150953dd9d677c1701a3812d`: S023 is `DONE`, preserving review-first AI estimator hardening; existing module docs confirm live cost book modules, supplier queue plumbing, Knowledge Runtime, and AI Estimate Assist seams exist and should be extended rather than rebuilt; live GitHub state shows PR #94 modifies `web/src/app/(app)/dashboard/**`, `web/src/components/dashboard/**`, shared frontend API/helpers, `docs/CURRENT_STATE.md`, and `docs/SESSION_HANDOFF.md`; PR #96 modifies `app/modules/knowledge-runtime/loader.ts` and `app/vercel.json`; PR #95 modifies S006 implementation documentation; no external infrastructure is required for readiness, but implementation must reverify local database, `psql`, Docker, and any supplier-feed credentials before claiming integration completion. This governance record intentionally keeps S027 `BLOCKED` until the named overlap clears, then it may be promoted to `READY` in a separate governance-only update.
+Coordination plan: use the requested parallel subagent lanes only after S027 becomes `READY` and an isolated implementation branch exists. Backend owns APIs, search, pricing, and supplier integration; frontend owns dashboard Costbook entry, Costbook pages, filters, responsive layouts, skeletons, and caching; AI owns semantic search, Knowledge Runtime wiring, and assistant tool behavior; verification owns unit, integration, E2E, docs, regression, and final production-check evidence. The coordinator integrates all lanes, resolves conflicts, and verifies the combined tree directly before PR publication.
 
 ### S028 — Estimate-to-proposal workflow verification
 Status: PLANNED
@@ -418,5 +425,7 @@ checking live PRs, worktrees, and dependencies. S005 is `DONE` with merge
 evidence from PR #84. S006 is the lowest-numbered `READY` sprint; its S001
 dependency is `DONE`, its implementation is explicitly fenced away from the
 parallel UI sprint's runtime paths, and no external infrastructure or founder
-decision blocks it. The readiness promotion must merge before implementation
-begins on a separate S006 branch.
+decision blocks it. Draft PR #95 is the current S006 implementation evidence.
+S027 has a complete Intelligent Costbook readiness contract, but remains
+`BLOCKED` by active PR #94 dashboard/UI overlap, PR #96 Knowledge Runtime
+packaging overlap, and the currently eligible S006 queue position.
