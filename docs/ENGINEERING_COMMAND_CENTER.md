@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-08
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -52,8 +52,12 @@ evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
 `36a87bea`; a pre-implementation audit then found its readiness record omitted
 explicit forbidden paths and named tests. PR #83 repaired those gates and
 merged as `ee5000b4`. S005 is complete: PR #84 merged on 2026-08-06 as
-`7d1c48376861468122347e19c41f0a007d7b5fc9`. No later sprint has been
-promoted.
+`7d1c48376861468122347e19c41f0a007d7b5fc9`. Production auth/runtime recovery
+through PR #92 is merged on `main` as
+`477fb2e919d4001772628c6a91fcded07555ba74`. S006 — Lifecycle compatibility
+inventory is now the next readiness target: governance-only PR #93 promotes it
+to `READY`, with implementation explicitly fenced away from concurrent UI
+runtime work and behavior changes.
 
 Completed foundation work includes:
 
@@ -79,37 +83,30 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after S005 merged:
+Live GitHub state verified on 2026-08-08 while preparing S006 readiness:
 
-- no pull requests were open before the S005 completion-evidence branch was
-  published;
-- draft PR #85 is now the sole open pull request and contains only the four
-  governance owner documents required to record S005 completion;
-- PR #84 merged as `7d1c4837`, completing S005;
-- PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
-- PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
-- PR #81 merged as `5efa9835`, recording S004 completion evidence;
-- PR #80 was merged as `f8179c73`, completing the S004 implementation;
-- PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
-  isolated implementation branch was created;
-- every dependency pull request from the prior readiness audit is now merged,
-  closed, or superseded, so no dependency PR overlaps S004's docs/docs-test
-  scope;
-- PR #77 was merged as `0afc6f91` after its Next.js 16.3 build repair;
-- PR #79 was merged as `42a614e3` for the canonical Loki backend hardening;
-- PR #74 was merged as `573e8d61`;
-- PR #73 was merged as `9b3ebb24`;
-- PR #49 was closed unmerged and Qodana was deferred;
-- PR #51 was merged as `cdadd24d`;
-- PR #64 was closed unmerged as obsolete;
-- PR #30 was merged as `2d80214a`; and
-- PR #35 was merged as `c7b84643`.
+- PR #92 is merged as `477fb2e9`, completing the latest production auth/RLS
+  recovery without changing the lifecycle sprint queue;
+- zero pull requests were open immediately before the isolated S006 readiness
+  branch was published;
+- draft PR #93 is the S006 governance-only readiness promotion and changes only
+  the required execution-owner documents;
+- the founder separately assigned a UI sprint to Claude; because that work may
+  touch frontend runtime files, S006 implementation is explicitly forbidden
+  from modifying `web/src/app/**` and `web/src/components/**` and may inspect
+  those files read-only only;
+- S006 also forbids product behavior, schema/migrations, backend/module runtime
+  code, dependencies, workflows, environment configuration, repository
+  settings, and `packages/**` changes;
+- repository search confirms lifecycle values are distributed across
+  `app/domain/contracts.ts`, backend/controller/module surfaces, frontend/API
+  consumers, portal-facing code, current lifecycle docs, and archived
+  compatibility references; and
+- no external infrastructure or founder decision blocks the inventory sprint.
 
-The remaining security-hardening worktree has three uncommitted
-`packages/knowledge-engine/**` edits and does not overlap this governance-only
-completion record.
-
-Always verify GitHub before editing. This summary is not a substitute for live PR state.
+Historical coordination evidence remains in the sprint backlog and repository
+governance records; always verify GitHub before editing. This summary is not a
+substitute for live PR state.
 
 ## Current blockers and risks
 
@@ -121,6 +118,9 @@ Always verify GitHub before editing. This summary is not a substitute for live P
   rechecked before later claims or changes.
 - Production migration changes remain manual and `production` Environment-gated. Reconciliation records existing schema state in Prisma history; it must not be confused with executing a normal migration deployment.
 - Settings/Brand Studio asset persistence must keep the `project-files` bucket private and all service-role access server-only. Metadata writes are restricted to the authenticated organization's generated `organizations/<orgId>/brand-assets/<assetKey>-<uuid>` namespace, passive raster formats up to 6 MB, and the four supported asset slots; reads must stay behind the authenticated same-org proxy.
+- S006 is an inventory sprint, not permission to normalize behavior yet. Any
+  discovered drift must be recorded and handed to S007-S012 rather than fixed
+  in place.
 
 ## Required verification
 
@@ -158,9 +158,10 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-No sprint is currently `READY`. Verify live state, then stop without promoting
-S006 or beginning archive, deletion, unrelated README consolidation, ruleset
-mutation, or Phase C of the knowledge-engine cleanup.
+S006 is the next `READY` sprint on the readiness branch. Do not begin its
+implementation until PR #93 merges; then create a separate branch from current
+`main` and produce the authoritative compatibility inventory without runtime
+behavior changes or overlap with the parallel UI sprint.
 
 ## Source-of-truth links
 

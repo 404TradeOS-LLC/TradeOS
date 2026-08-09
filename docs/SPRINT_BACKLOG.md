@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-08
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -113,12 +113,15 @@ workflows, and two independent exact-head review passes.
 ## Phase 2 — RC1 Correctness and Lifecycle Normalization
 
 ### S006 — Lifecycle compatibility inventory
-Status: PLANNED
+Status: READY
 Dependencies: S001
 Objective: Inventory every stored, API, shared-contract, UI, and portal lifecycle value for projects, estimates, proposals, contracts, invoices, and jobs.
-Allowed paths: docs, shared contracts, narrow tests.
-Forbidden paths: behavior changes before inventory approval.
-Acceptance: authoritative compatibility matrix identifies canonical values, aliases, and unsafe drift.
+Allowed paths: `docs/**`, `app/domain/**`, and narrow lifecycle-inventory tests that do not change runtime behavior.
+Forbidden paths: behavior changes; database schema or migrations; `app/backend/**`; `app/modules/**`; `web/src/app/**`; `web/src/components/**`; dependencies and lockfiles; CI/workflows; environment files; repository settings; and `packages/**`.
+Required tests: `npm run docs:test`; `npm run docs:check -- --base origin/main`; `git diff --check`; plus any narrow lifecycle inventory/contract tests introduced by S006.
+Acceptance: authoritative compatibility matrix identifies canonical values, aliases, and unsafe drift for projects, estimates, proposals, contracts, invoices, and jobs, with source locations and follow-up ownership for S007-S012.
+Founder decision required: NO.
+Readiness evidence: Verified 2026-08-08 against `main` commit `477fb2e919d4001772628c6a91fcded07555ba74`: S001 is `DONE`; the live GitHub check found zero open pull requests before this readiness branch was published; the founder separately identified concurrent UI-sprint work being handled by Claude, so S006 is explicitly fenced away from `web/src/app/**` and `web/src/components/**` and may inspect those files read-only only; repository search confirms lifecycle values are distributed across shared contracts, backend/controller surfaces, UI, portal-facing code, current lifecycle docs, and legacy lifecycle references; no external infrastructure is required; and no founder decision is unresolved. This governance-only branch owns only the readiness promotion and continuity update and must merge before S006 implementation begins on a separate branch.
 
 ### S007 — Project lifecycle normalization
 Status: PLANNED
@@ -412,5 +415,8 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after
 checking live PRs, worktrees, and dependencies. S005 is `DONE` with merge
-evidence from PR #84. No other sprint is currently marked `READY`; do not
-promote or begin S006 implicitly.
+evidence from PR #84. S006 is the lowest-numbered `READY` sprint; its S001
+dependency is `DONE`, its implementation is explicitly fenced away from the
+parallel UI sprint's runtime paths, and no external infrastructure or founder
+decision blocks it. The readiness promotion must merge before implementation
+begins on a separate S006 branch.
