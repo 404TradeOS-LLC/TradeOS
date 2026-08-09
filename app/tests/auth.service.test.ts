@@ -36,9 +36,6 @@ const mockTransactionClient = {
 
 const mockBasePrisma = {
   $transaction: jest.fn((callback: (tx: typeof mockTransactionClient) => unknown) => callback(mockTransactionClient)),
-  appUser: {
-    findFirst: jest.fn(),
-  },
 };
 
 const mockPrisma = {
@@ -177,19 +174,9 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
-    mockBasePrisma.appUser.findFirst.mockResolvedValue({
-      id: "user-1",
-      email: "owner@example.com",
-      fullName: "Owner Person",
-      memberships: [
-        {
-          id: "membership-1",
-          role: "owner",
-          createdAt: new Date("2024-01-01"),
-          organization: { id: "org-1", name: "Acme Co" },
-        },
-      ],
-    });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
     const service = new AuthService();
     const result = await service.bootstrapSupabaseIdentity({
@@ -203,19 +190,9 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity ignores a supplied organizationName for an already-bootstrapped user (idempotent, no duplicate org)", async () => {
-    mockBasePrisma.appUser.findFirst.mockResolvedValue({
-      id: "user-1",
-      email: "owner@example.com",
-      fullName: "Owner Person",
-      memberships: [
-        {
-          id: "membership-1",
-          role: "owner",
-          createdAt: new Date("2024-01-01"),
-          organization: { id: "org-1", name: "Acme Co" },
-        },
-      ],
-    });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
     const service = new AuthService();
     const result = await service.bootstrapSupabaseIdentity({
@@ -228,8 +205,39 @@ describe("AuthService", () => {
     expect(mockProvision).not.toHaveBeenCalled();
   });
 
+  it("bootstrapSupabaseIdentity sets the app.login_lookup, app.user_id, and app.org_id RLS session flags in order before each successive lookup", async () => {
+    // Regression test for a real production incident: without explicitly
+    // setting these session-local flags, organization_memberships' and
+    // organizations' RLS policies silently return zero rows even when the
+    // data exists, which previously made every already-provisioned
+    // identity's second-and-later bootstrap call falsely report "no active
+    // organization membership" (a mocked Prisma client can't catch an RLS
+    // gap — this test pins the actual set_config call sequence instead).
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+
+    const service = new AuthService();
+    await service.bootstrapSupabaseIdentity({ authSubject: "supabase:abc", email: "owner@example.com" });
+
+    const setConfigCalls = mockTransactionClient.$queryRaw.mock.calls.map((call) => (call[0] as { strings: string[] }).strings.join(""));
+    expect(setConfigCalls[0]).toContain("app.login_lookup");
+    expect(setConfigCalls[1]).toContain("app.user_id");
+    expect(mockTransactionClient.$queryRaw.mock.calls[1][0]).toMatchObject({ values: ["user-1"] });
+    expect(setConfigCalls[2]).toContain("app.org_id");
+    expect(mockTransactionClient.$queryRaw.mock.calls[2][0]).toMatchObject({ values: ["org-1"] });
+
+    // The lookups themselves must happen after their corresponding flag is
+    // set, not before (order matters for RLS visibility).
+    expect(mockTransactionClient.appUser.findFirst).toHaveBeenCalled();
+    expect(mockTransactionClient.organizationMembership.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) })
+    );
+    expect(mockTransactionClient.organization.findUnique).toHaveBeenCalledWith({ where: { id: "org-1" } });
+  });
+
   it("bootstrapSupabaseIdentity rejects provisioning a new organization without a name", async () => {
-    mockBasePrisma.appUser.findFirst.mockResolvedValue(null);
+    mockTransactionClient.appUser.findFirst.mockResolvedValue(null);
 
     const service = new AuthService();
     await expect(
@@ -251,7 +259,7 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity provisions a new organization for a brand-new identity", async () => {
-    mockBasePrisma.appUser.findFirst.mockResolvedValue(null);
+    mockTransactionClient.appUser.findFirst.mockResolvedValue(null);
     mockProvision.mockResolvedValue({
       organization: { id: "org-2", name: "New Co", regionCode: null },
       owner: { userId: "user-2", membershipId: "membership-2", authSubject: "supabase:new-user", email: "new@example.com", role: "owner", status: "active" },

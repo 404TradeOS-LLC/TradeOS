@@ -15,6 +15,7 @@ import { ProposalsService } from "../modules/proposals/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
+import { AuthService } from "../modules/auth/service";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -920,6 +921,36 @@ describe("live organization row-level security", () => {
       return currentTransaction().organization.findUnique({ where: { id: result.organization.id } });
     });
     expect(visibleOrganization?.name).toBe("Provisioned Org");
+  });
+
+  it("bootstrapSupabaseIdentity finds an already-provisioned identity's real membership against live RLS, not a false 409", async () => {
+    // Regression test for a real production incident: bootstrapSupabaseIdentity's
+    // "does this identity already have an organization" lookup used a single
+    // basePrisma query with a nested `include` and never set the
+    // app.login_lookup / app.user_id / app.org_id session flags these tables'
+    // RLS policies require (see memberships_login_lookup_policy and
+    // organizations_select_policy) — so the membership/organization rows were
+    // silently invisible to it even though they existed, and every
+    // already-provisioned identity's second-and-later login falsely got
+    // "User exists but has no active organization membership". A mocked
+    // Prisma client (the unit tests in auth.service.test.ts) cannot catch an
+    // RLS visibility gap; only this Docker-backed live-Postgres suite can.
+    const provisioned = await new OrganizationProvisioningService().provision({
+      organizationName: "Repeat Login Org",
+      owner: {
+        authSubject: "repeat-login-owner",
+        email: "repeat-login-owner@example.com",
+        fullName: "Repeat Login Owner",
+      },
+    });
+
+    const result = await new AuthService().bootstrapSupabaseIdentity({
+      authSubject: "repeat-login-owner",
+      email: "repeat-login-owner@example.com",
+    });
+
+    expect(result.organization).toEqual({ id: provisioned.organization.id, name: "Repeat Login Org" });
+    expect(result.role).toBe("owner");
   });
 
   it("derives background job scope and role from active membership", async () => {

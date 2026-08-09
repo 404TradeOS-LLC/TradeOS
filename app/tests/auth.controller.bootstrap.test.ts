@@ -1,11 +1,21 @@
 import express from "express";
 import request from "supertest";
 
-const mockPrisma = {
-  $transaction: jest.fn(),
+const mockTransactionClient = {
+  $queryRaw: jest.fn(),
   appUser: {
     findFirst: jest.fn(),
   },
+  organizationMembership: {
+    findFirst: jest.fn(),
+  },
+  organization: {
+    findUnique: jest.fn(),
+  },
+};
+
+const mockPrisma = {
+  $transaction: jest.fn((callback: (tx: typeof mockTransactionClient) => unknown) => callback(mockTransactionClient)),
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
@@ -59,23 +69,13 @@ describe("POST /api/v1/auth/bootstrap request-body trust boundary", () => {
     // this is a stronger guarantee than "the field is ignored", since the
     // request never reaches provisioning logic at all.
     expect(response.status).toBe(400);
-    expect(mockPrisma.appUser.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("accepts a bootstrap body with only organizationName/regionCode/fullName", async () => {
-    mockPrisma.appUser.findFirst.mockResolvedValue({
-      id: "user-1",
-      email: "owner@example.com",
-      fullName: "Owner Person",
-      memberships: [
-        {
-          id: "membership-1",
-          role: "owner",
-          createdAt: new Date("2024-01-01"),
-          organization: { id: "org-1", name: "Acme Co" },
-        },
-      ],
-    });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
     const app = buildApp();
     const token = signAuthToken({ sub: "local:test-user", email: "owner@example.com" }, secret);

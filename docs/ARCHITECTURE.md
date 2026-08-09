@@ -70,6 +70,8 @@ Background jobs use the same session model through `runWithBackgroundDatabaseSes
 
 Database search-index changes do not alter this tenancy model. The `pg_trgm` extension and the GIN trigram indexes added in migration `20260703090000_add_search_trgm_indexes` operate below the query planner and do not bypass or weaken RLS.
 
+Auth flows that must find a user before any org context exists (login, password reset, invite acceptance, and Supabase identity bootstrap) use a separate, narrower escape hatch instead: an `app.login_lookup` session flag, then `app.user_id` once the user is known, then `app.org_id` once their membership is known — set in that order, inside one transaction. See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)'s Database security invariants.
+
 ## Service boundaries
 
 Business logic follows the module pattern:
