@@ -20,6 +20,7 @@ export interface OwnerKpi {
   helper: string;
   icon: LucideIcon;
   tone: "neutral" | "attention" | "success";
+  href?: string;
 }
 
 export interface OwnerKpiInput {
@@ -41,6 +42,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Scheduled for field execution today in the ${input.scopeLabel}`,
       icon: CalendarClock,
       tone: "neutral",
+      href: "/dispatch?scheduled=today",
     },
     {
       id: "open-estimates",
@@ -73,6 +75,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Active jobs that still need a calendar slot in the ${input.scopeLabel}`,
       icon: AlertTriangle,
       tone: input.unscheduledJobs > 0 ? "attention" : "neutral",
+      href: "/dispatch?status=unscheduled",
     },
     {
       id: "overdue-tasks",
@@ -92,7 +95,8 @@ export interface OwnerScheduleItem {
   customer: string;
   address: string;
   crew: string;
-  status: "scheduled" | "dispatched" | "on_site";
+  status: string;
+  href: string;
 }
 
 export type OwnerActivityTone = "success" | "info" | "warning";
@@ -133,8 +137,8 @@ export const ownerQuickActions: OwnerQuickAction[] = [
   {
     id: "schedule",
     label: "Schedule",
-    href: "/projects",
-    helper: "Open active project work",
+    href: "/dispatch",
+    helper: "Jump to the dispatch workspace",
     icon: Clock3,
   },
   {

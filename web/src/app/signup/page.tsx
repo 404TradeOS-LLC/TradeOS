@@ -36,7 +36,7 @@ export default function SignupPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
             </div>
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
             <Button type="submit" disabled={isPending}>
               {isPending ? "Creating account…" : "Create account"}
             </Button>

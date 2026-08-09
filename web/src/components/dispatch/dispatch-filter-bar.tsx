@@ -85,13 +85,12 @@ export function DispatchFilterBar({ view, status, scheduled, assigned, q }: Disp
         <label htmlFor="dispatch-search" className="text-sm font-medium text-foreground">
           Search
         </label>
-        <div className="flex gap-2">
-          <Input id="dispatch-search" name="q" type="search" defaultValue={q ?? ""} placeholder="Job #, title, address…" className="min-w-0" />
-          <button type="submit" className={cn(buttonVariants(), "shrink-0")}>
-            Apply
-          </button>
-        </div>
+        <Input id="dispatch-search" name="q" type="search" defaultValue={q ?? ""} placeholder="Job #, title, address…" />
       </div>
+
+      <button type="submit" className={cn(buttonVariants(), "sm:col-span-2 lg:col-span-5")}>
+        Apply filters
+      </button>
     </form>
   );
 }

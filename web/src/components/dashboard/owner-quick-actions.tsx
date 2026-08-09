@@ -32,9 +32,14 @@ export function OwnerQuickActions({ actions }: OwnerQuickActionsProps) {
                   {content}
                 </Link>
               ) : (
-                <Button type="button" variant="outline" className="w-full justify-start" disabled>
-                  {content}
-                </Button>
+                <div className="flex items-center justify-between gap-2">
+                  <Button type="button" variant="outline" className="w-full justify-start opacity-70" disabled>
+                    {content}
+                  </Button>
+                  <span className="shrink-0 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                    Soon
+                  </span>
+                </div>
               )}
               <p className="text-xs leading-5 text-muted-foreground">{action.helper}</p>
             </div>

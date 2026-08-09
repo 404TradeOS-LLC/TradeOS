@@ -33,6 +33,20 @@ export function formatDate(value: string | null | undefined) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(value));
 }
 
+/**
+ * Formats an ISO instant in a specific IANA timezone. Falls back to "UTC"
+ * (labeled) for an empty/invalid timezone rather than silently falling
+ * through to the runtime's default. Shared by any surface rendering
+ * organization-timezone-aware schedule times (dispatch, dashboard "today").
+ */
+export function formatScheduleInZone(value: string, timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(value));
+  } catch {
+    return `${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value))} (UTC)`;
+  }
+}
+
 export function getProposalDisplayStatus(proposal: Proposal) {
   if ((proposal.status === "sent" || proposal.status === "viewed") && proposal.sentAt) {
     const sentAt = new Date(proposal.sentAt).getTime();

@@ -10,8 +10,9 @@ import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api";
 
-export function NewProjectForm({ customers }: { customers: Customer[] }) {
+export function NewProjectForm({ customers, defaultCustomerId }: { customers: Customer[]; defaultCustomerId?: string }) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
+  const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId) ? defaultCustomerId : "";
 
   return (
     <Card className="max-w-3xl border-border/70 bg-muted/10">
@@ -31,7 +32,7 @@ export function NewProjectForm({ customers }: { customers: Customer[] }) {
             </div>
           </div>
           <div className="grid gap-5 md:grid-cols-2">
-            <SelectField label="Linked customer" name="customerId" defaultValue="">
+            <SelectField label="Linked customer" name="customerId" defaultValue={validDefaultCustomerId}>
               <option value="">No customer linked yet</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>

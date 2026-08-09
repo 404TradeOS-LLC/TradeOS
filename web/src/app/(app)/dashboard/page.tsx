@@ -1,8 +1,19 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getKnowledgeStats, getOrganizationSettings, getProject, listProjects, type JobSummary } from "@/lib/api";
-import { formatCurrency, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
+import {
+  getDispatchSummary,
+  getKnowledgeStats,
+  getOrganizationSettings,
+  getProject,
+  listJobsForDispatch,
+  listProjects,
+  toInclusiveEndBoundary,
+  type DispatchJob,
+  type JobSummary,
+} from "@/lib/api";
+import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
+import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -30,7 +41,28 @@ export const metadata: Metadata = {
 };
 
 const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
+const DASHBOARD_TODAY_JOB_LIMIT = 5;
 const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
+
+// Reuses the same dispatch endpoints the /dispatch workspace itself calls
+// (dispatch-summary for the org-timezone-aware "today" boundary, then the
+// jobs list scoped to it) so the dashboard's "Today" section is never a
+// second, divergent source of truth for what "today" means. Failure here
+// degrades to an empty schedule rather than crashing the dashboard, matching
+// the existing resilience pattern used for the knowledge-stats panel below.
+async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
+  try {
+    const summary = await getDispatchSummary(token);
+    const result = await listJobsForDispatch(token, {
+      scheduledFrom: summary.todayRangeUtc.start,
+      scheduledTo: toInclusiveEndBoundary(summary.todayRangeUtc.end),
+      pageSize: DASHBOARD_TODAY_JOB_LIMIT,
+    });
+    return { items: result.items, total: result.total, timezone: summary.timezone.value };
+  } catch {
+    return { items: [], total: 0, timezone: "UTC" };
+  }
+}
 
 // Proposal money fields come off the wire as Prisma Decimal-serialized
 // strings on this endpoint (unlike estimates/invoices, which are normalized
@@ -106,7 +138,7 @@ function getProjectScopeLabel(projectCount: number) {
 export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
   const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
-  const [projectDetails, knowledgeStats] = token
+  const [projectDetails, knowledgeStats, todaySchedule] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
         // Knowledge Engine stats are a supplementary panel, not a core
@@ -114,8 +146,9 @@ export default async function DashboardPage() {
         // null below) — a failure here must never crash the entire
         // dashboard render into the generic error boundary.
         getKnowledgeStats(token).catch(() => null),
+        loadTodaySchedule(token),
       ])
-    : [[], null];
+    : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }];
 
   const now = new Date();
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
@@ -193,6 +226,16 @@ export default async function DashboardPage() {
       customerName: project.customer?.name ?? "No customer linked",
     }));
   const notificationCount = attentionEstimates.length + attentionProposals.length + attentionInvoices.length + attentionReadyToStart.length;
+  const ownerScheduleItems: OwnerScheduleItem[] = todaySchedule.items.map((job) => ({
+    id: job.id,
+    timeWindow: job.scheduledStart ? formatScheduleInZone(job.scheduledStart, todaySchedule.timezone) : "Unscheduled",
+    title: job.title,
+    customer: job.customer?.name ?? "No customer linked",
+    address: job.project?.siteAddress ?? "No site address on file",
+    crew: job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned",
+    status: job.status,
+    href: job.project ? `/projects/${job.project.id}` : "/dispatch",
+  }));
   const ownerKpis = buildOwnerKpis({
     todaysJobs: todayLiveJobs,
     openEstimates,
@@ -207,8 +250,6 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} />
 
-      <OwnerKpiGrid kpis={ownerKpis} />
-
       <NeedsAttentionCard
         estimates={attentionEstimates}
         proposals={attentionProposals}
@@ -218,9 +259,13 @@ export default async function DashboardPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <OwnerTodaySchedule items={[]} />
+        <OwnerTodaySchedule items={ownerScheduleItems} />
         <AIAssistantPlaceholderPanel />
       </div>
+
+      <OwnerKpiGrid kpis={ownerKpis} />
+
+      <OwnerQuickActions actions={ownerQuickActions} />
 
       <OwnerActivityFeed
         entries={[]}
@@ -231,8 +276,6 @@ export default async function DashboardPage() {
           />
         }
       />
-
-      <OwnerQuickActions actions={ownerQuickActions} />
 
       <Card className="border-border/70">
         <CardHeader>
@@ -274,7 +317,7 @@ export default async function DashboardPage() {
                       Open project
                     </Link>
                   </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-border/60 bg-background/80 p-3">
                       <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proposal</div>
                       <div className="mt-2">{latestProposal ? <StatusBadge status={getProposalDisplayStatus(latestProposal)} /> : "No proposal"}</div>

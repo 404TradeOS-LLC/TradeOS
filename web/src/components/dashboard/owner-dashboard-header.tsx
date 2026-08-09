@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CalendarDays, CloudSun } from "lucide-react";
+import { Bell, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -21,14 +21,7 @@ export function OwnerDashboardHeader({ companyName, currentDateLabel, notificati
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[28rem]">
-          <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              <CloudSun aria-hidden="true" />
-              Weather
-            </div>
-            <p className="mt-2 text-sm font-medium text-foreground">Rain watch after 3 PM</p>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[20rem]">
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
               <CalendarDays aria-hidden="true" />

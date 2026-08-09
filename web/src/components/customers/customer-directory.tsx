@@ -133,15 +133,20 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
         />
       ) : (
         <>
-          <TableSection title="Customer list" description="Searchable customer records with contact and billing details.">
+          <TableSection
+            className="hidden md:block"
+            title="Customer list"
+            description="Searchable customer records with contact and billing details."
+          >
+            {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
             <table className="w-full min-w-[920px] text-left">
               <thead className="border-b border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 <tr>
-                  <th className="py-3 pr-4 font-medium">Customer</th>
-                  <th className="py-3 pr-4 font-medium">Contact</th>
-                  <th className="py-3 pr-4 font-medium">Billing</th>
-                  <th className="py-3 pr-4 font-medium">Added</th>
-                  <th className="py-3 pl-4 text-right font-medium">Open</th>
+                  <th scope="col" className="py-3 pr-4 font-medium">Customer</th>
+                  <th scope="col" className="py-3 pr-4 font-medium">Contact</th>
+                  <th scope="col" className="py-3 pr-4 font-medium">Billing</th>
+                  <th scope="col" className="py-3 pr-4 font-medium">Added</th>
+                  <th scope="col" className="py-3 pl-4 text-right font-medium">Open</th>
                 </tr>
               </thead>
               <tbody>

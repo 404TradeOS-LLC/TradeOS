@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
 import type { DispatchJob } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { formatScheduleInZone } from "@/lib/document-workflow";
 
 interface DispatchWorkQueueTableProps {
   jobs: DispatchJob[];
@@ -25,18 +24,16 @@ interface DispatchWorkQueueTableProps {
   timezone: string;
 }
 
+// Attention flags reuse the shared STATUS_TONES palette (via StatusBadge)
+// instead of hand-rolled colors, so "overdue" here always matches
+// "overdue" everywhere else in the app and any future palette change only
+// has one place to update.
 function AttentionIndicator({ job }: { job: DispatchJob }) {
-  const flags: { label: string; className: string }[] = [];
+  const flags: string[] = [];
 
-  if (job.isOverdue) {
-    flags.push({ label: "Overdue", className: "border-rose-600/20 bg-rose-500/10 text-rose-700 dark:text-rose-300" });
-  }
-  if (job.needsAttention) {
-    flags.push({ label: "Needs attention", className: "border-amber-600/20 bg-amber-500/10 text-amber-700 dark:text-amber-300" });
-  }
-  if (job.isUnassigned) {
-    flags.push({ label: "Unassigned", className: "border-slate-600/20 bg-slate-500/10 text-slate-700 dark:text-slate-300" });
-  }
+  if (job.isOverdue) flags.push("overdue");
+  if (job.needsAttention) flags.push("needs_attention");
+  if (job.isUnassigned) flags.push("unassigned");
 
   if (flags.length === 0) {
     return <span className="text-sm text-muted-foreground">—</span>;
@@ -45,29 +42,10 @@ function AttentionIndicator({ job }: { job: DispatchJob }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {flags.map((flag) => (
-        <Badge key={flag.label} variant="outline" className={cn("border-border/70", flag.className)}>
-          {flag.label}
-        </Badge>
+        <StatusBadge key={flag} status={flag} />
       ))}
     </div>
   );
-}
-
-/**
- * Formats an ISO instant in a specific IANA timezone. Falls back to "UTC"
- * (labeled) for an empty/invalid timezone rather than silently falling
- * through to the runtime's default - `resolveOrgTimezone` on the backend
- * already guarantees `timezone` is a validated IANA string or "UTC", but
- * this stays defensive in case a future caller passes something else
- * through, so the fallback is truthful instead of just crashing or
- * quietly rendering in the wrong zone.
- */
-function formatScheduleInZone(value: string, timezone: string): string {
-  try {
-    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(value));
-  } catch {
-    return `${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value))} (UTC)`;
-  }
 }
 
 export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: DispatchWorkQueueTableProps) {
@@ -95,16 +73,22 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
   }
 
   return (
-    <TableSection title="Work queue" description={`${total} job${total === 1 ? "" : "s"} matching the current filters.`}>
-      <table className="min-w-full text-left text-sm">
+    <>
+      <TableSection
+        className="hidden md:block"
+        title="Work queue"
+        description={`${total} job${total === 1 ? "" : "s"} matching the current filters.`}
+      >
+        {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
+        <table className="min-w-[820px] text-left text-sm">
         <thead>
           <tr className="border-b border-border/70 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            <th className="px-3 py-2">Customer / Project</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Schedule</th>
-            <th className="px-3 py-2">Assigned</th>
-            <th className="px-3 py-2">Priority</th>
-            <th className="px-3 py-2">Attention</th>
+            <th scope="col" className="px-3 py-2">Customer / Project</th>
+            <th scope="col" className="px-3 py-2">Status</th>
+            <th scope="col" className="px-3 py-2">Schedule</th>
+            <th scope="col" className="px-3 py-2">Assigned</th>
+            <th scope="col" className="px-3 py-2">Priority</th>
+            <th scope="col" className="px-3 py-2">Attention</th>
           </tr>
         </thead>
         <tbody>
@@ -148,7 +132,54 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
             </tr>
           ))}
         </tbody>
-      </table>
-    </TableSection>
+        </table>
+      </TableSection>
+
+      <div className="grid gap-3 md:hidden">
+        {jobs.map((job) => (
+          <article key={job.id} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-medium text-foreground">{job.customer?.name ?? "No customer linked"}</div>
+                {job.project ? (
+                  <Link
+                    href={`/projects/${job.project.id}`}
+                    className="block truncate text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  >
+                    {job.project.name}
+                  </Link>
+                ) : (
+                  <div className="truncate text-sm text-muted-foreground">No project</div>
+                )}
+                <div className="truncate text-xs text-muted-foreground">
+                  #{job.jobNumber} · {job.title}
+                </div>
+              </div>
+              <StatusBadge status={job.status} />
+            </div>
+
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Schedule</p>
+                <p className="mt-1 text-foreground">
+                  {job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : "Unscheduled"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Assigned</p>
+                <p className="mt-1 text-foreground">
+                  {job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              {job.priority ? <StatusBadge status={job.priority} /> : null}
+              <AttentionIndicator job={job} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </>
   );
 }

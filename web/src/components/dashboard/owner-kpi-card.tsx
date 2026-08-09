@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { OwnerKpi } from "./owner-dashboard-data";
@@ -16,7 +17,14 @@ export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
   const Icon = kpi.icon;
 
   return (
-    <Card className="border-border/70 bg-card">
+    <Card className={cn("relative border-border/70 bg-card", kpi.href && "transition-colors hover:bg-muted/20")}>
+      {kpi.href ? (
+        <Link
+          href={kpi.href}
+          className="absolute inset-0 rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-label={`${kpi.label}: ${kpi.value}. ${kpi.helper}`}
+        />
+      ) : null}
       <CardContent className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{kpi.label}</p>
