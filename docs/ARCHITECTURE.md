@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -15,19 +15,30 @@ related_code:
   - web/src/app/actions/auth.ts
   - web/src/app/api/proxy/[...path]/route.ts
   - web/src/app/api/documents/[...path]/route.ts
+  - packages/knowledge-engine/
 ---
 
 # Architecture
 
 ## Repository layout
 
-TradeOS has two deployable applications and one supporting knowledge package:
+TradeOS is one first-party product monorepo. Its current implemented runtime has two deployable applications and one existing supporting knowledge package:
 
 - `app/` for the Express and TypeScript API
 - `web/` for the Next.js 16 frontend
 - `packages/knowledge-engine/` for read-only knowledge/runtime assets
 
 The active product flow is shared across `app/` and `web/`; it is not a set of isolated sub-applications.
+
+The monorepo also reserves `packages/athena/` as the canonical location for the reusable Athena AI/orchestration foundation when that package is introduced through bounded implementation work. This is a target ownership boundary, not a statement that existing production code has already moved there.
+
+Athena owns foundation-level AI concerns: kernel, tool registry, context engine, router, action framework, shared AI interfaces/contracts, capability registration, and orchestration policy. Athena must remain domain-agnostic. Costbook, Estimator, Dispatcher, CRM, Field Tech, Office Manager, and other domain implementations retain their business rules and expose capabilities to Athena through explicit contracts or tool registration.
+
+Do not split first-party TradeOS capabilities into separate repositories merely to create agent or project isolation. Codex projects, threads, and agent missions are working-context boundaries; they should operate from the monorepo root so repository-wide dependencies, tests, governance, and documentation remain visible.
+
+Do not move existing production code solely to make the repository resemble the target package layout during RC1 hardening. `packages/costbook/` may be introduced later only if a demonstrated reusable cross-application Costbook boundary exists.
+
+The governing decision is recorded in `docs/decisions/ADR-005-athena-monorepo-platform-boundary.md`.
 
 ## Backend and frontend boundaries
 
@@ -103,6 +114,7 @@ Preferred frontend paths:
 - Search-index rollout: `app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql`
 - Forced-RLS request session behavior: `app/backend/middleware/databaseSession.ts` and `app/db/requestSession.ts`
 - Web route surface: `web/src/app/**/page.tsx`
+- Athena platform boundary: `docs/decisions/ADR-005-athena-monorepo-platform-boundary.md`
 
 ## Search indexing notes
 
