@@ -10,6 +10,7 @@ export interface AthenaFeatureFlags {
   draftResponsesEnabled: boolean;
   telemetryEnabled: boolean;
   costTrackingEnabled: boolean;
+  routerPlannerEnabled: boolean;
 }
 
 function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean {
@@ -24,6 +25,12 @@ export function getAthenaFlags(env: NodeJS.ProcessEnv = process.env): AthenaFeat
     draftResponsesEnabled: parseBooleanFlag(env.ATHENA_DRAFT_RESPONSES_ENABLED, false),
     telemetryEnabled: parseBooleanFlag(env.ATHENA_TELEMETRY_ENABLED, true),
     costTrackingEnabled: parseBooleanFlag(env.ATHENA_COST_TRACKING_ENABLED, true),
+    // A5 dark-by-default flag (docs/athena/roadmap/A5-router-planner-implementation-plan.md).
+    // Independent of kernelEnabled: the live HTTP path is already gated by
+    // kernelEnabled, so this only controls whether that already-gated path
+    // uses A5's router/planner/live-context orchestration or A1's original
+    // routing/planning stand-ins.
+    routerPlannerEnabled: parseBooleanFlag(env.ATHENA_ROUTER_PLANNER_ENABLED, false),
   };
 }
 

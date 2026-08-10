@@ -30,4 +30,11 @@ describe("athena kernel feature flags", () => {
     expect(isAthenaKernelEnabled({} as NodeJS.ProcessEnv)).toBe(false);
     expect(isAthenaKernelEnabled({ ATHENA_KERNEL_ENABLED: "true" } as NodeJS.ProcessEnv)).toBe(true);
   });
+
+  it("routerPlannerEnabled defaults to false and is independent of kernelEnabled", () => {
+    expect(getAthenaFlags({} as NodeJS.ProcessEnv).routerPlannerEnabled).toBe(false);
+    expect(getAthenaFlags({ ATHENA_KERNEL_ENABLED: "true" } as NodeJS.ProcessEnv).routerPlannerEnabled).toBe(false);
+    expect(getAthenaFlags({ ATHENA_ROUTER_PLANNER_ENABLED: "true" } as NodeJS.ProcessEnv).routerPlannerEnabled).toBe(true);
+    expect(getAthenaFlags({ ATHENA_ROUTER_PLANNER_ENABLED: "1" } as NodeJS.ProcessEnv).routerPlannerEnabled).toBe(false);
+  });
 });

@@ -40,6 +40,11 @@ import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
 import { athenaCancellationError } from "../modules/athena-kernel/errors";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
+import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
+import { createDispatchProvider } from "../modules/athena-context-engine/providers/dispatchProvider";
+import { createKnowledgeEngineProvider } from "../modules/athena-context-engine/providers/knowledgeEngineProvider";
+import type { JobsService } from "../modules/jobs/service";
+import type { PaginatedJobsDTO } from "../modules/jobs/types";
 
 const baseEnv = { ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv;
 
@@ -315,5 +320,110 @@ describe("AthenaKernelService", () => {
 
     expect(result.success).toBe(true);
     expect(result.state).toBe("succeeded");
+  });
+
+  describe("A5 router/planner orchestration (ATHENA_ROUTER_PLANNER_ENABLED=true)", () => {
+    const routerEnv = { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true" } as NodeJS.ProcessEnv;
+
+    function fakeJobsService(result: PaginatedJobsDTO): Pick<JobsService, "list" | "getById"> {
+      return {
+        async list() {
+          return result;
+        },
+        async getById(_orgId, jobId) {
+          const match = result.items.find((job) => job.id === jobId);
+          if (!match) throw new Error("not found");
+          return match as never;
+        },
+      };
+    }
+
+    it("produces the same draft_response outcome as the flag-off path for a plain question", async () => {
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-1",
+        env: routerEnv,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toBeNull();
+      expect(result.warnings.some((w) => w.code === "athena_draft_responses_disabled")).toBe(true);
+    });
+
+    it("still denies a mutation-shaped request without ever calling the provider - identical external behavior to the flag-off path", async () => {
+      const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "Send the invoice to the customer now", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-2",
+        env: { ...routerEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+      expect(result.error?.category).toBe("authorization");
+      expect(provider.generateDraft).not.toHaveBeenCalled();
+    });
+
+    it("populates context.dispatch through a real assembleAthenaContext() call for a dispatch-overview request", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      contextRegistry.register(createDispatchProvider({}, fakeJobsService({ items: [], page: 1, pageSize: 25, total: 0 })));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "Show me the dispatch board", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-3",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(result.success).toBe(true);
+      expect(telemetryRows.some((row) => row.spanType === "context")).toBe(true);
+    });
+
+    it("populates context.knowledgeEngine for a knowledge-lookup request using the real KnowledgeRuntimeService", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      contextRegistry.register(createKnowledgeEngineProvider());
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What's the cost of drywall?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-4",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("never attempts context assembly for draft_response - no requestedContextIntents means no provider fetch", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      let fetched = false;
+      const spyProvider = createKnowledgeEngineProvider({
+        async fetch(fetchInput) {
+          fetched = true;
+          return createKnowledgeEngineProvider().fetch(fetchInput);
+        },
+      });
+      contextRegistry.register(spyProvider);
+
+      const service = new AthenaKernelService();
+      await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-5",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(fetched).toBe(false);
+    });
   });
 });
