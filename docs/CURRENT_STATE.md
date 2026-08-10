@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -35,6 +35,7 @@ related_code:
   - web/src/components/ui/card.tsx
   - web/src/components/ui/select-field.tsx
   - web/src/lib/document-workflow.ts
+  - web/src/lib/weather.ts
   - web/src/app/actions/settings.ts
   - web/src/lib/storage.ts
   - web/src/lib/settingsAssetUpload.ts
@@ -100,6 +101,7 @@ See module docs in `docs/modules/`.
 
 ## Recent verified changes
 
+- Dashboard weather widget (`web/src/lib/weather.ts`) is now real, as a direct follow-up to the UI sprint below: the header's "Weather" tile previously removed as fabricated is back, backed by a live National Weather Service forecast for **today's first scheduled job's project site address** (not a generic company-wide forecast — a rain delay only matters relative to where the crew is actually working). Flow: US Census Bureau geocoder (free, keyless) turns the site address into lat/lon, then `api.weather.gov`'s points → forecast endpoints (free, keyless, requires only a `User-Agent` header) return the current period's temperature/short forecast/precipitation chance. Both external calls use Next's fetch cache with a 30-minute revalidate. No job scheduled today, no site address on file, or any geocode/NWS failure all degrade to an honest "No forecast for today's job site" state rather than fabricating or crashing — matching this dashboard's existing no-fabrication posture. Entirely `web/`-side (no `app/` backend change, no new env var, no secret — NWS needs no API key); wired into `web/src/app/(app)/dashboard/page.tsx` and `owner-dashboard-header.tsx`. Verification: `cd web && npm test` (29/29), `npm run lint` (clean), `npm run build` (clean).
 - UI/UX modernization sprint, directly commissioned outside the numbered sprint queue (matches the pattern of the Dispatcher Workspace entry below): a founder-directed, explicitly scoped UI-only pass audited by six parallel read-only sub-agents (information architecture, visual system, dashboard/owner UX, dispatch/ops UX, accessibility/responsive, code/performance) before any file was touched. No backend route, auth/session/RLS logic, Supabase bootstrap logic, CORS, `TRUST_PROXY` behavior, Vercel routing, environment-variable contract, or database schema/migration was modified — this is presentation and interaction only, per explicit instruction to treat those areas as stable.
   - Dashboard (`web/src/app/(app)/dashboard/page.tsx`): reordered to Header → Needs Attention → Today/AI → KPI pipeline → Quick Actions → Activity → knowledge/operational-queue cards, so the one section that's actually actionable is no longer buried below a KPI wall. "Today's Schedule" (`owner-today-schedule.tsx`) is now wired to real data — it calls the same `getDispatchSummary`/`listJobsForDispatch` endpoints the `/dispatch` workspace already uses (today's org-timezone-aware boundary), rather than always rendering a hardcoded-empty placeholder. Removed a fabricated, unlabeled "Rain watch after 3 PM" weather widget (`owner-dashboard-header.tsx`) — every other placeholder in this codebase is honest about not having a live source; this one wasn't. The "Schedule" quick action now links to `/dispatch` instead of `/projects`. "Today's Jobs" and "Unscheduled Jobs" KPI tiles are now clickable through to filtered `/dispatch` views. The disabled "Costbook" quick action now carries a visible "Soon" badge instead of reading as a plain broken button.
   - Customers: `/customers` now renders the previously-built-but-never-wired `CustomerDirectory` component (search, contact/billing filters, stats strip, desktop table + mobile card list) instead of a plain unfiltered link list — closing a real dead-code gap and adding search/filtering that didn't exist on this page before. Fixed a latent duplicate-content bug in that component (the desktop table had no `hidden md:block`, so under `md` both the table and the mobile card list rendered simultaneously). Customer detail page and the Dispatch page now use a new shared `PageHeader` component (title/description/back-link/action slot); customer detail also gained a working "All customers" back link. "New project" from a customer's detail page now passes `?customerId=` through to prefill the linked-customer field on `/projects/new`, instead of losing that context.
