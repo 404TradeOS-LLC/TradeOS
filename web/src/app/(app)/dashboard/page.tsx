@@ -14,6 +14,7 @@ import {
   type JobSummary,
 } from "@/lib/api";
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
+import { getCurrentWeekPaymentLedger } from "@/lib/payment-ledger";
 import { getSession, getSessionToken } from "@/lib/session";
 import { getWeatherForAddress } from "@/lib/weather";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
@@ -105,16 +106,6 @@ function isSameDay(value: string | null | undefined, comparison: Date, timeZone:
   return date ? getZonedDayOrdinal(date, timeZone) === getZonedDayOrdinal(comparison, timeZone) : false;
 }
 
-function isSameWeek(value: string | null | undefined, comparison: Date, timeZone: string) {
-  const date = toValidDate(value);
-  if (!date) return false;
-  const comparisonDay = getZonedDayOrdinal(comparison, timeZone);
-  const weekStart = comparisonDay - new Date(comparisonDay * 86_400_000).getUTCDay();
-  const targetDay = getZonedDayOrdinal(date, timeZone);
-
-  return targetDay >= weekStart && targetDay < weekStart + 7;
-}
-
 function isPastDue(value: string | null | undefined, comparison: Date, timeZone: string) {
   const date = toValidDate(value);
   return date ? getZonedDayOrdinal(date, timeZone) < getZonedDayOrdinal(comparison, timeZone) : false;
@@ -134,13 +125,14 @@ function getProjectScopeLabel(projectCount: number) {
 export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
   const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
-  const [projectDetails, knowledgeStats, todaySchedule] = token
+  const [projectDetails, knowledgeStats, todaySchedule, paymentLedger] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
         getKnowledgeStats(token).catch(() => null),
         loadTodaySchedule(token),
+        getCurrentWeekPaymentLedger(token).catch(() => null),
       ])
-    : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }];
+    : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }, null];
 
   const todaySiteAddress = todaySchedule.items.find((job) => job.project?.siteAddress)?.project?.siteAddress ?? null;
   const weather = todaySiteAddress ? await getWeatherForAddress(todaySiteAddress).catch(() => null) : null;
@@ -185,10 +177,6 @@ export default async function DashboardPage() {
   const invoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
     .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
-  const revenueThisWeek = projectDetails
-    .flatMap((project) => project.invoices)
-    .filter((invoice) => invoice.status === "paid" && isSameWeek(invoice.paidAt, now, timeZone))
-    .reduce((sum, invoice) => sum + invoice.amount, 0);
 
   const attentionEstimates: AttentionEstimateRow[] = projectDetails.flatMap((project) =>
     project.estimates
@@ -252,7 +240,7 @@ export default async function DashboardPage() {
   const ownerKpis = buildOwnerKpis({
     todaysJobs: todayLiveJobs,
     openEstimates,
-    revenueThisWeek: formatCurrency(revenueThisWeek),
+    revenueThisWeek: paymentLedger ? formatCurrency(paymentLedger.totalAmount) : "Unavailable",
     invoicesWaiting,
     unscheduledJobs,
     overdueTasks,
