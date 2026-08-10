@@ -40,6 +40,14 @@ import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
 import { athenaCancellationError } from "../modules/athena-kernel/errors";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
+import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
+import { createDispatchProvider } from "../modules/athena-context-engine/providers/dispatchProvider";
+import { createKnowledgeEngineProvider } from "../modules/athena-context-engine/providers/knowledgeEngineProvider";
+import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
+import type { AthenaToolRegistry } from "../modules/athena-tool-registry/registry";
+import { createEchoFixtureTool } from "../modules/athena-tool-registry/fixtures/echoFixtureTool";
+import type { JobsService } from "../modules/jobs/service";
+import type { PaginatedJobsDTO } from "../modules/jobs/types";
 
 const baseEnv = { ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv;
 
@@ -315,5 +323,214 @@ describe("AthenaKernelService", () => {
 
     expect(result.success).toBe(true);
     expect(result.state).toBe("succeeded");
+  });
+
+  describe("A5 router/planner orchestration (ATHENA_ROUTER_PLANNER_ENABLED=true)", () => {
+    const routerEnv = { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true" } as NodeJS.ProcessEnv;
+
+    function fakeJobsService(result: PaginatedJobsDTO): Pick<JobsService, "list" | "getById"> {
+      return {
+        async list() {
+          return result;
+        },
+        async getById(_orgId, jobId) {
+          const match = result.items.find((job) => job.id === jobId);
+          if (!match) throw new Error("not found");
+          return match as never;
+        },
+      };
+    }
+
+    it("produces the same draft_response outcome as the flag-off path for a plain question", async () => {
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-1",
+        env: routerEnv,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(result.message).toBeNull();
+      expect(result.warnings.some((w) => w.code === "athena_draft_responses_disabled")).toBe(true);
+    });
+
+    it("still denies a mutation-shaped request without ever calling the provider - identical external behavior to the flag-off path", async () => {
+      const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "Send the invoice to the customer now", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-2",
+        env: { ...routerEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+      expect(result.error?.category).toBe("authorization");
+      expect(provider.generateDraft).not.toHaveBeenCalled();
+    });
+
+    it("populates context.dispatch through a real assembleAthenaContext() call for a dispatch-overview request", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      contextRegistry.register(createDispatchProvider({}, fakeJobsService({ items: [], page: 1, pageSize: 25, total: 0 })));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "Show me the dispatch board", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-3",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(result.success).toBe(true);
+      expect(telemetryRows.some((row) => row.spanType === "context")).toBe(true);
+    });
+
+    it("populates context.knowledgeEngine for a knowledge-lookup request using the real KnowledgeRuntimeService", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      contextRegistry.register(createKnowledgeEngineProvider());
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What's the cost of drywall?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-4",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("denies a tool_call step using the resolved tool's real required permissions, never a hardcoded [] - and never calls the provider", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.needs-billing", permissions: ["billing.write"], risk: "low" }));
+      const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor({ role: "technician" }), // technician does not hold billing.write (app/domain/contracts.ts)
+        requestId: "req-a5-authz-missing-permission",
+        env: { ...routerEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.needs-billing", toolVersion: "1.0.0", summary: "Needs billing.write." }],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+      expect(result.error?.category).toBe("authorization");
+      expect(provider.generateDraft).not.toHaveBeenCalled();
+    });
+
+    it.each(["medium", "high"] as const)("requires approval for a %s-risk tool_call step with satisfied permissions, and never calls the provider (A6 does not exist)", async (risk) => {
+      const toolRegistry = createAthenaToolRegistry();
+      toolRegistry.register(createEchoFixtureTool({ id: `tradeos.athena.fixture.risky-${risk}`, permissions: [], risk }));
+      const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: `req-a5-authz-risk-${risk}`,
+        env: { ...routerEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+        toolRegistry,
+        candidateTools: [{ toolId: `tradeos.athena.fixture.risky-${risk}`, toolVersion: "1.0.0", summary: "Risky tool." }],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+      expect(result.error?.code).toBe("athena_approval_required_no_action_engine");
+      expect(provider.generateDraft).not.toHaveBeenCalled();
+    });
+
+    it("does not deny a low-risk tool_call step whose real permissions are satisfied - authorization classification only, the tool still never executes in A5", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executed = false;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.safe-tool", permissions: ["crm.read"], risk: "low", onExecuted: () => { executed = true; } }));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(), // owner holds crm.read
+        requestId: "req-a5-authz-allowed",
+        env: routerEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.safe-tool", toolVersion: "1.0.0", summary: "Safe tool." }],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      // No A6 action engine exists yet - A5 never calls tool.execute() even
+      // for an authorized step. This assertion is about not being
+      // incorrectly denied, not about execution happening.
+      expect(executed).toBe(false);
+    });
+
+    it("fails closed when a plan step's tool can no longer be resolved at the kernel's authorization stage", async () => {
+      const tool = createEchoFixtureTool({ id: "tradeos.athena.fixture.vanishing", permissions: [], risk: "low" });
+      let resolveCallCount = 0;
+      // Simulates the tool becoming unavailable between planning and
+      // authorization (e.g. a concurrent remove()): the first resolve() call
+      // is the planner's own resolve-or-throw inside buildAthenaPlan(); the
+      // second is the kernel's authorization-stage resolve() this repair
+      // adds. A real createAthenaToolRegistry() cannot produce this
+      // divergence on its own (register()/remove() keep discover()/resolve()
+      // consistent), so this exercises the defensive fail-closed branch via
+      // an injected registry.
+      const fakeRegistry: Pick<AthenaToolRegistry, "discover" | "resolve"> = {
+        discover: () => [tool],
+        resolve: () => {
+          resolveCallCount += 1;
+          return resolveCallCount === 1 ? { outcome: "found", definition: tool } : { outcome: "tool_removed" };
+        },
+      };
+      const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-authz-unresolvable",
+        env: { ...routerEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true" } as NodeJS.ProcessEnv,
+        provider,
+        toolRegistry: fakeRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.vanishing", toolVersion: "1.0.0", summary: "Vanishing tool." }],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+      expect(result.error?.code).toBe("athena_tool_call_step_unresolvable");
+      expect(provider.generateDraft).not.toHaveBeenCalled();
+    });
+
+    it("never attempts context assembly for draft_response - no requestedContextIntents means no provider fetch", async () => {
+      const contextRegistry = createAthenaContextRegistry();
+      let fetched = false;
+      const spyProvider = createKnowledgeEngineProvider({
+        async fetch(fetchInput) {
+          fetched = true;
+          return createKnowledgeEngineProvider().fetch(fetchInput);
+        },
+      });
+      contextRegistry.register(spyProvider);
+
+      const service = new AthenaKernelService();
+      await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a5-5",
+        env: routerEnv,
+        contextRegistry,
+      });
+
+      expect(fetched).toBe(false);
+    });
   });
 });

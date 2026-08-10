@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { normalizeRole } from "../../domain";
+import type { DomainPermission } from "../../domain";
+import { assembleAthenaContext } from "../athena-context-engine/assembler";
+import type { AthenaContextRegistry } from "../athena-context-engine/registry";
+import { buildAthenaPlan } from "../athena-planner/planner";
+import type { AthenaPlanCandidateTool } from "../athena-planner/types";
+import { evaluateAthenaPermission } from "../athena-permissions/policy";
+import { classifyAthenaIntent } from "../athena-router/classifier";
+import { createAthenaToolRegistry } from "../athena-tool-registry/registry";
+import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 import { buildMinimalAthenaContext } from "./context";
+import { createLiveAthenaContextRegistry } from "./contextRegistry";
 import * as executionStore from "./executionStore";
 import { AthenaKernelError, athenaValidationError, normalizeAthenaError } from "./errors";
 import { getAthenaFlags } from "./flags";
@@ -37,6 +47,26 @@ export interface AthenaKernelHandleInput {
   clientSignal?: AbortSignal;
   env?: NodeJS.ProcessEnv;
   provider?: AthenaProviderAdapter;
+  // Injectable for tests, same DI pattern as `provider` above - defaults to
+  // createLiveAthenaContextRegistry() (real JobsService/KnowledgeRuntimeService).
+  // Only ever consulted when flags.routerPlannerEnabled is true.
+  contextRegistry?: AthenaContextRegistry;
+  // Injectable for tests/future A12 integration, same DI pattern as
+  // `contextRegistry` above - defaults to a fresh, empty createAthenaToolRegistry()
+  // (A2 has no production tools registered yet). One instance is used for
+  // both plan construction and per-step authorization below, so the two
+  // stages can never see divergent tool metadata (see the module comment on
+  // the routerPlannerEnabled branch).
+  toolRegistry?: Pick<AthenaToolRegistry, "discover" | "resolve">;
+  // Test-only override for candidate selection. Production always derives
+  // candidates from toolRegistry.discover(actor), which already filters by
+  // the actor's role/permissions and feature flags - so a role that lacks a
+  // tool's permission never even sees it as a candidate there. Overriding
+  // this directly lets a test force a specific tool_call step into the plan
+  // regardless of discover()'s own filtering, so a permission-mismatch test
+  // exercises the kernel's evaluateAthenaPermission() denial path itself,
+  // not registry-level candidate filtering.
+  candidateTools?: AthenaPlanCandidateTool[];
 }
 
 // Runtime coordinator for one Athena request (docs/athena/05-runtime/README.md
@@ -177,32 +207,171 @@ export class AthenaKernelService {
         return clarification;
       }
 
-      const capability = classifyAthenaCapability(message);
+      if (!flags.routerPlannerEnabled) {
+        // A1's original routing/planning stand-ins, byte-for-byte unchanged.
+        const capability = classifyAthenaCapability(message);
 
-      throwIfAborted();
-      await applyTransition("planning", "capability_classified", { capability });
-      throwIfAborted();
-      await applyTransition("policy_check", "plan_ready");
+        throwIfAborted();
+        await applyTransition("planning", "capability_classified", { capability });
+        throwIfAborted();
+        await applyTransition("policy_check", "plan_ready");
 
-      const policyStart = Date.now();
-      const decision = evaluateAthenaPolicy({
-        rawRole: input.actor.role,
-        orgId: actor.orgId,
-        userId: actor.userId,
-        capability,
-      });
-      await emitSpan("approval", decision.decision === "allow" ? "ok" : "denied", Date.now() - policyStart, {
-        capability: decision.capability,
-        reasonCode: decision.reasonCode,
-        decision: decision.decision,
-        deniedFields: decision.deniedFields,
-      });
+        const policyStart = Date.now();
+        const decision = evaluateAthenaPolicy({
+          rawRole: input.actor.role,
+          orgId: actor.orgId,
+          userId: actor.userId,
+          capability,
+        });
+        await emitSpan("approval", decision.decision === "allow" ? "ok" : "denied", Date.now() - policyStart, {
+          capability: decision.capability,
+          reasonCode: decision.reasonCode,
+          decision: decision.decision,
+          deniedFields: decision.deniedFields,
+        });
 
-      if (decision.decision !== "allow") {
-        await applyTransition("denied", decision.reasonCode);
-        const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
-        await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
-        return denied;
+        if (decision.decision !== "allow") {
+          await applyTransition("denied", decision.reasonCode);
+          const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
+          await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+          return denied;
+        }
+      } else {
+        // A5 router/planner orchestration (docs/athena/roadmap/
+        // A5-router-planner-implementation-plan.md). Deterministic, no
+        // model call for routing/planning itself - only produceDraftResponse
+        // below ever calls the AI provider.
+        const routerResult = classifyAthenaIntent(message);
+
+        throwIfAborted();
+        await applyTransition("planning", "intent_classified", { intent: routerResult.intent });
+
+        // A2 has no production tools registered yet (A12 work), so
+        // toolRegistry.discover() returns [] here today and plan.steps is
+        // always []. Exactly one registry instance is constructed and
+        // reused for both plan construction and the per-step authorization
+        // loop below - never two independently constructed registries -
+        // so planning and authorization can never disagree about what a
+        // tool actually requires.
+        const toolRegistry = input.toolRegistry ?? createAthenaToolRegistry();
+        const candidateTools: AthenaPlanCandidateTool[] =
+          input.candidateTools ??
+          toolRegistry.discover({ role: actor.role, featureFlags: [] }).map((tool) => ({ toolId: tool.id, toolVersion: tool.version, summary: tool.description, input: {} }));
+        const plan = buildAthenaPlan({ routerResult, candidateTools, toolRegistry });
+
+        throwIfAborted();
+        await applyTransition("policy_check", "plan_ready", { planId: plan.planId, planStatus: plan.status });
+
+        const policyStart = Date.now();
+
+        if (plan.status === "needs_clarification") {
+          // mutate_business_record - fall back to the existing, unmodified
+          // A1 policy path so external behavior (403, identical reason code)
+          // is byte-identical to the flag-off branch regardless of flag
+          // state. This is the concrete, per-request instance of the
+          // roadmap's "route to human-readable fallback" rollback.
+          const decision = evaluateAthenaPolicy({ rawRole: input.actor.role, orgId: actor.orgId, userId: actor.userId, capability: "mutate_business_record" });
+          await emitSpan("approval", "denied", Date.now() - policyStart, {
+            capability: decision.capability,
+            reasonCode: decision.reasonCode,
+            decision: decision.decision,
+            deniedFields: decision.deniedFields,
+            planId: plan.planId,
+          });
+          await applyTransition("denied", decision.reasonCode);
+          const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
+          await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+          return denied;
+        }
+
+        // Dormant in production (plan.steps is always [] today, since
+        // toolRegistry.discover() has nothing to return) - proves the
+        // per-step A4 permission gate exists for when A12 tools and A6
+        // action execution land, without wiring a real approval executor
+        // here (that is A6's job; approval_required still maps to denied).
+        // AthenaPlanStep itself carries no permission/risk metadata, so
+        // each step is re-resolved against the same toolRegistry instance
+        // used for planning above - this is how the tool's actual
+        // registered requirements, never a hardcoded default, reach A4.
+        for (const step of plan.steps) {
+          if (step.kind !== "tool_call") continue;
+
+          const resolution = toolRegistry.resolve(step.toolId, step.toolVersion);
+          if (resolution.outcome !== "found") {
+            // Fail closed: a plan step whose tool can no longer be resolved
+            // (removed, or an injected registry whose discover()/resolve()
+            // diverge) must never fall back to a permissive default.
+            const reasonCode = "athena_tool_call_step_unresolvable";
+            await emitSpan("approval", "denied", Date.now() - policyStart, { planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, reasonCode });
+            await applyTransition("denied", reasonCode);
+            const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+            await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+            return denied;
+          }
+
+          const tool = resolution.definition;
+          const stepDecision = await evaluateAthenaPermission({
+            rawRole: input.actor.role,
+            orgId: actor.orgId,
+            userId: actor.userId,
+            // The registered tool's real permissions/risk - never a
+            // hardcoded [] / "low". An invalid/unrecognized permission
+            // string in tool.permissions still fails closed here (it can
+            // never match a granted DomainPermission), so this cast never
+            // widens access even if a tool definition's permissions array
+            // were malformed.
+            request: { kind: "tool", id: step.toolId, requiredPermissions: tool.permissions as DomainPermission[], risk: tool.risk },
+          });
+          if (stepDecision.decision !== "allow") {
+            const reasonCode = stepDecision.decision === "approval_required" ? "athena_approval_required_no_action_engine" : stepDecision.reasonCode;
+            await emitSpan("approval", stepDecision.decision === "approval_required" ? "degraded" : "denied", Date.now() - policyStart, {
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              decision: stepDecision.decision,
+              reasonCode,
+            });
+            await applyTransition("denied", reasonCode);
+            const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+            await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+            return denied;
+          }
+        }
+
+        await emitSpan("approval", "ok", Date.now() - policyStart, { planId: plan.planId, planStatus: plan.status, intent: plan.intent });
+
+        // Closes A3's own named forward-reference (athena-context-engine/
+        // types.ts's requestedIntents comment: "Empty until A5's planner
+        // supplies real intents"). Enriches the C001 context object with a
+        // real dispatch/knowledgeEngine section when the router requested
+        // one - produceDraftResponse() below does not yet consume this
+        // enriched context as an LLM prompt input (that prompt-assembly
+        // integration is out of scope for A5); this only proves the
+        // assembly pipeline runs end-to-end with a real, live-DB-backed
+        // provider and records it in telemetry.
+        if (routerResult.requestedContextIntents.length > 0) {
+          throwIfAborted();
+          const liveContextStart = Date.now();
+          const contextRegistry = input.contextRegistry ?? createLiveAthenaContextRegistry();
+          const assemblyResult = await assembleAthenaContext(contextRegistry, {
+            orgId: actor.orgId,
+            actor: { userId: actor.userId, role: actor.role },
+            permissions: [...actor.permissions],
+            selectedScope: context.selectedScope,
+            // Neither real A3 provider (dispatch, knowledgeEngine) declares
+            // requiredFeatureFlags today - [] is honest, not a placeholder.
+            featureFlags: [],
+            requestedIntents: routerResult.requestedContextIntents,
+            explicitSections: [],
+            clientSignal: controller.signal,
+          });
+          if (assemblyResult.sections.dispatch) context.dispatch = assemblyResult.sections.dispatch;
+          if (assemblyResult.sections.knowledgeEngine) context.knowledgeEngine = assemblyResult.sections.knowledgeEngine;
+          await emitSpan("context", assemblyResult.stoppedByCriticalFailure ? "degraded" : "ok", Date.now() - liveContextStart, {
+            sectionsIncluded: Object.keys(assemblyResult.sections),
+            requestedIntents: routerResult.requestedContextIntents,
+          });
+        }
       }
 
       if (Date.now() > deadline.getTime() || controller.signal.aborted) {
