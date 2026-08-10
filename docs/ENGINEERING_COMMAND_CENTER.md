@@ -35,6 +35,14 @@ Start with:
 - `TradeOS` is the contractor SaaS product in this repository.
 - The repository remains named `TradeOScostbook`, while the implemented surface and doctrine cover the broader TradeOS platform.
 
+## Monorepo platform boundary
+
+TradeOS remains one first-party monorepo. Repository boundaries and agent workstream boundaries are intentionally different: focused Codex or AI-agent sessions may target Athena, Costbook, Dispatcher, Estimator, Field Tech, CRM, or another capability while still operating from the repository root and respecting the same governance and source-of-truth hierarchy.
+
+Athena is the reusable AI/orchestration platform layer and its canonical package location is `packages/athena/`. Athena owns the AI kernel, tool registry, context engine, router, action framework, and shared AI interfaces. It must not absorb Costbook, estimating, dispatch, CRM, Field Tech, or other domain business logic. Domain modules own their rules and expose bounded capabilities to Athena through explicit interfaces or tool registration.
+
+Do not move existing production code solely to match the target package layout during RC1 hardening. New Athena foundation work should target `packages/athena/`; `packages/costbook/` should be introduced only when a real reusable Costbook package boundary exists rather than as a cosmetic reorganization.
+
 ## Current engineering phase
 
 TradeOS is in `RC1 hardening`.
