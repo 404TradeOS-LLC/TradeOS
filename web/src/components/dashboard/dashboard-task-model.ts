@@ -1,12 +1,7 @@
-import { getStatusLabel, type TaskStatus } from "../../domain/index.ts";
+import { getStatusLabel, type TaskStatus } from "../../domain";
 import type { ActivityEvent, OrganizationProjectTask } from "../../lib/api";
 import type { OwnerActivityEntry } from "./owner-dashboard-data";
-import {
-  formatTaskDueLabel,
-  getStoredCalendarDayOrdinal,
-  getTaskDueBucket,
-  type DashboardTaskDueBucket,
-} from "./dashboard-task-dates";
+import { getStoredCalendarDayOrdinal, getTaskDueBucket, type DashboardTaskDueBucket } from "./dashboard-task-dates";
 
 export interface DashboardTaskSnapshot {
   openTasks: OrganizationProjectTask[];
