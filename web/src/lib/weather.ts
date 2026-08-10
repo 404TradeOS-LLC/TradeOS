@@ -14,6 +14,12 @@ const USER_AGENT = "TradeOS (https://app.404tradeos.com, support@404tradeos.com)
 // free/keyless government data, so revalidate on a fixed interval rather
 // than refetch on every dashboard render.
 const REVALIDATE_SECONDS = 1800;
+// This is a supplementary dashboard panel, not a core dependency (same
+// principle as the knowledge-stats panel in dashboard/page.tsx) - a slow or
+// hanging upstream must never hold up the whole server render. One shared
+// deadline covers all three sequential calls (geocode -> points -> forecast)
+// rather than budgeting each individually.
+const TOTAL_TIMEOUT_MS = 5000;
 
 interface CensusGeocodeResponse {
   result?: {
@@ -43,13 +49,13 @@ interface NwsForecastResponse {
   };
 }
 
-async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
+async function geocodeAddress(address: string, signal: AbortSignal): Promise<{ lat: number; lon: number } | null> {
   const url = new URL("https://geocoding.geo.census.gov/geocoder/locations/onelineaddress");
   url.searchParams.set("address", address);
   url.searchParams.set("benchmark", "Public_AR_Current");
   url.searchParams.set("format", "json");
 
-  const response = await fetch(url, { next: { revalidate: REVALIDATE_SECONDS } });
+  const response = await fetch(url, { signal, next: { revalidate: REVALIDATE_SECONDS } });
   if (!response.ok) return null;
 
   const data = (await response.json()) as CensusGeocodeResponse;
@@ -70,10 +76,12 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lon: numb
  */
 export async function getWeatherForAddress(address: string): Promise<WeatherSnapshot | null> {
   try {
-    const coordinates = await geocodeAddress(address);
+    const signal = AbortSignal.timeout(TOTAL_TIMEOUT_MS);
+    const coordinates = await geocodeAddress(address, signal);
     if (!coordinates) return null;
 
     const pointsResponse = await fetch(`https://api.weather.gov/points/${coordinates.lat.toFixed(4)},${coordinates.lon.toFixed(4)}`, {
+      signal,
       headers: { "User-Agent": USER_AGENT, Accept: "application/geo+json" },
       next: { revalidate: REVALIDATE_SECONDS },
     });
@@ -83,6 +91,7 @@ export async function getWeatherForAddress(address: string): Promise<WeatherSnap
     if (!forecastUrl) return null;
 
     const forecastResponse = await fetch(forecastUrl, {
+      signal,
       headers: { "User-Agent": USER_AGENT, Accept: "application/geo+json" },
       next: { revalidate: REVALIDATE_SECONDS },
     });
