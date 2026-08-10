@@ -22,10 +22,10 @@ test("owner briefing is backed by live read-only TradeOS signals", () => {
 test("owner briefing does not claim Athena business-tool execution", () => {
   const source = readSource("../../../components/dashboard/owner-briefing-panel.tsx");
 
+  assert.match(source, /No AI-generated facts or autonomous actions/);
   assert.match(source, /Athena execution stays off here until business-tool rollout/);
   assert.doesNotMatch(source, /\/api\/v1\/athena/);
   assert.doesNotMatch(source, /method:\s*["']POST["']/);
-  assert.doesNotMatch(source, /AI-generated facts/);
 });
 
 test("legacy dashboard import resolves to the live briefing instead of placeholder copy", () => {
