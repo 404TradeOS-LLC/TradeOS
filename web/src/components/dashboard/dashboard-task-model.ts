@@ -1,5 +1,5 @@
-import { getStatusLabel, type TaskStatus } from "@/domain";
-import type { ActivityEvent, OrganizationProjectTask } from "@/lib/api";
+import { getStatusLabel, type TaskStatus } from "../../domain";
+import type { ActivityEvent, OrganizationProjectTask } from "../../lib/api";
 import type { OwnerActivityEntry } from "./owner-dashboard-data";
 
 export interface DashboardTaskSnapshot {
@@ -37,14 +37,25 @@ function getZonedDayOrdinal(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / 86_400_000;
 }
 
+function getStoredCalendarDayOrdinal(value: string | null | undefined) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.getTime() / 86_400_000;
+}
+
 function getDueBucket(task: Pick<OrganizationProjectTask, "dueDate" | "status">, now: Date, timeZone: string): DueBucket {
   if (task.status === "completed") return "none";
 
-  const dueDate = toValidDate(task.dueDate);
-  if (!dueDate) return "none";
+  const dueOrdinal = getStoredCalendarDayOrdinal(task.dueDate);
+  if (dueOrdinal === null) return "none";
 
   const todayOrdinal = getZonedDayOrdinal(now, timeZone);
-  const dueOrdinal = getZonedDayOrdinal(dueDate, timeZone);
   if (dueOrdinal < todayOrdinal) return "overdue";
   if (dueOrdinal === todayOrdinal) return "today";
   return "upcoming";
@@ -64,7 +75,7 @@ function compareTasks(left: OrganizationProjectTask, right: OrganizationProjectT
   const blockedDelta = Number(left.status === "blocked") - Number(right.status === "blocked");
   if (blockedDelta !== 0) return blockedDelta * -1;
 
-  const dueDateDelta = (toValidDate(left.dueDate)?.getTime() ?? Number.POSITIVE_INFINITY) - (toValidDate(right.dueDate)?.getTime() ?? Number.POSITIVE_INFINITY);
+  const dueDateDelta = (getStoredCalendarDayOrdinal(left.dueDate) ?? Number.POSITIVE_INFINITY) - (getStoredCalendarDayOrdinal(right.dueDate) ?? Number.POSITIVE_INFINITY);
   if (dueDateDelta !== 0) return dueDateDelta;
 
   const priorityDelta = TASK_PRIORITY_WEIGHT[left.priority] - TASK_PRIORITY_WEIGHT[right.priority];
@@ -87,11 +98,13 @@ export function buildDashboardTaskSnapshot(tasks: OrganizationProjectTask[], now
 export function formatTaskDueLabel(task: Pick<OrganizationProjectTask, "dueDate" | "status">, now: Date, timeZone: string) {
   if (!task.dueDate) return "No due date";
 
+  const dueOrdinal = getStoredCalendarDayOrdinal(task.dueDate);
+  if (dueOrdinal === null) return "No due date";
   const dueDate = new Intl.DateTimeFormat("en-US", {
-    timeZone,
+    timeZone: "UTC",
     month: "short",
     day: "numeric",
-  }).format(new Date(task.dueDate));
+  }).format(new Date(dueOrdinal * 86_400_000));
 
   switch (getDueBucket(task, now, timeZone)) {
     case "overdue":
