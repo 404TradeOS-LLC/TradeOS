@@ -3,22 +3,179 @@ status: current
 owner: platform
 last_verified: 2026-08-10
 source_of_truth: true
+related_code:
+  - app/prisma/schema.prisma
+  - app/domain/contracts.ts
+  - app/modules/athena-memory
 ---
 
 # Domain Model
 
-TradeOS domain entities remain application-owned. Athena consumes domain/application services and does not become a parallel system of record.
+This file defines the canonical business entities as implemented in the repository.
+
+## Organization
+
+The tenant boundary for all application data.
+
+- persistent model: `Organization`
+- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, and branding
+- Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
+
+## User
+
+An authenticated identity stored in `AppUser`.
+
+- organization access is not implied by user existence
+- organization access comes through `OrganizationMembership`
+
+## Authentication control records
+
+`OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` are security-control records, not ordinary tenant-editable entities.
+
+- invitation ownership (`orgId`, email, role, token, inviter, and expiry) is immutable after creation; invite acceptance may update only lifecycle fields such as status and acceptance time
+- refresh-token ownership (`orgId`, user, membership, token, and expiry) is immutable after creation; rotation may update only usage, revocation, and replacement metadata
+- password-reset-token ownership (`userId`, token, and expiry) is immutable after creation; reset completion may update only consumption metadata
+
+These invariants are enforced in PostgreSQL as well as in application service behavior so a login-lookup transaction cannot reassign an existing auth record across organizations or users.
+
+## Migration history
+
+`public._prisma_migrations` is deployment control-plane state rather than application data. It remains writable by the Prisma migration administrator/table owner, has row-level security enabled, and is intentionally outside the runtime application role's table privileges.
+
+## Customer
+
+A company-scoped account or homeowner record stored in `Customer`.
+
+- customers own the business relationship
+- customers can have many projects, service addresses, equipment assets, service agreements, and jobs
+
+## Service Address
+
+A serviceable location for a customer stored in `ServiceAddress`.
+
+- belongs to one customer and one organization
+- can be attached to jobs, equipment assets, and service agreements
+
+## Equipment
+
+TradeOS currently has two equipment concepts:
+
+- `CustomerEquipment` is the installed or serviced asset tied to a customer or service address
+- `Equipment` in the cost-book area is estimating-rate data used for cost calculations
+
+When product copy says "equipment" in field operations, it usually means `CustomerEquipment`.
+
+## Project
+
+The operational workspace hub stored in `Project`.
+
+- belongs to one organization
+- may be linked to one customer
+- owns estimates, proposals, contracts, invoices, site visits, files, tasks, jobs, and service agreements
+
+## Job
+
+A first-class scheduled field-execution record stored in `Job`.
+
+- belongs to one organization, project, customer, and service address
+- is separate from the project record
+- owns assignments and links to site visits, tasks, notes, and equipment
+
+## Estimate
+
+A priced commercial draft stored in `Estimate`.
+
+- belongs to one project and organization
+- owns estimate line items
+- may feed proposals and invoices
+- line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
+
+## Proposal
+
+A customer-facing commercial document stored in `Proposal`.
+
+- belongs to one project
+- may reference one estimate
+- owns proposal delivery history
+- can produce contracts and support invoices
+
+## Contract
+
+A signable commercial agreement stored in `Contract`.
+
+- belongs to one project and one proposal
+- owns contract event history
+
+## Invoice
+
+A billing document stored in `Invoice`.
+
+- belongs to one project
+- may reference an estimate and proposal
+- owns invoice line items, payments, and delivery history
+
+## Payment
+
+A recorded payment event stored in `Payment`.
+
+- belongs to one invoice and organization
+- tracks amount, payment date, method, reference, notes, and status
+
+## Change Order
+
+A scoped commercial amendment stored in `ChangeOrder`.
+
+- belongs to one project
+- may reference one estimate
+- owns change-order line items
+
+## Site Visit
+
+An intake and field-observation record stored in `SiteVisit`.
+
+- belongs to one project
+- may be linked to one job
+- stores notes, transcript, intake details, measurements, missing information, and confidence metadata
+
+## Activity Event
+
+A generic tenant-scoped event record stored in `ActivityEvent`.
+
+- keyed by `entityType` and `entityId`
+- supports recent activity, notification linkage, and intelligence surfaces
+
+## Athena kernel execution
+
+Project Athena A1 kernel lifecycle/audit state, stored in `AthenaExecution`, `AthenaExecutionTransition`, and `AthenaTelemetryRecordRow`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md).
+
+- `AthenaExecution` is actor-scoped, not merely org-scoped: RLS restricts each row to its `actorUserId` unless the reader is an org admin/dispatcher/owner
+- `AthenaExecutionTransition` and `AthenaTelemetryRecordRow` inherit that same actor visibility through the parent `AthenaExecution` row
+- none of these tables store a raw user message, model prompt, or model output - only safe summaries, error codes, and structural metadata
+- the kernel is feature-flagged off (`ATHENA_KERNEL_ENABLED=false`) by default; see `app/modules/athena-kernel`
 
 ## Athena memory
 
-A7 introduces `athena_memories` as infrastructure-owned durable assistant memory with explicit tenant, subject, source, confidence, retention, lifecycle, and audit fields.
+Project Athena A7 durable assistant memory is stored in `AthenaMemory` rows behind `AthenaMemoryService`.
 
-Memory scope values are `user`, `organization`, `project`, `job`, and `conversation`, but A7 enables only scopes with complete authorization semantics:
+- every memory is tenant-scoped and carries scope, subject, source attribution, confidence, retention, lifecycle status, visibility, actor audit fields, and timestamps
+- caller-facing retrieval exposes only active, unexpired records
+- corrections supersede prior rows instead of overwriting them in place
+- forgetting clears stored value/metadata while preserving minimal audit identity/status
+- `user` and `conversation` scopes are exact-actor only; `organization` scope is exact-organization
+- `project` and `job` scope values are contract-recognized but fail closed in A7 until explicit object-scope authorization exists at both the service and RLS layers
+- Athena memory is not authoritative business state and does not replace projects, jobs, customers, estimates, invoices, payments, dispatch, or costbook records
 
-- user/conversation: exact actor only;
-- organization: exact organization, admin-capable mutation;
-- project/job: contract-recognized but fail-closed until explicit object-scope authorization is implemented at both service and RLS layers.
+## Core relationships
 
-Caller-facing memory retrieval exposes only active, unexpired records. Corrected/deleted history is not a normal memory-read surface. Corrections create a new active row with `supersedes`; forgetting clears stored value/metadata while retaining minimal audit identity/status.
+Canonical relationship flow:
 
-Athena memory does not replace project, job, customer, estimate, invoice, payment, dispatch, costbook, or other TradeOS domain state. Those records remain authoritative in their existing application modules.
+`Organization -> Customer -> Project -> Estimate/Proposal/Contract/Invoice/Job`
+
+Operational sub-relationships:
+
+- `Customer -> ServiceAddress -> Job`
+- `Project -> SiteVisit`
+- `Project -> ProjectTask`
+- `Invoice -> Payment`
+- `Job -> JobAssignment`
+- `ActivityEvent` may describe changes across multiple entity types
