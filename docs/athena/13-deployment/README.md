@@ -39,6 +39,13 @@ Every request should correlate conversation ID, request ID, context version,
 planner version, tool calls, action IDs, approval IDs, event IDs, memory IDs,
 model/provider, token/cost metrics, and redacted errors.
 
+Minimal observability starts in A1. A10 matures dashboards, exporters, alerts,
+and long-term operational reporting; it does not introduce tracing for the first
+time. Any executable Athena path must emit enough C011 telemetry to reconstruct
+what was attempted, who initiated it, what policy decided, which model/provider
+and tools were used, what it cost, and why it failed without storing private
+chain-of-thought.
+
 ## Incident Response And Rollback
 
 Incidents can disable individual tools, providers, memory writes, proactive
@@ -55,20 +62,30 @@ templates and policy decisions do not depend on model output.
 
 | SLI | Example target |
 | --- | --- |
-| Context assembly latency | p95 under defined product budget |
+| Context assembly latency | p95 under the milestone budget |
 | Tool success rate | Tool-specific, excluding policy denials |
 | Unauthorized action execution | Zero |
 | High-risk approval bypass | Zero |
 | Trace completeness | Near-total for action-bearing requests |
 | Cost per active org | Budgeted and alerting-backed |
 
+Initial milestone budgets are gates, not permanent product promises. A1 starts
+with minimal context and no production business tool fanout. A3 must define max
+providers, max context bytes or estimated tokens, cache TTLs, and provider
+timeouts before broad context ships. A5/A6 must define max plan steps, max tool
+calls, retry count, and model/tool cost attribution before action execution
+expands.
+
 ## Production Readiness Gates
 
+- `athena:contracts` or equivalent contract validation passes.
+- `athena:smoke` or equivalent no-op kernel smoke passes.
 - Contracts C001-C012 validated.
+- Kernel lifecycle, timeout, cancellation, and approval-payload binding tested.
 - High-risk approval flow tested.
 - Tenant isolation tests pass.
 - Tool result envelope enforced.
-- Observability dashboards live.
+- Minimal trace/cost telemetry live; dashboards required before production beta.
 - Feature flags and rollback paths tested.
 - Prompt-injection and adversarial tests pass.
 - Admin memory retention/deletion controls available before memory writes.

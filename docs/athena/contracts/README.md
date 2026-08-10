@@ -25,6 +25,15 @@ export interface AthenaToolResult<TData = unknown> {
   warnings: AthenaWarning[];
   followUps: AthenaFollowUp[];
   telemetry: AthenaTelemetryReference;
+  error?: AthenaToolError;
+}
+
+export interface AthenaToolError {
+  code: string;
+  category: "validation" | "authorization" | "conflict" | "timeout" | "provider" | "service" | "unknown";
+  retryable: boolean;
+  safeSummary: string;
+  correlationId: string;
 }
 ```
 
@@ -42,8 +51,8 @@ export interface AthenaToolResult<TData = unknown> {
 
 Error behavior: failed tools set `success: false`, provide a user-safe summary,
 return `data: null` unless a documented partial shape is safe, and include a
-stable error code in warnings or telemetry. Security: summaries and warnings
-must not leak inaccessible data, secrets, raw prompts, or unnecessary PII.
+stable `error` object. Security: summaries, errors, and warnings must not leak
+inaccessible data, secrets, raw prompts, or unnecessary PII.
 
 ## C001 AI Context v1.0.0
 
@@ -56,6 +65,8 @@ export interface AthenaAIContext {
   organization: AthenaOrganizationContext;
   user: AthenaUserContext;
   permissions: AthenaPermissionSnapshot;
+  selectedScope: AthenaSelectedScope;
+  budget: AthenaContextBudget;
   workspace?: AthenaWorkspaceContext;
   conversation?: AthenaConversationContext;
   dashboard?: AthenaDashboardContext;
@@ -69,17 +80,58 @@ export interface AthenaAIContext {
   notifications?: AthenaProviderSection;
   telemetry: AthenaTelemetryContext;
 }
+
+export interface AthenaProviderSection<TData = unknown> {
+  status: "available" | "degraded" | "omitted" | "unavailable" | "denied";
+  freshness: AthenaFreshnessEvidence;
+  sensitivity: "public" | "internal" | "confidential" | "restricted";
+  source: AthenaSourceReference;
+  data: TData;
+  omittedFields: string[];
+  maxItems: number;
+  maxBytes: number;
+  estimatedTokens?: number;
+  truncationReason?: string;
+}
+
+export interface AthenaFreshnessEvidence {
+  status: "live" | "fresh" | "stale" | "unavailable";
+  fetchedAt: string;
+  expiresAt?: string;
+  ttlMs?: number;
+  cacheHit: boolean;
+  sourceVersion?: string;
+  sourceHash?: string;
+  revalidatedAt?: string;
+}
+
+export interface AthenaSelectedScope {
+  customerId?: string;
+  projectId?: string;
+  jobId?: string;
+  estimateId?: string;
+  invoiceId?: string;
+  page?: string;
+}
+
+export interface AthenaContextBudget {
+  maxBytes: number;
+  maxEstimatedTokens: number;
+  maxProviderCount: number;
+}
 ```
 
 Shape: object with `version`, `request`, `organization`, `user`,
-`permissions`, and `telemetry` required; provider sections are optional and must
-include `freshness`, `source`, and `status` when present. Validation: reject
-mutable provider values, missing org/user IDs, and provider data without
-freshness. Compatibility: optional provider sections may be added. Example:
-context with `knowledgeEngine.status: "available"` and
-`weather.status: "unavailable"`. Error behavior: context assembly failure stops
-dependent actions. Security: never use request body/header tenant IDs as
-authority.
+`permissions`, `selectedScope`, `budget`, and `telemetry` required; provider
+sections are optional and must include `freshness`, `source`, `status`,
+`sensitivity`, and size limits when present. Validation: reject mutable provider
+values, missing org/user IDs, provider data without freshness evidence, missing
+tenant scope for tenant data, and outputs that exceed budget. Compatibility:
+optional provider sections may be added. Example: context with
+`knowledgeEngine.status: "available"` and `weather.status: "omitted"`. Error
+behavior: context assembly failure stops dependent actions. Security: never use
+request body/header tenant IDs as authority; high-PII sections are lazy and
+intent-gated by default.
 
 ## C002 Tool v1.0.0
 
@@ -96,18 +148,34 @@ export interface AthenaToolDefinition {
   confirmationPolicy: "never" | "contextual" | "always";
   timeoutMs: number;
   idempotency: "required" | "optional" | "not_supported";
+  compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: Record<string, unknown>;
   resultSchema: "AthenaToolResult";
+}
+
+export interface AthenaToolExecutionContext {
+  executionId: string;
+  requestId: string;
+  traceId: string;
+  orgId: string;
+  actor: { type: "user" | "system"; id: string };
+  role: "owner" | "admin" | "dispatcher" | "technician";
+  deadline: string;
+  cancellationSignal: AbortSignal;
+  approvalId?: string;
+  featureFlags: string[];
 }
 ```
 
 Required: `id`, `version`, `owner`, `permissions`, `risk`, `timeoutMs`,
-`inputSchema`, `resultSchema`. Optional: feature flag, deprecation,
-rollback mode, plugin ID. Validation: unknown tools, invalid schemas, and
-permissionless mutating tools fail closed. Compatibility: breaking input changes
-require a new major version. Example: `tradeos.estimate.prepareDraft@1.0.0`.
-Error: registry returns structured not-found/unauthorized/deprecated errors.
-Security: tool execution is allowed only after policy evaluation.
+`inputSchema`, `resultSchema`, and `compensationPolicy`. Optional: feature flag,
+deprecation, plugin ID. Execution requires both AI Context and
+`AthenaToolExecutionContext`; tools must not infer authority from model output.
+Validation: unknown tools, invalid schemas, and permissionless mutating tools
+fail closed. Compatibility: breaking input changes require a new major version.
+Example: `tradeos.estimate.prepareDraft@1.0.0`. Error: registry returns
+structured not-found/unauthorized/deprecated errors. Security: tool execution is
+allowed only after policy evaluation and must honor deadline/cancellation.
 
 ## C003 Tool Result v1.0.0
 
@@ -129,6 +197,7 @@ Purpose: hidden plan shape produced before execution.
 export interface AthenaPlan {
   version: "1.0.0";
   planId: string;
+  status: "draft" | "needs_clarification" | "awaiting_approval" | "ready" | "superseded" | "cancelled";
   intent: string;
   risk: "low" | "medium" | "high";
   steps: AthenaPlanStep[];
@@ -137,12 +206,13 @@ export interface AthenaPlan {
 }
 ```
 
-Required: version, plan ID, intent, risk, steps. Optional: assumptions,
+Required: version, plan ID, status, intent, risk, steps. Optional: assumptions,
 alternatives, missing information. Validation: every step must reference a
-registered tool/version or a user question. Compatibility: new step metadata is
-optional. Example: plan to prepare a draft estimate, then ask for approval
-before applying. Error: unsafe or unresolved plans produce a clarification or
-approval request. Security: hidden reasoning is not shown to users or plugins.
+registered tool/version or a user question; planners cannot execute steps.
+Compatibility: new step metadata is optional. Example: plan to prepare a draft
+estimate, then ask for approval before applying. Error: unsafe or unresolved
+plans produce a clarification or approval request. Security: hidden reasoning is
+not shown to users or plugins.
 
 ## C005 Action v1.0.0
 
@@ -160,16 +230,31 @@ export interface AthenaAction {
   risk: "low" | "medium" | "high";
   approvalId?: string;
   idempotencyKey: string;
-  status: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  status:
+    | "created"
+    | "pending"
+    | "running"
+    | "awaiting_approval"
+    | "partially_succeeded"
+    | "succeeded"
+    | "failed"
+    | "denied"
+    | "expired"
+    | "cancelled";
+  attempt: number;
+  checkpoint?: Record<string, unknown>;
+  compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
+  lastError?: AthenaToolError;
 }
 ```
 
-Required: action ID, org, actor, tool, risk, idempotency key, status. Optional:
-approval, rollback action, retry count. Validation: high-risk actions require
-approval ID before running. Compatibility: statuses may only be added with
-documented terminal/non-terminal semantics. Example: approved invoice-send
-action. Error: failed actions preserve result envelope and audit state.
-Security: actor/org are server-derived.
+Required: action ID, org, actor, tool, risk, idempotency key, status, attempt,
+and compensation policy. Optional: approval, checkpoint, retry count, last
+error. Validation: high-risk actions require approval ID before running; terminal
+states are immutable; resume requires a checkpoint and fresh policy check.
+Compatibility: statuses may only be added with documented terminal/non-terminal
+semantics. Example: approved invoice-send action. Error: failed actions preserve
+result envelope and audit state. Security: actor/org are server-derived.
 
 ## C006 Memory v1.0.0
 
@@ -210,14 +295,22 @@ export interface AthenaPermissionDecision {
   role: "owner" | "admin" | "dispatcher" | "technician";
   permissions: string[];
   capability: string;
+  resourceScope?: {
+    entityType: string;
+    entityId: string;
+    relationship: "owner" | "assignee" | "member" | "viewer" | "none";
+  };
+  deniedFields: string[];
   decision: "allow" | "deny" | "approval_required";
   reasonCode: string;
 }
 ```
 
 Required: version, org, user, role, permissions, capability, decision,
-reasonCode. Optional: approval policy, denied fields. Validation: role must be
-canonical. Compatibility: new decisions require explicit semantics. Example:
+reasonCode, and denied fields. Optional: approval policy and resource scope for
+non-object actions. Validation: role must be canonical; field technician and
+resource-scoped decisions must include service-derived scope where applicable.
+Compatibility: new decisions require explicit semantics. Example:
 `billing.write` allowed but `send_invoice` approval required. Error: denial
 returns safe reason. Security: decisions are service/policy-owned, not LLM-owned.
 
@@ -280,19 +373,27 @@ export interface AthenaContextProviderDefinition {
   owner: string;
   section: string;
   permissions: string[];
+  activation: "eager_minimal" | "lazy_intent" | "explicit_only";
+  allowedIntents: string[];
   freshnessTtlMs: number;
   timeoutMs: number;
+  maxItems: number;
+  maxBytes: number;
+  sensitivity: "public" | "internal" | "confidential" | "restricted";
+  cacheKeyPolicy: "none" | "tenant_actor_permission_input";
   criticality: "critical" | "important" | "optional";
   failureBehavior: "stop" | "degrade" | "omit";
 }
 ```
 
 Required: ID, version, owner, section, permissions, freshness, timeout,
-criticality, failure behavior. Optional: cache key, plugin ID. Validation:
-provider output must include status and freshness. Compatibility: new sections
-are optional in C001. Example: weather provider for scheduled exterior jobs.
-Error: failure follows declared behavior. Security: provider permissions are
-checked before fetching.
+activation, sensitivity, output limits, cache policy, criticality, and failure
+behavior. Optional: plugin ID. Validation: provider output must include status,
+freshness evidence, sensitivity, source, and size metadata. Cached tenant data
+must use a tenant-, actor-, permission-, provider-version-, and input-qualified
+cache key. Compatibility: new sections are optional in C001. Example: weather
+provider for scheduled exterior jobs. Error: failure follows declared behavior.
+Security: provider permissions and object scope are checked before fetching.
 
 ## C011 Telemetry v1.0.0
 
@@ -305,19 +406,30 @@ export interface AthenaTelemetryRecord {
   orgId: string;
   requestId: string;
   traceId: string;
-  spanType: "context" | "planner" | "tool" | "action" | "memory" | "event";
+  executionId: string;
+  spanType: "kernel" | "context" | "planner" | "tool" | "action" | "approval" | "memory" | "event" | "model";
   status: "ok" | "error" | "denied" | "degraded";
   durationMs: number;
+  redaction: "none" | "metadata_only" | "field_redacted" | "payload_omitted";
+  cost?: {
+    provider?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    estimatedUsd?: number;
+  };
   metadata: Record<string, unknown>;
 }
 ```
 
-Required: ID, version, org, request, trace, span type, status, duration.
-Optional: model/provider/cost, error code, sampled flag. Validation: redact
-metadata. Compatibility: new span types require this catalog update. Example:
-tool execution span for `tradeos.estimate.prepareDraft`. Error: telemetry
-failure must not complete a business action falsely. Security: no secrets or
-raw payment data.
+Required: ID, version, org, request, trace, execution, span type, status,
+duration, redaction, and metadata. Optional: model/provider/cost, error code,
+sampled flag. Validation: redact metadata, omit restricted payloads by default,
+and never store private chain-of-thought. Compatibility: new span types require
+this catalog update. Example: tool execution span for
+`tradeos.estimate.prepareDraft`. Error: telemetry failure must not complete a
+business action falsely. Security: no secrets, raw payment data, raw prompts, or
+unnecessary PII.
 
 ## C012 Plugin v1.0.0
 
