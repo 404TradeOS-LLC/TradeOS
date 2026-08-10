@@ -50,18 +50,12 @@ related_code:
 - readiness branch owns governance/continuity only; no product behavior,
   schema, package, dependency, UI, or runtime change
 
-## Out-of-band UI sprint (2026-08-09, branch `ui/modernize-shell-dashboard-customers`) — MERGED
+## Out-of-band UI sprint (2026-08-09, branch `ui/modernize-shell-dashboard-customers`)
 
 Not a Sprint Backlog promotion — a directly-commissioned, explicitly bounded
 UI/UX-only pass, on its own short-lived branch off `main` @ `477fb2e`
-(current tip at start, after PRs #87-#92). Did not claim or affect S006
-readiness (PR #93, untouched by this work). Merged via PR #94 as `ab89268`.
-
-A direct follow-up (real National Weather Service dashboard widget, using
-today's first scheduled job's project site address) is implemented on a
-fresh branch, `feature/dashboard-weather-nws`, off the post-#94 `main` tip
-— not stacked on the merged UI-sprint branch. See `docs/CURRENT_STATE.md`'s
-"Recent verified changes" for details.
+(current tip at start, after PRs #87-#92). Does not claim or affect S006
+readiness (PR #93, untouched by this work).
 
 - Scope: global shell/nav, owner dashboard, Customers (wired the
   already-built `CustomerDirectory`), a narrow Dispatch mobile/a11y fix, and
@@ -79,7 +73,16 @@ fresh branch, `feature/dashboard-weather-nws`, off the post-#94 `main` tip
   against the project's real Supabase project(s) — recorded as an
   environment-blocked check, not skipped, per the sprint's own
   production-safety priority.
-- Status: merged. See the follow-up weather work noted above.
+- Status at handoff time: implementation complete, PR pending. Update this
+  entry (or remove it once merged) rather than leaving it stale.
+
+- Follow-up on the owner dashboard: the same branch now adds a live org-scoped
+  task feed and real task activity without touching Athena surfaces.
+  `GET /api/v1/projects/tasks` serves prioritized project/customer/job-backed
+  tasks through the existing auth + org + DB-session middleware stack, and the
+  dashboard uses it for the "Tasks To Move" queue, overdue-task KPI truth, and
+  recent task movement panel while preserving the live dispatch-backed Today
+  schedule already present on `main`.
 
 ## Next Eligible Sprint
 
