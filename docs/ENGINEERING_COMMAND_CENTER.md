@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -55,9 +55,10 @@ merged as `ee5000b4`. S005 is complete: PR #84 merged on 2026-08-06 as
 `7d1c48376861468122347e19c41f0a007d7b5fc9`. Production auth/runtime recovery
 through PR #92 is merged on `main` as
 `477fb2e919d4001772628c6a91fcded07555ba74`. S006 — Lifecycle compatibility
-inventory is now the next readiness target: governance-only PR #93 promotes it
-to `READY`, with implementation explicitly fenced away from concurrent UI
-runtime work and behavior changes.
+inventory is now `READY` after governance-only PR #93 merged. S027 —
+Intelligent Costbook production readiness has a founder-requested readiness
+contract, but remains `BLOCKED` until active dashboard/UI and Knowledge Runtime
+overlap clears.
 
 Completed foundation work includes:
 
@@ -83,26 +84,23 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub state verified on 2026-08-08 while preparing S006 readiness:
+Live GitHub state verified on 2026-08-09 while preparing S027 readiness:
 
-- PR #92 is merged as `477fb2e9`, completing the latest production auth/RLS
-  recovery without changing the lifecycle sprint queue;
-- zero pull requests were open immediately before the isolated S006 readiness
-  branch was published;
-- draft PR #93 is the S006 governance-only readiness promotion and changes only
-  the required execution-owner documents;
-- the founder separately assigned a UI sprint to Claude; because that work may
-  touch frontend runtime files, S006 implementation is explicitly forbidden
-  from modifying `web/src/app/**` and `web/src/components/**` and may inspect
-  those files read-only only;
-- S006 also forbids product behavior, schema/migrations, backend/module runtime
-  code, dependencies, workflows, environment configuration, repository
-  settings, and `packages/**` changes;
-- repository search confirms lifecycle values are distributed across
-  `app/domain/contracts.ts`, backend/controller/module surfaces, frontend/API
-  consumers, portal-facing code, current lifecycle docs, and archived
-  compatibility references; and
-- no external infrastructure or founder decision blocks the inventory sprint.
+- PR #96 (`fix/vercel-include-knowledge-engine`) modifies
+  `app/modules/knowledge-runtime/loader.ts` and `app/vercel.json`, so S027
+  cannot safely claim Knowledge Runtime production packaging until that PR
+  lands or closes;
+- draft PR #95 (`docs/s006-lifecycle-compatibility-inventory`) owns S006
+  implementation evidence and does not authorize later lifecycle behavior
+  changes;
+- PR #94 (`ui/modernize-shell-dashboard-customers`) modifies dashboard,
+  shared frontend, `docs/CURRENT_STATE.md`, and `docs/SESSION_HANDOFF.md`, so
+  S027 cannot safely claim dashboard Costbook-card work until that overlap
+  lands or closes;
+- PR #89 is a Dependabot lockfile/package update and does not overlap S027
+  runtime scope unless dependency changes are requested; and
+- S027 readiness therefore records full scope and validation, but remains
+  `BLOCKED` instead of `READY`.
 
 Historical coordination evidence remains in the sprint backlog and repository
 governance records; always verify GitHub before editing. This summary is not a
@@ -121,6 +119,10 @@ substitute for live PR state.
 - S006 is an inventory sprint, not permission to normalize behavior yet. Any
   discovered drift must be recorded and handed to S007-S012 rather than fixed
   in place.
+- S027 is blocked by active PR overlap. When the overlap clears, its
+  implementation must extend existing Costbook, supplier, Knowledge Runtime,
+  AI Estimate Assist, and Estimate Engine seams without mock production data or
+  autonomous AI writes.
 
 ## Required verification
 
@@ -158,10 +160,13 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-S006 is the next `READY` sprint on the readiness branch. Do not begin its
-implementation until PR #93 merges; then create a separate branch from current
-`main` and produce the authoritative compatibility inventory without runtime
-behavior changes or overlap with the parallel UI sprint.
+S006 is the next `READY` sprint, and draft PR #95 is its current implementation
+evidence. Do not begin S027 implementation while S006 remains the lowest
+eligible sprint and while S027's active dashboard/UI and Knowledge Runtime
+overlap remains unresolved.
+S027 may be promoted to `READY` only after the named dashboard/UI and Knowledge
+Runtime overlap clears and a governance-only update confirms the exact current
+base, open PRs, worktrees, and required validation.
 
 ## Source-of-truth links
 
