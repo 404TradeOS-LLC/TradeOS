@@ -12,9 +12,10 @@ import { createHash } from "node:crypto";
 export interface AthenaContextCacheKeyInput {
   orgId: string;
   actorUserId: string;
+  actorRole: string;
   // Sorted before hashing so permission-set order never produces a
   // different cache key for the same effective grant set.
-  permissions: readonly string[];
+  effectivePermissions: readonly string[];
   providerId: string;
   providerVersion: string;
   // Any provider-specific narrowing input (e.g. selectedScope fields)
@@ -32,7 +33,8 @@ export function buildAthenaContextCacheKey(input: AthenaContextCacheKeyInput): s
   const material = JSON.stringify({
     orgId: input.orgId,
     actorUserId: input.actorUserId,
-    permissions: [...input.permissions].sort(),
+    actorRole: input.actorRole,
+    effectivePermissions: [...input.effectivePermissions].sort(),
     providerId: input.providerId,
     providerVersion: input.providerVersion,
     scopedInput: input.scopedInput,

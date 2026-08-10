@@ -2,13 +2,14 @@ import type { AthenaProviderSection } from "../modules/athena-kernel/types";
 import { assembleAthenaContext } from "../modules/athena-context-engine/assembler";
 import { AthenaContextCache } from "../modules/athena-context-engine/cache";
 import { createTestContextProvider } from "../modules/athena-context-engine/fixtures/testContextProvider";
-import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
+import { AthenaContextRegistry, createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
 import type { AthenaContextAssemblyRequest } from "../modules/athena-context-engine/types";
 
 function buildRequest(overrides: Partial<AthenaContextAssemblyRequest> = {}): AthenaContextAssemblyRequest {
   return {
     orgId: "org-1",
     actor: { userId: "user-1", role: "owner" },
+    permissions: [],
     selectedScope: {},
     featureFlags: [],
     requestedIntents: [],
@@ -131,6 +132,44 @@ describe("athena context assembler", () => {
       expect(outcome.warnings.some((w) => w.code === "athena_context_critical_provider_failed")).toBe(true);
     });
 
+    it("treats criticality as authoritative even if a provider was constructed with a non-stop failure behavior outside registration", async () => {
+      const provider = createTestContextProvider({ criticality: "critical", failureBehavior: "degrade", fetchImpl: () => { throw new Error("boom"); } });
+      const registry: AthenaContextRegistry = {
+        register() {
+          throw new Error("registration bypassed intentionally for defensive assembler coverage");
+        },
+        resolve() {
+          return undefined;
+        },
+        discover() {
+          return [];
+        },
+        list() {
+          return [provider];
+        },
+      };
+
+      const outcome = await assembleAthenaContext(registry, buildRequest());
+
+      expect(outcome.stoppedByCriticalFailure).toBe(true);
+      expect(outcome.sections.knowledgeEngine).toBeUndefined();
+      expect(outcome.audit[0].reasonCode).toBe("stopped_by_critical_failure");
+    });
+
+    it("maps client cancellation to the cancellation warning instead of unexpected-error", async () => {
+      const registry = createAthenaContextRegistry();
+      registry.register(createTestContextProvider({ timeoutMs: 1_000, failureBehavior: "degrade", fetchImpl: () => new Promise(() => {}) }));
+      const controller = new AbortController();
+      const promise = assembleAthenaContext(registry, buildRequest({ clientSignal: controller.signal }));
+
+      controller.abort();
+      const outcome = await promise;
+
+      expect(outcome.sections.knowledgeEngine?.truncationReason).toBe("provider_cancelled");
+      expect(outcome.warnings.some((w) => w.code === "athena_context_provider_cancelled")).toBe(true);
+      expect(outcome.warnings.some((w) => w.code === "athena_context_provider_unexpected_error")).toBe(false);
+    });
+
     it("never fabricates data or widens scope when a provider fails - the section is always null, never a substitute value", async () => {
       const registry = createAthenaContextRegistry();
       registry.register(createTestContextProvider({ failureBehavior: "degrade", fetchImpl: () => { throw new Error("boom"); } }));
@@ -159,6 +198,7 @@ describe("athena context assembler", () => {
       expect(fetchCount).toBe(1);
       expect(first.sections.knowledgeEngine?.freshness.cacheHit).toBe(false);
       expect(second.sections.knowledgeEngine?.freshness.cacheHit).toBe(true);
+      expect(second.sections.knowledgeEngine?.freshness.status).toBe("fresh");
     });
 
     it("does not reuse a cache entry across different organizations", async () => {
@@ -171,6 +211,19 @@ describe("athena context assembler", () => {
       await assembleAthenaContext(registry, buildRequest({ orgId: "org-b" }), cache);
 
       expect(fetchCount).toBe(2);
+    });
+
+    it("does not reuse a cache entry across different actor roles or effective permission snapshots", async () => {
+      const registry = createAthenaContextRegistry();
+      let fetchCount = 0;
+      registry.register(createTestContextProvider({ cacheKeyPolicy: "tenant_actor_permission_input", onFetch: () => { fetchCount += 1; } }));
+      const cache = new AthenaContextCache<AthenaProviderSection>();
+
+      await assembleAthenaContext(registry, buildRequest({ actor: { userId: "user-1", role: "owner" }, permissions: ["billing.write"] }), cache);
+      await assembleAthenaContext(registry, buildRequest({ actor: { userId: "user-1", role: "technician" }, permissions: [] }), cache);
+      await assembleAthenaContext(registry, buildRequest({ actor: { userId: "user-1", role: "owner" }, permissions: ["crm.read"] }), cache);
+
+      expect(fetchCount).toBe(3);
     });
   });
 });

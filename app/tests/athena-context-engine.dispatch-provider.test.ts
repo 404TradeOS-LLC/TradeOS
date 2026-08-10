@@ -15,11 +15,17 @@ function baseInput(overrides: Partial<{ orgId: string; actor: { userId: string; 
   };
 }
 
-function fakeJobsService(result: PaginatedJobsDTO, onList?: (filters: JobListFilters) => void): Pick<JobsService, "list"> {
+function fakeJobsService(result: PaginatedJobsDTO, onList?: (filters: JobListFilters) => void, onGetById?: (orgId: string, jobId: string, actor: { userId: string; role: string }) => void): Pick<JobsService, "list" | "getById"> {
   return {
     async list(filters: JobListFilters) {
       onList?.(filters);
       return result;
+    },
+    async getById(orgId, jobId, actor) {
+      onGetById?.(orgId, jobId, actor);
+      const match = result.items.find((job) => job.id === jobId);
+      if (!match) throw new Error("not found");
+      return match as never;
     },
   };
 }
@@ -102,6 +108,47 @@ describe("dispatch context provider", () => {
 
     expect(capturedFilters?.projectId).toBe("project-9");
     expect(capturedFilters?.customerId).toBe("customer-9");
+  });
+
+  it("uses an exact job lookup when selectedScope.jobId is present instead of returning a broader list", async () => {
+    let listed = false;
+    let capturedGetById: { orgId: string; jobId: string; userId: string; role: string } | undefined;
+    const jobsService = fakeJobsService(
+      {
+        items: [
+          {
+            id: "job-9",
+            jobNumber: "J-9",
+            title: "Scoped job",
+            jobType: "repair",
+            status: "scheduled" as const,
+            priority: "medium",
+            scheduledStart: null,
+            scheduledEnd: null,
+            archivedAt: null,
+            project: null,
+            customer: null,
+            assignedTechnicians: [],
+            needsAttention: false,
+          },
+        ],
+        page: 1,
+        pageSize: 25,
+        total: 1,
+      },
+      () => { listed = true; },
+      (orgId, jobId, actor) => {
+        capturedGetById = { orgId, jobId, userId: actor.userId, role: actor.role };
+      }
+    );
+    const provider = createDispatchProvider({}, jobsService);
+
+    const result = await provider.fetch(baseInput({ orgId: "org-42", actor: { userId: "tech-1", role: "technician" }, selectedScope: { jobId: "job-9", projectId: "project-broader" } }));
+
+    expect(listed).toBe(false);
+    expect(capturedGetById).toEqual({ orgId: "org-42", jobId: "job-9", userId: "tech-1", role: "technician" });
+    expect(result.data.jobs.map((job) => job.jobId)).toEqual(["job-9"]);
+    expect(result.data.total).toBe(1);
   });
 
   it("caps pageSize at the provider's own maxItems so itemCount never exceeds the declared budget", async () => {

@@ -27,12 +27,10 @@ describe("athena context provider registry", () => {
       expect(() => registry.register(createTestContextProvider({ id: "tradeos.athena.context.fixture.two", section: "knowledgeEngine" }))).toThrow(/already owned by/);
     });
 
-    it("allows two distinct versions of the same provider id to coexist", () => {
+    it("rejects two active versions of the same provider id for the same section", () => {
       const registry = createAthenaContextRegistry();
       registry.register(createTestContextProvider({ version: "1.0.0" }));
-      registry.register(createTestContextProvider({ version: "2.0.0" }));
-      expect(registry.resolve("tradeos.athena.context.fixture.test", "1.0.0")).toBeDefined();
-      expect(registry.resolve("tradeos.athena.context.fixture.test", "2.0.0")).toBeDefined();
+      expect(() => registry.register(createTestContextProvider({ version: "2.0.0" }))).toThrow(/already owned by/);
     });
 
     it("rejects registration with an unrecognized section name", () => {
@@ -63,6 +61,11 @@ describe("athena context provider registry", () => {
     it("rejects registration with an invalid failureBehavior", () => {
       const registry = createAthenaContextRegistry();
       expect(() => registry.register(fixtureWith({ failureBehavior: "retry" as never }))).toThrow(/failureBehavior/);
+    });
+
+    it("rejects a critical provider that does not stop assembly on failure", () => {
+      const registry = createAthenaContextRegistry();
+      expect(() => registry.register(fixtureWith({ criticality: "critical", failureBehavior: "degrade" }))).toThrow(/criticality/);
     });
 
     it.each(["Tradeos.Athena.Context.Fixture", "tradeos context fixture", "", "tradeoscontextfixture"])("rejects an invalid provider id: %j", (id) => {

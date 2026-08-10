@@ -58,7 +58,7 @@ function toContextJob(job: JobSummaryDTO): AthenaDispatchContextJob {
   };
 }
 
-export function createDispatchProvider(overrides: Partial<AthenaContextProviderDefinition<AthenaDispatchContextData>> = {}, jobsService: Pick<JobsService, "list"> = new JobsService()): AthenaContextProviderDefinition<AthenaDispatchContextData> {
+export function createDispatchProvider(overrides: Partial<AthenaContextProviderDefinition<AthenaDispatchContextData>> = {}, jobsService: Pick<JobsService, "getById" | "list"> = new JobsService()): AthenaContextProviderDefinition<AthenaDispatchContextData> {
   return {
     id: "tradeos.athena.context.dispatch",
     version: "1.0.0",
@@ -87,6 +87,14 @@ export function createDispatchProvider(overrides: Partial<AthenaContextProviderD
     failureBehavior: "degrade",
     async fetch(input): Promise<AthenaContextProviderFetchResult<AthenaDispatchContextData>> {
       const auth: AuthContext = { userId: input.actor.userId, orgId: input.orgId, role: input.actor.role, canonicalRole: input.actor.role };
+      if (input.selectedScope.jobId) {
+        const job = await jobsService.getById(input.orgId, input.selectedScope.jobId, auth);
+        return {
+          data: { jobs: [toContextJob(job)], total: 1 },
+          itemCount: 1,
+          omittedFields: ["customer.email", "customer.phone", "assignedTechnicians"],
+        };
+      }
       const result = await jobsService.list({
         orgId: input.orgId,
         auth,

@@ -21,7 +21,7 @@ import {
 } from "./types";
 
 class AthenaContextProviderAbortedError extends Error {
-  constructor(public readonly reason: "timeout" | "client_cancelled") {
+  constructor(public readonly reason: "timeout" | "cancelled") {
     super(`Athena context provider fetch aborted: ${reason}`);
   }
 }
@@ -42,14 +42,14 @@ async function raceWithTimeout<T>(work: (signal: AbortSignal) => Promise<T>, tim
     rejectAbort = reject;
   });
 
-  const fireAbort = (reason: "timeout" | "client_cancelled") => {
+  const fireAbort = (reason: "timeout" | "cancelled") => {
     if (settled) return;
     settled = true;
     controller.abort();
     rejectAbort(new AthenaContextProviderAbortedError(reason));
   };
 
-  const onClientAbort = () => fireAbort("client_cancelled");
+  const onClientAbort = () => fireAbort("cancelled");
   clientSignal?.addEventListener("abort", onClientAbort);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -141,6 +141,17 @@ function warningForFailure(reason: string, providerId: string): AthenaWarning {
   }
 }
 
+function cacheHitSection(section: AthenaProviderSection): AthenaProviderSection {
+  return {
+    ...section,
+    freshness: {
+      ...section.freshness,
+      status: "fresh",
+      cacheHit: true,
+    },
+  };
+}
+
 // Orchestrates context assembly (docs/athena/roadmap/
 // A3-context-engine-implementation-plan.md "Required Backend Seams" /
 // "Degraded And Partial Context"). Iterates registry.list() (not
@@ -176,11 +187,22 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
     }
 
     const scopedInput = { selectedScope: request.selectedScope };
-    const cacheKey = provider.cacheKeyPolicy === "tenant_actor_permission_input" ? buildAthenaContextCacheKey({ orgId: request.orgId, actorUserId: request.actor.userId, permissions: provider.permissions, providerId: provider.id, providerVersion: provider.version, scopedInput }) : undefined;
+    const cacheKey =
+      provider.cacheKeyPolicy === "tenant_actor_permission_input"
+        ? buildAthenaContextCacheKey({
+            orgId: request.orgId,
+            actorUserId: request.actor.userId,
+            actorRole: request.actor.role,
+            effectivePermissions: request.permissions,
+            providerId: provider.id,
+            providerVersion: provider.version,
+            scopedInput,
+          })
+        : undefined;
 
     const cached = cacheKey ? cache.get(cacheKey) : undefined;
     if (cached) {
-      sections[provider.section] = { ...cached, freshness: { ...cached.freshness, cacheHit: true } };
+      sections[provider.section] = cacheHitSection(cached);
       audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "activated" });
       continue;
     }
@@ -249,7 +271,7 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
       continue;
     }
 
-    if (provider.failureBehavior === "stop") {
+    if (provider.criticality === "critical" || provider.failureBehavior === "stop") {
       stoppedByCriticalFailure = true;
       warnings.push(athenaContextCriticalProviderFailureWarning(provider.id));
       audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "stopped_by_critical_failure" });

@@ -85,6 +85,9 @@ export function assertValidProviderDefinition(definition: AthenaContextProviderD
   if (!VALID_FAILURE_BEHAVIORS.has(definition.failureBehavior)) {
     throw new Error(`AthenaContextProviderDefinition.failureBehavior is not valid: ${String(definition.failureBehavior)}`);
   }
+  if (definition.criticality === "critical" && definition.failureBehavior !== "stop") {
+    throw new Error('AthenaContextProviderDefinition.criticality "critical" requires failureBehavior "stop"');
+  }
   if (definition.requiredFeatureFlags !== undefined && !Array.isArray(definition.requiredFeatureFlags)) {
     throw new Error("AthenaContextProviderDefinition.requiredFeatureFlags must be an array when present");
   }
@@ -110,8 +113,11 @@ export function createAthenaContextRegistry(): AthenaContextRegistry {
       }
       // A3 keeps at most one active provider per section (plan: "A section
       // may have at most one active provider registered at a time in A3").
+      // That includes multiple versions of the same provider id: without an
+      // explicit activation model, two versions would both fetch and race to
+      // overwrite the same section key during assembly.
       const existingOwner = sectionOwners.get(definition.section);
-      if (existingOwner && existingOwner !== definition.id) {
+      if (existingOwner) {
         throw new Error(`Athena context section "${definition.section}" is already owned by ${existingOwner}, cannot also register ${definition.id}`);
       }
       entries.set(entryKey, definition);

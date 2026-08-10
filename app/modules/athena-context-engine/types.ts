@@ -80,6 +80,10 @@ export interface AthenaContextDiscoveryActor {
 export interface AthenaContextAssemblyRequest {
   orgId: string;
   actor: { userId: string; role: CanonicalRole };
+  // Server-derived effective permission snapshot for this actor at assembly
+  // time. It is used for cache partitioning so role/grant changes cannot reuse
+  // context assembled under an earlier permission state.
+  permissions: string[];
   selectedScope: AthenaSelectedScope;
   featureFlags: string[];
   // Which lazy_intent providers may activate this assembly - matched
