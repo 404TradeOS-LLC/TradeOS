@@ -12,6 +12,10 @@ export default function DashboardLoading() {
           <div key={index} className="h-24 animate-pulse rounded-xl border border-border/70 bg-muted/30" />
         ))}
       </div>
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="h-64 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+        <div className="h-64 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+      </div>
       <div className="h-40 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
     </div>
   );

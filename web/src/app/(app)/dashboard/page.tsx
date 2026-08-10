@@ -5,7 +5,9 @@ import {
   getKnowledgeStats,
   getOrganizationSettings,
   getProject,
+  listActivityEvents,
   listJobsForDispatch,
+  listOrganizationProjectTasks,
   listProjects,
   toInclusiveEndBoundary,
   type DispatchJob,
@@ -14,10 +16,10 @@ import {
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { isTerminalStatus, jobStatuses } from "@/domain";
 import {
   NeedsAttentionCard,
@@ -27,11 +29,13 @@ import {
   type AttentionStartRow,
 } from "@/components/dashboard/needs-attention-card";
 import { AIAssistantPlaceholderPanel } from "@/components/dashboard/ai-assistant-placeholder-panel";
+import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
 import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
 import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
 import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
 import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
 import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
+import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
 import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
 
@@ -44,12 +48,6 @@ const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
 const DASHBOARD_TODAY_JOB_LIMIT = 5;
 const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
 
-// Reuses the same dispatch endpoints the /dispatch workspace itself calls
-// (dispatch-summary for the org-timezone-aware "today" boundary, then the
-// jobs list scoped to it) so the dashboard's "Today" section is never a
-// second, divergent source of truth for what "today" means. Failure here
-// degrades to an empty schedule rather than crashing the dashboard, matching
-// the existing resilience pattern used for the knowledge-stats panel below.
 async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
   try {
     const summary = await getDispatchSummary(token);
@@ -64,10 +62,6 @@ async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[];
   }
 }
 
-// Proposal money fields come off the wire as Prisma Decimal-serialized
-// strings on this endpoint (unlike estimates/invoices, which are normalized
-// server-side) - coerce before arithmetic so `sum + amount` doesn't silently
-// string-concatenate.
 function toProposalAmount(proposal: { finalPrice: number | null; priceHigh: number | null; priceLow: number | null }): number | null {
   const raw = proposal.finalPrice ?? proposal.priceHigh ?? proposal.priceLow;
   if (raw == null) return null;
@@ -141,10 +135,6 @@ export default async function DashboardPage() {
   const [projectDetails, knowledgeStats, todaySchedule] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
-        // Knowledge Engine stats are a supplementary panel, not a core
-        // dashboard dependency (the UI already renders "Unavailable" for
-        // null below) — a failure here must never crash the entire
-        // dashboard render into the generic error boundary.
         getKnowledgeStats(token).catch(() => null),
         loadTodaySchedule(token),
       ])
@@ -154,6 +144,23 @@ export default async function DashboardPage() {
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
   const companyName = settings.companyName;
   const timeZone = getSafeTimeZone(settings.timezone);
+  let dashboardTasksError: string | null = null;
+  let taskActivityError: string | null = null;
+  const dashboardTasks = token
+    ? await listOrganizationProjectTasks(token, { includeCompleted: true }).catch((error: unknown) => {
+        dashboardTasksError = error instanceof Error ? error.message : "Task feed request failed";
+        return [];
+      })
+    : [];
+  const taskActivityEntries = token
+    ? await listActivityEvents(token, { entityType: "task", limit: 8 })
+        .then((events) => buildTaskActivityEntries(events))
+        .catch((error: unknown) => {
+          taskActivityError = error instanceof Error ? error.message : "Task activity request failed";
+          return [];
+        })
+    : [];
+  const dashboardTaskSnapshot = buildDashboardTaskSnapshot(dashboardTasks, now, timeZone);
   const projectScopeLabel = getProjectScopeLabel(projectDetails.length);
   const currentDateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -165,9 +172,10 @@ export default async function DashboardPage() {
   const actionableJobs = allJobs.filter(isActionableJob);
   const todayLiveJobs = actionableJobs.filter((job) => job.status !== "unscheduled" && isSameDay(job.scheduledStart, now, timeZone)).length;
   const unscheduledJobs = actionableJobs.filter((job) => job.status === "unscheduled" || !job.scheduledStart).length;
-  const overdueTasks = projectDetails
+  const fallbackOverdueTasks = projectDetails
     .flatMap((project) => project.tasks)
     .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now, timeZone)).length;
+  const overdueTasks = dashboardTasksError ? fallbackOverdueTasks : dashboardTaskSnapshot.overdueCount;
   const openEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
   const invoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
@@ -265,17 +273,26 @@ export default async function DashboardPage() {
 
       <OwnerKpiGrid kpis={ownerKpis} />
 
-      <OwnerQuickActions actions={ownerQuickActions} />
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <OwnerTaskBoard tasks={dashboardTasks} now={now} timeZone={timeZone} errorMessage={dashboardTasksError} />
+        <OwnerActivityFeed
+          entries={taskActivityError ? [] : taskActivityEntries}
+          title="Recent task movement"
+          description="Real task activity events from the live task workflow, so the dashboard shows actual movement instead of inferring it from the current row snapshot."
+          emptyState={
+            <EmptyState
+              title={taskActivityError ? "Task activity is temporarily unavailable." : "No recent task movement yet."}
+              description={
+                taskActivityError
+                  ? `${taskActivityError} Open the project workspace directly if you need task detail right away.`
+                  : "Task updates will appear here as the team moves work from to-do through completion."
+              }
+            />
+          }
+        />
+      </div>
 
-      <OwnerActivityFeed
-        entries={[]}
-        emptyState={
-          <EmptyState
-            title="No live owner activity source is connected yet."
-            description="This dashboard foundation does not fabricate customer, job, invoice, or review activity. Live activity can appear here once an authoritative activity feed is wired."
-          />
-        }
-      />
+      <OwnerQuickActions actions={ownerQuickActions} />
 
       <Card className="border-border/70">
         <CardHeader>

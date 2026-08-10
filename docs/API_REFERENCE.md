@@ -116,6 +116,19 @@ Settings asset storage metadata routes under `/api/v1/settings`:
 
 These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
 
+Project task routes under `/api/v1/projects`:
+
+- `GET /api/v1/projects/tasks`
+- `GET /api/v1/projects/:id/tasks`
+- `POST /api/v1/projects/:id/tasks`
+- `PATCH /api/v1/projects/:id/tasks/:taskId`
+- `DELETE /api/v1/projects/:id/tasks/:taskId`
+
+`GET /api/v1/projects/tasks` is the org-scoped task feed used by the owner dashboard. It requires `crm.read`, stays inside the existing bearer-auth + membership + request-scoped DB session stack, and returns task rows with project, customer, and optional job context. Query parameters:
+
+- `limit` — optional integer, `1..50`, default service cap `24`
+- `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+
 ## Detailed module links
 
 - [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)

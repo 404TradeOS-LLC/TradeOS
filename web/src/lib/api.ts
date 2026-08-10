@@ -509,8 +509,35 @@ export interface ProjectTask {
   updatedAt: string;
 }
 
+export interface OrganizationProjectTask extends ProjectTask {
+  projectName: string;
+  projectStatus: ProjectStatus;
+  customerName: string | null;
+  jobTitle: string | null;
+}
+
 export function listProjectTasks(token: string, projectId: string) {
   return apiFetch<ProjectTask[]>(`/api/v1/projects/${projectId}/tasks`, { token });
+}
+
+export function listOrganizationProjectTasks(
+  token: string,
+  input: {
+    limit?: number;
+    includeCompleted?: boolean;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (input.limit) params.set("limit", String(input.limit));
+  if (input.includeCompleted !== undefined) params.set("includeCompleted", String(input.includeCompleted));
+
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return apiFetch<OrganizationProjectTask[]>(`/api/v1/projects/tasks${suffix}`, { token }).then((tasks) =>
+    tasks.map((task) => ({
+      ...task,
+      projectStatus: normalizeStatus(task.projectStatus, legacyProjectStatusMap, projectStatuses, "lead"),
+    }))
+  );
 }
 
 export interface ProposalDelivery {

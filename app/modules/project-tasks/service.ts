@@ -1,8 +1,64 @@
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
-import { CreateProjectTaskInput, ProjectTaskDTO, ProjectTaskStatus, UpdateProjectTaskInput } from "./types";
+import { CreateProjectTaskInput, ListProjectTasksInput, ProjectTaskDTO, ProjectTaskListItemDTO, ProjectTaskStatus, UpdateProjectTaskInput } from "./types";
+
+const TASK_PRIORITY_WEIGHT: Record<ProjectTaskListItemDTO["priority"], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+function toSortableDate(value: Date | null) {
+  return value ? value.getTime() : Number.POSITIVE_INFINITY;
+}
 
 export class ProjectTasksService {
+  async listByOrganization(input: ListProjectTasksInput): Promise<ProjectTaskListItemDTO[]> {
+    const limit = Math.max(1, Math.min(input.limit ?? 24, 50));
+    const rows = await prisma.projectTask.findMany({
+      where: {
+        project: { orgId: input.orgId },
+        ...(input.includeCompleted ? {} : { status: { not: "completed" } }),
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            customer: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        job: {
+          select: {
+            title: true,
+          },
+        },
+      },
+      take: limit,
+      orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    return rows
+      .sort((left, right) => {
+        if (left.status === "completed" && right.status !== "completed") return 1;
+        if (left.status !== "completed" && right.status === "completed") return -1;
+
+        const dueDateDelta = toSortableDate(left.dueDate) - toSortableDate(right.dueDate);
+        if (dueDateDelta !== 0) return dueDateDelta;
+
+        const priorityDelta = TASK_PRIORITY_WEIGHT[left.priority as ProjectTaskListItemDTO["priority"]] - TASK_PRIORITY_WEIGHT[right.priority as ProjectTaskListItemDTO["priority"]];
+        if (priorityDelta !== 0) return priorityDelta;
+
+        return right.updatedAt.getTime() - left.updatedAt.getTime();
+      })
+      .map((row) => toListItemDTO(row));
+  }
+
   async listByProject(projectId: string, orgId?: string): Promise<ProjectTaskDTO[]> {
     const rows = await prisma.projectTask.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
@@ -100,5 +156,38 @@ function toDTO(row: {
     completedAt: row.completedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toListItemDTO(row: {
+  id: string;
+  projectId: string;
+  jobId: string | null;
+  title: string;
+  status: string;
+  assignedTo: string | null;
+  dueDate: Date | null;
+  priority: string;
+  notes: string | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  project: {
+    name: string;
+    status: string;
+    customer: {
+      name: string;
+    } | null;
+  };
+  job: {
+    title: string;
+  } | null;
+}): ProjectTaskListItemDTO {
+  return {
+    ...toDTO(row),
+    projectName: row.project.name,
+    projectStatus: row.project.status,
+    customerName: row.project.customer?.name ?? null,
+    jobTitle: row.job?.title ?? null,
   };
 }

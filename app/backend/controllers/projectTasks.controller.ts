@@ -6,6 +6,11 @@ import { projectTaskPriorities, projectTaskStatuses } from "../../modules/projec
 
 const service = new ProjectTasksService();
 
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  includeCompleted: z.coerce.boolean().optional(),
+});
+
 const createSchema = z.object({
   jobId: z.string().uuid().optional(),
   title: z.string().min(1),
@@ -26,6 +31,18 @@ const updateSchema = z.object({
 });
 
 export const projectTasksController = {
+  async listByOrganization(req: Request, res: Response) {
+    requirePermissions(req, ["crm.read"]);
+    const query = listQuerySchema.parse(req.query);
+    res.json(
+      await service.listByOrganization({
+        orgId: requireOrgId(req),
+        limit: query.limit,
+        includeCompleted: query.includeCompleted,
+      })
+    );
+  },
+
   async listByProject(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
     res.json(await service.listByProject(req.params.id, requireOrgId(req)));
