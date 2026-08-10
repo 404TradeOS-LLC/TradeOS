@@ -117,6 +117,22 @@ async function fetchNoRedirect(path) {
   return { response, body };
 }
 
+// Next.js App Router's redirect() thrown inside a streamed/PPR Server
+// Component render doesn't always produce a classic top-level 3xx: the
+// static shell can be served as 200 while a dynamic hole resolves and
+// signals the redirect through the streamed RSC payload instead. That
+// payload embeds a "NEXT_REDIRECT;<type>;<path>;<statusCode>;" digest, and
+// the document also carries a <meta http-equiv="refresh"> fallback
+// (id="__next-page-redirect") for clients that never run the JS. Either
+// marker pointing at /login means the auth boundary held even though the
+// wire-level status code is 200, not 3xx.
+const NEXT_REDIRECT_DIGEST_TO_LOGIN_RE = /NEXT_REDIRECT[^"']*;\/login;\d+/;
+const META_REFRESH_TO_LOGIN_RE = /http-equiv=\\?"refresh\\?"[^>]*url=\/login/i;
+
+function isStreamedRedirectToLogin(body) {
+  return NEXT_REDIRECT_DIGEST_TO_LOGIN_RE.test(body) || META_REFRESH_TO_LOGIN_RE.test(body);
+}
+
 async function checkRoute({ path, expect }) {
   let response;
   let body;
@@ -134,13 +150,16 @@ async function checkRoute({ path, expect }) {
     case "ok":
       logResult(status === 200, `${path} returns 200`, `got ${status}`);
       break;
-    case "redirect-to-login":
+    case "redirect-to-login": {
+      const isClassicRedirect = status >= 300 && status < 400 && !!location && location.includes("/login");
+      const isStreamedRedirect = status === 200 && isStreamedRedirectToLogin(body);
       logResult(
-        status >= 300 && status < 400 && !!location && location.includes("/login"),
+        isClassicRedirect || isStreamedRedirect,
         `${path} redirects unauthenticated requests to /login`,
-        `got ${status} location=${location ?? "(none)"}`
+        isClassicRedirect ? `got ${status} location=${location}` : isStreamedRedirect ? `got ${status} with a streamed redirect to /login` : `got ${status} location=${location ?? "(none)"}`
       );
       break;
+    }
     case "not-found":
       logResult(status === 404, `${path} returns 404`, `got ${status}`);
       break;
