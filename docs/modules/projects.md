@@ -40,9 +40,15 @@ Operational relationship:
 ## Routes
 
 - `GET|POST /api/v1/projects`
+- `GET /api/v1/projects/tasks`
 - `GET|PATCH /api/v1/projects/:id`
 - `PATCH /api/v1/projects/:id/status`
 - project site-visit, file, and task sub-routes under `/api/v1/projects/:id/*`
+
+Task route details:
+
+- `GET /api/v1/projects/tasks` returns an org-scoped task list with project/customer/job context for dashboard and operational queue surfaces; it reuses `app/modules/project-tasks/service.ts` and the existing request auth + org/RLS middleware path rather than creating a dashboard-only task store
+- `GET /api/v1/projects/:id/tasks` remains the per-project task list for the project workspace
 
 ## Permissions
 

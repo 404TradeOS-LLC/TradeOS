@@ -40,3 +40,16 @@ export interface ProjectTaskDTO {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ListProjectTasksInput {
+  orgId: string;
+  limit?: number;
+  includeCompleted?: boolean;
+}
+
+export interface ProjectTaskListItemDTO extends ProjectTaskDTO {
+  projectName: string;
+  projectStatus: string;
+  customerName: string | null;
+  jobTitle: string | null;
+}

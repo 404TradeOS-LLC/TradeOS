@@ -76,6 +76,14 @@ readiness (PR #93, untouched by this work).
 - Status at handoff time: implementation complete, PR pending. Update this
   entry (or remove it once merged) rather than leaving it stale.
 
+- Follow-up on the owner dashboard: the same branch now adds a live org-scoped
+  task feed and real task activity without touching Athena surfaces.
+  `GET /api/v1/projects/tasks` serves prioritized project/customer/job-backed
+  tasks through the existing auth + org + DB-session middleware stack, and the
+  dashboard uses it for the "Tasks To Move" queue, overdue-task KPI truth, and
+  recent task movement panel while preserving the live dispatch-backed Today
+  schedule already present on `main`.
+
 ## Next Eligible Sprint
 
 Sprint ID: S006

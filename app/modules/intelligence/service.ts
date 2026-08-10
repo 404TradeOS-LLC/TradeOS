@@ -309,8 +309,10 @@ export class GlobalSearchService {
 }
 
 export class ActivityTimelineService {
+  constructor(private readonly db: typeof prisma = prisma) {}
+
   async list(filters: ActivityFilters): Promise<ActivityEventDTO[]> {
-    const rows = await prisma.activityEvent.findMany({
+    const rows = await this.db.activityEvent.findMany({
       where: {
         orgId: filters.orgId,
         entityType: filters.entityType,
@@ -325,7 +327,7 @@ export class ActivityTimelineService {
   }
 
   async record(input: CreateActivityEventInput): Promise<ActivityEventDTO> {
-    const row = await prisma.activityEvent.create({
+    const row = await this.db.activityEvent.create({
       data: {
         orgId: input.orgId,
         entityType: input.entityType,
