@@ -63,26 +63,42 @@ export const athenaController = {
     const canonicalRole = normalizeRole(auth.role);
     const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : randomUUID();
 
+    // res (ServerResponse), not req (IncomingMessage), is the correct
+    // client-disconnect signal here: req's "close" fires once the request
+    // has been fully received - which happens before this controller even
+    // runs, since body-parsing middleware precedes route handlers - and
+    // says nothing about whether the client is still connected while Athena
+    // is generating the response. res only closes early (before
+    // writableEnded) when the client actually disconnects mid-response.
     const controller = new AbortController();
-    req.once("close", () => controller.abort());
+    const onResponseClose = () => {
+      if (!res.writableEnded) {
+        controller.abort();
+      }
+    };
+    res.once("close", onResponseClose);
 
-    const result = await service.handleRequest({
-      request: {
-        message: body.message,
-        conversationId: body.conversationId,
-        selectedScope: body.selectedScope,
-        requestSource: "http",
-      },
-      actor: {
-        userId: auth.userId,
-        orgId,
-        role: canonicalRole,
-        permissions: [...getRolePermissions(canonicalRole)],
-      },
-      requestId,
-      clientSignal: controller.signal,
-    });
+    try {
+      const result = await service.handleRequest({
+        request: {
+          message: body.message,
+          conversationId: body.conversationId,
+          selectedScope: body.selectedScope,
+          requestSource: "http",
+        },
+        actor: {
+          userId: auth.userId,
+          orgId,
+          role: canonicalRole,
+          permissions: [...getRolePermissions(canonicalRole)],
+        },
+        requestId,
+        clientSignal: controller.signal,
+      });
 
-    res.status(resolveStatusCode(result)).json(result);
+      res.status(resolveStatusCode(result)).json(result);
+    } finally {
+      res.removeListener("close", onResponseClose);
+    }
   },
 };

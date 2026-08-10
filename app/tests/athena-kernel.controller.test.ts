@@ -14,13 +14,25 @@ import { athenaController } from "../backend/controllers/athena.controller";
 import { ApiError } from "../backend/middleware/errorHandler";
 
 function responseDouble() {
+  const listeners: Record<string, (() => void) | undefined> = {};
   const res = {
     locals: {} as Record<string, unknown>,
+    writableEnded: false,
     status: jest.fn(),
     json: jest.fn(),
+    // The controller listens on res (not req) "close" to detect a client
+    // disconnecting mid-response - this double lets a test fire that event
+    // manually via emitClose().
+    once: jest.fn((event: string, listener: () => void) => {
+      listeners[event] = listener;
+    }),
+    removeListener: jest.fn((event: string) => {
+      listeners[event] = undefined;
+    }),
+    emitClose: () => listeners.close?.(),
   };
   res.status.mockReturnValue(res);
-  return res as unknown as { locals: Record<string, unknown>; status: jest.Mock; json: jest.Mock };
+  return res as unknown as { locals: Record<string, unknown>; writableEnded: boolean; status: jest.Mock; json: jest.Mock; once: jest.Mock; removeListener: jest.Mock; emitClose: () => void };
 }
 
 function fakeRequest(overrides: Record<string, unknown> = {}) {
@@ -30,7 +42,6 @@ function fakeRequest(overrides: Record<string, unknown> = {}) {
     body: { message: "What is the status of this project?" },
     orgId: "org-1",
     auth: { userId: "user-1", orgId: "org-1", role: "owner" },
-    once: jest.fn(),
     ...overrides,
   } as unknown as Parameters<typeof athenaController.chat>[0];
 }
@@ -109,5 +120,48 @@ describe("athenaController.chat", () => {
     await athenaController.chat(req, res as never);
 
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("aborts the kernel's clientSignal when the response closes early (client disconnect), not on req close", async () => {
+    isAthenaKernelEnabled.mockReturnValue(true);
+    let capturedSignal: AbortSignal | undefined;
+    const req = fakeRequest();
+    const res = responseDouble();
+    handleRequest.mockImplementation(async ({ clientSignal }: { clientSignal: AbortSignal }) => {
+      capturedSignal = clientSignal;
+      // Fire the response's close event while the kernel call is still
+      // "in flight" from the controller's point of view, mirroring a real
+      // client disconnect mid-request.
+      res.emitClose();
+      return { success: false, state: "cancelled", executionId: "exec-1", traceId: "trace-1", summary: "cancelled", message: null, warnings: [], followUps: [], telemetry: { traceId: "trace-1", executionId: "exec-1" }, error: { code: "athena_client_closed", category: "timeout", retryable: false, safeSummary: "cancelled", correlationId: "trace-1" } };
+    });
+
+    await athenaController.chat(req, res as never);
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(res.once).toHaveBeenCalledWith("close", expect.any(Function));
+    expect(res.removeListener).toHaveBeenCalledWith("close", expect.any(Function));
+  });
+
+  it("does not abort when res 'close' fires after the response has already been fully sent", async () => {
+    isAthenaKernelEnabled.mockReturnValue(true);
+    let capturedSignal: AbortSignal | undefined;
+    const req = fakeRequest();
+    const res = responseDouble();
+    handleRequest.mockImplementation(async ({ clientSignal }: { clientSignal: AbortSignal }) => {
+      capturedSignal = clientSignal;
+      // The listener is still attached at this point (removed only in the
+      // controller's finally block, after this promise resolves) - firing
+      // close here with writableEnded already true simulates the ordinary
+      // "response finished, then the connection closed" case rather than a
+      // genuine mid-response disconnect.
+      res.writableEnded = true;
+      res.emitClose();
+      return { success: true, state: "succeeded", executionId: "exec-1", traceId: "trace-1", summary: "ok", message: null, warnings: [], followUps: [], telemetry: { traceId: "trace-1", executionId: "exec-1" } };
+    });
+
+    await athenaController.chat(req, res as never);
+
+    expect(capturedSignal?.aborted).toBe(false);
   });
 });

@@ -29,11 +29,18 @@ import { athenaController } from "../backend/controllers/athena.controller";
 function responseDouble() {
   const res = {
     locals: {} as Record<string, unknown>,
+    writableEnded: false,
     status: jest.fn(),
     json: jest.fn(),
+    // The controller listens on res (not req) "close" to detect a client
+    // disconnecting mid-response; a no-op double is enough here since this
+    // gate only exercises the authenticated no-op/draft path, not
+    // cancellation wiring (covered in athena-kernel.controller.test.ts).
+    once: jest.fn(),
+    removeListener: jest.fn(),
   };
   res.status.mockReturnValue(res);
-  return res as unknown as { locals: Record<string, unknown>; status: jest.Mock; json: jest.Mock };
+  return res as unknown as { locals: Record<string, unknown>; writableEnded: boolean; status: jest.Mock; json: jest.Mock; once: jest.Mock; removeListener: jest.Mock };
 }
 
 describe("athena:smoke - authenticated no-op/draft path", () => {

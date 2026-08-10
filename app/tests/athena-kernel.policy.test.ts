@@ -47,5 +47,19 @@ describe("athena kernel policy adapter", () => {
       expect(classifyAthenaCapability("Please approve this estimate")).toBe("mutate_business_record");
       expect(classifyAthenaCapability("Schedule a technician for tomorrow")).toBe("mutate_business_record");
     });
+
+    it("does not treat a read-only business-object noun as a mutation request", () => {
+      // "invoice" alone is a noun, not an action - a genuine
+      // invoice-mutation request pairs with an actual verb ("send"/
+      // "create"/"pay"/"charge"), which is covered by the case above.
+      expect(classifyAthenaCapability("Which invoices are overdue?")).toBe("draft_response");
+      expect(classifyAthenaCapability("What's the total on this invoice?")).toBe("draft_response");
+    });
+
+    it("matches keywords on word boundaries, not as substrings of unrelated words", () => {
+      expect(classifyAthenaCapability("Can you help me design a proposal layout?")).toBe("draft_response"); // "sign" inside "design"
+      expect(classifyAthenaCapability("What's my payment history?")).toBe("draft_response"); // "pay" inside "payment"
+      expect(classifyAthenaCapability("Who is the assignment for?")).toBe("draft_response"); // "assign" inside "assignment"
+    });
   });
 });

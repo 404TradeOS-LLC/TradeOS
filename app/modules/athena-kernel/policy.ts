@@ -52,27 +52,18 @@ export function evaluateAthenaPolicy(input: AthenaPolicyInput): AthenaPermission
 // A5"); this only has to distinguish "produce a draft/no-op response" from
 // "asks Athena to change a business record" so mutation requests are denied
 // deterministically rather than silently drafted.
-const mutationKeywords = [
-  "send",
-  "delete",
-  "remove",
-  "cancel",
-  "approve",
-  "reject",
-  "charge",
-  "pay",
-  "invoice",
-  "schedule",
-  "dispatch",
-  "assign",
-  "create",
-  "update",
-  "sign",
-  "book",
-];
+//
+// Only action verbs, not business-object nouns: "invoice" was deliberately
+// removed (a read-only "which invoices are overdue?" is not a mutation
+// request, and any genuine invoice-mutation request already pairs with an
+// actual verb below - "send"/"create"/"pay"/"charge" the invoice). Matching
+// is word-boundary, not substring - plain .includes() previously matched
+// "sign" inside "design" and "pay" inside "payment", denying unrelated
+// read-only questions.
+const mutationKeywords = ["send", "delete", "remove", "cancel", "approve", "reject", "charge", "pay", "schedule", "dispatch", "assign", "create", "update", "sign", "book"];
+
+const mutationKeywordPattern = new RegExp(`\\b(?:${mutationKeywords.join("|")})\\b`, "i");
 
 export function classifyAthenaCapability(message: string): AthenaCapability {
-  const normalized = message.toLowerCase();
-  const looksLikeMutation = mutationKeywords.some((keyword) => normalized.includes(keyword));
-  return looksLikeMutation ? "mutate_business_record" : "draft_response";
+  return mutationKeywordPattern.test(message) ? "mutate_business_record" : "draft_response";
 }
