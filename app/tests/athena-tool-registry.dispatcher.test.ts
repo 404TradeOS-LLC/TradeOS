@@ -142,6 +142,44 @@ describe("athena tool dispatcher", () => {
     expect(denied.audit.reasonCode).toBe("authorization_denied");
   });
 
+  it.each(["medium", "high"] as const)("blocks a %s-risk tool with full permissions behind approval_required and never calls execute()", async (risk) => {
+    const registry = createAthenaToolRegistry();
+    let executed = false;
+    registry.register(createEchoFixtureTool({ id: `tradeos.athena.fixture.risky-${risk}`, risk, onExecuted: () => { executed = true; } }));
+
+    const outcome = await dispatchAthenaTool(registry, buildRequest({ toolId: `tradeos.athena.fixture.risky-${risk}`, role: "owner" }));
+
+    expect(executed).toBe(false);
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.error?.code).toBe("athena_tool_not_found");
+    expect(outcome.audit.reasonCode).toBe("approval_required");
+  });
+
+  it("gives a risk-blocked tool the same public error shape as an unknown tool, distinguished only in the internal audit", async () => {
+    const registry = createAthenaToolRegistry();
+    registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.risky-high", risk: "high" }));
+
+    const unknown = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.nope" }));
+    const riskBlocked = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.risky-high", role: "owner" }));
+
+    expect(riskBlocked.result.error?.code).toBe(unknown.result.error?.code);
+    expect(riskBlocked.result.error?.category).toBe(unknown.result.error?.category);
+    expect(riskBlocked.result.error?.retryable).toBe(unknown.result.error?.retryable);
+    expect(riskBlocked.result.error?.safeSummary).toBe(unknown.result.error?.safeSummary);
+    expect(riskBlocked.audit.reasonCode).toBe("approval_required");
+    expect(unknown.audit.reasonCode).toBe("tool_not_found");
+  });
+
+  it("still dispatches a low-risk tool with full permissions (risk-gating regression guard)", async () => {
+    const registry = createAthenaToolRegistry();
+    registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.risky-low", risk: "low" }));
+
+    const outcome = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.risky-low", role: "owner" }));
+
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.audit.reasonCode).toBe("dispatched");
+  });
+
   it("hides tool_version_not_found from an unauthorized caller behind the same not-found shape used for unknown ids", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.needs-billing", version: "1.0.0", permissions: ["billing.write"] }));

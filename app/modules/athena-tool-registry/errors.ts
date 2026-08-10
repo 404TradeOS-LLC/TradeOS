@@ -30,7 +30,11 @@ const NOT_FOUND_SAFE_SUMMARY = "That Athena tool is not available.";
 // reasonCode differs, and only the audit record ever sees it. This prevents
 // a registry-existence oracle (docs/athena/roadmap/
 // A2-tool-registry-implementation-plan.md "Registry-enumeration risk").
-export function athenaToolNotFoundError(correlationId: string, reasonCode: "tool_not_found" | "authorization_denied" = "tool_not_found"): AthenaToolDispatchError {
+// A4 adds "approval_required" to this same not-found-shaped factory for the
+// identical reason: a caller who is permission-granted but risk-blocked
+// must not learn that fact through a distinguishable error shape, only the
+// audit record should differ.
+export function athenaToolNotFoundError(correlationId: string, reasonCode: "tool_not_found" | "authorization_denied" | "approval_required" = "tool_not_found"): AthenaToolDispatchError {
   return new AthenaToolDispatchError(reasonCode, buildError("athena_tool_not_found", "validation", false, NOT_FOUND_SAFE_SUMMARY, correlationId));
 }
 

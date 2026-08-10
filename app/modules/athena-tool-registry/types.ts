@@ -99,6 +99,7 @@ export type AthenaToolDispatchReasonCode =
   | "tool_version_not_found"
   | "tool_removed"
   | "authorization_denied"
+  | "approval_required"
   | "invalid_input"
   | "timeout"
   | "cancelled"

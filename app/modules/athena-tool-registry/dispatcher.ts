@@ -12,6 +12,7 @@ import {
   athenaToolVersionNotFoundError,
 } from "./errors";
 import { evaluateAthenaToolPolicy, hasAllRequiredFeatureFlags } from "./policy";
+import type { AthenaToolPolicyDecision } from "./policy";
 import type { AthenaToolRegistry } from "./registry";
 import { assertValidAthenaToolResult } from "./resultEnvelope";
 import { AthenaToolDispatchAudit, AthenaToolDispatchOutcome, AthenaToolError, AthenaToolResult, AthenaToolRisk } from "./types";
@@ -103,13 +104,20 @@ async function raceWithTimeout<T>(work: (signal: AbortSignal) => Promise<T>, tim
   }
 }
 
-// Whether request.role/featureFlags satisfy a specific tool's declared
-// requirements - the same gate used both for the "found" happy path and to
-// decide whether an unauthorized caller may see tool_version_not_found
-// instead of the folded-in not-found shape (see "Hide version resolution
-// from unauthorized callers" above).
-function isAuthorizedFor(candidate: { permissions: string[]; risk: AthenaToolRisk; requiredFeatureFlags?: string[] }, request: Pick<AthenaToolDispatchRequest, "role" | "featureFlags">): boolean {
-  return hasAllRequiredFeatureFlags(candidate.requiredFeatureFlags, request.featureFlags) && evaluateAthenaToolPolicy(request.role, candidate).decision === "allow";
+// Resolves request.role/featureFlags against a specific tool's declared
+// requirements into the same tri-state decision used both for the "found"
+// happy path and to decide whether an unauthorized caller may see
+// tool_version_not_found instead of the folded-in not-found shape (see
+// "Hide version resolution from unauthorized callers" above). A missing
+// feature flag always forces "deny" even if risk would otherwise only
+// require approval - flag gating controls whether a caller may know the
+// tool exists at all, which is a stronger requirement than risk approval.
+function resolveDispatchDecision(candidate: { permissions: string[]; risk: AthenaToolRisk; requiredFeatureFlags?: string[] }, request: Pick<AthenaToolDispatchRequest, "role" | "featureFlags">): AthenaToolPolicyDecision {
+  const policyDecision = evaluateAthenaToolPolicy(request.role, candidate);
+  if (!hasAllRequiredFeatureFlags(candidate.requiredFeatureFlags, request.featureFlags)) {
+    return { ...policyDecision, decision: "deny" };
+  }
+  return policyDecision;
 }
 
 function buildFailureResult<TData>(error: AthenaToolError, traceId: string, executionId: string): AthenaToolResult<TData> {
@@ -143,12 +151,15 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     if (resolution.outcome === "tool_removed") throw athenaToolRemovedError(correlationId);
     if (resolution.outcome === "tool_version_not_found") {
       // The specific "wrong version" shape is only exposed once the caller
-      // is authorized for at least one version that actually exists under
-      // this id - otherwise an unauthorized caller could enumerate
-      // registered tool IDs by probing arbitrary versions and comparing
-      // athena_tool_version_not_found against athena_tool_not_found.
-      const authorizedForKnownVersion = resolution.knownVersions.some((candidate) => isAuthorizedFor(candidate, request));
-      if (!authorizedForKnownVersion) {
+      // is at least known (allow or approval_required) for one version that
+      // actually exists under this id - otherwise an unauthorized caller
+      // could enumerate registered tool IDs by probing arbitrary versions
+      // and comparing athena_tool_version_not_found against
+      // athena_tool_not_found. A caller only blocked on risk approval still
+      // legitimately knows the tool exists (they hold every required
+      // permission), so "approval_required" counts as known here too.
+      const knownToCaller = resolution.knownVersions.some((candidate) => resolveDispatchDecision(candidate, request).decision !== "deny");
+      if (!knownToCaller) {
         throw athenaToolNotFoundError(correlationId, "authorization_denied");
       }
       throw athenaToolVersionNotFoundError(correlationId);
@@ -156,14 +167,19 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
 
     const tool = resolution.definition;
 
-    // A flag-gated tool a caller doesn't have yet is folded into the same
-    // not-found shape as a permission denial, for the same
-    // registry-enumeration reason (see policy check below).
-    if (!isAuthorizedFor(tool, request)) {
+    // A flag-gated or permission-denied tool is folded into the same
+    // not-found shape as an unknown tool, for the registry-enumeration
+    // reason above. A risk-blocked (but otherwise permission-granted) tool
+    // gets the same not-found shape too, distinguished only in the internal
+    // audit reasonCode - no A6 approval executor exists yet to route
+    // approval_required to, so it does not execute either way.
+    const policyDecision = resolveDispatchDecision(tool, request);
+    if (policyDecision.decision === "deny") {
       throw athenaToolNotFoundError(correlationId, "authorization_denied");
     }
-
-    const policyDecision = evaluateAthenaToolPolicy(request.role, tool);
+    if (policyDecision.decision === "approval_required") {
+      throw athenaToolNotFoundError(correlationId, "approval_required");
+    }
 
     if (!isZodLikeSchema(tool.inputSchema)) {
       // Registration already guarantees this (registry.ts's
