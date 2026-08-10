@@ -16,7 +16,7 @@ export type { AthenaFreshnessEvidence, AthenaProviderSection, AthenaSelectedScop
 // assembler from writing an arbitrary provider-supplied key onto the
 // context object - every section this catalog allows already exists as a
 // named optional field on AthenaAIContext.
-export const ATHENA_CONTEXT_SECTIONS = ["knowledgeEngine", "dispatch", "weather", "calendar", "customers", "costbook", "inventory", "notifications"] as const;
+export const ATHENA_CONTEXT_SECTIONS = ["knowledgeEngine", "dispatch", "weather", "calendar", "customers", "costbook", "inventory", "notifications", "memory"] as const;
 export type AthenaContextSectionName = (typeof ATHENA_CONTEXT_SECTIONS)[number];
 
 export type AthenaContextActivationMode = "eager_minimal" | "lazy_intent" | "explicit_only";

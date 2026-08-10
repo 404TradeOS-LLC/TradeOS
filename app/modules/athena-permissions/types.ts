@@ -14,7 +14,17 @@ export type AthenaPermissionRisk = "low" | "medium" | "high";
 // Closed union, not a generic string: "tool" carries risk-based approval
 // classification, the other three do not. New kinds require a deliberate
 // type change here, not a silent runtime fallthrough.
-export type AthenaNonToolCapabilityKind = "draft_response" | "mutate_business_record" | "context_provider";
+// "memory_write" (A7, docs/athena/roadmap/A7-memory-implementation-plan.md)
+// is the capability athena-memory/service.ts evaluates before any
+// remember()/forget()-family mutation - the same "reuse A4, do not invent a
+// second authorization system" posture every other Athena module follows.
+// There is no "memory_read" kind: read access is enforced by
+// athena-memory/service.ts's own ownership scoping (never trusting a
+// caller-supplied subjectId) plus the Context Engine's existing
+// provider-permission gate, mirroring how athena-context-engine/providers/
+// dispatchProvider.ts relies on JobsService/RLS scoping rather than an A4
+// call for reads.
+export type AthenaNonToolCapabilityKind = "draft_response" | "mutate_business_record" | "context_provider" | "memory_write";
 
 // entityType is a 1-value closed union, not string, so extending
 // object-scope resolution to a new entity (customers, invoices, ...) is a

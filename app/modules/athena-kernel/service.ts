@@ -6,6 +6,8 @@ import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
 import { executeAthenaAction } from "../athena-action-engine/engine";
 import type { AthenaIdempotencyStore } from "../athena-action-engine/idempotency";
+import type { AthenaMemoryService } from "../athena-memory/service";
+import type { AthenaMemoryCandidateExtractor } from "../athena-memory/types";
 import { buildAthenaPlan } from "../athena-planner/planner";
 import type { AthenaPlanCandidateTool } from "../athena-planner/types";
 import { evaluateAthenaPermission } from "../athena-permissions/policy";
@@ -81,6 +83,18 @@ export interface AthenaKernelHandleInput {
   idempotencyKey?: string;
   approvalVerifier?: AthenaApprovalVerifier;
   idempotencyStore?: AthenaIdempotencyStore;
+  // A7 extension point (docs task brief Step 12: "Create clean extension
+  // points so completed executions can eventually produce memory
+  // candidates" without making every action automatically write memory).
+  // Both undefined in every production call site today - this hook is
+  // dormant end-to-end, same posture as every other DI seam above. A future
+  // capability supplies both together: memoryCandidateExtractor decides
+  // *whether* a completed action implies anything durable; memoryService is
+  // where any resulting candidate is actually persisted, still subject to
+  // AthenaMemoryService.remember()'s own authorization and write-policy
+  // checks - this kernel hook never bypasses either.
+  memoryService?: Pick<AthenaMemoryService, "remember">;
+  memoryCandidateExtractor?: AthenaMemoryCandidateExtractor;
 }
 
 // Runtime coordinator for one Athena request (docs/athena/05-runtime/README.md
@@ -451,6 +465,34 @@ export class AthenaKernelService {
           }
           // succeeded: continue authorizing/executing any remaining steps,
           // then fall through to the unchanged draft-response stage below.
+
+          // A7 memory-candidate hook (Step 12) - a no-op unless a caller
+          // supplied both DI seams (never true in production today). Wrapped
+          // exactly like emitSpan above: a memory-write failure must never
+          // flip a real business result, and this runs strictly after the
+          // action has already succeeded, so there is nothing left for it to
+          // invalidate.
+          if (input.memoryCandidateExtractor && input.memoryService) {
+            try {
+              const candidates = await input.memoryCandidateExtractor({
+                orgId: actor.orgId,
+                actor: { orgId: actor.orgId, userId: actor.userId, role: actor.role },
+                action: {
+                  actionId: actionOutcome.result.actionId,
+                  toolId: step.toolId,
+                  toolVersion: step.toolVersion,
+                  state: actionState,
+                  data: actionOutcome.result.toolResult.data,
+                },
+              });
+              for (const candidate of candidates) {
+                await input.memoryService.remember(candidate);
+              }
+            } catch {
+              // See comment above - never surfaces to the caller or flips
+              // actionState/kernel state.
+            }
+          }
         }
 
         await emitSpan("approval", "ok", Date.now() - policyStart, { planId: plan.planId, planStatus: plan.status, intent: plan.intent });

@@ -69,6 +69,7 @@ model Organization {
   athenaExecutions AthenaExecution[]
   athenaExecutionTransitions AthenaExecutionTransition[]
   athenaTelemetryRecords AthenaTelemetryRecordRow[]
+  athenaMemories AthenaMemory[]
 
   @@map("organizations")
 }
@@ -1433,4 +1434,47 @@ model AthenaTelemetryRecordRow {
 
   @@index([orgId, executionId, createdAt])
   @@map("athena_telemetry_records")
+}
+
+// A7 memory persistence (docs/athena/roadmap/A7-memory-implementation-plan.md,
+// C006 in docs/athena/contracts/README.md). subjectId is intentionally not a
+// foreign key: depending on scope it addresses a user, the organization
+// itself, a job/project, or a conversation - a polymorphic reference, same
+// posture as AthenaResourceRequest.entityId elsewhere in Athena. A partial
+// unique index enforcing at most one active row per (orgId, scope,
+// subjectId, kind) and the tenant/actor-isolation RLS policies are defined
+// only in the migration SQL (Prisma schema language cannot express either),
+// per AGENTS.md's migration conventions.
+model AthenaMemory {
+  id                 String    @id @default(uuid())
+  orgId              String    @map("org_id")
+  scope              String
+  subjectId          String    @map("subject_id")
+  kind               String
+  valueJson          Json?     @map("value_json")
+  sourceKind         String    @map("source_kind")
+  sourceId           String?   @map("source_id")
+  sourceTrusted      Boolean   @default(false) @map("source_trusted")
+  sourceDescription  String?   @map("source_description")
+  confidence         Float
+  retentionTier      String    @default("standard") @map("retention_tier")
+  retentionExpiresAt DateTime? @map("retention_expires_at")
+  retentionLegalHold Boolean   @default(false) @map("retention_legal_hold")
+  status             String    @default("active")
+  supersedes         String?
+  visibility         String
+  createdByActorType String    @map("created_by_actor_type")
+  createdByActorId   String    @map("created_by_actor_id")
+  updatedByActorType String    @map("updated_by_actor_type")
+  updatedByActorId   String    @map("updated_by_actor_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+  lastAccessedAt     DateTime? @map("last_accessed_at")
+  metadataJson       Json      @default("{}") @map("metadata_json")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, scope, subjectId, status])
+  @@index([orgId, scope, subjectId, kind, status])
+  @@map("athena_memories")
 }
