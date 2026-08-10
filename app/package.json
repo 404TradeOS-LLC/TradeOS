@@ -19,7 +19,7 @@
     "demo:trainingless-estimate": "ts-node modules/trainingless-estimate-demo/demo.ts",
     "test": "jest --runInBand",
     "test:integration": "bash scripts/test-integration-db.sh",
-    "athena:contracts": "jest --runInBand --testPathPattern \"athena-(kernel|tool-registry)\\.contracts\\.test\\.ts$\"",
+    "athena:contracts": "jest --runInBand --testPathPattern \"athena-(kernel|tool-registry|context-engine)\\.contracts\\.test\\.ts$\"",
     "athena:smoke": "jest --runInBand --testPathPattern \"athena-kernel\\.smoke\\.test\\.ts$\"",
     "lint": "tsc --noEmit"
   },
