@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { prisma } from "../../db/client";
 import { ProjectTasksService } from "../../modules/project-tasks/service";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { projectTaskPriorities, projectTaskStatuses } from "../../modules/project-tasks/types";
 
 const service = new ProjectTasksService();
-const activityService = new ActivityTimelineService();
 
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
@@ -57,30 +57,35 @@ export const projectTasksController = {
     const auth = requirePermissions(req, ["crm.write"]);
     const body = createSchema.parse(req.body);
     const orgId = requireOrgId(req);
-    const task = await service.create({
-      orgId,
-      projectId: req.params.id,
-      jobId: body.jobId,
-      title: body.title,
-      assignedTo: body.assignedTo || undefined,
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      priority: body.priority,
-      notes: body.notes || undefined,
-    });
-    await activityService.record({
-      orgId,
-      entityType: "task",
-      entityId: task.id,
-      eventType: "task.created",
-      title: `Task created: ${task.title}`,
-      description: task.assignedTo ? `Assigned to ${task.assignedTo}.` : "Unassigned task added to the project queue.",
-      actorUserId: auth.userId,
-      metadata: {
-        projectId: task.projectId,
-        status: task.status,
-        priority: task.priority,
-        dueDate: task.dueDate,
-      },
+    const task = await prisma.$transaction(async (transaction) => {
+      const taskService = new ProjectTasksService(transaction as typeof prisma);
+      const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
+      const createdTask = await taskService.create({
+        orgId,
+        projectId: req.params.id,
+        jobId: body.jobId,
+        title: body.title,
+        assignedTo: body.assignedTo || undefined,
+        dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+        priority: body.priority,
+        notes: body.notes || undefined,
+      });
+      await transactionActivityService.record({
+        orgId,
+        entityType: "task",
+        entityId: createdTask.id,
+        eventType: "task.created",
+        title: `Task created: ${createdTask.title}`,
+        description: createdTask.assignedTo ? `Assigned to ${createdTask.assignedTo}.` : "Unassigned task added to the project queue.",
+        actorUserId: auth.userId,
+        metadata: {
+          projectId: createdTask.projectId,
+          status: createdTask.status,
+          priority: createdTask.priority,
+          dueDate: createdTask.dueDate,
+        },
+      });
+      return createdTask;
     });
     res.status(201).json(task);
   },
@@ -89,43 +94,48 @@ export const projectTasksController = {
     const auth = requirePermissions(req, ["crm.write"]);
     const body = updateSchema.parse(req.body);
     const orgId = requireOrgId(req);
-    const before = await service.getById(req.params.taskId, orgId);
-    const task = await service.update(req.params.taskId, {
-      orgId,
-      jobId: body.jobId,
-      title: body.title,
-      status: body.status,
-      assignedTo: body.assignedTo,
-      dueDate: body.dueDate === undefined ? undefined : body.dueDate === null ? null : new Date(body.dueDate),
-      priority: body.priority,
-      notes: body.notes,
-    });
-    await activityService.record({
-      orgId,
-      entityType: "task",
-      entityId: task.id,
-      eventType: body.status && body.status !== before.status ? `task.${body.status}` : "task.updated",
-      title:
-        body.status && body.status !== before.status
-          ? `Task ${body.status.replaceAll("_", " ")}: ${task.title}`
-          : `Task updated: ${task.title}`,
-      description: [
-        body.assignedTo !== undefined ? (task.assignedTo ? `Assigned to ${task.assignedTo}.` : "Task is unassigned.") : null,
-        body.dueDate !== undefined ? (task.dueDate ? `Due ${task.dueDate}.` : "No due date.") : null,
-      ]
-        .filter(Boolean)
-        .join(" "),
-      actorUserId: auth.userId,
-      metadata: {
-        projectId: task.projectId,
-        previousStatus: before.status,
-        status: task.status,
-        previousAssignedTo: before.assignedTo,
-        assignedTo: task.assignedTo,
-        previousDueDate: before.dueDate,
-        dueDate: task.dueDate,
-        priority: task.priority,
-      },
+    const task = await prisma.$transaction(async (transaction) => {
+      const taskService = new ProjectTasksService(transaction as typeof prisma);
+      const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
+      const before = await taskService.getById(req.params.taskId, orgId);
+      const updatedTask = await taskService.update(req.params.taskId, {
+        orgId,
+        jobId: body.jobId,
+        title: body.title,
+        status: body.status,
+        assignedTo: body.assignedTo,
+        dueDate: body.dueDate === undefined ? undefined : body.dueDate === null ? null : new Date(body.dueDate),
+        priority: body.priority,
+        notes: body.notes,
+      });
+      await transactionActivityService.record({
+        orgId,
+        entityType: "task",
+        entityId: updatedTask.id,
+        eventType: body.status && body.status !== before.status ? `task.${body.status}` : "task.updated",
+        title:
+          body.status && body.status !== before.status
+            ? `Task ${body.status.replaceAll("_", " ")}: ${updatedTask.title}`
+            : `Task updated: ${updatedTask.title}`,
+        description: [
+          body.assignedTo !== undefined ? (updatedTask.assignedTo ? `Assigned to ${updatedTask.assignedTo}.` : "Task is unassigned.") : null,
+          body.dueDate !== undefined ? (updatedTask.dueDate ? `Due ${updatedTask.dueDate}.` : "No due date.") : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        actorUserId: auth.userId,
+        metadata: {
+          projectId: updatedTask.projectId,
+          previousStatus: before.status,
+          status: updatedTask.status,
+          previousAssignedTo: before.assignedTo,
+          assignedTo: updatedTask.assignedTo,
+          previousDueDate: before.dueDate,
+          dueDate: updatedTask.dueDate,
+          priority: updatedTask.priority,
+        },
+      });
+      return updatedTask;
     });
     res.json(task);
   },
@@ -133,21 +143,25 @@ export const projectTasksController = {
   async remove(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
     const orgId = requireOrgId(req);
-    const task = await service.getById(req.params.taskId, orgId);
-    await service.remove(req.params.taskId, orgId);
-    await activityService.record({
-      orgId,
-      entityType: "task",
-      entityId: task.id,
-      eventType: "task.deleted",
-      title: `Task removed: ${task.title}`,
-      description: task.assignedTo ? `Removed from ${task.assignedTo}'s queue.` : "Removed from the project queue.",
-      actorUserId: auth.userId,
-      metadata: {
-        projectId: task.projectId,
-        status: task.status,
-        priority: task.priority,
-      },
+    await prisma.$transaction(async (transaction) => {
+      const taskService = new ProjectTasksService(transaction as typeof prisma);
+      const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
+      const task = await taskService.getById(req.params.taskId, orgId);
+      await taskService.remove(req.params.taskId, orgId);
+      await transactionActivityService.record({
+        orgId,
+        entityType: "task",
+        entityId: task.id,
+        eventType: "task.deleted",
+        title: `Task removed: ${task.title}`,
+        description: task.assignedTo ? `Removed from ${task.assignedTo}'s queue.` : "Removed from the project queue.",
+        actorUserId: auth.userId,
+        metadata: {
+          projectId: task.projectId,
+          status: task.status,
+          priority: task.priority,
+        },
+      });
     });
     res.status(204).send();
   },

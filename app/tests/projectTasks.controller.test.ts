@@ -6,6 +6,13 @@ const update = jest.fn();
 const remove = jest.fn();
 const getById = jest.fn();
 const record = jest.fn();
+const mockPrisma = {
+  $transaction: jest.fn(async (callback: (tx: object) => unknown) => callback({})),
+};
+
+jest.mock("../db/client", () => ({
+  prisma: mockPrisma,
+}));
 
 jest.mock("../modules/project-tasks/service", () => ({
   ProjectTasksService: jest.fn().mockImplementation(() => ({
@@ -28,6 +35,7 @@ import { projectTasksController } from "../backend/controllers/projectTasks.cont
 describe("projectTasksController.listByOrganization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: object) => unknown) => callback({}));
   });
 
   it("passes org scope and query filters into the task service", async () => {
@@ -139,5 +147,6 @@ describe("projectTasksController.listByOrganization", () => {
         eventType: "task.blocked",
       })
     );
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
   });
 });

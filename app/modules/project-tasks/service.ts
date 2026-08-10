@@ -14,9 +14,12 @@ function toSortableDate(value: Date | null) {
 }
 
 export class ProjectTasksService {
+  constructor(private readonly db: typeof prisma = prisma) {}
+
   async listByOrganization(input: ListProjectTasksInput): Promise<ProjectTaskListItemDTO[]> {
     const limit = input.limit ? Math.max(1, Math.min(input.limit, 50)) : DEFAULT_ORGANIZATION_TASK_LIMIT;
-    const rows = await prisma.projectTask.findMany({
+    const fetchLimit = input.includeCompleted ? limit * 2 : limit;
+    const rows = await this.db.projectTask.findMany({
       where: {
         project: { orgId: input.orgId },
         ...(input.includeCompleted ? {} : { status: { not: "completed" } }),
@@ -41,6 +44,7 @@ export class ProjectTasksService {
         },
       },
       orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
+      take: fetchLimit,
     });
 
     const prioritizedRows = rows
@@ -61,7 +65,7 @@ export class ProjectTasksService {
   }
 
   async listByProject(projectId: string, orgId?: string): Promise<ProjectTaskDTO[]> {
-    const rows = await prisma.projectTask.findMany({
+    const rows = await this.db.projectTask.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     });
@@ -69,7 +73,7 @@ export class ProjectTasksService {
   }
 
   async getById(id: string, orgId?: string): Promise<ProjectTaskDTO> {
-    const row = await prisma.projectTask.findFirst({
+    const row = await this.db.projectTask.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
     });
     if (!row) throw new ApiError(404, `Project task ${id} not found`);
@@ -77,14 +81,14 @@ export class ProjectTasksService {
   }
 
   async create(input: CreateProjectTaskInput): Promise<ProjectTaskDTO> {
-    const project = await prisma.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
+    const project = await this.db.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
     if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
     if (input.jobId) {
-      const job = await prisma.job.findFirst({ where: { id: input.jobId, orgId: input.orgId, projectId: input.projectId, archivedAt: null } });
+      const job = await this.db.job.findFirst({ where: { id: input.jobId, orgId: input.orgId, projectId: input.projectId, archivedAt: null } });
       if (!job) throw new ApiError(404, `Job ${input.jobId} not found`);
     }
 
-    const row = await prisma.projectTask.create({
+    const row = await this.db.projectTask.create({
       data: {
         projectId: input.projectId,
         jobId: input.jobId ?? null,
@@ -99,13 +103,13 @@ export class ProjectTasksService {
   }
 
   async update(id: string, input: UpdateProjectTaskInput): Promise<ProjectTaskDTO> {
-    const existing = await prisma.projectTask.findFirst({
+    const existing = await this.db.projectTask.findFirst({
       where: { id, project: input.orgId ? { orgId: input.orgId } : undefined },
     });
     if (!existing) throw new ApiError(404, `Project task ${id} not found`);
 
     const nextStatus = input.status ?? (existing.status as ProjectTaskStatus);
-    const row = await prisma.projectTask.update({
+    const row = await this.db.projectTask.update({
       where: { id },
       data: {
         jobId: input.jobId !== undefined ? input.jobId : existing.jobId,
@@ -122,11 +126,11 @@ export class ProjectTasksService {
   }
 
   async remove(id: string, orgId?: string): Promise<void> {
-    const existing = await prisma.projectTask.findFirst({
+    const existing = await this.db.projectTask.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
     });
     if (!existing) throw new ApiError(404, `Project task ${id} not found`);
-    await prisma.projectTask.delete({ where: { id } });
+    await this.db.projectTask.delete({ where: { id } });
   }
 }
 

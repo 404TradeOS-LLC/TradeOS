@@ -188,7 +188,7 @@ export const intelligenceController = {
 
   async listActivity(req: Request, res: Response) {
     const query = activityQuerySchema.parse(req.query);
-    if (query.entityType === "task") {
+    if (!query.entityType || query.entityType === "task") {
       requirePermissions(req, ["crm.read"]);
     }
     res.json(await activityService.list({ orgId: requireOrgId(req), ...query }));
