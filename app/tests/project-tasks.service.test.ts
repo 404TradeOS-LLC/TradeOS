@@ -95,55 +95,62 @@ describe("ProjectTasksService", () => {
   });
 
   it("lists organization task rows with project and customer context", async () => {
-    mockPrisma.projectTask.findMany.mockResolvedValue([
-      {
-        id: "task-2",
-        projectId: "project-2",
-        jobId: null,
-        title: "Confirm permit pickup",
-        status: "completed",
-        assignedTo: "Jamie",
-        dueDate: new Date("2026-07-12T00:00:00.000Z"),
-        priority: "low",
-        notes: null,
-        completedAt: new Date("2026-07-11T09:00:00.000Z"),
-        createdAt: new Date("2026-07-08T12:00:00.000Z"),
-        updatedAt: new Date("2026-07-11T09:00:00.000Z"),
-        project: {
-          name: "Warehouse retrofit",
-          status: "active",
-          customer: { name: "Acme Fabrication" },
+    mockPrisma.projectTask.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "task-1",
+          projectId: "project-1",
+          jobId: null,
+          title: "Call inspector",
+          status: "blocked",
+          assignedTo: "Alex",
+          dueDate: new Date("2026-07-10T00:00:00.000Z"),
+          priority: "high",
+          notes: "Need final walkthrough time",
+          completedAt: null,
+          createdAt: new Date("2026-07-07T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-10T08:00:00.000Z"),
+          project: {
+            name: "Lobby refresh",
+            status: "awarded",
+            customer: { name: "Northside Dental" },
+          },
+          job: { title: "Final paint and punch" },
         },
-        job: null,
-      },
-      {
-        id: "task-1",
-        projectId: "project-1",
-        jobId: null,
-        title: "Call inspector",
-        status: "blocked",
-        assignedTo: "Alex",
-        dueDate: new Date("2026-07-10T00:00:00.000Z"),
-        priority: "high",
-        notes: "Need final walkthrough time",
-        completedAt: null,
-        createdAt: new Date("2026-07-07T12:00:00.000Z"),
-        updatedAt: new Date("2026-07-10T08:00:00.000Z"),
-        project: {
-          name: "Lobby refresh",
-          status: "awarded",
-          customer: { name: "Northside Dental" },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "task-2",
+          projectId: "project-2",
+          jobId: null,
+          title: "Confirm permit pickup",
+          status: "completed",
+          assignedTo: "Jamie",
+          dueDate: new Date("2026-07-12T00:00:00.000Z"),
+          priority: "low",
+          notes: null,
+          completedAt: new Date("2026-07-11T09:00:00.000Z"),
+          createdAt: new Date("2026-07-08T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-11T09:00:00.000Z"),
+          project: {
+            name: "Warehouse retrofit",
+            status: "active",
+            customer: { name: "Acme Fabrication" },
+          },
+          job: null,
         },
-        job: { title: "Final paint and punch" },
-      },
-    ]);
+      ]);
 
     const service = new ProjectTasksService();
     const tasks = await service.listByOrganization({ orgId: "org-1", includeCompleted: true, limit: 12 });
 
-    expect(mockPrisma.projectTask.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.projectTask.findMany).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
-        where: { project: { orgId: "org-1" } },
+        where: {
+          project: { orgId: "org-1" },
+          status: { not: "completed" },
+        },
       })
     );
     expect(tasks[0]).toMatchObject({
@@ -238,5 +245,68 @@ describe("ProjectTasksService", () => {
     const tasks = await service.listByOrganization({ orgId: "org-1", includeCompleted: true });
 
     expect(tasks).toHaveLength(24);
+  });
+
+  it("does not let completed tasks crowd out open tasks when includeCompleted=true", async () => {
+    mockPrisma.projectTask.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "task-open-1",
+          projectId: "project-1",
+          jobId: null,
+          title: "Open task one",
+          status: "todo",
+          assignedTo: null,
+          dueDate: new Date("2026-07-20T00:00:00.000Z"),
+          priority: "medium",
+          notes: null,
+          completedAt: null,
+          createdAt: new Date("2026-07-01T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-20T12:00:00.000Z"),
+          project: {
+            name: "Project Open 1",
+            status: "active",
+            customer: { name: "Customer Open 1" },
+          },
+          job: null,
+        },
+        {
+          id: "task-open-2",
+          projectId: "project-2",
+          jobId: null,
+          title: "Open task two",
+          status: "blocked",
+          assignedTo: "Alex",
+          dueDate: new Date("2026-07-21T00:00:00.000Z"),
+          priority: "high",
+          notes: null,
+          completedAt: null,
+          createdAt: new Date("2026-07-01T12:00:00.000Z"),
+          updatedAt: new Date("2026-07-21T12:00:00.000Z"),
+          project: {
+            name: "Project Open 2",
+            status: "active",
+            customer: { name: "Customer Open 2" },
+          },
+          job: null,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const service = new ProjectTasksService();
+    const tasks = await service.listByOrganization({ orgId: "org-1", includeCompleted: true, limit: 2 });
+
+    expect(mockPrisma.projectTask.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          project: { orgId: "org-1" },
+          status: { not: "completed" },
+        }),
+        take: 2,
+      })
+    );
+    expect(mockPrisma.projectTask.findMany).toHaveBeenCalledTimes(1);
+    expect(tasks.map((task) => task.id)).toEqual(["task-open-1", "task-open-2"]);
   });
 });

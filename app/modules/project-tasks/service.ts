@@ -18,34 +18,50 @@ export class ProjectTasksService {
 
   async listByOrganization(input: ListProjectTasksInput): Promise<ProjectTaskListItemDTO[]> {
     const limit = input.limit ? Math.max(1, Math.min(input.limit, 50)) : DEFAULT_ORGANIZATION_TASK_LIMIT;
-    const fetchLimit = input.includeCompleted ? limit * 2 : limit;
-    const rows = await this.db.projectTask.findMany({
-      where: {
-        project: { orgId: input.orgId },
-        ...(input.includeCompleted ? {} : { status: { not: "completed" } }),
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            customer: {
-              select: {
-                name: true,
-              },
+    const sharedInclude = {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          customer: {
+            select: {
+              name: true,
             },
           },
         },
-        job: {
-          select: {
-            title: true,
-          },
+      },
+      job: {
+        select: {
+          title: true,
         },
       },
+    } as const;
+
+    const openRows = await this.db.projectTask.findMany({
+      where: {
+        project: { orgId: input.orgId },
+        status: { not: "completed" },
+      },
+      include: sharedInclude,
       orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
-      take: fetchLimit,
+      take: limit,
     });
+
+    const completedRows =
+      input.includeCompleted && openRows.length < limit
+        ? await this.db.projectTask.findMany({
+            where: {
+              project: { orgId: input.orgId },
+              status: "completed",
+            },
+            include: sharedInclude,
+            orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
+            take: limit - openRows.length,
+          })
+        : [];
+
+    const rows = [...openRows, ...completedRows];
 
     const prioritizedRows = rows
       .sort((left, right) => {
