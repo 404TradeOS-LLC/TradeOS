@@ -1,0 +1,97 @@
+---
+status: current
+owner: platform
+last_verified: 2026-08-09
+source_of_truth: true
+---
+
+# Volume 6 - Tool Registry And Tool SDK
+
+The Tool Registry is Athena's executable capability catalog. A tool is a stable,
+versioned adapter that validates inputs, checks policy, calls an application
+service, and returns the standard tool result envelope.
+
+## Tool Interface
+
+```ts
+export interface AthenaTool<TInput, TData> {
+  id: string;
+  version: string;
+  name: string;
+  description: string;
+  risk: "low" | "medium" | "high";
+  permissions: string[];
+  timeoutMs: number;
+  idempotency: "required" | "optional" | "not_supported";
+  compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
+  inputSchema: unknown;
+  outputSchema: unknown;
+  execute(
+    input: TInput,
+    aiContext: AthenaAIContext,
+    execution: AthenaToolExecutionContext
+  ): Promise<AthenaToolResult<TData>>;
+}
+```
+
+`AthenaToolExecutionContext` is separate from AI Context. It carries
+server-derived actor, organization, role, request ID, execution ID, trace ID,
+deadline, cancellation signal, approval state, and feature flags. Mutating tools
+must check timeout/cancellation before mutation and before returning success.
+
+## Registration And Discovery
+
+Tools register with metadata, schemas, permission requirements, risk class,
+owner, version, deprecation status, and service dependency. Discovery returns
+only tools permitted for the authenticated user, organization, feature flags,
+and plugin policy.
+
+## Required Metadata
+
+| Field | Required behavior |
+| --- | --- |
+| `id` | Stable reverse-domain or namespaced ID |
+| `version` | Semver-compatible contract version |
+| `owner` | First-party module or approved plugin |
+| `permissions` | TradeOS permissions/capabilities required |
+| `risk` | Low, medium, or high default risk |
+| `confirmationPolicy` | Whether approval is never/contextual/always required |
+| `inputSchema` | Runtime-validated shape |
+| `outputSchema` | Must be standard result envelope |
+| `timeoutMs` | Maximum execution time |
+| `idempotency` | Required for mutating tools |
+| `compensationPolicy` | None, compensating action, service transaction, or draft only |
+
+## Confirmation Policy
+
+Tool risk is the default. The Action Engine may raise the required approval
+level based on amount, legal effect, customer visibility, destructive impact,
+low confidence, stale context, plugin source, or organization policy. It may not
+lower a high-risk tool below explicit approval.
+
+## Version 1 Required Versus Deferred Metadata
+
+Required in v1: ID, version, owner, permissions, risk, confirmation policy,
+timeout, idempotency policy, input schema, standard result envelope, service
+dependency, and compensation policy.
+
+Optional in v1: feature flag, deprecation notice, model hints, cost estimate,
+and first-party helper metadata.
+
+Deferred until the plugin milestone: marketplace metadata, external commercial
+terms, third-party distribution, and generalized provider compatibility.
+
+## Versioning And Deprecation
+
+- Breaking changes require a new major version.
+- Compatible additions must be optional.
+- Deprecated tools declare replacement, sunset date, and migration notes.
+- Consumers pin major versions.
+- Removed tools remain blocked with a structured error rather than silently
+  disappearing from historical action records.
+
+## Third-Party Tool Lifecycle
+
+Third-party tools require manifest review, permission review, sandbox policy,
+event and telemetry review, test evidence, install approval, organization-level
+grant, ongoing compatibility checks, and revocation support.
