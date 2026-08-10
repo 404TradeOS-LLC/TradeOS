@@ -15,6 +15,7 @@ customersRouter.patch("/:id", asyncHandler(customersController.update));
 customersRouter.delete("/:id", asyncHandler(customersController.remove));
 
 export const projectsRouter = Router();
+projectsRouter.get("/tasks", asyncHandler(projectTasksController.listByOrganization));
 projectsRouter.get("/", asyncHandler(projectsController.list));
 projectsRouter.post("/", asyncHandler(projectsController.create));
 projectsRouter.get("/:id", asyncHandler(projectsController.getById));

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { requireAuthContext, requireOrgAdmin, requireOrgId } from "../requestContext";
+import { requireAuthContext, requireOrgAdmin, requireOrgId, requirePermissions } from "../requestContext";
 import {
   ActivityTimelineService,
   AttachmentService,
@@ -188,6 +188,9 @@ export const intelligenceController = {
 
   async listActivity(req: Request, res: Response) {
     const query = activityQuerySchema.parse(req.query);
+    if (!query.entityType || query.entityType === "task") {
+      requirePermissions(req, ["crm.read"]);
+    }
     res.json(await activityService.list({ orgId: requireOrgId(req), ...query }));
   },
 
