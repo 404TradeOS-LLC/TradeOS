@@ -129,7 +129,7 @@ substitute for live PR state.
 Expected CI jobs include:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build`;
+- `App lint, unit tests, and build` (also runs the `athena:contracts` and `athena:smoke` gates for the Athena A1 kernel foundation, see `app/modules/athena-kernel`);
 - `App integration tests`;
 - `Web lint and build` (includes frontend unit tests before lint and build).
 

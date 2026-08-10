@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -45,7 +45,7 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build`;
+- `App lint, unit tests, and build` (now also runs the `athena:contracts` and `athena:smoke` named gates for the Project Athena A1 kernel foundation before the build step, per `docs/athena/roadmap/A1-ai-kernel-implementation-plan.md` "Named Validation Gates");
 - `App integration tests`;
 - `Web lint and build` (includes frontend unit tests before lint and build).
 

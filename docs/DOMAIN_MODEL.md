@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-04
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -142,6 +142,15 @@ A generic tenant-scoped event record stored in `ActivityEvent`.
 
 - keyed by `entityType` and `entityId`
 - supports recent activity, notification linkage, and intelligence surfaces
+
+## Athena kernel execution
+
+Project Athena A1 kernel lifecycle/audit state, stored in `AthenaExecution`, `AthenaExecutionTransition`, and `AthenaTelemetryRecordRow`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md).
+
+- `AthenaExecution` is actor-scoped, not merely org-scoped: RLS restricts each row to its `actorUserId` unless the reader is an org admin/dispatcher/owner
+- `AthenaExecutionTransition` and `AthenaTelemetryRecordRow` inherit that same actor visibility through the parent `AthenaExecution` row
+- none of these tables store a raw user message, model prompt, or model output - only safe summaries, error codes, and structural metadata
+- the kernel is feature-flagged off (`ATHENA_KERNEL_ENABLED=false`) by default; see `app/modules/athena-kernel`
 
 ## Core relationships
 
