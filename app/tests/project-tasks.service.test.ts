@@ -209,4 +209,34 @@ describe("ProjectTasksService", () => {
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe("task-late");
   });
+
+  it("applies the default organization task cap when limit is omitted", async () => {
+    mockPrisma.projectTask.findMany.mockResolvedValue(
+      Array.from({ length: 30 }, (_, index) => ({
+        id: `task-${index + 1}`,
+        projectId: `project-${index + 1}`,
+        jobId: null,
+        title: `Task ${index + 1}`,
+        status: "todo",
+        assignedTo: null,
+        dueDate: new Date(`2026-07-${String((index % 28) + 1).padStart(2, "0")}T00:00:00.000Z`),
+        priority: "medium",
+        notes: null,
+        completedAt: null,
+        createdAt: new Date("2026-07-01T12:00:00.000Z"),
+        updatedAt: new Date(`2026-07-${String((index % 28) + 1).padStart(2, "0")}T12:00:00.000Z`),
+        project: {
+          name: `Project ${index + 1}`,
+          status: "active",
+          customer: { name: `Customer ${index + 1}` },
+        },
+        job: null,
+      }))
+    );
+
+    const service = new ProjectTasksService();
+    const tasks = await service.listByOrganization({ orgId: "org-1", includeCompleted: true });
+
+    expect(tasks).toHaveLength(24);
+  });
 });

@@ -46,6 +46,7 @@ export const metadata: Metadata = {
 
 const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
 const DASHBOARD_TODAY_JOB_LIMIT = 5;
+const DASHBOARD_TASK_FEED_LIMIT = 24;
 const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
 
 async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
@@ -147,7 +148,7 @@ export default async function DashboardPage() {
   let dashboardTasksError: string | null = null;
   let taskActivityError: string | null = null;
   const dashboardTasks = token
-    ? await listOrganizationProjectTasks(token, { includeCompleted: true }).catch((error: unknown) => {
+    ? await listOrganizationProjectTasks(token, { limit: DASHBOARD_TASK_FEED_LIMIT, includeCompleted: true }).catch((error: unknown) => {
         dashboardTasksError = error instanceof Error ? error.message : "Task feed request failed";
         return [];
       })
