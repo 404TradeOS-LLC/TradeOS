@@ -153,8 +153,8 @@ pattern established by `athena-kernel`:
 | Registry store | `app/modules/athena-tool-registry/registry.ts` | In-memory `Map<"id@version", AthenaToolDefinition>` built at module load; `register()`, `resolve(id, version)`, `discover(actor)`, duplicate/conflict rejection |
 | Result envelope validator | `app/modules/athena-tool-registry/resultEnvelope.ts` | Runtime shape check for `AthenaToolResult`, mirroring `athena-kernel/telemetry.ts`'s `assertValidTelemetryRecord` |
 | Permission/risk gate | `app/modules/athena-tool-registry/policy.ts` | Deterministic allow/deny for `(actor, tool)`, built on `hasAnyPermission`/`normalizeRole` from `app/domain`, never on `requestContext.ts`'s Express-bound helpers (same MEDIUM-1/MEDIUM-2 constraint A1 already enforces) |
-| Dispatcher | `app/modules/athena-tool-registry/dispatcher.ts` | Resolves tool, runs the permission/risk gate, enforces `timeoutMs` via a dispatcher-owned `AbortController`/deadline, calls `tool.execute()`, validates the returned envelope, never exposes a Prisma client or `getRequestDatabaseClient()` to tool code |
-| Errors | `app/modules/athena-tool-registry/errors.ts` | Structured not-found/unauthorized/deprecated/timeout/invalid-envelope errors, reusing `AthenaKernelError`'s category/retryable/safeSummary shape from `athena-kernel/errors.ts` rather than inventing a parallel taxonomy |
+| Dispatcher | `app/modules/athena-tool-registry/dispatcher.ts` | Resolves tool, runs the permission/risk gate, validates `inputSchema` before execution, enforces `timeoutMs` via a dispatcher-owned `AbortController`/deadline, calls `tool.execute()`, validates the returned envelope, never exposes a Prisma client or `getRequestDatabaseClient()` to tool code |
+| Errors | `app/modules/athena-tool-registry/errors.ts` | Structured not-found/deprecated/timeout/invalid-input/invalid-envelope errors, reusing `AthenaKernelError`'s category/retryable/safeSummary shape from `athena-kernel/errors.ts` rather than inventing a parallel taxonomy; authorization denials use a caller-visible not-found shape and retain the true denial reason only in internal audit/telemetry |
 | Fixtures (test-only) | `app/modules/athena-tool-registry/fixtures/` | 1-3 no-op tools (e.g. `echoFixtureTool`) that call no application service; excluded from any production registration call site |
 
 Controllers/routes: none required for A2. No new HTTP endpoint is exposed;
@@ -177,6 +177,7 @@ export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
   idempotency: "required" | "optional" | "not_supported";
   compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: unknown;         // zod schema or equivalent runtime-validated shape
+  requiredFeatureFlags?: string[];
   deprecated?: { replacementId?: string; sunsetAt?: string; note: string };
   execute(
     input: TInput,
@@ -265,12 +266,13 @@ A5/A6 wiring step can construct one from the other without a redesign.
   in A2) supplies `toolId`/`version`/`actor` directly, exactly as a future
   A5 planner would, so the gate's contract is exercised before anything
   produces plans that could try to bypass it.
-- Unauthorized dispatch attempts fail closed with a structured
-  `athena_tool_unauthorized` error (category `authorization`, not
-  `validation`), and are indistinguishable in behavior from an unknown tool
-  ID from the caller's perspective (no oracle for "this tool exists but you
-  can't use it" vs. "this tool doesn't exist", to avoid registry
-  enumeration by permission probing).
+- Unauthorized dispatch attempts fail closed with the same caller-visible
+  code, category, status, and safe summary used for an unknown tool ID. The
+  internal audit/telemetry record keeps the true reason
+  (`authorization_denied`) and the evaluated permission/risk inputs, but the
+  caller does not receive an `athena_tool_unauthorized` discriminator. This
+  prevents a registry-existence oracle while preserving forensic detail for
+  operators.
 - Risk classification stays tool-declared and static in A2. Confirmation
   policy (`never`/`contextual`/`always`) is stored and validated but not yet
   enforced by an approval flow — that requires A6's action engine. A2 must
@@ -297,6 +299,10 @@ A5/A6 wiring step can construct one from the other without a redesign.
 - The dispatcher's `AbortController` is dispatcher-owned, constructed at
   dispatch entry, exactly as the kernel's is — not derived from
   `databaseSession.ts` or the ambient request lifecycle.
+- The dispatcher validates `inputSchema` before `tool.execute()` is invoked.
+  Invalid input returns a structured `invalid_tool_input` failure and must not
+  reach fixture tool code; the corresponding test uses a fixture that records
+  whether it was called.
 
 ## No Ambient Request Transaction For Mutating/Pausable Tools
 
@@ -306,8 +312,10 @@ cannot be rediscovered mid-A6:
 
 - `AthenaToolExecutionContext` (above) carries no Prisma client, no
   `Prisma.TransactionClient`, and no reference to
-  `getRequestDatabaseClient()`. A tool's `execute()` signature has no way to
-  reach the ambient request-scoped transaction even if an author tried.
+  `getRequestDatabaseClient()`. This prevents the dispatcher from handing a
+  transaction to a tool, but it does **not** by itself prevent future business
+  tool code or application services from importing the existing `prisma` proxy
+  and reusing the ambient request-scoped transaction.
 - The dispatcher itself never calls `runInDatabaseTransaction` or reads the
   request's `AsyncLocalStorage`-bound transaction from `app/db/requestSession.ts`.
   A2's fixture tools need no database access at all, so the dispatcher has
@@ -321,11 +329,14 @@ cannot be rediscovered mid-A6:
   `awaiting_approval` becomes reachable in A6) happen *between* transactions,
   never inside one still holding `app.user_id`/`app.org_id`/`app.role` from
   the original request.
-- A2 itself adds no mutating capability, so this section is a structural
-  guarantee (tool code has no transaction to reach) plus a named A6
-  prerequisite, not a runtime enforcement mechanism that needs its own test
-  yet. The absence of a database seam in `AthenaToolExecutionContext` is the
-  enforcement.
+- A2 itself adds no mutating capability, so the enforceable A2 guarantee is
+  narrower: registry, dispatcher, and fixture-tool modules must not import
+  `app/db/client`, `app/db/requestSession`, Prisma clients, or any application
+  service that could route through the ambient request transaction. The
+  stronger guarantee for real tools remains an explicit A6 prerequisite:
+  mutating/pausable tools must execute service work inside an explicitly fresh
+  scoped session per attempt, or behind an enforceable dependency boundary
+  that prevents ambient `prisma` access.
 
 ## Test Requirements
 
@@ -337,6 +348,9 @@ following the existing `athena-kernel.*.test.ts` naming convention:
 - Discovery tests: discovery returns only tools the actor's role/permissions
   satisfy; a tool requiring a permission the actor lacks is excluded, not
   merely marked unauthorized.
+- Feature-flag discovery tests: tools with `requiredFeatureFlags` are hidden
+  unless the actor/execution context has every required flag; tools without
+  feature flags remain discoverable when permissions allow.
 - Resolution tests: unknown `id`, unknown `version` of a known `id`, and a
   `deprecated`/removed tool each fail closed with distinct structured error
   codes (`tool_not_found`, `tool_version_not_found`, `tool_removed`).
@@ -345,8 +359,12 @@ following the existing `athena-kernel.*.test.ts` naming convention:
   omitting `error` on `success: false` is rejected.
 - Permission/risk gate tests: an actor without a tool's required permission
   is denied deterministically, independent of any "plan" or message content
-  supplied to the test; the denial response is indistinguishable in shape
-  from an unknown-tool response (no existence oracle).
+  supplied to the test; the denial response uses the same caller-visible
+  code, category, status, and safe content as an unknown-tool response (no
+  existence oracle), while telemetry/audit retains the internal denial reason.
+- Input validation tests: invalid `inputSchema` payloads are rejected before
+  `tool.execute()` runs; a fixture records whether execution was invoked so
+  the test proves malformed input never reaches tool code.
 - Timeout/cancellation tests: a fixture tool that ignores its
   `cancellationSignal` is still forced to a timeout result once
   `timeoutMs` elapses; a fixture tool that checks `cancellationSignal`
@@ -354,11 +372,11 @@ following the existing `athena-kernel.*.test.ts` naming convention:
   externally injected signal.
 - Idempotency-field presence tests: registering a tool without an
   `idempotency` value fails at registration time.
-- No-database-access tests: a type-level/static check (or a fixture tool
-  that attempts to import `app/db/client` and is excluded from the build)
-  proving `AthenaToolExecutionContext` cannot resolve a live database
-  handle. This does not need a runtime test if the type shape alone makes it
-  unreachable — document which one A2 implementation actually chooses.
+- No-database-access tests: a static import-boundary check proving
+  `app/modules/athena-tool-registry/**` and A2 fixture tools do not import
+  `app/db/client`, `app/db/requestSession`, Prisma clients, or application
+  services. The test must not claim TypeScript context shape alone prevents
+  ambient transaction reuse by future business tools.
 
 Out of scope for A2 tests: real business tool integration, planner/router
 tests (A5), approval/action-engine tests (A6), object-level scope tests
@@ -457,7 +475,7 @@ A2 is complete only when all criteria below are met:
   version)`, and `discover(actor)`, matching the `AthenaToolDefinition`
   contract narrowed from C002.
 - Discovery returns only tools permitted for the actor's role/permissions,
-  org context, and any relevant feature flag.
+  org context, and every tool-level `requiredFeatureFlags` entry.
 - Unknown tool IDs, unknown versions, and deprecated/removed tools each fail
   closed with distinct, structured, non-500 errors.
 - Every tool result is validated against the standard `AthenaToolResult`
@@ -465,15 +483,19 @@ A2 is complete only when all criteria below are met:
   rejected, not silently passed through.
 - Permission and risk decisions are made deterministically from
   actor role/permissions and tool metadata only — never from model, plan, or
-  message content — and denial responses are indistinguishable in shape from
-  unknown-tool responses.
+  message content — and denial responses use the same caller-visible code,
+  category, status, and safe content as unknown-tool responses.
 - Every registered tool declares `timeoutMs`, `idempotency`, and
   `compensationPolicy`; registration without these fields fails.
+- Tool input is validated against `inputSchema` before `tool.execute()` runs;
+  invalid input never reaches fixture tool code.
 - The dispatcher enforces `timeoutMs` via its own deadline/`AbortController`,
   independent of `databaseSession.ts`, and cancellation is observable by a
   cooperative fixture tool.
-- `AthenaToolExecutionContext` provides no path to the ambient
-  request-scoped Prisma transaction or any direct database handle.
+- `AthenaToolExecutionContext` provides no direct database handle, and A2
+  registry/dispatcher/fixture modules pass a static import-boundary check
+  proving they do not import existing database/session/service seams that
+  could reuse the ambient request transaction.
 - Only no-op fixture tools are registered; no application service is called
   by any A2 tool.
 - No new HTTP endpoint, kernel-reachable state, or live dispatch path is
