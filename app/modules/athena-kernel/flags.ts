@@ -11,6 +11,7 @@ export interface AthenaFeatureFlags {
   telemetryEnabled: boolean;
   costTrackingEnabled: boolean;
   routerPlannerEnabled: boolean;
+  actionEngineEnabled: boolean;
 }
 
 function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean {
@@ -31,6 +32,15 @@ export function getAthenaFlags(env: NodeJS.ProcessEnv = process.env): AthenaFeat
     // uses A5's router/planner/live-context orchestration or A1's original
     // routing/planning stand-ins.
     routerPlannerEnabled: parseBooleanFlag(env.ATHENA_ROUTER_PLANNER_ENABLED, false),
+    // A6 dark-by-default flag (docs/athena/roadmap/A6-action-engine-implementation-plan.md).
+    // Independent of routerPlannerEnabled and kernelEnabled: the tool_call
+    // step loop below is only reachable at all when routerPlannerEnabled is
+    // true, so this only controls whether that already-gated loop actually
+    // invokes the Action Engine (executeAthenaAction()) for an eligible step
+    // or preserves A5's exact dormant behavior (classify/authorize, never
+    // execute). Enabling this flag never enables routerPlannerEnabled or
+    // kernelEnabled on its own.
+    actionEngineEnabled: parseBooleanFlag(env.ATHENA_ACTION_ENGINE_ENABLED, false),
   };
 }
 

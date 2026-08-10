@@ -36,6 +36,8 @@ jest.mock("../db/client", () => ({
   },
 }));
 
+import { createInMemoryAthenaApprovalStore } from "../modules/athena-action-engine/approval";
+import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
 import { athenaCancellationError } from "../modules/athena-kernel/errors";
@@ -531,6 +533,141 @@ describe("AthenaKernelService", () => {
       });
 
       expect(fetched).toBe(false);
+    });
+  });
+
+  describe("A6 action engine orchestration (ATHENA_ACTION_ENGINE_ENABLED=true)", () => {
+    const routerOnlyEnv = { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true" } as NodeJS.ProcessEnv;
+    const actionEnv = { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true", ATHENA_ACTION_ENGINE_ENABLED: "true" } as NodeJS.ProcessEnv;
+
+    it("executes a registered low-risk tool_call step exactly once and returns a succeeded outcome", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executeCount = 0;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-success", permissions: [], risk: "low", onExecuted: () => { executeCount += 1; } }));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a6-success",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-success", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+      });
+
+      expect(executeCount).toBe(1);
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+    });
+
+    it("never executes a tool_call step when ATHENA_ACTION_ENGINE_ENABLED is false, even for an allow decision - preserves A5 behavior", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executed = false;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-flag-off", permissions: [], risk: "low", onExecuted: () => { executed = true; } }));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a6-flag-off",
+        env: routerOnlyEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-flag-off", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+      });
+
+      expect(executed).toBe(false);
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+    });
+
+    it("never calls the handler when the actor lacks the tool's required permission (A4 deny)", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executed = false;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-needs-billing", permissions: ["billing.write"], risk: "low", onExecuted: () => { executed = true; } }));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor({ role: "technician" }), // technician does not hold billing.write
+        requestId: "req-a6-denied",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-needs-billing", toolVersion: "1.0.0", summary: "Needs billing.write.", input: { message: "hi" } }],
+      });
+
+      expect(executed).toBe(false);
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+    });
+
+    it("never executes a high-risk tool_call step when approval is required but none is supplied - never silently downgrades to allow", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executed = false;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-awaiting", permissions: [], risk: "high", onExecuted: () => { executed = true; } }));
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a6-awaiting",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-awaiting", toolVersion: "1.0.0", summary: "Risky tool.", input: { message: "hi" } }],
+      });
+
+      expect(executed).toBe(false);
+      expect(result.success).toBe(false);
+      expect(result.state).toBe("denied");
+    });
+
+    it("executes a high-risk tool_call step once a valid, correctly-bound approval is supplied and verified", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executed = false;
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-approved", permissions: [], risk: "high", onExecuted: () => { executed = true; } }));
+      const approvals = createInMemoryAthenaApprovalStore();
+      approvals.grant({ approvalId: "approval-a6-1", orgId: "org-1", toolId: "tradeos.athena.fixture.a6-approved", toolVersion: "1.0.0", idempotencyKey: "idem-a6-1", status: "granted" });
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a6-approved",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-approved", toolVersion: "1.0.0", summary: "Approved tool.", input: { message: "hi" } }],
+        approvalId: "approval-a6-1",
+        idempotencyKey: "idem-a6-1",
+        approvalVerifier: approvals,
+      });
+
+      expect(executed).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+    });
+
+    it("a duplicate submission with the same idempotency key does not execute the handler twice", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      let executeCount = 0;
+      toolRegistry.register({ ...createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-idempotent", permissions: [], risk: "low", onExecuted: () => { executeCount += 1; } }), idempotency: "required" });
+      const idempotencyStore = createInMemoryAthenaIdempotencyStore();
+      const buildInput = (requestId: string) => ({
+        request: { message: "What is the status of this project?", requestSource: "http" as const },
+        actor: actor(),
+        requestId,
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a6-idempotent", toolVersion: "1.0.0", summary: "Idempotent tool.", input: { message: "hi" } }],
+        idempotencyKey: "idem-a6-dup",
+        idempotencyStore,
+      });
+
+      const service = new AthenaKernelService();
+      const first = await service.handleRequest(buildInput("req-a6-idem-1"));
+      const second = await service.handleRequest(buildInput("req-a6-idem-2"));
+
+      expect(executeCount).toBe(1);
+      expect(first.success).toBe(true);
+      expect(second.success).toBe(true);
     });
   });
 });
