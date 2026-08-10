@@ -216,6 +216,8 @@ export class AthenaKernelService {
         signal: controller.signal,
         deadline,
         providerDeadlineMs,
+        abort,
+        getCancellationReason: () => cancellationReason,
         emitSpan,
       });
 
@@ -340,6 +342,8 @@ export class AthenaKernelService {
     signal: AbortSignal;
     deadline: Date;
     providerDeadlineMs: number;
+    abort: (reason: AthenaCancellationReason) => void;
+    getCancellationReason: () => AthenaCancellationReason | undefined;
     emitSpan: (spanType: "model", status: "ok" | "error", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => Promise<void>;
   }): Promise<{ summary: string; message: string | null; warnings: { code: string; message: string }[] }> {
     if (!input.flags.draftResponsesEnabled) {
@@ -352,8 +356,24 @@ export class AthenaKernelService {
 
     const providerDeadline = new Date(Math.min(input.deadline.getTime(), Date.now() + input.providerDeadlineMs));
     const modelStart = Date.now();
+
+    // The provider deadline passed into generateDraft() is advisory - a
+    // non-cooperative provider that ignores its AbortSignal can otherwise
+    // hang this await forever, keeping the kernel (and the request-scoped
+    // transaction it runs inside) open indefinitely. Race the provider call
+    // against a kernel-owned timer so the deadline is enforced here even if
+    // the provider promise itself never settles.
+    let providerTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    const providerTimeoutPromise = new Promise<never>((_, reject) => {
+      const remainingMs = Math.max(0, providerDeadline.getTime() - Date.now());
+      providerTimeoutTimer = setTimeout(() => {
+        input.abort("provider_timeout");
+        reject(new AthenaAbortedError("provider_timeout"));
+      }, remainingMs);
+    });
+
     try {
-      const result = await input.provider.generateDraft({ message: input.message, signal: input.signal, deadline: providerDeadline });
+      const result = await Promise.race([input.provider.generateDraft({ message: input.message, signal: input.signal, deadline: providerDeadline }), providerTimeoutPromise]);
       // Missing provider usage data is recorded as absent, not estimated
       // from prompt text (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
       // "Cost attribution"). costTrackingEnabled=false omits the field
@@ -364,8 +384,27 @@ export class AthenaKernelService {
       await input.emitSpan("model", "ok", Date.now() - modelStart, { provider: result.provider, model: result.model }, cost);
       return { summary: "Athena prepared a draft response.", message: result.text, warnings: [] };
     } catch (error) {
-      await input.emitSpan("model", "error", Date.now() - modelStart, { errorCode: error instanceof AthenaKernelError ? error.code : "unknown" });
+      const errorCode = error instanceof AthenaAbortedError ? `athena_${error.reason}` : error instanceof AthenaKernelError ? error.code : "unknown";
+      await input.emitSpan("model", "error", Date.now() - modelStart, { errorCode });
+
+      // Our own provider-timeout marker is already correctly typed - let it
+      // propagate as-is. Anything else (including a provider-thrown
+      // cancellation error) that surfaces while the kernel-owned signal is
+      // already aborted did not "fail" on its own terms; it observed a
+      // cancellation this kernel already decided on (client disconnect,
+      // request deadline, shutdown). Remap it back to that real reason
+      // instead of letting it fall through to a generic failed result -
+      // otherwise a non-cooperative or slow-to-notice provider can turn a
+      // clean cancellation into a misleading "failed" outcome.
+      if (error instanceof AthenaAbortedError) {
+        throw error;
+      }
+      if (input.signal.aborted) {
+        throw new AthenaAbortedError(input.getCancellationReason() ?? "shutdown");
+      }
       throw error;
+    } finally {
+      clearTimeout(providerTimeoutTimer);
     }
   }
 }

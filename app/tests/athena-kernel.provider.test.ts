@@ -19,10 +19,20 @@ describe("athena kernel provider adapter", () => {
     expect(result.estimatedUsd).toBeUndefined();
   });
 
-  it("the fake provider refuses to respond once its signal is aborted", async () => {
+  it("the fake provider refuses to respond once its signal is aborted, typed as a cancellation - not a generic/provider failure", async () => {
     const provider = new FakeAthenaProvider();
     const controller = new AbortController();
     controller.abort();
+    // Category/code/retryable matter here, not just "some AthenaKernelError":
+    // the kernel service (service.ts) relies on this being distinguishable
+    // from an ordinary provider failure so it can remap provider-observed
+    // cancellation back to the kernel's own cancellation reason instead of
+    // letting it fall through to a generic failed result.
+    await expect(provider.generateDraft({ message: "hello", signal: controller.signal, deadline: new Date(Date.now() + 5_000) })).rejects.toMatchObject({
+      code: "athena_cancelled",
+      category: "timeout",
+      retryable: false,
+    });
     await expect(provider.generateDraft({ message: "hello", signal: controller.signal, deadline: new Date(Date.now() + 5_000) })).rejects.toBeInstanceOf(AthenaKernelError);
   });
 

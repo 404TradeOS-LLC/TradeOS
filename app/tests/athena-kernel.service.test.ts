@@ -38,6 +38,7 @@ jest.mock("../db/client", () => ({
 
 import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
+import { athenaCancellationError } from "../modules/athena-kernel/errors";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
 
 const baseEnv = { ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv;
@@ -219,6 +220,70 @@ describe("AthenaKernelService", () => {
     expect(result.state).toBe("failed");
     expect(result.error?.safeSummary).not.toMatch(/raw upstream/);
   });
+
+  it("enforces the provider deadline even when the provider never resolves (non-cooperative provider)", async () => {
+    // Ignores its AbortSignal entirely - the kernel's own race against
+    // ATHENA_PROVIDER_DEADLINE_MS must still bound this call, not the
+    // provider's cooperation.
+    const neverResolvingProvider: AthenaProviderAdapter = {
+      generateDraft: () => new Promise(() => undefined),
+    };
+    const service = new AthenaKernelService();
+
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-provider-hang",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_PROVIDER_DEADLINE_MS: "20", ATHENA_REQUEST_DEADLINE_MS: "5000" } as NodeJS.ProcessEnv,
+      provider: neverResolvingProvider,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.state).not.toBe("succeeded");
+    expect(result.state).toBe("cancelled");
+    expect(result.error?.category).toBe("timeout");
+    expect(result.error?.code).toBe("athena_provider_timeout");
+  }, 10_000);
+
+  it("cancels mid-flight when the client disconnects during a slow provider call, reflecting client cancellation rather than the provider's own rejection reason", async () => {
+    // Cooperative provider: reacts to abort, but only after a real delay -
+    // giving the client a genuine window to disconnect while the provider
+    // call is still in flight, rather than before it ever starts.
+    const slowCooperativeProvider: AthenaProviderAdapter = {
+      generateDraft: ({ signal }) =>
+        new Promise((resolve, reject) => {
+          const onAbort = () => reject(athenaCancellationError("Provider observed cancellation mid-flight."));
+          signal.addEventListener("abort", onAbort, { once: true });
+          setTimeout(() => {
+            signal.removeEventListener("abort", onAbort);
+            resolve({ text: "late response that should never be used", provider: "slow", model: "slow-1" });
+          }, 200);
+        }),
+    };
+
+    const clientController = new AbortController();
+    setTimeout(() => clientController.abort(), 20);
+
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-client-abort-midflight",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_PROVIDER_DEADLINE_MS: "5000", ATHENA_REQUEST_DEADLINE_MS: "5000" } as NodeJS.ProcessEnv,
+      provider: slowCooperativeProvider,
+      clientSignal: clientController.signal,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("cancelled");
+    // The provider itself threw a cancellation-flavored AthenaKernelError,
+    // but the kernel's own client-disconnect reason must win - this must
+    // never surface as a generic failed result or the provider's own
+    // "athena_cancelled" code.
+    expect(result.state).not.toBe("failed");
+    expect(result.error?.code).toBe("athena_client_closed");
+    expect(result.error?.code).not.toBe("athena_cancelled");
+  }, 10_000);
 
   it("never writes the raw message text into any persisted telemetry record", async () => {
     const service = new AthenaKernelService();
