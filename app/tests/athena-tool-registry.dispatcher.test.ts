@@ -79,6 +79,50 @@ describe("athena tool dispatcher", () => {
     expect(outcome.result.telemetry.executionId).not.toBe("stale-execution-id");
   });
 
+  it("normalizes a tool-returned failure's stale telemetry and error.correlationId to the active dispatch context, preserving other error fields", async () => {
+    const registry = createAthenaToolRegistry();
+    const staleFailureTool: AthenaToolDefinition = {
+      ...createEchoFixtureTool({ id: "tradeos.athena.fixture.stale-failure" }),
+      async execute() {
+        return {
+          success: false,
+          summary: "The underlying operation could not complete.",
+          data: null,
+          events: [],
+          warnings: [],
+          followUps: [],
+          // Both the top-level telemetry and the error's own correlationId
+          // are stale/unrelated here - a buggy or malicious tool could
+          // return either independently of the other.
+          telemetry: { traceId: "stale-trace-id", executionId: "stale-execution-id" },
+          error: {
+            code: "tool_specific_failure",
+            category: "service",
+            retryable: true,
+            safeSummary: "The underlying operation could not complete.",
+            correlationId: "stale-correlation-id",
+          },
+        } as never;
+      },
+    };
+    registry.register(staleFailureTool);
+    const request = buildRequest({ toolId: "tradeos.athena.fixture.stale-failure" });
+
+    const outcome = await dispatchAthenaTool(registry, request);
+
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.telemetry).toEqual({ traceId: request.traceId, executionId: request.executionId });
+    expect(outcome.result.error?.correlationId).toBe(request.traceId);
+    expect(outcome.result.error?.correlationId).not.toBe("stale-correlation-id");
+    expect(outcome.result.telemetry.traceId).not.toBe("stale-trace-id");
+    expect(outcome.result.telemetry.executionId).not.toBe("stale-execution-id");
+    // Other tool-provided, already-validated error fields are preserved.
+    expect(outcome.result.error?.code).toBe("tool_specific_failure");
+    expect(outcome.result.error?.category).toBe("service");
+    expect(outcome.result.error?.retryable).toBe(true);
+    expect(outcome.result.error?.safeSummary).toBe("The underlying operation could not complete.");
+  });
+
   it("fails closed with the same public error shape for an unknown tool and a permission-denied tool", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.needs-billing", permissions: ["billing.write"] }));

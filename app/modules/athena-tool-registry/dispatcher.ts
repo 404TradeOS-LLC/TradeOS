@@ -219,6 +219,16 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
       ...(raw as AthenaToolResult<TData>),
       telemetry: { traceId: request.traceId, executionId: request.executionId },
     };
+    // A tool-returned failure's error.correlationId is equally untrustworthy
+    // for request correlation as the top-level telemetry above - a
+    // structurally valid error object can still carry a stale, fabricated,
+    // or unrelated correlationId. Normalize it to this dispatch's own
+    // traceId while preserving every other tool-provided error field that
+    // already passed resultEnvelope validation (code, category, retryable,
+    // safeSummary).
+    if (boundResult.success === false && boundResult.error) {
+      boundResult.error = { ...boundResult.error, correlationId: request.traceId };
+    }
 
     const audit: AthenaToolDispatchAudit = {
       reasonCode: "dispatched",
