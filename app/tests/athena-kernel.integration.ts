@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import type { SupportedRole } from "../domain";
 import { createExecutionRecord, recordTransition, persistTelemetryRecord } from "../modules/athena-kernel/executionStore";
@@ -96,40 +97,47 @@ describe("live row-level security for Athena kernel execution tables", () => {
     await adminClient.$disconnect();
   });
 
+  // Reads below must go through the `prisma` proxy from ../db/client (which
+  // resolves to the transaction runWithDatabaseSession opened and where
+  // set_config() applied the RLS session vars), never the raw appClient -
+  // a raw appClient.<model>.findMany() call opens its own fresh, unscoped
+  // connection with no app.org_id/app.user_id/app.role set at all, which
+  // would make every query below trivially return zero rows regardless of
+  // whether RLS is actually enforcing anything.
   it("lets an actor see their own execution", async () => {
-    const rows = await inSession(technicianA1, orgA, "technician", () => appClient.athenaExecution.findMany({ where: { id: executionTechA1 } }));
+    const rows = await inSession(technicianA1, orgA, "technician", () => prisma.athenaExecution.findMany({ where: { id: executionTechA1 } }));
     expect(rows).toHaveLength(1);
   });
 
   it("hides one technician's execution from a peer technician in the same org (object-scope, not just org-scope)", async () => {
-    const rows = await inSession(technicianA2, orgA, "technician", () => appClient.athenaExecution.findMany({ where: { id: executionTechA1 } }));
+    const rows = await inSession(technicianA2, orgA, "technician", () => prisma.athenaExecution.findMany({ where: { id: executionTechA1 } }));
     expect(rows).toHaveLength(0);
   });
 
   it("lets an org admin see every execution in their org regardless of actor", async () => {
-    const rows = await inSession(adminA, orgA, "admin", () => appClient.athenaExecution.findMany({ where: { id: executionTechA1 } }));
+    const rows = await inSession(adminA, orgA, "admin", () => prisma.athenaExecution.findMany({ where: { id: executionTechA1 } }));
     expect(rows).toHaveLength(1);
   });
 
   it("never exposes another organization's execution, even to that org's owner", async () => {
-    const rows = await inSession(ownerB, orgB, "owner", () => appClient.athenaExecution.findMany({ where: { id: executionTechA1 } }));
+    const rows = await inSession(ownerB, orgB, "owner", () => prisma.athenaExecution.findMany({ where: { id: executionTechA1 } }));
     expect(rows).toHaveLength(0);
 
-    const crossOrgAsAdminA = await inSession(adminA, orgA, "admin", () => appClient.athenaExecution.findMany({ where: { id: executionOwnerB } }));
+    const crossOrgAsAdminA = await inSession(adminA, orgA, "admin", () => prisma.athenaExecution.findMany({ where: { id: executionOwnerB } }));
     expect(crossOrgAsAdminA).toHaveLength(0);
   });
 
   it("applies the same actor/org scoping to child transition and telemetry rows", async () => {
-    const transitionsAsPeer = await inSession(technicianA2, orgA, "technician", () => appClient.athenaExecutionTransition.findMany({ where: { executionId: executionTechA1 } }));
+    const transitionsAsPeer = await inSession(technicianA2, orgA, "technician", () => prisma.athenaExecutionTransition.findMany({ where: { executionId: executionTechA1 } }));
     expect(transitionsAsPeer).toHaveLength(0);
 
-    const transitionsAsOwner = await inSession(technicianA1, orgA, "technician", () => appClient.athenaExecutionTransition.findMany({ where: { executionId: executionTechA1 } }));
+    const transitionsAsOwner = await inSession(technicianA1, orgA, "technician", () => prisma.athenaExecutionTransition.findMany({ where: { executionId: executionTechA1 } }));
     expect(transitionsAsOwner.length).toBeGreaterThan(0);
 
-    const telemetryAsPeer = await inSession(technicianA2, orgA, "technician", () => appClient.athenaTelemetryRecordRow.findMany({ where: { executionId: executionTechA1 } }));
+    const telemetryAsPeer = await inSession(technicianA2, orgA, "technician", () => prisma.athenaTelemetryRecordRow.findMany({ where: { executionId: executionTechA1 } }));
     expect(telemetryAsPeer).toHaveLength(0);
 
-    const telemetryAsAdmin = await inSession(adminA, orgA, "admin", () => appClient.athenaTelemetryRecordRow.findMany({ where: { executionId: executionTechA1 } }));
+    const telemetryAsAdmin = await inSession(adminA, orgA, "admin", () => prisma.athenaTelemetryRecordRow.findMany({ where: { executionId: executionTechA1 } }));
     expect(telemetryAsAdmin.length).toBeGreaterThan(0);
   });
 
