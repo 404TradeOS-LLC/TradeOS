@@ -2,7 +2,9 @@ import { AthenaToolResult } from "./types";
 
 const REQUIRED_KEYS = ["success", "summary", "data", "events", "warnings", "followUps", "telemetry"] as const;
 const ALLOWED_KEYS = new Set<string>([...REQUIRED_KEYS, "error"]);
-const REQUIRED_ERROR_FIELDS = ["code", "category", "retryable", "safeSummary", "correlationId"] as const;
+
+// Must stay in sync with AthenaErrorCategory (app/modules/athena-kernel/types.ts).
+const VALID_ERROR_CATEGORIES = new Set(["validation", "authorization", "conflict", "timeout", "provider", "service", "unknown"]);
 
 // Runtime validator for the standard AthenaToolResult envelope (C003,
 // docs/athena/contracts/README.md), exported for reuse by both the
@@ -58,13 +60,24 @@ export function assertValidAthenaToolResult(value: unknown): asserts value is At
       throw new Error("AthenaToolResult.error is required when success is false");
     }
     const error = candidate.error as Record<string, unknown>;
-    for (const field of REQUIRED_ERROR_FIELDS) {
-      if (!(field in error)) {
-        throw new Error(`AthenaToolResult.error is missing required field: ${field}`);
-      }
+    // Each field is validated for type/value, not merely presence - a
+    // tool-supplied error with the right keys but wrong types (an empty
+    // code, an unrecognized category, a non-string correlationId) must not
+    // pass as a conforming C003 error.
+    if (typeof error.code !== "string" || error.code.length === 0) {
+      throw new Error("AthenaToolResult.error.code must be a non-empty string");
+    }
+    if (typeof error.category !== "string" || !VALID_ERROR_CATEGORIES.has(error.category)) {
+      throw new Error(`AthenaToolResult.error.category is not a known category: ${String(error.category)}`);
     }
     if (typeof error.retryable !== "boolean") {
       throw new Error("AthenaToolResult.error.retryable must be a boolean");
+    }
+    if (typeof error.safeSummary !== "string" || error.safeSummary.length === 0) {
+      throw new Error("AthenaToolResult.error.safeSummary must be a non-empty string");
+    }
+    if (typeof error.correlationId !== "string" || error.correlationId.length === 0) {
+      throw new Error("AthenaToolResult.error.correlationId must be a non-empty string");
     }
     // A2 fixtures never declare a documented safe partial shape (docs/athena/
     // contracts/README.md's "unless the tool's contract explicitly documents

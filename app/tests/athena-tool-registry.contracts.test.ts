@@ -77,6 +77,43 @@ describe("athena:contracts - tool result envelope (C003)", () => {
     expect(() => assertValidAthenaToolResult(broken)).toThrow(/correlationId/);
   });
 
+  it("rejects a failure result whose error.code is an empty string", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, code: "" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.code/);
+  });
+
+  it("rejects a failure result whose error.code is not a string", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, code: 404 as unknown as string } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.code/);
+  });
+
+  it("rejects a failure result whose error.category is not one of the allowed Athena categories", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, category: "network" as never } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.category/);
+  });
+
+  it("accepts every allowed Athena error category", () => {
+    for (const category of ["validation", "authorization", "conflict", "timeout", "provider", "service", "unknown"] as const) {
+      const valid = { ...validFailure(), error: { ...validFailure().error, category } };
+      expect(() => assertValidAthenaToolResult(valid)).not.toThrow();
+    }
+  });
+
+  it("rejects a failure result whose error.safeSummary is an empty string", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, safeSummary: "" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.safeSummary/);
+  });
+
+  it("rejects a failure result whose error.correlationId is an empty string", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, correlationId: "" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.correlationId/);
+  });
+
+  it("rejects a failure result whose error.retryable is not a boolean", () => {
+    const invalid = { ...validFailure(), error: { ...validFailure().error, retryable: "false" as unknown as boolean } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/error\.retryable/);
+  });
+
   it("rejects a success result that also carries an error object", () => {
     const invalid = { ...validSuccess(), error: validFailure().error };
     expect(() => assertValidAthenaToolResult(invalid)).toThrow(/success is true/);

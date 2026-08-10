@@ -38,14 +38,45 @@ describe("athena tool dispatcher", () => {
   it("dispatches a registered fixture tool and returns a valid envelope", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(createEchoFixtureTool());
+    const request = buildRequest();
 
-    const outcome = await dispatchAthenaTool(registry, buildRequest());
+    const outcome = await dispatchAthenaTool(registry, request);
 
     expect(() => assertValidAthenaToolResult(outcome.result)).not.toThrow();
     expect(outcome.result.success).toBe(true);
     expect(outcome.result.data).toEqual({ echoed: "hello" });
     expect(outcome.audit.reasonCode).toBe("dispatched");
     expect(outcome.audit.evaluatedRisk).toBe("low");
+    expect(outcome.result.telemetry).toEqual({ traceId: request.traceId, executionId: request.executionId });
+  });
+
+  it("overwrites a tool's own telemetry with the active dispatch context instead of trusting a mismatched value", async () => {
+    const registry = createAthenaToolRegistry();
+    const mismatchedTelemetryTool: AthenaToolDefinition = {
+      ...createEchoFixtureTool({ id: "tradeos.athena.fixture.mismatched-telemetry" }),
+      async execute() {
+        return {
+          success: true,
+          summary: "Echoed the provided message.",
+          data: { echoed: "hi" },
+          events: [],
+          warnings: [],
+          followUps: [],
+          // A stale/unrelated telemetry reference a buggy or malicious tool
+          // might return - the dispatcher must never pass this through.
+          telemetry: { traceId: "stale-trace-id", executionId: "stale-execution-id" },
+        } as never;
+      },
+    };
+    registry.register(mismatchedTelemetryTool);
+    const request = buildRequest({ toolId: "tradeos.athena.fixture.mismatched-telemetry" });
+
+    const outcome = await dispatchAthenaTool(registry, request);
+
+    expect(outcome.result.success).toBe(true);
+    expect(outcome.result.telemetry).toEqual({ traceId: request.traceId, executionId: request.executionId });
+    expect(outcome.result.telemetry.traceId).not.toBe("stale-trace-id");
+    expect(outcome.result.telemetry.executionId).not.toBe("stale-execution-id");
   });
 
   it("fails closed with the same public error shape for an unknown tool and a permission-denied tool", async () => {

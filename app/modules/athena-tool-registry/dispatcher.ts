@@ -209,6 +209,17 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
       throw athenaToolInvalidResultError(correlationId);
     }
 
+    // A tool's own telemetry reference is not trustworthy for request
+    // correlation just because it passed shape validation - a buggy or
+    // malicious tool could return a stale, fabricated, or unrelated
+    // traceId/executionId and still produce a structurally valid envelope.
+    // Bind the returned result to this dispatch's own active context rather
+    // than trusting whatever the tool reported.
+    const boundResult: AthenaToolResult<TData> = {
+      ...(raw as AthenaToolResult<TData>),
+      telemetry: { traceId: request.traceId, executionId: request.executionId },
+    };
+
     const audit: AthenaToolDispatchAudit = {
       reasonCode: "dispatched",
       toolId: request.toolId,
@@ -217,7 +228,7 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
       evaluatedPermissions: policyDecision.evaluatedPermissions,
       evaluatedRisk: policyDecision.evaluatedRisk,
     };
-    return { result: raw as AthenaToolResult<TData>, audit };
+    return { result: boundResult, audit };
   } catch (error) {
     const dispatchError = error instanceof AthenaToolDispatchError ? error : athenaToolUnexpectedError(correlationId);
     const audit: AthenaToolDispatchAudit = { reasonCode: dispatchError.reasonCode, toolId: request.toolId, version: request.version };
