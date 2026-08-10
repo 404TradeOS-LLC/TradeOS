@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -39,23 +39,32 @@ function getPaletteItemKey(item: PaletteItem) {
 export function GlobalCommandPaletteProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [recentItems, setRecentItems] = useState<PaletteItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const closePalette = () => {
+  const closePalette = useCallback(() => {
+    // Guard against a no-op close (e.g. Escape pressed while already closed,
+    // in an unrelated field) reusing a stale previouslyFocusedRef and
+    // yanking focus back to wherever the palette was last opened from.
+    if (!isOpen) return;
     setIsOpen(false);
     setQuery("");
     setResults([]);
     setActiveIndex(0);
-  };
+    previouslyFocusedRef.current?.focus();
+    previouslyFocusedRef.current = null;
+  }, [isOpen]);
 
-  const openPalette = () => {
+  const openPalette = useCallback(() => {
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setIsOpen(true);
     setActiveIndex(0);
-  };
+  }, []);
 
   const togglePalette = () => {
     if (isOpen) {
@@ -82,7 +91,7 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen]);
+  }, [isOpen, closePalette, openPalette]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -170,6 +179,10 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/70 px-4 pt-[12vh] backdrop-blur-sm" onClick={closePalette}>
           <div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
             className="w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
@@ -182,6 +195,21 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
               } else if (event.key === "Enter" && items[effectiveActiveIndex]) {
                 event.preventDefault();
                 void navigateToItem(items[effectiveActiveIndex]);
+              } else if (event.key === "Tab") {
+                // Keep keyboard focus contained to the dialog while it's open.
+                const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+                  'input, button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+                );
+                if (!focusable || focusable.length === 0) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+                }
               }
             }}
           >

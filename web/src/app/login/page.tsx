@@ -28,7 +28,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" autoComplete="current-password" required />
             </div>
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
             <Button type="submit" disabled={isPending}>
               {isPending ? "Signing in…" : "Sign in"}
             </Button>

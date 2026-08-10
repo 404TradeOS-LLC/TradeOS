@@ -753,3 +753,17 @@ export interface DispatchSummary {
 export function getDispatchSummary(token: string) {
   return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token });
 }
+
+// dispatchRules.getOrgDayBoundaryUtc/getRollingWindowUtc (backend) document
+// `end` as an EXCLUSIVE upper bound (the start of the next day/window),
+// matching how JobsService.getDispatchSummary itself queries
+// `scheduledStart: { lt: todayEnd }`. But GET /api/v1/jobs's `scheduledTo`
+// filter (buildJobWhere's `scheduledStart: { lte: filters.scheduledTo }`) is
+// INCLUSIVE. Passing the exclusive boundary straight through would let a job
+// scheduled at exactly local midnight of the next day slip into "today"/"this
+// week". Subtract 1ms to convert the exclusive boundary into the inclusive
+// one this endpoint actually expects. Shared by any caller that turns a
+// DispatchSummary range into a listJobsForDispatch scheduledTo filter.
+export function toInclusiveEndBoundary(exclusiveEndIso: string): string {
+  return new Date(new Date(exclusiveEndIso).getTime() - 1).toISOString();
+}

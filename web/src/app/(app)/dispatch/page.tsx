@@ -4,10 +4,12 @@ import { DispatchPagination } from "@/components/dispatch/dispatch-pagination";
 import { DispatchSummaryStrip } from "@/components/dispatch/dispatch-summary-strip";
 import { DispatchWorkQueueTable } from "@/components/dispatch/dispatch-work-queue-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   ApiClientError,
   getDispatchSummary,
   listJobsForDispatch,
+  toInclusiveEndBoundary,
   type DispatchJobListParams,
   type DispatchSummary,
 } from "@/lib/api";
@@ -32,13 +34,6 @@ interface DispatchSearchParams {
 function toErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiClientError) return error.message || fallback;
   return fallback;
-}
-
-// Converts an exclusive UTC boundary (start of the next day/window, as
-// returned by the backend's todayRangeUtc.end/weekRangeUtc.end) into the
-// inclusive boundary that GET /api/v1/jobs's `scheduledTo` filter expects.
-function toInclusiveEndBoundary(exclusiveEndIso: string): string {
-  return new Date(new Date(exclusiveEndIso).getTime() - 1).toISOString();
 }
 
 // Builds a /dispatch URL preserving every current filter except the ones
@@ -139,13 +134,10 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Dispatch</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Real jobs needing dispatcher attention - scheduling, assignment, and overdue status, pulled live from the backend. Nothing on this page
-          is fabricated: an empty organization shows as empty here.
-        </p>
-      </div>
+      <PageHeader
+        title="Dispatch"
+        description="Real jobs needing dispatcher attention - scheduling, assignment, and overdue status, pulled live from the backend. Nothing on this page is fabricated: an empty organization shows as empty here."
+      />
 
       {loadError ? (
         <EmptyState

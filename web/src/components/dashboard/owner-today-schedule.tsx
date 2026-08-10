@@ -12,18 +12,23 @@ interface OwnerTodayScheduleProps {
 export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
   return (
     <Card className="border-border/70">
-      <CardHeader className="border-b border-border/60">
-        <CardTitle>Today&apos;s Schedule</CardTitle>
-        <CardDescription>Live schedule details appear here once an authoritative schedule source is connected.</CardDescription>
+      <CardHeader className="border-b border-border/60 flex flex-row items-start justify-between gap-3">
+        <div>
+          <CardTitle>Today&apos;s Schedule</CardTitle>
+          <CardDescription>Jobs scheduled for today, pulled live from the dispatch workspace.</CardDescription>
+        </div>
+        <Link href="/dispatch" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          Open dispatch
+        </Link>
       </CardHeader>
       <CardContent className="grid gap-3">
         {items.length === 0 ? (
           <EmptyState
-            title="No live schedule feed yet."
-            description="The dashboard foundation does not fabricate dispatch records. Use project workspaces for the current job details available today."
+            title="No jobs scheduled today."
+            description="Nothing on today's schedule yet. Dispatch a job or check unscheduled work in the dispatch workspace."
             action={
-              <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
-                Open projects
+              <Link href="/dispatch" className={buttonVariants({ variant: "outline" })}>
+                Open dispatch
               </Link>
             }
           />
@@ -39,7 +44,7 @@ export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
                   <h3 className="mt-2 break-words text-base font-semibold text-foreground">{item.title}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{item.customer}</p>
                 </div>
-                <Link href="/projects" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <Link href={item.href} className={buttonVariants({ variant: "outline", size: "sm" })}>
                   Open
                 </Link>
               </div>

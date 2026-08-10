@@ -38,7 +38,7 @@ export default function NewCustomerPage() {
               <Label htmlFor="billingAddress">Billing address</Label>
               <Input id="billingAddress" name="billingAddress" placeholder="123 Main St, Indianapolis, IN" />
             </div>
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
             <Button type="submit" disabled={isPending}>
               {isPending ? "Saving…" : "Create customer"}
             </Button>

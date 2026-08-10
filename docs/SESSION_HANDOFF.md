@@ -50,6 +50,32 @@ related_code:
 - readiness branch owns governance/continuity only; no product behavior,
   schema, package, dependency, UI, or runtime change
 
+## Out-of-band UI sprint (2026-08-09, branch `ui/modernize-shell-dashboard-customers`)
+
+Not a Sprint Backlog promotion — a directly-commissioned, explicitly bounded
+UI/UX-only pass, on its own short-lived branch off `main` @ `477fb2e`
+(current tip at start, after PRs #87-#92). Does not claim or affect S006
+readiness (PR #93, untouched by this work).
+
+- Scope: global shell/nav, owner dashboard, Customers (wired the
+  already-built `CustomerDirectory`), a narrow Dispatch mobile/a11y fix, and
+  shared primitives (`Card`, `SelectField`, `STATUS_TONES`, new
+  `PageHeader`). See `docs/CURRENT_STATE.md`'s "Recent verified changes" for
+  the full breakdown.
+- Explicitly out of scope and unchanged: auth/session behavior, Supabase
+  bootstrap logic, RLS/session-context logic, backend JWT verification,
+  CORS, `TRUST_PROXY`, Vercel routing, production env-variable contracts,
+  database schema/migrations, tenant isolation.
+- Verification: `cd web && npm test/lint/build` all pass; `npm run
+  docs:check`/`docs:test` pass. Live-rendered `/login` and `/signup` at four
+  viewports (no overflow, no console errors). Did not attempt live
+  authenticated verification of `/dashboard`/`/customers`/`/dispatch`
+  against the project's real Supabase project(s) — recorded as an
+  environment-blocked check, not skipped, per the sprint's own
+  production-safety priority.
+- Status at handoff time: implementation complete, PR pending. Update this
+  entry (or remove it once merged) rather than leaving it stale.
+
 ## Next Eligible Sprint
 
 Sprint ID: S006

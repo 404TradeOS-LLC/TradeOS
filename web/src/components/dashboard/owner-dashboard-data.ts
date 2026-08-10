@@ -20,6 +20,7 @@ export interface OwnerKpi {
   helper: string;
   icon: LucideIcon;
   tone: "neutral" | "attention" | "success";
+  href?: string;
 }
 
 export interface OwnerKpiInput {
@@ -41,6 +42,11 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Scheduled for field execution today in the ${input.scopeLabel}`,
       icon: CalendarClock,
       tone: "neutral",
+      // view=all is required: DispatchPage defaults an omitted `view` to
+      // "attention" (needsAttention=true), but this KPI counts every
+      // actionable job scheduled today regardless of attention status - the
+      // default filter would silently show fewer jobs than the tile.
+      href: "/dispatch?scheduled=today&view=all",
     },
     {
       id: "open-estimates",
@@ -73,6 +79,8 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Active jobs that still need a calendar slot in the ${input.scopeLabel}`,
       icon: AlertTriangle,
       tone: input.unscheduledJobs > 0 ? "attention" : "neutral",
+      // Same view=all reasoning as the "Today's Jobs" tile above.
+      href: "/dispatch?status=unscheduled&view=all",
     },
     {
       id: "overdue-tasks",
@@ -92,7 +100,8 @@ export interface OwnerScheduleItem {
   customer: string;
   address: string;
   crew: string;
-  status: "scheduled" | "dispatched" | "on_site";
+  status: string;
+  href: string;
 }
 
 export type OwnerActivityTone = "success" | "info" | "warning";
@@ -133,8 +142,8 @@ export const ownerQuickActions: OwnerQuickAction[] = [
   {
     id: "schedule",
     label: "Schedule",
-    href: "/projects",
-    helper: "Open active project work",
+    href: "/dispatch",
+    helper: "Jump to the dispatch workspace",
     icon: Clock3,
   },
   {

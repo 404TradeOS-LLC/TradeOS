@@ -4,6 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListRowLink } from "@/components/shared/list-row-link";
+import { PageHeader } from "@/components/shared/page-header";
 import { getCustomer } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { EditCustomerForm } from "./edit-form";
@@ -15,7 +16,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">{customer.name}</h1>
+      <PageHeader title={customer.name} backHref="/customers" backLabel="All customers" />
 
       <Card className="max-w-md">
         <CardHeader>
@@ -36,7 +37,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               title="No projects for this customer yet."
               description="New projects linked to this customer will show up here."
               action={
-                <Link href="/projects/new" className={buttonVariants({ variant: "outline" })}>
+                <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants({ variant: "outline" })}>
                   New project
                 </Link>
               }

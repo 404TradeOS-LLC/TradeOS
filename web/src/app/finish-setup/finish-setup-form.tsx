@@ -22,7 +22,7 @@ export function FinishSetupForm() {
             <Label htmlFor="organizationName">Company name</Label>
             <Input id="organizationName" name="organizationName" required autoFocus />
           </div>
-          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Setting up…" : "Continue"}
           </Button>
