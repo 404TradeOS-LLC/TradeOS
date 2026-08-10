@@ -1,15 +1,16 @@
 // A6's injectable approval-verification seam (docs/athena/roadmap/
 // A6-action-engine-implementation-plan.md "Approval enforcement"). No
 // persistent approval record table exists yet anywhere in Athena - C005
-// only carries an optional `approvalId` string on the action itself; C006/
-// the 09-security "High-Risk Action Policy" section describe what a real
+// only carries an optional `approvalId` string on the action itself; the
+// 09-security "High-Risk Action Policy" section describes what a real
 // approval record must eventually bind (approval actor, timestamp,
 // expiration, risk class, tool/version, target entity, idempotency key, and
-// an input hash) but no such table or contract is implemented anywhere in
-// this repository yet. This is the smallest injectable seam that lets A6
-// enforce "approval_required decisions never execute without a verified
-// approval" today, with the exact binding fields 09-security already
-// documents, while leaving real persistence to a later milestone.
+// a hash of the approved input) but no such table or contract is
+// implemented anywhere in this repository yet. This is the smallest
+// injectable seam that lets A6 enforce "approval_required decisions never
+// execute without a verified approval bound to the exact action payload"
+// today, with exactly the binding fields 09-security already documents,
+// while leaving real persistence to a later milestone.
 //
 // Production default is `createFailClosedAthenaApprovalVerifier()`: it
 // verifies nothing and always reports every approval invalid. This is
@@ -21,17 +22,52 @@
 export interface AthenaApprovalVerificationInput {
   approvalId: string;
   orgId: string;
+  // The actor executing THIS action, not necessarily the same person as the
+  // approval's own actor/approver (see AthenaApprovalRecord's comment on
+  // that distinction). Binding on this prevents an approval granted for one
+  // requesting actor from authorizing a different actor's action.
+  actorUserId: string;
   toolId: string;
   toolVersion: string;
+  // The registered tool's own authoritative risk (never a caller-supplied
+  // value) - an approval granted at one risk classification must not
+  // silently cover an action now resolving to a different one.
+  risk: "low" | "medium" | "high";
   // Binds the approval to the exact action, not merely the exact tool - the
   // same idempotencyKey identifies "this one action" the way it does
   // elsewhere in C005, so an approval granted for one action can never be
   // replayed against an unrelated action for the same tool (09-security:
   // "A changed plan or changed target invalidates the approval").
   idempotencyKey: string;
+  // Deterministic hash of the already-validated tool input (inputHash.ts) -
+  // the exact-payload binding 09-security requires. A caller cannot reuse a
+  // valid approval/idempotency key pair against a different input.
+  inputHash: string;
+  // Bound only when the approval record itself was scoped to a specific
+  // plan/step (see AthenaApprovalRecord's own comment) - "where cleanly
+  // available" per the A6 repair brief, not a hard requirement for every
+  // approval.
+  planId?: string;
+  stepId?: string;
 }
 
-export type AthenaApprovalVerificationResult = { valid: true } | { valid: false; reasonCode: "approval_not_found" | "approval_org_mismatch" | "approval_tool_mismatch" | "approval_action_mismatch" | "approval_expired" | "approval_not_granted" };
+export type AthenaApprovalVerificationResult =
+  | { valid: true }
+  | {
+      valid: false;
+      reasonCode:
+        | "approval_not_found"
+        | "approval_org_mismatch"
+        | "approval_actor_mismatch"
+        | "approval_tool_mismatch"
+        | "approval_risk_mismatch"
+        | "approval_action_mismatch"
+        | "approval_input_mismatch"
+        | "approval_plan_mismatch"
+        | "approval_step_mismatch"
+        | "approval_expired"
+        | "approval_not_granted";
+    };
 
 export interface AthenaApprovalVerifier {
   verify(input: AthenaApprovalVerificationInput): Promise<AthenaApprovalVerificationResult>;
@@ -47,23 +83,44 @@ export function createFailClosedAthenaApprovalVerifier(): AthenaApprovalVerifier
 
 // Deterministic test/dev-only approval record, carrying exactly the binding
 // fields 09-security documents that this seam can practically enforce
-// without a real approval workflow (actor/timestamp capture, revocation,
-// and a full input-hash comparison are left to the future persistent
-// implementation - see the module comment above).
+// without a real approval workflow (revocation beyond a static `status`
+// value, and a real approving-actor identity distinct from the requesting
+// actor, are left to the future persistent implementation - see the module
+// comment above). `actorUserId` here is the action's own requesting/
+// executing actor (bound by verify()), not necessarily the person who
+// clicked "approve" in some future approval UI - the docs/athena/09-security/
+// README.md "High-Risk Action Policy" section's "approval actor" field is a
+// distinct future concept this seam does not yet model; conflating the two
+// would incorrectly let an approval scoped to one requester silently cover
+// a different one, which is exactly the bug this repair closes.
 export interface AthenaApprovalRecord {
   approvalId: string;
   orgId: string;
+  actorUserId: string;
   toolId: string;
   toolVersion: string;
+  risk: "low" | "medium" | "high";
   idempotencyKey: string;
-  status: "granted" | "denied" | "expired" | "revoked";
+  inputHash: string;
+  planId?: string;
+  stepId?: string;
+  approvedAt: Date;
+  expiresAt: Date;
+  status: "granted" | "denied" | "revoked";
 }
 
 export interface AthenaApprovalStore extends AthenaApprovalVerifier {
   grant(record: AthenaApprovalRecord): void;
 }
 
-export function createInMemoryAthenaApprovalStore(): AthenaApprovalStore {
+export interface AthenaApprovalStoreOptions {
+  // Injectable clock so expiry can be tested deterministically without
+  // fragile sleeps - defaults to the real system clock.
+  now?: () => Date;
+}
+
+export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOptions = {}): AthenaApprovalStore {
+  const now = options.now ?? (() => new Date());
   const records = new Map<string, AthenaApprovalRecord>();
 
   return {
@@ -74,10 +131,22 @@ export function createInMemoryAthenaApprovalStore(): AthenaApprovalStore {
       const record = records.get(input.approvalId);
       if (!record) return { valid: false, reasonCode: "approval_not_found" };
       if (record.orgId !== input.orgId) return { valid: false, reasonCode: "approval_org_mismatch" };
+      if (record.actorUserId !== input.actorUserId) return { valid: false, reasonCode: "approval_actor_mismatch" };
       if (record.toolId !== input.toolId || record.toolVersion !== input.toolVersion) return { valid: false, reasonCode: "approval_tool_mismatch" };
+      if (record.risk !== input.risk) return { valid: false, reasonCode: "approval_risk_mismatch" };
       if (record.idempotencyKey !== input.idempotencyKey) return { valid: false, reasonCode: "approval_action_mismatch" };
-      if (record.status === "expired") return { valid: false, reasonCode: "approval_expired" };
+      if (record.inputHash !== input.inputHash) return { valid: false, reasonCode: "approval_input_mismatch" };
+      // Only enforced when the approval record itself was scoped to a
+      // specific plan/step - an approval never bound to one is not thereby
+      // valid for every plan/step, but this store has nothing to compare.
+      if (record.planId !== undefined && record.planId !== input.planId) return { valid: false, reasonCode: "approval_plan_mismatch" };
+      if (record.stepId !== undefined && record.stepId !== input.stepId) return { valid: false, reasonCode: "approval_step_mismatch" };
       if (record.status !== "granted") return { valid: false, reasonCode: "approval_not_granted" };
+      // Real timestamp enforcement, independent of `status` - a record
+      // whose status still says "granted" must still fail once past its
+      // own expiresAt, never accepted merely because nothing ever flipped
+      // its status field.
+      if (now().getTime() >= record.expiresAt.getTime()) return { valid: false, reasonCode: "approval_expired" };
       return { valid: true };
     },
   };

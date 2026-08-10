@@ -11,6 +11,7 @@ import {
   athenaActionIdempotencyKeyRequiredError,
   athenaActionInvalidInputError,
   athenaActionInvalidResultError,
+  athenaActionPermissionDecisionMismatchError,
   athenaActionPermissionDeniedError,
   athenaActionTimeoutError,
   athenaActionToolNotFoundError,
@@ -20,6 +21,7 @@ import {
 } from "./errors";
 import { buildAthenaIdempotencyScopeKey, createInMemoryAthenaIdempotencyStore } from "./idempotency";
 import type { AthenaIdempotencyStore } from "./idempotency";
+import { computeCanonicalInputHash } from "./inputHash";
 import { assertActionTransition, isTerminalActionState } from "./lifecycle";
 import { AthenaAction, AthenaActionAudit, AthenaActionExecutionRequest, AthenaActionOutcome, AthenaActionReasonCode, AthenaActionResult, AthenaActionState } from "./types";
 
@@ -28,10 +30,19 @@ import { AthenaAction, AthenaActionAudit, AthenaActionExecutionRequest, AthenaAc
 // idempotency, rollback" / must not "Trust LLM-only approval or risk
 // claims"). This module never derives a permission, risk, or approval
 // decision on its own - `request.permissionDecision` is the already-computed
-// A4 AthenaPermissionDecision (athena-permissions/policy.ts), and the only
-// thing this module adds on top is verifying a caller-supplied approval
-// reference through the injected AthenaApprovalVerifier when that decision
-// is "approval_required". Every execution path still goes through
+// A4 AthenaPermissionDecision (athena-permissions/policy.ts). But A6 is
+// itself an execution boundary, not merely a downstream consumer: it does
+// not trust that a supplied decision was actually issued for the exact
+// action it is about to execute. Before any tool resolution or execution,
+// executeAthenaAction() verifies the decision's own orgId/userId/role/
+// capability identify this exact request (see "verify decision identity
+// binding" below) - a decision for a different org, actor, role, or tool
+// fails closed exactly like an explicit deny, regardless of what its own
+// `decision` field says. Risk is never taken from the caller either: once
+// the tool resolves, `tool.risk` (the registered AthenaToolDefinition's own
+// declared value) is the sole authoritative source for the action's risk
+// classification and for approval binding - see "authoritative tool
+// metadata" below. Every execution path still goes through
 // deps.toolRegistry.resolve() for the exact registered AthenaToolDefinition
 // - there is no way to hand this module an arbitrary handler.
 //
@@ -151,6 +162,14 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
   const idempotencyKey = request.idempotencyKey ?? randomUUID();
   let toolVersionForAudit = request.toolVersion;
   let compensationPolicy: AthenaToolCompensationPolicy = "none";
+  // Conservative default ("high") for the rare paths that fail before the
+  // tool ever resolves (decision-binding mismatch, unknown/removed/
+  // wrong-version tool) - an action record for a step A6 never even
+  // resolved must never under-report its risk. Overwritten with the
+  // resolved AthenaToolDefinition's own `risk` (the sole authoritative
+  // source) immediately after resolution succeeds - see "authoritative tool
+  // metadata" below.
+  let authoritativeRisk: "low" | "medium" | "high" = "high";
   let state: AthenaActionState = "created";
   // Tracked separately from `state` for the catch-block safety net below -
   // TypeScript cannot narrow `state`'s type through the `transition()`
@@ -173,7 +192,7 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       toolId: request.toolId,
       toolVersion: toolVersionForAudit,
       input: request.input,
-      risk: request.risk,
+      risk: authoritativeRisk,
       ...(request.approvalId ? { approvalId: request.approvalId } : {}),
       idempotencyKey,
       status: state,
@@ -198,39 +217,27 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
   };
 
   try {
-    // Consume the A4 decision; never recompute it (see module comment).
     const decision = request.permissionDecision;
-    if (decision.decision === "deny") {
+
+    // Step 1 - verify decision identity binding (docs/athena/roadmap/
+    // A6-action-engine-implementation-plan.md "Approval enforcement"). A
+    // supplied AthenaPermissionDecision is never trusted merely because a
+    // caller attached it to this request - it must actually have been
+    // issued for this exact org, actor, role, and tool. Checked against
+    // request.toolId here (before resolution); "authoritative tool
+    // metadata" below re-verifies against the resolved tool's own id as a
+    // second, defense-in-depth check. This runs before resolving the tool
+    // or looking at `decision.decision` at all - a mismatched decision
+    // fails closed regardless of what it claims.
+    if (decision.orgId !== request.orgId || decision.userId !== request.actor.id || decision.role !== request.role || decision.capability !== request.toolId) {
       transition("denied");
-      throw athenaActionPermissionDeniedError(correlationId);
+      throw athenaActionPermissionDecisionMismatchError(correlationId);
     }
 
-    if (decision.decision === "approval_required") {
-      // Approval binding requires a caller-known idempotencyKey (see
-      // approval.ts's AthenaApprovalVerificationInput) - an
-      // engine-generated fallback key can never have been granted approval
-      // in advance, so both approvalId and an explicit idempotencyKey are
-      // required together before verification is even attempted.
-      if (!request.approvalId || !request.idempotencyKey) {
-        transition("awaiting_approval");
-        throw athenaActionApprovalRequiredError(correlationId);
-      }
-      const verification = await approvalVerifier.verify({
-        approvalId: request.approvalId,
-        orgId: request.orgId,
-        toolId: request.toolId,
-        toolVersion: request.toolVersion,
-        idempotencyKey: request.idempotencyKey,
-      });
-      if (!verification.valid) {
-        transition("awaiting_approval");
-        throw athenaActionApprovalRequiredError(correlationId);
-      }
-      // Valid, correctly-bound approval - fall through to execution below.
-    }
-
-    transition("pending");
-
+    // Step 2 - resolve the exact registered tool. Fails closed for
+    // unknown/removed/wrong-version regardless of the decision's own
+    // `decision` value - an unresolvable tool never executes no matter what
+    // any permission decision says.
     const resolution = deps.toolRegistry.resolve(request.toolId, request.toolVersion);
     if (resolution.outcome === "tool_not_found") {
       transition("failed");
@@ -245,14 +252,31 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       throw athenaActionToolVersionNotFoundError(correlationId);
     }
     const tool = resolution.definition;
+
+    // Step 3 - authoritative tool metadata. tool.risk (never a
+    // caller-supplied value - AthenaActionExecutionRequest carries no risk
+    // field at all) is the sole source of truth for the action's risk
+    // classification and for approval binding below. Also re-verifies the
+    // decision's capability against the resolved tool's own id, not merely
+    // the pre-resolution request.toolId - this can only diverge from the
+    // step 1 check if the registry itself returned an internally
+    // inconsistent definition (an internal defect, not a caller problem).
+    if (tool.id !== request.toolId || decision.capability !== tool.id) {
+      transition("failed");
+      throw athenaActionUnexpectedError(correlationId);
+    }
     toolVersionForAudit = tool.version;
+    authoritativeRisk = tool.risk;
     compensationPolicy = tool.compensationPolicy;
 
-    if (tool.idempotency === "required" && !request.idempotencyKey) {
-      transition("failed");
-      throw athenaActionIdempotencyKeyRequiredError(correlationId);
+    // Step 4 - deny fails immediately, before any input validation,
+    // hashing, or approval work.
+    if (decision.decision === "deny") {
+      transition("denied");
+      throw athenaActionPermissionDeniedError(correlationId);
     }
 
+    // Step 5 - validate input through the registered schema.
     if (!isZodLikeSchema(tool.inputSchema)) {
       // Registration already guarantees this (athena-tool-registry/registry.ts's
       // assertValidToolDefinition) - reaching here means an internal
@@ -264,6 +288,52 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
     if (!parsedInput.success) {
       transition("failed");
       throw athenaActionInvalidInputError(correlationId);
+    }
+
+    // Step 6 - canonical hash of the validated input (never raw,
+    // unvalidated request.input) - see inputHash.ts.
+    const validatedInputHash = computeCanonicalInputHash(parsedInput.data);
+
+    // Step 7 - verify approval when required, bound to the exact action
+    // payload (docs/athena/09-security/README.md "High-Risk Action
+    // Policy"): org, requesting actor, tool/version, the tool's own
+    // authoritative risk, idempotency key, the validated-input hash, and
+    // (when the approval itself was scoped to one) plan/step. Approval
+    // binding requires a caller-known idempotencyKey (see approval.ts's
+    // AthenaApprovalVerificationInput) - an engine-generated fallback key
+    // can never have been granted approval in advance, so both approvalId
+    // and an explicit idempotencyKey are required together before
+    // verification is even attempted.
+    if (decision.decision === "approval_required") {
+      if (!request.approvalId || !request.idempotencyKey) {
+        transition("awaiting_approval");
+        throw athenaActionApprovalRequiredError(correlationId);
+      }
+      const verification = await approvalVerifier.verify({
+        approvalId: request.approvalId,
+        orgId: request.orgId,
+        actorUserId: request.actor.id,
+        toolId: tool.id,
+        toolVersion: tool.version,
+        risk: authoritativeRisk,
+        idempotencyKey: request.idempotencyKey,
+        inputHash: validatedInputHash,
+        planId: request.planId,
+        stepId: request.stepId,
+      });
+      if (!verification.valid) {
+        transition("awaiting_approval");
+        throw athenaActionApprovalRequiredError(correlationId);
+      }
+      // Valid, correctly-bound approval - fall through to execution below.
+    }
+
+    transition("pending");
+
+    // Step 8 - idempotency enforcement.
+    if (tool.idempotency === "required" && !request.idempotencyKey) {
+      transition("failed");
+      throw athenaActionIdempotencyKeyRequiredError(correlationId);
     }
 
     // Only tools that declare real dedup semantics AND received an explicit

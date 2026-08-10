@@ -62,16 +62,18 @@ export interface AthenaActionExecutionRequest<TInput = unknown> {
   toolVersion: string;
   input: TInput;
   aiContext: AthenaAIContext;
-  // The registered tool's own declared risk (C002/A2), threaded through by
-  // the caller rather than re-derived here - the same value the caller
-  // already passed into evaluateAthenaPermission()'s AthenaToolCapabilityRequest.
-  // C005 requires AthenaAction.risk; AthenaPermissionDecision (C007) itself
-  // carries no risk field, so this is the only place A6 can get it from
-  // without re-resolving the tool before permission enforcement runs.
-  risk: "low" | "medium" | "high";
   // The A4 decision this exact step already received from
   // evaluateAthenaPermission() (athena-permissions/policy.ts). A6 enforces
-  // it; it does not recompute it.
+  // it; it does not recompute it. There is deliberately no caller-supplied
+  // `risk` field on this request - C005's AthenaAction.risk is always
+  // sourced from the resolved AthenaToolDefinition.risk itself
+  // (engine.ts's "authoritative tool metadata" step), never from anything
+  // the caller could set. A caller-controlled risk field previously existed
+  // here and was removed for exactly the reason engine.ts's own security
+  // review flagged: it invited a risk downgrade that never actually altered
+  // authorization (A4 already computed the real decision from the true
+  // registered risk) but could still have corrupted the audited action
+  // record. See engine.ts's binding-verification comment.
   permissionDecision: AthenaPermissionDecision;
   // Caller-supplied approval reference for an approval_required decision.
   // Verified through the injected AthenaApprovalVerifier - never trusted
@@ -116,6 +118,7 @@ export interface AthenaActionResult<TData = unknown> {
 export type AthenaActionReasonCode =
   | "executed"
   | "permission_denied"
+  | "permission_decision_mismatch"
   | "approval_missing"
   | "approval_invalid"
   | "approval_granted"

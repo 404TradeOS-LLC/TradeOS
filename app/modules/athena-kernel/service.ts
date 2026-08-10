@@ -410,7 +410,6 @@ export class AthenaKernelService {
               toolVersion: step.toolVersion,
               input: step.input,
               aiContext: context,
-              risk: tool.risk,
               permissionDecision: stepDecision,
               approvalId: input.approvalId,
               idempotencyKey: input.idempotencyKey,

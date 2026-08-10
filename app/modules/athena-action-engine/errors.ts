@@ -24,6 +24,18 @@ export function athenaActionPermissionDeniedError(correlationId: string): Athena
   return new AthenaActionDispatchError("permission_denied", buildError("athena_action_permission_denied", "authorization", false, "Athena can't perform that action.", correlationId));
 }
 
+// A supplied AthenaPermissionDecision that does not identify this exact
+// action (wrong org/actor/role/tool) is never trusted merely because its
+// own `decision` field says "allow" or "approval_required" - see engine.ts's
+// module comment on why A6 is an execution boundary, not merely a consumer.
+// Deliberately the same public shape/category as a plain permission denial
+// (generic safeSummary, "authorization" category) - a caller must not be
+// able to distinguish "this decision was for a different action" from
+// "this decision denied you," only the internal reasonCode differs.
+export function athenaActionPermissionDecisionMismatchError(correlationId: string): AthenaActionDispatchError {
+  return new AthenaActionDispatchError("permission_decision_mismatch", buildError("athena_action_permission_denied", "authorization", false, "Athena can't perform that action.", correlationId));
+}
+
 // Used for both "no approvalId supplied" and "approvalId failed
 // verification" - a caller who cannot see which case occurred learns
 // nothing more about the approval store's internal state than a caller who

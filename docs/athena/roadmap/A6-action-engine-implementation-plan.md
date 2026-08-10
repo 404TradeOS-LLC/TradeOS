@@ -147,8 +147,7 @@ C0xx contracts, not part of `athena:contracts`.
 
 ## Approval Enforcement
 
-The security-critical rule, enforced in `engine.ts` before any registry
-resolution:
+The security-critical rule, enforced in `engine.ts`:
 
 ```text
 A4 decision = deny                              -> never execute
@@ -166,13 +165,82 @@ No `AthenaApproval` record contract exists anywhere in this repository or in
 `approvalId` string on the action itself); `approval.ts` defines the
 smallest injectable verification seam consistent with what
 `docs/athena/09-security/README.md`'s "High-Risk Action Policy" section
-already documents an approval must bind to (org, tool/version, and the
-action's own idempotency key, standing in for "target action" until a real
-approval-record contract exists) - **not** a parallel numbered contract.
-Production default (`createFailClosedAthenaApprovalVerifier()`) verifies
-nothing and reports every approval invalid; tests inject
-`createInMemoryAthenaApprovalStore()` to exercise the valid-approval path
-deterministically.
+already documents a real approval must eventually bind to - **not** a
+parallel numbered contract. Production default
+(`createFailClosedAthenaApprovalVerifier()`) verifies nothing and reports
+every approval invalid; tests inject `createInMemoryAthenaApprovalStore()`
+to exercise the valid-approval path deterministically.
+
+### Decision Identity Binding
+
+A6 is itself an execution boundary, not merely a downstream consumer of A4's
+decision: a supplied `AthenaPermissionDecision` is never trusted merely
+because a caller attached it to this request. Before resolving the tool or
+even inspecting `decision.decision`, `engine.ts` verifies the decision was
+actually issued for this exact action:
+
+```ts
+decision.orgId === request.orgId
+decision.userId === request.actor.id
+decision.role === request.role
+decision.capability === request.toolId  // re-verified against the resolved tool's own id too
+```
+
+Any mismatch fails closed exactly like an explicit `deny`
+(`athena_action_permission_denied`, reason code
+`permission_decision_mismatch` internally) - a decision for a different org,
+actor, role, or tool can never authorize this action, regardless of what its
+own `decision` field says. This closes cross-org, cross-actor, cross-role,
+and cross-tool decision reuse.
+
+### Authoritative Risk
+
+`AthenaActionExecutionRequest` carries no caller-supplied `risk` field at
+all. Once the tool resolves, `tool.risk` (the registered
+`AthenaToolDefinition`'s own declared value - `app/modules/athena-tool-registry/`,
+C002) is the sole source of truth for the action's risk classification, used
+for both the materialized `AthenaAction.risk` and for approval binding
+below. A caller cannot downgrade a high-risk tool's audited risk because
+there is nothing in the request contract that could do so.
+
+### Exact-Payload Approval Binding
+
+Approval verification (`approval.ts`) binds to every field
+`docs/athena/09-security/README.md`'s "High-Risk Action Policy" documents an
+approval must eventually bind to:
+
+- `approvalId`, `orgId`
+- `actorUserId` - the actor *executing* this action, distinct from a future
+  approval record's own "approval actor" (the person who granted it); an
+  approval bound to one requesting actor can never authorize a different
+  one's action
+- `toolId`, `toolVersion`
+- `risk` - the tool's own authoritative risk, never a caller-supplied value
+- `idempotencyKey` - identifies "this one action"
+- a canonical hash of the **validated** tool input (see below) - the
+  exact-payload binding 09-security requires; a caller cannot reuse a valid
+  approval/idempotency-key pair against a different input
+- `planId`/`stepId`, when the approval record itself was scoped to one
+
+`AthenaApprovalRecord` (the in-memory test/dev store) also carries
+`approvedAt`/`expiresAt` timestamps. Verification compares the current time
+(an injectable clock, `AthenaApprovalStoreOptions.now`, defaulting to the
+real system clock) against `expiresAt` independently of the record's
+`status` field - a record whose `status` still says `granted` is still
+rejected once past its own expiry, never accepted merely because nothing
+ever flipped its status.
+
+### Canonical Input Hashing
+
+`inputHash.ts`'s `computeCanonicalInputHash()` hashes the already-validated
+tool input (`tool.inputSchema.safeParse(...)`'s parsed output), never raw
+unvalidated `request.input` - approval binding happens after input
+validation for exactly this reason. It recursively sorts plain-object keys
+before hashing (array order is left untouched - order is semantically
+significant there) so two structurally-equivalent objects with different
+property insertion order still hash identically; plain `JSON.stringify()`
+does not guarantee this. SHA-256 via Node's built-in `crypto` module - no
+new dependency.
 
 ## Idempotency
 
@@ -253,6 +321,24 @@ Athena flag.
   idempotency `required`/`optional`/`not_supported` semantics, including
   the "duplicate key does not execute twice" and
   "not_supported does not dedupe" cases.
+  - `describe("permission decision binding")`: a decision naming a
+    different tool/actor/org/role than the one being executed fails closed
+    and never calls the handler, for each of the four fields independently.
+  - A dedicated test proves the materialized action's `risk` always equals
+    the resolved tool's own `risk`, even when a caller attaches an
+    unsanctioned `risk` property to the request object (bypassing the type
+    system) - the engine never reads it.
+  - `describe("approval binding")`: cross-actor approval reuse; a risk
+    mismatch between the approval and the tool's current authoritative
+    risk; an expired approval (both via a naturally-past `expiresAt` and via
+    an injected clock, proving determinism without a real sleep); an
+    approval bound to a different plan/step than the one being executed,
+    and that an unscoped approval (no planId/stepId on the record) is
+    accepted for any plan/step; changed-input replay of the same
+    approval/idempotency key; and that a structurally-identical input with
+    different object-key insertion order still verifies (a custom
+    record-typed fixture tool, since the shared echo fixture's schema has
+    only one field).
 - `athena-action-engine.lifecycle.test.ts`: the full pairwise transition
   matrix, terminal-state immutability, and specific illegal transitions
   (`created -> running`, `created -> succeeded`, `pending -> denied`).

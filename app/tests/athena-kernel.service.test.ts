@@ -38,6 +38,7 @@ jest.mock("../db/client", () => ({
 
 import { createInMemoryAthenaApprovalStore } from "../modules/athena-action-engine/approval";
 import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
+import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaProviderAdapter } from "../modules/athena-kernel/provider";
 import { athenaCancellationError } from "../modules/athena-kernel/errors";
@@ -625,7 +626,20 @@ describe("AthenaKernelService", () => {
       let executed = false;
       toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-approved", permissions: [], risk: "high", onExecuted: () => { executed = true; } }));
       const approvals = createInMemoryAthenaApprovalStore();
-      approvals.grant({ approvalId: "approval-a6-1", orgId: "org-1", toolId: "tradeos.athena.fixture.a6-approved", toolVersion: "1.0.0", idempotencyKey: "idem-a6-1", status: "granted" });
+      const grantedAt = Date.now();
+      approvals.grant({
+        approvalId: "approval-a6-1",
+        orgId: "org-1",
+        actorUserId: "user-1",
+        toolId: "tradeos.athena.fixture.a6-approved",
+        toolVersion: "1.0.0",
+        risk: "high",
+        idempotencyKey: "idem-a6-1",
+        inputHash: computeCanonicalInputHash({ message: "hi" }),
+        approvedAt: new Date(grantedAt - 1_000),
+        expiresAt: new Date(grantedAt + 3_600_000),
+        status: "granted",
+      });
 
       const service = new AthenaKernelService();
       const result = await service.handleRequest({
