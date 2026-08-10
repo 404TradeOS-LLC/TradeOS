@@ -102,6 +102,7 @@ See module docs in `docs/modules/`.
 - Legacy role values `estimator` and `viewer` are still tolerated in stored data but normalize to canonical roles
 - Project lifecycle persistence still contains legacy values such as `proposal_sent` and `accepted`; UI and shared contracts normalize these into canonical display states
 - Contract persistence still stores `pending_signature`; global lifecycle docs treat that as compatibility storage under canonical contract states
+- Costbook architecture has been documented as a future pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). The architecture is defined, but no unified production Costbook workspace, unified `/api/v1/costbook/*` API boundary, Costbook-specific permission set, price-history engine, or Athena Costbook advisor exists yet. Future implementation should follow the Sprint Backlog readiness protocol and use the Costbook architecture as its domain guide.
 - Supplier integration feed ingestion is scaffolded around a stub fetcher; queue, review, audit, and scheduling plumbing are real
 - Customer portal exists for proposal, contract, invoice, and project views, but hardening is still tracked as RC work
 - Structured AI estimator drafts remain review-first; they do not autonomously write estimate line items and do not call external model APIs in the current implementation
