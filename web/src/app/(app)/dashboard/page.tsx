@@ -290,21 +290,23 @@ export default async function DashboardPage() {
       <Card className="border-border/70">
         <CardHeader>
           <CardTitle>Knowledge Runtime Coverage</CardTitle>
-          <CardDescription>Read-only estimating knowledge remains visible without adding AI execution to the owner dashboard.</CardDescription>
+          <CardDescription>Live read-only estimating knowledge coverage. Open the diagnostic view for trade coverage and runtime health.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="font-mono text-lg font-medium tabular-nums text-foreground">
             {knowledgeStats ? `${knowledgeStats.tradesCount} trades / ${knowledgeStats.assembliesCount} assemblies` : "Unavailable"}
           </p>
+          <Link href="/dashboard/knowledge-coverage" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            View coverage
+          </Link>
         </CardContent>
       </Card>
 
       <Card className="border-border/70">
         <CardHeader>
-          <CardTitle>Operational queues</CardTitle>
+          <CardTitle>Recent project lifecycle</CardTitle>
           <CardDescription>
-            Signed in as {session?.email}. Project workspace status remains connected to the live project, proposal, contract, invoice, and
-            change-order data already loaded by the dashboard.
+            Signed in as {session?.email}. Latest proposal, contract, invoice, and change-order state for the {projectScopeLabel}; this is a recent-project snapshot, not an organization-wide work queue.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
