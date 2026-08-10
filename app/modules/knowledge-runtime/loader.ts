@@ -9,12 +9,18 @@ const REPO_MARKERS = ["packages/knowledge-engine/exports/json/costbook.json", "a
 // packages/knowledge-engine/, a sibling of app/ at the repo root, is never
 // reachable there at runtime. scripts/vendor-knowledge-engine.js copies the
 // three data directories this loader needs into app/vendor/knowledge-engine/
-// as a build step specifically so this candidate resolves in production;
-// see that script for the full explanation. Checked first, ahead of the
-// repo-root search below, but harmless if absent (falls through) — nothing
-// about local development or tests changes.
+// as a build step. Vercel may execute this module from the source-style
+// app/modules/... layout, while npm start executes the compiled dist/modules/...
+// layout, so resolve against the project root first and retain the compiled
+// relative candidate as a compatibility fallback.
 export function vendoredKnowledgeEngineRoot(): string {
-  return path.resolve(__dirname, "../../../vendor/knowledge-engine");
+  const candidates = [
+    path.resolve(process.cwd(), "vendor", "knowledge-engine"),
+    path.resolve(__dirname, "../../vendor/knowledge-engine"),
+    path.resolve(__dirname, "../../../vendor/knowledge-engine"),
+  ];
+
+  return candidates.find(hasVendoredKnowledgeEngine) ?? candidates[0];
 }
 
 function hasVendoredKnowledgeEngine(root: string): boolean {

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: false
 related_code:
   - app/modules/intelligence
@@ -64,6 +64,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 - this module's `DOC_OWNERSHIP.yml` grouping is shared with `ai-estimate-assist`/`knowledge-runtime`; a recent internal dead-code cleanup touched `knowledge-runtime/repository.ts` (see `modules/ai-estimate-assist.md`) but did not change anything in `app/modules/intelligence/*` or this module's behavior
 - a production fix to `knowledge-runtime`'s Vercel packaging (see `modules/ai-estimate-assist.md`'s Known Limitations) also did not change anything in `app/modules/intelligence/*` or this module's behavior; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping
+- the follow-up Vercel function packaging fix explicitly includes `app/vendor/knowledge-engine/**` in the backend function bundle and teaches the loader to resolve both source-style and compiled `dist/` runtime layouts; this keeps `/api/v1/knowledge/*` available in hosted runtime packaging without creating new activity events, notifications, search behavior, or intelligence write paths
 - the structured AI estimator records non-sensitive activity events for draft generation and reviewed apply actions; it does not create notifications or store complete contractor prompts in activity metadata
 
 ## Known limitations

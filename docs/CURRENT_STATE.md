@@ -132,6 +132,7 @@ See module docs in `docs/modules/`.
 - Some older implementation notes and planning artifacts required archiving because they conflicted with the live repository
 - Settings brand asset uploads (`uploadSettingsAssetAction`) use the private `project-files` bucket through a server-only Supabase service-role client and authenticated proxy; no service credential or direct public/signed Supabase Storage URL is returned to the browser
 - Settings brand asset uploads can leave an orphaned storage object if a user uploads a file but abandons the settings form before pressing "Save changes" — non-blocking, no cleanup logic exists for this yet
+- Knowledge Runtime deployment packaging now has two production-path protections: `app/scripts/vendor-knowledge-engine.js` copies the read-only Knowledge Engine data into `app/vendor/knowledge-engine/` during backend build, and `app/vercel.json` includes `vendor/knowledge-engine/**` in the `index.ts` function bundle. `app/modules/knowledge-runtime/loader.ts` checks the process-root vendored path first, then source-layout and compiled-`dist` relative candidates, before falling back to full-repository local/CI discovery. This changes deployment packaging only; knowledge APIs, estimator review behavior, auth, RLS, and write paths are unchanged.
 
 ## Recent verified infrastructure facts
 
