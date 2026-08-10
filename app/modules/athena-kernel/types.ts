@@ -141,6 +141,37 @@ export interface AthenaTelemetryContextSection {
   executionId: string;
 }
 
+// C001 provider-section shapes (docs/athena/contracts/README.md,
+// docs/athena/roadmap/A3-context-engine-implementation-plan.md). Added here
+// (not in athena-context-engine/types.ts) so AthenaAIContext stays the one
+// canonical context type instead of forking into a kernel version and a
+// richer "extended" version. Purely additive: no A1/A2 code path sets these
+// fields, so every existing minimal-context assertion (e.g.
+// `context).not.toHaveProperty("customers")`) keeps passing unchanged.
+export interface AthenaFreshnessEvidence {
+  status: "live" | "fresh" | "stale" | "unavailable";
+  fetchedAt: string;
+  expiresAt?: string;
+  ttlMs?: number;
+  cacheHit: boolean;
+  sourceVersion?: string;
+  sourceHash?: string;
+  revalidatedAt?: string;
+}
+
+export interface AthenaProviderSection<TData = unknown> {
+  status: "available" | "degraded" | "omitted" | "unavailable" | "denied";
+  freshness: AthenaFreshnessEvidence;
+  sensitivity: "public" | "internal" | "confidential" | "restricted";
+  source: { providerId: string; providerVersion: string };
+  data: TData;
+  omittedFields: string[];
+  maxItems: number;
+  maxBytes: number;
+  estimatedTokens?: number;
+  truncationReason?: string;
+}
+
 export interface AthenaAIContext {
   version: "1.0.0";
   request: AthenaRequestContextSection;
@@ -151,6 +182,17 @@ export interface AthenaAIContext {
   budget: AthenaContextBudget;
   conversation?: AthenaConversationContextSection;
   telemetry: AthenaTelemetryContextSection;
+  // A3 provider sections. Every field stays unset in A1/A2 code paths and in
+  // any A3 provider not yet implemented - see the A3 plan's "Deferred
+  // Sections" table for why each unbuilt section is still typed here.
+  knowledgeEngine?: AthenaProviderSection;
+  dispatch?: AthenaProviderSection;
+  weather?: AthenaProviderSection;
+  calendar?: AthenaProviderSection;
+  customers?: AthenaProviderSection;
+  costbook?: AthenaProviderSection;
+  inventory?: AthenaProviderSection;
+  notifications?: AthenaProviderSection;
 }
 
 // C007 Permission (narrowed to A1's two capabilities)
