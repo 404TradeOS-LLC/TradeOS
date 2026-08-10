@@ -3,6 +3,9 @@ import { normalizeRole } from "../../domain";
 import type { DomainPermission } from "../../domain";
 import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
+import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
+import { executeAthenaAction } from "../athena-action-engine/engine";
+import type { AthenaIdempotencyStore } from "../athena-action-engine/idempotency";
 import { buildAthenaPlan } from "../athena-planner/planner";
 import type { AthenaPlanCandidateTool } from "../athena-planner/types";
 import { evaluateAthenaPermission } from "../athena-permissions/policy";
@@ -67,6 +70,17 @@ export interface AthenaKernelHandleInput {
   // exercises the kernel's evaluateAthenaPermission() denial path itself,
   // not registry-level candidate filtering.
   candidateTools?: AthenaPlanCandidateTool[];
+  // A6 DI seams, same posture as the ones above - production has no
+  // real caller-facing approval/idempotency submission surface yet (that is
+  // future work; see docs/athena/roadmap/A6-action-engine-implementation-plan.md),
+  // so these only matter to tests today. approvalId/idempotencyKey are
+  // applied uniformly to every tool_call step in the plan - safe because a
+  // production plan never has more than zero steps (A2 has no registered
+  // tools), and every A6 test plan in this repo exercises exactly one step.
+  approvalId?: string;
+  idempotencyKey?: string;
+  approvalVerifier?: AthenaApprovalVerifier;
+  idempotencyStore?: AthenaIdempotencyStore;
 }
 
 // Runtime coordinator for one Athena request (docs/athena/05-runtime/README.md
@@ -142,7 +156,7 @@ export class AthenaKernelService {
       }
     };
 
-    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
+    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
       try {
         const record = buildTelemetryRecord({
           orgId: actor.orgId,
@@ -322,20 +336,121 @@ export class AthenaKernelService {
             // were malformed.
             request: { kind: "tool", id: step.toolId, requiredPermissions: tool.permissions as DomainPermission[], risk: tool.risk },
           });
-          if (stepDecision.decision !== "allow") {
-            const reasonCode = stepDecision.decision === "approval_required" ? "athena_approval_required_no_action_engine" : stepDecision.reasonCode;
-            await emitSpan("approval", stepDecision.decision === "approval_required" ? "degraded" : "denied", Date.now() - policyStart, {
+
+          if (stepDecision.decision === "deny") {
+            await emitSpan("approval", "denied", Date.now() - policyStart, {
               planId: plan.planId,
               stepId: step.stepId,
               toolId: step.toolId,
               decision: stepDecision.decision,
-              reasonCode,
+              reasonCode: stepDecision.reasonCode,
             });
-            await applyTransition("denied", reasonCode);
-            const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+            await applyTransition("denied", stepDecision.reasonCode);
+            const denied = this.buildDeniedResult(executionId, traceId, stepDecision.reasonCode);
             await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
             return denied;
           }
+
+          if (!flags.actionEngineEnabled) {
+            // A6 does not exist from this path's perspective - approval_required
+            // still maps to denied (byte-identical to A5's original
+            // behavior), and "allow" falls through unexecuted, exactly as
+            // before ATHENA_ACTION_ENGINE_ENABLED existed.
+            if (stepDecision.decision === "approval_required") {
+              const reasonCode = "athena_approval_required_no_action_engine";
+              await emitSpan("approval", "degraded", Date.now() - policyStart, {
+                planId: plan.planId,
+                stepId: step.stepId,
+                toolId: step.toolId,
+                decision: stepDecision.decision,
+                reasonCode,
+              });
+              await applyTransition("denied", reasonCode);
+              const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+              await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+              return denied;
+            }
+            await emitSpan("approval", "ok", Date.now() - policyStart, {
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              decision: stepDecision.decision,
+              reasonCode: stepDecision.reasonCode,
+            });
+            continue;
+          }
+
+          // A6 enabled: hand the already-evaluated A4 decision to the
+          // Action Engine. A6 enforces it (deny is unreachable here; it
+          // already returned above) - it never re-derives permissions, risk,
+          // or approval itself (docs/athena/roadmap/
+          // A6-action-engine-implementation-plan.md "Approval enforcement").
+          await emitSpan("approval", stepDecision.decision === "allow" ? "ok" : "degraded", Date.now() - policyStart, {
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            decision: stepDecision.decision,
+            reasonCode: stepDecision.reasonCode,
+          });
+
+          throwIfAborted();
+          const actionStart = Date.now();
+          const actionOutcome = await executeAthenaAction(
+            { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
+            {
+              planId: plan.planId,
+              stepId: step.stepId,
+              requestId: input.requestId,
+              traceId,
+              executionId,
+              orgId: actor.orgId,
+              actor: { type: "user", id: actor.userId },
+              role: actor.role,
+              toolId: step.toolId,
+              toolVersion: step.toolVersion,
+              input: step.input,
+              aiContext: context,
+              permissionDecision: stepDecision,
+              approvalId: input.approvalId,
+              idempotencyKey: input.idempotencyKey,
+              featureFlags: [],
+              clientSignal: controller.signal,
+            }
+          );
+
+          const actionState = actionOutcome.result.state;
+          const actionStatus: "ok" | "error" | "denied" = actionState === "succeeded" ? "ok" : actionState === "denied" || actionState === "awaiting_approval" ? "denied" : "error";
+          await emitSpan("action", actionStatus, Date.now() - actionStart, {
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            actionId: actionOutcome.result.actionId,
+            state: actionState,
+            reasonCode: actionOutcome.audit.reasonCode,
+          });
+
+          if (actionState !== "succeeded") {
+            const toolError = actionOutcome.result.toolResult.error ?? normalizeAthenaError(new Error("athena_action_failed"), traceId);
+            if (actionState === "denied" || actionState === "awaiting_approval") {
+              await applyTransition("denied", toolError.code);
+              const denied = this.buildDeniedResult(executionId, traceId, toolError.code);
+              await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+              return denied;
+            }
+            // failed / expired / cancelled / (partially_succeeded, not
+            // reachable in this milestone - see athena-action-engine/lifecycle.ts)
+            // all use the kernel's existing escape-state edges from
+            // policy_check (athena-kernel/lifecycle.ts's escapeStates),
+            // legal today with no lifecycle.ts change.
+            const finalState: AthenaKernelState = actionState === "expired" ? "expired" : actionState === "cancelled" ? "cancelled" : "failed";
+            await applyTransition(finalState, toolError.code);
+            const failure = this.buildErrorResult(executionId, traceId, finalState, toolError);
+            await executionStore.finalizeExecutionRecord({ executionId, safeSummary: failure.summary, safeErrorCode: failure.error?.code });
+            return failure;
+          }
+          // succeeded: continue authorizing/executing any remaining steps,
+          // then fall through to the unchanged draft-response stage below.
         }
 
         await emitSpan("approval", "ok", Date.now() - policyStart, { planId: plan.planId, planStatus: plan.status, intent: plan.intent });
