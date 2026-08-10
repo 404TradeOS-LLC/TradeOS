@@ -17,12 +17,6 @@ const TASK_PRIORITY_WEIGHT: Record<OrganizationProjectTask["priority"], number> 
   low: 2,
 };
 
-function toValidDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
 function getZonedDayOrdinal(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
