@@ -144,7 +144,6 @@ describe("ProjectTasksService", () => {
     expect(mockPrisma.projectTask.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { project: { orgId: "org-1" } },
-        take: 12,
       })
     );
     expect(tasks[0]).toMatchObject({
@@ -158,5 +157,56 @@ describe("ProjectTasksService", () => {
       projectName: "Warehouse retrofit",
       customerName: "Acme Fabrication",
     });
+  });
+
+  it("applies the limit after priority sorting instead of before fetching", async () => {
+    mockPrisma.projectTask.findMany.mockResolvedValue([
+      {
+        id: "task-late",
+        projectId: "project-1",
+        jobId: null,
+        title: "Blocked urgent follow-up",
+        status: "blocked",
+        assignedTo: "Taylor",
+        dueDate: new Date("2026-07-10T00:00:00.000Z"),
+        priority: "high",
+        notes: null,
+        completedAt: null,
+        createdAt: new Date("2026-07-01T12:00:00.000Z"),
+        updatedAt: new Date("2026-07-12T12:00:00.000Z"),
+        project: {
+          name: "Project A",
+          status: "active",
+          customer: { name: "Alpha" },
+        },
+        job: null,
+      },
+      {
+        id: "task-early",
+        projectId: "project-2",
+        jobId: null,
+        title: "Upcoming medium task",
+        status: "todo",
+        assignedTo: null,
+        dueDate: new Date("2026-07-20T00:00:00.000Z"),
+        priority: "medium",
+        notes: null,
+        completedAt: null,
+        createdAt: new Date("2026-07-01T12:00:00.000Z"),
+        updatedAt: new Date("2026-07-11T12:00:00.000Z"),
+        project: {
+          name: "Project B",
+          status: "active",
+          customer: { name: "Beta" },
+        },
+        job: null,
+      },
+    ]);
+
+    const service = new ProjectTasksService();
+    const tasks = await service.listByOrganization({ orgId: "org-1", includeCompleted: true, limit: 1 });
+
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].id).toBe("task-late");
   });
 });

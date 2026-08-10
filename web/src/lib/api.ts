@@ -516,6 +516,19 @@ export interface OrganizationProjectTask extends ProjectTask {
   jobTitle: string | null;
 }
 
+export interface ActivityEvent {
+  id: string;
+  entityType: string;
+  entityId: string;
+  eventType: string;
+  title: string;
+  description: string | null;
+  actorUserId: string | null;
+  metadata: Record<string, unknown> | null;
+  occurredAt: string;
+  createdAt: string;
+}
+
 export function listProjectTasks(token: string, projectId: string) {
   return apiFetch<ProjectTask[]>(`/api/v1/projects/${projectId}/tasks`, { token });
 }
@@ -538,6 +551,25 @@ export function listOrganizationProjectTasks(
       projectStatus: normalizeStatus(task.projectStatus, legacyProjectStatusMap, projectStatuses, "lead"),
     }))
   );
+}
+
+export function listActivityEvents(
+  token: string,
+  input: {
+    entityType?: string;
+    entityId?: string;
+    eventType?: string;
+    limit?: number;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  if (input.entityType) params.set("entityType", input.entityType);
+  if (input.entityId) params.set("entityId", input.entityId);
+  if (input.eventType) params.set("eventType", input.eventType);
+  if (input.limit) params.set("limit", String(input.limit));
+
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return apiFetch<ActivityEvent[]>(`/api/v1/intelligence/activity${suffix}`, { token });
 }
 
 export interface ProposalDelivery {

@@ -1,10 +1,9 @@
 import { getStatusLabel, type TaskStatus } from "@/domain";
-import type { OrganizationProjectTask } from "@/lib/api";
+import type { ActivityEvent, OrganizationProjectTask } from "@/lib/api";
 import type { OwnerActivityEntry } from "./owner-dashboard-data";
 
 export interface DashboardTaskSnapshot {
   openTasks: OrganizationProjectTask[];
-  recentTasks: OrganizationProjectTask[];
   overdueCount: number;
   dueTodayCount: number;
   blockedCount: number;
@@ -76,11 +75,9 @@ function compareTasks(left: OrganizationProjectTask, right: OrganizationProjectT
 
 export function buildDashboardTaskSnapshot(tasks: OrganizationProjectTask[], now: Date, timeZone: string): DashboardTaskSnapshot {
   const openTasks = tasks.filter((task) => task.status !== "completed").sort((left, right) => compareTasks(left, right, now, timeZone));
-  const recentTasks = [...tasks].sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()).slice(0, 8);
 
   return {
     openTasks,
-    recentTasks,
     overdueCount: openTasks.filter((task) => getDueBucket(task, now, timeZone) === "overdue").length,
     dueTodayCount: openTasks.filter((task) => getDueBucket(task, now, timeZone) === "today").length,
     blockedCount: openTasks.filter((task) => task.status === "blocked").length,
@@ -108,31 +105,27 @@ export function formatTaskDueLabel(task: Pick<OrganizationProjectTask, "dueDate"
   }
 }
 
-function getActivityTone(task: OrganizationProjectTask, now: Date, timeZone: string): OwnerActivityEntry["tone"] {
-  if (task.status === "completed") return "success";
-  if (task.status === "blocked" || getDueBucket(task, now, timeZone) === "overdue") return "warning";
+function getTaskActivityTone(event: ActivityEvent): OwnerActivityEntry["tone"] {
+  if (event.eventType === "task.completed") return "success";
+  if (event.eventType === "task.blocked" || event.eventType === "task.deleted") return "warning";
   return "info";
 }
 
-function getActivityTitle(task: OrganizationProjectTask): string {
-  const statusTitle: Record<TaskStatus, string> = {
-    todo: "queued",
-    in_progress: "in progress",
-    blocked: "blocked",
-    completed: "completed",
-  };
-
-  return `${task.title} is ${statusTitle[task.status]}`;
+function getTaskActivityCategory(event: ActivityEvent): string {
+  const maybeStatus = event.eventType.split(".").at(-1);
+  return maybeStatus && (["todo", "in_progress", "blocked", "completed"] as TaskStatus[]).includes(maybeStatus as TaskStatus)
+    ? getStatusLabel(maybeStatus)
+    : "Updated";
 }
 
-export function buildTaskActivityEntries(tasks: OrganizationProjectTask[], now: Date, timeZone: string): OwnerActivityEntry[] {
-  return tasks.map((task) => ({
-    id: task.id,
-    title: getActivityTitle(task),
-    description: [task.projectName, task.jobTitle, formatTaskDueLabel(task, now, timeZone)].filter(Boolean).join(" / "),
-    occurredAt: task.updatedAt,
-    category: getStatusLabel(task.status),
-    actor: task.assignedTo ?? "Unassigned",
-    tone: getActivityTone(task, now, timeZone),
+export function buildTaskActivityEntries(events: ActivityEvent[]): OwnerActivityEntry[] {
+  return events.map((event) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description ?? "Task activity recorded.",
+    occurredAt: event.occurredAt,
+    category: getTaskActivityCategory(event),
+    actor: event.actorUserId ? `User ${event.actorUserId}` : "TradeOS",
+    tone: getTaskActivityTone(event),
   }));
 }

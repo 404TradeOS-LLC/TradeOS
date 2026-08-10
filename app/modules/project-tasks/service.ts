@@ -14,7 +14,7 @@ function toSortableDate(value: Date | null) {
 
 export class ProjectTasksService {
   async listByOrganization(input: ListProjectTasksInput): Promise<ProjectTaskListItemDTO[]> {
-    const limit = Math.max(1, Math.min(input.limit ?? 24, 50));
+    const limit = input.limit ? Math.max(1, Math.min(input.limit, 50)) : undefined;
     const rows = await prisma.projectTask.findMany({
       where: {
         project: { orgId: input.orgId },
@@ -39,11 +39,10 @@ export class ProjectTasksService {
           },
         },
       },
-      take: limit,
       orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
     });
 
-    return rows
+    const prioritizedRows = rows
       .sort((left, right) => {
         if (left.status === "completed" && right.status !== "completed") return 1;
         if (left.status !== "completed" && right.status === "completed") return -1;
@@ -55,8 +54,9 @@ export class ProjectTasksService {
         if (priorityDelta !== 0) return priorityDelta;
 
         return right.updatedAt.getTime() - left.updatedAt.getTime();
-      })
-      .map((row) => toListItemDTO(row));
+      });
+
+    return (limit ? prioritizedRows.slice(0, limit) : prioritizedRows).map((row) => toListItemDTO(row));
   }
 
   async listByProject(projectId: string, orgId?: string): Promise<ProjectTaskDTO[]> {
