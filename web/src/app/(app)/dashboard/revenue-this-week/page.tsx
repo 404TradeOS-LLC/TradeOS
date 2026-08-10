@@ -6,57 +6,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/document-workflow";
-import { getOrganizationSettings, getProject, listProjects } from "@/lib/api";
+import { getCurrentWeekPaymentLedger } from "@/lib/payment-ledger";
 import { getSessionToken } from "@/lib/session";
-import { mergeTradeOsSettingsDraft } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Revenue This Week | TradeOS",
-  description: "Paid invoices that make up the owner dashboard's Revenue This Week KPI.",
+  description: "Recorded payments that make up the owner dashboard's Revenue This Week KPI.",
 };
 
-const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
-
-function getSafeTimeZone(timeZone: string) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-    return timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
-function toValidDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function getZonedDayOrdinal(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-
-  return Date.UTC(year, month - 1, day) / 86_400_000;
-}
-
-function isSameWeek(value: string | null | undefined, comparison: Date, timeZone: string) {
-  const date = toValidDate(value);
-  if (!date) return false;
-  const comparisonDay = getZonedDayOrdinal(comparison, timeZone);
-  const weekStart = comparisonDay - new Date(comparisonDay * 86_400_000).getUTCDay();
-  const targetDay = getZonedDayOrdinal(date, timeZone);
-
-  return targetDay >= weekStart && targetDay < weekStart + 7;
-}
-
-function formatPaidAt(value: string, timeZone: string) {
+function formatPaymentDate(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", {
     timeZone,
     month: "short",
@@ -67,62 +25,69 @@ function formatPaidAt(value: string, timeZone: string) {
   }).format(new Date(value));
 }
 
+function formatMethod(method: string) {
+  return method
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default async function RevenueThisWeekPage() {
   const token = await getSessionToken();
 
   if (!token) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Revenue This Week" description="Paid invoices represented by the owner dashboard KPI." backHref="/dashboard" backLabel="Dashboard" />
-        <EmptyState title="Revenue data is unavailable." description="Sign in again to load the paid invoices behind this dashboard metric." />
+        <PageHeader title="Revenue This Week" description="Recorded payments represented by the owner dashboard KPI." backHref="/dashboard" backLabel="Dashboard" />
+        <EmptyState title="Revenue data is unavailable." description="Sign in again to load the payment ledger behind this dashboard metric." />
       </div>
     );
   }
 
-  const [projects, settingsResponse] = await Promise.all([listProjects(token), getOrganizationSettings(token)]);
-  const projectDetails = await Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id)));
-  const settings = mergeTradeOsSettingsDraft(settingsResponse.settings);
-  const timeZone = getSafeTimeZone(settings.timezone);
-  const now = new Date();
+  const ledger = await getCurrentWeekPaymentLedger(token).catch(() => null);
 
-  const paidInvoices = projectDetails
-    .flatMap((project) =>
-      project.invoices
-        .filter((invoice) => invoice.status === "paid" && isSameWeek(invoice.paidAt, now, timeZone))
-        .map((invoice) => ({
-          invoice,
-          projectId: project.id,
-          projectName: project.name,
-          customerName: project.customer?.name ?? "No customer linked",
-        }))
-    )
-    .sort((a, b) => new Date(b.invoice.paidAt ?? 0).getTime() - new Date(a.invoice.paidAt ?? 0).getTime());
+  if (!ledger) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Revenue This Week" description="Recorded payments represented by the owner dashboard KPI." backHref="/dashboard" backLabel="Dashboard" />
+        <EmptyState
+          title="Payment ledger is temporarily unavailable."
+          description="The dashboard will not substitute paid-invoice totals when the payment source cannot be loaded."
+          action={
+            <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
+              Review projects
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
-  const total = paidInvoices.reduce((sum, row) => sum + row.invoice.amount, 0);
-  const scopeLabel = projectDetails.length < DASHBOARD_PROJECT_DETAIL_LIMIT ? `${projectDetails.length} loaded projects` : `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+  const timeZone = ledger.timezone.timezone;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Revenue This Week"
-        description={`Paid invoices recorded this week in the ${scopeLabel}, using the same scope and timezone rules as the dashboard KPI.`}
+        description={`Recorded payment transactions in the current organization week (${timeZone}).`}
         backHref="/dashboard"
         backLabel="Dashboard"
       />
 
       <Card className="border-border/70">
         <CardHeader>
-          <CardTitle>{formatCurrency(total)}</CardTitle>
+          <CardTitle>{formatCurrency(ledger.totalAmount)}</CardTitle>
           <CardDescription>
-            {paidInvoices.length} paid {paidInvoices.length === 1 ? "invoice" : "invoices"} in the current organization week ({timeZone}).
+            {ledger.paymentCount} recorded {ledger.paymentCount === 1 ? "payment" : "payments"}. This is the same source used by the dashboard KPI.
           </CardDescription>
         </CardHeader>
       </Card>
 
-      {paidInvoices.length === 0 ? (
+      {ledger.payments.length === 0 ? (
         <EmptyState
-          title="No paid invoices this week."
-          description="When an invoice in the dashboard's loaded project scope is marked paid, it will appear here and contribute to Revenue This Week."
+          title="No recorded payments this week."
+          description="Payments recorded against invoices during this organization week will appear here and contribute to Revenue This Week."
           action={
             <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
               Review projects
@@ -132,26 +97,34 @@ export default async function RevenueThisWeekPage() {
       ) : (
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle>Paid invoices</CardTitle>
-            <CardDescription>Open an invoice to review its billing timeline and payment state.</CardDescription>
+            <CardTitle>Payment ledger</CardTitle>
+            <CardDescription>Each row is a persisted Payment record, not an inferred invoice-status event.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {paidInvoices.map(({ invoice, projectId, projectName, customerName }) => (
-              <article key={invoice.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            {ledger.payments.map((payment) => (
+              <article key={payment.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status="paid" />
-                      <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Invoice #{invoice.invoiceNumber}</span>
+                      <StatusBadge status={payment.status} />
+                      <span className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                        Invoice #{payment.invoice.invoiceNumber}
+                      </span>
                     </div>
-                    <h2 className="mt-2 break-words font-semibold text-foreground">{projectName}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{customerName}</p>
+                    <h2 className="mt-2 break-words font-semibold text-foreground">{payment.invoice.project.name}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{payment.invoice.project.customer?.name ?? "No customer linked"}</p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      <span>{formatCurrency(invoice.amount)}</span>
-                      {invoice.paidAt ? <span>Paid {formatPaidAt(invoice.paidAt, timeZone)}</span> : null}
+                      <span className="font-medium text-foreground">{formatCurrency(payment.amount)}</span>
+                      <span>{formatMethod(payment.method)}</span>
+                      <span>{formatPaymentDate(payment.paymentDate, timeZone)}</span>
+                      {payment.reference ? <span>Ref: {payment.reference}</span> : null}
                     </div>
+                    {payment.notes ? <p className="mt-2 text-sm text-muted-foreground">{payment.notes}</p> : null}
                   </div>
-                  <Link href={`/projects/${projectId}/invoices/${invoice.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  <Link
+                    href={`/projects/${payment.invoice.project.id}/invoices/${payment.invoice.id}`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
                     Open invoice
                   </Link>
                 </div>
@@ -161,9 +134,9 @@ export default async function RevenueThisWeekPage() {
         </Card>
       )}
 
-      <p className="text-xs leading-5 text-muted-foreground">
-        This drill-down currently reconciles the KPI from paid invoice totals. TradeOS stores individual Payment records, but the current web read contract does not expose an organization-level payment ledger, so this page does not invent payment-level detail that the API does not return.
-      </p>
+      {ledger.timezone.isFallback ? (
+        <p className="text-xs leading-5 text-muted-foreground">Organization timezone is missing or invalid, so this weekly ledger is using UTC boundaries.</p>
+      ) : null}
     </div>
   );
 }
