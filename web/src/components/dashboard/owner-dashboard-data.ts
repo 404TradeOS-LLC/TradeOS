@@ -55,6 +55,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Draft or ready estimates in the ${input.scopeLabel}`,
       icon: ClipboardCheck,
       tone: "neutral",
+      href: "/dashboard#open-estimates",
     },
     {
       id: "revenue-this-week",
@@ -71,6 +72,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Sent, overdue, or partially paid invoices in the ${input.scopeLabel}`,
       icon: ReceiptText,
       tone: input.invoicesWaiting > 0 ? "attention" : "neutral",
+      href: "/dashboard#invoices-waiting",
     },
     {
       id: "unscheduled-jobs",
@@ -89,6 +91,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Open project tasks past due in the ${input.scopeLabel}`,
       icon: ListTodo,
       tone: input.overdueTasks > 0 ? "attention" : "neutral",
+      href: "/dashboard/overdue-tasks",
     },
   ];
 }

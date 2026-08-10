@@ -93,7 +93,7 @@ export function NeedsAttentionCard({
         ) : (
           <>
             {estimates.length > 0 ? (
-              <div className="space-y-2">
+              <div id="open-estimates" className="scroll-mt-6 space-y-2">
                 <SectionLabel>Estimates in progress</SectionLabel>
                 <div className="space-y-2">
                   {estimates.map((row) => (
@@ -158,7 +158,7 @@ export function NeedsAttentionCard({
             ) : null}
 
             {invoices.length > 0 ? (
-              <div className="space-y-2">
+              <div id="invoices-waiting" className="scroll-mt-6 space-y-2">
                 <SectionLabel>Invoices needing follow-up</SectionLabel>
                 <div className="space-y-2">
                   {invoices.map((row) => (
