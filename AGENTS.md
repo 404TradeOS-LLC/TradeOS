@@ -35,6 +35,181 @@ Current operating mode:
 - do not redesign working systems
 - do not introduce speculative abstractions
 
+## Monorepo and Athena architecture
+
+This repository is the canonical TradeOS product monorepo. Repository boundaries
+and AI-agent working-context boundaries are not the same thing: Athena, Costbook,
+Estimator, Dispatcher, Field Tech, Office Manager, and other TradeOS capabilities
+may be developed as separate focused workstreams while remaining in this one
+repository.
+
+### Repository boundary
+
+Keep TradeOS product code in this repository unless an explicit architecture
+decision changes that policy.
+
+Do **not** create separate repositories merely to isolate:
+
+- Athena
+- Costbook
+- Estimator
+- Dispatcher
+- Field Tech
+- Office Manager
+- CRM capabilities
+- other first-party TradeOS feature modules
+
+Do **not** create peer top-level source folders named only for product branding,
+such as `404TradeOS/`, `TradeOSCostbook/`, or `Athena/`, when the code belongs in
+an existing application or package boundary.
+
+### Athena's role
+
+Athena is TradeOS's shared intelligence and orchestration layer. It is one
+assistant that gains capabilities through registered tools, context, routing,
+and actions. Orchestration should remain internal and invisible to end users.
+
+Athena owns foundation-level concerns such as:
+
+- AI Kernel
+- Tool Registry
+- Context Engine
+- Router
+- Action Framework
+- shared AI interfaces and contracts
+- capability registration contracts
+- orchestration policy
+- low-risk action execution policy
+- durable user-preference interfaces
+- third-party tool-registration interfaces when that platform surface is built
+
+Athena must remain domain-agnostic. It coordinates domain capabilities; it does
+not become the implementation home for every domain.
+
+Athena must **not** absorb business logic for:
+
+- Costbook
+- estimating
+- dispatch
+- CRM
+- customers
+- projects
+- field-service workflows
+- office-management workflows
+- invoicing
+- proposals
+- contracts
+- supplier workflows
+
+Those domains expose capabilities to Athena through explicit interfaces and tool
+registration.
+
+### Canonical Athena location
+
+When Athena is represented as a reusable workspace package, its canonical home
+is:
+
+```text
+packages/athena/
+```
+
+Preferred internal shape:
+
+```text
+packages/athena/
+  kernel/
+  context/
+  router/
+  tools/
+  actions/
+  interfaces/
+  tests/
+```
+
+The exact internal folder structure may evolve with implementation evidence, but
+Athena's ownership boundary must remain stable.
+
+Do **not** move existing production code solely to make the repository resemble
+this target layout. RC1 stability takes precedence. Introduce `packages/athena/`
+through a bounded architecture/Foundation change with tests and dependency
+migration, not a broad cosmetic refactor.
+
+### Feature capability pattern
+
+Feature domains remain independently owned and register capabilities with
+Athena rather than embedding their business logic inside Athena.
+
+Conceptually:
+
+```text
+Estimator ---------\
+Dispatcher ---------+--> Athena contracts / tool registry --> user-facing assistant
+Field Tech ---------+
+Office Manager -----/
+Costbook -----------/
+```
+
+A domain capability should define:
+
+1. its input/output contract
+2. authorization requirements
+3. context requirements
+4. side-effect/risk classification
+5. execution implementation
+6. tests
+7. registration with Athena
+
+Athena may choose and orchestrate the capability. The domain remains responsible
+for the business rules.
+
+### Costbook placement
+
+Costbook is a TradeOS domain, not a separate repository requirement. Existing
+Costbook code should remain in its current application/module boundaries during
+RC1 hardening.
+
+If Costbook later requires a reusable cross-application domain package, the
+preferred extraction target is:
+
+```text
+packages/costbook/
+```
+
+Create that package only when there is a real shared-library boundary. Do not
+extract code merely for symmetry with Athena.
+
+### Dependency direction
+
+Prefer dependency flow that keeps domain logic independent from orchestration:
+
+```text
+apps (app/web)
+   |
+   +--> domain modules/packages
+   |
+   +--> Athena integration/adapters
+
+Athena foundation
+   |
+   +--> shared interfaces/contracts
+   |
+   X--> must not depend on concrete domain business implementations
+```
+
+Avoid circular dependencies between Athena and feature domains. Domain adapters
+may depend on Athena contracts to register capabilities; Athena core must not
+import concrete Estimator, Dispatcher, Costbook, CRM, or other feature services.
+
+### AI-agent/Codex working scope
+
+AI agents may use focused workstreams such as `Athena`, `Costbook`, `Estimator`,
+or `Dispatcher`, but each workstream should operate from the repository root so
+it can see dependency and test impact across the monorepo.
+
+A focused task must still respect repository-wide contracts, tests, migrations,
+and documentation. Working-context separation is not permission to duplicate
+shared infrastructure or create competing implementations.
+
 ## Security model
 
 Every authenticated backend request depends on all three of these layers:
