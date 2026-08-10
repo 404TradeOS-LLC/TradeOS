@@ -64,6 +64,7 @@ export function buildOwnerKpis(input: OwnerKpiInput): OwnerKpi[] {
       helper: `Paid invoices recorded this week in the ${input.scopeLabel}`,
       icon: CircleDollarSign,
       tone: "success",
+      href: "/dashboard/revenue-this-week",
     },
     {
       id: "invoices-waiting",
