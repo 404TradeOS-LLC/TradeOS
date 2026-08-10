@@ -91,9 +91,16 @@ implemented verbatim in `app/modules/athena-permissions/types.ts`:
 `version`, `orgId`, `userId`, `role`, `permissions`, `capability`,
 `resourceScope?: {entityType, entityId, relationship}`, `deniedFields`,
 `decision: "allow"|"deny"|"approval_required"`, `reasonCode`. A generalized
-`AthenaCapabilityRequest` type (`kind`, `id`, `requiredPermissions`,
-optional `risk`, optional `resourceRequest`) is new - not part of C007
-itself, but the request shape `evaluateAthenaPermission()` accepts.
+`AthenaCapabilityRequest` type is new - not part of C007 itself, but the
+request shape `evaluateAthenaPermission()` accepts. It is a discriminated
+union, not one interface with an optional `risk?` field: an initial review
+finding on this PR correctly flagged that an optional risk field let a
+`kind: "tool"` request omit risk entirely, silently defaulting to "low" and
+bypassing approval classification. `AthenaToolCapabilityRequest` (`kind:
+"tool"`) now requires `risk`; `AthenaNonToolCapabilityRequest` (the other
+three kinds) has no risk field at all. `policy.ts` additionally fails closed
+at runtime for a caller that bypasses the type system (deserialized/untyped
+input) rather than defaulting a missing/invalid risk to "low".
 `resourceRequest.entityType` is a closed 1-value union (`"job"`), so
 extending object-scope to a new entity is a visible type change, never a
 silent runtime fallthrough to a wider grant.

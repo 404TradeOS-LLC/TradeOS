@@ -77,11 +77,32 @@ describe("evaluateAthenaPermission - risk-based approval classification", () => 
     expect(decision.reasonCode).toBe("athena_permission_denied_missing_permission");
   });
 
-  it("ignores a declared risk tier for non-tool capability kinds (treated as low)", async () => {
-    const request: AthenaCapabilityRequest = { kind: "context_provider", id: "test.read", requiredPermissions: ["crm.read"], risk: "high" };
+  it("allows a non-tool capability regardless of any risk-shaped data on the request (no risk field exists on that variant)", async () => {
+    const request: AthenaCapabilityRequest = { kind: "context_provider", id: "test.read", requiredPermissions: ["crm.read"] };
     const decision = await evaluateAthenaPermission({ rawRole: "owner", orgId: "org-1", userId: "user-1", request });
 
     expect(decision.decision).toBe("allow");
+  });
+
+  it("fails closed (deny) for a tool request missing risk classification from an unsafe/untyped caller, never defaulting to low", async () => {
+    // Simulates a caller that bypasses AthenaToolCapabilityRequest's
+    // required `risk` field (deserialized/untyped input) - proves the
+    // runtime guard behind the type-level fix for a review finding on this
+    // PR: an optional risk field previously let a tool request with no risk
+    // classification default to "low" and be silently allowed.
+    const request = { kind: "tool", id: "tradeos.test.risky-tool", requiredPermissions: ["crm.read"] } as unknown as AthenaCapabilityRequest;
+    const decision = await evaluateAthenaPermission({ rawRole: "owner", orgId: "org-1", userId: "user-1", request });
+
+    expect(decision.decision).toBe("deny");
+    expect(decision.reasonCode).toBe("athena_permission_missing_risk_classification");
+  });
+
+  it("fails closed (deny) for a tool request with an invalid risk value", async () => {
+    const request = { kind: "tool", id: "tradeos.test.risky-tool", requiredPermissions: ["crm.read"], risk: "critical" } as unknown as AthenaCapabilityRequest;
+    const decision = await evaluateAthenaPermission({ rawRole: "owner", orgId: "org-1", userId: "user-1", request });
+
+    expect(decision.decision).toBe("deny");
+    expect(decision.reasonCode).toBe("athena_permission_missing_risk_classification");
   });
 });
 

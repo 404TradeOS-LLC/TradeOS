@@ -69,21 +69,36 @@ export async function evaluateAthenaPermission(input: AthenaPermissionPolicyInpu
     }
   }
 
-  // Risk-based approval classification only applies to kind "tool" - reads
-  // (context_provider) and A1's two narrow capabilities carry no risk
-  // concept. medium/high risk maps to approval_required, not deny: C007's
-  // sibling C005 Action contract already documents "high-risk actions
-  // require approval ID before running," i.e. approval-gated, not
+  if (request.kind !== "tool") {
+    // Reads (context_provider) and A1's two narrow capabilities carry no
+    // risk concept of their own - AthenaNonToolCapabilityRequest has no
+    // risk field at all, not merely an unused one.
+    decision.decision = "allow";
+    decision.reasonCode = "athena_permission_allowed";
+    return decision;
+  }
+
+  // risk is required at the type level for AthenaToolCapabilityRequest, but
+  // this module's own contract is the authorization boundary for any caller
+  // that reaches it with unchecked/deserialized input - never default a
+  // missing or invalid risk classification to "low" and silently allow (a
+  // review finding on this PR flagged exactly this fail-open path when risk
+  // was still optional). medium/high risk maps to approval_required, not
+  // deny: C007's sibling C005 Action contract already documents "high-risk
+  // actions require approval ID before running," i.e. approval-gated, not
   // permanently blocked. No A6 approval executor exists yet, so
   // approval_required and deny both currently mean "does not execute" -
   // this only gets the classification right for when A6 lands.
-  const risk = request.kind === "tool" ? (request.risk ?? "low") : "low";
-  if (risk === "low") {
+  if (request.risk !== "low" && request.risk !== "medium" && request.risk !== "high") {
+    decision.reasonCode = "athena_permission_missing_risk_classification";
+    return decision;
+  }
+  if (request.risk === "low") {
     decision.decision = "allow";
     decision.reasonCode = "athena_permission_allowed";
   } else {
     decision.decision = "approval_required";
-    decision.reasonCode = risk === "high" ? "athena_permission_approval_required_risk_high" : "athena_permission_approval_required_risk_medium";
+    decision.reasonCode = request.risk === "high" ? "athena_permission_approval_required_risk_high" : "athena_permission_approval_required_risk_medium";
   }
 
   return decision;
