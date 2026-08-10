@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
+import { getWeatherForAddress } from "@/lib/weather";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -141,6 +142,9 @@ export default async function DashboardPage() {
       ])
     : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }];
 
+  const todaySiteAddress = todaySchedule.items.find((job) => job.project?.siteAddress)?.project?.siteAddress ?? null;
+  const weather = todaySiteAddress ? await getWeatherForAddress(todaySiteAddress).catch(() => null) : null;
+
   const now = new Date();
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
   const companyName = settings.companyName;
@@ -257,7 +261,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} />
+      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} weather={weather} />
 
       <NeedsAttentionCard
         estimates={attentionEstimates}
