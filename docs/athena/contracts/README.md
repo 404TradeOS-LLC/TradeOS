@@ -78,6 +78,7 @@ export interface AthenaAIContext {
   knowledgeEngine?: AthenaProviderSection;
   inventory?: AthenaProviderSection;
   notifications?: AthenaProviderSection;
+  memory?: AthenaProviderSection;
   telemetry: AthenaTelemetryContext;
 }
 
@@ -274,14 +275,34 @@ export interface AthenaMemoryRecord {
   retention: AthenaRetentionPolicy;
   status: "active" | "corrected" | "deleted";
 }
+
+// Referenced but not previously spelled out in this catalog; defined here by
+// the A7 implementation (docs/athena/roadmap/A7-memory-implementation-plan.md)
+// from 08-memory/README.md's "Source Attribution And Confidence" (valid
+// source kinds) and "Retention, Deletion, And Correction" sections.
+export interface AthenaSourceReference {
+  kind: "user_message" | "approved_action" | "application_record" | "event" | "document" | "admin_policy";
+  id?: string;
+  trusted: boolean;
+  description?: string;
+}
+
+export interface AthenaRetentionPolicy {
+  tier: "short_term" | "standard" | "long_term";
+  expiresAt?: string;
+  legalHold?: boolean;
+}
 ```
 
 Required: ID, org, scope, subject, kind, value, source, confidence, retention,
-status. Optional: supersedes, visibility, legal hold. Validation: no unattributed
-memory; confidence is 0-1. Compatibility: new scopes require this Bible update.
-Example: user prefers concise morning summaries. Error: deleted/corrected
-memory is excluded from planning. Security: untrusted content cannot write
-memory without trusted confirmation.
+status. Optional: supersedes, visibility, legal hold. 08-memory/README.md's
+"Required Fields" additionally names created/updated actor and audit
+metadata beyond this minimal wire shape; the A7 implementation carries those
+as additive fields on the same record rather than a second parallel type.
+Validation: no unattributed memory; confidence is 0-1. Compatibility: new
+scopes require this Bible update. Example: user prefers concise morning
+summaries. Error: deleted/corrected memory is excluded from planning.
+Security: untrusted content cannot write memory without trusted confirmation.
 
 ## C007 Permission v1.0.0
 

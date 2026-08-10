@@ -152,6 +152,17 @@ Project Athena A1 kernel lifecycle/audit state, stored in `AthenaExecution`, `At
 - none of these tables store a raw user message, model prompt, or model output - only safe summaries, error codes, and structural metadata
 - the kernel is feature-flagged off (`ATHENA_KERNEL_ENABLED=false`) by default; see `app/modules/athena-kernel`
 
+## Athena memory
+
+Project Athena A7 durable, attributed memory (C006 in `docs/athena/contracts/README.md`), stored in `AthenaMemory`; see [athena/roadmap/A7-memory-implementation-plan.md](athena/roadmap/A7-memory-implementation-plan.md).
+
+- `scope` is one of `user`, `organization`, `project`, `job`, `conversation`; `subjectId` addresses the owning record within that scope (a user id, the organization's own id, or a job/project/conversation id)
+- user/conversation-scope rows are actor-scoped with **no** admin bypass - stricter than `AthenaExecution`'s own admin-sees-all posture, since this is private preference memory, not an audit trail
+- organization/project/job-scope rows are readable by any org member but writable only by an admin-capable actor (`current_app_can_administer()`)
+- a partial unique index allows at most one `active` row per `(orgId, scope, subjectId, kind)`; a correction supersedes the previous row (`status: "corrected"`) rather than overwriting it in place
+- forgetting is a soft delete: `status` becomes `"deleted"` and the stored value/metadata are cleared, but the row (and its audit trail) is retained
+- no production call site writes to this table today - the Context Engine's memory provider and the kernel's memory-candidate hook are both dormant by default; see `app/modules/athena-memory`
+
 ## Core relationships
 
 Canonical relationship flow:

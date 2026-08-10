@@ -48,6 +48,8 @@ related_code:
   - app/.env.example
   - app/modules/athena-kernel
   - app/prisma/migrations/20260809120000_add_athena_kernel_execution/migration.sql
+  - app/modules/athena-memory
+  - app/prisma/migrations/20260810130000_add_athena_memory/migration.sql
 ---
 
 # Current State
@@ -82,7 +84,9 @@ The repository is no longer organized around MVP planning documents. The active 
 - Supplier review queue and scheduler plumbing
 - Knowledge runtime integration
 - Backend structured AI estimator orchestration that stages contractor-language scopes into reviewable estimate drafts using existing costbook and estimate-engine services
-- Project Athena A1 kernel lifecycle foundation (`app/modules/athena-kernel`): feature-flagged, non-mutating kernel shell with durable execution/transition/telemetry persistence, RLS-protected tenant and actor isolation, and a kernel-owned `AbortController` for timeout/cancellation. Dark by default behind `ATHENA_KERNEL_ENABLED=false`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md). No production business tools, memory, plugins, or autonomous writes exist yet.
+- Project Athena A1 kernel lifecycle foundation (`app/modules/athena-kernel`): feature-flagged, non-mutating kernel shell with durable execution/transition/telemetry persistence, RLS-protected tenant and actor isolation, and a kernel-owned `AbortController` for timeout/cancellation. Dark by default behind `ATHENA_KERNEL_ENABLED=false`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md). No production business tools, plugins, or autonomous writes exist yet.
+- Project Athena A2-A6 (`app/modules/athena-tool-registry`, `athena-context-engine`, `athena-permissions`, `athena-planner`, `athena-router`, `athena-action-engine`): tool registry, context assembly with dispatch/knowledge-engine providers, the A4 deterministic permission adapter, router/planner intent classification, and a single-step action executor with idempotency/approval enforcement. All still dark by default behind their own independent flags (`ATHENA_ROUTER_PLANNER_ENABLED`, `ATHENA_ACTION_ENGINE_ENABLED`); A2 has no production tools registered, so the router/planner/action-engine pipeline is dormant end-to-end in production.
+- Project Athena A7 memory foundation (`app/modules/athena-memory`): a single supported `AthenaMemoryService` boundary (remember/recall/search/list/forget/forgetByKey/forgetAllForSubject) over a new RLS-protected `athena_memories` table, with a deterministic (non-AI) write policy that rejects untrusted-source and secret-shaped content, source-attributed correction (not in-place overwrite), and soft-delete forgetting. Isolation is stricter than A1's execution audit trail - no admin bypass for user/conversation-scope memory - and is proven at the application, A4-authorization, and live-Postgres-RLS layers independently. Integrates into A3's Context Engine as a new, actor-scoped, lazy-intent `memory` provider/section, and exposes an optional, unused-in-production kernel hook so a future capability can turn a succeeded A6 action into memory candidates without this module containing any extraction logic itself. No production call site supplies that hook or the router intent the context provider requires, so memory writes remain fully dark by default with no separate feature flag; see [athena/roadmap/A7-memory-implementation-plan.md](athena/roadmap/A7-memory-implementation-plan.md). No business-specific memory behavior, semantic/embedding retrieval, or admin memory-management UI exist yet.
 
 See module docs in `docs/modules/`.
 
