@@ -1,4 +1,4 @@
-import { getStatusLabel, type TaskStatus } from "../../domain";
+import { getStatusLabel, type TaskStatus } from "../../domain/index.ts";
 import type { ActivityEvent, OrganizationProjectTask } from "../../lib/api";
 import type { OwnerActivityEntry } from "./owner-dashboard-data";
 
