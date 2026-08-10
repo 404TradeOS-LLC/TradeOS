@@ -66,6 +66,9 @@ model Organization {
   featureFlags   FeatureFlag[]
   invites        OrganizationInvite[]
   refreshTokens  AuthRefreshToken[]
+  athenaExecutions AthenaExecution[]
+  athenaExecutionTransitions AthenaExecutionTransition[]
+  athenaTelemetryRecords AthenaTelemetryRecordRow[]
 
   @@map("organizations")
 }
@@ -222,6 +225,7 @@ model AppUser {
   completedJobs Job[]                @relation("JobCompletedBy")
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
   assignedJobActions JobAssignment[] @relation("JobAssignedBy")
+  athenaExecutions AthenaExecution[]
 
   @@map("users")
 }
@@ -1356,4 +1360,77 @@ model FeatureFlag {
   @@unique([orgId, key, scopeType, scopeKey])
   @@index([orgId, key])
   @@map("feature_flags")
+}
+
+// A1 kernel execution persistence (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
+// "A1 Execution Persistence Decision"). Deliberately holds no raw prompt,
+// message body, or model output - only safe summaries, error codes, and
+// lifecycle metadata (docs/athena/09-security/README.md redaction rules).
+model AthenaExecution {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  requestId     String    @map("request_id")
+  traceId       String    @map("trace_id")
+  actorUserId   String    @map("actor_user_id")
+  actorType     String    @default("user") @map("actor_type")
+  canonicalRole String    @map("canonical_role")
+  requestSource String    @map("request_source")
+  state         String    @default("created")
+  roundTrips    Int       @default(0) @map("round_trips")
+  safeSummary   String?   @map("safe_summary")
+  safeErrorCode String?   @map("safe_error_code")
+  redactionMode String    @default("metadata_only") @map("redaction_mode")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  completedAt   DateTime? @map("completed_at")
+
+  organization Organization                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser                     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  transitions  AthenaExecutionTransition[]
+  telemetry    AthenaTelemetryRecordRow[]
+
+  @@index([orgId, state])
+  @@index([orgId, actorUserId, createdAt])
+  @@map("athena_executions")
+}
+
+model AthenaExecutionTransition {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  executionId  String   @map("execution_id")
+  fromState    String?  @map("from_state")
+  toState      String   @map("to_state")
+  reasonCode   String   @map("reason_code")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, executionId, createdAt])
+  @@map("athena_execution_transitions")
+}
+
+// C011 telemetry records (docs/athena/contracts/README.md). Redacted by
+// construction: metadataJson never carries raw prompts, chain-of-thought,
+// secrets, or unnecessary PII (see telemetry.ts).
+model AthenaTelemetryRecordRow {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  executionId  String   @map("execution_id")
+  requestId    String   @map("request_id")
+  traceId      String   @map("trace_id")
+  spanType     String   @map("span_type")
+  status       String
+  durationMs   Int      @map("duration_ms")
+  redaction    String
+  costJson     Json?    @map("cost_json")
+  metadataJson Json     @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, executionId, createdAt])
+  @@map("athena_telemetry_records")
 }

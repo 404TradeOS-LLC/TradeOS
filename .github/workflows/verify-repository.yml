@@ -38,6 +38,12 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Athena kernel contracts
+        run: npm run athena:contracts
+
+      - name: Athena kernel smoke
+        run: npm run athena:smoke
+
       - name: Build
         run: npm run build
 

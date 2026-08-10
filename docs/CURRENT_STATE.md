@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -37,6 +37,8 @@ related_code:
   - web/next.config.ts
   - app/backend/middleware/productionHardening.ts
   - app/.env.example
+  - app/modules/athena-kernel
+  - app/prisma/migrations/20260809120000_add_athena_kernel_execution/migration.sql
 ---
 
 # Current State
@@ -71,6 +73,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Supplier review queue and scheduler plumbing
 - Knowledge runtime integration
 - Backend structured AI estimator orchestration that stages contractor-language scopes into reviewable estimate drafts using existing costbook and estimate-engine services
+- Project Athena A1 kernel lifecycle foundation (`app/modules/athena-kernel`): feature-flagged, non-mutating kernel shell with durable execution/transition/telemetry persistence, RLS-protected tenant and actor isolation, and a kernel-owned `AbortController` for timeout/cancellation. Dark by default behind `ATHENA_KERNEL_ENABLED=false`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md). No production business tools, memory, plugins, or autonomous writes exist yet.
 
 See module docs in `docs/modules/`.
 

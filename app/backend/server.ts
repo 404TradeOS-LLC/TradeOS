@@ -38,6 +38,7 @@ import { brandStudioRouter } from "./routes/brandStudio.routes";
 import { intelligenceRouter } from "./routes/intelligence.routes";
 import { companyRouter, customerImportRouter, customersRouter as crmCustomersRouter, invoicePaymentsRouter, notesRouter } from "./routes/crm.routes";
 import { jobsRouter, scheduleRouter } from "./routes/jobs.routes";
+import { athenaRouter } from "./routes/athena.routes";
 
 export function createServer() {
   const app = express();
@@ -104,6 +105,7 @@ export function createServer() {
   app.use("/api/v1/import/customers", customerImportRouter);
   app.use("/api/v1/brand-studio", brandStudioRouter);
   app.use("/api/v1/intelligence", intelligenceRouter);
+  app.use("/api/v1/athena", athenaRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
