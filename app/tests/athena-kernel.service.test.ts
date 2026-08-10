@@ -36,7 +36,7 @@ jest.mock("../db/client", () => ({
   },
 }));
 
-import { createInMemoryAthenaApprovalStore } from "../modules/athena-action-engine/approval";
+import type { AthenaApprovalVerifier } from "../modules/athena-action-engine/approval";
 import { createInMemoryAthenaIdempotencyStore } from "../modules/athena-action-engine/idempotency";
 import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 import { AthenaKernelService } from "../modules/athena-kernel/service";
@@ -625,21 +625,34 @@ describe("AthenaKernelService", () => {
       const toolRegistry = createAthenaToolRegistry();
       let executed = false;
       toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a6-approved", permissions: [], risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = createInMemoryAthenaApprovalStore();
-      const grantedAt = Date.now();
-      approvals.grant({
-        approvalId: "approval-a6-1",
-        orgId: "org-1",
-        actorUserId: "user-1",
-        toolId: "tradeos.athena.fixture.a6-approved",
-        toolVersion: "1.0.0",
-        risk: "high",
-        idempotencyKey: "idem-a6-1",
-        inputHash: computeCanonicalInputHash({ message: "hi" }),
-        approvedAt: new Date(grantedAt - 1_000),
-        expiresAt: new Date(grantedAt + 3_600_000),
-        status: "granted",
-      });
+      const expectedInputHash = computeCanonicalInputHash({ message: "hi" });
+      // planId/stepId are mandatory approval-binding fields (docs/athena/
+      // 09-security/README.md: "A changed plan invalidates the approval"),
+      // but both are generated internally via randomUUID() (buildAthenaPlan()/
+      // buildAthenaPlan()'s tool_call step builder) and not predictable from
+      // this test. A fake verifier - rather than
+      // createInMemoryAthenaApprovalStore() - proves the kernel actually
+      // threads a real, non-empty planId/stepId through to A6 (and every
+      // other field correctly), without needing to guess their exact
+      // values. approval.ts's own exact plan/step mismatch enforcement is
+      // already covered exhaustively by athena-action-engine.engine.test.ts.
+      const approvals: AthenaApprovalVerifier = {
+        async verify(input) {
+          expect(input.approvalId).toBe("approval-a6-1");
+          expect(input.orgId).toBe("org-1");
+          expect(input.actorUserId).toBe("user-1");
+          expect(input.toolId).toBe("tradeos.athena.fixture.a6-approved");
+          expect(input.toolVersion).toBe("1.0.0");
+          expect(input.risk).toBe("high");
+          expect(input.idempotencyKey).toBe("idem-a6-1");
+          expect(input.inputHash).toBe(expectedInputHash);
+          expect(typeof input.planId).toBe("string");
+          expect(input.planId.length).toBeGreaterThan(0);
+          expect(typeof input.stepId).toBe("string");
+          expect(input.stepId.length).toBeGreaterThan(0);
+          return { valid: true };
+        },
+      };
 
       const service = new AthenaKernelService();
       const result = await service.handleRequest({

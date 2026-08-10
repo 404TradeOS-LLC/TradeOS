@@ -95,6 +95,8 @@ function buildApprovalRecord(overrides: Partial<AthenaApprovalRecord> = {}): Ath
     risk: "high",
     idempotencyKey: "key-1",
     inputHash: computeCanonicalInputHash(DEFAULT_INPUT),
+    planId: "plan-1",
+    stepId: "step-1",
     approvedAt: new Date(now - 1_000),
     expiresAt: new Date(now + 3_600_000),
     status: "granted",
@@ -408,15 +410,89 @@ describe("athena action engine - executeAthenaAction", () => {
       expect(outcome.result.state).toBe("awaiting_approval");
     });
 
-    it("accepts an approval not scoped to any specific plan/step for any plan/step", async () => {
+    it("accepts a valid approval whose plan and step exactly match the action request", async () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore(); // no planId/stepId - not scoped
+      const approvals = grantedApprovalStore({ planId: "plan-1", stepId: "step-1" });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
-        buildRequest({ planId: "any-plan", stepId: "any-step", permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
+        buildRequest({ planId: "plan-1", stepId: "step-1", permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
+      );
+
+      expect(executed).toBe(true);
+      expect(outcome.result.state).toBe("succeeded");
+    });
+
+    // planId/stepId are mandatory on AthenaApprovalRecord (docs/athena/
+    // 09-security/README.md: "A changed plan invalidates the approval") -
+    // there is no "unscoped, valid for any plan/step" approval. TypeScript
+    // already prevents constructing a record missing either field; this
+    // proves the verifier itself also fails closed if malformed approval
+    // data (e.g. deserialized from an untyped source) somehow bypasses
+    // compile-time typing.
+    it("fails closed when a malformed approval record has no planId, even if every other field matches", async () => {
+      const registry = createAthenaToolRegistry();
+      let executed = false;
+      registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
+      const approvals = createInMemoryAthenaApprovalStore();
+      const malformedRecord = { ...buildApprovalRecord(), planId: undefined } as unknown as AthenaApprovalRecord;
+      approvals.grant(malformedRecord);
+
+      const outcome = await executeAthenaAction(
+        { toolRegistry: registry, approvalVerifier: approvals },
+        buildRequest({ permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
+      );
+
+      expect(executed).toBe(false);
+      expect(outcome.result.state).toBe("awaiting_approval");
+    });
+
+    it("fails closed when the action request itself has no planId/stepId, even with an otherwise-valid approval available", async () => {
+      const registry = createAthenaToolRegistry();
+      let executed = false;
+      registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
+      const approvals = grantedApprovalStore();
+
+      const outcome = await executeAthenaAction(
+        { toolRegistry: registry, approvalVerifier: approvals },
+        buildRequest({ planId: undefined, stepId: undefined, permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
+      );
+
+      expect(executed).toBe(false);
+      expect(outcome.result.state).toBe("awaiting_approval");
+      expect(outcome.audit.reasonCode).toBe("approval_missing");
+    });
+
+    it("rejects a future-dated approval that has not taken effect yet, using an injected clock", async () => {
+      const registry = createAthenaToolRegistry();
+      let executed = false;
+      registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
+      const nowTime = new Date("2026-01-01T12:00:00.000Z");
+      const store = createInMemoryAthenaApprovalStore({ now: () => nowTime });
+      store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:10:00.000Z"), expiresAt: new Date("2026-01-01T13:00:00.000Z") }));
+
+      const outcome = await executeAthenaAction(
+        { toolRegistry: registry, approvalVerifier: store },
+        buildRequest({ permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
+      );
+
+      expect(executed).toBe(false);
+      expect(outcome.result.state).toBe("awaiting_approval");
+    });
+
+    it("accepts an approval whose approvedAt has passed and expiresAt has not - a valid time window", async () => {
+      const registry = createAthenaToolRegistry();
+      let executed = false;
+      registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
+      const nowTime = new Date("2026-01-01T12:30:00.000Z");
+      const store = createInMemoryAthenaApprovalStore({ now: () => nowTime });
+      store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:00:00.000Z"), expiresAt: new Date("2026-01-01T13:00:00.000Z") }));
+
+      const outcome = await executeAthenaAction(
+        { toolRegistry: registry, approvalVerifier: store },
+        buildRequest({ permissionDecision: approvalRequiredDecision(), approvalId: "approval-1", idempotencyKey: "key-1" })
       );
 
       expect(executed).toBe(true);

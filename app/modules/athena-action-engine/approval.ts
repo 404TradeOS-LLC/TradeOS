@@ -43,12 +43,14 @@ export interface AthenaApprovalVerificationInput {
   // the exact-payload binding 09-security requires. A caller cannot reuse a
   // valid approval/idempotency key pair against a different input.
   inputHash: string;
-  // Bound only when the approval record itself was scoped to a specific
-  // plan/step (see AthenaApprovalRecord's own comment) - "where cleanly
-  // available" per the A6 repair brief, not a hard requirement for every
-  // approval.
-  planId?: string;
-  stepId?: string;
+  // Mandatory, not "where cleanly available" - 09-security's own invariant
+  // ("A changed plan invalidates the approval") means an approval that
+  // never named a plan/step can never legitimately stand in for one that
+  // does, and A6 always has both of these by the time it reaches approval
+  // verification (see engine.ts's precondition check). There is no
+  // "unscoped, valid for any plan/step" approval.
+  planId: string;
+  stepId: string;
 }
 
 export type AthenaApprovalVerificationResult =
@@ -65,6 +67,7 @@ export type AthenaApprovalVerificationResult =
         | "approval_input_mismatch"
         | "approval_plan_mismatch"
         | "approval_step_mismatch"
+        | "approval_not_yet_valid"
         | "approval_expired"
         | "approval_not_granted";
     };
@@ -102,8 +105,10 @@ export interface AthenaApprovalRecord {
   risk: "low" | "medium" | "high";
   idempotencyKey: string;
   inputHash: string;
-  planId?: string;
-  stepId?: string;
+  // Mandatory (docs/athena/09-security/README.md: "A changed plan invalidates
+  // the approval") - no "unscoped, valid for any plan/step" approval exists.
+  planId: string;
+  stepId: string;
   approvedAt: Date;
   expiresAt: Date;
   status: "granted" | "denied" | "revoked";
@@ -136,17 +141,25 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
       if (record.risk !== input.risk) return { valid: false, reasonCode: "approval_risk_mismatch" };
       if (record.idempotencyKey !== input.idempotencyKey) return { valid: false, reasonCode: "approval_action_mismatch" };
       if (record.inputHash !== input.inputHash) return { valid: false, reasonCode: "approval_input_mismatch" };
-      // Only enforced when the approval record itself was scoped to a
-      // specific plan/step - an approval never bound to one is not thereby
-      // valid for every plan/step, but this store has nothing to compare.
-      if (record.planId !== undefined && record.planId !== input.planId) return { valid: false, reasonCode: "approval_plan_mismatch" };
-      if (record.stepId !== undefined && record.stepId !== input.stepId) return { valid: false, reasonCode: "approval_step_mismatch" };
+      // Unconditional - both fields are mandatory on both sides (see the
+      // AthenaApprovalRecord/AthenaApprovalVerificationInput comments).
+      // There is no "the record didn't specify one, so anything matches"
+      // fallback: an approval never scoped to a plan/step cannot exist to
+      // begin with, so any mismatch here is a real cross-plan/cross-step
+      // replay attempt.
+      if (record.planId !== input.planId) return { valid: false, reasonCode: "approval_plan_mismatch" };
+      if (record.stepId !== input.stepId) return { valid: false, reasonCode: "approval_step_mismatch" };
       if (record.status !== "granted") return { valid: false, reasonCode: "approval_not_granted" };
-      // Real timestamp enforcement, independent of `status` - a record
-      // whose status still says "granted" must still fail once past its
-      // own expiresAt, never accepted merely because nothing ever flipped
-      // its status field.
-      if (now().getTime() >= record.expiresAt.getTime()) return { valid: false, reasonCode: "approval_expired" };
+      // Full timestamp window enforcement, independent of `status` - a
+      // record whose status still says "granted" must still fail once
+      // outside [approvedAt, expiresAt), never accepted merely because
+      // nothing ever flipped its status field. A future-dated approvedAt
+      // (e.g. a pre-staged approval that hasn't taken effect yet) is
+      // rejected the same as an expired one, not silently treated as
+      // already active.
+      const nowMs = now().getTime();
+      if (nowMs < record.approvedAt.getTime()) return { valid: false, reasonCode: "approval_not_yet_valid" };
+      if (nowMs >= record.expiresAt.getTime()) return { valid: false, reasonCode: "approval_expired" };
       return { valid: true };
     },
   };

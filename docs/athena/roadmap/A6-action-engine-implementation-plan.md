@@ -220,15 +220,26 @@ approval must eventually bind to:
 - a canonical hash of the **validated** tool input (see below) - the
   exact-payload binding 09-security requires; a caller cannot reuse a valid
   approval/idempotency-key pair against a different input
-- `planId`/`stepId`, when the approval record itself was scoped to one
+- `planId`, `stepId` - **mandatory**, not "where cleanly available." C005's
+  own sibling security invariant ("A changed plan invalidates the
+  approval") means an approval that never named a plan/step can never
+  legitimately stand in for one that does - there is no "unscoped, valid
+  for any plan/step" approval. `engine.ts` requires `request.planId` and
+  `request.stepId` alongside `approvalId`/`idempotencyKey` before it even
+  attempts verification (the kernel always supplies both real values for
+  every live `tool_call` step); `AthenaApprovalRecord`/
+  `AthenaApprovalVerificationInput` make both fields required at the type
+  level, and `verify()` compares them unconditionally - no fallback for a
+  record that happens not to specify one.
 
-`AthenaApprovalRecord` (the in-memory test/dev store) also carries
-`approvedAt`/`expiresAt` timestamps. Verification compares the current time
-(an injectable clock, `AthenaApprovalStoreOptions.now`, defaulting to the
-real system clock) against `expiresAt` independently of the record's
-`status` field - a record whose `status` still says `granted` is still
-rejected once past its own expiry, never accepted merely because nothing
-ever flipped its status.
+`AthenaApprovalRecord` also carries `approvedAt`/`expiresAt` timestamps.
+Verification enforces the full window - `approvedAt <= now < expiresAt` -
+using an injectable clock (`AthenaApprovalStoreOptions.now`, defaulting to
+the real system clock), independently of the record's `status` field. A
+record whose `status` still says `granted` is rejected once past its
+expiry (`approval_expired`) or before its own `approvedAt` has arrived yet
+(`approval_not_yet_valid`, e.g. a pre-staged approval that hasn't taken
+effect) - never accepted merely because nothing ever flipped its status.
 
 ### Canonical Input Hashing
 
@@ -331,12 +342,16 @@ Athena flag.
   - `describe("approval binding")`: cross-actor approval reuse; a risk
     mismatch between the approval and the tool's current authoritative
     risk; an expired approval (both via a naturally-past `expiresAt` and via
-    an injected clock, proving determinism without a real sleep); an
-    approval bound to a different plan/step than the one being executed,
-    and that an unscoped approval (no planId/stepId on the record) is
-    accepted for any plan/step; changed-input replay of the same
-    approval/idempotency key; and that a structurally-identical input with
-    different object-key insertion order still verifies (a custom
+    an injected clock, proving determinism without a real sleep); a
+    future-dated `approvedAt` that hasn't taken effect yet (injected
+    clock); a valid `[approvedAt, expiresAt)` window succeeding; an exact
+    plan/step match succeeding, and mismatches on plan or step alone each
+    failing closed; a malformed approval record missing `planId` (bypassing
+    compile-time typing via an untyped cast) still failing closed at
+    runtime; a request itself missing `planId`/`stepId` failing closed even
+    with an otherwise-valid approval available; changed-input replay of the
+    same approval/idempotency key; and that a structurally-identical input
+    with different object-key insertion order still verifies (a custom
     record-typed fixture tool, since the shared echo fixture's schema has
     only one field).
 - `athena-action-engine.lifecycle.test.ts`: the full pairwise transition

@@ -298,14 +298,16 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
     // payload (docs/athena/09-security/README.md "High-Risk Action
     // Policy"): org, requesting actor, tool/version, the tool's own
     // authoritative risk, idempotency key, the validated-input hash, and
-    // (when the approval itself was scoped to one) plan/step. Approval
-    // binding requires a caller-known idempotencyKey (see approval.ts's
-    // AthenaApprovalVerificationInput) - an engine-generated fallback key
-    // can never have been granted approval in advance, so both approvalId
-    // and an explicit idempotencyKey are required together before
-    // verification is even attempted.
+    // plan/step. Approval binding requires a caller-known idempotencyKey
+    // AND plan/step (see approval.ts's AthenaApprovalVerificationInput,
+    // where both are mandatory, not "where available") - an
+    // engine-generated fallback key can never have been granted approval in
+    // advance, and an approval can never legitimately stand in for a plan/
+    // step it was never scoped to, so approvalId, idempotencyKey, planId,
+    // and stepId are all required together before verification is even
+    // attempted.
     if (decision.decision === "approval_required") {
-      if (!request.approvalId || !request.idempotencyKey) {
+      if (!request.approvalId || !request.idempotencyKey || !request.planId || !request.stepId) {
         transition("awaiting_approval");
         throw athenaActionApprovalRequiredError(correlationId);
       }
