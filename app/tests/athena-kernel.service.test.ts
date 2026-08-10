@@ -49,6 +49,10 @@ import { createKnowledgeEngineProvider } from "../modules/athena-context-engine/
 import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
 import type { AthenaToolRegistry } from "../modules/athena-tool-registry/registry";
 import { createEchoFixtureTool } from "../modules/athena-tool-registry/fixtures/echoFixtureTool";
+import { createInMemoryAthenaMemoryRepository } from "../modules/athena-memory/fixtures/inMemoryRepository";
+import { createAthenaMemoryService } from "../modules/athena-memory/service";
+import type { AthenaMemoryService } from "../modules/athena-memory/service";
+import type { AthenaMemoryCandidateExtractor } from "../modules/athena-memory/types";
 import type { JobsService } from "../modules/jobs/service";
 import type { PaginatedJobsDTO } from "../modules/jobs/types";
 
@@ -695,6 +699,97 @@ describe("AthenaKernelService", () => {
       expect(executeCount).toBe(1);
       expect(first.success).toBe(true);
       expect(second.success).toBe(true);
+    });
+  });
+
+  describe("A7 memory candidate hook (dormant unless both DI seams are supplied)", () => {
+    const actionEnv = { ...baseEnv, ATHENA_ROUTER_PLANNER_ENABLED: "true", ATHENA_ACTION_ENGINE_ENABLED: "true" } as NodeJS.ProcessEnv;
+
+    it("20. a succeeded action creates no memory when no extractor/memoryService is supplied - unrelated Athena actions never implicitly create memory", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a7-no-hook", permissions: [], risk: "low" }));
+      const repository = createInMemoryAthenaMemoryRepository();
+      const memoryService = createAthenaMemoryService({ repository });
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a7-no-hook",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a7-no-hook", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+        // Deliberately omitting memoryCandidateExtractor/memoryService.
+      });
+
+      expect(result.success).toBe(true);
+      expect(await memoryService.list({ orgId: "org-1", actor: { orgId: "org-1", userId: "user-1", role: "owner" }, scope: "user", subjectId: "user-1" })).toEqual([]);
+    });
+
+    it("persists a candidate returned by an injected extractor through the real AthenaMemoryService.remember() pipeline", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a7-with-hook", permissions: [], risk: "low" }));
+      const repository = createInMemoryAthenaMemoryRepository();
+      const memoryService = createAthenaMemoryService({ repository });
+      let extractorCalls = 0;
+      const extractor: AthenaMemoryCandidateExtractor = (input) => {
+        extractorCalls += 1;
+        return [
+          {
+            orgId: input.orgId,
+            actor: input.actor,
+            scope: "user",
+            subjectId: input.actor.userId,
+            kind: "workflow.last_completed_tool",
+            value: input.action.toolId,
+            source: { kind: "approved_action", trusted: true },
+          },
+        ];
+      };
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a7-with-hook",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a7-with-hook", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+        memoryCandidateExtractor: extractor,
+        memoryService,
+      });
+
+      expect(result.success).toBe(true);
+      expect(extractorCalls).toBe(1);
+      const stored = await memoryService.recall({ orgId: "org-1", actor: { orgId: "org-1", userId: "user-1", role: "owner" }, scope: "user", subjectId: "user-1", kind: "workflow.last_completed_tool" });
+      expect(stored?.value).toBe("tradeos.athena.fixture.a7-with-hook");
+    });
+
+    it("a failing memoryService.remember() call inside the hook never flips a real business result", async () => {
+      const toolRegistry = createAthenaToolRegistry();
+      toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a7-hook-failure", permissions: [], risk: "low" }));
+      const failingMemoryService: Pick<AthenaMemoryService, "remember"> = {
+        remember: jest.fn().mockRejectedValue(new Error("storage exploded")),
+      };
+      const extractor: AthenaMemoryCandidateExtractor = (input) => [
+        { orgId: input.orgId, actor: input.actor, scope: "user", subjectId: input.actor.userId, kind: "workflow.last_completed_tool", value: input.action.toolId, source: { kind: "approved_action", trusted: true } },
+      ];
+
+      const service = new AthenaKernelService();
+      const result = await service.handleRequest({
+        request: { message: "What is the status of this project?", requestSource: "http" },
+        actor: actor(),
+        requestId: "req-a7-hook-failure",
+        env: actionEnv,
+        toolRegistry,
+        candidateTools: [{ toolId: "tradeos.athena.fixture.a7-hook-failure", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+        memoryCandidateExtractor: extractor,
+        memoryService: failingMemoryService,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.state).toBe("succeeded");
+      expect(failingMemoryService.remember).toHaveBeenCalledTimes(1);
     });
   });
 });

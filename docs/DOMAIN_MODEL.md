@@ -1,11 +1,12 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
   - app/domain/contracts.ts
+  - app/modules/athena-memory
 ---
 
 # Domain Model
@@ -151,6 +152,18 @@ Project Athena A1 kernel lifecycle/audit state, stored in `AthenaExecution`, `At
 - `AthenaExecutionTransition` and `AthenaTelemetryRecordRow` inherit that same actor visibility through the parent `AthenaExecution` row
 - none of these tables store a raw user message, model prompt, or model output - only safe summaries, error codes, and structural metadata
 - the kernel is feature-flagged off (`ATHENA_KERNEL_ENABLED=false`) by default; see `app/modules/athena-kernel`
+
+## Athena memory
+
+Project Athena A7 durable assistant memory is stored in `AthenaMemory` rows behind `AthenaMemoryService`.
+
+- every memory is tenant-scoped and carries scope, subject, source attribution, confidence, retention, lifecycle status, visibility, actor audit fields, and timestamps
+- caller-facing retrieval exposes only active, unexpired records
+- corrections supersede prior rows instead of overwriting them in place
+- forgetting clears stored value/metadata while preserving minimal audit identity/status
+- `user` and `conversation` scopes are exact-actor only; `organization` scope is exact-organization
+- `project` and `job` scope values are contract-recognized but fail closed in A7 until explicit object-scope authorization exists at both the service and RLS layers
+- Athena memory is not authoritative business state and does not replace projects, jobs, customers, estimates, invoices, payments, dispatch, or costbook records
 
 ## Core relationships
 

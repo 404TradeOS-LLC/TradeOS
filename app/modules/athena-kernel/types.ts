@@ -193,6 +193,12 @@ export interface AthenaAIContext {
   costbook?: AthenaProviderSection;
   inventory?: AthenaProviderSection;
   notifications?: AthenaProviderSection;
+  // A7 memory-backed preferences (docs/athena/roadmap/
+  // A7-memory-implementation-plan.md, C006 in docs/athena/contracts/
+  // README.md). Additive only, same posture as every other provider
+  // section above: no A1-A6 code path sets this field, so every existing
+  // minimal-context assertion keeps passing unchanged.
+  memory?: AthenaProviderSection;
 }
 
 // C007 Permission (narrowed to A1's two capabilities)
