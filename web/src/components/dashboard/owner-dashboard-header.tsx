@@ -1,15 +1,38 @@
 import Link from "next/link";
-import { Bell, CalendarDays } from "lucide-react";
+import { Bell, CalendarDays, CloudSun } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import type { WeatherSnapshot } from "@/lib/weather";
 
 interface OwnerDashboardHeaderProps {
   companyName: string;
   currentDateLabel: string;
   notificationCount: number;
+  weather: WeatherSnapshot | null;
 }
 
-export function OwnerDashboardHeader({ companyName, currentDateLabel, notificationCount }: OwnerDashboardHeaderProps) {
+function WeatherSummary({ weather }: { weather: WeatherSnapshot | null }) {
+  if (!weather) {
+    return <p className="mt-2 text-sm font-medium text-muted-foreground">No forecast for today&apos;s job site</p>;
+  }
+
+  const precipitation =
+    weather.precipitationChance != null && weather.precipitationChance > 0 ? ` · ${weather.precipitationChance}% precip` : "";
+
+  return (
+    <>
+      <p className="mt-2 truncate text-sm font-medium text-foreground">
+        {weather.temperature}°{weather.temperatureUnit} · {weather.shortForecast}
+        {precipitation}
+      </p>
+      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        {weather.periodName}, {weather.locationLabel}
+      </p>
+    </>
+  );
+}
+
+export function OwnerDashboardHeader({ companyName, currentDateLabel, notificationCount, weather }: OwnerDashboardHeaderProps) {
   return (
     <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -21,7 +44,14 @@ export function OwnerDashboardHeader({ companyName, currentDateLabel, notificati
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[20rem]">
+        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[28rem]">
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <CloudSun aria-hidden="true" />
+              Weather
+            </div>
+            <WeatherSummary weather={weather} />
+          </div>
           <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
               <CalendarDays aria-hidden="true" />

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSession, getSessionToken } from "@/lib/session";
+import { getWeatherForAddress } from "@/lib/weather";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -150,6 +151,14 @@ export default async function DashboardPage() {
       ])
     : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }];
 
+  // Weather is scoped to today's first scheduled job's site address (not a
+  // generic company-wide forecast) - a rain delay only matters relative to
+  // where the crew is actually working today. No job today or no site
+  // address on file both degrade to an honest "no forecast" state rather
+  // than showing nothing tied to a real location.
+  const todaySiteAddress = todaySchedule.items.find((job) => job.project?.siteAddress)?.project?.siteAddress ?? null;
+  const weather = todaySiteAddress ? await getWeatherForAddress(todaySiteAddress).catch(() => null) : null;
+
   const now = new Date();
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
   const companyName = settings.companyName;
@@ -248,7 +257,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} />
+      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} weather={weather} />
 
       <NeedsAttentionCard
         estimates={attentionEstimates}
