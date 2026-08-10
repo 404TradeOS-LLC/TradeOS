@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatTaskDueLabel } from "./dashboard-task-model.ts";
+import { formatTaskDueLabel } from "./dashboard-task-dates.ts";
 
 test("date-only task deadlines stay on the stored calendar day west of UTC", () => {
   const now = new Date("2026-08-10T16:00:00.000Z");
