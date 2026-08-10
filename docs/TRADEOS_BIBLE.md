@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -32,6 +32,19 @@ S005 completed this operating-contract consolidation in PR #84, merged on
 2026-08-06 as `7d1c48376861468122347e19c41f0a007d7b5fc9`. The Next Sprint
 Protocol is the sole executable owner of startup and completion; supporting
 documents may define doctrine, lifecycle policy, or scoped additions only.
+
+S006 — Lifecycle compatibility inventory is the next lifecycle-normalization
+sprint. Its readiness promotion is governance-only and explicitly separates
+inventory work from parallel UI implementation: S006 may inspect UI lifecycle
+values as evidence, but implementation is forbidden from changing UI runtime
+paths or any product behavior until the compatibility inventory is approved.
+
+S027 — Intelligent Costbook production readiness now has a founder-requested
+readiness contract recorded in the Sprint Backlog, but it is not executable
+while active PR overlap exists. Its implementation must extend the existing
+Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine
+seams; it must not create mock production data, a parallel AI estimator, or
+autonomous AI write paths.
 
 ## Volume I — Vision
 

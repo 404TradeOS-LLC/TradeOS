@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -44,6 +44,7 @@ Use these files first:
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, and label taxonomy
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
+- `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-06
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -52,8 +52,13 @@ evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
 `36a87bea`; a pre-implementation audit then found its readiness record omitted
 explicit forbidden paths and named tests. PR #83 repaired those gates and
 merged as `ee5000b4`. S005 is complete: PR #84 merged on 2026-08-06 as
-`7d1c48376861468122347e19c41f0a007d7b5fc9`. No later sprint has been
-promoted.
+`7d1c48376861468122347e19c41f0a007d7b5fc9`. Production auth/runtime recovery
+through PR #92 is merged on `main` as
+`477fb2e919d4001772628c6a91fcded07555ba74`. S006 — Lifecycle compatibility
+inventory is now `READY` after governance-only PR #93 merged. S027 —
+Intelligent Costbook production readiness has a founder-requested readiness
+contract, but remains `BLOCKED` until active dashboard/UI and Knowledge Runtime
+overlap clears.
 
 Completed foundation work includes:
 
@@ -79,37 +84,27 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub and worktree state verified on 2026-08-06 after S005 merged:
+Live GitHub state verified on 2026-08-09 while preparing S027 readiness:
 
-- no pull requests were open before the S005 completion-evidence branch was
-  published;
-- draft PR #85 is now the sole open pull request and contains only the four
-  governance owner documents required to record S005 completion;
-- PR #84 merged as `7d1c4837`, completing S005;
-- PR #83 merged as `ee5000b4`, completing the missing S005 readiness gates;
-- PR #82 merged as `36a87bea`, publishing the original S005 readiness record;
-- PR #81 merged as `5efa9835`, recording S004 completion evidence;
-- PR #80 was merged as `f8179c73`, completing the S004 implementation;
-- PR #75 was merged as `ed013c5b`, making S004 explicitly `READY` before its
-  isolated implementation branch was created;
-- every dependency pull request from the prior readiness audit is now merged,
-  closed, or superseded, so no dependency PR overlaps S004's docs/docs-test
-  scope;
-- PR #77 was merged as `0afc6f91` after its Next.js 16.3 build repair;
-- PR #79 was merged as `42a614e3` for the canonical Loki backend hardening;
-- PR #74 was merged as `573e8d61`;
-- PR #73 was merged as `9b3ebb24`;
-- PR #49 was closed unmerged and Qodana was deferred;
-- PR #51 was merged as `cdadd24d`;
-- PR #64 was closed unmerged as obsolete;
-- PR #30 was merged as `2d80214a`; and
-- PR #35 was merged as `c7b84643`.
+- PR #96 (`fix/vercel-include-knowledge-engine`) modifies
+  `app/modules/knowledge-runtime/loader.ts` and `app/vercel.json`, so S027
+  cannot safely claim Knowledge Runtime production packaging until that PR
+  lands or closes;
+- draft PR #95 (`docs/s006-lifecycle-compatibility-inventory`) owns S006
+  implementation evidence and does not authorize later lifecycle behavior
+  changes;
+- PR #94 (`ui/modernize-shell-dashboard-customers`) modifies dashboard,
+  shared frontend, `docs/CURRENT_STATE.md`, and `docs/SESSION_HANDOFF.md`, so
+  S027 cannot safely claim dashboard Costbook-card work until that overlap
+  lands or closes;
+- PR #89 is a Dependabot lockfile/package update and does not overlap S027
+  runtime scope unless dependency changes are requested; and
+- S027 readiness therefore records full scope and validation, but remains
+  `BLOCKED` instead of `READY`.
 
-The remaining security-hardening worktree has three uncommitted
-`packages/knowledge-engine/**` edits and does not overlap this governance-only
-completion record.
-
-Always verify GitHub before editing. This summary is not a substitute for live PR state.
+Historical coordination evidence remains in the sprint backlog and repository
+governance records; always verify GitHub before editing. This summary is not a
+substitute for live PR state.
 
 ## Current blockers and risks
 
@@ -121,13 +116,20 @@ Always verify GitHub before editing. This summary is not a substitute for live P
   rechecked before later claims or changes.
 - Production migration changes remain manual and `production` Environment-gated. Reconciliation records existing schema state in Prisma history; it must not be confused with executing a normal migration deployment.
 - Settings/Brand Studio asset persistence must keep the `project-files` bucket private and all service-role access server-only. Metadata writes are restricted to the authenticated organization's generated `organizations/<orgId>/brand-assets/<assetKey>-<uuid>` namespace, passive raster formats up to 6 MB, and the four supported asset slots; reads must stay behind the authenticated same-org proxy.
+- S006 is an inventory sprint, not permission to normalize behavior yet. Any
+  discovered drift must be recorded and handed to S007-S012 rather than fixed
+  in place.
+- S027 is blocked by active PR overlap. When the overlap clears, its
+  implementation must extend existing Costbook, supplier, Knowledge Runtime,
+  AI Estimate Assist, and Estimate Engine seams without mock production data or
+  autonomous AI writes.
 
 ## Required verification
 
 Expected CI jobs include:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build`;
+- `App lint, unit tests, and build` (also runs the `athena:contracts` and `athena:smoke` gates for the Athena A1 kernel foundation, see `app/modules/athena-kernel`);
 - `App integration tests`;
 - `Web lint and build` (includes frontend unit tests before lint and build).
 
@@ -158,9 +160,13 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-No sprint is currently `READY`. Verify live state, then stop without promoting
-S006 or beginning archive, deletion, unrelated README consolidation, ruleset
-mutation, or Phase C of the knowledge-engine cleanup.
+S006 is the next `READY` sprint, and draft PR #95 is its current implementation
+evidence. Do not begin S027 implementation while S006 remains the lowest
+eligible sprint and while S027's active dashboard/UI and Knowledge Runtime
+overlap remains unresolved.
+S027 may be promoted to `READY` only after the named dashboard/UI and Knowledge
+Runtime overlap clears and a governance-only update confirms the exact current
+base, open PRs, worktrees, and required validation.
 
 ## Source-of-truth links
 
