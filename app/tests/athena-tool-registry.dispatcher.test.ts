@@ -67,6 +67,45 @@ describe("athena tool dispatcher", () => {
     expect(denied.audit.reasonCode).toBe("authorization_denied");
   });
 
+  it("hides tool_version_not_found from an unauthorized caller behind the same not-found shape used for unknown ids", async () => {
+    const registry = createAthenaToolRegistry();
+    registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.needs-billing", version: "1.0.0", permissions: ["billing.write"] }));
+
+    const unauthorizedWrongVersion = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.needs-billing", version: "9.9.9", role: "technician" }));
+    const unknown = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.nope", version: "9.9.9" }));
+
+    expect(unauthorizedWrongVersion.result.success).toBe(false);
+    expect(unauthorizedWrongVersion.result.error?.code).toBe(unknown.result.error?.code);
+    expect(unauthorizedWrongVersion.result.error?.category).toBe(unknown.result.error?.category);
+    expect(unauthorizedWrongVersion.result.error?.safeSummary).toBe(unknown.result.error?.safeSummary);
+    expect(unauthorizedWrongVersion.audit.reasonCode).toBe("authorization_denied");
+  });
+
+  it("still reveals tool_version_not_found to a caller authorized for at least one existing version of that id", async () => {
+    const registry = createAthenaToolRegistry();
+    registry.register(createEchoFixtureTool({ version: "1.0.0" }));
+
+    const outcome = await dispatchAthenaTool(registry, buildRequest({ toolId: "tradeos.athena.fixture.echo", version: "9.9.9", role: "owner" }));
+
+    expect(outcome.result.error?.code).toBe("athena_tool_version_not_found");
+    expect(outcome.audit.reasonCode).toBe("tool_version_not_found");
+  });
+
+  it("does not invoke tool.execute() when the client signal is already aborted before dispatch begins", async () => {
+    const registry = createAthenaToolRegistry();
+    let executed = false;
+    registry.register(createEchoFixtureTool({ onExecuted: () => { executed = true; } }));
+    const controller = new AbortController();
+    controller.abort();
+
+    const outcome = await dispatchAthenaTool(registry, buildRequest({ clientSignal: controller.signal }));
+
+    expect(executed).toBe(false);
+    expect(outcome.result.success).toBe(false);
+    expect(outcome.result.error?.code).toBe("athena_tool_cancelled");
+    expect(outcome.audit.reasonCode).toBe("cancelled");
+  });
+
   it("denies a feature-flag-gated tool the same way as an unknown tool when required flags are missing", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.flagged", requiredFeatureFlags: ["athena_fixture_flag"] }));

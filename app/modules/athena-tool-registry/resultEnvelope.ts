@@ -45,6 +45,13 @@ export function assertValidAthenaToolResult(value: unknown): asserts value is At
   if (typeof candidate.telemetry !== "object" || candidate.telemetry === null) {
     throw new Error("AthenaToolResult.telemetry must be an object");
   }
+  const telemetry = candidate.telemetry as Record<string, unknown>;
+  if (typeof telemetry.traceId !== "string" || telemetry.traceId.length === 0) {
+    throw new Error("AthenaToolResult.telemetry.traceId must be a non-empty string");
+  }
+  if (typeof telemetry.executionId !== "string" || telemetry.executionId.length === 0) {
+    throw new Error("AthenaToolResult.telemetry.executionId must be a non-empty string");
+  }
 
   if (candidate.success === false) {
     if (typeof candidate.error !== "object" || candidate.error === null) {

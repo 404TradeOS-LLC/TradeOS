@@ -14,7 +14,7 @@ import {
 import { evaluateAthenaToolPolicy, hasAllRequiredFeatureFlags } from "./policy";
 import type { AthenaToolRegistry } from "./registry";
 import { assertValidAthenaToolResult } from "./resultEnvelope";
-import { AthenaToolDispatchAudit, AthenaToolDispatchOutcome, AthenaToolError, AthenaToolResult } from "./types";
+import { AthenaToolDispatchAudit, AthenaToolDispatchOutcome, AthenaToolError, AthenaToolResult, AthenaToolRisk } from "./types";
 
 export interface AthenaToolDispatchRequest<TInput = unknown> {
   toolId: string;
@@ -81,19 +81,35 @@ async function raceWithTimeout<T>(work: (signal: AbortSignal) => Promise<T>, tim
 
   const onClientAbort = () => fireAbort("client_cancelled");
   clientSignal?.addEventListener("abort", onClientAbort);
-  if (clientSignal?.aborted) {
-    onClientAbort();
-  }
 
-  const timer = setTimeout(() => fireAbort("timeout"), timeoutMs);
-
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    if (clientSignal?.aborted) {
+      // Never invoke work() - constructing `Promise.race([work(...), ...])`
+      // would call work() eagerly even though this promise is already
+      // settled, letting a non-cooperative or side-effecting tool run after
+      // the caller already cancelled (docs/athena/roadmap/
+      // A2-tool-registry-implementation-plan.md "Timeout, Idempotency, And
+      // Cancellation Behavior").
+      onClientAbort();
+      return await abortPromise;
+    }
+    timer = setTimeout(() => fireAbort("timeout"), timeoutMs);
     return await Promise.race([work(controller.signal), abortPromise]);
   } finally {
     settled = true;
     clearTimeout(timer);
     clientSignal?.removeEventListener("abort", onClientAbort);
   }
+}
+
+// Whether request.role/featureFlags satisfy a specific tool's declared
+// requirements - the same gate used both for the "found" happy path and to
+// decide whether an unauthorized caller may see tool_version_not_found
+// instead of the folded-in not-found shape (see "Hide version resolution
+// from unauthorized callers" above).
+function isAuthorizedFor(candidate: { permissions: string[]; risk: AthenaToolRisk; requiredFeatureFlags?: string[] }, request: Pick<AthenaToolDispatchRequest, "role" | "featureFlags">): boolean {
+  return hasAllRequiredFeatureFlags(candidate.requiredFeatureFlags, request.featureFlags) && evaluateAthenaToolPolicy(request.role, candidate).decision === "allow";
 }
 
 function buildFailureResult<TData>(error: AthenaToolError, traceId: string, executionId: string): AthenaToolResult<TData> {
@@ -124,22 +140,30 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
   try {
     const resolution = registry.resolve(request.toolId, request.version);
     if (resolution.outcome === "tool_not_found") throw athenaToolNotFoundError(correlationId);
-    if (resolution.outcome === "tool_version_not_found") throw athenaToolVersionNotFoundError(correlationId);
     if (resolution.outcome === "tool_removed") throw athenaToolRemovedError(correlationId);
+    if (resolution.outcome === "tool_version_not_found") {
+      // The specific "wrong version" shape is only exposed once the caller
+      // is authorized for at least one version that actually exists under
+      // this id - otherwise an unauthorized caller could enumerate
+      // registered tool IDs by probing arbitrary versions and comparing
+      // athena_tool_version_not_found against athena_tool_not_found.
+      const authorizedForKnownVersion = resolution.knownVersions.some((candidate) => isAuthorizedFor(candidate, request));
+      if (!authorizedForKnownVersion) {
+        throw athenaToolNotFoundError(correlationId, "authorization_denied");
+      }
+      throw athenaToolVersionNotFoundError(correlationId);
+    }
 
     const tool = resolution.definition;
 
     // A flag-gated tool a caller doesn't have yet is folded into the same
     // not-found shape as a permission denial, for the same
     // registry-enumeration reason (see policy check below).
-    if (!hasAllRequiredFeatureFlags(tool.requiredFeatureFlags, request.featureFlags)) {
+    if (!isAuthorizedFor(tool, request)) {
       throw athenaToolNotFoundError(correlationId, "authorization_denied");
     }
 
     const policyDecision = evaluateAthenaToolPolicy(request.role, tool);
-    if (policyDecision.decision === "deny") {
-      throw athenaToolNotFoundError(correlationId, "authorization_denied");
-    }
 
     if (!isZodLikeSchema(tool.inputSchema)) {
       // Registration already guarantees this (registry.ts's

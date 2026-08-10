@@ -86,4 +86,24 @@ describe("athena:contracts - tool result envelope (C003)", () => {
     const invalid = { ...validFailure(), data: { partial: true } };
     expect(() => assertValidAthenaToolResult(invalid)).toThrow(/data must be null/);
   });
+
+  it("rejects an empty telemetry object", () => {
+    const invalid = { ...validSuccess(), telemetry: {} };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/telemetry\.traceId/);
+  });
+
+  it("rejects telemetry missing executionId", () => {
+    const invalid = { ...validSuccess(), telemetry: { traceId: "trace-1" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/telemetry\.executionId/);
+  });
+
+  it("rejects telemetry with a non-string traceId", () => {
+    const invalid = { ...validSuccess(), telemetry: { traceId: 123, executionId: "exec-1" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/telemetry\.traceId/);
+  });
+
+  it("rejects telemetry with an empty-string executionId", () => {
+    const invalid = { ...validSuccess(), telemetry: { traceId: "trace-1", executionId: "" } };
+    expect(() => assertValidAthenaToolResult(invalid)).toThrow(/telemetry\.executionId/);
+  });
 });

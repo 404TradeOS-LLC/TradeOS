@@ -26,6 +26,21 @@ export interface AthenaToolRegistry {
   discover(actor: AthenaToolDiscoveryActor): AthenaToolDefinition<unknown, unknown>[];
 }
 
+// Stable lowercase reverse-domain-style ID (docs/athena/roadmap/
+// A2-tool-registry-implementation-plan.md "Tool Identity, Naming, And
+// Versioning Rules": "tradeos.<module>.<capability>", e.g.
+// "tradeos.athena.fixture.echo"). Each dot-separated segment is
+// lowercase-kebab; at least one dot is required, and leading/trailing/
+// doubled dots are rejected because every segment must be non-empty.
+const TOOL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$/;
+
+// Semver-compatible MAJOR.MINOR.PATCH, with optional pre-release/build
+// metadata. Rejects "latest", "v1", "1", "1.0", and whitespace - a
+// non-semver version can't participate in major-version pinning (docs/athena/
+// roadmap/A2-tool-registry-implementation-plan.md "Tool Identity, Naming,
+// And Versioning Rules").
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
 const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_CONFIRMATION_POLICIES = new Set(["never", "contextual", "always"]);
 const VALID_IDEMPOTENCY = new Set(["required", "optional", "not_supported"]);
@@ -42,11 +57,11 @@ function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknow
 // assertValidTelemetryRecord posture of failing loudly at the boundary
 // rather than trusting callers.
 function assertValidToolDefinition(definition: AthenaToolDefinition<unknown, unknown>): void {
-  if (!definition.id || typeof definition.id !== "string") {
-    throw new Error("AthenaToolDefinition.id must be a non-empty string");
+  if (typeof definition.id !== "string" || !TOOL_ID_PATTERN.test(definition.id)) {
+    throw new Error(`AthenaToolDefinition.id must be a lowercase reverse-domain-style id (e.g. "tradeos.athena.fixture.echo"): ${String(definition.id)}`);
   }
-  if (!definition.version || typeof definition.version !== "string") {
-    throw new Error("AthenaToolDefinition.version must be a non-empty string");
+  if (typeof definition.version !== "string" || !SEMVER_PATTERN.test(definition.version)) {
+    throw new Error(`AthenaToolDefinition.version must be a semver-compatible MAJOR.MINOR.PATCH string: ${String(definition.version)}`);
   }
   if (!definition.owner || typeof definition.owner !== "string") {
     throw new Error("AthenaToolDefinition.owner must be a non-empty string");
@@ -115,7 +130,11 @@ export function createAthenaToolRegistry(): AthenaToolRegistry {
       if (entry) {
         return entry.removed ? { outcome: "tool_removed" } : { outcome: "found", definition: entry.definition };
       }
-      return knownIds.has(id) ? { outcome: "tool_version_not_found" } : { outcome: "tool_not_found" };
+      if (!knownIds.has(id)) {
+        return { outcome: "tool_not_found" };
+      }
+      const knownVersions = [...entries.values()].filter((candidate) => !candidate.removed && candidate.definition.id === id).map((candidate) => candidate.definition);
+      return { outcome: "tool_version_not_found", knownVersions };
     },
 
     discover(actor) {

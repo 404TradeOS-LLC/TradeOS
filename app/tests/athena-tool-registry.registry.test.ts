@@ -60,6 +60,30 @@ describe("athena tool registry", () => {
       const registry = createAthenaToolRegistry();
       expect(() => registry.register(fixtureWith({ compensationPolicy: "undo_everything" as never }))).toThrow(/compensationPolicy/);
     });
+
+    describe("id format", () => {
+      it.each(["Tradeos.Athena.Fixture.Echo", "tradeos athena fixture echo", "", "   ", "tradeosathenafixtureecho", ".tradeos.athena", "tradeos.athena.", "tradeos..athena", "tradeos.athena_fixture", "tradeos.athena/fixture"])("rejects an invalid id: %j", (id) => {
+        const registry = createAthenaToolRegistry();
+        expect(() => registry.register(fixtureWith({ id }))).toThrow(/id/);
+      });
+
+      it("accepts a lowercase reverse-domain-style id with hyphenated segments", () => {
+        const registry = createAthenaToolRegistry();
+        expect(() => registry.register(fixtureWith({ id: "tradeos.athena.fixture.needs-billing" }))).not.toThrow();
+      });
+    });
+
+    describe("version format", () => {
+      it.each(["latest", "v1", "1", "1.0", "", "   ", "1.0.0 "])("rejects a non-semver version: %j", (version) => {
+        const registry = createAthenaToolRegistry();
+        expect(() => registry.register(fixtureWith({ version }))).toThrow(/semver/);
+      });
+
+      it("accepts a semver version with pre-release metadata", () => {
+        const registry = createAthenaToolRegistry();
+        expect(() => registry.register(fixtureWith({ version: "1.0.0-beta.1" }))).not.toThrow();
+      });
+    });
   });
 
   describe("resolution", () => {
@@ -68,10 +92,13 @@ describe("athena tool registry", () => {
       expect(registry.resolve("tradeos.athena.fixture.nope", "1.0.0")).toEqual({ outcome: "tool_not_found" });
     });
 
-    it("returns tool_version_not_found for a known id with an unregistered version", () => {
+    it("returns tool_version_not_found for a known id with an unregistered version, carrying the other known active versions", () => {
       const registry = createAthenaToolRegistry();
-      registry.register(createEchoFixtureTool({ version: "1.0.0" }));
-      expect(registry.resolve("tradeos.athena.fixture.echo", "9.9.9")).toEqual({ outcome: "tool_version_not_found" });
+      const tool = createEchoFixtureTool({ version: "1.0.0" });
+      registry.register(tool);
+      const resolution = registry.resolve("tradeos.athena.fixture.echo", "9.9.9");
+      expect(resolution.outcome).toBe("tool_version_not_found");
+      expect(resolution.outcome === "tool_version_not_found" && resolution.knownVersions).toEqual([tool]);
     });
 
     it("returns tool_removed for a version that was registered then removed, distinct from never having existed", () => {
