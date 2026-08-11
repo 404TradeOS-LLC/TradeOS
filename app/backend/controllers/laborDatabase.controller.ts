@@ -56,5 +56,5 @@ function rejectBlankNumericInput(value: unknown) {
 
 function hasAtMostDecimalPlaces(value: number, places: number) {
   const factor = 10 ** places;
-  return Math.abs(value * factor - Math.trunc(value * factor)) < Number.EPSILON;
+  return Math.abs(value * factor - Math.round(value * factor)) < 1e-8;
 }

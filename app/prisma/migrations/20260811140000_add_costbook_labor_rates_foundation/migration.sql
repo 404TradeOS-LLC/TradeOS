@@ -19,6 +19,11 @@ update labor_rates
     or hourly_cost is null
     or bill_rate is null;
 
+-- Legacy null-org labor rates are unreachable under forced RLS and cannot be
+-- assigned safely to a tenant during migration.
+delete from labor_rates
+ where org_id is null;
+
 alter table labor_rates
   alter column org_id set not null,
   alter column role set not null,

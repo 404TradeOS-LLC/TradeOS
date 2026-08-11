@@ -304,6 +304,31 @@ describe("costbookController materials endpoints", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it("accepts valid two-decimal labor-rate values affected by floating-point representation", async () => {
+    const res = response();
+
+    await costbookController.createLaborRate(
+      authedRequest({
+        body: {
+          role: "Helper",
+          hourlyCost: 19.99,
+          billRate: 0.29,
+        },
+      }),
+      res as never
+    );
+
+    expect(mockService.createLaborRate).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      {
+        role: "Helper",
+        hourlyCost: 19.99,
+        billRate: 0.29,
+      }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it("passes validated labor-rate patch input to the service", async () => {
     const res = response();
 

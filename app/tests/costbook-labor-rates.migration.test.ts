@@ -12,6 +12,7 @@ describe("costbook labor-rates foundation migration", () => {
     expect(migration).toContain("add column if not exists hourly_cost numeric(10,2)");
     expect(migration).toContain("add column if not exists bill_rate numeric(10,2)");
     expect(migration).toContain("add column if not exists active boolean not null default true");
+    expect(migration).toContain("delete from labor_rates\n where org_id is null");
     expect(migration).toContain("alter column org_id set not null");
   });
 
