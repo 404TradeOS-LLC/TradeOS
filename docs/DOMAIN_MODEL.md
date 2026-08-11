@@ -174,6 +174,17 @@ C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization
 - both tables use forced RLS and do not replace existing `Division`, `Category`, `Subcategory`, `CostItem`, `LaborRate`, `Material`, `Equipment`, `Assembly`, or `AssemblyItem` catalog models
 - the C001 workspace foundation does not add pricing calculations, materials CRUD, labor-engine state, estimate integration snapshots, or Athena advisor records
 
+## Costbook material catalog
+
+C002 exposes the existing `Material` model through the unified Costbook boundary.
+
+- `Material` belongs to one organization and stores SKU, name, unit of measure, current unit cost, waste factor, optional supplier link, last price-update timestamp, and timestamps
+- material reads remain tenant-scoped by `orgId`; C002 tightens material and material-price-audit writes to the owner/admin Costbook boundary through forced RLS
+- Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
+- a material may link to a supplier only when that supplier belongs to the same authenticated organization
+- material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
+- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+
 ## Core relationships
 
 Canonical relationship flow:

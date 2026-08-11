@@ -178,6 +178,34 @@ export function getCostbookWorkspace(token: string) {
   return apiFetch<CostbookWorkspaceSummary>("/api/v1/costbook/workspace", { token });
 }
 
+export interface CostbookMaterial {
+  id: string;
+  organizationId: string;
+  sku: string | null;
+  name: string;
+  unitOfMeasure: string;
+  unitCost: number;
+  wasteFactorPct: number;
+  supplierId: string | null;
+  supplierName: string | null;
+  lastPriceUpdate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookMaterialInput {
+  sku?: string | null;
+  name: string;
+  unitOfMeasure: string;
+  unitCost: number;
+  wasteFactorPct?: number;
+  supplierId?: string | null;
+}
+
+export function listCostbookMaterials(token: string) {
+  return apiFetch<CostbookMaterial[]>("/api/v1/costbook/materials", { token });
+}
+
 export interface Customer {
   id: string;
   name: string;

@@ -38,3 +38,44 @@ export interface CostbookWorkspaceDTO {
   counts: CostbookInventoryCounts;
   areas: CostbookWorkspaceArea[];
 }
+
+export interface CostbookMaterialRecord {
+  id: string;
+  organizationId: string;
+  sku: string | null;
+  name: string;
+  unitOfMeasure: string;
+  unitCost: number;
+  wasteFactorPct: number;
+  supplierId: string | null;
+  supplierName: string | null;
+  lastPriceUpdate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CostbookMaterialDTO {
+  id: string;
+  organizationId: string;
+  sku: string | null;
+  name: string;
+  unitOfMeasure: string;
+  unitCost: number;
+  wasteFactorPct: number;
+  supplierId: string | null;
+  supplierName: string | null;
+  lastPriceUpdate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookMaterialInput {
+  sku?: string | null;
+  name: string;
+  unitOfMeasure: string;
+  unitCost: number;
+  wasteFactorPct?: number;
+  supplierId?: string | null;
+}
+
+export type CostbookMaterialUpdateInput = Partial<CostbookMaterialInput>;

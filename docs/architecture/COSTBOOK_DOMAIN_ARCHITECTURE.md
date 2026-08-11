@@ -16,10 +16,11 @@ related_docs:
 # Costbook Domain Architecture
 
 This document defines the intended Costbook domain architecture for TradeOS. C001
-has implemented the Costbook workspace foundation, permission keys, and unified
-read-only workspace endpoint. The broader pricing engine, catalog CRUD under the
-unified boundary, price history, estimate integration, and Athena advisor remain
-future work.
+implemented the Costbook workspace foundation, permission keys, and unified
+read-only workspace endpoint. C002 implements the first unified catalog
+management surface for organization-scoped materials. The broader pricing
+engine, labor/equipment/assembly workflows, price history, estimate integration,
+supplier automation, and Athena advisor remain future work.
 
 Current implementation truth remains in [CURRENT_STATE.md](../CURRENT_STATE.md)
 and [modules/cost-book.md](../modules/cost-book.md).

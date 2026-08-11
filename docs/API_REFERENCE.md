@@ -112,6 +112,33 @@ AI estimating routes under `/api/v1/estimates`:
 Costbook workspace routes under `/api/v1/costbook`:
 
 - `GET /api/v1/costbook/workspace` — requires `costbook.read`; returns the authenticated organization's Costbook workspace foundation status, role-derived Costbook permission flags, and organization-scoped counts for existing divisions, active cost items, labor rates, materials, equipment, and active assemblies. This C001 endpoint is read-only and does not create materials, labor rates, assemblies, pricing calculations, estimate line items, price-history records, or Athena actions.
+- `GET /api/v1/costbook/materials` — requires `costbook.read`; returns organization-scoped material DTOs sorted by name and SKU.
+- `GET /api/v1/costbook/materials/:id` — requires `costbook.read`; returns one material in the authenticated organization or 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/materials` — requires `costbook.write`; creates one material for the authenticated organization. Accepted strict body fields: `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`.
+- `PATCH /api/v1/costbook/materials/:id` — requires `costbook.write`; updates the same strict field set and records a material price-audit row when `unitCost` changes.
+
+Costbook material DTO:
+
+```json
+{
+  "id": "uuid",
+  "organizationId": "uuid",
+  "sku": "CONC-4000",
+  "name": "Ready Mix Concrete",
+  "unitOfMeasure": "CY",
+  "unitCost": 150,
+  "wasteFactorPct": 5,
+  "supplierId": null,
+  "supplierName": null,
+  "lastPriceUpdate": "2026-08-11T00:00:00.000Z",
+  "createdAt": "2026-08-10T00:00:00.000Z",
+  "updatedAt": "2026-08-11T00:00:00.000Z"
+}
+```
+
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+
+The legacy `/api/v1/materials/*` route group remains mounted for compatibility, but it now shares the same Costbook permission boundary: read-style operations require `costbook.read`, and create/update/delete/bulk-import operations require `costbook.write`.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 
