@@ -8,6 +8,7 @@ related_code:
   - app/domain/contracts.ts
   - app/modules/athena-memory
   - app/modules/athena-events
+  - app/modules/athena-observability
 ---
 
 # Domain Model
@@ -175,6 +176,16 @@ Project Athena A8 event integration state is stored in `AthenaEvent`, `AthenaEve
 - `AthenaEventDeadLetter` records exhausted delivery attempts with the event payload snapshot and safe failure reason code for future operator replay
 - A8 wires only one production publisher: proposal send emits `ProposalSent` after the existing proposal status transition commits
 - No production subscriber, scheduler, autonomous Athena action, or business-state authority is introduced by these tables
+
+## Athena observability
+
+Project Athena A10 observability adds one new table, `AthenaAlert`, plus indexes on the existing A1/A8 tables above (no new telemetry/execution/event tables - A10 is a read/derivation layer, not a second persistence system); see [athena/roadmap/A10-observability-implementation-plan.md](athena/roadmap/A10-observability-implementation-plan.md).
+
+- `AthenaAlert` holds only derived operator-alert lifecycle state (rule id, dedupe key, severity, active/resolved status, safe summary/metadata, first/last-seen timestamps) - never a copy of the underlying telemetry/event data it was evaluated from
+- unique on `(orgId, dedupeKey)` so re-evaluating the same rule updates the existing row instead of creating duplicates
+- RLS is forced and deliberately narrower than the codebase's usual `current_app_can_administer()` (which also admits `dispatcher`): only `owner`/`admin` may read or write `athena_alerts`, matching the HTTP layer's `requireRoles(req, ["owner", "admin"])` gate
+- writes are service-owned (the alert evaluator/exporter/retention jobs run as an authenticated org session scoped to one `{orgId, userId}` membership pair via the existing `runWithBackgroundDatabaseSession` pattern), never tied to the alert's own "actor"
+- observability is feature-flagged off (`ATHENA_OBSERVABILITY_ENABLED=false`) by default; see `app/modules/athena-observability`
 
 ## Core relationships
 

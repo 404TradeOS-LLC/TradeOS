@@ -170,7 +170,7 @@ export class AthenaKernelService {
       }
     };
 
-    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
+    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action" | "memory", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
       try {
         const record = buildTelemetryRecord({
           orgId: actor.orgId,
@@ -473,6 +473,7 @@ export class AthenaKernelService {
           // action has already succeeded, so there is nothing left for it to
           // invalidate.
           if (input.memoryCandidateExtractor && input.memoryService) {
+            const memoryStart = Date.now();
             try {
               const candidates = await input.memoryCandidateExtractor({
                 orgId: actor.orgId,
@@ -488,9 +489,26 @@ export class AthenaKernelService {
               for (const candidate of candidates) {
                 await input.memoryService.remember(candidate);
               }
+              // A10 observability (docs/athena/roadmap/
+              // A10-observability-implementation-plan.md "Telemetry coverage
+              // and instrumentation"): closes the one production-reachable
+              // gap the coverage audit found - every other emitSpan call
+              // site already existed pre-A10. Metadata is candidate/write
+              // counts only, never the candidates' own values (those may
+              // carry user-supplied preference text - see
+              // athena-memory/service.ts's own redaction posture).
+              await emitSpan("memory", "ok", Date.now() - memoryStart, {
+                planId: plan.planId,
+                stepId: step.stepId,
+                candidateCount: candidates.length,
+              });
             } catch {
               // See comment above - never surfaces to the caller or flips
               // actionState/kernel state.
+              await emitSpan("memory", "degraded", Date.now() - memoryStart, {
+                planId: plan.planId,
+                stepId: step.stepId,
+              });
             }
           }
         }
