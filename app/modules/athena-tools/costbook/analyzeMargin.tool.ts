@@ -2,10 +2,8 @@ import { z } from "zod";
 import type { CostDatabaseService } from "../../cost-database/service";
 import type { UnitCostBreakdown } from "../../cost-database/types";
 import { marginFromMarkup } from "../../estimate-engine/formulas";
-import { defineTool } from "../../athena-tool-sdk/defineTool";
-import { successResult } from "../../athena-tool-sdk/results";
-import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk/types";
-import { warning } from "../../athena-tool-sdk/warnings";
+import { defineTool, successResult, warning } from "../../athena-tool-sdk";
+import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk";
 
 // A12 Costbook Intelligence tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Costbook
@@ -67,10 +65,6 @@ export function createCostbookAnalyzeMarginTool(deps: CostbookAnalyzeMarginToolD
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // Any thrown ApiError (cost item not found) is an unexpected error
-      // here and propagates as-is, following recallPreferenceTool.ts's
-      // posture (see also estimator/analyzeEstimate.tool.ts's identical
-      // comment for the sibling A12 read-only tool this one mirrors).
       const costBreakdown = await deps.costDatabase.getUnitCost(input.costItemId, input.quantity, input.regionId, execution.orgId);
 
       const marginPct =
