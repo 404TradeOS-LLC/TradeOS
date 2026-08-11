@@ -3,12 +3,6 @@ import { createOptimizeDayTool } from "../modules/athena-tools/dispatcher/optimi
 import type { OptimizeDayToolDeps } from "../modules/athena-tools/dispatcher/optimizeDay.tool";
 import type { DispatchSummaryDTO, ScheduleConflictResultDTO } from "../modules/jobs/types";
 
-// A12 Business Tool Rollout, Dispatcher domain contract test. Fake
-// JobsService dep is a plain jest.fn(), matching the repo convention already
-// established by athena-tool-sdk.contracts.test.ts's createFakeMemoryService.
-// This tool is pure read/analysis - both fakes only ever return canned DTOs,
-// never mutate state.
-
 function buildFakeDispatchSummary(overrides: Partial<DispatchSummaryDTO> = {}): DispatchSummaryDTO {
   return {
     activeJobs: 5,
@@ -17,8 +11,8 @@ function buildFakeDispatchSummary(overrides: Partial<DispatchSummaryDTO> = {}): 
     overdueActionable: 0,
     needsAttention: 0,
     timezone: { source: "organization", value: "America/Chicago" },
-    todayRangeUtc: { start: "2026-08-11T00:00:00.000Z", end: "2026-08-12T00:00:00.000Z" },
-    weekRangeUtc: { start: "2026-08-11T00:00:00.000Z", end: "2026-08-18T00:00:00.000Z" },
+    todayRangeUtc: { start: "2026-08-11T05:00:00.000Z", end: "2026-08-12T05:00:00.000Z" },
+    weekRangeUtc: { start: "2026-08-11T05:00:00.000Z", end: "2026-08-18T05:00:00.000Z" },
     generatedAt: "2026-08-11T12:00:00.000Z",
     scope: { source: "organization", role: "owner" },
     ...overrides,
@@ -45,10 +39,32 @@ const validInput = {};
 describe("athena-tools dispatcher: optimize-day", () => {
   describeAthenaToolContract(createOptimizeDayTool({ jobs: createFakeJobsService(buildFakeDispatchSummary(), buildFakeConflictResult()) }), {
     validInput,
-    // z.object({}) strips unknown keys and accepts any plain object, so a
-    // meaningful "invalid input" here has to fail the object-shape check
-    // itself (null/array/primitive), not merely carry an extra field.
     invalidInputs: [null, [], "not-an-object"],
+  });
+
+  it("uses the exact organization-local day range returned by the dispatch summary", async () => {
+    const summary = buildFakeDispatchSummary();
+    const jobs = createFakeJobsService(summary, buildFakeConflictResult());
+    const tool = createOptimizeDayTool({ jobs });
+
+    await tool.execute(validInput, {} as never, {
+      executionId: "exec-range",
+      requestId: "req-range",
+      traceId: "trace-range",
+      orgId: "org-1",
+      actor: { type: "user", id: "user-1" },
+      role: "owner",
+      deadline: new Date(Date.now() + 1000),
+      cancellationSignal: new AbortController().signal,
+      featureFlags: [],
+    });
+
+    expect(jobs.getScheduleConflicts).toHaveBeenCalledWith({
+      orgId: "org-1",
+      actor: { userId: "user-1", role: "owner" },
+      scheduledFrom: new Date(summary.todayRangeUtc.start),
+      scheduledTo: new Date(summary.todayRangeUtc.end),
+    });
   });
 
   it("adds a warning and follow-up when schedule conflicts are present", async () => {
