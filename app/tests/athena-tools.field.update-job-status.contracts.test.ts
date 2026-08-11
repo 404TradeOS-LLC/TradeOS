@@ -4,13 +4,6 @@ import type { JobUpdateStatusToolDeps } from "../modules/athena-tools/field/upda
 import type { JobDTO } from "../modules/jobs/types";
 import type { AthenaJobEventRef } from "../modules/jobs/service";
 
-// A12 Business Tool Rollout, Field Technician domain contract test
-// (docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md
-// steps 7-8). Fake JobsService dep is a plain jest.fn() per-method, matching
-// the repo convention already established by athena-tool-sdk.contracts.test.
-// ts's createFakeMemoryService - not app/tests/helpers/
-// fakeAthenaObservabilityDb.ts, which is unrelated.
-
 function buildFakeJobDTO(overrides: Partial<JobDTO> = {}): JobDTO {
   return {
     id: "job-1",
@@ -38,7 +31,7 @@ function buildFakeJobDTO(overrides: Partial<JobDTO> = {}): JobDTO {
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
     project: { id: "project-1", name: "HVAC Overhaul", status: "active" },
-    customer: { id: "customer-1", name: "Acme Corp", email: "acme@example.com", phone: null },
+    customer: { id: "customer-1", name: "Acme Corp", email: "acme@example.com", phone: "555-0100" },
     serviceAddress: {
       id: "address-1",
       label: null,
@@ -98,6 +91,15 @@ describe("athena-tools field: update-job-status", () => {
     };
   }
 
+  function expectMinimizedStatusData(data: unknown) {
+    expect(data).not.toHaveProperty("customer");
+    expect(data).not.toHaveProperty("customerId");
+    expect(data).not.toHaveProperty("serviceAddress");
+    expect(data).not.toHaveProperty("assignments");
+    expect(JSON.stringify(data)).not.toContain("acme@example.com");
+    expect(JSON.stringify(data)).not.toContain("555-0100");
+  }
+
   it('calls startTravel and produces no event for status "traveling"', async () => {
     const jobs = createFakeJobsService({ type: "WorkCompleted", id: "event-1" });
     const tool = createJobUpdateStatusTool({ jobs });
@@ -112,6 +114,7 @@ describe("athena-tools field: update-job-status", () => {
     expect(jobs.complete).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.data?.status).toBe("traveling");
+    expectMinimizedStatusData(result.data);
     expect(result.events).toEqual([]);
   });
 
@@ -129,6 +132,7 @@ describe("athena-tools field: update-job-status", () => {
     expect(jobs.complete).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.data?.status).toBe("on_site");
+    expectMinimizedStatusData(result.data);
     expect(result.events).toEqual([]);
   });
 
@@ -146,9 +150,8 @@ describe("athena-tools field: update-job-status", () => {
     expect(jobs.arrive).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.data?.status).toBe("completed");
+    expectMinimizedStatusData(result.data);
     expect(result.events).toEqual([{ type: "WorkCompleted", id: "event-42" }]);
-    // The athenaEvent field itself must never leak into `data` - only the
-    // wrapped events[] reference carries it.
     expect(result.data).not.toHaveProperty("athenaEvent");
   });
 
@@ -158,6 +161,7 @@ describe("athena-tools field: update-job-status", () => {
     const result = await tool.execute({ jobId: validInput.jobId, status: "completed" }, {} as never, buildExecutionContext());
 
     expect(result.success).toBe(true);
+    expectMinimizedStatusData(result.data);
     expect(result.events).toEqual([]);
   });
 });
