@@ -2,10 +2,8 @@ import { z } from "zod";
 import type { CostDatabaseService } from "../../cost-database/service";
 import type { UnitCostBreakdown } from "../../cost-database/types";
 import { sellPrice } from "../../estimate-engine/formulas";
-import { defineTool } from "../../athena-tool-sdk/defineTool";
-import { failureResult, successResult } from "../../athena-tool-sdk/results";
-import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
-import { warning } from "../../athena-tool-sdk/warnings";
+import { defineTool, failureResult, successResult, warning } from "../../athena-tool-sdk";
+import type { AthenaToolDefinition } from "../../athena-tool-sdk";
 
 // A12 Costbook Intelligence tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Costbook
@@ -59,18 +57,8 @@ export function createCostbookRecommendPriceTool(deps: CostbookRecommendPriceToo
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // Any thrown ApiError (cost item not found) is an unexpected error
-      // here and propagates as-is, following recallPreferenceTool.ts's
-      // posture.
       const costBreakdown = await deps.costDatabase.getUnitCost(input.costItemId, input.quantity, input.regionId, execution.orgId);
 
-      // sellPrice() throws for targetMarginPct >= 100 (mathematically
-      // undefined - would require dividing by zero or a negative cost
-      // multiplier). The input schema allows exactly 100 at its upper bound
-      // per this tool's spec, so that one value is an *expected* domain
-      // rejection, not a programming error - it becomes a failureResult
-      // exactly like recallPreferenceTool.ts's AthenaMemoryError catch,
-      // rather than propagating as an uncaught exception.
       let recommendedPricePerUnit: number;
       try {
         recommendedPricePerUnit = sellPrice({ totalCost: costBreakdown.totalUnitCost, mode: "targetMargin", targetMarginPct: input.targetMarginPct });
