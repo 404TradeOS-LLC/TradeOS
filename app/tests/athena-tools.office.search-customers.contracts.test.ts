@@ -53,7 +53,7 @@ function createFakeCrm(): CustomerSearchToolDeps["crm"] {
 describe("athena-tools office: search-customers", () => {
   describeAthenaToolContract(createCustomerSearchTool({ crm: createFakeCrm() }), {
     validInput: { query: "Jane" },
-    invalidInputs: [{}, { customerId: "not-a-uuid" }, { query: "" }],
+    invalidInputs: [{}, { customerId: "not-a-uuid" }, { query: "" }, { query: "   " }],
   });
 
   it("looks up a single customer by customerId, preferring it over query", async () => {
