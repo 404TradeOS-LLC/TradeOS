@@ -12,6 +12,12 @@ const requiredNumberSchema = z.preprocess(
   rejectBlankNumericInput,
   z.coerce.number().finite().nonnegative().max(maxUnitCost)
 );
+const requiredLaborMoneySchema = z.preprocess(
+  rejectBlankNumericInput,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  })
+);
 const optionalPercentSchema = z.preprocess(
   rejectBlankNumericInput,
   z.coerce.number().finite().min(0).max(100).optional()
@@ -28,6 +34,18 @@ const materialSchema = z.object({
 
 const materialUpdateSchema = materialSchema.partial().refine((value) => Object.keys(value).length > 0, {
   message: "At least one material field is required",
+});
+
+const laborRateSchema = z.object({
+  role: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(240).nullable().optional(),
+  hourlyCost: requiredLaborMoneySchema,
+  billRate: requiredLaborMoneySchema,
+  active: z.boolean().optional(),
+}).strict();
+
+const laborRateUpdateSchema = laborRateSchema.partial().refine((value) => Object.keys(value).length > 0, {
+  message: "At least one labor-rate field is required",
 });
 
 export const costbookController = {
@@ -48,6 +66,30 @@ export const costbookController = {
     const auth = requirePermissions(req, ["costbook.write"]);
     res.status(201).json(await service.createMaterial(auth, materialSchema.parse(req.body)));
   },
+  async listLaborRates(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await service.listLaborRates(auth));
+  },
+  async getLaborRate(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getLaborRate(auth, id));
+  },
+  async createLaborRate(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createLaborRate(auth, laborRateSchema.parse(req.body)));
+  },
+  async updateLaborRate(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateLaborRate(auth, id, laborRateUpdateSchema.parse(req.body)));
+  },
+  async removeLaborRate(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.deactivateLaborRate(auth, id);
+    res.status(204).send();
+  },
   async updateMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
@@ -59,4 +101,9 @@ function rejectBlankNumericInput(value: unknown) {
   if (value === null) return undefined;
   if (typeof value === "string" && value.trim() === "") return undefined;
   return value;
+}
+
+function hasAtMostDecimalPlaces(value: number, places: number) {
+  const factor = 10 ** places;
+  return Math.abs(value * factor - Math.trunc(value * factor)) < Number.EPSILON;
 }

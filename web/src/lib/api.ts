@@ -206,6 +206,30 @@ export function listCostbookMaterials(token: string) {
   return apiFetch<CostbookMaterial[]>("/api/v1/costbook/materials", { token });
 }
 
+export interface CostbookLaborRate {
+  id: string;
+  organizationId: string;
+  role: string;
+  description: string | null;
+  hourlyCost: number;
+  billRate: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookLaborRateInput {
+  role: string;
+  description?: string | null;
+  hourlyCost: number;
+  billRate: number;
+  active?: boolean;
+}
+
+export function listCostbookLaborRates(token: string) {
+  return apiFetch<CostbookLaborRate[]>("/api/v1/costbook/labor-rates", { token });
+}
+
 export interface Customer {
   id: string;
   name: string;

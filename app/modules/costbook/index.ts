@@ -3,6 +3,10 @@ export { CostbookRepository } from "./repository";
 export { costbookPermissions, getCostbookPermissionSummary } from "./permissions";
 export type {
   CostbookInventoryCounts,
+  CostbookLaborRateDTO,
+  CostbookLaborRateInput,
+  CostbookLaborRateRecord,
+  CostbookLaborRateUpdateInput,
   CostbookMaterialDTO,
   CostbookMaterialInput,
   CostbookMaterialRecord,

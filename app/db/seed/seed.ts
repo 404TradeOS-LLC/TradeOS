@@ -347,7 +347,18 @@ async function seedPrimaryOrganizationData(
   });
 
   const laborRate = await tx.laborRate.create({
-    data: { id: IDS.laborRate, orgId: IDS.orgPrimary, trade: "Equipment Operator", baseHourlyRate: 32, burdenPct: 28 },
+    data: {
+      id: IDS.laborRate,
+      orgId: IDS.orgPrimary,
+      role: "Equipment Operator",
+      description: "Seeded labor rate",
+      hourlyCost: 32,
+      billRate: 32,
+      active: true,
+      trade: "Equipment Operator",
+      baseHourlyRate: 32,
+      burdenPct: 28,
+    },
   });
 
   const material = await tx.material.create({

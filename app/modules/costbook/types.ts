@@ -79,3 +79,37 @@ export interface CostbookMaterialInput {
 }
 
 export type CostbookMaterialUpdateInput = Partial<CostbookMaterialInput>;
+
+export interface CostbookLaborRateRecord {
+  id: string;
+  organizationId: string;
+  role: string;
+  description: string | null;
+  hourlyCost: number;
+  billRate: number;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CostbookLaborRateDTO {
+  id: string;
+  organizationId: string;
+  role: string;
+  description: string | null;
+  hourlyCost: number;
+  billRate: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookLaborRateInput {
+  role: string;
+  description?: string | null;
+  hourlyCost: number;
+  billRate: number;
+  active?: boolean;
+}
+
+export type CostbookLaborRateUpdateInput = Partial<CostbookLaborRateInput>;

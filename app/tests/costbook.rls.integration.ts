@@ -23,6 +23,8 @@ const workspaceA = "71000000-0000-0000-0000-000000000051";
 const workspaceB = "81000000-0000-0000-0000-000000000052";
 const materialA = "71000000-0000-0000-0000-000000000061";
 const materialB = "81000000-0000-0000-0000-000000000062";
+const laborRateA = "71000000-0000-0000-0000-000000000071";
+const laborRateB = "81000000-0000-0000-0000-000000000072";
 
 describe("live row-level security for the C001 costbook workspace foundation", () => {
   beforeAll(async () => {
@@ -62,6 +64,38 @@ describe("live row-level security for the C001 costbook workspace foundation", (
         data: { id: materialB, orgId: orgB, sku: "ORG-B-CONC", name: "Org B Concrete", unitOfMeasure: "CY", unitCost: 175 },
       })
     );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.laborRate.create({
+        data: {
+          id: laborRateA,
+          orgId: orgA,
+          role: "Lead Carpenter",
+          description: "Org A labor rate",
+          hourlyCost: 42.5,
+          billRate: 85,
+          active: true,
+          trade: "Lead Carpenter",
+          baseHourlyRate: 42.5,
+          burdenPct: 0,
+        },
+      })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.laborRate.create({
+        data: {
+          id: laborRateB,
+          orgId: orgB,
+          role: "Field Electrician",
+          description: "Org B labor rate",
+          hourlyCost: 48,
+          billRate: 96,
+          active: true,
+          trade: "Field Electrician",
+          baseHourlyRate: 48,
+          burdenPct: 0,
+        },
+      })
+    );
   });
 
   afterAll(async () => {
@@ -89,6 +123,14 @@ describe("live row-level security for the C001 costbook workspace foundation", (
     expect(crossOrgRows).toEqual([]);
   });
 
+  it("scopes labor rates by organization at the database layer", async () => {
+    const techRows = await inSession(technicianA, orgA, "technician", () => prisma.laborRate.findMany({ orderBy: { role: "asc" } }));
+    const crossOrgRows = await inSession(ownerA, orgA, "owner", () => prisma.laborRate.findMany({ where: { id: laborRateB } }));
+
+    expect(techRows.map((row) => row.id)).toEqual([laborRateA]);
+    expect(crossOrgRows).toEqual([]);
+  });
+
   it("rejects technician writes to materials", async () => {
     await expect(
       inSession(technicianA, orgA, "technician", () =>
@@ -101,6 +143,31 @@ describe("live row-level security for the C001 costbook workspace foundation", (
     await expect(
       inSession(technicianA, orgA, "technician", () =>
         prisma.material.update({ where: { id: materialA }, data: { name: "Technician Edit Attempt" } })
+      )
+    ).rejects.toBeTruthy();
+  });
+
+  it("rejects technician writes to labor rates", async () => {
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.laborRate.create({
+          data: {
+            orgId: orgA,
+            role: "Technician Attempt",
+            hourlyCost: 25,
+            billRate: 40,
+            active: true,
+            trade: "Technician Attempt",
+            baseHourlyRate: 25,
+            burdenPct: 0,
+          },
+        })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.laborRate.update({ where: { id: laborRateA }, data: { billRate: 90 } })
       )
     ).rejects.toBeTruthy();
   });

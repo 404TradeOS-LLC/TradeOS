@@ -3,6 +3,9 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import type {
   CostbookInventoryCounts,
+  CostbookLaborRateInput,
+  CostbookLaborRateRecord,
+  CostbookLaborRateUpdateInput,
   CostbookMaterialInput,
   CostbookMaterialRecord,
   CostbookMaterialUpdateInput,
@@ -31,13 +34,87 @@ export class CostbookRepository {
     const [categories, costItems, laborRates, materials, equipment, assemblies] = await Promise.all([
       prisma.category.count({ where: { division: { orgId: organizationId } } }),
       prisma.costItem.count({ where: { orgId: organizationId, isActive: true } }),
-      prisma.laborRate.count({ where: { orgId: organizationId } }),
+      prisma.laborRate.count({ where: { orgId: organizationId, active: true } }),
       prisma.material.count({ where: { orgId: organizationId } }),
       prisma.equipment.count({ where: { orgId: organizationId } }),
       prisma.assembly.count({ where: { orgId: organizationId, isActive: true } }),
     ]);
 
     return { categories, costItems, laborRates, materials, equipment, assemblies };
+  }
+
+  async listLaborRates(organizationId: string): Promise<CostbookLaborRateRecord[]> {
+    const rows = await prisma.laborRate.findMany({
+      where: { orgId: organizationId },
+      orderBy: [{ active: "desc" }, { role: "asc" }, { createdAt: "asc" }],
+    });
+
+    return rows.map(toLaborRateRecord);
+  }
+
+  async getLaborRateById(organizationId: string, id: string): Promise<CostbookLaborRateRecord | null> {
+    const row = await prisma.laborRate.findFirst({
+      where: { id, orgId: organizationId },
+    });
+
+    return row ? toLaborRateRecord(row) : null;
+  }
+
+  async createLaborRate(organizationId: string, input: CostbookLaborRateInput): Promise<CostbookLaborRateRecord> {
+    const row = await prisma.laborRate.create({
+      data: {
+        orgId: organizationId,
+        role: input.role,
+        description: normalizeOptionalString(input.description),
+        hourlyCost: input.hourlyCost,
+        billRate: input.billRate,
+        active: input.active ?? true,
+        trade: input.role,
+        baseHourlyRate: input.hourlyCost,
+        burdenPct: 0,
+      },
+    });
+
+    return toLaborRateRecord(row);
+  }
+
+  async updateLaborRate(
+    organizationId: string,
+    id: string,
+    input: CostbookLaborRateUpdateInput
+  ): Promise<CostbookLaborRateRecord | null> {
+    const existing = await prisma.laborRate.findFirst({ where: { id, orgId: organizationId } });
+    if (!existing) return null;
+
+    const nextRole = input.role ?? existing.role;
+    const nextHourlyCost = input.hourlyCost ?? Number(existing.hourlyCost);
+
+    const row = await prisma.laborRate.update({
+      where: { id },
+      data: {
+        role: input.role,
+        description: input.description === undefined ? undefined : normalizeOptionalString(input.description),
+        hourlyCost: input.hourlyCost,
+        billRate: input.billRate,
+        active: input.active,
+        trade: nextRole,
+        baseHourlyRate: nextHourlyCost,
+      },
+    });
+
+    return toLaborRateRecord(row);
+  }
+
+  async deactivateLaborRate(organizationId: string, id: string): Promise<boolean> {
+    const existing = await prisma.laborRate.findFirst({ where: { id, orgId: organizationId } });
+    if (!existing) return false;
+
+    await prisma.laborRate.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    return true;
   }
 
   async listMaterials(organizationId: string): Promise<CostbookMaterialRecord[]> {
@@ -179,6 +256,30 @@ function toMaterialRecord(row: {
     supplierId: row.supplierId,
     supplierName: row.supplier?.name ?? null,
     lastPriceUpdate: row.lastPriceUpdate,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toLaborRateRecord(row: {
+  id: string;
+  orgId: string;
+  role: string;
+  description: string | null;
+  hourlyCost: unknown;
+  billRate: unknown;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): CostbookLaborRateRecord {
+  return {
+    id: row.id,
+    organizationId: row.orgId,
+    role: row.role,
+    description: row.description,
+    hourlyCost: Number(row.hourlyCost),
+    billRate: Number(row.billRate),
+    active: row.active,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

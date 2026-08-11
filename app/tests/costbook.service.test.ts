@@ -10,6 +10,10 @@ const mockPrisma = {
   },
   laborRate: {
     count: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
   },
   material: {
     count: jest.fn(),
@@ -47,6 +51,10 @@ describe("CostbookService", () => {
     mockPrisma.category.count.mockResolvedValue(6);
     mockPrisma.costItem.count.mockResolvedValue(8);
     mockPrisma.laborRate.count.mockResolvedValue(3);
+    mockPrisma.laborRate.findMany.mockResolvedValue([]);
+    mockPrisma.laborRate.findFirst.mockResolvedValue(null);
+    mockPrisma.laborRate.create.mockResolvedValue(laborRateRow());
+    mockPrisma.laborRate.update.mockResolvedValue(laborRateRow());
     mockPrisma.material.count.mockResolvedValue(5);
     mockPrisma.material.findMany.mockResolvedValue([]);
     mockPrisma.material.findFirst.mockResolvedValue(null);
@@ -97,7 +105,7 @@ describe("CostbookService", () => {
     });
     expect(mockPrisma.category.count).toHaveBeenCalledWith({ where: { division: { orgId: "org-tenant-a" } } });
     expect(mockPrisma.costItem.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", isActive: true } });
-    expect(mockPrisma.laborRate.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
+    expect(mockPrisma.laborRate.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", active: true } });
     expect(mockPrisma.material.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
     expect(mockPrisma.equipment.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
     expect(mockPrisma.assembly.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", isActive: true } });
@@ -127,6 +135,98 @@ describe("CostbookService", () => {
         supplierName: "Acme Supply",
       }),
     ]);
+  });
+
+  it("lists labor rates through the authenticated organization scope", async () => {
+    mockPrisma.laborRate.findMany.mockResolvedValue([
+      laborRateRow({ id: "labor-rate-1", orgId: "org-tenant-a", role: "Lead Carpenter", hourlyCost: 42.5, billRate: 85 }),
+    ]);
+
+    const rows = await new CostbookService().listLaborRates({
+      userId: "user-1",
+      orgId: "org-tenant-a",
+      role: "technician",
+    });
+
+    expect(mockPrisma.laborRate.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-tenant-a" },
+      orderBy: [{ active: "desc" }, { role: "asc" }, { createdAt: "asc" }],
+    });
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: "labor-rate-1",
+        organizationId: "org-tenant-a",
+        role: "Lead Carpenter",
+        hourlyCost: 42.5,
+        billRate: 85,
+      }),
+    ]);
+  });
+
+  it("creates a labor rate only inside the authenticated organization", async () => {
+    await new CostbookService().createLaborRate(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      { role: "Lead Carpenter", description: "Finish trim labor", hourlyCost: 42.5, billRate: 85 }
+    );
+
+    expect(mockPrisma.laborRate.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: "org-tenant-a",
+        role: "Lead Carpenter",
+        description: "Finish trim labor",
+        hourlyCost: 42.5,
+        billRate: 85,
+        active: true,
+        trade: "Lead Carpenter",
+        baseHourlyRate: 42.5,
+        burdenPct: 0,
+      }),
+    });
+  });
+
+  it("updates a labor rate by id and org", async () => {
+    mockPrisma.laborRate.findFirst.mockResolvedValue(laborRateRow({ id: "labor-rate-1", orgId: "org-tenant-a" }));
+    mockPrisma.laborRate.update.mockResolvedValue(laborRateRow({ id: "labor-rate-1", orgId: "org-tenant-a", billRate: 92 }));
+
+    await new CostbookService().updateLaborRate(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "labor-rate-1",
+      { billRate: 92 }
+    );
+
+    expect(mockPrisma.laborRate.findFirst).toHaveBeenCalledWith({ where: { id: "labor-rate-1", orgId: "org-tenant-a" } });
+    expect(mockPrisma.laborRate.update).toHaveBeenCalledWith({
+      where: { id: "labor-rate-1" },
+      data: expect.objectContaining({ billRate: 92, trade: "Lead Carpenter", baseHourlyRate: 42.5 }),
+    });
+  });
+
+  it("returns not found instead of updating a cross-organization labor rate", async () => {
+    mockPrisma.laborRate.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().updateLaborRate(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "labor-rate-from-org-b",
+        { role: "Cross Org" }
+      )
+    ).rejects.toThrow("Labor rate labor-rate-from-org-b not found");
+
+    expect(mockPrisma.laborRate.update).not.toHaveBeenCalled();
+  });
+
+  it("deactivates a labor rate only inside the authenticated organization", async () => {
+    mockPrisma.laborRate.findFirst.mockResolvedValue(laborRateRow({ id: "labor-rate-1", orgId: "org-tenant-a" }));
+
+    await new CostbookService().deactivateLaborRate(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "labor-rate-1"
+    );
+
+    expect(mockPrisma.laborRate.update).toHaveBeenCalledWith({
+      where: { id: "labor-rate-1" },
+      data: { active: false },
+    });
   });
 
   it("creates a material only inside the authenticated organization", async () => {
@@ -222,6 +322,24 @@ function materialRow(overrides: Record<string, unknown> = {}) {
     supplierId: null,
     supplier: null,
     lastPriceUpdate: new Date("2026-08-11T00:00:00.000Z"),
+    createdAt: new Date("2026-08-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function laborRateRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "labor-rate-1",
+    orgId: "org-tenant-a",
+    role: "Lead Carpenter",
+    description: "Finish trim labor",
+    hourlyCost: 42.5,
+    billRate: 85,
+    active: true,
+    trade: "Lead Carpenter",
+    baseHourlyRate: 42.5,
+    burdenPct: 0,
     createdAt: new Date("2026-08-10T00:00:00.000Z"),
     updatedAt: new Date("2026-08-11T00:00:00.000Z"),
     ...overrides,

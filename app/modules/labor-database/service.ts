@@ -14,15 +14,15 @@ import {
 export class LaborDatabaseService {
   async list(orgId?: string): Promise<LaborRateDTO[]> {
     const rows = await prisma.laborRate.findMany({
-      where: orgId ? { orgId } : undefined,
+      where: orgId ? { orgId, active: true } : { active: true },
       include: { region: true },
-      orderBy: { trade: "asc" },
+      orderBy: { role: "asc" },
     });
     return rows.map(toDTO);
   }
 
   async getById(id: string, orgId?: string): Promise<LaborRateDTO> {
-    const row = await prisma.laborRate.findFirst({ where: { id, orgId }, include: { region: true } });
+    const row = await prisma.laborRate.findFirst({ where: { id, orgId, active: true }, include: { region: true } });
     if (!row) throw new ApiError(404, `LaborRate ${id} not found`);
     return toDTO(row);
   }
@@ -31,6 +31,11 @@ export class LaborDatabaseService {
     const row = await prisma.laborRate.create({
       data: {
         orgId: input.orgId,
+        role: input.trade,
+        description: null,
+        hourlyCost: input.baseHourlyRate,
+        billRate: input.baseHourlyRate,
+        active: true,
         trade: input.trade,
         baseHourlyRate: input.baseHourlyRate,
         burdenPct: input.burdenPct ?? 0,
@@ -46,6 +51,9 @@ export class LaborDatabaseService {
     const row = await prisma.laborRate.update({
       where: { id },
       data: {
+        role: input.trade,
+        hourlyCost: input.baseHourlyRate,
+        billRate: input.baseHourlyRate,
         trade: input.trade,
         baseHourlyRate: input.baseHourlyRate,
         burdenPct: input.burdenPct,
@@ -58,12 +66,12 @@ export class LaborDatabaseService {
 
   async delete(id: string, orgId?: string): Promise<void> {
     await this.assertExists(id, orgId);
-    await prisma.laborRate.delete({ where: { id } });
+    await prisma.laborRate.update({ where: { id }, data: { active: false } });
   }
 
   /** Calculates labor hours, the burdened rate, and total labor cost for a given quantity. */
   async calculateLaborCost(input: CalculateLaborCostInput, orgId?: string): Promise<CalculateLaborCostOutput> {
-    const rate = await prisma.laborRate.findFirst({ where: { id: input.laborRateId, orgId }, include: { region: true } });
+    const rate = await prisma.laborRate.findFirst({ where: { id: input.laborRateId, orgId, active: true }, include: { region: true } });
     if (!rate) throw new ApiError(404, `LaborRate ${input.laborRateId} not found`);
 
     const regionLaborIndex = rate.region ? Number(rate.region.laborIndex) : 1;
@@ -88,7 +96,7 @@ export class LaborDatabaseService {
 
 function toDTO(row: {
   id: string;
-  orgId: string | null;
+  orgId: string;
   trade: string;
   baseHourlyRate: unknown;
   burdenPct: unknown;

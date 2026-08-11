@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -184,6 +184,16 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - a material may link to a supplier only when that supplier belongs to the same authenticated organization
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
 - material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+
+## Costbook labor-rates foundation
+
+C003 exposes the existing `LaborRate` model through the unified Costbook boundary.
+
+- `LaborRate` belongs to one organization and now stores foundational `role`, optional `description`, `hourlyCost`, `billRate`, `active`, and timestamps alongside older compatibility fields still consumed by legacy labor and cost services
+- labor-rate reads remain tenant-scoped by `orgId`; C003 tightens labor-rate writes to the owner/admin Costbook boundary through forced RLS
+- Costbook labor-rate create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
+- `DELETE /api/v1/costbook/labor-rates/:id` and the legacy `/api/v1/labor-rates/:id` compatibility route soft-deactivate the row by setting `active` to `false`
+- C003 does not add labor burden calculations, pricing rollups, estimate integration, or Athena advisor state
 
 ## Core relationships
 
