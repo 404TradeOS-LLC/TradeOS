@@ -23,7 +23,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 export const updateJobStatusInputSchema = z.object({
   jobId: z.string().uuid(),
   status: z.enum(["traveling", "on_site", "completed"]),
-  reason: z.string().optional(),
+  reason: z.string().max(500).optional(),
 });
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusInputSchema>;
 
