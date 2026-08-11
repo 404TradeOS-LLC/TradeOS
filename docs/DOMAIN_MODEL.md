@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -186,6 +186,36 @@ Project Athena A10 observability adds one new table, `AthenaAlert`, plus indexes
 - RLS is forced and deliberately narrower than the codebase's usual `current_app_can_administer()` (which also admits `dispatcher`): only `owner`/`admin` may read or write `athena_alerts`, matching the HTTP layer's `requireRoles(req, ["owner", "admin"])` gate
 - writes are service-owned (the alert evaluator/exporter/retention jobs run as an authenticated org session scoped to one `{orgId, userId}` membership pair via the existing `runWithBackgroundDatabaseSession` pattern), never tied to the alert's own "actor"
 - observability is feature-flagged off (`ATHENA_OBSERVABILITY_ENABLED=false`) by default; see `app/modules/athena-observability`
+
+## Costbook workspace foundation
+
+C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization-scoped foundation records for the future unified Costbook workspace.
+
+- `CostbookWorkspace` belongs to one organization and stores workspace setup state and foundation lifecycle status
+- `CostbookWorkspaceEvent` belongs to one organization and one Costbook workspace; database guardrails require the event organization to match the workspace organization
+- both tables use forced RLS and do not replace existing `Division`, `Category`, `Subcategory`, `CostItem`, `LaborRate`, `Material`, `Equipment`, `Assembly`, or `AssemblyItem` catalog models
+- the C001 workspace foundation does not add pricing calculations, materials CRUD, labor-engine state, estimate integration snapshots, or Athena advisor records
+
+## Costbook material catalog
+
+C002 exposes the existing `Material` model through the unified Costbook boundary.
+
+- `Material` belongs to one organization and stores SKU, name, unit of measure, current unit cost, waste factor, optional supplier link, last price-update timestamp, and timestamps
+- material reads remain tenant-scoped by `orgId`; C002 tightens material and material-price-audit writes to the owner/admin Costbook boundary through forced RLS
+- Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
+- a material may link to a supplier only when that supplier belongs to the same authenticated organization
+- material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
+- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+
+## Costbook labor-rates foundation
+
+C003 exposes the existing `LaborRate` model through the unified Costbook boundary.
+
+- `LaborRate` belongs to one organization and now stores foundational `role`, optional `description`, `hourlyCost`, `billRate`, `active`, and timestamps alongside older compatibility fields still consumed by legacy labor and cost services
+- labor-rate reads remain tenant-scoped by `orgId`; C003 tightens labor-rate writes to the owner/admin Costbook boundary through forced RLS
+- Costbook labor-rate create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
+- `DELETE /api/v1/costbook/labor-rates/:id` and the legacy `/api/v1/labor-rates/:id` compatibility route soft-deactivate the row by setting `active` to `false`
+- C003 does not add labor burden calculations, pricing rollups, estimate integration, or Athena advisor state
 
 ## Core relationships
 

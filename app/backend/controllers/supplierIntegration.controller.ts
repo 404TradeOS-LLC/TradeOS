@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
-import { requireAuthContext, requireOrgAdmin, requireOrgId } from "../requestContext";
+import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 
 const service = new SupplierIntegrationService();
 
@@ -28,12 +28,12 @@ export const supplierIntegrationController = {
   },
   async approve(req: Request, res: Response) {
     const orgId = requireOrgId(req);
-    requireOrgAdmin(req);
+    requirePermissions(req, ["costbook.write"]);
     res.json(await service.approve(req.params.id, orgId, requireAuthContext(req)));
   },
   async reject(req: Request, res: Response) {
     const orgId = requireOrgId(req);
-    requireOrgAdmin(req);
+    requirePermissions(req, ["costbook.write"]);
     res.json(await service.reject(req.params.id, orgId, requireAuthContext(req)));
   },
 };

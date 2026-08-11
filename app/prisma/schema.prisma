@@ -48,6 +48,8 @@ model Organization {
   serviceAgreements ServiceAgreement[]
   payments       Payment[]
   settings       OrganizationSettings?
+  costbookWorkspace CostbookWorkspace?
+  costbookWorkspaceEvents CostbookWorkspaceEvent[]
   settingsAssetUploads SettingsAssetUpload[]
   brandProfile   BrandProfile?
   brandAssets    BrandAsset[]
@@ -88,6 +90,38 @@ model OrganizationSettings {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("organization_settings")
+}
+
+model CostbookWorkspace {
+  id             String   @id @default(uuid())
+  organizationId String   @unique @map("organization_id")
+  status         String   @default("foundation")
+  setupState     Json     @default("{}") @map("setup_state")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       CostbookWorkspaceEvent[]
+
+  @@map("costbook_workspaces")
+}
+
+model CostbookWorkspaceEvent {
+  id                  String   @id @default(uuid())
+  organizationId      String   @map("organization_id")
+  costbookWorkspaceId String   @map("costbook_workspace_id")
+  eventType           String   @map("event_type")
+  actorUserId         String?  @map("actor_user_id")
+  actorRole           String?  @map("actor_role")
+  metadataJson        Json     @default("{}") @map("metadata_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace    CostbookWorkspace @relation(fields: [costbookWorkspaceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([costbookWorkspaceId, createdAt])
+  @@map("costbook_workspace_events")
 }
 
 model SettingsAssetUpload {
@@ -427,7 +461,12 @@ model SupplierPriceUpdate {
 
 model LaborRate {
   id              String   @id @default(uuid())
-  orgId           String?  @map("org_id")
+  orgId           String   @map("org_id")
+  role            String
+  description     String?
+  hourlyCost      Decimal  @map("hourly_cost") @db.Decimal(10, 2)
+  billRate        Decimal  @map("bill_rate") @db.Decimal(10, 2)
+  active          Boolean  @default(true)
   trade           String
   baseHourlyRate  Decimal  @map("base_hourly_rate") @db.Decimal(10, 2)
   burdenPct       Decimal  @default(0) @map("burden_pct") @db.Decimal(5, 2)
@@ -435,11 +474,12 @@ model LaborRate {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
-  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  region       Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  region       Region?      @relation(fields: [regionId], references: [id], onDelete: SetNull)
   costItems    CostItem[]
 
   @@index([orgId])
+  @@index([orgId, active, role], map: "idx_labor_rates_org_active_role")
   @@map("labor_rates")
 }
 

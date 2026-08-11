@@ -1,5 +1,5 @@
 export interface CreateLaborRateInput {
-  orgId?: string;
+  orgId: string;
   trade: string;
   baseHourlyRate: number;
   burdenPct?: number;

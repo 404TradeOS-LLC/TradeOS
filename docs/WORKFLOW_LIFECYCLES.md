@@ -79,6 +79,20 @@ Implementation notes:
 - Structured AI estimator replay protection adds optional line-item `sourceKey` handling but does not change estimate lifecycle states or the draft-only mutation rule.
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
 
+## Costbook Workspace
+
+Foundation states:
+
+- `foundation`
+- `active`
+- `archived`
+
+Current transition posture:
+
+- C001 creates the database and API foundation for Costbook workspace state, but no user-facing workflow currently transitions these states
+- `GET /api/v1/costbook/workspace` reports `foundation` when no organization workspace record has been initialized
+- future Costbook setup, import, pricing-rule, or review workflows must document their transition rules before mutating this state
+
 ## Proposals
 
 Canonical display states:
