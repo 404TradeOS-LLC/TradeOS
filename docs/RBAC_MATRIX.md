@@ -87,10 +87,11 @@ A12's 19 first-party Athena tools (`app/modules/athena-tools/**`) declare permis
 | Permission | Athena tools gated by it |
 | --- | --- |
 | `crm.read` | `office.search-customers`, `office.summarize-customer`, `field.job-context`, `field.create-recommendation` |
+| `crm.write` | `office.create-follow-up` |
 | `billing.read` | `estimator.analyze-estimate`, `estimator.compare-estimates`, `costbook.lookup`, `costbook.analyze-margin`, `costbook.recommend-price` |
 | `billing.write` | `estimator.create-estimate`, `estimator.update-estimate`, `office.prepare-invoice` (preview-only - see below) |
 | `dispatch.manage` | `dispatcher.schedule-job`, `dispatcher.assign-technician`, `dispatcher.optimize-day`, `dispatcher.weather-impact` |
-| `notes.write` | `office.create-follow-up`, `field.add-note` |
+| `notes.write` | `field.add-note` |
 | none (`[]`) | `field.update-job-status` - `JobsService`'s own `assertFieldWorker`/`assertManager` and technician-assignment checks are the real authorization boundary for who can transition a specific job, since no shared permission key here is granular enough to express "the technician assigned to this job" |
 
 Two tools are gated by a permission stronger than what they technically execute, deliberately, to keep the *capability* restricted to the intended persona even though the *action* is read-only: `office.prepare-invoice` requires `billing.write` (office/management roles only) but never creates or sends an invoice - it returns a preview draft only, matching the shared permission table's existing "Proposals, contracts, invoices" row (technician stays read-only). `costbook.recommend-price` requires only `billing.read` and never writes a stored price, so a technician (who already holds `billing.read`) can see a price recommendation without needing `billing.write`.
