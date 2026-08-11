@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
@@ -15,17 +16,11 @@ import {
   SetPricingModeInput,
 } from "./types";
 
-// A8 event reference (C003's AthenaEventReference shape, duplicated here
-// rather than imported to keep this module's import boundary free of any
-// athena-tool-registry/athena-tool-sdk dependency).
 export interface EstimateEventRef {
   type: string;
   id: string;
 }
 
-// Estimate Engine module: applies contractor-entered quantities to selected
-// cost items/assemblies, then sequences Labor -> Material -> Equipment ->
-// Overhead -> Profit per Deliverable 3 ("Estimating Formula Engine").
 export class EstimateEngineService {
   private readonly costDatabase = new CostDatabaseService();
   private readonly assembliesDatabase = new AssembliesDatabaseService();
@@ -47,15 +42,6 @@ export class EstimateEngineService {
     return { ...toEstimateDTO(row), athenaEvent };
   }
 
-  // A8 event publish (docs/athena/10-events/README.md "Publisher And
-  // Subscriber Rules"): this service is the sole publisher of the canonical
-  // Estimate* events - Athena estimating tools only reference what this
-  // method already published (athena-tool-sdk/events.ts's eventRef()), they
-  // never publish directly. Never blocks or rolls back the already-committed
-  // mutation, matching proposals/service.ts's send() posture. Returns the
-  // published event's own {type, id} (undefined on publish failure or a
-  // missing orgId) so a caller in athena-tools/ can wrap it with eventRef()
-  // - never fabricated, never re-derived from the idempotency key.
   private async publishEstimateEvent(orgId: string | undefined, type: string, estimateId: string, idempotencyKey: string, payload: unknown): Promise<EstimateEventRef | undefined> {
     if (!orgId) return undefined;
     try {
@@ -87,7 +73,6 @@ export class EstimateEngineService {
     return rows.map(toEstimateDTO);
   }
 
-  /** Creates the next project version as a draft, copying line-item snapshots and pricing settings. */
   async duplicateFromVersion(sourceEstimateId: string, orgId?: string): Promise<EstimateDTO & { lineItems: EstimateLineItemDTO[] }> {
     const source = await prisma.estimate.findFirst({
       where: { id: sourceEstimateId, orgId },
@@ -125,7 +110,6 @@ export class EstimateEngineService {
     return this.getById(row.id, orgId);
   }
 
-  /** Adds a line item, snapshotting its unit cost at the moment it's added. */
   async addLineItem(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
     await this.assertDraft(input.estimateId, input.orgId);
     if (!input.costItemId && !input.assemblyId) {
@@ -201,6 +185,19 @@ export class EstimateEngineService {
     return toLineItemDTO(row);
   }
 
+  /**
+   * Adds a line item and returns the recalculated estimate in one database
+   * transaction. If insertion or recalculation fails, neither mutation is
+   * committed, so callers can never observe a new line item with stale totals.
+   */
+  async addLineItemAndRecalculate(input: AddLineItemInput): Promise<{ lineItem: EstimateLineItemDTO; estimate: EstimateDTO }> {
+    return runInDatabaseTransaction(prisma, async () => {
+      const lineItem = await this.addLineItem(input);
+      const estimate = await this.getById(input.estimateId, input.orgId);
+      return { lineItem, estimate };
+    });
+  }
+
   async removeLineItem(lineItemId: string, orgId?: string): Promise<{ estimateId: string }> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
@@ -223,7 +220,6 @@ export class EstimateEngineService {
     return this.recalculate(input.estimateId, input.orgId);
   }
 
-  /** Re-sums line items and re-applies overhead + profit. Called after any line item or pricing-mode change. */
   async recalculate(estimateId: string, orgId?: string): Promise<EstimateDTO> {
     const estimate = await prisma.estimate.findFirst({ where: { id: estimateId, orgId }, include: { lineItems: true } });
     if (!estimate) throw new ApiError(404, `Estimate ${estimateId} not found`);
@@ -243,7 +239,6 @@ export class EstimateEngineService {
     return toEstimateDTO(row);
   }
 
-  /** Locks the estimate so its line-item unit_cost snapshots and total never silently change again. */
   async finalize(estimateId: string, orgId?: string): Promise<EstimateDTO & { athenaEvent?: EstimateEventRef }> {
     await this.recalculate(estimateId, orgId);
     const estimate = await prisma.estimate.findFirst({ where: { id: estimateId, orgId } });
@@ -253,8 +248,9 @@ export class EstimateEngineService {
       throw new ApiError(409, `Estimate ${estimateId} cannot transition from ${currentStatus} to ready`);
     }
     const row = await prisma.estimate.update({ where: { id: estimateId }, data: { status: "ready" } });
-    const athenaEvent = await this.publishEstimateEvent(orgId, "EstimateCompleted", row.id, `estimate:${row.id}:completed:v1`, { projectId: row.projectId, totalPrice: row.totalPrice });
-    return { ...toEstimateDTO(row), athenaEvent };
+    const dto = toEstimateDTO(row);
+    const athenaEvent = await this.publishEstimateEvent(orgId, "EstimateCompleted", row.id, `estimate:${row.id}:completed:v1`, { projectId: row.projectId, totalPrice: dto.totalPrice });
+    return { ...dto, athenaEvent };
   }
 
   private async assertDraft(estimateId: string, orgId?: string): Promise<void> {
@@ -265,12 +261,6 @@ export class EstimateEngineService {
     }
   }
 
-  /**
-   * Compares two estimates' cost/price/margin and line-item counts. `base`
-   * is the reference point (e.g. a prior job's finalized estimate or an
-   * earlier version); `candidate` is what is being evaluated against it.
-   * Read-only - never mutates either estimate.
-   */
   async compareEstimates(baseEstimateId: string, candidateEstimateId: string, orgId?: string): Promise<EstimateComparisonDTO> {
     const [base, candidate] = await Promise.all([this.getById(baseEstimateId, orgId), this.getById(candidateEstimateId, orgId)]);
     const marginPct = (estimate: EstimateDTO): number => (estimate.totalPrice > 0 ? round2(((estimate.totalPrice - estimate.subtotalCost) / estimate.totalPrice) * 100) : 0);
