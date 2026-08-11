@@ -12,6 +12,7 @@ import {
   securityHeaders,
 } from "./middleware/productionHardening";
 import { adminUiRouter } from "./routes/adminUi.routes";
+import { costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
 import { laborDatabaseRouter } from "./routes/laborDatabase.routes";
 import { materialDatabaseRouter } from "./routes/materialDatabase.routes";
@@ -78,6 +79,7 @@ export function createServer() {
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
 
+  app.use("/api/v1/costbook", costbookRouter);
   app.use("/api/v1/cost-database", costDatabaseRouter);
   app.use("/api/v1/labor-rates", laborDatabaseRouter);
   app.use("/api/v1/materials", materialDatabaseRouter);

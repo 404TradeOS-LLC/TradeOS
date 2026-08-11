@@ -149,6 +149,35 @@ export function getBrandStudioPreview(token: string) {
   return apiFetch<BrandStudioPreview>("/api/v1/brand-studio/preview", { token });
 }
 
+export interface CostbookWorkspaceSummary {
+  organizationId: string;
+  initialized: boolean;
+  status: "foundation" | "active" | "archived";
+  permissions: {
+    canRead: boolean;
+    canWrite: boolean;
+    canManage: boolean;
+  };
+  counts: {
+    categories: number;
+    costItems: number;
+    laborRates: number;
+    materials: number;
+    equipment: number;
+    assemblies: number;
+  };
+  areas: {
+    id: "materials" | "labor" | "equipment" | "assemblies" | "pricing-rules" | "price-history";
+    label: string;
+    description: string;
+    status: "existing_catalog" | "foundation_only" | "future";
+  }[];
+}
+
+export function getCostbookWorkspace(token: string) {
+  return apiFetch<CostbookWorkspaceSummary>("/api/v1/costbook/workspace", { token });
+}
+
 export interface Customer {
   id: string;
   name: string;

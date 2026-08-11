@@ -15,10 +15,11 @@ related_docs:
 
 # Costbook Domain Architecture
 
-This document defines the intended Costbook domain architecture for TradeOS. It
-is a planning and architecture source for future Costbook engineering, not
-evidence that the full Costbook workspace, APIs, permission set, pricing engine,
-or Athena advisor exists in production today.
+This document defines the intended Costbook domain architecture for TradeOS. C001
+has implemented the Costbook workspace foundation, permission keys, and unified
+read-only workspace endpoint. The broader pricing engine, catalog CRUD under the
+unified boundary, price history, estimate integration, and Athena advisor remain
+future work.
 
 Current implementation truth remains in [CURRENT_STATE.md](../CURRENT_STATE.md)
 and [modules/cost-book.md](../modules/cost-book.md).
@@ -275,11 +276,14 @@ changes are accounted for.
 
 ## Permissions Model
 
-Future Costbook permissions:
+Costbook permissions:
 
 - `costbook.read`
 - `costbook.write`
 - `costbook.manage`
+
+Future permission candidates:
+
 - `costbook.import`
 - `costbook.approve`
 
@@ -287,14 +291,19 @@ Role expectations:
 
 Owner/Admin: full control.
 
-Estimator: read and use pricing.
+Estimator/dispatcher: read Costbook workspace and catalog summary data.
 
-Technician: suggest changes only.
+Technician: no Costbook permission in C001.
 
-This model is future-facing. It does not claim those exact permission keys are
-implemented today.
+In C001, owner/admin have all three implemented Costbook permissions, dispatcher
+and legacy estimator have `costbook.read`, and technician/viewer have no
+Costbook permission.
 
 ## API Boundary
+
+C001 implemented route:
+
+- `GET /api/v1/costbook/workspace`
 
 Future Costbook API ownership:
 
@@ -312,18 +321,20 @@ Pricing:
 
 - `POST /api/v1/costbook/calculate`
 
-These routes define the intended unified API boundary. They are not implemented
-by this documentation-only change.
+The future routes define the intended unified API boundary. They are not
+implemented by C001.
 
 ## Database Migration Strategy
 
-Future database rollout should be phased and must reuse the implemented
-Costbook schema where it already exists. The current schema already includes
-`divisions`, `categories`, `subcategories`, `cost_items`, `labor_rates`,
-`materials`, `equipment`, `assemblies`, `assembly_items`, and estimate
-line-item references to `cost_items` and `assemblies`. Future migrations should
-extend those tables or add narrow companion tables only when the existing
-schema cannot represent the approved requirement.
+C001 adds `costbook_workspaces` and `costbook_workspace_events` as organization-scoped
+foundation tables with forced RLS. Future database rollout should remain phased
+and must reuse the implemented Costbook schema where it already exists. The
+current schema already includes `divisions`, `categories`, `subcategories`,
+`cost_items`, `labor_rates`, `materials`, `equipment`, `assemblies`,
+`assembly_items`, and estimate line-item references to `cost_items` and
+`assemblies`. Future migrations should extend those tables or add narrow
+companion tables only when the existing schema cannot represent the approved
+requirement.
 
 Phase 1:
 
@@ -379,10 +390,24 @@ foundation and permissions exist.
 
 ### C001 Costbook Foundation
 
-- route
-- workspace shell
-- permissions
-- database foundation
+Implemented:
+
+- `app/modules/costbook`
+- `GET /api/v1/costbook/workspace`
+- `/costbook` web route
+- dashboard and app-navigation links
+- `costbook.read`, `costbook.write`, and `costbook.manage`
+- `costbook_workspaces` and `costbook_workspace_events`
+
+Not implemented by C001:
+
+- materials CRUD
+- labor engine
+- assembly builder
+- pricing calculations
+- estimate integration
+- price history
+- Athena Costbook advisor
 
 ### C002 Materials Catalog
 

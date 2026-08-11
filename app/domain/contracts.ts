@@ -27,6 +27,9 @@ export const domainPermissions = [
   "documents.manage",
   "notes.write",
   "activity.read",
+  "costbook.read",
+  "costbook.write",
+  "costbook.manage",
 ] as const;
 export type DomainPermission = (typeof domainPermissions)[number];
 
@@ -44,6 +47,9 @@ const rolePermissions: Record<SupportedRole, readonly DomainPermission[]> = {
     "documents.manage",
     "notes.write",
     "activity.read",
+    "costbook.read",
+    "costbook.write",
+    "costbook.manage",
   ],
   dispatcher: [
     "company.manage",
@@ -56,6 +62,7 @@ const rolePermissions: Record<SupportedRole, readonly DomainPermission[]> = {
     "documents.manage",
     "notes.write",
     "activity.read",
+    "costbook.read",
   ],
   technician: ["crm.read", "billing.read", "notes.write", "activity.read"],
   estimator: [
@@ -69,6 +76,7 @@ const rolePermissions: Record<SupportedRole, readonly DomainPermission[]> = {
     "documents.manage",
     "notes.write",
     "activity.read",
+    "costbook.read",
   ],
   viewer: ["crm.read", "billing.read", "activity.read"],
 };

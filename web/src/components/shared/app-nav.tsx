@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "/dispatch", label: "Dispatch" },
   { href: "/customers", label: "Customers" },
   { href: "/projects", label: "Projects" },
+  { href: "/costbook", label: "Costbook" },
   { href: "/brand-studio", label: "Brand Studio" },
   { href: "/settings", label: "Settings" },
 ];

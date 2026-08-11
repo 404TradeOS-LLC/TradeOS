@@ -71,6 +71,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/account`
 - `/api/v1/auth`
 - `/api/v1/platform`
+- `/api/v1/costbook`
 - `/api/v1/cost-database`
 - `/api/v1/labor-rates`
 - `/api/v1/materials`
@@ -107,6 +108,10 @@ AI estimating routes under `/api/v1/estimates`:
 - `POST /api/v1/estimates/:id/ai-estimator/apply`
 
 `ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
+
+Costbook workspace routes under `/api/v1/costbook`:
+
+- `GET /api/v1/costbook/workspace` — requires `costbook.read`; returns the authenticated organization's Costbook workspace foundation status, role-derived Costbook permission flags, and organization-scoped counts for existing divisions, active cost items, labor rates, materials, equipment, and active assemblies. This C001 endpoint is read-only and does not create materials, labor rates, assemblies, pricing calculations, estimate line items, price-history records, or Athena actions.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 

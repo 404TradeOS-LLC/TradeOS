@@ -160,7 +160,8 @@ export const ownerQuickActions: OwnerQuickAction[] = [
   {
     id: "costbook",
     label: "Costbook",
-    helper: "Costbook workspace is not a routed web surface yet",
+    href: "/costbook",
+    helper: "Open the pricing workspace foundation",
     icon: ClipboardCheck,
   },
   {
