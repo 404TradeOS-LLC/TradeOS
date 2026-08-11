@@ -253,6 +253,20 @@ describe("costbookController materials endpoints", () => {
     expect(mockService.createEquipment).not.toHaveBeenCalled();
   });
 
+  it.each([null, "", "   "])("rejects invalid equipment PATCH ownershipCostPerHour value %j instead of treating it as unchanged", async (ownershipCostPerHour) => {
+    await expect(
+      costbookController.updateEquipment(
+        authedRequest({
+          params: { id: materialId },
+          body: { ownershipCostPerHour },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.updateEquipment).not.toHaveBeenCalled();
+  });
+
   it("rejects equipment values with more than two decimal places", async () => {
     await expect(
       costbookController.createEquipment(
@@ -295,6 +309,25 @@ describe("costbookController materials endpoints", () => {
       }
     );
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("allows equipment PATCH to clear dailyRate explicitly", async () => {
+    const res = response();
+
+    await costbookController.updateEquipment(
+      authedRequest({
+        params: { id: materialId },
+        body: { dailyRate: null },
+      }),
+      res as never
+    );
+
+    expect(mockService.updateEquipment).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      materialId,
+      { dailyRate: null }
+    );
+    expect(res.json).toHaveBeenCalledWith({ id: materialId });
   });
 
   it("requires Costbook manage permission to delete equipment", async () => {

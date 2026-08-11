@@ -42,11 +42,10 @@ paths or any product behavior until the compatibility inventory is approved.
 S027 — Intelligent Costbook production readiness now has a founder-requested
 readiness contract recorded in the Sprint Backlog, but it remains a broad,
 non-executable sprint. Live GitHub verification on 2026-08-11 found zero open
-PRs, so the earlier overlap blocker is stale history; separately commissioned
-bounded Costbook slices may proceed from current `main` when they extend the
-existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and
-Estimate Engine seams without creating mock production data, a parallel AI
-estimator, or autonomous AI write paths.
+PRs, so the earlier overlap blocker is stale history. That correction does not
+create a second execution flow: the Next Sprint Protocol still governs normal
+startup, and any one-off commissioned Costbook branch must be treated as an
+explicit exception rather than a replacement for backlog readiness.
 
 ## Volume I — Vision
 

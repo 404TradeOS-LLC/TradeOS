@@ -30,8 +30,9 @@ related_code:
   settings, and `packages/**` are outside scope.
 - S027 — Intelligent Costbook production readiness now has a full readiness
   contract in `docs/SPRINT_BACKLOG.md`, but it remains non-executable as a
-  broad product sprint. The next directly commissioned Costbook slice is the
-  bounded C004 equipment-catalog foundation on its own branch from `main`.
+  broad product sprint. The August 11, 2026 C004 equipment-catalog branch is a
+  recorded one-off commission from `main`, not a replacement for backlog-driven
+  sprint startup.
 
 ## Verification
 
@@ -89,4 +90,4 @@ Sprint ID: S006
 Eligibility: READY on `main`; draft PR #95 is the current implementation evidence, and S027 remains a non-executable broad sprint.
 Dependencies: S001 is DONE.
 Overlap check: live GitHub state on 2026-08-11 shows zero open PRs, so there is no active PR-overlap blocker to restate here. S006 remains the lowest-numbered READY sprint in backlog governance.
-Startup prompt: Continue or reconcile S006 lifecycle compatibility inventory when working from sprint order. For the separately commissioned Costbook sequence, extend the existing Costbook workspace/material/labor seams from current `main` with the next bounded slice only.
+Startup prompt: Continue or reconcile S006 lifecycle compatibility inventory when working from sprint order. Treat the August 11, 2026 C004 Costbook branch as a historical one-off commission only; future startup still follows backlog governance unless the founder explicitly re-commissions another exception.

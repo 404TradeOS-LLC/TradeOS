@@ -66,9 +66,10 @@ through PR #92 is merged on `main` as
 inventory is now `READY` after governance-only PR #93 merged. S027 —
 Intelligent Costbook production readiness has a founder-requested readiness
 contract, but remains a broad non-executable sprint. Live GitHub verification
-on 2026-08-11 found zero open PRs, clearing the earlier stale overlap claim;
-the next directly commissioned Costbook slice is the bounded C004 equipment
-catalog foundation on its own branch from current `main`.
+on 2026-08-11 found zero open PRs, clearing the earlier stale overlap claim.
+That governance correction does not change the canonical execution rule: backlog
+selection still runs through the Next Sprint Protocol unless the founder issues
+an explicit one-off branch commission.
 
 Completed foundation work includes:
 
@@ -99,9 +100,9 @@ Live GitHub state verified on 2026-08-11:
 - zero open PRs on `main`, so the older S027 overlap references to PRs #94,
   #95, and #96 are stale historical evidence rather than current blockers;
 - S006 still remains the lowest-numbered `READY` sprint in the governed queue;
-- the founder-requested Costbook sequence may continue through separately
-  commissioned bounded slices such as C004 Equipment Catalog Foundation, so
-  long as they extend existing seams and do not pretend to promote S027; and
+- the August 11, 2026 C004 Equipment Catalog Foundation branch is recorded as
+  an explicit one-off founder commission from current `main`; that historical
+  fact does not create a second standing startup path; and
 - historical overlap evidence remains preserved in the sprint backlog and
   session handoff rather than erased.
 
@@ -163,10 +164,9 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-S006 is the next `READY` sprint in governed backlog order. For the separately
-commissioned Costbook sequence, start from current `main`, verify live PR and
-worktree state, and extend only the next bounded Costbook slice already named
-in the handoff/backlog. S027 may be promoted to `READY` only after a
+S006 is the next `READY` sprint in governed backlog order. Future work follows
+the Next Sprint Protocol and the backlog unless the founder explicitly issues a
+new one-off branch commission. S027 may be promoted to `READY` only after a
 governance-only update confirms the exact current base, open PRs, worktrees,
 and required validation.
 

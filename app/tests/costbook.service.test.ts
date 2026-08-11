@@ -256,6 +256,22 @@ describe("CostbookService", () => {
     });
   });
 
+  it("clears equipment dailyRate when the update input explicitly sets null", async () => {
+    mockPrisma.equipment.findFirst.mockResolvedValue(equipmentRow({ id: "equipment-1", orgId: "org-tenant-a", dailyRate: 325 }));
+    mockPrisma.equipment.update.mockResolvedValue(equipmentRow({ id: "equipment-1", orgId: "org-tenant-a", dailyRate: null }));
+
+    await new CostbookService().updateEquipment(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "equipment-1",
+      { dailyRate: null }
+    );
+
+    expect(mockPrisma.equipment.update).toHaveBeenCalledWith({
+      where: { id: "equipment-1" },
+      data: expect.objectContaining({ dailyRate: null }),
+    });
+  });
+
   it("returns not found instead of updating cross-organization equipment", async () => {
     mockPrisma.equipment.findFirst.mockResolvedValue(null);
 

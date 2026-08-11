@@ -54,6 +54,18 @@ const equipmentMoneySchema = z.preprocess(
     message: "Number must fit the database precision",
   })
 );
+const optionalEquipmentMoneyUpdateSchema = z.preprocess(
+  rejectInvalidOptionalNumericInput,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  }).optional()
+);
+const equipmentDailyRateUpdateSchema = z.preprocess(
+  normalizeOptionalDailyRateUpdate,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  }).nullable().optional()
+);
 
 const equipmentSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -67,7 +79,12 @@ const equipmentSchema = z.object({
   ),
 }).strict();
 
-const equipmentUpdateSchema = equipmentSchema.partial().refine((value) => Object.keys(value).length > 0, {
+const equipmentUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  ownershipCostPerHour: optionalEquipmentMoneyUpdateSchema,
+  operatingCostPerHour: optionalEquipmentMoneyUpdateSchema,
+  dailyRate: equipmentDailyRateUpdateSchema,
+}).strict().refine((value) => Object.keys(value).length > 0, {
   message: "At least one equipment field is required",
 });
 
@@ -147,6 +164,20 @@ export const costbookController = {
 function rejectBlankNumericInput(value: unknown) {
   if (value === null) return undefined;
   if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}
+
+function rejectInvalidOptionalNumericInput(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null) return Number.NaN;
+  if (typeof value === "string" && value.trim() === "") return Number.NaN;
+  return value;
+}
+
+function normalizeOptionalDailyRateUpdate(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
   return value;
 }
 
