@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -60,6 +60,12 @@ related_code:
   - app/prisma/migrations/20260810130000_add_athena_memory/migration.sql
   - app/modules/athena-events
   - app/prisma/migrations/20260810180000_add_athena_events/migration.sql
+  - app/modules/athena-observability
+  - app/prisma/migrations/20260811020000_add_athena_observability/migration.sql
+  - app/backend/controllers/athenaObservability.controller.ts
+  - app/backend/routes/athenaObservability.routes.ts
+  - web/src/app/(app)/athena
+  - web/src/lib/athena-access.ts
 ---
 
 # Current State
@@ -97,6 +103,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Backend structured AI estimator orchestration that stages contractor-language scopes into reviewable estimate drafts using existing costbook and estimate-engine services
 - Project Athena A1 kernel lifecycle foundation (`app/modules/athena-kernel`): feature-flagged, non-mutating kernel shell with durable execution/transition/telemetry persistence, RLS-protected tenant and actor isolation, and a kernel-owned `AbortController` for timeout/cancellation. Dark by default behind `ATHENA_KERNEL_ENABLED=false`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md). No production business tools, memory, plugins, or autonomous writes exist yet.
 - Project Athena A8 event integration foundation (`app/modules/athena-events`): dark, pull-based event infrastructure with canonical event, delivery, retry, dead-letter, and replay persistence behind forced RLS. `ProposalsService.send()` is the only production publisher today and emits `ProposalSent` after the existing proposal-send mutation commits; publication failures are logged and never change the route response. No subscriber is wired to production, no scheduler/worker route invokes delivery dispatch, and event rows are not authoritative business state.
+- Project Athena A10 observability (`app/modules/athena-observability`): a read/derivation layer over existing C011 telemetry and A1/A8 tables - trace lookup/search, reliability/latency/tool/model/cost/event-DLQ metrics, ten threshold-based alert rules with dedup/resolution (`athena_alerts`, forced RLS restricted to `owner`/`admin`, narrower than the existing `current_app_can_administer()`), console/webhook exporters, and batched idempotent retention cleanup. Feature-flagged dark behind `ATHENA_OBSERVABILITY_ENABLED=false`. The one production-reachable telemetry gap found during the coverage audit (the A7 memory-candidate hook had no span) was closed with a `spanType: "memory"` addition to `athena-kernel/service.ts`, carrying only candidate counts. Operator dashboard UI lives at `web/src/app/(app)/athena/**`. Two of the ten alert rules are documented, narrow-scope proxies rather than direct signals (`approval_bypass_attempt`, based on an action-span/approval-span match heuristic; `telemetry_write_failure` is explicitly not implemented, since telemetry write failures are unobservable by design) - see [athena/roadmap/A10-observability-implementation-plan.md](athena/roadmap/A10-observability-implementation-plan.md) for the exact scope and known limitations. No dashboards, exporters, or retention/alert jobs run unless the flag is on and, for background jobs, `ATHENA_OBSERVABILITY_MAINTENANCE_JOBS` is configured.
 
 See module docs in `docs/modules/`.
 

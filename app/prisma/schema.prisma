@@ -73,6 +73,7 @@ model Organization {
   athenaEvents AthenaEvent[]
   athenaEventDeliveries AthenaEventDelivery[]
   athenaEventDeadLetters AthenaEventDeadLetter[]
+  athenaAlerts AthenaAlert[]
 
   @@map("organizations")
 }
@@ -1395,6 +1396,13 @@ model AthenaExecution {
 
   @@index([orgId, state])
   @@index([orgId, actorUserId, createdAt])
+  // A10 observability (docs/athena/roadmap/A10-observability-implementation-plan.md):
+  // trace/request lookup and bounded time-range search both filter by these
+  // pairs, and neither was indexed before A10 - the two pre-existing indexes
+  // above only ever supported state/actor listing, not trace reconstruction.
+  @@index([orgId, traceId])
+  @@index([orgId, requestId])
+  @@index([orgId, createdAt])
   @@map("athena_executions")
 }
 
@@ -1436,6 +1444,14 @@ model AthenaTelemetryRecordRow {
   execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([orgId, executionId, createdAt])
+  // A10 observability: trace lookup by traceId (spans span multiple
+  // executionIds are not expected today, but traceId is still the primary
+  // external lookup key), span/status filtering for metrics aggregation, and
+  // retention cleanup all need their own index rather than reusing the
+  // executionId-scoped one above.
+  @@index([orgId, traceId])
+  @@index([orgId, spanType, createdAt])
+  @@index([orgId, status, createdAt])
   @@map("athena_telemetry_records")
 }
 
@@ -1567,5 +1583,39 @@ model AthenaEventDeadLetter {
   delivery     AthenaEventDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
 
   @@index([orgId, eventId])
+  // A10 observability: Event/DLQ Health lists recent dead letters org-wide,
+  // not scoped to one event.
+  @@index([orgId, createdAt])
   @@map("athena_event_dead_letters")
+}
+
+// A10 observability persisted alert state
+// (docs/athena/roadmap/A10-observability-implementation-plan.md). Alerts are
+// derived entirely from existing C011 telemetry / A8 event tables - this
+// table holds only the alert's own active/resolved lifecycle and dedupe
+// state, never a copy of the underlying records. dedupeKey is a stable,
+// rule-owned identity (e.g. "tool_failure_spike:tradeos.estimate.prepareDraft")
+// so re-evaluating the same rule against the same target updates the
+// existing row (and its firstSeenAt/lastSeenAt) instead of creating
+// duplicate alerts every evaluation cycle.
+model AthenaAlert {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  ruleId       String    @map("rule_id")
+  dedupeKey    String    @map("dedupe_key")
+  severity     String
+  status       String    @default("active")
+  summary      String
+  metadataJson Json      @default("{}") @map("metadata_json")
+  firstSeenAt  DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, dedupeKey])
+  @@index([orgId, status, lastSeenAt])
+  @@map("athena_alerts")
 }
