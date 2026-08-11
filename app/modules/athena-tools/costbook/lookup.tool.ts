@@ -3,10 +3,8 @@ import type { AssembliesDatabaseService } from "../../assemblies-database/servic
 import type { AssemblyDTO } from "../../assemblies-database/types";
 import type { CostDatabaseService } from "../../cost-database/service";
 import type { CostItemDTO } from "../../cost-database/types";
-import { defineTool } from "../../athena-tool-sdk/defineTool";
-import { successResult } from "../../athena-tool-sdk/results";
-import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk/types";
-import { warning } from "../../athena-tool-sdk/warnings";
+import { defineTool, successResult, warning } from "../../athena-tool-sdk";
+import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk";
 
 // A12 Costbook Intelligence tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Costbook
@@ -56,10 +54,6 @@ export function createCostbookLookupTool(deps: CostbookLookupToolDeps): AthenaTo
 
       const warnings: AthenaWarning[] = [];
       if (costItems.length === 0 && assemblies.length === 0) {
-        // An empty search result is not itself a failure - the query was
-        // executed successfully, it simply matched nothing. Matches
-        // recallPreferenceTool.ts's "no record found" posture: successResult
-        // with a warning, never failureResult.
         warnings.push(warning({ code: "athena_costbook_lookup_no_matches", message: `No cost items or assemblies matched "${input.query}".` }));
       }
 
