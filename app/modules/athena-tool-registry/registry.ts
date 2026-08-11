@@ -56,7 +56,13 @@ function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknow
 // at first dispatch. Mirrors athena-kernel/telemetry.ts's
 // assertValidTelemetryRecord posture of failing loudly at the boundary
 // rather than trusting callers.
-function assertValidToolDefinition(definition: AthenaToolDefinition<unknown, unknown>): void {
+//
+// Exported (additive, no behavior change) so A9's SDK contract-test kit
+// (app/modules/athena-tool-sdk/contractTestKit.ts) can reuse this exact
+// function instead of carrying a second copy of A2's own registration
+// validation - see docs/athena/roadmap/A9-tool-sdk-implementation-plan.md
+// "Contract-test kit". register() below still calls it identically.
+export function assertValidToolDefinition(definition: AthenaToolDefinition<unknown, unknown>): void {
   if (typeof definition.id !== "string" || !TOOL_ID_PATTERN.test(definition.id)) {
     throw new Error(`AthenaToolDefinition.id must be a lowercase reverse-domain-style id (e.g. "tradeos.athena.fixture.echo"): ${String(definition.id)}`);
   }
