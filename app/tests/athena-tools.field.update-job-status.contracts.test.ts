@@ -72,7 +72,7 @@ function createFakeJobsService(completedAthenaEvent?: AthenaJobEventRef): JobUpd
   };
 }
 
-const validInput = { jobId: "11111111-1111-1111-1111-111111111111", status: "traveling" as const };
+const validInput = { jobId: "11111111-1111-4111-8111-111111111111", status: "traveling" as const };
 
 describe("athena-tools field: update-job-status", () => {
   describeAthenaToolContract(createJobUpdateStatusTool({ jobs: createFakeJobsService({ type: "WorkCompleted", id: "event-1" }) }), {
