@@ -19,7 +19,7 @@ export const customerSearchInputSchema = z
     query: z.string().min(1).max(200).optional(),
     customerId: z.string().uuid().optional(),
   })
-  .refine((input) => Boolean(input.query || input.customerId), {
+  .refine((input) => Boolean(input.query?.trim() || input.customerId), {
     message: "At least one of query or customerId is required.",
   });
 export type CustomerSearchInput = z.infer<typeof customerSearchInputSchema>;
