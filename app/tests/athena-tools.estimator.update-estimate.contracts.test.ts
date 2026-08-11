@@ -39,7 +39,14 @@ function createFakeEstimateEngine(): EstimateUpdateToolDeps["estimateEngine"] {
 describe("athena-tools estimator: update-estimate", () => {
   describeAthenaToolContract(createEstimateUpdateTool({ estimateEngine: createFakeEstimateEngine() }), {
     validInput: { estimateId: VALID_ESTIMATE_ID, lineItem: { costItemId: "cost-item-1", quantity: 3, description: "Drywall sheets" } },
-    invalidInputs: [{ estimateId: "not-a-uuid", lineItem: { quantity: 1 } }, {}, { estimateId: VALID_ESTIMATE_ID, lineItem: { quantity: "three" } }],
+    invalidInputs: [
+      { estimateId: "not-a-uuid", lineItem: { quantity: 1 } },
+      {},
+      { estimateId: VALID_ESTIMATE_ID, lineItem: { quantity: "three" } },
+      { estimateId: VALID_ESTIMATE_ID, lineItem: { quantity: 0 } },
+      { estimateId: VALID_ESTIMATE_ID, lineItem: { quantity: -1 } },
+      { estimateId: VALID_ESTIMATE_ID, lineItem: { quantity: Number.POSITIVE_INFINITY } },
+    ],
   });
 
   it("uses the single atomic service operation and returns its line item and recalculated estimate", async () => {
