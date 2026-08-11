@@ -19,7 +19,11 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 export const followUpCreateInputSchema = z.object({
   projectId: z.string().uuid(),
   title: z.string().min(1).max(200),
-  dueDate: z.string().min(1).optional(),
+  dueDate: z
+    .string()
+    .min(1)
+    .refine((value) => Number.isFinite(Date.parse(value)), { message: "dueDate must be a valid date." })
+    .optional(),
   priority: z.enum(projectTaskPriorities).optional(),
   notes: z.string().max(2_000).optional(),
   jobId: z.string().optional(),
