@@ -185,15 +185,10 @@ export class EstimateEngineService {
     return toLineItemDTO(row);
   }
 
-  /**
-   * Adds a line item and returns the recalculated estimate in one database
-   * transaction. If insertion or recalculation fails, neither mutation is
-   * committed, so callers can never observe a new line item with stale totals.
-   */
   async addLineItemAndRecalculate(input: AddLineItemInput): Promise<{ lineItem: EstimateLineItemDTO; estimate: EstimateDTO }> {
     return runInDatabaseTransaction(prisma, async () => {
       const lineItem = await this.addLineItem(input);
-      const estimate = await this.getById(input.estimateId, input.orgId);
+      const { lineItems: _lineItems, ...estimate } = await this.getById(input.estimateId, input.orgId);
       return { lineItem, estimate };
     });
   }
@@ -263,7 +258,10 @@ export class EstimateEngineService {
 
   async compareEstimates(baseEstimateId: string, candidateEstimateId: string, orgId?: string): Promise<EstimateComparisonDTO> {
     const [base, candidate] = await Promise.all([this.getById(baseEstimateId, orgId), this.getById(candidateEstimateId, orgId)]);
-    const marginPct = (estimate: EstimateDTO): number => (estimate.totalPrice > 0 ? round2(((estimate.totalPrice - estimate.subtotalCost) / estimate.totalPrice) * 100) : 0);
+    const marginPct = (estimate: EstimateDTO): number => {
+      const totalCost = applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct);
+      return estimate.totalPrice > 0 ? round2(((estimate.totalPrice - totalCost) / estimate.totalPrice) * 100) : 0;
+    };
 
     return {
       base: { id: base.id, version: base.version, subtotalCost: base.subtotalCost, totalPrice: base.totalPrice, marginPct: marginPct(base), lineItemCount: base.lineItems.length },
