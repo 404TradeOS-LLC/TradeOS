@@ -56,7 +56,7 @@ Shared permission keys from `app/domain/contracts.ts`:
 | Proposals, contracts, invoices | Full | Full | Operational document and billing support | Read-only |
 | AI suggestion generate/apply (`POST .../ai-suggestions`, `.../ai-suggestions/apply`) | Full through `crm.read`/`crm.write` | Full through `crm.read`/`crm.write` | Full through `crm.read`/`crm.write` | Read-only (`crm.read`); cannot apply suggestions |
 | Structured AI estimator draft/apply | Full through `billing.write` | Full through `billing.write` | Operational estimating support through `billing.write` | No write access |
-| Costbook workspace foundation | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Read-only through `costbook.read` | No access |
+| Costbook workspace foundation | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Read-only through `costbook.read` | Read-only through `costbook.read` |
 | Notes and activity | Full | Full | Full | Can write notes and read activity |
 | Brand Studio and settings | Full | Full | Supported through `settings.manage` and `company.manage` | No |
 

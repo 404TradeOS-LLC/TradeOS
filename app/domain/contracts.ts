@@ -64,7 +64,7 @@ const rolePermissions: Record<SupportedRole, readonly DomainPermission[]> = {
     "activity.read",
     "costbook.read",
   ],
-  technician: ["crm.read", "billing.read", "notes.write", "activity.read"],
+  technician: ["crm.read", "billing.read", "notes.write", "activity.read", "costbook.read"],
   estimator: [
     "company.manage",
     "settings.manage",

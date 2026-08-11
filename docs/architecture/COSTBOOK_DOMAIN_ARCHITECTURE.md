@@ -291,12 +291,12 @@ Role expectations:
 
 Owner/Admin: full control.
 
-Estimator/dispatcher: read Costbook workspace and catalog summary data.
+Estimator/dispatcher/technician: read Costbook workspace and catalog summary data.
 
-Technician: no Costbook permission in C001.
+Technician: read-only Costbook access in C001.
 
 In C001, owner/admin have all three implemented Costbook permissions, dispatcher
-and legacy estimator have `costbook.read`, and technician/viewer have no
+technician, and legacy estimator have `costbook.read`, and viewer has no
 Costbook permission.
 
 ## API Boundary

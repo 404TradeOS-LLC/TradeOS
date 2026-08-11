@@ -84,8 +84,8 @@ Costbook-specific permission keys:
 Current C001 behavior:
 
 - owner/admin: full Costbook permissions
-- dispatcher and legacy estimator: read-only Costbook access
-- technician and legacy viewer: no Costbook access
+- dispatcher, technician, and legacy estimator: read-only Costbook access
+- legacy viewer: no Costbook access
 
 ## Lifecycle and statuses
 
@@ -103,6 +103,7 @@ Current C001 behavior:
 - `app/tests/cost-database.service.test.ts`
 - `app/tests/costbook.service.test.ts`
 - `app/tests/costbook.migration.test.ts`
+- `app/tests/costbook.rls.integration.ts`
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
 - `app/tests/estimate-engine.formulas.test.ts`
