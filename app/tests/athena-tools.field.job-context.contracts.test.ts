@@ -3,14 +3,6 @@ import { createJobContextTool } from "../modules/athena-tools/field/jobContext.t
 import type { JobContextToolDeps } from "../modules/athena-tools/field/jobContext.tool";
 import type { JobDTO } from "../modules/jobs/types";
 
-// A12 Business Tool Rollout, Field Technician domain contract test
-// (docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md
-// steps 7-8). Fake JobsService dep is a plain jest.fn(), matching the repo
-// convention already established by athena-tool-sdk.contracts.test.ts's
-// createFakeMemoryService and athena-tools.dispatcher.schedule-job.contracts.
-// test.ts's createFakeJobsService - not app/tests/helpers/
-// fakeAthenaObservabilityDb.ts, which is unrelated.
-
 function buildFakeJobDTO(overrides: Partial<JobDTO> = {}): JobDTO {
   return {
     id: "job-1",
@@ -38,7 +30,7 @@ function buildFakeJobDTO(overrides: Partial<JobDTO> = {}): JobDTO {
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
     project: { id: "project-1", name: "HVAC Overhaul", status: "active" },
-    customer: { id: "customer-1", name: "Acme Corp", email: "acme@example.com", phone: null },
+    customer: { id: "customer-1", name: "Acme Corp", email: "acme@example.com", phone: "555-0100" },
     serviceAddress: {
       id: "address-1",
       label: null,
@@ -73,7 +65,7 @@ describe("athena-tools field: job-context", () => {
     invalidInputs: [{ jobId: "not-a-uuid" }, {}],
   });
 
-  it("passes orgId/jobId/actor through to JobsService.getById and returns customer/project/schedule/notes", async () => {
+  it("passes scoped actor context and returns only technician-needed customer/project/address/equipment fields", async () => {
     const job = buildFakeJobDTO();
     const jobs = createFakeJobsService(job);
     const tool = createJobContextTool({ jobs });
@@ -91,9 +83,21 @@ describe("athena-tools field: job-context", () => {
 
     expect(jobs.getById).toHaveBeenCalledWith("org-1", validInput.jobId, { userId: "user-1", role: "technician" });
     expect(result.success).toBe(true);
-    expect(result.data?.customer).toEqual(job.customer);
-    expect(result.data?.project).toEqual(job.project);
-    expect(result.data?.status).toBe(job.status);
+    expect(result.data?.customer).toEqual({ id: "customer-1", name: "Acme Corp" });
+    expect(result.data?.customer).not.toHaveProperty("email");
+    expect(result.data?.customer).not.toHaveProperty("phone");
+    expect(result.data?.project).toEqual({ id: "project-1", name: "HVAC Overhaul", status: "active" });
+    expect(result.data?.serviceAddress).toEqual({
+      id: "address-1",
+      label: null,
+      addressLine1: "123 Main St",
+      addressLine2: null,
+      city: "Springfield",
+      state: "IL",
+      postalCode: "62704",
+      country: "US",
+    });
+    expect(result.data?.equipment).toEqual([{ id: "equip-1", name: "Condenser Unit", manufacturer: "Trane", model: "XR14", serialNumber: "SN-1", status: "active" }]);
     expect(result.data?.schedule).toEqual({
       scheduledStart: job.scheduledStart,
       scheduledEnd: job.scheduledEnd,
