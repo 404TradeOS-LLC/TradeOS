@@ -3,9 +3,6 @@ import { createEstimateAnalyzeTool } from "../modules/athena-tools/estimator/ana
 import type { EstimateAnalyzeToolDeps } from "../modules/athena-tools/estimator/analyzeEstimate.tool";
 import type { EstimateDTO, EstimateLineItemDTO } from "../modules/estimate-engine/types";
 
-// A12 Estimator contract tests (docs/athena/roadmap/
-// A12-business-tool-rollout-implementation-plan.md section 8, step 8).
-
 const VALID_ESTIMATE_ID = "33333333-3333-4333-8333-333333333333";
 
 function makeLineItem(overrides: Partial<EstimateLineItemDTO> = {}): EstimateLineItemDTO {
@@ -92,5 +89,19 @@ describe("athena-tools estimator: analyze-estimate", () => {
     expect(result.success).toBe(true);
     expect(result.data).toMatchObject({ realizedMarginPct: 0 });
     expect(result.warnings).toEqual([{ code: "athena_estimate_non_positive_margin", message: "This estimate's realized margin is 0.0%, at or below cost." }]);
+  });
+
+  it("warns explicitly when cost exists but total price is zero", async () => {
+    const estimateEngine = createFakeEstimateEngine(makeEstimate({ subtotalCost: 75, totalPrice: 0 }));
+    const tool = createEstimateAnalyzeTool({ estimateEngine });
+    const result = await tool.execute(
+      { estimateId: VALID_ESTIMATE_ID },
+      {} as never,
+      { executionId: "exec-4", requestId: "req-4", traceId: "trace-4", orgId: "org-1", actor: { type: "user", id: "user-1" }, role: "owner", deadline: new Date(Date.now() + 1000), cancellationSignal: new AbortController().signal, featureFlags: [] }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ realizedMarginPct: 0, subtotalCost: 75, totalPrice: 0 });
+    expect(result.warnings).toEqual([{ code: "athena_estimate_zero_price_with_cost", message: "This estimate has $75.00 in cost but a $0.00 total price." }]);
   });
 });
