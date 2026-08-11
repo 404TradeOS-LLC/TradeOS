@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-28
+last_verified: 2026-08-11
 source_of_truth: false
 related_code:
   - app/modules/jobs
@@ -10,6 +10,8 @@ related_code:
   - web/src/app/(app)/projects/[id]/page.tsx
   - web/src/app/(app)/dispatch/page.tsx
   - web/src/components/dispatch
+  - app/modules/athena-tools/dispatcher
+  - app/modules/athena-tools/field
 ---
 
 # Jobs and Scheduling
@@ -66,6 +68,11 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 ## Emitted activity events
 
 - job scheduling, rescheduling, dispatch, movement through field states, assignment changes, conflict overrides, reopening, and archiving write activity records
+- separately, as of A12, three of these transitions also publish a canonical A8 business event (distinct from the activity records above): `JobsService.schedule()` publishes `JobScheduled`, `addAssignment()` publishes `TechnicianAssigned`, and `complete()` publishes `WorkCompleted` - each after its mutation commits, non-blocking on publish failure (same posture as `ProposalsService.send()`'s existing `ProposalSent` publish). `reschedule()`, `updateAssignment()`, and the other field-state transitions (`startTravel`, `arrive`, `pause`, `resume`, `cancel`, `reopen`) do not publish an event. `schedule()`, `addAssignment()`, and `complete()`'s return types gained an additive, optional `athenaEvent?: { type, id }` field so a calling Athena tool can wrap the real published event with `eventRef()`; existing callers (the jobs controller) are unaffected.
+
+## Athena business tools (A12)
+
+Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `dispatcher.assign-technician`, `dispatcher.optimize-day`, `dispatcher.weather-impact`) and four `app/modules/athena-tools/field/*` tools (`field.job-context`, `field.update-job-status`, `field.add-note`, `field.create-recommendation`) call `JobsService`/`CrmService` directly, never Prisma. `field.update-job-status`'s A4 `permissions` is deliberately empty - `JobsService`'s own `assertFieldWorker`/`assertManager` and technician-assignment checks remain the real authorization boundary for who can transition a job, not an A4 `DomainPermission`. See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` for the full tool catalog and permission mapping.
 
 ## Frontend surfaces
 
@@ -82,6 +89,14 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 - `app/tests/jobs.migration.test.ts`
 - `app/tests/dispatchRules.test.ts`
 - `app/tests/rls.integration.ts`
+- `app/tests/athena-tools.dispatcher.schedule-job.contracts.test.ts`
+- `app/tests/athena-tools.dispatcher.assign-technician.contracts.test.ts`
+- `app/tests/athena-tools.dispatcher.optimize-day.contracts.test.ts`
+- `app/tests/athena-tools.dispatcher.weather-impact.contracts.test.ts`
+- `app/tests/athena-tools.field.job-context.contracts.test.ts`
+- `app/tests/athena-tools.field.update-job-status.contracts.test.ts`
+- `app/tests/athena-tools.field.add-note.contracts.test.ts`
+- `app/tests/athena-tools.field.create-recommendation.contracts.test.ts`
 
 ## Known limitations
 
@@ -93,4 +108,4 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 ## Last verified date
 
-2026-07-28
+2026-08-11

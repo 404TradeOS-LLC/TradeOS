@@ -4,11 +4,18 @@ import { z } from "zod";
 import { getRolePermissions, normalizeRole } from "../../domain";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
+import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
 import { requireAuthContext, requireOrgId } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
 import { AthenaKernelResult } from "../../modules/athena-kernel/types";
 
 const service = new AthenaKernelService();
+// A12 (docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md):
+// first production tool registry - built once at module load, reused across
+// requests the same way `service` above is. Passed explicitly into every
+// handleRequest() call rather than relying on the kernel's empty default
+// (see athena-kernel/service.ts's `toolRegistry` module comment).
+const toolRegistry = createProductionAthenaToolRegistry();
 
 function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.success) return 200;
@@ -94,6 +101,7 @@ export const athenaController = {
         },
         requestId,
         clientSignal: controller.signal,
+        toolRegistry,
       });
 
       res.status(resolveStatusCode(result)).json(result);

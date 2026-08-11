@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ActivityTimelineService } from "../intelligence/service";
+import { getDefaultAthenaEventService } from "../athena-events/service";
 import { jobStatuses, JobStatus } from "../../domain/contracts";
 import {
   AddJobAssignmentInput,
@@ -39,6 +41,15 @@ import {
 } from "./dispatchRules";
 
 const activityService = new ActivityTimelineService();
+
+// A8 event reference (C003's AthenaEventReference shape, duplicated here
+// rather than imported to keep this module's import boundary free of any
+// athena-tool-registry/athena-tool-sdk dependency - see the
+// athena-tool-registry import-boundary test).
+export interface AthenaJobEventRef {
+  type: string;
+  id: string;
+}
 
 const MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
 const OVERRIDE_ROLES = new Set(["owner", "admin"]);
@@ -418,14 +429,51 @@ export class JobsService {
     });
   }
 
-  async schedule(jobId: string, input: ScheduleJobInput): Promise<JobDTO> {
+  async schedule(jobId: string, input: ScheduleJobInput): Promise<JobDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertManager(input.actor.role);
-    return this.applySchedule(jobId, input, false);
+    const job = await this.applySchedule(jobId, input, false);
+    const athenaEvent = await this.publishJobEvent({
+      orgId: input.orgId,
+      type: "JobScheduled",
+      entity: { type: "job", id: job.id },
+      actor: { type: "user", id: input.actor.userId },
+      payload: { jobId: job.id, projectId: job.projectId, customerId: job.customerId, scheduledStart: job.scheduledStart, scheduledEnd: job.scheduledEnd },
+      idempotencyKey: `job:${job.id}:scheduled:${job.scheduledStart}:v1`,
+    });
+    return { ...job, athenaEvent };
   }
 
   async reschedule(jobId: string, input: ScheduleJobInput): Promise<JobDTO> {
     assertManager(input.actor.role);
     return this.applySchedule(jobId, input, true);
+  }
+
+  // A8 event publish (docs/athena/10-events/README.md "Publisher And
+  // Subscriber Rules"): the application service is the sole publisher of
+  // canonical business events - Athena tools never publish directly, only
+  // reference what a service already published (see athena-tool-sdk/events.ts).
+  // Publish failures never block or roll back the already-committed mutation,
+  // matching proposals/service.ts's send() posture. Returns the published
+  // event's own {type, id} (undefined on publish failure) so a caller in
+  // athena-tools/ can wrap it with eventRef() - never fabricated, never
+  // re-derived from the idempotency key.
+  private async publishJobEvent(input: { orgId: string; type: string; entity: { type: string; id: string }; actor: { type: "user" | "system"; id: string | null }; payload: unknown; idempotencyKey: string }): Promise<AthenaJobEventRef | undefined> {
+    try {
+      const { event } = await getDefaultAthenaEventService().publish({
+        orgId: input.orgId,
+        type: input.type,
+        version: "1.0.0",
+        entity: input.entity,
+        actor: input.actor,
+        payload: input.payload,
+        correlationId: randomUUID(),
+        idempotencyKey: input.idempotencyKey,
+      });
+      return { type: event.type, id: event.id };
+    } catch (error) {
+      console.error(`[athena-events] failed to publish ${input.type} event`, error);
+      return undefined;
+    }
   }
 
   async listAssignments(jobId: string, orgId: string, actor: { userId: string; role: string }): Promise<JobAssignmentDTO[]> {
@@ -438,9 +486,9 @@ export class JobsService {
     return rows.map(toAssignmentDTO);
   }
 
-  async addAssignment(jobId: string, input: AddJobAssignmentInput): Promise<JobAssignmentDTO> {
+  async addAssignment(jobId: string, input: AddJobAssignmentInput): Promise<JobAssignmentDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertManager(input.actor.role);
-    return runInDatabaseTransaction(this.db, async (tx) => {
+    const assignment = await runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
       if (job.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
       const [membership] = await this.assertAssignableTechnicians(tx, input.orgId, [input.userId]);
@@ -502,6 +550,15 @@ export class JobsService {
         throw mapAssignmentConstraintError(error, input.userId);
       }
     });
+    const athenaEvent = await this.publishJobEvent({
+      orgId: input.orgId,
+      type: "TechnicianAssigned",
+      entity: { type: "job", id: jobId },
+      actor: { type: "user", id: input.actor.userId },
+      payload: { jobId, assignmentId: assignment.id, technicianId: assignment.userId, assignmentRole: assignment.assignmentRole, isLead: assignment.isLead },
+      idempotencyKey: `job:${jobId}:technician-assigned:${assignment.id}:v1`,
+    });
+    return { ...assignment, athenaEvent };
   }
 
   async updateAssignment(jobId: string, assignmentId: string, input: UpdateJobAssignmentInput): Promise<JobAssignmentDTO> {
@@ -645,9 +702,9 @@ export class JobsService {
     });
   }
 
-  async complete(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
+  async complete(jobId: string, input: JobTransitionInput): Promise<JobDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "completed", "job.completed", {
+    const job = await this.transition(jobId, input, "completed", "job.completed", {
       allowedFrom: ["on_site"],
       title: "Job completed",
       data: (job) => ({
@@ -657,6 +714,15 @@ export class JobsService {
         completedById: input.actor.userId,
       }),
     });
+    const athenaEvent = await this.publishJobEvent({
+      orgId: input.orgId,
+      type: "WorkCompleted",
+      entity: { type: "job", id: job.id },
+      actor: { type: "user", id: input.actor.userId },
+      payload: { jobId: job.id, projectId: job.projectId, customerId: job.customerId, completedAt: job.completedAt },
+      idempotencyKey: `job:${job.id}:work-completed:v1`,
+    });
+    return { ...job, athenaEvent };
   }
 
   async cancel(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
