@@ -138,6 +138,8 @@ Costbook material DTO:
 
 C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. It does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
 
+The legacy `/api/v1/materials/*` route group remains mounted for compatibility, but it now shares the same Costbook permission boundary: read-style operations require `costbook.read`, and create/update/delete/bulk-import operations require `costbook.write`.
+
 Settings asset storage metadata routes under `/api/v1/settings`:
 
 - `GET /api/v1/settings/assets/:assetKey` — any authenticated org member; returns the current storage bucket/path/content-type/size for one of `logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, or 404 if nothing has been uploaded for that slot

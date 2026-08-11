@@ -80,6 +80,8 @@ The C002 DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `u
 
 C002 reuses the existing `materials` table rather than adding a duplicate material table. Migration `20260811130000_restrict_costbook_material_writes` keeps material reads organization-scoped and tightens material/material-price-audit writes to the existing owner/admin Costbook boundary.
 
+The legacy `/api/v1/materials/*` route group remains mounted for compatibility and shares the same Costbook permission boundary: read-style operations require `costbook.read`, while create/update/delete/bulk-import operations require `costbook.write`.
+
 Representative search behavior:
 
 - `GET /api/v1/cost-database/cost-items/search` performs case-insensitive substring matching against both `name` and `code`
