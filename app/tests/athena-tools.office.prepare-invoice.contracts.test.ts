@@ -1,26 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describeAthenaToolContract } from "../modules/athena-tool-sdk";
 import { createInvoicePrepareTool } from "../modules/athena-tools/office/prepareInvoice.tool";
 import type { InvoicePrepareToolDeps } from "../modules/athena-tools/office/prepareInvoice.tool";
 
-// A12 Office Manager contract tests (docs/athena/roadmap/
-// A12-business-tool-rollout-implementation-plan.md section 8, step 8).
-// Follows app/tests/athena-tool-sdk.contracts.test.ts's pattern: hand-rolled
-// jest.fn()-based fake services matching this tool's own
-// Pick<EstimateEngineService, "getById"> /
-// Pick<InvoicesService, "listByProject"> deps shapes, never
-// tests/helpers/fakeAthenaObservabilityDb.ts (unrelated suite).
-//
-// Invoice.Prepare's most important boundary (see the tool file's own module
-// comment): it must never call any invoice-creating/writing method and must
-// perform zero database writes. The fake `invoices` object below is
-// declared with exactly the `InvoicePrepareToolDeps["invoices"]` type (=
-// Pick<InvoicesService, "listByProject">) - adding a `create`/`send`/
-// `markPaid`/`void` method to that object literal would fail to typecheck
-// (excess-property check on a directly-typed object literal), which is what
-// makes it structurally impossible for the tool to reach a write method
-// through `deps`, not merely a convention this test happens to follow.
-
 const VALID_ESTIMATE_ID = "66666666-6666-4666-8666-666666666666";
+
+type InvoiceRow = Awaited<ReturnType<InvoicePrepareToolDeps["invoices"]["listByProject"]>>[number];
 
 function createFakeEstimateEngine(): InvoicePrepareToolDeps["estimateEngine"] {
   return {
@@ -43,10 +29,43 @@ function createFakeEstimateEngine(): InvoicePrepareToolDeps["estimateEngine"] {
   };
 }
 
-function createFakeInvoices(existing: unknown[] = []): InvoicePrepareToolDeps["invoices"] {
+function invoiceRow(overrides: Partial<InvoiceRow> = {}): InvoiceRow {
   return {
-    listByProject: jest.fn(async () => existing as never),
+    id: "inv-1",
+    projectId: "project-1",
+    estimateId: VALID_ESTIMATE_ID,
+    proposalId: null,
+    invoiceNumber: 1,
+    type: "full",
+    status: "draft",
+    percentComplete: null,
+    amount: 1200,
+    dueDate: null,
+    sentAt: null,
+    paidAt: null,
+    createdAt: new Date("2026-08-11T12:00:00.000Z"),
+    deliveries: [],
+    ...overrides,
   };
+}
+
+function createFakeInvoices(existing: InvoiceRow[] = []): InvoicePrepareToolDeps["invoices"] {
+  return {
+    listByProject: jest.fn(async () => existing),
+  };
+}
+
+function runtimeImportSpecifiers(source: string): string[] {
+  const specifiers: string[] = [];
+  const staticImport = /^\s*import\s+(?!type\b)[^;\n]*?\sfrom\s+["']([^"']+)["']/gm;
+  const sideEffectImport = /^\s*import\s+["']([^"']+)["']/gm;
+  const dynamicImport = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
+  const requireImport = /\brequire\(\s*["']([^"']+)["']\s*\)/g;
+  for (const pattern of [staticImport, sideEffectImport, dynamicImport, requireImport]) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source)) !== null) specifiers.push(match[1]);
+  }
+  return specifiers;
 }
 
 describe("athena-tools office: prepare-invoice", () => {
@@ -55,20 +74,20 @@ describe("athena-tools office: prepare-invoice", () => {
     invalidInputs: [{}, { estimateId: "not-a-uuid" }, { estimateId: 123 }],
   });
 
-  it("has no write-capable methods on its fake deps - only listByProject/getById are reachable", () => {
-    const invoices = createFakeInvoices();
-    const estimateEngine = createFakeEstimateEngine();
-    expect((invoices as Record<string, unknown>).create).toBeUndefined();
-    expect((invoices as Record<string, unknown>).send).toBeUndefined();
-    expect((invoices as Record<string, unknown>).markPaid).toBeUndefined();
-    expect((invoices as Record<string, unknown>).void).toBeUndefined();
-    expect(Object.keys(invoices)).toEqual(["listByProject"]);
-    expect(Object.keys(estimateEngine)).toEqual(["getById"]);
+  it("keeps the prepare-invoice implementation behind injected service boundaries", () => {
+    const toolPath = path.resolve(__dirname, "../modules/athena-tools/office/prepareInvoice.tool.ts");
+    const source = fs.readFileSync(toolPath, "utf8");
+    const imports = runtimeImportSpecifiers(source);
+
+    expect(imports).not.toContain("@prisma/client");
+    expect(imports.some((specifier) => /(?:^|\/)db\/(?:client|requestSession)$/.test(specifier))).toBe(false);
+    expect(imports.some((specifier) => /(?:^|\/)invoices\/service$/.test(specifier))).toBe(false);
+    expect(imports.some((specifier) => /(?:^|\/)estimate-engine\/service$/.test(specifier))).toBe(false);
   });
 
-  it("composes a preview-only draft from the estimate's line items, flags an existing invoice, and never calls a write method", async () => {
+  it("composes a preview-only draft from the estimate's line items and flags an existing invoice", async () => {
     const estimateEngine = createFakeEstimateEngine();
-    const invoices = createFakeInvoices([{ id: "inv-1" }]);
+    const invoices = createFakeInvoices([invoiceRow()]);
     const tool = createInvoicePrepareTool({ estimateEngine, invoices });
     const result = await tool.execute(
       { estimateId: VALID_ESTIMATE_ID },
