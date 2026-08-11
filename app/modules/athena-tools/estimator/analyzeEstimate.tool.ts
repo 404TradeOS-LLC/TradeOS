@@ -45,9 +45,6 @@ export function createEstimateAnalyzeTool(deps: EstimateAnalyzeToolDeps): Athena
     inputSchema: estimateAnalyzeInputSchema,
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
-
-      // Any thrown ApiError (estimate not found) is an unexpected error here
-      // and propagates as-is, following recallPreferenceTool.ts's posture.
       const estimate = await deps.estimateEngine.getById(input.estimateId, execution.orgId);
 
       const realizedMarginPct = estimate.totalPrice === 0 ? 0 : ((estimate.totalPrice - estimate.subtotalCost) / estimate.totalPrice) * 100;
@@ -56,7 +53,14 @@ export function createEstimateAnalyzeTool(deps: EstimateAnalyzeToolDeps): Athena
       if (estimate.lineItems.length === 0) {
         warnings.push(warning({ code: "athena_estimate_no_line_items", message: "This estimate has no line items yet." }));
       }
-      if (estimate.totalPrice > 0 && realizedMarginPct <= 0) {
+      if (estimate.totalPrice === 0 && estimate.subtotalCost > 0) {
+        warnings.push(
+          warning({
+            code: "athena_estimate_zero_price_with_cost",
+            message: `This estimate has $${estimate.subtotalCost.toFixed(2)} in cost but a $0.00 total price.`,
+          })
+        );
+      } else if (estimate.totalPrice > 0 && realizedMarginPct <= 0) {
         warnings.push(warning({ code: "athena_estimate_non_positive_margin", message: `This estimate's realized margin is ${realizedMarginPct.toFixed(1)}%, at or below cost.` }));
       }
 
