@@ -105,9 +105,6 @@ export class CrmService {
 
   async addServiceAddress(orgId: string, customerId: string, input: ServiceAddressInput) {
     await this.assertCustomer(orgId, customerId);
-    if (input.serviceAddressId) {
-      await this.assertServiceAddress(orgId, customerId, input.serviceAddressId);
-    }
 
     return prisma.$transaction(async (transaction) => {
       if (input.isPrimary) {
