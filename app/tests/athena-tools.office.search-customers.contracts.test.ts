@@ -3,19 +3,6 @@ import { createCustomerSearchTool } from "../modules/athena-tools/office/searchC
 import type { CustomerSearchToolDeps } from "../modules/athena-tools/office/searchCustomers.tool";
 import type { CrmService } from "../modules/crm/service";
 
-// A12 Office Manager contract tests (docs/athena/roadmap/
-// A12-business-tool-rollout-implementation-plan.md section 8, step 8).
-// Follows app/tests/athena-tool-sdk.contracts.test.ts's pattern: a
-// hand-rolled jest.fn()-based fake service matching this tool's own
-// Pick<CrmService, "listCustomers" | "getCustomer"> deps shape, never
-// tests/helpers/fakeAthenaObservabilityDb.ts (unrelated suite).
-//
-// CrmService's methods return full Prisma row shapes (not narrow DTOs), so
-// the fakes below fill every field the real Customer/include shape has -
-// derived via Awaited<ReturnType<...>> rather than hand-guessed, so a
-// future schema change fails this file's own typecheck instead of silently
-// drifting.
-
 const VALID_CUSTOMER_ID = "22222222-2222-4222-8222-222222222222";
 
 type CustomerRow = Awaited<ReturnType<CrmService["listCustomers"]>>[number];
@@ -39,11 +26,18 @@ function fakeCustomerRow(overrides: Partial<CustomerRow> = {}): CustomerRow {
 }
 
 function createFakeCrm(): CustomerSearchToolDeps["crm"] {
+  const rows = [
+    fakeCustomerRow(),
+    fakeCustomerRow({ id: "33333333-3333-4333-8333-333333333333", name: "Bob Builder", email: "bob@example.com", phone: "555-5678" }),
+  ];
   return {
-    listCustomers: jest.fn(async (): Promise<CustomerRow[]> => [
-      fakeCustomerRow(),
-      fakeCustomerRow({ id: "33333333-3333-4333-8333-333333333333", name: "Bob Builder", email: "bob@example.com", phone: "555-5678" }),
-    ]),
+    listCustomers: jest.fn(async (_orgId: string, options = {}): Promise<CustomerRow[]> => {
+      const query = options.query?.trim().toLowerCase();
+      const matches = query
+        ? rows.filter((customer) => [customer.name, customer.email, customer.phone].some((value) => value?.toLowerCase().includes(query)))
+        : rows;
+      return matches.slice(0, options.limit ?? matches.length);
+    }),
     getCustomer: jest.fn(
       async (_orgId: string, customerId: string): Promise<CustomerDetail> => ({
         ...fakeCustomerRow({ id: customerId }),
@@ -77,18 +71,22 @@ describe("athena-tools office: search-customers", () => {
     expect(result.data?.customers).toEqual([{ id: VALID_CUSTOMER_ID, name: "Jane Contractor", email: "jane@example.com", phone: "555-1234", address: "123 Main St" }]);
   });
 
-  it("filters listCustomers client-side by query against name/email/phone", async () => {
+  it.each([
+    ["name", "bob", "Bob Builder"],
+    ["email", "jane@example", "Jane Contractor"],
+    ["phone", "555-5678", "Bob Builder"],
+  ])("passes bounded %s search to CrmService", async (_field, query, expectedName) => {
     const crm = createFakeCrm();
     const tool = createCustomerSearchTool({ crm });
     const result = await tool.execute(
-      { query: "bob" },
+      { query },
       {} as never,
-      { executionId: "exec-2", requestId: "req-2", traceId: "trace-2", orgId: "org-1", actor: { type: "user", id: "user-1" }, role: "owner", deadline: new Date(Date.now() + 1000), cancellationSignal: new AbortController().signal, featureFlags: [] }
+      { executionId: `exec-${_field}`, requestId: `req-${_field}`, traceId: `trace-${_field}`, orgId: "org-1", actor: { type: "user", id: "user-1" }, role: "owner", deadline: new Date(Date.now() + 1000), cancellationSignal: new AbortController().signal, featureFlags: [] }
     );
 
-    expect(crm.listCustomers).toHaveBeenCalledWith("org-1");
+    expect(crm.listCustomers).toHaveBeenCalledWith("org-1", { query, limit: 25 });
     expect(result.success).toBe(true);
     expect(result.data?.customers).toHaveLength(1);
-    expect(result.data?.customers[0].name).toBe("Bob Builder");
+    expect(result.data?.customers[0].name).toBe(expectedName);
   });
 });
