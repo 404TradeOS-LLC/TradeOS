@@ -6,13 +6,11 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 
 // A12 Office Manager tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Office
-// Manager"). Wraps CrmService.listCustomers()/getCustomer() - both
-// read-only, so this tool is risk "low" / compensationPolicy "none" /
-// confirmationPolicy "never" per the plan's section 5 rationale ("Athena
-// may automatically: search, summarize..."). CrmService.listCustomers()
-// takes only `orgId` (see modules/crm/service.ts) - it has no server-side
-// search parameter, so a free-text `query` is matched client-side against
-// name/email/phone here rather than assumed to exist on the service.
+// Manager"). Read-only: wraps CrmService's org-scoped get/list methods.
+// Free-text filtering and the result bound are applied in CrmService's Prisma
+// query so this tool never loads an unbounded tenant customer directory.
+
+const CUSTOMER_SEARCH_LIMIT = 25;
 
 export const customerSearchInputSchema = z
   .object({
@@ -60,11 +58,6 @@ export function createCustomerSearchTool(deps: CustomerSearchToolDeps): AthenaTo
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // customerId is the more specific request - if both are supplied,
-      // resolving the exact record takes priority over a free-text filter.
-      // Any thrown ApiError (customer not found) propagates as-is - no
-      // specific expected domain case is translated, following
-      // recallPreferenceTool.ts's posture.
       if (input.customerId) {
         const customer = await deps.crm.getCustomer(execution.orgId, input.customerId);
         return successResult<CustomerSearchData>({
@@ -74,17 +67,11 @@ export function createCustomerSearchTool(deps: CustomerSearchToolDeps): AthenaTo
         });
       }
 
-      const allCustomers = await deps.crm.listCustomers(execution.orgId);
-      const query = input.query?.trim().toLowerCase();
-      const matches = query
-        ? allCustomers.filter((customer) => {
-            const haystacks = [customer.name, customer.email, customer.phone];
-            return haystacks.some((value) => value?.toLowerCase().includes(query));
-          })
-        : allCustomers;
+      const query = input.query?.trim() ?? "";
+      const matches = await deps.crm.listCustomers(execution.orgId, { query, limit: CUSTOMER_SEARCH_LIMIT });
 
       return successResult<CustomerSearchData>({
-        summary: query ? `Found ${matches.length} customer(s) matching "${input.query}".` : `Found ${matches.length} customer(s).`,
+        summary: `Found ${matches.length} customer(s) matching "${input.query}".`,
         data: { customers: matches.map(toSummary) },
         telemetry,
       });
