@@ -6,12 +6,9 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 
 // A12 Estimator tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Estimator").
-// Wraps EstimateEngineService.addLineItem() followed by recalculate() to
-// return fresh totals - both calls only ever touch a still-draft estimate
-// (addLineItem's own assertDraft guard), so this tool is compensationPolicy
-// "draft_only" like create-estimate. No event is referenced: adding a line
-// item is not a canonical Estimate* lifecycle transition (see the plan's
-// section 4 table - "none (not final)").
+// Wraps EstimateEngineService.addLineItemAndRecalculate() so the draft line
+// item mutation and totals update commit atomically. No canonical lifecycle
+// event is emitted because this is not a finalize/send transition.
 
 export const estimateUpdateInputSchema = z.object({
   estimateId: z.string().uuid(),
@@ -54,7 +51,7 @@ export interface EstimateUpdateData {
 }
 
 export interface EstimateUpdateToolDeps {
-  estimateEngine: Pick<EstimateEngineService, "addLineItem" | "recalculate">;
+  estimateEngine: Pick<EstimateEngineService, "addLineItemAndRecalculate">;
 }
 
 export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaToolDefinition<EstimateUpdateInput, EstimateUpdateData> {
@@ -62,7 +59,7 @@ export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaTo
     id: "tradeos.athena.tools.estimator.update-estimate",
     version: "1.0.0",
     owner: "athena-tools-estimator",
-    description: "Adds a line item to a draft estimate and returns the recalculated totals.",
+    description: "Adds a line item to a draft estimate and returns the recalculated totals atomically.",
     permissions: ["billing.write"],
     risk: "low",
     confirmationPolicy: "contextual",
@@ -73,11 +70,7 @@ export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaTo
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // Any thrown ApiError (estimate not found, not draft, missing/both of
-      // costItemId+assemblyId, etc.) is an unexpected error here and
-      // propagates as-is - no specific expected domain case is translated,
-      // following recallPreferenceTool.ts's posture.
-      const lineItem = await deps.estimateEngine.addLineItem({
+      const { lineItem, estimate } = await deps.estimateEngine.addLineItemAndRecalculate({
         estimateId: input.estimateId,
         orgId: execution.orgId,
         costItemId: input.lineItem.costItemId,
@@ -86,13 +79,11 @@ export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaTo
         description: input.lineItem.description,
         sourceKey: input.lineItem.sourceKey,
       });
-      const estimate = await deps.estimateEngine.recalculate(input.estimateId, execution.orgId);
 
       return successResult<EstimateUpdateData>({
         summary: `Added "${lineItem.description}" to estimate v${estimate.version}; new total is ${estimate.totalPrice}.`,
         data: { lineItem, estimate },
         telemetry,
-        // Not a canonical lifecycle transition - no event to reference.
         events: [],
       });
     },
