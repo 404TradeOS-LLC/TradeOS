@@ -6,11 +6,8 @@ import type { DispatchSummaryDTO, ScheduleConflictResultDTO } from "../../jobs/t
 
 // A12 Business Tool Rollout, Dispatcher domain (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Dispatcher").
-// "Optimize the day" is deliberately NOT a routing/geo-optimization
-// algorithm - per the plan, it surfaces what JobsService.getDispatchSummary
-// and JobsService.getScheduleConflicts already compute (KPI counts and
-// technician double-booking conflicts) as a single read. No mutation, no
-// invented scoring, no persistence.
+// "Optimize the day" deliberately surfaces the existing dispatch summary and
+// schedule-conflict logic; it does not invent a separate routing algorithm.
 
 export const optimizeDayInputSchema = z.object({});
 export type OptimizeDayInput = z.infer<typeof optimizeDayInputSchema>;
@@ -41,19 +38,19 @@ export function createOptimizeDayTool(deps: OptimizeDayToolDeps): AthenaToolDefi
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const actor = { userId: execution.actor.id, role: execution.role };
 
-      // getScheduleConflicts requires an explicit date range (unlike
-      // getDispatchSummary, which computes its own org-timezone-aware "today"
-      // internally) - a simple UTC calendar-day window is used here rather
-      // than duplicating JobsService/dispatchRules' own org-timezone
-      // resolution logic, which is private to that module.
-      const now = new Date();
-      const scheduledFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      const scheduledTo = new Date(scheduledFrom.getTime() + 24 * 60 * 60 * 1000);
-
-      const [summary, conflicts] = await Promise.all([
-        deps.jobs.getDispatchSummary(execution.orgId, actor),
-        deps.jobs.getScheduleConflicts({ orgId: execution.orgId, actor, scheduledFrom, scheduledTo }),
-      ]);
+      // getDispatchSummary is the canonical owner of the organization's
+      // timezone-aware "today" calculation. Reuse its exact UTC boundaries
+      // for conflict detection so both halves of this tool describe the same
+      // organization-local calendar day.
+      const summary = await deps.jobs.getDispatchSummary(execution.orgId, actor);
+      const scheduledFrom = new Date(summary.todayRangeUtc.start);
+      const scheduledTo = new Date(summary.todayRangeUtc.end);
+      const conflicts = await deps.jobs.getScheduleConflicts({
+        orgId: execution.orgId,
+        actor,
+        scheduledFrom,
+        scheduledTo,
+      });
 
       const warnings = [];
       const followUps = [];
