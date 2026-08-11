@@ -17,10 +17,11 @@ export function parseMaintenanceJobSpecs(raw: string | undefined): MaintenanceJo
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
     .map((entry) => {
-      const [orgId, userId] = entry.split(":").map((part) => part.trim());
-      if (!orgId || !userId) {
+      const parts = entry.split(":").map((part) => part.trim());
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
         throw new Error(`ATHENA_OBSERVABILITY_MAINTENANCE_JOBS entry "${entry}" must be in "orgId:userId" format`);
       }
+      const [orgId, userId] = parts;
       return { orgId, userId };
     });
 }
