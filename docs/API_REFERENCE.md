@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -194,6 +194,8 @@ Project task routes under `/api/v1/projects`:
 
 - `limit` — optional integer, `1..50`, default service cap `24`
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+
+`POST /api/v1/proposals/:id/send`'s request/response contract is unchanged by Project Athena's A8 event integration: after the existing status-transition mutation commits, the route's underlying service call also publishes a canonical `ProposalSent` event (C008, `docs/athena/10-events/README.md`) through `app/modules/athena-events`. This is dark infrastructure, not new API behavior — publication failures are caught and logged, never surfaced to the caller, and no subscriber consumes the event yet. See [modules/proposals.md](modules/proposals.md).
 
 ## Detailed module links
 

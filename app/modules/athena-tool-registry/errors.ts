@@ -12,7 +12,15 @@ import type { AthenaToolDispatchReasonCode } from "./types";
 export class AthenaToolDispatchError extends Error {
   constructor(
     public readonly reasonCode: AthenaToolDispatchReasonCode,
-    public readonly publicError: AthenaToolError
+    public readonly publicError: AthenaToolError,
+    // Internal-only, never part of `publicError` - carries the A11
+    // buildAthenaSecurityAuditMetadata() shape when this error was thrown
+    // for a security-gate denial, so the dispatcher's catch block can attach
+    // it to AthenaToolDispatchAudit.securityMetadata instead of a security
+    // denial being indistinguishable from a permission denial in the audit
+    // record (see athenaToolNotFoundError's own comment on why the two
+    // remain the same *public* not-found shape).
+    public readonly metadata?: Record<string, unknown>
   ) {
     super(publicError.safeSummary);
   }
@@ -34,8 +42,8 @@ const NOT_FOUND_SAFE_SUMMARY = "That Athena tool is not available.";
 // identical reason: a caller who is permission-granted but risk-blocked
 // must not learn that fact through a distinguishable error shape, only the
 // audit record should differ.
-export function athenaToolNotFoundError(correlationId: string, reasonCode: "tool_not_found" | "authorization_denied" | "approval_required" = "tool_not_found"): AthenaToolDispatchError {
-  return new AthenaToolDispatchError(reasonCode, buildError("athena_tool_not_found", "validation", false, NOT_FOUND_SAFE_SUMMARY, correlationId));
+export function athenaToolNotFoundError(correlationId: string, reasonCode: "tool_not_found" | "authorization_denied" | "approval_required" = "tool_not_found", metadata?: Record<string, unknown>): AthenaToolDispatchError {
+  return new AthenaToolDispatchError(reasonCode, buildError("athena_tool_not_found", "validation", false, NOT_FOUND_SAFE_SUMMARY, correlationId), metadata);
 }
 
 export function athenaToolVersionNotFoundError(correlationId: string): AthenaToolDispatchError {

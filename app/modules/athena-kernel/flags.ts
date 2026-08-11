@@ -12,6 +12,7 @@ export interface AthenaFeatureFlags {
   costTrackingEnabled: boolean;
   routerPlannerEnabled: boolean;
   actionEngineEnabled: boolean;
+  observabilityEnabled: boolean;
 }
 
 function parseBooleanFlag(value: string | undefined, fallback: boolean): boolean {
@@ -41,9 +42,21 @@ export function getAthenaFlags(env: NodeJS.ProcessEnv = process.env): AthenaFeat
     // execute). Enabling this flag never enables routerPlannerEnabled or
     // kernelEnabled on its own.
     actionEngineEnabled: parseBooleanFlag(env.ATHENA_ACTION_ENGINE_ENABLED, false),
+    // A10 dark-by-default flag (docs/athena/roadmap/
+    // A10-observability-implementation-plan.md). Independent of every flag
+    // above: observability only reads already-persisted C011 telemetry, so
+    // it works whether or not the kernel itself is currently enabled. It
+    // ships dark by default anyway, matching every prior Athena milestone's
+    // rollout posture, and so an operator dashboard is never reachable
+    // before it has been explicitly turned on for a deployment.
+    observabilityEnabled: parseBooleanFlag(env.ATHENA_OBSERVABILITY_ENABLED, false),
   };
 }
 
 export function isAthenaKernelEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return getAthenaFlags(env).kernelEnabled;
+}
+
+export function isAthenaObservabilityEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return getAthenaFlags(env).observabilityEnabled;
 }

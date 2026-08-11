@@ -113,6 +113,14 @@ export interface AthenaToolDispatchAudit {
   evaluatedRole?: CanonicalRole;
   evaluatedPermissions?: string[];
   evaluatedRisk?: AthenaToolRisk;
+  // A11 (athena-security/audit.ts's buildAthenaSecurityAuditMetadata):
+  // present only when reasonCode === "authorization_denied" for a
+  // risk-engine denial specifically, not an ordinary A4 permission denial -
+  // see dispatcher.ts's security-gate call site. Lets an operator
+  // distinguish "the security gate blocked this and why" from a generic
+  // permission denial, both of which otherwise collapse to the same
+  // reasonCode/public not-found shape.
+  securityMetadata?: Record<string, unknown>;
 }
 
 export interface AthenaToolDispatchOutcome<TData = unknown> {

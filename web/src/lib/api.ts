@@ -907,3 +907,271 @@ export function getDispatchSummary(token: string) {
 export function toInclusiveEndBoundary(exclusiveEndIso: string): string {
   return new Date(new Date(exclusiveEndIso).getTime() - 1).toISOString();
 }
+
+// --- Athena Observability (A10) ---
+//
+// Read-only reporting surface over app/modules/athena-observability/types.ts
+// (the backend's source of truth - these interfaces are mirrored, not
+// imported, since web/ and app/ are separate workspaces). Every shape here
+// matches that file field-for-field. All endpoints are mounted at
+// /api/v1/athena/observability and require an owner/admin session - see
+// web/src/lib/athena-access.ts for the role-gating helper every Athena page
+// uses before calling any of these.
+
+export const athenaKernelStates = [
+  "created",
+  "context_building",
+  "routing",
+  "planning",
+  "policy_check",
+  "awaiting_approval",
+  "executing",
+  "degraded",
+  "needs_clarification",
+  "partially_succeeded",
+  "succeeded",
+  "failed",
+  "denied",
+  "expired",
+  "cancelled",
+] as const;
+export type AthenaKernelState = (typeof athenaKernelStates)[number];
+
+export const athenaTelemetrySpanTypes = ["kernel", "context", "planner", "tool", "action", "approval", "memory", "event", "model"] as const;
+export type AthenaTelemetrySpanType = (typeof athenaTelemetrySpanTypes)[number];
+export type AthenaTelemetryStatus = "ok" | "error" | "denied" | "degraded";
+export type AthenaTelemetryRedaction = "none" | "metadata_only" | "field_redacted" | "payload_omitted";
+
+export interface AthenaTelemetryCost {
+  provider?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  estimatedUsd?: number;
+}
+
+export interface AthenaTelemetrySpan {
+  id: string;
+  orgId: string;
+  executionId: string;
+  requestId: string;
+  traceId: string;
+  spanType: AthenaTelemetrySpanType;
+  status: AthenaTelemetryStatus;
+  durationMs: number;
+  redaction: AthenaTelemetryRedaction;
+  cost: AthenaTelemetryCost | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AthenaTraceExecutionSummary {
+  executionId: string;
+  orgId: string;
+  requestId: string;
+  traceId: string;
+  actorUserId: string;
+  canonicalRole: string;
+  requestSource: string;
+  state: AthenaKernelState;
+  roundTrips: number;
+  safeSummary: string | null;
+  safeErrorCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface AthenaTraceTransition {
+  fromState: AthenaKernelState | null;
+  toState: AthenaKernelState;
+  reasonCode: string;
+  createdAt: string;
+}
+
+export interface AthenaTraceCompleteness {
+  expectedSpanTypes: AthenaTelemetrySpanType[];
+  observedSpanTypes: AthenaTelemetrySpanType[];
+  missingSpanTypes: AthenaTelemetrySpanType[];
+  score: number;
+}
+
+export interface AthenaTraceDetail {
+  execution: AthenaTraceExecutionSummary;
+  transitions: AthenaTraceTransition[];
+  spans: AthenaTelemetrySpan[];
+  completeness: AthenaTraceCompleteness;
+}
+
+export interface AthenaTraceSearchResultRow {
+  execution: AthenaTraceExecutionSummary;
+  spanCount: number;
+  errorSpanCount: number;
+  totalCostUsd: number | null;
+}
+
+export interface AthenaTraceSearchResult {
+  rows: AthenaTraceSearchResultRow[];
+  nextCursor: string | null;
+}
+
+export interface AthenaTraceSearchParams {
+  traceId?: string;
+  requestId?: string;
+  executionId?: string;
+  status?: AthenaKernelState;
+  toolId?: string;
+  model?: string;
+  provider?: string;
+  actorUserId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AthenaMetricsWindow {
+  from: string;
+  to: string;
+}
+
+export interface AthenaOverviewMetrics {
+  window: AthenaMetricsWindow;
+  requestCount: number;
+  successRate: number;
+  errorRate: number;
+  degradedRate: number;
+  deniedRate: number;
+  latencyMsP50: number | null;
+  latencyMsP95: number | null;
+  latencyMsP99: number | null;
+  totalCostUsd: number;
+  averageTraceCompleteness: number | null;
+}
+
+export interface AthenaToolMetric {
+  toolId: string;
+  invocationCount: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  latencyMsP50: number | null;
+  latencyMsP95: number | null;
+}
+
+export interface AthenaModelMetric {
+  provider: string;
+  model: string;
+  invocationCount: number;
+  failureCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedUsd: number;
+  latencyMsP50: number | null;
+  latencyMsP95: number | null;
+}
+
+export interface AthenaCostSummary {
+  window: AthenaMetricsWindow;
+  totalEstimatedUsd: number;
+  costPerRequestUsd: number | null;
+  costPerSuccessfulRequestUsd: number | null;
+  byProvider: { provider: string; estimatedUsd: number }[];
+  byModel: { provider: string; model: string; estimatedUsd: number }[];
+}
+
+export interface AthenaEventHealthSummary {
+  window: AthenaMetricsWindow;
+  eventCount: number;
+  deliveryCount: number;
+  deliverySuccessRate: number;
+  pendingRetryCount: number;
+  deadLetterCount: number;
+  deadLetterCountByType: { type: string; count: number }[];
+}
+
+export const athenaAlertSeverities = ["critical", "high", "medium", "low"] as const;
+export type AthenaAlertSeverity = (typeof athenaAlertSeverities)[number];
+
+export const athenaAlertStatuses = ["active", "resolved"] as const;
+export type AthenaAlertStatus = (typeof athenaAlertStatuses)[number];
+
+export interface AthenaAlertRecord {
+  id: string;
+  orgId: string;
+  ruleId: string;
+  dedupeKey: string;
+  severity: AthenaAlertSeverity;
+  status: AthenaAlertStatus;
+  summary: string;
+  metadata: Record<string, unknown>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt: string | null;
+}
+
+export interface AthenaMetricsWindowParams {
+  from?: string;
+  to?: string;
+}
+
+function buildAthenaWindowQuery(window: AthenaMetricsWindowParams): string {
+  const params = new URLSearchParams();
+  if (window.from) params.set("from", window.from);
+  if (window.to) params.set("to", window.to);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function getAthenaObservabilityOverview(token: string, window: AthenaMetricsWindowParams = {}) {
+  return apiFetch<AthenaOverviewMetrics>(`/api/v1/athena/observability/overview${buildAthenaWindowQuery(window)}`, { token });
+}
+
+export function searchAthenaTraces(token: string, params: AthenaTraceSearchParams = {}) {
+  const query = new URLSearchParams();
+  if (params.traceId) query.set("traceId", params.traceId);
+  if (params.requestId) query.set("requestId", params.requestId);
+  if (params.executionId) query.set("executionId", params.executionId);
+  if (params.status) query.set("status", params.status);
+  if (params.toolId) query.set("toolId", params.toolId);
+  if (params.model) query.set("model", params.model);
+  if (params.provider) query.set("provider", params.provider);
+  if (params.actorUserId) query.set("actorUserId", params.actorUserId);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const qs = query.toString();
+  return apiFetch<AthenaTraceSearchResult>(`/api/v1/athena/observability/traces${qs ? `?${qs}` : ""}`, { token });
+}
+
+export function getAthenaTraceByTrace(token: string, traceId: string) {
+  return apiFetch<AthenaTraceDetail>(`/api/v1/athena/observability/traces/by-trace/${traceId}`, { token });
+}
+
+export function getAthenaTraceByRequest(token: string, requestId: string) {
+  return apiFetch<AthenaTraceDetail>(`/api/v1/athena/observability/traces/by-request/${requestId}`, { token });
+}
+
+export function getAthenaToolMetrics(token: string, window: AthenaMetricsWindowParams = {}) {
+  return apiFetch<AthenaToolMetric[]>(`/api/v1/athena/observability/tools${buildAthenaWindowQuery(window)}`, { token });
+}
+
+export function getAthenaModelMetrics(token: string, window: AthenaMetricsWindowParams = {}) {
+  return apiFetch<AthenaModelMetric[]>(`/api/v1/athena/observability/models${buildAthenaWindowQuery(window)}`, { token });
+}
+
+export function getAthenaCostSummary(token: string, window: AthenaMetricsWindowParams = {}) {
+  return apiFetch<AthenaCostSummary>(`/api/v1/athena/observability/cost${buildAthenaWindowQuery(window)}`, { token });
+}
+
+export function getAthenaEventHealth(token: string, window: AthenaMetricsWindowParams = {}) {
+  return apiFetch<AthenaEventHealthSummary>(`/api/v1/athena/observability/events${buildAthenaWindowQuery(window)}`, { token });
+}
+
+export function listAthenaAlerts(token: string, params: { status?: AthenaAlertStatus } = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  const qs = query.toString();
+  return apiFetch<AthenaAlertRecord[]>(`/api/v1/athena/observability/alerts${qs ? `?${qs}` : ""}`, { token });
+}

@@ -11,6 +11,8 @@ import {
   athenaToolUnexpectedError,
   athenaToolVersionNotFoundError,
 } from "./errors";
+import { buildAthenaSecurityAuditMetadata } from "../athena-security/audit";
+import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { evaluateAthenaToolPolicy, hasAllRequiredFeatureFlags } from "./policy";
 import type { AthenaToolPolicyDecision } from "./policy";
 import type { AthenaToolRegistry } from "./registry";
@@ -170,15 +172,40 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     // A flag-gated or permission-denied tool is folded into the same
     // not-found shape as an unknown tool, for the registry-enumeration
     // reason above. A risk-blocked (but otherwise permission-granted) tool
-    // gets the same not-found shape too, distinguished only in the internal
-    // audit reasonCode - no A6 approval executor exists yet to route
-    // approval_required to, so it does not execute either way.
+    // gets the same not-found shape too - the internal audit reasonCode
+    // distinguishes it from a permission denial, and (only for this
+    // security-gate case) AthenaToolDispatchAudit.securityMetadata carries
+    // the full decision an operator needs to see why - no A6 approval
+    // executor exists yet to route approval_required to, so it does not
+    // execute either way.
     const policyDecision = resolveDispatchDecision(tool, request);
     if (policyDecision.decision === "deny") {
       throw athenaToolNotFoundError(correlationId, "authorization_denied");
     }
     if (policyDecision.decision === "approval_required") {
       throw athenaToolNotFoundError(correlationId, "approval_required");
+    }
+
+    // A11 Risk Evaluation - see athena-kernel/service.ts's identical gate
+    // (its own module comment there has the full rationale) for why this
+    // sits here, after A2's own permission/risk gate and before execution.
+    // Duplicated rather than shared as a single call site because
+    // dispatchAthenaTool is a fully independent dispatch path
+    // athena-kernel/service.ts does not call (see this function's own
+    // module comment above: "Never wired into a live HTTP path in A2... a
+    // future A5 planner later" - A5/A6 ultimately built their own path
+    // through athena-action-engine/engine.ts instead). Only reachable here
+    // with policyDecision.decision === "allow" - deny/approval_required
+    // both already threw above - so this can only ever narrow an
+    // already-permitted dispatch further, never widen one.
+    const securityDecision = evaluateAthenaSecurityRisk({
+      orgId: request.orgId,
+      tool: { id: tool.id, owner: tool.owner, risk: tool.risk, deprecated: tool.deprecated },
+      toolInput: request.input,
+      permissionDecision: { decision: policyDecision.decision, reasonCode: "athena_tool_policy_evaluated" },
+    });
+    if (securityDecision.decision === "deny") {
+      throw athenaToolNotFoundError(correlationId, "authorization_denied", buildAthenaSecurityAuditMetadata(securityDecision));
     }
 
     if (!isZodLikeSchema(tool.inputSchema)) {
@@ -257,7 +284,12 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     return { result: boundResult, audit };
   } catch (error) {
     const dispatchError = error instanceof AthenaToolDispatchError ? error : athenaToolUnexpectedError(correlationId);
-    const audit: AthenaToolDispatchAudit = { reasonCode: dispatchError.reasonCode, toolId: request.toolId, version: request.version };
+    const audit: AthenaToolDispatchAudit = {
+      reasonCode: dispatchError.reasonCode,
+      toolId: request.toolId,
+      version: request.version,
+      ...(dispatchError.metadata ? { securityMetadata: dispatchError.metadata } : {}),
+    };
     return { result: buildFailureResult(dispatchError.publicError, request.traceId, request.executionId), audit };
   }
 }

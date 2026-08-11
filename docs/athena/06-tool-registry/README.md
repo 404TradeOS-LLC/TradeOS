@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_of_truth: true
 ---
 
@@ -95,3 +95,103 @@ terms, third-party distribution, and generalized provider compatibility.
 Third-party tools require manifest review, permission review, sandbox policy,
 event and telemetry review, test evidence, install approval, organization-level
 grant, ongoing compatibility checks, and revocation support.
+
+## First-Party Tool SDK (A9)
+
+`app/modules/athena-tool-sdk` is a first-party-only authoring layer over
+everything above. It is not a second tool architecture: `defineTool()`
+produces an ordinary `AthenaToolDefinition` (this volume's own interface,
+narrowed to A2's concrete Zod-based shape in
+`app/modules/athena-tool-registry/types.ts`), consumed by the exact same
+registry, permission policy, and Action Engine as a tool written by hand.
+Writing a direct `AthenaToolDefinition` object remains fully supported - the
+SDK is the recommended path, not a required one. See
+`docs/athena/roadmap/A9-tool-sdk-implementation-plan.md` for the full design
+record.
+
+### Create your first Athena tool
+
+```ts
+import { z } from "zod";
+import { defineTool, successResult, failureResult, warning, followUp } from "../athena-tool-sdk";
+import type { SomeApplicationService } from "../some-domain/service";
+
+const inputSchema = z.object({ jobId: z.string() });
+
+export function createExampleTool(deps: { someService: Pick<SomeApplicationService, "getSummary"> }) {
+  return defineTool({
+    id: "tradeos.example.readSomething",
+    version: "1.0.0",
+    owner: "platform",
+    description: "Example first-party tool.",
+    permissions: ["example.read"],
+    risk: "low",
+    confirmationPolicy: "never",
+    timeoutMs: 5_000,
+    idempotency: "not_supported",
+    compensationPolicy: "none",
+    inputSchema,
+    async execute(input, _aiContext, execution) {
+      const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
+      const summary = await deps.someService.getSummary(execution.orgId, input.jobId);
+      if (!summary) {
+        return successResult({
+          summary: "No summary found yet.",
+          data: null,
+          telemetry,
+          warnings: [warning({ code: "summary_missing", message: "This job has no summary yet." })],
+          followUps: [followUp({ kind: "question", label: "Would you like to generate one?" })],
+        });
+      }
+      return successResult({ summary: "Found the job summary.", data: summary, telemetry });
+    },
+  });
+}
+```
+
+Authoring steps: (1) identify the application service the tool calls - never
+Prisma/a raw tenant DB client directly; (2) define the input schema with Zod
+(`input`'s type inside `execute()` is inferred from it, no hand-written
+duplicate `Input` type); (3) declare the required A2 metadata (`permissions`,
+`risk`, `confirmationPolicy`, `timeoutMs`, `idempotency`,
+`compensationPolicy`) - `risk`/`confirmationPolicy` are metadata, not an
+authorization decision, A4 still evaluates every dispatch; (4) inject the
+service(s) the tool needs as explicit constructor parameters, never through a
+global locator; (5) implement `execute()`, returning `successResult()` or
+`failureResult()`; (6) if the called service published a canonical event,
+wrap its `{ type, id }` with `eventRef()` inside the result's `events` -
+never publish one yourself (A8 event ownership stays service-owned, see
+`docs/athena/10-events/README.md`); (7) register the returned definition with
+the ordinary A2 registry, exactly like a direct definition; (8) run
+`describeAthenaToolContract(tool, { validInput, invalidInputs })` from
+`athena-tool-sdk` in a test file so the tool proves baseline registry/
+dispatch/permission/result-envelope compliance.
+
+### Prohibited patterns
+
+A first-party tool authored with this SDK (or directly against A2) must not:
+
+- access Prisma or a raw tenant database client directly;
+- infer `orgId`, actor identity, or role from tool input - these come only
+  from the server-derived `AthenaToolExecutionContext`;
+- bypass A4 policy or manually re-invoke A6 action execution recursively;
+- construct an arbitrary result envelope or an undocumented top-level result
+  field - use `successResult()`/`failureResult()`, which cannot add one;
+- publish an arbitrary canonical business event, or fabricate an
+  `AthenaEventReference` for an event that was never actually published by a
+  service;
+- embed hidden LLM reasoning, log secrets/raw prompts, or store secrets in a
+  result;
+- become a replacement application/business service - business logic and
+  persistence stay in the domain service the tool calls;
+- rely on a global/hidden service locator for its dependencies.
+
+### A12/A13 relationship
+
+A9 is intentionally sufficient for A12's future first-party business tools
+(CRM, estimating, dispatch, billing) to be authored without a new foundational
+framework - none of those tools are implemented by A9 itself. A9 is also
+strictly first-party: it has no manifest, marketplace, publisher-identity, or
+sandbox concept. A13's future third-party Plugin SDK is a distinct, later
+milestone that may build on A9's contracts; A9 does not anticipate or
+implement any part of it.

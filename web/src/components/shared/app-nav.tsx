@@ -9,7 +9,7 @@ import { CommandPaletteTrigger } from "@/components/shared/global-command-palett
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dispatch", label: "Dispatch" },
   { href: "/customers", label: "Customers" },
@@ -19,13 +19,22 @@ const NAV_LINKS = [
   { href: "/settings", label: "Settings" },
 ];
 
+const ATHENA_NAV_LINK = { href: "/athena", label: "Athena" };
+
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 }
 
-export function AppNav({ email }: { email?: string | null }) {
+// `canViewAthena` gates the "Athena" link to owner/admin sessions only - see
+// web/src/app/(app)/layout.tsx, which resolves it via the same
+// getOrganizationSettings currentRole lookup the Settings page uses. This is
+// the first role-gated nav item in this app (every other link above is
+// visible to all roles), so there's no prior nav-gating pattern to diverge
+// from.
+export function AppNav({ email, canViewAthena = false }: { email?: string | null; canViewAthena?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navLinks = canViewAthena ? [...BASE_NAV_LINKS.slice(0, -1), ATHENA_NAV_LINK, BASE_NAV_LINKS[BASE_NAV_LINKS.length - 1]] : BASE_NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -36,7 +45,7 @@ export function AppNav({ email }: { email?: string | null }) {
             TradeOS
           </Link>
           <nav className="ml-4 hidden items-center gap-1 text-sm font-medium md:flex">
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const active = isActive(pathname, link.href);
               return (
                 <Link
@@ -82,7 +91,7 @@ export function AppNav({ email }: { email?: string | null }) {
       {mobileOpen ? (
         <nav className="border-t border-border px-4 py-3 md:hidden">
           <div className="flex flex-col gap-1">
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const active = isActive(pathname, link.href);
               return (
                 <Link

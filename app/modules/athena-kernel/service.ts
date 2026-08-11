@@ -12,6 +12,8 @@ import { buildAthenaPlan } from "../athena-planner/planner";
 import type { AthenaPlanCandidateTool } from "../athena-planner/types";
 import { evaluateAthenaPermission } from "../athena-permissions/policy";
 import { classifyAthenaIntent } from "../athena-router/classifier";
+import { buildAthenaSecurityAuditMetadata } from "../athena-security/audit";
+import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { createAthenaToolRegistry } from "../athena-tool-registry/registry";
 import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 import { buildMinimalAthenaContext } from "./context";
@@ -170,7 +172,7 @@ export class AthenaKernelService {
       }
     };
 
-    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
+    const emitSpan = async (spanType: "kernel" | "context" | "model" | "approval" | "action" | "memory", status: "ok" | "error" | "denied" | "degraded", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => {
       try {
         const record = buildTelemetryRecord({
           orgId: actor.orgId,
@@ -407,6 +409,40 @@ export class AthenaKernelService {
             reasonCode: stepDecision.reasonCode,
           });
 
+          // A11 Risk Evaluation (docs/athena/09-security/README.md; task
+          // brief's layered-defense diagram places this exactly here -
+          // between "Permission Evaluation (A4)" and "Action Execution
+          // (A6)"). evaluateAthenaSecurityRisk never re-derives or widens
+          // A4's own decision (stepDecision, above) - it can only add a
+          // *new* deny for a small set of cross-cutting abuse signals A4/A2
+          // do not themselves check (secret-shaped tool input, a
+          // cross-tenant object reference, an embedded instruction-override
+          // pattern present in the exact payload about to execute). See
+          // athena-security/riskEngine.ts's module comment for the full
+          // narrowing-only guarantee.
+          const securityStart = Date.now();
+          const securityDecision = evaluateAthenaSecurityRisk({
+            orgId: actor.orgId,
+            tool: { id: tool.id, owner: tool.owner, risk: tool.risk, deprecated: tool.deprecated },
+            toolInput: step.input,
+            permissionDecision: { decision: stepDecision.decision, reasonCode: stepDecision.reasonCode },
+          });
+          await emitSpan("approval", securityDecision.decision === "allow" ? "ok" : "denied", Date.now() - securityStart, {
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            layer: "athena_security_risk_engine",
+            ...buildAthenaSecurityAuditMetadata(securityDecision),
+          });
+
+          if (securityDecision.decision === "deny") {
+            const reasonCode = securityDecision.reasons[0];
+            await applyTransition("denied", reasonCode);
+            const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+            await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+            return denied;
+          }
+
           throwIfAborted();
           const actionStart = Date.now();
           const actionOutcome = await executeAthenaAction(
@@ -473,6 +509,7 @@ export class AthenaKernelService {
           // action has already succeeded, so there is nothing left for it to
           // invalidate.
           if (input.memoryCandidateExtractor && input.memoryService) {
+            const memoryStart = Date.now();
             try {
               const candidates = await input.memoryCandidateExtractor({
                 orgId: actor.orgId,
@@ -488,9 +525,26 @@ export class AthenaKernelService {
               for (const candidate of candidates) {
                 await input.memoryService.remember(candidate);
               }
+              // A10 observability (docs/athena/roadmap/
+              // A10-observability-implementation-plan.md "Telemetry coverage
+              // and instrumentation"): closes the one production-reachable
+              // gap the coverage audit found - every other emitSpan call
+              // site already existed pre-A10. Metadata is candidate/write
+              // counts only, never the candidates' own values (those may
+              // carry user-supplied preference text - see
+              // athena-memory/service.ts's own redaction posture).
+              await emitSpan("memory", "ok", Date.now() - memoryStart, {
+                planId: plan.planId,
+                stepId: step.stepId,
+                candidateCount: candidates.length,
+              });
             } catch {
               // See comment above - never surfaces to the caller or flips
               // actionState/kernel state.
+              await emitSpan("memory", "degraded", Date.now() - memoryStart, {
+                planId: plan.planId,
+                stepId: step.stepId,
+              });
             }
           }
         }
