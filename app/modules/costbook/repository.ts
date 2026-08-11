@@ -21,7 +21,7 @@ export class CostbookRepository {
 
   async getInventoryCounts(organizationId: string): Promise<CostbookInventoryCounts> {
     const [categories, costItems, laborRates, materials, equipment, assemblies] = await Promise.all([
-      prisma.division.count({ where: { orgId: organizationId } }),
+      prisma.category.count({ where: { division: { orgId: organizationId } } }),
       prisma.costItem.count({ where: { orgId: organizationId, isActive: true } }),
       prisma.laborRate.count({ where: { orgId: organizationId } }),
       prisma.material.count({ where: { orgId: organizationId } }),

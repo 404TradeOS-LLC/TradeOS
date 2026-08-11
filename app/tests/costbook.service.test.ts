@@ -2,7 +2,7 @@ const mockPrisma = {
   costbookWorkspace: {
     findUnique: jest.fn(),
   },
-  division: {
+  category: {
     count: jest.fn(),
   },
   costItem: {
@@ -30,7 +30,7 @@ describe("CostbookService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.costbookWorkspace.findUnique.mockResolvedValue(null);
-    mockPrisma.division.count.mockResolvedValue(2);
+    mockPrisma.category.count.mockResolvedValue(6);
     mockPrisma.costItem.count.mockResolvedValue(8);
     mockPrisma.laborRate.count.mockResolvedValue(3);
     mockPrisma.material.count.mockResolvedValue(5);
@@ -55,7 +55,7 @@ describe("CostbookService", () => {
         canManage: false,
       },
       counts: {
-        categories: 2,
+        categories: 6,
         costItems: 8,
         laborRates: 3,
         materials: 5,
@@ -75,7 +75,7 @@ describe("CostbookService", () => {
     expect(mockPrisma.costbookWorkspace.findUnique).toHaveBeenCalledWith({
       where: { organizationId: "org-tenant-a" },
     });
-    expect(mockPrisma.division.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
+    expect(mockPrisma.category.count).toHaveBeenCalledWith({ where: { division: { orgId: "org-tenant-a" } } });
     expect(mockPrisma.costItem.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", isActive: true } });
     expect(mockPrisma.laborRate.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
     expect(mockPrisma.material.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
