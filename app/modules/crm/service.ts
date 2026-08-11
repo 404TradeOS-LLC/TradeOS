@@ -25,8 +25,14 @@ const CUSTOMER_LIST_MAX_LIMIT = 250;
 export class CrmService {
   async listCustomers(orgId: string, options: CustomerListOptions = {}) {
     const query = options.query?.trim();
-    const requestedLimit = options.limit ?? CUSTOMER_LIST_DEFAULT_LIMIT;
-    const limit = Math.min(Math.max(Math.floor(requestedLimit), 1), CUSTOMER_LIST_MAX_LIMIT);
+    const requestedLimit = options.limit;
+    const limit =
+      requestedLimit === undefined
+        ? undefined
+        : Math.min(
+            Math.max(Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : CUSTOMER_LIST_DEFAULT_LIMIT), 1),
+            CUSTOMER_LIST_MAX_LIMIT
+          );
 
     return prisma.customer.findMany({
       where: {
@@ -43,7 +49,7 @@ export class CrmService {
           : {}),
       },
       orderBy: { name: "asc" },
-      take: limit,
+      ...(limit !== undefined ? { take: limit } : {}),
     });
   }
 
