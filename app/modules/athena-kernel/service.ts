@@ -12,6 +12,8 @@ import { buildAthenaPlan } from "../athena-planner/planner";
 import type { AthenaPlanCandidateTool } from "../athena-planner/types";
 import { evaluateAthenaPermission } from "../athena-permissions/policy";
 import { classifyAthenaIntent } from "../athena-router/classifier";
+import { buildAthenaSecurityAuditMetadata } from "../athena-security/audit";
+import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { createAthenaToolRegistry } from "../athena-tool-registry/registry";
 import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 import { buildMinimalAthenaContext } from "./context";
@@ -406,6 +408,40 @@ export class AthenaKernelService {
             decision: stepDecision.decision,
             reasonCode: stepDecision.reasonCode,
           });
+
+          // A11 Risk Evaluation (docs/athena/09-security/README.md; task
+          // brief's layered-defense diagram places this exactly here -
+          // between "Permission Evaluation (A4)" and "Action Execution
+          // (A6)"). evaluateAthenaSecurityRisk never re-derives or widens
+          // A4's own decision (stepDecision, above) - it can only add a
+          // *new* deny for a small set of cross-cutting abuse signals A4/A2
+          // do not themselves check (secret-shaped tool input, a
+          // cross-tenant object reference, an embedded instruction-override
+          // pattern present in the exact payload about to execute). See
+          // athena-security/riskEngine.ts's module comment for the full
+          // narrowing-only guarantee.
+          const securityStart = Date.now();
+          const securityDecision = evaluateAthenaSecurityRisk({
+            orgId: actor.orgId,
+            tool: { id: tool.id, owner: tool.owner, risk: tool.risk, deprecated: tool.deprecated },
+            toolInput: step.input,
+            permissionDecision: { decision: stepDecision.decision, reasonCode: stepDecision.reasonCode },
+          });
+          await emitSpan("approval", securityDecision.decision === "allow" ? "ok" : "denied", Date.now() - securityStart, {
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            layer: "athena_security_risk_engine",
+            ...buildAthenaSecurityAuditMetadata(securityDecision),
+          });
+
+          if (securityDecision.decision === "deny") {
+            const reasonCode = securityDecision.reasons[0];
+            await applyTransition("denied", reasonCode);
+            const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
+            await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+            return denied;
+          }
 
           throwIfAborted();
           const actionStart = Date.now();

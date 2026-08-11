@@ -11,6 +11,7 @@ import {
   athenaToolUnexpectedError,
   athenaToolVersionNotFoundError,
 } from "./errors";
+import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { evaluateAthenaToolPolicy, hasAllRequiredFeatureFlags } from "./policy";
 import type { AthenaToolPolicyDecision } from "./policy";
 import type { AthenaToolRegistry } from "./registry";
@@ -179,6 +180,28 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     }
     if (policyDecision.decision === "approval_required") {
       throw athenaToolNotFoundError(correlationId, "approval_required");
+    }
+
+    // A11 Risk Evaluation - see athena-kernel/service.ts's identical gate
+    // (its own module comment there has the full rationale) for why this
+    // sits here, after A2's own permission/risk gate and before execution.
+    // Duplicated rather than shared as a single call site because
+    // dispatchAthenaTool is a fully independent dispatch path
+    // athena-kernel/service.ts does not call (see this function's own
+    // module comment above: "Never wired into a live HTTP path in A2... a
+    // future A5 planner later" - A5/A6 ultimately built their own path
+    // through athena-action-engine/engine.ts instead). Only reachable here
+    // with policyDecision.decision === "allow" - deny/approval_required
+    // both already threw above - so this can only ever narrow an
+    // already-permitted dispatch further, never widen one.
+    const securityDecision = evaluateAthenaSecurityRisk({
+      orgId: request.orgId,
+      tool: { id: tool.id, owner: tool.owner, risk: tool.risk, deprecated: tool.deprecated },
+      toolInput: request.input,
+      permissionDecision: { decision: policyDecision.decision, reasonCode: "athena_tool_policy_evaluated" },
+    });
+    if (securityDecision.decision === "deny") {
+      throw athenaToolNotFoundError(correlationId, "authorization_denied");
     }
 
     if (!isZodLikeSchema(tool.inputSchema)) {

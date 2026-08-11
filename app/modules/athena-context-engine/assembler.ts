@@ -1,8 +1,10 @@
+import { scanContextSectionForInjection } from "../athena-security/contextTrust";
 import type { AthenaProviderSection, AthenaWarning } from "../athena-kernel/types";
 import { AthenaContextCache, buildAthenaContextCacheKey } from "./cache";
 import {
   AthenaContextProviderFetchError,
   athenaContextCriticalProviderFailureWarning,
+  athenaContextPossibleInjectionWarning,
   athenaContextProviderCancelledWarning,
   athenaContextProviderDeniedWarning,
   athenaContextProviderInvalidResultWarning,
@@ -258,6 +260,21 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
           estimatedTokens: Math.ceil(bytes / 4),
         };
         if (cacheKey) cache.set(cacheKey, section, provider.freshnessTtlMs);
+        // A11 hardening (athena-security/contextTrust.ts's
+        // scanContextSectionForInjection): advisory-only classification
+        // over freshly-fetched data - never runs against a cache hit (see
+        // the cache-hit branch above), matching every other
+        // freshness-derived signal in this function, which also does not
+        // re-derive for a cached section. Never omits, truncates, or
+        // otherwise alters `section` because of a match - retrieved
+        // content, even content that happens to look like an instruction,
+        // is still legitimate data Athena may cite/summarize (09-security's
+        // "content, not authority" framing); this only adds a warning so a
+        // caller/reviewer can see it.
+        const injectionScan = scanContextSectionForInjection(result.data);
+        if (injectionScan.suspicious) {
+          warnings.push(athenaContextPossibleInjectionWarning(provider.id, injectionScan.matchedPatternNames));
+        }
         outcome = { ok: true, section };
       }
     } catch (error) {

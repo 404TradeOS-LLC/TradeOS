@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { redactSecrets } from "../athena-security/secretProtection";
 import { persistTelemetryRecord } from "./executionStore";
 import { getAthenaFlags } from "./flags";
 import { AthenaTelemetryCost, AthenaTelemetryRecord, AthenaTelemetryRedaction, AthenaTelemetryStatus, AthenaTelemetrySpanType } from "./types";
@@ -16,11 +17,21 @@ export interface BuildTelemetryRecordInput {
   redaction?: AthenaTelemetryRedaction;
 }
 
-const SAFE_METADATA_KEYS_DENYLIST = ["message", "prompt", "rawPrompt", "chainOfThought", "completion", "secret", "token", "apiKey", "password"];
+const SAFE_METADATA_KEYS_DENYLIST = ["message", "prompt", "rawPrompt", "chainOfThought", "completion"];
 
 // Defense in depth against accidentally logging raw prompt/secret content:
-// strips any metadata key that looks like it could carry one, even though
-// every A1 call site is expected to pass only safe, pre-redacted fields.
+// strips any metadata key that looks like it could carry a raw prompt/model
+// artifact, even though every A1 call site is expected to pass only safe,
+// pre-redacted fields. Credential-shaped keys/values (token, apiKey,
+// password, and everything else A11's centralized detector recognizes) are
+// no longer handled by this module's own denylist - they are redacted by
+// athena-security's redactSecrets (app/modules/athena-security/
+// secretProtection.ts), the one shared detector every surface that persists
+// Athena-derived data (telemetry here, plus A7 memory, A8 events, A9 tool
+// results) now calls into, so the pattern list only needs to be maintained
+// in one place. redactSecrets also catches a secret-*shaped value* under an
+// innocuous key name (e.g. a "note" field that happens to contain a bearer
+// token) - something a key-name-only denylist could never catch.
 function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) {
@@ -30,7 +41,7 @@ function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unk
     }
     sanitized[key] = value;
   }
-  return sanitized;
+  return redactSecrets(sanitized).data;
 }
 
 // Builds a single C011-shaped record (docs/athena/contracts/README.md).

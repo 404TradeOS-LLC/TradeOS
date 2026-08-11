@@ -184,6 +184,12 @@ export const athenaAlertRuleIds = [
   "unauthorized_execution",
   "approval_bypass_attempt",
   "telemetry_write_failure",
+  // A11 (docs/athena/09-security/README.md; athena-security/riskEngine.ts):
+  // each fires on an already-confirmed abuse signal the A11 risk-engine gate
+  // denied - see athena-observability/alerts.ts's evaluateSecurityRiskDenialRule.
+  "cross_tenant_access_attempt",
+  "secret_leak_detected",
+  "prompt_injection_detected",
 ] as const;
 export type AthenaAlertRuleId = (typeof athenaAlertRuleIds)[number];
 
