@@ -68,7 +68,7 @@ Prohibited: no second auth stack, second estimate engine, second AI estimator ar
 
 ## 3. Monorepo structure
 
-Implemented: `app/` is the Express and TypeScript API, `web/` is the Next.js 16 frontend, `packages/knowledge-engine/` stores knowledge assets and runtime support files, and `docs/` defines source-of-truth governance.
+Implemented: `app/` is the Express and TypeScript API, `web/` is the Next.js frontend, `packages/knowledge-engine/` stores knowledge assets and runtime support files, and `docs/` defines source-of-truth governance.
 
 Required standard: code and documentation must remain organized by deployable and domain. Runtime code must not be changed from docs-only branches unless the mission explicitly allows it.
 
