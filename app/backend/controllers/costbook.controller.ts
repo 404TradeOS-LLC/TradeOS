@@ -6,13 +6,23 @@ import { requireAuthContext, requirePermissions } from "../requestContext";
 const service = new CostbookService();
 
 const idParamSchema = z.object({ id: z.string().uuid() });
+const maxUnitCost = 99_999_999.9999;
+
+const requiredNumberSchema = z.preprocess(
+  rejectBlankNumericInput,
+  z.coerce.number().finite().nonnegative().max(maxUnitCost)
+);
+const optionalPercentSchema = z.preprocess(
+  rejectBlankNumericInput,
+  z.coerce.number().finite().min(0).max(100).optional()
+);
 
 const materialSchema = z.object({
   sku: z.string().trim().max(80).nullable().optional(),
   name: z.string().trim().min(1).max(200),
   unitOfMeasure: z.string().trim().min(1).max(40),
-  unitCost: z.coerce.number().finite().nonnegative(),
-  wasteFactorPct: z.coerce.number().finite().min(0).max(100).optional(),
+  unitCost: requiredNumberSchema,
+  wasteFactorPct: optionalPercentSchema,
   supplierId: z.string().uuid().nullable().optional(),
 }).strict();
 
@@ -44,3 +54,9 @@ export const costbookController = {
     res.json(await service.updateMaterial(auth, id, materialUpdateSchema.parse(req.body)));
   },
 };
+
+function rejectBlankNumericInput(value: unknown) {
+  if (value === null) return undefined;
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}

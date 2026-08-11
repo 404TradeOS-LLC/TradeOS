@@ -4,13 +4,14 @@ import { MaterialDatabaseService } from "../../modules/material-database/service
 import { parsePositiveNumber, requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 
 const service = new MaterialDatabaseService();
+const maxUnitCost = 99_999_999.9999;
 
 const createSchema = z.object({
   orgId: z.string().uuid().optional(),
   sku: z.string().optional(),
   name: z.string().min(1),
   unitOfMeasure: z.string().min(1),
-  unitCost: z.number().nonnegative(),
+  unitCost: z.number().finite().nonnegative().max(maxUnitCost),
   wasteFactorPct: z.number().min(0).optional(),
   supplierId: z.string().uuid().optional(),
 });

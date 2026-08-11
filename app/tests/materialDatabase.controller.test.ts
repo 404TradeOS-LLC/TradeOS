@@ -142,4 +142,15 @@ describe("materialDatabaseController Costbook permission boundary", () => {
     expect(mockService.delete).toHaveBeenCalledWith(materialId, "org-from-auth");
     expect(mockService.bulkImport).toHaveBeenCalledWith("org-from-auth", [{ name: "Stone" }]);
   });
+
+  it("rejects legacy material unit costs outside the database precision", async () => {
+    await expect(
+      materialDatabaseController.create(
+        authedRequest({ role: "admin", body: { name: "Concrete", unitOfMeasure: "CY", unitCost: 100_000_000 } }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.create).not.toHaveBeenCalled();
+  });
 });

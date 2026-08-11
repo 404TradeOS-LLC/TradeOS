@@ -76,11 +76,13 @@ C002 material routes under the unified Costbook boundary:
 - `POST /api/v1/costbook/materials` requires `costbook.write`; accepted fields are `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`
 - `PATCH /api/v1/costbook/materials/:id` requires `costbook.write`; accepted fields are the same subset, and unit-cost changes write a manual material price-audit row
 
-The C002 DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `createdAt`, and `updatedAt`. Request bodies are strict; caller-supplied organization IDs and pricing-engine fields are rejected.
+The C002 DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `createdAt`, and `updatedAt`. Request bodies are strict; caller-supplied organization IDs, pricing-engine fields, blank/null unit costs, and unit costs outside the existing database precision are rejected.
 
 C002 reuses the existing `materials` table rather than adding a duplicate material table. Migration `20260811130000_restrict_costbook_material_writes` keeps material reads organization-scoped and tightens material/material-price-audit writes to the existing owner/admin Costbook boundary.
 
 The legacy `/api/v1/materials/*` route group remains mounted for compatibility and shares the same Costbook permission boundary: read-style operations require `costbook.read`, while create/update/delete/bulk-import operations require `costbook.write`.
+
+Supplier price update approve/reject routes that review material price proposals require `costbook.write`, matching the material and material-price-audit forced-RLS write boundary.
 
 Representative search behavior:
 

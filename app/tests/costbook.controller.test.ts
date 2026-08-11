@@ -124,6 +124,40 @@ describe("costbookController materials endpoints", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it.each([null, "", "   "])("rejects blank unitCost values instead of coercing %j to zero", async (unitCost) => {
+    await expect(
+      costbookController.createMaterial(
+        authedRequest({
+          body: {
+            name: "Concrete",
+            unitOfMeasure: "CY",
+            unitCost,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createMaterial).not.toHaveBeenCalled();
+  });
+
+  it("rejects unitCost values outside the material database precision", async () => {
+    await expect(
+      costbookController.createMaterial(
+        authedRequest({
+          body: {
+            name: "Concrete",
+            unitOfMeasure: "CY",
+            unitCost: 100_000_000,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createMaterial).not.toHaveBeenCalled();
+  });
+
   it("requires a valid material id for detail and update routes", async () => {
     await expect(
       costbookController.getMaterial(authedRequest({ params: { id: "not-a-uuid" } }), response() as never)
