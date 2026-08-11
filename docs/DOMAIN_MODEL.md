@@ -50,6 +50,7 @@ A company-scoped account or homeowner record stored in `Customer`.
 
 - customers own the business relationship
 - customers can have many projects, service addresses, equipment assets, service agreements, and jobs
+- tenant customer listing/search is service-owned: `CrmService.listCustomers` always excludes soft-deleted rows, supports database-side case-insensitive name/email/phone search, and enforces a bounded result count before rows are loaded
 
 ## Service Address
 
@@ -174,7 +175,7 @@ Project Athena A8 event integration state is stored in `AthenaEvent`, `AthenaEve
 - `AthenaEvent` is the canonical tenant-scoped event envelope for dark Athena infrastructure, including event type/version, entity reference, actor reference, correlation id, idempotency key, occurrence time, and safe JSON payload
 - `AthenaEventDelivery` tracks one subscriber delivery attempt stream per event/subscriber, including status, retry timing, attempt count, replay metadata, and safe failure reason code
 - `AthenaEventDeadLetter` records exhausted delivery attempts with the event payload snapshot and safe failure reason code for future operator replay
-- A8 wires only one production publisher: proposal send emits `ProposalSent` after the existing proposal status transition commits
+- the original A8 rollout wired proposal send as the first production publisher; A12 additionally publishes `EstimateStarted`/`EstimateCompleted` from `EstimateEngineService` and `JobScheduled`/`TechnicianAssigned`/`WorkCompleted` from `JobsService`
 - No production subscriber, scheduler, autonomous Athena action, or business-state authority is introduced by these tables
 
 ## Athena observability
