@@ -15,7 +15,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 
 export const jobAddNoteInputSchema = z.object({
   jobId: z.string().uuid(),
-  body: z.string().min(1),
+  body: z.string().min(1).max(5_000),
 });
 export type JobAddNoteInput = z.infer<typeof jobAddNoteInputSchema>;
 
