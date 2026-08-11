@@ -37,13 +37,13 @@ Confirmed by direct repo inspection (schema.prisma, `app/modules/**`,
 
 | Domain | Exists? | Service | Key methods used by A12 |
 |---|---|---|---|
-| Customer | Yes | `modules/crm/service.ts` (`CrmService`) | `getCustomer`, `listCustomers`, `listNotes`, `createNote` |
+| Customer | Yes | `modules/crm/service.ts` (`CrmService`) | `getCustomer`, bounded `listCustomers`, `listNotes`, `createNote` |
 | Project | Partially (model only; logic lives in controller + `project-tasks`) | `modules/project-tasks/service.ts` (`ProjectTasksService`) | `create` (follow-ups/tasks) |
-| Estimate | Yes | `modules/estimate-engine/service.ts` (`EstimateEngineService`) | `create`, `getById`, `listByProject`, `addLineItem`, `recalculate`, `finalize`, new `compareEstimates` |
+| Estimate | Yes | `modules/estimate-engine/service.ts` (`EstimateEngineService`) | `create`, `getById`, `listByProject`, atomic `addLineItemAndRecalculate`, `finalize`, new `compareEstimates` |
 | Invoice | Yes | `modules/invoices/service.ts` (`InvoicesService`) | `listByProject` (read-only use in A12; no invoice is created or sent by any A12 tool) |
 | Dispatch/Job/Technician | Yes (most mature domain) | `modules/jobs/service.ts` (`JobsService`) | `getById`, `schedule`, `addAssignment`, `getScheduleConflicts`, `getDispatchSummary`, `update` (status), `listAssignments` |
 | Costbook | Yes (large, pre-existing subsystem) | `modules/cost-database/service.ts`, `modules/assemblies-database/service.ts`, `modules/estimate-engine/formulas.ts` | `search`, `getUnitCost`, `getAssemblyUnitCost`, `sellPrice`/`marginFromMarkup` |
-| Events (A8) | Registered, mostly unpublished | `modules/athena-events/{registry,service}.ts` | 16 canonical types registered; only `ProposalSent` was published anywhere before A12 |
+| Events (A8) | Registered, mostly unpublished before A12 | `modules/athena-events/{registry,service}.ts` | 16 canonical types registered; `ProposalSent` was the first production publisher before A12 |
 | Permissions | App-level RBAC, coarse-grained | `domain/contracts.ts` | `DomainPermission` (11 values), 4 canonical roles |
 
 ## 2. Existing Athena capabilities (A1-A11, verified)
@@ -57,7 +57,7 @@ Confirmed by direct repo inspection (schema.prisma, `app/modules/**`,
   defaulted to an empty one.
 - A6 `executeAthenaAction()` re-verifies A4's permission decision, takes
   `tool.risk`/`compensationPolicy` as authoritative, and executes under
-  `raceWithTimeout`. No tool has driven it against a real business mutation
+  `raceWithTimeout`. No tool had driven it against a real business mutation
   before A12.
 - A4 `evaluateAthenaPermission()`: `risk: "low"` -> `allow`;
   `"medium"|"high"` -> `approval_required`. Production has **no real
@@ -81,7 +81,7 @@ Identified gaps, and the minimal, in-domain fix applied (no unrelated
 refactors, no new frameworks):
 
 1. **No estimate/job business events were ever published.** Fixed by adding
-   four `getDefaultAthenaEventService().publish(...)` call sites, following
+   five `getDefaultAthenaEventService().publish(...)` call sites, following
    the exact non-blocking `try { publish } catch { console.error }` pattern
    `modules/proposals/service.ts`'s `send()` already established:
    - `EstimateEngineService.create()` -> `EstimateStarted`
@@ -119,7 +119,7 @@ owner `athena-tools-<domain>`, module `app/modules/athena-tools/<domain>/`.
 | Tool ID suffix | Service call | Mutates? | Permission | Risk | Event |
 |---|---|---|---|---|---|
 | `estimator.create-estimate` | `EstimateEngineService.create` | yes (draft) | `billing.write` | low | `EstimateStarted` |
-| `estimator.update-estimate` | `EstimateEngineService.addLineItem` + `recalculate` | yes (draft) | `billing.write` | low | none (not final) |
+| `estimator.update-estimate` | `EstimateEngineService.addLineItemAndRecalculate` | yes (draft, atomic) | `billing.write` | low | none (not final) |
 | `estimator.analyze-estimate` | `EstimateEngineService.getById` + `formulas.ts` margin math | no | `billing.read` | low | none |
 | `estimator.compare-estimates` | `EstimateEngineService.compareEstimates` (new) | no | `billing.read` | low | none |
 
@@ -129,7 +129,7 @@ owner `athena-tools-<domain>`, module `app/modules/athena-tools/<domain>/`.
 |---|---|---|---|---|---|
 | `dispatcher.schedule-job` | `JobsService.schedule` | yes | `dispatch.manage` | low | `JobScheduled` |
 | `dispatcher.assign-technician` | `JobsService.addAssignment` | yes | `dispatch.manage` | low | `TechnicianAssigned` |
-| `dispatcher.optimize-day` | `JobsService.getDispatchSummary` + `getScheduleConflicts` | no | `dispatch.manage` | low | none |
+| `dispatcher.optimize-day` | `JobsService.getDispatchSummary` + `getScheduleConflicts` using the summary's organization-local day range | no | `dispatch.manage` | low | none |
 | `dispatcher.weather-impact` | reads `aiContext.weather` (A3 provider section) | no | `dispatch.manage` | low | none |
 
 `weather-impact` explicitly does not call any external weather API - A3's
@@ -143,7 +143,7 @@ per this rollout's explicit "do not invent external integrations" rule.
 
 | Tool ID suffix | Service call | Mutates? | Permission | Risk | Event |
 |---|---|---|---|---|---|
-| `office.search-customers` | `CrmService.listCustomers`/`getCustomer` | no | `crm.read` | low | none |
+| `office.search-customers` | bounded `CrmService.listCustomers({ query, limit })`/`getCustomer` | no | `crm.read` | low | none |
 | `office.summarize-customer` | `CrmService.getCustomer` + `listNotes` | no | `crm.read` | low | none |
 | `office.create-follow-up` | `ProjectTasksService.create` | yes | `notes.write` | low | none (no canonical event registered for tasks) |
 | `office.prepare-invoice` | `EstimateEngineService.getById` + `InvoicesService.listByProject` (read-only compose) | no | `billing.write` | low | none |
@@ -152,7 +152,7 @@ per this rollout's explicit "do not invent external integrations" rule.
 
 | Tool ID suffix | Service call | Mutates? | Permission | Risk | Event |
 |---|---|---|---|---|---|
-| `field.job-context` | `JobsService.getById` | no | `crm.read` | low | none |
+| `field.job-context` | `JobsService.getById`, explicitly minimized before crossing the AI boundary | no | `crm.read` | low | none |
 | `field.update-job-status` | `JobsService.update`/transition methods | yes | `[]` (JobsService's own `assertFieldWorker`/`assertManager` is the real authorization layer, same posture as `recallPreferenceTool`'s empty `permissions`) | low | `WorkCompleted` only when the transition is to `completed` (delegates to the already-wired `JobsService.complete`) |
 | `field.add-note` | `CrmService.createNote` (`entityType: "job"`) | yes | `notes.write` | low | none |
 | `field.create-recommendation` | pure computation over `JobsService.getById` output, no persistence | no | `crm.read` | low | none |
@@ -201,11 +201,13 @@ Every event type used above is drawn from A8's existing canonical registry
 (`athena-events/registry.ts`) - `EstimateStarted`, `EstimateCompleted`,
 `JobScheduled`, `TechnicianAssigned`, `WorkCompleted` - not new, illustrative
 names. No A12 tool or service publishes an unregistered event type; A8
-already fails closed on that.
+already fails closed on that. Event payload values use public DTO-normalized
+numbers/ISO timestamps rather than raw persistence-layer `Decimal`/`Date`
+values.
 
 ## 7. Module/file layout convention (owned by this plan, for every future tool)
 
-```
+```text
 app/modules/athena-tools/
   registry.ts              # createProductionAthenaToolRegistry(): AthenaToolRegistry
   index.ts                 # barrel
@@ -232,17 +234,15 @@ Athena tool" already documents, made concrete for business domains:
 4. Inject the service(s) as explicit constructor params on a
    `create<Name>Tool(deps)` factory - never a global locator.
 5. Implement `execute()`, returning `successResult()`/`failureResult()`
-   from `athena-tool-sdk`.
+   from the public `athena-tool-sdk` entrypoint.
 6. If the service call published a canonical event, wrap its `{type, id}`
    with `eventRef()` in the result's `events`. Never publish directly.
 7. Register the tool in `app/modules/athena-tools/registry.ts`.
 8. Add `describeAthenaToolContract(tool, { validInput, invalidInputs })`
    from `athena-tool-sdk/contractTestKit.ts` in a
    `athena-tools.<domain>.<action>.contracts.test.ts` file.
-9. If the tool's underlying service needed a new method (rare - only two
-   cases in A12, `EstimateEngineService.compareEstimates` and the five event
-   `publish()` call sites), add it to the existing service module, never a
-   parallel one.
+9. If the tool's underlying service needed a new method, add it to the
+   existing service module, never a parallel one.
 
 ## 9. Subagent assignments
 
