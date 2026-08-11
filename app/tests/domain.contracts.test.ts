@@ -46,3 +46,29 @@ describe("hasAnyPermission", () => {
     }
   });
 });
+
+describe("Costbook permissions", () => {
+  it("grants owner and admin full Costbook access", () => {
+    for (const role of ["owner", "admin"] as const) {
+      expect(hasPermission(role, "costbook.read")).toBe(true);
+      expect(hasPermission(role, "costbook.write")).toBe(true);
+      expect(hasPermission(role, "costbook.manage")).toBe(true);
+    }
+  });
+
+  it("grants dispatcher, technician, and legacy estimator read-only Costbook access", () => {
+    for (const role of ["dispatcher", "technician", "estimator"] as const) {
+      expect(hasPermission(role, "costbook.read")).toBe(true);
+      expect(hasPermission(role, "costbook.write")).toBe(false);
+      expect(hasPermission(role, "costbook.manage")).toBe(false);
+    }
+  });
+
+  it("denies Costbook access to legacy viewers", () => {
+    for (const role of ["viewer"] as const) {
+      expect(hasPermission(role, "costbook.read")).toBe(false);
+      expect(hasPermission(role, "costbook.write")).toBe(false);
+      expect(hasPermission(role, "costbook.manage")).toBe(false);
+    }
+  });
+});

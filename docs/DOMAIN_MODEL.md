@@ -165,6 +165,15 @@ Project Athena A7 durable assistant memory is stored in `AthenaMemory` rows behi
 - `project` and `job` scope values are contract-recognized but fail closed in A7 until explicit object-scope authorization exists at both the service and RLS layers
 - Athena memory is not authoritative business state and does not replace projects, jobs, customers, estimates, invoices, payments, dispatch, or costbook records
 
+## Costbook workspace foundation
+
+C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization-scoped foundation records for the future unified Costbook workspace.
+
+- `CostbookWorkspace` belongs to one organization and stores workspace setup state and foundation lifecycle status
+- `CostbookWorkspaceEvent` belongs to one organization and one Costbook workspace; database guardrails require the event organization to match the workspace organization
+- both tables use forced RLS and do not replace existing `Division`, `Category`, `Subcategory`, `CostItem`, `LaborRate`, `Material`, `Equipment`, `Assembly`, or `AssemblyItem` catalog models
+- the C001 workspace foundation does not add pricing calculations, materials CRUD, labor-engine state, estimate integration snapshots, or Athena advisor records
+
 ## Core relationships
 
 Canonical relationship flow:

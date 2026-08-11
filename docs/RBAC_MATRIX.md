@@ -42,6 +42,9 @@ Shared permission keys from `app/domain/contracts.ts`:
 - `documents.manage`
 - `notes.write`
 - `activity.read`
+- `costbook.read`
+- `costbook.write`
+- `costbook.manage`
 
 ## Major-module permissions
 
@@ -53,6 +56,7 @@ Shared permission keys from `app/domain/contracts.ts`:
 | Proposals, contracts, invoices | Full | Full | Operational document and billing support | Read-only |
 | AI suggestion generate/apply (`POST .../ai-suggestions`, `.../ai-suggestions/apply`) | Full through `crm.read`/`crm.write` | Full through `crm.read`/`crm.write` | Full through `crm.read`/`crm.write` | Read-only (`crm.read`); cannot apply suggestions |
 | Structured AI estimator draft/apply | Full through `billing.write` | Full through `billing.write` | Operational estimating support through `billing.write` | No write access |
+| Costbook workspace foundation | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Full through `costbook.read`/`costbook.write`/`costbook.manage` | Read-only through `costbook.read` | Read-only through `costbook.read` |
 | Notes and activity | Full | Full | Full | Can write notes and read activity |
 | Brand Studio and settings | Full | Full | Supported through `settings.manage` and `company.manage` | No |
 
@@ -80,3 +84,4 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - `organizationName` (and only `organizationName`/`regionCode`/`fullName`) is the sole client input the first-owner provisioning path accepts; `bootstrapSchema` (`app/backend/controllers/auth.controller.ts`) is a Zod `.strict()` object, so a request body carrying `role`, `userId`, `authSubject`, or `organizationId` is rejected outright (`400`, before any provisioning logic runs) — see `app/tests/auth.controller.bootstrap.test.ts`. Role is always the hardcoded `"owner"` literal in `OrganizationProvisioningService.provision`; identity is always the verified JWT's `authSubject`/email, never the request body
 - team invites are currently limited to `dispatcher` and `technician` roles
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
+- legacy `estimator` retains existing compatibility permissions and has read-only Costbook access through `costbook.read`; it does not receive `costbook.write` or `costbook.manage`

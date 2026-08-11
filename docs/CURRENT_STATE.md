@@ -58,6 +58,10 @@ related_code:
   - app/prisma/migrations/20260809120000_add_athena_kernel_execution/migration.sql
   - app/modules/athena-memory
   - app/prisma/migrations/20260810130000_add_athena_memory/migration.sql
+  - app/modules/costbook
+  - app/backend/routes/costbook.routes.ts
+  - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
+  - web/src/app/(app)/costbook/page.tsx
 ---
 
 # Current State
@@ -77,6 +81,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Projects and project workspace
 - Site visit intake
 - Cost book: divisions, categories, subcategories, cost items, labor, materials, equipment, assemblies
+- Costbook workspace foundation: unified read-only `/api/v1/costbook/workspace` boundary, Costbook-specific permission keys, org-scoped workspace foundation tables, and `/costbook` web route with live catalog counts
 - Estimating: estimate creation, line items, duplication, comparison, AI estimate assist, and structured contractor-language draft generation
 - Proposals
 - Contracts
@@ -102,7 +107,7 @@ See module docs in `docs/modules/`.
 - Legacy role values `estimator` and `viewer` are still tolerated in stored data but normalize to canonical roles
 - Project lifecycle persistence still contains legacy values such as `proposal_sent` and `accepted`; UI and shared contracts normalize these into canonical display states
 - Contract persistence still stores `pending_signature`; global lifecycle docs treat that as compatibility storage under canonical contract states
-- Costbook architecture has been documented as a future pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). The architecture is defined, but no unified production Costbook workspace, unified `/api/v1/costbook/*` API boundary, Costbook-specific permission set, price-history engine, or Athena Costbook advisor exists yet. Future implementation should follow the Sprint Backlog readiness protocol and use the Costbook architecture as its domain guide.
+- Costbook architecture has been documented as a pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). C001 now provides the workspace foundation only: `app/modules/costbook`, `GET /api/v1/costbook/workspace`, `costbook.read`/`costbook.write`/`costbook.manage`, forced-RLS workspace foundation tables, and the `/costbook` web route. Materials CRUD, labor engine, assembly builder, pricing calculations, estimate integration, price history, and Athena Costbook advisor behavior are still future work.
 - Supplier integration feed ingestion is scaffolded around a stub fetcher; queue, review, audit, and scheduling plumbing are real
 - Customer portal exists for proposal, contract, invoice, and project views, but hardening is still tracked as RC work
 - Structured AI estimator drafts remain review-first; they do not autonomously write estimate line items and do not call external model APIs in the current implementation
@@ -111,6 +116,7 @@ See module docs in `docs/modules/`.
 
 ## Recent verified changes
 
+- C001 Costbook Workspace Foundation: a bounded Costbook module now exposes the unified read-only workspace summary at `GET /api/v1/costbook/workspace`, guarded by `costbook.read` and backed by org-scoped counts from the existing catalog tables. `costbook.read`, `costbook.write`, and `costbook.manage` are shared domain permissions; owner/admin have full Costbook access, dispatcher, technician, and legacy estimator have read-only Costbook access, and viewer has no Costbook permission. Migration `20260811120000_add_costbook_workspace_foundation` adds `costbook_workspaces` and `costbook_workspace_events` with organization scoping, forced RLS, owner/admin-managed writes, and event/workspace organization guardrails. The web app has a `/costbook` route and dashboard/nav links that show live catalog counts and empty/error states. No materials CRUD, labor engine, assemblies builder, pricing calculations, estimate integration, price-history engine, or Athena behavior changed.
 - Project Athena A7 Memory repair: `AthenaMemoryService` now exposes only active, unexpired caller-visible memories; corrected and expired rows are no longer retrievable through `getById`. User/conversation memory remains exact-actor scoped and organization memory remains exact-organization scoped. Contract-recognized `project`/`job` memory now fails closed at both the service and forced-RLS layers until explicit object-scope authorization is implemented, replacing the rejected org-wide-read default. Deterministic write policy, source attribution, correction/supersession, forgetting, retention metadata, the lazy user-memory context provider, and the dormant post-action memory hook remain infrastructure-only; no production memory extraction, business-tool execution, semantic retrieval, or autonomous write path is enabled.
 - Owner dashboard AI-placeholder audit: the disabled `AI Assistant` foundation slot is replaced by a deterministic `Owner Briefing` that reads the existing dispatch summary, org-scoped project-task feed, and current-week recorded-payment ledger. It surfaces schedule pressure, overdue/blocked task pressure, and transaction-backed weekly revenue with direct links to Dispatch, Overdue Tasks, and Revenue This Week. Each read degrades to `Unavailable` independently. The briefing makes no model call, does not call an Athena execution endpoint, performs no autonomous write, and explicitly keeps Athena business-tool execution off until the roadmap's A12 rollout. The old `AIAssistantPlaceholderPanel` export remains only as a compatibility alias to avoid unrelated parent-dashboard churn.
 - Dashboard knowledge/lifecycle audit: the existing Knowledge Runtime Coverage card remains backed by live `GET /api/v1/knowledge/stats` data but is no longer a dead-end summary; `/dashboard/knowledge-coverage` now reads the existing stats and trades endpoints to show live trade coverage, assemblies, cost items, indexed keywords, source/runtime health, and load warnings without adding AI execution or writes. The dashboard section previously labeled `Operational queues` was audited and found to be a recent-eight-project lifecycle snapshot, not an organization-wide queue; it is now truthfully labeled `Recent project lifecycle` and states that scope explicitly while preserving direct project navigation. No backend endpoint, RLS policy, schema, lifecycle write, payment path, or Athena behavior changed.
