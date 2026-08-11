@@ -3,13 +3,6 @@ import { createFollowUpCreateTool } from "../modules/athena-tools/office/createF
 import type { FollowUpCreateToolDeps } from "../modules/athena-tools/office/createFollowUp.tool";
 import type { CreateProjectTaskInput, ProjectTaskDTO } from "../modules/project-tasks/types";
 
-// A12 Office Manager contract tests (docs/athena/roadmap/
-// A12-business-tool-rollout-implementation-plan.md section 8, step 8).
-// Follows app/tests/athena-tool-sdk.contracts.test.ts's pattern: a
-// hand-rolled jest.fn()-based fake service matching this tool's own
-// Pick<ProjectTasksService, "create"> deps shape, never
-// tests/helpers/fakeAthenaObservabilityDb.ts (unrelated suite).
-
 const VALID_PROJECT_ID = "55555555-5555-4555-8555-555555555555";
 
 function createFakeProjectTasks(): FollowUpCreateToolDeps["projectTasks"] {
@@ -36,10 +29,22 @@ function createFakeProjectTasks(): FollowUpCreateToolDeps["projectTasks"] {
 describe("athena-tools office: create-follow-up", () => {
   describeAthenaToolContract(createFollowUpCreateTool({ projectTasks: createFakeProjectTasks() }), {
     validInput: { projectId: VALID_PROJECT_ID, title: "Call customer about permit", priority: "high" as const },
-    invalidInputs: [{}, { projectId: "not-a-uuid", title: "x" }, { projectId: VALID_PROJECT_ID, title: "" }, { projectId: VALID_PROJECT_ID, title: "x", priority: "urgent" }],
+    invalidInputs: [
+      {},
+      { projectId: "not-a-uuid", title: "x" },
+      { projectId: VALID_PROJECT_ID, title: "" },
+      { projectId: VALID_PROJECT_ID, title: "x", priority: "urgent" },
+      { projectId: VALID_PROJECT_ID, title: "x", dueDate: "not-a-date" },
+      { projectId: VALID_PROJECT_ID, title: "x", dueDate: "2026-02-30" },
+    ],
   });
 
-  it("passes orgId/projectId/title/dueDate/priority/notes/jobId through and assigns the acting user", async () => {
+  it("requires CRM write permission for task creation", () => {
+    const tool = createFollowUpCreateTool({ projectTasks: createFakeProjectTasks() });
+    expect(tool.permissions).toEqual(["crm.write"]);
+  });
+
+  it("passes orgId/projectId/title/date-only dueDate/priority/notes/jobId through and assigns the acting user", async () => {
     const projectTasks = createFakeProjectTasks();
     const tool = createFollowUpCreateTool({ projectTasks });
     const result = await tool.execute(
@@ -53,13 +58,13 @@ describe("athena-tools office: create-follow-up", () => {
       projectId: VALID_PROJECT_ID,
       jobId: "job-1",
       title: "Follow up on estimate",
-      dueDate: new Date("2026-09-01"),
+      dueDate: new Date("2026-09-01T00:00:00.000Z"),
       priority: "high",
       notes: "Client wants a callback",
       assignedTo: "user-42",
     });
     expect(result.success).toBe(true);
-    expect(result.data).toMatchObject({ id: "task-1", projectId: VALID_PROJECT_ID, title: "Follow up on estimate", assignedTo: "user-42" });
+    expect(result.data).toMatchObject({ id: "task-1", projectId: VALID_PROJECT_ID, title: "Follow up on estimate", assignedTo: "user-42", dueDate: "2026-09-01T00:00:00.000Z" });
     expect(result.events).toEqual([]);
   });
 
