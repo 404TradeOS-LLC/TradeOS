@@ -4,10 +4,6 @@ import type { EstimateCreateToolDeps } from "../modules/athena-tools/estimator/c
 
 // A12 Estimator contract tests (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 8, step 8).
-// Follows app/tests/athena-tool-sdk.contracts.test.ts's pattern: a
-// hand-rolled jest.fn()-based fake service matching this tool's own
-// Pick<EstimateEngineService, "create"> deps shape, never
-// tests/helpers/fakeAthenaObservabilityDb.ts (unrelated suite).
 
 const VALID_PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -32,7 +28,14 @@ function createFakeEstimateEngine(): EstimateCreateToolDeps["estimateEngine"] {
 describe("athena-tools estimator: create-estimate", () => {
   describeAthenaToolContract(createEstimateCreateTool({ estimateEngine: createFakeEstimateEngine() }), {
     validInput: { projectId: VALID_PROJECT_ID, overheadPct: 10 },
-    invalidInputs: [{ projectId: "not-a-uuid" }, {}, { projectId: VALID_PROJECT_ID, overheadPct: "ten" }],
+    invalidInputs: [
+      { projectId: "not-a-uuid" },
+      {},
+      { projectId: VALID_PROJECT_ID, overheadPct: "ten" },
+      { projectId: VALID_PROJECT_ID, overheadPct: -1 },
+      { projectId: VALID_PROJECT_ID, overheadPct: 101 },
+      { projectId: VALID_PROJECT_ID, overheadPct: Number.POSITIVE_INFINITY },
+    ],
   });
 
   it("passes orgId/projectId/overheadPct through to the service and wraps the returned athenaEvent", async () => {
