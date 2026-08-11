@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-10
 source_of_truth: false
 related_code:
   - app/modules/proposals
@@ -44,6 +44,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 ## Emitted activity events
 
 - proposal send, view, accept, reject, and resend actions write delivery history and activity-oriented metadata
+- `ProposalsService.send()` additionally publishes a canonical Athena `ProposalSent` event (C008, Project Athena A8 — see [athena/10-events/README.md](../athena/10-events/README.md)) after the status mutation commits, via `app/modules/athena-events`. Dark infrastructure: publish failures are caught and logged, never block or roll back the send, and no subscriber consumes the event in this milestone. No other proposal transition publishes an event yet.
 
 ## Frontend surfaces
 
@@ -57,6 +58,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 - `app/tests/proposals.service.test.ts`
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`
 - `app/tests/proposal-delivery.migration.test.ts`
+- `app/tests/proposals.athena-events-integration.test.ts`
 
 ## Known limitations
 

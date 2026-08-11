@@ -70,6 +70,9 @@ model Organization {
   athenaExecutionTransitions AthenaExecutionTransition[]
   athenaTelemetryRecords AthenaTelemetryRecordRow[]
   athenaMemories AthenaMemory[]
+  athenaEvents AthenaEvent[]
+  athenaEventDeliveries AthenaEventDelivery[]
+  athenaEventDeadLetters AthenaEventDeadLetter[]
 
   @@map("organizations")
 }
@@ -1477,4 +1480,92 @@ model AthenaMemory {
   @@index([orgId, scope, subjectId, status])
   @@index([orgId, scope, subjectId, kind, status])
   @@map("athena_memories")
+}
+
+// A8 canonical business event persistence
+// (docs/athena/roadmap/A8-event-integration-implementation-plan.md, C008 in
+// docs/athena/contracts/README.md). entityId/actorId are intentionally not
+// foreign keys: entity is polymorphic across business object types and
+// actor may be a user, "system", or "athena" - the same polymorphic-reference
+// posture AthenaMemory.subjectId already uses. The (orgId, idempotencyKey)
+// unique index is the publication-dedupe key described in the plan doc's
+// "Versioning, Retries, Deduplication, Replay" table.
+model AthenaEvent {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  type             String
+  version          String
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id")
+  actorType        String   @map("actor_type")
+  actorId          String?  @map("actor_id")
+  occurredAt       DateTime @map("occurred_at")
+  payloadJson      Json     @map("payload_json")
+  correlationId    String   @map("correlation_id")
+  idempotencyKey   String   @map("idempotency_key")
+  causationId      String?  @map("causation_id")
+  isReplay         Boolean  @default(false) @map("is_replay")
+  replayedAt       DateTime? @map("replayed_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deliveries   AthenaEventDelivery[]
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, type, occurredAt])
+  @@index([orgId, entityType, entityId])
+  @@map("athena_events")
+}
+
+// One row per (event, subscriber). attemptCount/nextAttemptAt back
+// retryPolicy.ts's bounded exponential backoff; a delivery that exhausts its
+// retry budget transitions to 'dead_letter' and gets a corresponding
+// AthenaEventDeadLetter row rather than being deleted, per the plan doc's
+// "Dead-letter" section.
+model AthenaEventDelivery {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  eventId        String    @map("event_id")
+  subscriberId   String    @map("subscriber_id")
+  status         String    @default("pending")
+  attemptCount   Int       @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at")
+  lastError      String?   @map("last_error")
+  lastAttemptAt  DateTime? @map("last_attempt_at")
+  succeededAt    DateTime? @map("succeeded_at")
+  isReplay       Boolean   @default(false) @map("is_replay")
+  replayedFromId String?   @map("replayed_from_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  event        AthenaEvent               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  deadLetter   AthenaEventDeadLetter?
+
+  @@unique([eventId, subscriberId])
+  @@index([orgId, status, nextAttemptAt])
+  @@map("athena_event_deliveries")
+}
+
+// Safe payload snapshot + failure reason for a delivery that exhausted its
+// retry budget (10-events/README.md: "Exhausted events enter a dead-letter
+// queue with safe payload and failure reason"). payloadSnapshotJson is a
+// copy of the originating event's own already-C008-validated payload - never
+// a raw error stack, prompt, or secret.
+model AthenaEventDeadLetter {
+  id                  String   @id @default(uuid())
+  orgId               String   @map("org_id")
+  deliveryId          String   @unique @map("delivery_id")
+  eventId             String   @map("event_id")
+  subscriberId        String   @map("subscriber_id")
+  failureReason        String   @map("failure_reason")
+  payloadSnapshotJson Json     @map("payload_snapshot_json")
+  attemptCount        Int      @map("attempt_count")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  delivery     AthenaEventDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, eventId])
+  @@map("athena_event_dead_letters")
 }
