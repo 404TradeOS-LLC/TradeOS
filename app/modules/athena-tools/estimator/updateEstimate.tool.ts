@@ -15,7 +15,7 @@ export const estimateUpdateInputSchema = z.object({
   lineItem: z.object({
     costItemId: z.string().optional(),
     assemblyId: z.string().optional(),
-    quantity: z.number(),
+    quantity: z.number().finite().positive(),
     description: z.string().optional(),
     sourceKey: z.string().optional(),
   }),
@@ -80,9 +80,22 @@ export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaTo
         sourceKey: input.lineItem.sourceKey,
       });
 
+      const estimateData: EstimateUpdateData["estimate"] = {
+        id: estimate.id,
+        orgId: estimate.orgId,
+        projectId: estimate.projectId,
+        version: estimate.version,
+        status: estimate.status,
+        overheadPct: estimate.overheadPct,
+        profitPct: estimate.profitPct,
+        targetMarginPct: estimate.targetMarginPct,
+        subtotalCost: estimate.subtotalCost,
+        totalPrice: estimate.totalPrice,
+      };
+
       return successResult<EstimateUpdateData>({
         summary: `Added "${lineItem.description}" to estimate v${estimate.version}; new total is ${estimate.totalPrice}.`,
-        data: { lineItem, estimate },
+        data: { lineItem, estimate: estimateData },
         telemetry,
         events: [],
       });
