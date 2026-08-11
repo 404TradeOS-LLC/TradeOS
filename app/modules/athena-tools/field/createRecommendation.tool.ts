@@ -21,7 +21,7 @@ import { warning } from "../../athena-tool-sdk/warnings";
 
 export const jobRecommendationInputSchema = z.object({
   jobId: z.string().uuid(),
-  observation: z.string().min(1),
+  observation: z.string().min(1).max(2_000),
 });
 export type JobRecommendationInput = z.infer<typeof jobRecommendationInputSchema>;
 
