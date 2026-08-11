@@ -21,6 +21,8 @@ const membershipTechA = "71000000-0000-0000-0000-000000000032";
 const membershipOwnerB = "81000000-0000-0000-0000-000000000041";
 const workspaceA = "71000000-0000-0000-0000-000000000051";
 const workspaceB = "81000000-0000-0000-0000-000000000052";
+const materialA = "71000000-0000-0000-0000-000000000061";
+const materialB = "81000000-0000-0000-0000-000000000062";
 
 describe("live row-level security for the C001 costbook workspace foundation", () => {
   beforeAll(async () => {
@@ -50,6 +52,16 @@ describe("live row-level security for the C001 costbook workspace foundation", (
         data: { id: workspaceB, organizationId: orgB, setupState: { source: "integration-test" } },
       })
     );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.material.create({
+        data: { id: materialA, orgId: orgA, sku: "ORG-A-CONC", name: "Org A Concrete", unitOfMeasure: "CY", unitCost: 150 },
+      })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.material.create({
+        data: { id: materialB, orgId: orgB, sku: "ORG-B-CONC", name: "Org B Concrete", unitOfMeasure: "CY", unitCost: 175 },
+      })
+    );
   });
 
   afterAll(async () => {
@@ -67,6 +79,30 @@ describe("live row-level security for the C001 costbook workspace foundation", (
   it("hides another organization's Costbook workspace from an owner", async () => {
     const crossOrg = await inSession(ownerA, orgA, "owner", () => prisma.costbookWorkspace.findMany({ where: { id: workspaceB } }));
     expect(crossOrg).toHaveLength(0);
+  });
+
+  it("scopes materials by organization at the database layer", async () => {
+    const techRows = await inSession(technicianA, orgA, "technician", () => prisma.material.findMany({ orderBy: { name: "asc" } }));
+    const crossOrgRows = await inSession(ownerA, orgA, "owner", () => prisma.material.findMany({ where: { id: materialB } }));
+
+    expect(techRows.map((row) => row.id)).toEqual([materialA]);
+    expect(crossOrgRows).toEqual([]);
+  });
+
+  it("rejects technician writes to materials", async () => {
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.material.create({
+          data: { orgId: orgA, name: "Technician Attempt", unitOfMeasure: "EA", unitCost: 12 },
+        })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.material.update({ where: { id: materialA }, data: { name: "Technician Edit Attempt" } })
+      )
+    ).rejects.toBeTruthy();
   });
 
   it("rejects technician writes to Costbook workspace foundation tables", async () => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Boxes, CircleDollarSign, ClipboardList, Hammer, History, Package, ShieldCheck, Wrench } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,10 +16,11 @@ const countCards: {
   key: keyof CostbookWorkspaceSummary["counts"];
   label: string;
   icon: typeof Package;
+  href?: string;
 }[] = [
   { key: "categories", label: "Categories", icon: ClipboardList },
   { key: "costItems", label: "Cost Items", icon: Boxes },
-  { key: "materials", label: "Materials", icon: Package },
+  { key: "materials", label: "Materials", icon: Package, href: "/costbook/materials" },
   { key: "laborRates", label: "Labor Rates", icon: Hammer },
   { key: "equipment", label: "Equipment", icon: Wrench },
   { key: "assemblies", label: "Assemblies", icon: ShieldCheck },
@@ -123,8 +125,8 @@ export default async function CostbookPage() {
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Costbook catalog counts">
             {countCards.map((card) => {
               const Icon = card.icon;
-              return (
-                <Card key={card.key} className="border-border/70">
+              const content = (
+                <Card className="h-full border-border/70 transition-colors hover:border-border">
                   <CardHeader className="flex flex-row items-start justify-between gap-3">
                     <div>
                       <CardTitle>{card.label}</CardTitle>
@@ -136,6 +138,14 @@ export default async function CostbookPage() {
                     <div className="font-mono text-3xl font-semibold tabular-nums text-foreground">{workspace.counts[card.key]}</div>
                   </CardContent>
                 </Card>
+              );
+
+              return card.href ? (
+                <Link key={card.key} href={card.href} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                  {content}
+                </Link>
+              ) : (
+                <div key={card.key}>{content}</div>
               );
             })}
           </section>
