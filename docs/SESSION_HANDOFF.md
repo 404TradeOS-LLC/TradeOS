@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - docs/REPOSITORY_GOVERNANCE.md
@@ -22,24 +22,23 @@ related_code:
   on `main` as `378c12e86410f4e9150953dd9d677c1701a3812d`.
 - S006 — Lifecycle compatibility inventory is the lowest-numbered `READY`
   sprint. Draft PR #95 is its current implementation evidence.
-- Concurrent UI work is active in PR #94 and touches dashboard/shared frontend
-  surfaces plus `docs/SESSION_HANDOFF.md`, so later dashboard Costbook work
-  must reverify overlap before editing.
+- Live GitHub verification on 2026-08-11 found zero open PRs; the earlier
+  S027 overlap record that named PRs #94, #95, and #96 is now stale history,
+  not a current blocker for a bounded Costbook foundation slice.
 - S006 is inventory-only: behavior changes, schema/migrations, backend/module
   runtime code, dependencies, workflows, environment configuration, repository
   settings, and `packages/**` are outside scope.
 - S027 — Intelligent Costbook production readiness now has a full readiness
-  contract in `docs/SPRINT_BACKLOG.md`, but it remains `BLOCKED` by active PR
-  overlap rather than executable.
+  contract in `docs/SPRINT_BACKLOG.md`, but it remains non-executable as a
+  broad product sprint. The next directly commissioned Costbook slice is the
+  bounded C004 equipment-catalog foundation on its own branch from `main`.
 
 ## Verification
 
 - S001 dependency: passed; `DONE` with merged evidence
-- current base for S027 readiness review: `378c12e86410f4e9150953dd9d677c1701a3812d`
-- live open-PR check: PR #94 overlaps dashboard/frontend and this handoff; PR
-  #96 overlaps Knowledge Runtime packaging; PR #95 owns S006 implementation
-  evidence; PR #89 is dependency-only and non-overlapping unless package work is
-  requested
+- current base for the next Costbook slice: `3a856c3121cd5db5a0ec69558b9ea12c3e4f0e6f`
+- live open-PR check on 2026-08-11: zero open PRs on `main`; prior overlap
+  references to PRs #94, #95, and #96 remain historical evidence only
 - Costbook source review: existing module docs identify live Costbook,
   labor/material/equipment, assemblies, supplier queue, Knowledge Runtime, and
   AI Estimate Assist seams to extend rather than rebuild
@@ -47,8 +46,8 @@ related_code:
   must reverify Docker, `psql`, local database access, and supplier-feed
   credentials before claiming integration coverage
 - founder decision required for S027: NO
-- readiness branch owns governance/continuity only; no product behavior,
-  schema, package, dependency, UI, or runtime change
+- this governance update records the cleared PR-overlap fact and the next
+  bounded Costbook slice only; it does not promote S027 to `READY`
 
 ## Out-of-band UI sprint (2026-08-09, branch `ui/modernize-shell-dashboard-customers`)
 
@@ -87,7 +86,7 @@ readiness (PR #93, untouched by this work).
 ## Next Eligible Sprint
 
 Sprint ID: S006
-Eligibility: READY on `main`; draft PR #95 is the current implementation evidence, and S027 remains BLOCKED by active overlap.
+Eligibility: READY on `main`; draft PR #95 is the current implementation evidence, and S027 remains a non-executable broad sprint.
 Dependencies: S001 is DONE.
-Overlap check: PR #95 owns S006 implementation evidence; PR #94 overlaps UI/dashboard docs; PR #96 overlaps Knowledge Runtime packaging; S006 remains the lowest-numbered READY sprint.
-Startup prompt: Continue or reconcile S006 lifecycle compatibility inventory from current main and PR #95 before promoting S027 to READY; do not begin Intelligent Costbook implementation until its active dashboard/UI and Knowledge Runtime overlap clears.
+Overlap check: live GitHub state on 2026-08-11 shows zero open PRs, so there is no active PR-overlap blocker to restate here. S006 remains the lowest-numbered READY sprint in backlog governance.
+Startup prompt: Continue or reconcile S006 lifecycle compatibility inventory when working from sprint order. For the separately commissioned Costbook sequence, extend the existing Costbook workspace/material/labor seams from current `main` with the next bounded slice only.

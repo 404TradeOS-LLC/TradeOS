@@ -25,6 +25,8 @@ const materialA = "71000000-0000-0000-0000-000000000061";
 const materialB = "81000000-0000-0000-0000-000000000062";
 const laborRateA = "71000000-0000-0000-0000-000000000071";
 const laborRateB = "81000000-0000-0000-0000-000000000072";
+const equipmentA = "71000000-0000-0000-0000-000000000081";
+const equipmentB = "81000000-0000-0000-0000-000000000082";
 
 describe("live row-level security for the C001 costbook workspace foundation", () => {
   beforeAll(async () => {
@@ -96,6 +98,30 @@ describe("live row-level security for the C001 costbook workspace foundation", (
         },
       })
     );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.equipment.create({
+        data: {
+          id: equipmentA,
+          orgId: orgA,
+          name: "Org A Lift",
+          ownershipCostPerHour: 28.5,
+          operatingCostPerHour: 11.25,
+          dailyRate: 325,
+        },
+      })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.equipment.create({
+        data: {
+          id: equipmentB,
+          orgId: orgB,
+          name: "Org B Loader",
+          ownershipCostPerHour: 35,
+          operatingCostPerHour: 18,
+          dailyRate: 420,
+        },
+      })
+    );
   });
 
   afterAll(async () => {
@@ -128,6 +154,14 @@ describe("live row-level security for the C001 costbook workspace foundation", (
     const crossOrgRows = await inSession(ownerA, orgA, "owner", () => prisma.laborRate.findMany({ where: { id: laborRateB } }));
 
     expect(techRows.map((row) => row.id)).toEqual([laborRateA]);
+    expect(crossOrgRows).toEqual([]);
+  });
+
+  it("scopes equipment by organization at the database layer", async () => {
+    const techRows = await inSession(technicianA, orgA, "technician", () => prisma.equipment.findMany({ orderBy: { name: "asc" } }));
+    const crossOrgRows = await inSession(ownerA, orgA, "owner", () => prisma.equipment.findMany({ where: { id: equipmentB } }));
+
+    expect(techRows.map((row) => row.id)).toEqual([equipmentA]);
     expect(crossOrgRows).toEqual([]);
   });
 
@@ -168,6 +202,27 @@ describe("live row-level security for the C001 costbook workspace foundation", (
     await expect(
       inSession(technicianA, orgA, "technician", () =>
         prisma.laborRate.update({ where: { id: laborRateA }, data: { billRate: 90 } })
+      )
+    ).rejects.toBeTruthy();
+  });
+
+  it("rejects technician writes to equipment", async () => {
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.equipment.create({
+          data: {
+            orgId: orgA,
+            name: "Technician Lift",
+            ownershipCostPerHour: 10,
+            operatingCostPerHour: 5,
+          },
+        })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.equipment.update({ where: { id: equipmentA }, data: { dailyRate: 300 } })
       )
     ).rejects.toBeTruthy();
   });

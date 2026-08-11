@@ -22,7 +22,7 @@ const countCards: {
   { key: "costItems", label: "Cost Items", icon: Boxes },
   { key: "materials", label: "Materials", icon: Package, href: "/costbook/materials" },
   { key: "laborRates", label: "Labor Rates", icon: Hammer, href: "/costbook/labor-rates" },
-  { key: "equipment", label: "Equipment", icon: Wrench },
+  { key: "equipment", label: "Equipment", icon: Wrench, href: "/costbook/equipment" },
   { key: "assemblies", label: "Assemblies", icon: ShieldCheck },
 ];
 

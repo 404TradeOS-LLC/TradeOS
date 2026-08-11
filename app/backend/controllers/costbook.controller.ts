@@ -48,6 +48,29 @@ const laborRateUpdateSchema = laborRateSchema.partial().refine((value) => Object
   message: "At least one labor-rate field is required",
 });
 
+const equipmentMoneySchema = z.preprocess(
+  rejectBlankNumericInput,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  })
+);
+
+const equipmentSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  ownershipCostPerHour: equipmentMoneySchema,
+  operatingCostPerHour: equipmentMoneySchema,
+  dailyRate: z.preprocess(
+    rejectBlankNumericInput,
+    z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+      message: "Number must fit the database precision",
+    }).nullable().optional()
+  ),
+}).strict();
+
+const equipmentUpdateSchema = equipmentSchema.partial().refine((value) => Object.keys(value).length > 0, {
+  message: "At least one equipment field is required",
+});
+
 export const costbookController = {
   async workspace(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
@@ -65,6 +88,30 @@ export const costbookController = {
   async createMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     res.status(201).json(await service.createMaterial(auth, materialSchema.parse(req.body)));
+  },
+  async listEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await service.listEquipment(auth));
+  },
+  async getEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getEquipment(auth, id));
+  },
+  async createEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createEquipment(auth, equipmentSchema.parse(req.body)));
+  },
+  async updateEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateEquipment(auth, id, equipmentUpdateSchema.parse(req.body)));
+  },
+  async removeEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.removeEquipment(auth, id);
+    res.status(204).send();
   },
   async listLaborRates(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);

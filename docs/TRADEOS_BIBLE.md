@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -40,11 +40,13 @@ values as evidence, but implementation is forbidden from changing UI runtime
 paths or any product behavior until the compatibility inventory is approved.
 
 S027 — Intelligent Costbook production readiness now has a founder-requested
-readiness contract recorded in the Sprint Backlog, but it is not executable
-while active PR overlap exists. Its implementation must extend the existing
-Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine
-seams; it must not create mock production data, a parallel AI estimator, or
-autonomous AI write paths.
+readiness contract recorded in the Sprint Backlog, but it remains a broad,
+non-executable sprint. Live GitHub verification on 2026-08-11 found zero open
+PRs, so the earlier overlap blocker is stale history; separately commissioned
+bounded Costbook slices may proceed from current `main` when they extend the
+existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and
+Estimate Engine seams without creating mock production data, a parallel AI
+estimator, or autonomous AI write paths.
 
 ## Volume I — Vision
 

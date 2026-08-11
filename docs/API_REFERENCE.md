@@ -116,6 +116,11 @@ Costbook workspace routes under `/api/v1/costbook`:
 - `GET /api/v1/costbook/materials/:id` — requires `costbook.read`; returns one material in the authenticated organization or 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/materials` — requires `costbook.write`; creates one material for the authenticated organization. Accepted strict body fields: `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`.
 - `PATCH /api/v1/costbook/materials/:id` — requires `costbook.write`; updates the same strict field set and records a material price-audit row when `unitCost` changes.
+- `GET /api/v1/costbook/equipment` — requires `costbook.read`; returns organization-scoped equipment DTOs sorted by name.
+- `GET /api/v1/costbook/equipment/:id` — requires `costbook.read`; returns one equipment row in the authenticated organization or 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/equipment` — requires `costbook.write`; creates one equipment row for the authenticated organization. Accepted strict body fields: `name`, `ownershipCostPerHour`, `operatingCostPerHour`, and optional `dailyRate`.
+- `PATCH /api/v1/costbook/equipment/:id` — requires `costbook.write`; updates the same strict field set.
+- `DELETE /api/v1/costbook/equipment/:id` — requires `costbook.manage`; hard-deletes one equipment row because the current schema has no `active` or archive flag.
 - `GET /api/v1/costbook/labor-rates` — requires `costbook.read`; returns organization-scoped labor-rate DTOs sorted with active rows first.
 - `GET /api/v1/costbook/labor-rates/:id` — requires `costbook.read`; returns one labor rate in the authenticated organization or 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
@@ -142,6 +147,24 @@ Costbook material DTO:
 ```
 
 C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+
+Costbook equipment DTO:
+
+```json
+{
+  "id": "uuid",
+  "organizationId": "uuid",
+  "name": "Scissor Lift",
+  "ownershipCostPerHour": 28.5,
+  "operatingCostPerHour": 11.25,
+  "dailyRate": 325,
+  "hourlyCost": 39.75,
+  "createdAt": "2026-08-11T00:00:00.000Z",
+  "updatedAt": "2026-08-11T00:00:00.000Z"
+}
+```
+
+C004 reuses the existing `equipment` table and its forced-RLS tenant policy; migration `20260811150000_restrict_costbook_equipment_writes` tightens equipment writes to the owner/admin Costbook boundary so the database matches the `costbook.write`/`costbook.manage` controller contract. Required numeric inputs reject null, blank, negative, and out-of-precision values before writes reach the database. Because the current schema has no `active` or archive flag, delete stays a hard delete in this foundational slice. C004 does not add equipment-rate analytics, assemblies changes, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
 
 Costbook labor-rate DTO:
 
@@ -173,6 +196,11 @@ compatibility. Its read-style operations require `costbook.read`; create/update
 operations require `costbook.write`; delete requires `costbook.manage`; and
 its writes stay inside the same forced-RLS Costbook manage boundary as the new
 Costbook labor-rate routes.
+
+The legacy `/api/v1/equipment/*` route group remains mounted for compatibility
+and now shares the same Costbook permission boundary: read/list/calculate
+operations require `costbook.read`; create and update require `costbook.write`;
+delete requires `costbook.manage`.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 

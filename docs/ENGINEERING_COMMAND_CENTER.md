@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -65,8 +65,10 @@ through PR #92 is merged on `main` as
 `477fb2e919d4001772628c6a91fcded07555ba74`. S006 — Lifecycle compatibility
 inventory is now `READY` after governance-only PR #93 merged. S027 —
 Intelligent Costbook production readiness has a founder-requested readiness
-contract, but remains `BLOCKED` until active dashboard/UI and Knowledge Runtime
-overlap clears.
+contract, but remains a broad non-executable sprint. Live GitHub verification
+on 2026-08-11 found zero open PRs, clearing the earlier stale overlap claim;
+the next directly commissioned Costbook slice is the bounded C004 equipment
+catalog foundation on its own branch from current `main`.
 
 Completed foundation work includes:
 
@@ -92,23 +94,16 @@ If no sprint is eligible, stop and report the blocker instead of inventing work.
 
 ## Active PR coordination
 
-Live GitHub state verified on 2026-08-09 while preparing S027 readiness:
+Live GitHub state verified on 2026-08-11:
 
-- PR #96 (`fix/vercel-include-knowledge-engine`) modifies
-  `app/modules/knowledge-runtime/loader.ts` and `app/vercel.json`, so S027
-  cannot safely claim Knowledge Runtime production packaging until that PR
-  lands or closes;
-- draft PR #95 (`docs/s006-lifecycle-compatibility-inventory`) owns S006
-  implementation evidence and does not authorize later lifecycle behavior
-  changes;
-- PR #94 (`ui/modernize-shell-dashboard-customers`) modifies dashboard,
-  shared frontend, `docs/CURRENT_STATE.md`, and `docs/SESSION_HANDOFF.md`, so
-  S027 cannot safely claim dashboard Costbook-card work until that overlap
-  lands or closes;
-- PR #89 is a Dependabot lockfile/package update and does not overlap S027
-  runtime scope unless dependency changes are requested; and
-- S027 readiness therefore records full scope and validation, but remains
-  `BLOCKED` instead of `READY`.
+- zero open PRs on `main`, so the older S027 overlap references to PRs #94,
+  #95, and #96 are stale historical evidence rather than current blockers;
+- S006 still remains the lowest-numbered `READY` sprint in the governed queue;
+- the founder-requested Costbook sequence may continue through separately
+  commissioned bounded slices such as C004 Equipment Catalog Foundation, so
+  long as they extend existing seams and do not pretend to promote S027; and
+- historical overlap evidence remains preserved in the sprint backlog and
+  session handoff rather than erased.
 
 Historical coordination evidence remains in the sprint backlog and repository
 governance records; always verify GitHub before editing. This summary is not a
@@ -127,10 +122,10 @@ substitute for live PR state.
 - S006 is an inventory sprint, not permission to normalize behavior yet. Any
   discovered drift must be recorded and handed to S007-S012 rather than fixed
   in place.
-- S027 is blocked by active PR overlap. When the overlap clears, its
-  implementation must extend existing Costbook, supplier, Knowledge Runtime,
-  AI Estimate Assist, and Estimate Engine seams without mock production data or
-  autonomous AI writes.
+- S027 is not the current executable sprint. Any future implementation must
+  extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist,
+  and Estimate Engine seams without mock production data or autonomous AI
+  writes.
 
 ## Required verification
 
@@ -168,13 +163,12 @@ not restate those flows.
 Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
 [SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
 [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-S006 is the next `READY` sprint, and draft PR #95 is its current implementation
-evidence. Do not begin S027 implementation while S006 remains the lowest
-eligible sprint and while S027's active dashboard/UI and Knowledge Runtime
-overlap remains unresolved.
-S027 may be promoted to `READY` only after the named dashboard/UI and Knowledge
-Runtime overlap clears and a governance-only update confirms the exact current
-base, open PRs, worktrees, and required validation.
+S006 is the next `READY` sprint in governed backlog order. For the separately
+commissioned Costbook sequence, start from current `main`, verify live PR and
+worktree state, and extend only the next bounded Costbook slice already named
+in the handoff/backlog. S027 may be promoted to `READY` only after a
+governance-only update confirms the exact current base, open PRs, worktrees,
+and required validation.
 
 ## Source-of-truth links
 

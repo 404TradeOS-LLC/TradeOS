@@ -30,6 +30,11 @@ const mockPrisma = {
   },
   equipment: {
     count: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
   assembly: {
     count: jest.fn(),
@@ -62,6 +67,11 @@ describe("CostbookService", () => {
     mockPrisma.material.update.mockResolvedValue(materialRow());
     mockPrisma.supplier.findFirst.mockResolvedValue({ id: "supplier-1" });
     mockPrisma.equipment.count.mockResolvedValue(1);
+    mockPrisma.equipment.findMany.mockResolvedValue([]);
+    mockPrisma.equipment.findFirst.mockResolvedValue(null);
+    mockPrisma.equipment.create.mockResolvedValue(equipmentRow());
+    mockPrisma.equipment.update.mockResolvedValue(equipmentRow());
+    mockPrisma.equipment.delete.mockResolvedValue(equipmentRow());
     mockPrisma.assembly.count.mockResolvedValue(4);
     mockPrisma.materialPriceAudit.create.mockResolvedValue({});
   });
@@ -163,6 +173,34 @@ describe("CostbookService", () => {
     ]);
   });
 
+  it("lists equipment through the authenticated organization scope", async () => {
+    mockPrisma.equipment.findMany.mockResolvedValue([
+      equipmentRow({ id: "equipment-1", orgId: "org-tenant-a", name: "Scissor Lift", ownershipCostPerHour: 28.5, operatingCostPerHour: 11.25, dailyRate: 325 }),
+    ]);
+
+    const rows = await new CostbookService().listEquipment({
+      userId: "user-1",
+      orgId: "org-tenant-a",
+      role: "technician",
+    });
+
+    expect(mockPrisma.equipment.findMany).toHaveBeenCalledWith({
+      where: { orgId: "org-tenant-a" },
+      orderBy: [{ name: "asc" }, { createdAt: "asc" }],
+    });
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: "equipment-1",
+        organizationId: "org-tenant-a",
+        name: "Scissor Lift",
+        ownershipCostPerHour: 28.5,
+        operatingCostPerHour: 11.25,
+        dailyRate: 325,
+        hourlyCost: 39.75,
+      }),
+    ]);
+  });
+
   it("creates a labor rate only inside the authenticated organization", async () => {
     await new CostbookService().createLaborRate(
       { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
@@ -181,6 +219,67 @@ describe("CostbookService", () => {
         baseHourlyRate: 42.5,
         burdenPct: 0,
       }),
+    });
+  });
+
+  it("creates equipment only inside the authenticated organization", async () => {
+    await new CostbookService().createEquipment(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      { name: "Scissor Lift", ownershipCostPerHour: 28.5, operatingCostPerHour: 11.25, dailyRate: 325 }
+    );
+
+    expect(mockPrisma.equipment.create).toHaveBeenCalledWith({
+      data: {
+        orgId: "org-tenant-a",
+        name: "Scissor Lift",
+        ownershipCostPerHour: 28.5,
+        operatingCostPerHour: 11.25,
+        dailyRate: 325,
+      },
+    });
+  });
+
+  it("updates equipment by id and org", async () => {
+    mockPrisma.equipment.findFirst.mockResolvedValue(equipmentRow({ id: "equipment-1", orgId: "org-tenant-a" }));
+    mockPrisma.equipment.update.mockResolvedValue(equipmentRow({ id: "equipment-1", orgId: "org-tenant-a", dailyRate: 350 }));
+
+    await new CostbookService().updateEquipment(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "equipment-1",
+      { dailyRate: 350 }
+    );
+
+    expect(mockPrisma.equipment.findFirst).toHaveBeenCalledWith({ where: { id: "equipment-1", orgId: "org-tenant-a" } });
+    expect(mockPrisma.equipment.update).toHaveBeenCalledWith({
+      where: { id: "equipment-1" },
+      data: expect.objectContaining({ dailyRate: 350 }),
+    });
+  });
+
+  it("returns not found instead of updating cross-organization equipment", async () => {
+    mockPrisma.equipment.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().updateEquipment(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "equipment-from-org-b",
+        { name: "Cross Org Lift" }
+      )
+    ).rejects.toThrow("Equipment equipment-from-org-b not found");
+
+    expect(mockPrisma.equipment.update).not.toHaveBeenCalled();
+  });
+
+  it("deletes equipment only inside the authenticated organization", async () => {
+    mockPrisma.equipment.findFirst.mockResolvedValue(equipmentRow({ id: "equipment-1", orgId: "org-tenant-a" }));
+
+    await new CostbookService().removeEquipment(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "equipment-1"
+    );
+
+    expect(mockPrisma.equipment.delete).toHaveBeenCalledWith({
+      where: { id: "equipment-1" },
     });
   });
 
@@ -340,6 +439,20 @@ function laborRateRow(overrides: Record<string, unknown> = {}) {
     trade: "Lead Carpenter",
     baseHourlyRate: 42.5,
     burdenPct: 0,
+    createdAt: new Date("2026-08-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function equipmentRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "equipment-1",
+    orgId: "org-tenant-a",
+    name: "Scissor Lift",
+    ownershipCostPerHour: 28.5,
+    operatingCostPerHour: 11.25,
+    dailyRate: 325,
     createdAt: new Date("2026-08-10T00:00:00.000Z"),
     updatedAt: new Date("2026-08-11T00:00:00.000Z"),
     ...overrides,

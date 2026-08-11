@@ -1,5 +1,10 @@
 const mockService = {
   getWorkspace: jest.fn(),
+  listEquipment: jest.fn(),
+  getEquipment: jest.fn(),
+  createEquipment: jest.fn(),
+  updateEquipment: jest.fn(),
+  removeEquipment: jest.fn(),
   listLaborRates: jest.fn(),
   getLaborRate: jest.fn(),
   createLaborRate: jest.fn(),
@@ -43,6 +48,11 @@ describe("costbookController materials endpoints", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockService.listEquipment.mockResolvedValue([]);
+    mockService.getEquipment.mockResolvedValue({ id: materialId });
+    mockService.createEquipment.mockResolvedValue({ id: materialId });
+    mockService.updateEquipment.mockResolvedValue({ id: materialId });
+    mockService.removeEquipment.mockResolvedValue(undefined);
     mockService.listLaborRates.mockResolvedValue([]);
     mockService.getLaborRate.mockResolvedValue({ id: materialId });
     mockService.createLaborRate.mockResolvedValue({ id: materialId });
@@ -201,6 +211,101 @@ describe("costbookController materials endpoints", () => {
       { unitCost: 165 }
     );
     expect(res.json).toHaveBeenCalledWith({ id: materialId });
+  });
+
+  it("allows read-only Costbook roles to list equipment", async () => {
+    const res = response();
+
+    await costbookController.listEquipment(authedRequest({ role: "technician" }), res as never);
+
+    expect(mockService.listEquipment).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
+    expect(res.json).toHaveBeenCalledWith([]);
+  });
+
+  it("denies equipment writes to read-only Costbook roles", async () => {
+    await expect(
+      costbookController.createEquipment(
+        authedRequest({
+          role: "dispatcher",
+          body: { name: "Scissor Lift", ownershipCostPerHour: 28.5, operatingCostPerHour: 11.25 },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.createEquipment).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "", "   "])("rejects blank ownershipCostPerHour values instead of coercing %j", async (ownershipCostPerHour) => {
+    await expect(
+      costbookController.createEquipment(
+        authedRequest({
+          body: {
+            name: "Scissor Lift",
+            ownershipCostPerHour,
+            operatingCostPerHour: 11.25,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createEquipment).not.toHaveBeenCalled();
+  });
+
+  it("rejects equipment values with more than two decimal places", async () => {
+    await expect(
+      costbookController.createEquipment(
+        authedRequest({
+          body: {
+            name: "Scissor Lift",
+            ownershipCostPerHour: 28.555,
+            operatingCostPerHour: 11.25,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createEquipment).not.toHaveBeenCalled();
+  });
+
+  it("passes validated equipment create input to the service", async () => {
+    const res = response();
+
+    await costbookController.createEquipment(
+      authedRequest({
+        body: {
+          name: " Scissor Lift ",
+          ownershipCostPerHour: "28.50",
+          operatingCostPerHour: "11.25",
+          dailyRate: "325.00",
+        },
+      }),
+      res as never
+    );
+
+    expect(mockService.createEquipment).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      {
+        name: "Scissor Lift",
+        ownershipCostPerHour: 28.5,
+        operatingCostPerHour: 11.25,
+        dailyRate: 325,
+      }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("requires Costbook manage permission to delete equipment", async () => {
+    await expect(
+      costbookController.removeEquipment(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.removeEquipment).not.toHaveBeenCalled();
   });
 
   it("allows read-only Costbook roles to list labor rates", async () => {

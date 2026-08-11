@@ -11,6 +11,7 @@ related_code:
   - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
   - app/prisma/migrations/20260811130000_restrict_costbook_material_writes/migration.sql
   - app/prisma/migrations/20260811140000_add_costbook_labor_rates_foundation/migration.sql
+  - app/prisma/migrations/20260811150000_restrict_costbook_equipment_writes/migration.sql
   - web/src/app/(app)/costbook
   - web/src/components/costbook
 ---
@@ -59,7 +60,7 @@ The route layer then applies the Costbook-specific permission boundary:
 
 - `costbook.read` for list/detail reads
 - `costbook.write` for create/update
-- `costbook.manage` for destructive or administrative changes such as labor-rate deactivation
+- `costbook.manage` for destructive or administrative changes such as labor-rate deactivation and equipment deletion
 
 The database layer reinforces this boundary for Costbook-owned writes through
 `public.current_app_can_manage_costbook()`.
@@ -72,6 +73,7 @@ The current authenticated Costbook workspace under `/api/v1/costbook/*` and
 - workspace summary and permission surface
 - materials catalog foundation
 - labor-rates foundation
+- equipment catalog foundation
 
 Implemented labor-rate fields:
 
@@ -85,19 +87,20 @@ Implemented labor-rate fields:
 - `createdAt`
 - `updatedAt`
 
-Labor rates are organization-scoped and remain foundational only. No labor
-burden calculations, labor rollups, pricing-engine logic, estimate
-integration, equipment-rate workflows, assembly-builder behavior, supplier
-automation, or Athena recommendations are part of this slice.
+Labor rates and equipment records are organization-scoped and remain
+foundational only. No labor burden calculations, labor rollups, pricing-engine
+logic, estimate integration, advanced equipment workflows, assembly-builder
+behavior, supplier automation, or Athena recommendations are part of this
+slice.
 
 ## Legacy compatibility
 
-The repository still contains the older `app/modules/labor-database/*` module
-and `/api/v1/labor-rates/*` route group. C003 does not remove that surface.
-Instead, the shared `labor_rates` table now carries both the newer Costbook
-foundation fields and the older compatibility fields so current code paths can
-coexist while the authenticated Costbook workspace becomes the authoritative
-UI/API surface for labor-rate management.
+The repository still contains the older `app/modules/labor-database/*` and
+`app/modules/equipment-database/*` modules plus `/api/v1/labor-rates/*` and
+`/api/v1/equipment/*` route groups. C003/C004 do not remove those surfaces.
+Instead, the shared `labor_rates` and `equipment` tables continue to serve the
+legacy compatibility paths while the authenticated Costbook workspace becomes
+the authoritative UI/API surface for labor-rate and equipment management.
 
 ## Web surface
 
@@ -106,6 +109,7 @@ The current authenticated Costbook web surface is:
 - `/costbook`
 - `/costbook/materials`
 - `/costbook/labor-rates`
+- `/costbook/equipment`
 
 Each route follows the existing page-shell pattern: thin route files, server
 loading of authenticated backend data, reusable Costbook components, and

@@ -206,6 +206,29 @@ export function listCostbookMaterials(token: string) {
   return apiFetch<CostbookMaterial[]>("/api/v1/costbook/materials", { token });
 }
 
+export interface CostbookEquipment {
+  id: string;
+  organizationId: string;
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate: number | null;
+  hourlyCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookEquipmentInput {
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate?: number | null;
+}
+
+export function listCostbookEquipment(token: string) {
+  return apiFetch<CostbookEquipment[]>("/api/v1/costbook/equipment", { token });
+}
+
 export interface CostbookLaborRate {
   id: string;
   organizationId: string;

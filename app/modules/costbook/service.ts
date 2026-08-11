@@ -3,6 +3,10 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostbookRepository } from "./repository";
 import { getCostbookPermissionSummary } from "./permissions";
 import type {
+  CostbookEquipmentDTO,
+  CostbookEquipmentInput,
+  CostbookEquipmentRecord,
+  CostbookEquipmentUpdateInput,
   CostbookLaborRateDTO,
   CostbookLaborRateInput,
   CostbookLaborRateRecord,
@@ -83,6 +87,32 @@ export class CostbookService {
     return rows.map(toLaborRateDTO);
   }
 
+  async listEquipment(auth: AuthContext): Promise<CostbookEquipmentDTO[]> {
+    const rows = await this.repository.listEquipment(auth.orgId);
+    return rows.map(toEquipmentDTO);
+  }
+
+  async getEquipment(auth: AuthContext, id: string): Promise<CostbookEquipmentDTO> {
+    const row = await this.repository.getEquipmentById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Equipment ${id} not found`);
+    return toEquipmentDTO(row);
+  }
+
+  async createEquipment(auth: AuthContext, input: CostbookEquipmentInput): Promise<CostbookEquipmentDTO> {
+    return toEquipmentDTO(await this.repository.createEquipment(auth.orgId, input));
+  }
+
+  async updateEquipment(auth: AuthContext, id: string, input: CostbookEquipmentUpdateInput): Promise<CostbookEquipmentDTO> {
+    const row = await this.repository.updateEquipment(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Equipment ${id} not found`);
+    return toEquipmentDTO(row);
+  }
+
+  async removeEquipment(auth: AuthContext, id: string): Promise<void> {
+    const removed = await this.repository.deleteEquipment(auth.orgId, id);
+    if (!removed) throw new ApiError(404, `Equipment ${id} not found`);
+  }
+
   async getLaborRate(auth: AuthContext, id: string): Promise<CostbookLaborRateDTO> {
     const row = await this.repository.getLaborRateById(auth.orgId, id);
     if (!row) throw new ApiError(404, `Labor rate ${id} not found`);
@@ -152,6 +182,20 @@ function toLaborRateDTO(row: CostbookLaborRateRecord): CostbookLaborRateDTO {
     hourlyCost: row.hourlyCost,
     billRate: row.billRate,
     active: row.active,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toEquipmentDTO(row: CostbookEquipmentRecord): CostbookEquipmentDTO {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    ownershipCostPerHour: row.ownershipCostPerHour,
+    operatingCostPerHour: row.operatingCostPerHour,
+    dailyRate: row.dailyRate,
+    hourlyCost: row.hourlyCost,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

@@ -5,6 +5,11 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.get("/equipment", asyncHandler(ctrl.listEquipment));
+costbookRouter.get("/equipment/:id", asyncHandler(ctrl.getEquipment));
+costbookRouter.post("/equipment", asyncHandler(ctrl.createEquipment));
+costbookRouter.patch("/equipment/:id", asyncHandler(ctrl.updateEquipment));
+costbookRouter.delete("/equipment/:id", asyncHandler(ctrl.removeEquipment));
 costbookRouter.get("/labor-rates", asyncHandler(ctrl.listLaborRates));
 costbookRouter.get("/labor-rates/:id", asyncHandler(ctrl.getLaborRate));
 costbookRouter.post("/labor-rates", asyncHandler(ctrl.createLaborRate));

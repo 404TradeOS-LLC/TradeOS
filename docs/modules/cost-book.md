@@ -29,9 +29,9 @@ related_code:
 
 ## Purpose
 
-Provide the tenant-scoped estimating catalog: divisions, categories, subcategories, cost items, labor rates, materials, equipment rates, and assemblies.
+Provide the tenant-scoped estimating catalog: divisions, categories, subcategories, cost items, labor rates, materials, equipment records, and assemblies.
 
-C001 adds the Costbook workspace foundation around those existing catalog primitives. C002 adds the first unified Costbook catalog management surface for organization-scoped materials. C003 adds the foundational organization-scoped labor-rates surface. It does not add labor-engine rules, equipment workflows, assembly-builder behavior, pricing calculations, estimate integration, price history, supplier sync automation, Athena recommendations, or autonomous writes.
+C001 adds the Costbook workspace foundation around those existing catalog primitives. C002 adds the first unified Costbook catalog management surface for organization-scoped materials. C003 adds the foundational organization-scoped labor-rates surface. C004 adds the foundational organization-scoped equipment catalog surface. These slices do not add labor-engine rules, advanced equipment workflows, assembly-builder behavior, pricing calculations, estimate integration, price history, supplier sync automation, Athena recommendations, or autonomous writes.
 
 ## Source code locations
 
@@ -66,6 +66,8 @@ C001 adds the Costbook workspace foundation around those existing catalog primit
 - `/api/v1/costbook/workspace`
 - `/api/v1/costbook/materials`
 - `/api/v1/costbook/materials/:id`
+- `/api/v1/costbook/equipment`
+- `/api/v1/costbook/equipment/:id`
 - `/api/v1/costbook/labor-rates`
 - `/api/v1/costbook/labor-rates/:id`
 
@@ -90,9 +92,19 @@ C003 labor-rate routes under the unified Costbook boundary:
 
 The C003 DTO includes `id`, `organizationId`, `role`, `description`, `hourlyCost`, `billRate`, `active`, `createdAt`, and `updatedAt`. Request bodies are strict; caller-supplied organization IDs, blank roles, blank/null numeric values, negative numeric values, and values outside the database precision are rejected before writes reach the database.
 
+C004 equipment routes under the unified Costbook boundary:
+
+- `GET /api/v1/costbook/equipment` requires `costbook.read` and lists equipment DTOs for the authenticated organization only
+- `GET /api/v1/costbook/equipment/:id` requires `costbook.read` and returns 404 for missing or cross-organization equipment IDs
+- `POST /api/v1/costbook/equipment` requires `costbook.write`; accepted strict body fields are `name`, `ownershipCostPerHour`, `operatingCostPerHour`, and optional `dailyRate`
+- `PATCH /api/v1/costbook/equipment/:id` requires `costbook.write`; accepted fields are the same subset
+- `DELETE /api/v1/costbook/equipment/:id` requires `costbook.manage`; because the current equipment schema has no `active` or archive flag, C004 keeps delete behavior as a hard delete rather than a soft deactivate
+
+The C004 DTO includes `id`, `organizationId`, `name`, `ownershipCostPerHour`, `operatingCostPerHour`, `dailyRate`, `hourlyCost`, `createdAt`, and `updatedAt`. Request bodies are strict; caller-supplied organization IDs, blank names, blank/null required numeric values, negative numeric values, and values outside the database precision are rejected before writes reach the database.
+
 C002 reuses the existing `materials` table rather than adding a duplicate material table. Migration `20260811130000_restrict_costbook_material_writes` keeps material reads organization-scoped and tightens material/material-price-audit writes to the existing owner/admin Costbook boundary.
 
-The legacy `/api/v1/materials/*` and `/api/v1/labor-rates/*` route groups remain mounted for compatibility and share the same Costbook permission boundary: read-style operations require `costbook.read`; labor and material create/update operations require `costbook.write`; and labor-rate deletes require `costbook.manage`.
+The legacy `/api/v1/materials/*`, `/api/v1/labor-rates/*`, and `/api/v1/equipment/*` route groups remain mounted for compatibility and share the same Costbook permission boundary: read-style operations require `costbook.read`; equipment, labor, and material create/update operations require `costbook.write`; labor-rate deletes and equipment deletes require `costbook.manage`.
 
 Supplier price update approve/reject routes that review material price proposals require `costbook.write`, matching the material and material-price-audit forced-RLS write boundary.
 
@@ -125,6 +137,7 @@ Current C001 behavior:
 - materials participate in supplier review queue history through related audit records
 - labor rates participate in the authenticated Costbook workspace through an `active` flag; the current delete behavior is soft deactivate, not hard delete
 - material archive/deactivate is not exposed in C002 because the existing `Material` schema has no active/archive column
+- equipment archive/deactivate is not exposed in C004 because the existing `Equipment` schema has no active/archive column
 - Costbook workspace foundation state uses `foundation`, `active`, and `archived`; current UI and API use `foundation` unless a future workflow initializes workspace state
 
 ## Frontend surfaces
@@ -133,6 +146,7 @@ Current C001 behavior:
 - `/costbook` shows the workspace foundation, permission boundary, org-scoped catalog counts, and empty/error states
 - `/costbook/materials` lists real material API data, shows route loading and load-error states, handles empty catalogs, and exposes create/edit controls only when the authenticated Costbook permission summary includes write access
 - `/costbook/labor-rates` lists real labor-rate API data, shows route loading and load-error states, handles empty catalogs, and exposes create/edit controls only when the authenticated Costbook permission summary includes write access
+- `/costbook/equipment` lists real equipment API data, shows route loading and load-error states, handles empty catalogs, and exposes create/edit controls only when the authenticated Costbook permission summary includes write access
 
 ## Tests
 
@@ -142,6 +156,7 @@ Current C001 behavior:
 - `app/tests/costbook.migration.test.ts`
 - `app/tests/costbook-materials.migration.test.ts`
 - `app/tests/costbook-labor-rates.migration.test.ts`
+- `app/tests/costbook-equipment.migration.test.ts`
 - `app/tests/costbook.rls.integration.ts`
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
@@ -150,7 +165,8 @@ Current C001 behavior:
 ## Implementation notes
 
 - C003 extends the existing `labor_rates` table in place with foundational `role`, `description`, `hourlyCost`, `billRate`, and `active` fields rather than creating a second labor catalog table.
-- The authenticated Costbook workspace (`app/modules/costbook/*`) is the current first-party UI/API surface for workspace summary, materials catalog, and labor-rates foundation.
+- C004 reuses the existing `equipment` table and aligns its write policy with the Costbook owner/admin boundary rather than creating a duplicate equipment catalog table.
+- The authenticated Costbook workspace (`app/modules/costbook/*`) is the current first-party UI/API surface for workspace summary, materials catalog, labor-rates foundation, and equipment foundation.
 - `cost-database` and `assemblies-database` services import the shared `round2()` rounding helper from `estimate-engine/formulas.ts` rather than each defining their own private copy (cleanup only; rounding behavior unchanged)
 
 ## Known limitations
@@ -163,7 +179,7 @@ Current C001 behavior:
 ## Deferred work
 
 - labor engine
-- equipment workflows
+- advanced equipment workflows
 - assembly builder
 - pricing calculations and pricing rules
 - price history beyond current material price audits
