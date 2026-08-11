@@ -138,7 +138,7 @@ export class CostDatabaseService {
     const regionMaterialIndex = region ? Number(region.materialIndex) : 1;
 
     let laborCostPerUnit = 0;
-    if (item.laborRate && item.productionRate) {
+    if (item.laborRate && item.laborRate.active !== false && item.productionRate) {
       const total = laborCost({
         quantity,
         productionRate: Number(item.productionRate),

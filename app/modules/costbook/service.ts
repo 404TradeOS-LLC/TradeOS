@@ -3,6 +3,10 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostbookRepository } from "./repository";
 import { getCostbookPermissionSummary } from "./permissions";
 import type {
+  CostbookLaborRateDTO,
+  CostbookLaborRateInput,
+  CostbookLaborRateRecord,
+  CostbookLaborRateUpdateInput,
   CostbookMaterialDTO,
   CostbookMaterialInput,
   CostbookMaterialRecord,
@@ -74,6 +78,32 @@ export class CostbookService {
     return rows.map(toMaterialDTO);
   }
 
+  async listLaborRates(auth: AuthContext): Promise<CostbookLaborRateDTO[]> {
+    const rows = await this.repository.listLaborRates(auth.orgId);
+    return rows.map(toLaborRateDTO);
+  }
+
+  async getLaborRate(auth: AuthContext, id: string): Promise<CostbookLaborRateDTO> {
+    const row = await this.repository.getLaborRateById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Labor rate ${id} not found`);
+    return toLaborRateDTO(row);
+  }
+
+  async createLaborRate(auth: AuthContext, input: CostbookLaborRateInput): Promise<CostbookLaborRateDTO> {
+    return toLaborRateDTO(await this.repository.createLaborRate(auth.orgId, input));
+  }
+
+  async updateLaborRate(auth: AuthContext, id: string, input: CostbookLaborRateUpdateInput): Promise<CostbookLaborRateDTO> {
+    const row = await this.repository.updateLaborRate(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Labor rate ${id} not found`);
+    return toLaborRateDTO(row);
+  }
+
+  async deactivateLaborRate(auth: AuthContext, id: string): Promise<void> {
+    const deactivated = await this.repository.deactivateLaborRate(auth.orgId, id);
+    if (!deactivated) throw new ApiError(404, `Labor rate ${id} not found`);
+  }
+
   async getMaterial(auth: AuthContext, id: string): Promise<CostbookMaterialDTO> {
     const row = await this.repository.getMaterialById(auth.orgId, id);
     if (!row) throw new ApiError(404, `Material ${id} not found`);
@@ -108,6 +138,20 @@ function toMaterialDTO(row: CostbookMaterialRecord): CostbookMaterialDTO {
     supplierId: row.supplierId,
     supplierName: row.supplierName,
     lastPriceUpdate: row.lastPriceUpdate?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toLaborRateDTO(row: CostbookLaborRateRecord): CostbookLaborRateDTO {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    role: row.role,
+    description: row.description,
+    hourlyCost: row.hourlyCost,
+    billRate: row.billRate,
+    active: row.active,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

@@ -1,5 +1,10 @@
 const mockService = {
   getWorkspace: jest.fn(),
+  listLaborRates: jest.fn(),
+  getLaborRate: jest.fn(),
+  createLaborRate: jest.fn(),
+  updateLaborRate: jest.fn(),
+  deactivateLaborRate: jest.fn(),
   listMaterials: jest.fn(),
   getMaterial: jest.fn(),
   createMaterial: jest.fn(),
@@ -16,6 +21,7 @@ function response() {
   return {
     json: jest.fn(),
     status: jest.fn().mockReturnThis(),
+    send: jest.fn(),
   };
 }
 
@@ -37,6 +43,11 @@ describe("costbookController materials endpoints", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockService.listLaborRates.mockResolvedValue([]);
+    mockService.getLaborRate.mockResolvedValue({ id: materialId });
+    mockService.createLaborRate.mockResolvedValue({ id: materialId });
+    mockService.updateLaborRate.mockResolvedValue({ id: materialId });
+    mockService.deactivateLaborRate.mockResolvedValue(undefined);
     mockService.listMaterials.mockResolvedValue([]);
     mockService.getMaterial.mockResolvedValue({ id: materialId });
     mockService.createMaterial.mockResolvedValue({ id: materialId });
@@ -190,5 +201,161 @@ describe("costbookController materials endpoints", () => {
       { unitCost: 165 }
     );
     expect(res.json).toHaveBeenCalledWith({ id: materialId });
+  });
+
+  it("allows read-only Costbook roles to list labor rates", async () => {
+    const res = response();
+
+    await costbookController.listLaborRates(authedRequest({ role: "technician" }), res as never);
+
+    expect(mockService.listLaborRates).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
+    expect(res.json).toHaveBeenCalledWith([]);
+  });
+
+  it("denies labor-rate writes to read-only Costbook roles", async () => {
+    await expect(
+      costbookController.createLaborRate(
+        authedRequest({
+          role: "dispatcher",
+          body: { role: "Lead Carpenter", hourlyCost: 45, billRate: 85 },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.createLaborRate).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "", "   "])("rejects blank hourlyCost values instead of coercing %j", async (hourlyCost) => {
+    await expect(
+      costbookController.createLaborRate(
+        authedRequest({
+          body: {
+            role: "Lead Carpenter",
+            hourlyCost,
+            billRate: 85,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createLaborRate).not.toHaveBeenCalled();
+  });
+
+  it("rejects labor-rate costs outside the database precision", async () => {
+    await expect(
+      costbookController.createLaborRate(
+        authedRequest({
+          body: {
+            role: "Lead Carpenter",
+            hourlyCost: 100_000_000,
+            billRate: 85,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createLaborRate).not.toHaveBeenCalled();
+  });
+
+  it("rejects labor-rate values with more than two decimal places", async () => {
+    await expect(
+      costbookController.createLaborRate(
+        authedRequest({
+          body: {
+            role: "Lead Carpenter",
+            hourlyCost: 45.257,
+            billRate: 88.5,
+          },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createLaborRate).not.toHaveBeenCalled();
+  });
+
+  it("passes validated labor-rate create input to the service", async () => {
+    const res = response();
+
+    await costbookController.createLaborRate(
+      authedRequest({
+        body: {
+          role: " Lead Carpenter ",
+          description: " Finish trim labor ",
+          hourlyCost: "45.25",
+          billRate: "88.50",
+        },
+      }),
+      res as never
+    );
+
+    expect(mockService.createLaborRate).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      {
+        role: "Lead Carpenter",
+        description: "Finish trim labor",
+        hourlyCost: 45.25,
+        billRate: 88.5,
+      }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("accepts valid two-decimal labor-rate values affected by floating-point representation", async () => {
+    const res = response();
+
+    await costbookController.createLaborRate(
+      authedRequest({
+        body: {
+          role: "Helper",
+          hourlyCost: 19.99,
+          billRate: 0.29,
+        },
+      }),
+      res as never
+    );
+
+    expect(mockService.createLaborRate).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      {
+        role: "Helper",
+        hourlyCost: 19.99,
+        billRate: 0.29,
+      }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("passes validated labor-rate patch input to the service", async () => {
+    const res = response();
+
+    await costbookController.updateLaborRate(
+      authedRequest({
+        params: { id: materialId },
+        body: { billRate: "92" },
+      }),
+      res as never
+    );
+
+    expect(mockService.updateLaborRate).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      materialId,
+      { billRate: 92 }
+    );
+    expect(res.json).toHaveBeenCalledWith({ id: materialId });
+  });
+
+  it("requires Costbook manage permission to deactivate a labor rate", async () => {
+    await expect(
+      costbookController.removeLaborRate(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.deactivateLaborRate).not.toHaveBeenCalled();
   });
 });

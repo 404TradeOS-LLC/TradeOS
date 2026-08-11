@@ -457,7 +457,12 @@ model SupplierPriceUpdate {
 
 model LaborRate {
   id              String   @id @default(uuid())
-  orgId           String?  @map("org_id")
+  orgId           String   @map("org_id")
+  role            String
+  description     String?
+  hourlyCost      Decimal  @map("hourly_cost") @db.Decimal(10, 2)
+  billRate        Decimal  @map("bill_rate") @db.Decimal(10, 2)
+  active          Boolean  @default(true)
   trade           String
   baseHourlyRate  Decimal  @map("base_hourly_rate") @db.Decimal(10, 2)
   burdenPct       Decimal  @default(0) @map("burden_pct") @db.Decimal(5, 2)
@@ -465,11 +470,12 @@ model LaborRate {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
-  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  region       Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  region       Region?      @relation(fields: [regionId], references: [id], onDelete: SetNull)
   costItems    CostItem[]
 
   @@index([orgId])
+  @@index([orgId, active, role], map: "idx_labor_rates_org_active_role")
   @@map("labor_rates")
 }
 

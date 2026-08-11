@@ -116,6 +116,11 @@ Costbook workspace routes under `/api/v1/costbook`:
 - `GET /api/v1/costbook/materials/:id` — requires `costbook.read`; returns one material in the authenticated organization or 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/materials` — requires `costbook.write`; creates one material for the authenticated organization. Accepted strict body fields: `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`.
 - `PATCH /api/v1/costbook/materials/:id` — requires `costbook.write`; updates the same strict field set and records a material price-audit row when `unitCost` changes.
+- `GET /api/v1/costbook/labor-rates` — requires `costbook.read`; returns organization-scoped labor-rate DTOs sorted with active rows first.
+- `GET /api/v1/costbook/labor-rates/:id` — requires `costbook.read`; returns one labor rate in the authenticated organization or 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
+- `PATCH /api/v1/costbook/labor-rates/:id` — requires `costbook.write`; updates the same strict field set for the authenticated organization only.
+- `DELETE /api/v1/costbook/labor-rates/:id` — requires `costbook.manage`; soft-deactivates the labor-rate row by setting `active` to `false`.
 
 Costbook material DTO:
 
@@ -138,7 +143,36 @@ Costbook material DTO:
 
 C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
 
+Costbook labor-rate DTO:
+
+```json
+{
+  "id": "uuid",
+  "organizationId": "uuid",
+  "role": "Lead Carpenter",
+  "description": "Finish trim labor",
+  "hourlyCost": 45.25,
+  "billRate": 88.5,
+  "active": true,
+  "createdAt": "2026-08-11T00:00:00.000Z",
+  "updatedAt": "2026-08-11T00:00:00.000Z"
+}
+```
+
+C003 extends the existing `labor_rates` table in place and keeps the older
+`trade`/`base_hourly_rate` compatibility columns for legacy code paths. The
+new Costbook layer treats `role`, optional `description`, `hourlyCost`,
+`billRate`, and `active` as the foundational labor-rate fields. Input rejects
+blank roles, blank/null numeric values, negative numeric values, and values
+outside the `numeric(10,2)` precision before writes reach the database.
+
 The legacy `/api/v1/materials/*` route group remains mounted for compatibility, but it now shares the same Costbook permission boundary: read-style operations require `costbook.read`, and create/update/delete/bulk-import operations require `costbook.write`.
+
+The legacy `/api/v1/labor-rates/*` route group also remains mounted for
+compatibility. Its read-style operations require `costbook.read`; create/update
+operations require `costbook.write`; delete requires `costbook.manage`; and
+its writes stay inside the same forced-RLS Costbook manage boundary as the new
+Costbook labor-rate routes.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 
