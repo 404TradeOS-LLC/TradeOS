@@ -9,7 +9,8 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // Technician"). Read-only: composes a technician-facing job context view
 // purely from JobsService.getById()'s own DTO - no new service method, no
 // Prisma access, no business logic beyond selecting/reshaping fields already
-// present on JobDTO. risk "low", confirmationPolicy "never" - a pure read.
+// present on JobDTO. Contact details are intentionally omitted: the tool only
+// exposes fields needed to execute the assigned job.
 
 export const jobContextInputSchema = z.object({
   jobId: z.string().uuid(),
@@ -27,8 +28,6 @@ export interface JobContextData {
   customer: {
     id: string;
     name: string;
-    email: string | null;
-    phone: string | null;
   };
   project: {
     id: string;
@@ -66,7 +65,7 @@ export function createJobContextTool(deps: JobContextToolDeps): AthenaToolDefini
     id: "tradeos.athena.tools.field.job-context",
     version: "1.0.0",
     owner: "athena-tools-field",
-    description: "Retrieves a technician-facing snapshot of a job: customer, project, service address, schedule, status, notes, and equipment.",
+    description: "Retrieves a minimized technician-facing snapshot of a job: customer name, project, service address, schedule, status, notes, and equipment.",
     permissions: ["crm.read"],
     risk: "low",
     confirmationPolicy: "never",
@@ -76,11 +75,6 @@ export function createJobContextTool(deps: JobContextToolDeps): AthenaToolDefini
     inputSchema: jobContextInputSchema,
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
-
-      // Any thrown ApiError (job not found, or - for a technician actor -
-      // not assigned to this job per JobsService's own scopedJobAccessWhere)
-      // is an unexpected error here and propagates as-is, following
-      // recallPreferenceTool.ts's posture.
       const job = await deps.jobs.getById(execution.orgId, input.jobId, { userId: execution.actor.id, role: execution.role });
 
       return successResult<JobContextData>({
@@ -93,9 +87,25 @@ export function createJobContextTool(deps: JobContextToolDeps): AthenaToolDefini
           jobType: job.jobType,
           status: job.status,
           priority: job.priority,
-          customer: job.customer,
-          project: job.project,
-          serviceAddress: job.serviceAddress,
+          customer: {
+            id: job.customer.id,
+            name: job.customer.name,
+          },
+          project: {
+            id: job.project.id,
+            name: job.project.name,
+            status: job.project.status,
+          },
+          serviceAddress: {
+            id: job.serviceAddress.id,
+            label: job.serviceAddress.label,
+            addressLine1: job.serviceAddress.addressLine1,
+            addressLine2: job.serviceAddress.addressLine2,
+            city: job.serviceAddress.city,
+            state: job.serviceAddress.state,
+            postalCode: job.serviceAddress.postalCode,
+            country: job.serviceAddress.country,
+          },
           schedule: {
             scheduledStart: job.scheduledStart,
             scheduledEnd: job.scheduledEnd,
@@ -105,7 +115,14 @@ export function createJobContextTool(deps: JobContextToolDeps): AthenaToolDefini
             actualEnd: job.actualEnd,
           },
           notes: job.notes.map((note) => ({ id: note.id, body: note.body, authorUserId: note.authorUserId, createdAt: note.createdAt })),
-          equipment: job.equipment,
+          equipment: job.equipment.map((equipment) => ({
+            id: equipment.id,
+            name: equipment.name,
+            manufacturer: equipment.manufacturer,
+            model: equipment.model,
+            serialNumber: equipment.serialNumber,
+            status: equipment.status,
+          })),
         },
         telemetry,
         events: [],
