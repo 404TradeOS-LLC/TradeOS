@@ -22,6 +22,10 @@ const mockProposalGenerator = {
   generateProjectProposal: jest.fn(),
 };
 
+const mockAthenaEventService = {
+  publish: jest.fn(),
+};
+
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/proposal-generator/service", () => ({
   ProposalGeneratorService: jest.fn().mockImplementation(() => mockProposalGenerator),
@@ -31,12 +35,20 @@ jest.mock("../modules/intelligence/service", () => ({
     record: jest.fn().mockResolvedValue(undefined),
   })),
 }));
+jest.mock("../modules/athena-events/service", () => ({
+  getDefaultAthenaEventService: jest.fn(() => mockAthenaEventService),
+}));
 
 import { ProposalsService } from "../modules/proposals/service";
 
 describe("ProposalsService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAthenaEventService.publish.mockResolvedValue({
+      event: {},
+      deliveriesCreated: 0,
+      deduplicated: false,
+    });
   });
 
   it("creates a draft proposal scoped to the estimate's project", async () => {

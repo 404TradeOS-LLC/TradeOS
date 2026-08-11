@@ -108,6 +108,10 @@ Compatibility note:
 
 - canonical documentation uses `declined`, but storage and service internals still use `rejected` in some paths
 
+Athena event integration:
+
+- the `draft -> sent` transition also publishes a canonical `ProposalSent` event (Project Athena A8, `docs/athena/10-events/README.md`) after the status mutation commits; no other transition publishes an event yet, and no subscriber consumes it in this milestone
+
 ## Contracts
 
 Canonical display states:

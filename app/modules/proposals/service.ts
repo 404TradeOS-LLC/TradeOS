@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
@@ -5,6 +6,7 @@ import { ProposalGeneratorService } from "../proposal-generator/service";
 import { ProposalDocument } from "../proposal-generator/types";
 import { ProjectIntakeService } from "../project-intake/service";
 import { ActivityTimelineService } from "../intelligence/service";
+import { getDefaultAthenaEventService } from "../athena-events/service";
 import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO } from "./types";
 
 interface PaymentScheduleEntry {
@@ -113,6 +115,25 @@ export class ProposalsService {
     if (row.status !== "draft") throw new ApiError(409, `Proposal ${id} has already been sent`);
     this.normalizePaymentSchedule(row.paymentScheduleJson);
     const updated = await prisma.proposal.update({ where: { id }, data: { status: "sent", sentAt: new Date() } });
+    try {
+      await getDefaultAthenaEventService().publish({
+        orgId: orgId ?? row.project.orgId ?? "",
+        type: "ProposalSent",
+        version: "1.0.0",
+        entity: { type: "proposal", id: row.id },
+        actor: actorUserId ? { type: "user", id: actorUserId } : { type: "system", id: null },
+        payload: { projectId: row.projectId, customerId: row.project.customer?.id ?? null },
+        correlationId: randomUUID(),
+        idempotencyKey: `proposal:${row.id}:sent:v1`,
+      });
+    } catch (error) {
+      // Publishing a canonical event must never block or roll back the
+      // proposal-send mutation itself (docs/athena/10-events/README.md:
+      // "Failed subscribers do not roll back already-committed business
+      // state" — the same posture applies to publish failures for this
+      // already-committed mutation).
+      console.error("[athena-events] failed to publish ProposalSent event", error);
+    }
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -234,7 +255,7 @@ export class ProposalsService {
         project: {
           include: {
             customer: {
-              select: { email: true },
+              select: { id: true, email: true },
             },
           },
         },
