@@ -46,6 +46,15 @@ export default async function AthenaTraceDetailPage({ params }: { params: Promis
     // (getTrace's explicit ApiError(404, "Trace not found")) - disambiguate
     // by message so a bad/expired trace id gets its own calm "not found"
     // copy instead of being folded into the "not enabled yet" state.
+    //
+    // KNOWN GAP: this matches on the human-readable error message, which
+    // breaks if the backend ever rewords "Trace not found". The controller
+    // (app/backend/controllers/athenaObservability.controller.ts's getTrace/
+    // getTraceByRequest) constructs that error as `new ApiError(404, "Trace
+    // not found")` with no `details` payload, so there's no stable
+    // machine-readable code (e.g. `details.code === "trace_not_found"`) to
+    // match on instead today. Follow-up: have the backend pass a details
+    // code on that ApiError and switch this check to it.
     if (error instanceof ApiClientError && error.status === 404 && error.message === "Trace not found") {
       notFound = true;
     } else {

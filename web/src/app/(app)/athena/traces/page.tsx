@@ -11,9 +11,10 @@ import {
   athenaDatetimeLocalToIso,
   buildAthenaTracesHref,
   isAthenaTraceFiltered,
+  toSingleQueryValue,
   type AthenaTraceFilterInput,
 } from "@/lib/athena-trace-query";
-import { searchAthenaTraces, type AthenaKernelState } from "@/lib/api";
+import { athenaKernelStates, searchAthenaTraces, type AthenaKernelState } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Athena Traces | TradeOS",
@@ -22,12 +23,17 @@ export const metadata: Metadata = {
 
 const PAGE_LIMIT = 25;
 
-interface AthenaTracesSearchParams extends AthenaTraceFilterInput {
-  cursor?: string;
+// Next.js's searchParams type: every key may arrive as a string, a string[]
+// (repeated query key), or undefined - see toSingleQueryValue's doc comment
+// in athena-trace-query.ts for why that matters here.
+type AthenaTracesRawSearchParams = Partial<Record<keyof AthenaTraceFilterInput | "cursor", string | string[] | undefined>>;
+
+function isAthenaKernelState(value: string | undefined): value is AthenaKernelState {
+  return value != null && (athenaKernelStates as readonly string[]).includes(value);
 }
 
-export default async function AthenaTracesPage({ searchParams }: { searchParams: Promise<AthenaTracesSearchParams> }) {
-  const [access, query] = await Promise.all([getAthenaOperatorContext(), searchParams]);
+export default async function AthenaTracesPage({ searchParams }: { searchParams: Promise<AthenaTracesRawSearchParams> }) {
+  const [access, rawQuery] = await Promise.all([getAthenaOperatorContext(), searchParams]);
 
   if (!access.granted) {
     return (
@@ -38,11 +44,31 @@ export default async function AthenaTracesPage({ searchParams }: { searchParams:
     );
   }
 
+  const query = {
+    traceId: toSingleQueryValue(rawQuery.traceId),
+    requestId: toSingleQueryValue(rawQuery.requestId),
+    executionId: toSingleQueryValue(rawQuery.executionId),
+    status: toSingleQueryValue(rawQuery.status),
+    toolId: toSingleQueryValue(rawQuery.toolId),
+    model: toSingleQueryValue(rawQuery.model),
+    provider: toSingleQueryValue(rawQuery.provider),
+    actorUserId: toSingleQueryValue(rawQuery.actorUserId),
+    from: toSingleQueryValue(rawQuery.from),
+    to: toSingleQueryValue(rawQuery.to),
+    cursor: toSingleQueryValue(rawQuery.cursor),
+  };
+
+  // A status value that isn't one of the canonical AthenaKernelState values
+  // (bad manual URL, stale bookmark, etc.) is dropped rather than trusted
+  // and cast - it's treated the same as "no status filter" instead of being
+  // forwarded to the backend or blowing up the `as AthenaKernelState` cast.
+  const validatedStatus = isAthenaKernelState(query.status) ? query.status : undefined;
+
   const filters: AthenaTraceFilterInput = {
     traceId: query.traceId,
     requestId: query.requestId,
     executionId: query.executionId,
-    status: query.status,
+    status: validatedStatus,
     toolId: query.toolId,
     model: query.model,
     provider: query.provider,
@@ -61,7 +87,7 @@ export default async function AthenaTracesPage({ searchParams }: { searchParams:
       traceId: filters.traceId || undefined,
       requestId: filters.requestId || undefined,
       executionId: filters.executionId || undefined,
-      status: (filters.status as AthenaKernelState) || undefined,
+      status: validatedStatus,
       toolId: filters.toolId || undefined,
       model: filters.model || undefined,
       provider: filters.provider || undefined,

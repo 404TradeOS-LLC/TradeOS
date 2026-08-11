@@ -170,6 +170,14 @@ export interface AthenaProviderSection<TData = unknown> {
   maxBytes: number;
   estimatedTokens?: number;
   truncationReason?: string;
+  // A11 hardening (athena-security/contextTrust.ts's
+  // scanContextSectionForInjection): computed once at fetch time and stored
+  // here (rather than only in the assembler's own warnings array) so a
+  // cache hit can re-emit the same advisory warning for identical cached
+  // content, instead of the scan silently going stale for the rest of
+  // provider.freshnessTtlMs. Purely additive, same posture as every other
+  // optional field on this interface.
+  injectionScan?: { suspicious: boolean; matchedPatternNames: string[] };
 }
 
 export interface AthenaAIContext {

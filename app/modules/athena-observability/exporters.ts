@@ -77,7 +77,26 @@ const DEFAULT_WEBHOOK_TIMEOUT_MS = 10_000;
 // single POST either delivers the whole batch or it doesn't; there is no
 // partial-batch signal from a webhook without a richer response contract
 // this milestone does not define.
+// Telemetry spans are tenant data (see the module-level comment on
+// sanitizeMetadata/redaction above), so a webhook config that would send
+// them in cleartext - or let a redirect silently retarget the POST to an
+// attacker-controlled host - is treated as a bad config, exactly like any
+// other malformed exporter setup would be, rather than something export
+// should discover for the first time at fetch() time.
+function assertHttpsWebhookUrl(id: string, rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error(`webhook exporter ${id} has an invalid URL: ${rawUrl}`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`webhook exporter ${id} must use an https:// URL to avoid sending telemetry in cleartext, received: ${rawUrl}`);
+  }
+}
+
 export function createWebhookExporter(config: WebhookExporterConfig): AthenaObservabilityExporter {
+  assertHttpsWebhookUrl(config.id, config.url);
   const timeoutMs = config.timeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS;
 
   return {
@@ -97,6 +116,10 @@ export function createWebhookExporter(config: WebhookExporterConfig): AthenaObse
           headers: { "content-type": "application/json" },
           body: JSON.stringify(batch),
           signal: controller.signal,
+          // Never let fetch's default redirect-following silently forward
+          // the POST (and the tenant telemetry in its body) to a different,
+          // possibly non-https, host.
+          redirect: "error",
         });
 
         if (!response.ok) {

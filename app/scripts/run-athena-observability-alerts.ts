@@ -2,6 +2,7 @@ import "dotenv/config";
 import { basePrisma } from "../db/client";
 import { runWithBackgroundDatabaseSession } from "../db/requestSession";
 import { applyAthenaAlertEvaluations, evaluateAthenaAlerts } from "../modules/athena-observability/alerts";
+import { parseMaintenanceJobSpecs } from "./maintenanceJobSpec";
 
 // One-shot entry point for operators driving Athena observability alert
 // evaluation from external cron / a k8s CronJob / a systemd timer,
@@ -11,26 +12,6 @@ import { applyAthenaAlertEvaluations, evaluateAthenaAlerts } from "../modules/at
 // athena_alerts. Exits non-zero ONLY on a hard error (bad job identity,
 // unexpected DB error) - alerts firing is expected, normal output, not a
 // script failure.
-
-interface MaintenanceJobSpec {
-  orgId: string;
-  userId: string;
-}
-
-function parseMaintenanceJobSpecs(raw: string | undefined): MaintenanceJobSpec[] {
-  if (!raw || raw.trim().length === 0) return [];
-  return raw
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .map((entry) => {
-      const [orgId, userId] = entry.split(":").map((part) => part.trim());
-      if (!orgId || !userId) {
-        throw new Error(`ATHENA_OBSERVABILITY_MAINTENANCE_JOBS entry "${entry}" must be in "orgId:userId" format`);
-      }
-      return { orgId, userId };
-    });
-}
 
 async function main() {
   const jobs = parseMaintenanceJobSpecs(process.env.ATHENA_OBSERVABILITY_MAINTENANCE_JOBS);

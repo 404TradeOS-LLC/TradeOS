@@ -190,12 +190,16 @@ describe("athena-observability traceService", () => {
   });
 
   it("searchTraces clamps an out-of-range limit to the documented max", async () => {
-    for (let i = 0; i < 3; i += 1) {
-      seedExecution({ id: `exec-${i}`, orgId: ORG_A, createdAt: new Date(2026, 7, 10, 0, 0, i) });
+    // Seed more rows than the documented max (200) so the clamp actually
+    // has an effect to observe here: with fewer rows than the max, this
+    // test would still pass even if clampSearchLimit were deleted entirely.
+    const seededCount = 205;
+    for (let i = 0; i < seededCount; i += 1) {
+      seedExecution({ id: `exec-${i}`, orgId: ORG_A, createdAt: new Date(2026, 7, 10, 0, 0, 0, i) });
     }
     const result = await searchTraces({ orgId: ORG_A, limit: 10_000 });
-    expect(result.rows).toHaveLength(3);
-    expect(result.nextCursor).toBeNull();
+    expect(result.rows).toHaveLength(200);
+    expect(result.nextCursor).not.toBeNull();
   });
 
   it("searchTraces filters by toolId (action span metadata), scoped to orgId", async () => {

@@ -4,9 +4,12 @@ import type { AthenaTraceCompleteness } from "@/lib/api";
 import { formatAthenaPercent } from "@/lib/athena-overview-model";
 
 /**
- * Turns AthenaTraceCompleteness's three parallel arrays (expected/observed/
- * missing span types) into a single legible checklist instead of raw JSON
- * arrays, per the task spec.
+ * Renders a checklist of AthenaTraceCompleteness.expectedSpanTypes, each
+ * marked observed/missing by membership in observedSpanTypes, instead of raw
+ * JSON arrays. missingSpanTypes is not read here - "missing" is derived
+ * locally as "expected but not observed", which is equivalent to that field.
+ * Only span types present in expectedSpanTypes are listed, so an observed
+ * span type that wasn't expected for this trace doesn't get its own row.
  */
 export function AthenaCompletenessPanel({ completeness }: { completeness: AthenaTraceCompleteness }) {
   const observed = new Set(completeness.observedSpanTypes);
@@ -34,7 +37,11 @@ export function AthenaCompletenessPanel({ completeness }: { completeness: Athena
                   <X aria-hidden="true" className="size-4 shrink-0 text-rose-600 dark:text-rose-400" />
                 )}
                 <span className={isObserved ? "text-foreground" : "text-muted-foreground"}>{spanType}</span>
-                {!isObserved ? <span className="ml-auto text-xs text-muted-foreground">missing</span> : null}
+                {isObserved ? (
+                  <span className="sr-only">recorded</span>
+                ) : (
+                  <span className="ml-auto text-xs text-muted-foreground">missing</span>
+                )}
               </li>
             );
           })}

@@ -4,8 +4,28 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import type { AthenaTelemetrySpan } from "@/lib/api";
 import { formatAthenaMs, formatAthenaUsd } from "@/lib/athena-overview-model";
 
+// Pinned to UTC (with the zone spelled out) to match the filter bar's
+// "From (UTC)"/"To (UTC)" window inputs (athena-trace-filter-bar.tsx) -
+// otherwise an operator outside UTC sees span timestamps rendered in the
+// server/browser's local zone with no on-screen indication they've shifted.
+// Module-scope so the formatter isn't rebuilt on every row's render.
+// Intl.DateTimeFormat rejects combining dateStyle/timeStyle with
+// timeZoneName (throws "Invalid option : option"), so this spells out the
+// equivalent component options individually instead of using dateStyle:
+// "medium"/timeStyle: "medium".
+const spanDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
 function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "medium" }).format(new Date(value));
+  return spanDateTimeFormatter.format(new Date(value));
 }
 
 /**

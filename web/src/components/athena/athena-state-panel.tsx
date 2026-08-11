@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { AthenaDisplayState } from "@/lib/athena-state";
 
 /**
- * Renders any of the three non-"ready" states an Athena page can be in
+ * Renders any of the four non-"ready" states an Athena page can be in
  * (signed_out, denied, not_enabled, error - see web/src/lib/athena-state.ts).
  * Reuses the same EmptyState primitive every other list page in this app
  * uses for "nothing here" (web/src/components/ui/empty-state.tsx), rather
@@ -46,9 +46,19 @@ function describe(state: AthenaDisplayState): { title: string; description: stri
         description: "This environment hasn't turned on Athena observability for your organization. Nothing is broken - check back once it's enabled.",
       };
     case "error":
+      // state.message is ApiClientError.message - raw upstream API error
+      // text - and is never rendered directly (it could leak backend
+      // implementation details to the user). Log it for debugging and show
+      // the same curated, generic copy every other non-ready state here
+      // uses.
+      if (state.message) console.error("AthenaStatePanel: Athena observability request failed:", state.message);
       return {
         title: "Couldn't load Athena observability",
-        description: state.message ?? "Something went wrong reaching the Athena observability service. Try again in a moment.",
+        description: "Something went wrong reaching the Athena observability service. Try again in a moment.",
       };
+    default: {
+      const exhaustive: never = state;
+      return exhaustive;
+    }
   }
 }

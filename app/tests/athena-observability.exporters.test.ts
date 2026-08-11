@@ -46,8 +46,14 @@ beforeEach(() => {
 });
 
 describe("createConsoleExporter", () => {
+  let logSpy: jest.SpyInstance;
+
+  afterEach(() => {
+    logSpy?.mockRestore();
+  });
+
   it("logs one line per span and reports every span as succeeded", async () => {
-    const logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
     const exporter = createConsoleExporter();
 
     const result = await exporter.export({
@@ -73,7 +79,6 @@ describe("createConsoleExporter", () => {
 
     expect(result).toEqual({ succeeded: 1, failed: 0, errors: [] });
     expect(logSpy).toHaveBeenCalledTimes(1);
-    logSpy.mockRestore();
   });
 });
 
@@ -82,6 +87,10 @@ describe("createWebhookExporter", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+  });
+
+  it("rejects a non-https URL at construction time instead of leaking telemetry in cleartext", () => {
+    expect(() => createWebhookExporter({ id: "wh-1", url: "http://example.com/hook" })).toThrow(/https/);
   });
 
   it("POSTs the batch and reports success on a 2xx response", async () => {
@@ -95,8 +104,12 @@ describe("createWebhookExporter", () => {
     expect(result).toEqual({ succeeded: 1, failed: 0, errors: [] });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://example.com/hook",
-      expect.objectContaining({ method: "POST", headers: { "content-type": "application/json" } })
+      expect.objectContaining({ method: "POST", headers: { "content-type": "application/json" }, redirect: "error" })
     );
+
+    const requestInit = fetchMock.mock.calls[0][1] as { body: string };
+    const sentBody = JSON.parse(requestInit.body);
+    expect(sentBody).toEqual({ spans: [{ id: "span-1" }], windowFrom: "a", windowTo: "b" });
   });
 
   it("reports a failure (never throws) on a non-2xx response", async () => {

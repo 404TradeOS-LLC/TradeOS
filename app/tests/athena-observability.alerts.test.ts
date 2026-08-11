@@ -303,6 +303,17 @@ describe("evaluateAthenaAlerts", () => {
     expect(evaluations.find((e) => e.ruleId === "cross_tenant_access_attempt")?.firing).toBe(false);
     expect(evaluations.find((e) => e.ruleId === "prompt_injection_detected")?.firing).toBe(false);
   });
+
+  it("scopes every athenaTelemetryRecordRow query to orgId (regression guard: the mocks above ignore `where` entirely, so a real query that dropped org scoping would still pass every other test in this file)", async () => {
+    await evaluateAthenaAlerts(ORG);
+
+    const countCalls = mockPrisma.athenaTelemetryRecordRow.count.mock.calls as [{ where: { orgId: string } }][];
+    const findManyCalls = mockPrisma.athenaTelemetryRecordRow.findMany.mock.calls as [{ where: { orgId: string } }][];
+    expect(countCalls.length + findManyCalls.length).toBeGreaterThan(0);
+    for (const [args] of [...countCalls, ...findManyCalls]) {
+      expect(args.where.orgId).toBe(ORG);
+    }
+  });
 });
 
 describe("applyAthenaAlertEvaluations", () => {

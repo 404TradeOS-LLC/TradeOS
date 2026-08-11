@@ -31,10 +31,33 @@ function requireObservabilityAccess(req: Request) {
   return { auth, orgId };
 }
 
-const windowQuerySchema = z.object({
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-});
+// Both schemas below reject an inverted (`from >= to`) or unbounded window
+// so a caller can never force resolveWindow/searchTraces into an
+// unbounded/inverted findMany or span scan. The check only applies when
+// both bounds are supplied: windowQuerySchema's single-bound cases are
+// always resolved into an exact 24h window by resolveWindow below, so they
+// can never exceed MAX_WINDOW_MS on their own.
+const MAX_WINDOW_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+function validateWindowBounds(data: { from?: string; to?: string }, ctx: z.RefinementCtx): void {
+  if (data.from === undefined || data.to === undefined) return;
+  const fromMs = new Date(data.from).getTime();
+  const toMs = new Date(data.to).getTime();
+  if (fromMs >= toMs) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "`from` must be earlier than `to`", path: ["from"] });
+    return;
+  }
+  if (toMs - fromMs > MAX_WINDOW_MS) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "window between `from` and `to` must not exceed 90 days", path: ["to"] });
+  }
+}
+
+const windowQuerySchema = z
+  .object({
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+  })
+  .superRefine(validateWindowBounds);
 
 function resolveWindow(query: { from?: string; to?: string }): { from: string; to: string } {
   const to = query.to ?? new Date().toISOString();
@@ -60,20 +83,22 @@ const athenaKernelStateSchema = z.enum([
   "cancelled",
 ]);
 
-const traceSearchQuerySchema = z.object({
-  traceId: z.string().uuid().optional(),
-  requestId: z.string().uuid().optional(),
-  executionId: z.string().uuid().optional(),
-  status: athenaKernelStateSchema.optional(),
-  toolId: z.string().trim().max(200).optional(),
-  model: z.string().trim().max(200).optional(),
-  provider: z.string().trim().max(200).optional(),
-  actorUserId: z.string().uuid().optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
-  cursor: z.string().uuid().optional(),
-});
+const traceSearchQuerySchema = z
+  .object({
+    traceId: z.string().uuid().optional(),
+    requestId: z.string().uuid().optional(),
+    executionId: z.string().uuid().optional(),
+    status: athenaKernelStateSchema.optional(),
+    toolId: z.string().trim().max(200).optional(),
+    model: z.string().trim().max(200).optional(),
+    provider: z.string().trim().max(200).optional(),
+    actorUserId: z.string().uuid().optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    cursor: z.string().uuid().optional(),
+  })
+  .superRefine(validateWindowBounds);
 
 export const athenaObservabilityController = {
   async overview(req: Request, res: Response): Promise<void> {

@@ -55,6 +55,20 @@ export function buildAthenaTracesHref(filters: AthenaTraceFilterInput, cursor?: 
   return qs ? `/athena/traces?${qs}` : "/athena/traces";
 }
 
+/**
+ * Next.js's `searchParams` hands back a `string`, `string[]` (when a query
+ * key repeats, e.g. `?status=a&status=b`), or `undefined` for any given key.
+ * AthenaTraceFilterBar's plain GET form and buildAthenaTracesHref above only
+ * ever set each key once, so a repeated key can only come from a
+ * hand-crafted URL - but every caller downstream (isAthenaTraceFiltered's
+ * `.trim()`, the `status` cast to AthenaKernelState, etc.) expects a plain
+ * string and throws on an array. Collapse to a single value, taking the
+ * first occurrence.
+ */
+export function toSingleQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 const DATETIME_LOCAL_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/;
 
 /**

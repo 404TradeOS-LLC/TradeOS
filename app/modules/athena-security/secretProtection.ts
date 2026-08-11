@@ -13,8 +13,15 @@ import type { AthenaSecretDetectionResult, AthenaSecretRedactionResult } from ".
 // telemetry, events, tool-sdk results) calls into it instead of keeping its
 // own copy, so the detector list only ever needs to grow in one place.
 
+// card[_-]?number (not the bare, unanchored `card` token this used to
+// accept) - a bare "card" substring false-positives on real operational
+// field names (jobCard, scorecard, cardOnFile, discard, wildcard,
+// cardinality), silently over-redacting telemetry/audit/tool-result data
+// that was never sensitive. \bpan\b (Primary Account Number) is the
+// industry term for a card number field that doesn't itself contain the
+// word "card".
 const SENSITIVE_FIELD_NAME_PATTERN =
-  /(password|passwd|secret|token|api[_-]?key|access[_-]?key|refresh[_-]?token|client[_-]?secret|credential|authorization|auth[_-]?header|cookie|private[_-]?key|ssn|social[_-]?security|card(?:[_-]?number)?|\bcvv\b|\bcvc\b|bank[_-]?account|routing[_-]?number|database[_-]?url|db[_-]?url|connection[_-]?string)/i;
+  /(password|passwd|secret|token|api[_-]?key|access[_-]?key|refresh[_-]?token|client[_-]?secret|credential|authorization|auth[_-]?header|cookie|private[_-]?key|ssn|social[_-]?security|card[_-]?number|\bpan\b|\bcvv\b|\bcvc\b|bank[_-]?account|routing[_-]?number|database[_-]?url|db[_-]?url|connection[_-]?string)/i;
 
 const STRING_SECRET_PATTERNS: { name: string; pattern: RegExp }[] = [
   { name: "jwt", pattern: /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/ },
@@ -32,26 +39,59 @@ const STRING_SECRET_PATTERNS: { name: string; pattern: RegExp }[] = [
 
 const MAX_WALK_DEPTH = 6;
 
-function objectKeysDeep(value: unknown, depth = 0, seen = new Set<unknown>()): string[] {
-  if (depth > MAX_WALK_DEPTH || value === null || typeof value !== "object" || seen.has(value)) return [];
+// Both walkers below return whether MAX_WALK_DEPTH cut the walk short, not
+// just the (possibly incomplete) keys/strings found. detectSecrets() below
+// treats a truncated walk as itself a detection - failing closed - rather
+// than silently returning "not detected" for content it never actually
+// finished scanning. Both dispatch paths (athena-kernel/service.ts,
+// athena-tool-registry/dispatcher.ts) run detectSecrets() before schema
+// validation as part of the A11 risk-engine deny gate, so a false "clean"
+// result here would let a secret nested beyond depth 6 bypass that gate.
+function objectKeysDeep(value: unknown, depth = 0, seen = new Set<unknown>()): { keys: string[]; truncated: boolean } {
+  if (value === null || typeof value !== "object" || seen.has(value)) return { keys: [], truncated: false };
+  if (depth > MAX_WALK_DEPTH) return { keys: [], truncated: true };
   seen.add(value);
   if (Array.isArray(value)) {
-    return value.flatMap((item) => objectKeysDeep(item, depth + 1, seen));
+    let truncated = false;
+    const keys = value.flatMap((item) => {
+      const result = objectKeysDeep(item, depth + 1, seen);
+      truncated = truncated || result.truncated;
+      return result.keys;
+    });
+    return { keys, truncated };
   }
   const record = value as Record<string, unknown>;
-  return Object.keys(record).flatMap((key) => [key, ...objectKeysDeep(record[key], depth + 1, seen)]);
+  let truncated = false;
+  const keys = Object.keys(record).flatMap((key) => {
+    const result = objectKeysDeep(record[key], depth + 1, seen);
+    truncated = truncated || result.truncated;
+    return [key, ...result.keys];
+  });
+  return { keys, truncated };
 }
 
-function stringValuesDeep(value: unknown, depth = 0, seen = new Set<unknown>()): string[] {
-  if (depth > MAX_WALK_DEPTH) return [];
-  if (typeof value === "string") return [value];
-  if (value === null || typeof value !== "object" || seen.has(value)) return [];
+function stringValuesDeep(value: unknown, depth = 0, seen = new Set<unknown>()): { strings: string[]; truncated: boolean } {
+  if (typeof value === "string") return { strings: [value], truncated: false };
+  if (value === null || typeof value !== "object" || seen.has(value)) return { strings: [], truncated: false };
+  if (depth > MAX_WALK_DEPTH) return { strings: [], truncated: true };
   seen.add(value);
   if (Array.isArray(value)) {
-    return value.flatMap((item) => stringValuesDeep(item, depth + 1, seen));
+    let truncated = false;
+    const strings = value.flatMap((item) => {
+      const result = stringValuesDeep(item, depth + 1, seen);
+      truncated = truncated || result.truncated;
+      return result.strings;
+    });
+    return { strings, truncated };
   }
   const record = value as Record<string, unknown>;
-  return Object.values(record).flatMap((item) => stringValuesDeep(item, depth + 1, seen));
+  let truncated = false;
+  const strings = Object.values(record).flatMap((item) => {
+    const result = stringValuesDeep(item, depth + 1, seen);
+    truncated = truncated || result.truncated;
+    return result.strings;
+  });
+  return { strings, truncated };
 }
 
 // Detects but does not locate-and-redact - detectSecrets answers "is any
@@ -62,14 +102,20 @@ function stringValuesDeep(value: unknown, depth = 0, seen = new Set<unknown>()):
 // fields (telemetry metadata, tool results, events).
 export function detectSecrets(value: unknown): AthenaSecretDetectionResult {
   const detectorNames: string[] = [];
-  if (objectKeysDeep(value).some((key) => SENSITIVE_FIELD_NAME_PATTERN.test(key))) {
+  const keysResult = objectKeysDeep(value);
+  if (keysResult.keys.some((key) => SENSITIVE_FIELD_NAME_PATTERN.test(key))) {
     detectorNames.push("sensitive_field_name");
   }
-  const strings = stringValuesDeep(value);
+  const stringsResult = stringValuesDeep(value);
   for (const { name, pattern } of STRING_SECRET_PATTERNS) {
-    if (strings.some((str) => pattern.test(str.trim()))) {
+    if (stringsResult.strings.some((str) => pattern.test(str.trim()))) {
       detectorNames.push(name);
     }
+  }
+  // Fail closed: content beyond MAX_WALK_DEPTH was never actually scanned,
+  // so treat that as a detection rather than reporting a false "clean".
+  if (keysResult.truncated || stringsResult.truncated) {
+    detectorNames.push("walk_depth_truncated");
   }
   return { detected: detectorNames.length > 0, detectorNames };
 }
@@ -97,13 +143,36 @@ export function redactSecrets<TData>(value: TData): AthenaSecretRedactionResult<
     return { data: value, redactedFieldPaths: [] };
   }
 
-  const clone = structuredClone(value) as unknown;
+  // structuredClone throws DataCloneError for a function, symbol, or exotic
+  // class instance with unsupported internals - `metadata`/tool `data` is
+  // typed Record<string, unknown>/unknown, so a caller can legitimately pass
+  // one of these. This is a caller-return-value redactor (telemetry/audit/
+  // tool-result metadata), not a security gate like detectSecrets() above -
+  // per this module's own doc comment and athena-tool-sdk/results.ts's
+  // "redact-in-place is the safer default than failing the whole tool call"
+  // posture, a value this function cannot safely walk is redacted wholesale
+  // rather than either crashing or passing it through unredacted.
+  let clone: unknown;
+  try {
+    clone = structuredClone(value);
+  } catch {
+    return { data: REDACTED_PLACEHOLDER as unknown as TData, redactedFieldPaths: ["$"] };
+  }
   const redactedFieldPaths: string[] = [];
 
-  const walk = (node: unknown, path: string): void => {
+  // structuredClone preserves circular references (it returns a cyclic
+  // clone, not an error), so an unguarded walk of `clone` recurses forever
+  // on cyclic input and throws RangeError. `visited` (reset per top-level
+  // call, not shared across walk() invocations from different redactSecrets
+  // calls) plus MAX_WALK_DEPTH bound the walk the same way detectSecrets'
+  // walkers above do.
+  const visited = new Set<unknown>();
+  const walk = (node: unknown, path: string, depth: number): void => {
     if (node === null || typeof node !== "object") return;
+    if (depth > MAX_WALK_DEPTH || visited.has(node)) return;
+    visited.add(node);
     if (Array.isArray(node)) {
-      node.forEach((item, index) => walk(item, `${path}[${index}]`));
+      node.forEach((item, index) => walk(item, `${path}[${index}]`, depth + 1));
       return;
     }
     const record = node as Record<string, unknown>;
@@ -120,10 +189,10 @@ export function redactSecrets<TData>(value: TData): AthenaSecretRedactionResult<
         redactedFieldPaths.push(fieldPath);
         continue;
       }
-      walk(fieldValue, fieldPath);
+      walk(fieldValue, fieldPath, depth + 1);
     }
   };
 
-  walk(clone, "");
+  walk(clone, "", 0);
   return { data: clone as TData, redactedFieldPaths };
 }

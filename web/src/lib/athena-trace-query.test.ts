@@ -5,6 +5,7 @@ import {
   athenaIsoToDatetimeLocal,
   buildAthenaTracesHref,
   isAthenaTraceFiltered,
+  toSingleQueryValue,
 } from "./athena-trace-query.ts";
 
 test("isAthenaTraceFiltered is false with no filters set (drives the unfiltered empty-state copy)", () => {
@@ -41,4 +42,15 @@ test("athenaIsoToDatetimeLocal is the inverse of athenaDatetimeLocalToIso for we
   assert.equal(athenaIsoToDatetimeLocal("2026-08-10T13:00:00.000Z"), "2026-08-10T13:00");
   assert.equal(athenaIsoToDatetimeLocal(undefined), "");
   assert.equal(athenaIsoToDatetimeLocal("garbage"), "");
+});
+
+test("toSingleQueryValue passes plain strings and undefined through unchanged", () => {
+  assert.equal(toSingleQueryValue("failed"), "failed");
+  assert.equal(toSingleQueryValue(undefined), undefined);
+  assert.equal(toSingleQueryValue(""), "");
+});
+
+test("toSingleQueryValue collapses a repeated-query-key array to its first value", () => {
+  assert.equal(toSingleQueryValue(["failed", "succeeded"]), "failed");
+  assert.equal(toSingleQueryValue([]), undefined);
 });

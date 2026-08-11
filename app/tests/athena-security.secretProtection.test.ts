@@ -40,6 +40,20 @@ describe("athena-security detectSecrets()", () => {
     const value = { a: { b: [{ c: { d: { token: "irrelevant" } } } ] } };
     expect(detectSecrets(value).detected).toBe(true);
   });
+
+  it("flags a card-number field name but not an ordinary jobCard/scorecard field name", () => {
+    expect(detectSecrets({ cardNumber: "irrelevant" }).detected).toBe(true);
+    expect(detectSecrets({ jobCard: "JC-100" })).toEqual({ detected: false, detectorNames: [] });
+    expect(detectSecrets({ scorecard: "A+" })).toEqual({ detected: false, detectorNames: [] });
+  });
+
+  it("fails closed (detected: true) for a secret nested beyond MAX_WALK_DEPTH, rather than silently missing it", () => {
+    // 8 levels deep - beyond the walkers' MAX_WALK_DEPTH of 6.
+    const value = { l1: { l2: { l3: { l4: { l5: { l6: { l7: { l8: { token: "irrelevant" } } } } } } } } };
+    const result = detectSecrets(value);
+    expect(result.detected).toBe(true);
+    expect(result.detectorNames).toContain("walk_depth_truncated");
+  });
 });
 
 describe("athena-security redactSecrets()", () => {
@@ -72,5 +86,24 @@ describe("athena-security redactSecrets()", () => {
     expect(redactSecrets(null).data).toBeNull();
     expect(redactSecrets(42).data).toBe(42);
     expect(redactSecrets("Bearer abc123.def456-ghi").data).toBe("[redacted]");
+  });
+
+  it("does not crash on cyclic input - redacts wholesale instead of infinitely recursing", () => {
+    const cyclic: Record<string, unknown> = { name: "job-1" };
+    cyclic.self = cyclic;
+    expect(() => redactSecrets(cyclic)).not.toThrow();
+  });
+
+  it("does not crash on a non-cloneable value (e.g. a function nested in metadata) - redacts wholesale", () => {
+    const value = { note: "hello", handler: () => undefined };
+    expect(() => redactSecrets(value)).not.toThrow();
+    const result = redactSecrets(value);
+    expect(result.data).toBe("[redacted]");
+    expect(result.redactedFieldPaths).toEqual(["$"]);
+  });
+
+  it("does not walk beyond MAX_WALK_DEPTH (bounded, not infinite, for a deeply nested value)", () => {
+    const value = { l1: { l2: { l3: { l4: { l5: { l6: { l7: { l8: { password: "hunter2" } } } } } } } } };
+    expect(() => redactSecrets(value)).not.toThrow();
   });
 });

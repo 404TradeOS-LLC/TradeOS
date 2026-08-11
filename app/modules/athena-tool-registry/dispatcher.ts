@@ -11,6 +11,7 @@ import {
   athenaToolUnexpectedError,
   athenaToolVersionNotFoundError,
 } from "./errors";
+import { buildAthenaSecurityAuditMetadata } from "../athena-security/audit";
 import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { evaluateAthenaToolPolicy, hasAllRequiredFeatureFlags } from "./policy";
 import type { AthenaToolPolicyDecision } from "./policy";
@@ -171,9 +172,12 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     // A flag-gated or permission-denied tool is folded into the same
     // not-found shape as an unknown tool, for the registry-enumeration
     // reason above. A risk-blocked (but otherwise permission-granted) tool
-    // gets the same not-found shape too, distinguished only in the internal
-    // audit reasonCode - no A6 approval executor exists yet to route
-    // approval_required to, so it does not execute either way.
+    // gets the same not-found shape too - the internal audit reasonCode
+    // distinguishes it from a permission denial, and (only for this
+    // security-gate case) AthenaToolDispatchAudit.securityMetadata carries
+    // the full decision an operator needs to see why - no A6 approval
+    // executor exists yet to route approval_required to, so it does not
+    // execute either way.
     const policyDecision = resolveDispatchDecision(tool, request);
     if (policyDecision.decision === "deny") {
       throw athenaToolNotFoundError(correlationId, "authorization_denied");
@@ -201,7 +205,7 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
       permissionDecision: { decision: policyDecision.decision, reasonCode: "athena_tool_policy_evaluated" },
     });
     if (securityDecision.decision === "deny") {
-      throw athenaToolNotFoundError(correlationId, "authorization_denied");
+      throw athenaToolNotFoundError(correlationId, "authorization_denied", buildAthenaSecurityAuditMetadata(securityDecision));
     }
 
     if (!isZodLikeSchema(tool.inputSchema)) {
@@ -280,7 +284,12 @@ export async function dispatchAthenaTool<TInput = unknown, TData = unknown>(regi
     return { result: boundResult, audit };
   } catch (error) {
     const dispatchError = error instanceof AthenaToolDispatchError ? error : athenaToolUnexpectedError(correlationId);
-    const audit: AthenaToolDispatchAudit = { reasonCode: dispatchError.reasonCode, toolId: request.toolId, version: request.version };
+    const audit: AthenaToolDispatchAudit = {
+      reasonCode: dispatchError.reasonCode,
+      toolId: request.toolId,
+      version: request.version,
+      ...(dispatchError.metadata ? { securityMetadata: dispatchError.metadata } : {}),
+    };
     return { result: buildFailureResult(dispatchError.publicError, request.traceId, request.executionId), audit };
   }
 }

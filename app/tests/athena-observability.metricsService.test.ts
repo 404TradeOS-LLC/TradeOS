@@ -144,8 +144,9 @@ describe("athena-observability metricsService", () => {
     expect(metrics.degradedRate).toBeCloseTo(2 / 7, 10); // degraded + needs_clarification
     // The four rates intentionally do not sum to 1: "routing" (in-flight,
     // non-terminal, non-round-trip) is counted in requestCount but in none
-    // of the four buckets.
-    expect(metrics.successRate + metrics.errorRate + metrics.deniedRate + metrics.degradedRate).toBeLessThan(1);
+    // of the four buckets, so of the 7 seeded-in-window requests only 6
+    // land in a bucket: 2/7 + 1/7 + 1/7 + 2/7 = 6/7.
+    expect(metrics.successRate + metrics.errorRate + metrics.deniedRate + metrics.degradedRate).toBeCloseTo(6 / 7, 10);
 
     // Durations: [500, 700, 700, 100] -> sorted [100, 500, 700, 700].
     // Nearest-rank: p50 rank=ceil(0.5*4)=2 -> index 1 -> 500.
