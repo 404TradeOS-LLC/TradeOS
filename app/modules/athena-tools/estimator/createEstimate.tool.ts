@@ -16,7 +16,7 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 
 export const estimateCreateInputSchema = z.object({
   projectId: z.string().uuid(),
-  overheadPct: z.number().optional(),
+  overheadPct: z.number().finite().min(0).max(100).optional(),
 });
 export type EstimateCreateInput = z.infer<typeof estimateCreateInputSchema>;
 
@@ -53,11 +53,6 @@ export function createEstimateCreateTool(deps: EstimateCreateToolDeps): AthenaTo
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // Any thrown ApiError (project not found, etc.) is an unexpected error
-      // here and propagates as-is - this tool has no specific expected
-      // domain case worth translating into a failureResult, following
-      // recallPreferenceTool.ts's "only known/expected domain errors become
-      // failureResult, never swallow unknowns" posture.
       const result = await deps.estimateEngine.create({
         orgId: execution.orgId,
         projectId: input.projectId,
@@ -79,10 +74,6 @@ export function createEstimateCreateTool(deps: EstimateCreateToolDeps): AthenaTo
           totalPrice: result.totalPrice,
         },
         telemetry,
-        // Never fabricated: result.athenaEvent is undefined whenever the
-        // service's own publish attempt failed or no orgId was supplied
-        // (estimate-engine/service.ts's publishEstimateEvent), and this tool
-        // only ever wraps what the service actually returns.
         events: result.athenaEvent ? [eventRef(result.athenaEvent.type, result.athenaEvent.id)] : [],
       });
     },
