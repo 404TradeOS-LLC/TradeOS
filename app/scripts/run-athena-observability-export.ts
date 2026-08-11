@@ -46,7 +46,7 @@ async function main() {
         // eslint-disable-next-line no-console
         console.error(`[athena-observability-export] org=${job.orgId} errors:`, result.errors);
       }
-      if (result.failed > 0) {
+      if (result.failed > 0 || result.errors.length > 0) {
         failed += 1;
       }
     } catch (error) {
