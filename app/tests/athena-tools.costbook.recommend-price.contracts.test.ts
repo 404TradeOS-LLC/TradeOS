@@ -28,7 +28,13 @@ const EXECUTION = { executionId: "exec-1", requestId: "req-1", traceId: "trace-1
 describe("athena-tools costbook: recommend-price", () => {
   describeAthenaToolContract(createCostbookRecommendPriceTool(createFakeDeps(makeBreakdown())), {
     validInput: { costItemId: VALID_COST_ITEM_ID, quantity: 10, regionId: VALID_REGION_ID, targetMarginPct: 25 },
-    invalidInputs: [{ costItemId: "not-a-uuid", targetMarginPct: 25 }, {}, { costItemId: VALID_COST_ITEM_ID, targetMarginPct: 150 }],
+    invalidInputs: [
+      { costItemId: "not-a-uuid", targetMarginPct: 25 },
+      {},
+      { costItemId: VALID_COST_ITEM_ID, targetMarginPct: 100 },
+      { costItemId: VALID_COST_ITEM_ID, targetMarginPct: 150 },
+      { costItemId: VALID_COST_ITEM_ID, targetMarginPct: Number.POSITIVE_INFINITY },
+    ],
   });
 
   it("recommends a price via formulas.ts's sellPrice(mode: targetMargin), using execution.orgId, and warns it is a suggestion only", async () => {
@@ -44,7 +50,7 @@ describe("athena-tools costbook: recommend-price", () => {
     ]);
   });
 
-  it("fails cleanly (not an uncaught exception) when targetMarginPct is exactly 100, the mathematically undefined boundary", async () => {
+  it("fails cleanly (not an uncaught exception) when targetMarginPct is exactly 100 if execution bypasses schema validation", async () => {
     const deps = createFakeDeps(makeBreakdown({ totalUnitCost: 80 }));
     const tool = createCostbookRecommendPriceTool(deps);
     const result = await tool.execute({ costItemId: VALID_COST_ITEM_ID, quantity: 1, targetMarginPct: 100 }, {} as never, EXECUTION);
@@ -56,12 +62,6 @@ describe("athena-tools costbook: recommend-price", () => {
 
   it("never writes to any pricing table: the deps shape structurally exposes no write-capable CostDatabaseService method", () => {
     const deps = createFakeDeps(makeBreakdown());
-    // deps.costDatabase's declared type is Pick<CostDatabaseService, "getUnitCost">
-    // - "create"/"update"/"delete"/"bulkImport" are not assignable properties
-    // of that type, so this fake (and any real CostDatabaseService passed as
-    // this dependency) can never expose them to this tool's execute(), not
-    // merely by convention but by the type system. Confirmed here at
-    // runtime too: the fake object literal was never given those methods.
     expect((deps.costDatabase as unknown as Record<string, unknown>).create).toBeUndefined();
     expect((deps.costDatabase as unknown as Record<string, unknown>).update).toBeUndefined();
     expect((deps.costDatabase as unknown as Record<string, unknown>).delete).toBeUndefined();
