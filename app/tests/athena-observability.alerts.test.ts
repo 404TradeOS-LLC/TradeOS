@@ -263,6 +263,46 @@ describe("evaluateAthenaAlerts", () => {
     const evaluations = await evaluateAthenaAlerts(ORG, now);
     expect(evaluations.find((e) => e.ruleId === "approval_bypass_attempt")?.firing).toBe(false);
   });
+
+  // A11 (athena-security/riskEngine.ts's denied "approval" spans, tagged
+  // layer: "athena_security_risk_engine" - see athena-kernel/service.ts's
+  // A11 gate). These three rules read the same findMany(spanType:
+  // "approval") shape as evaluateApprovalBypassAttempt above, filtered
+  // further by the layer/securityReasons metadata only A11's own gate
+  // attaches.
+  it.each([
+    ["cross_tenant_access_attempt", "athena_security_denied_cross_tenant_reference", "critical"],
+    ["secret_leak_detected", "athena_security_denied_secret_shaped_input", "critical"],
+    ["prompt_injection_detected", "athena_security_denied_confirmed_prompt_injection", "high"],
+  ] as const)("fires %s when a matching A11 risk-engine denial is present", async (ruleId, securityReason, severity) => {
+    mockPrisma.athenaTelemetryRecordRow.findMany.mockImplementation(({ where }: { where: { spanType: string } }) =>
+      where.spanType === "approval" ? Promise.resolve([{ metadataJson: { layer: "athena_security_risk_engine", securityReasons: [securityReason] } }]) : Promise.resolve([])
+    );
+    const evaluations = await evaluateAthenaAlerts(ORG);
+    const evaluation = evaluations.find((e) => e.ruleId === ruleId);
+    expect(evaluation?.firing).toBe(true);
+    expect(evaluation?.severity).toBe(severity);
+  });
+
+  it("does not fire any A11 rule for an ordinary A4 permission denial with no security-layer metadata", async () => {
+    mockPrisma.athenaTelemetryRecordRow.findMany.mockImplementation(({ where }: { where: { spanType: string } }) =>
+      where.spanType === "approval" ? Promise.resolve([{ metadataJson: { decision: "deny", reasonCode: "athena_permission_denied_missing_permission" } }]) : Promise.resolve([])
+    );
+    const evaluations = await evaluateAthenaAlerts(ORG);
+    expect(evaluations.find((e) => e.ruleId === "cross_tenant_access_attempt")?.firing).toBe(false);
+    expect(evaluations.find((e) => e.ruleId === "secret_leak_detected")?.firing).toBe(false);
+    expect(evaluations.find((e) => e.ruleId === "prompt_injection_detected")?.firing).toBe(false);
+  });
+
+  it("does not cross-fire a different A11 rule for a security-layer denial with a different reason", async () => {
+    mockPrisma.athenaTelemetryRecordRow.findMany.mockImplementation(({ where }: { where: { spanType: string } }) =>
+      where.spanType === "approval" ? Promise.resolve([{ metadataJson: { layer: "athena_security_risk_engine", securityReasons: ["athena_security_denied_secret_shaped_input"] } }]) : Promise.resolve([])
+    );
+    const evaluations = await evaluateAthenaAlerts(ORG);
+    expect(evaluations.find((e) => e.ruleId === "secret_leak_detected")?.firing).toBe(true);
+    expect(evaluations.find((e) => e.ruleId === "cross_tenant_access_attempt")?.firing).toBe(false);
+    expect(evaluations.find((e) => e.ruleId === "prompt_injection_detected")?.firing).toBe(false);
+  });
 });
 
 describe("applyAthenaAlertEvaluations", () => {

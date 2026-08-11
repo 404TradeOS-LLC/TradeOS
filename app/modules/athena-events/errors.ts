@@ -12,7 +12,8 @@ export type AthenaEventReasonCode =
   | "not_found"
   | "storage_unavailable"
   | "conflict"
-  | "unregistered_event_type";
+  | "unregistered_event_type"
+  | "secret_shaped_payload";
 
 export class AthenaEventError extends Error {
   constructor(
@@ -64,4 +65,16 @@ export function athenaEventStorageUnavailableError(correlationId: string): Athen
 
 export function athenaEventConflictError(correlationId: string, safeSummary = "Athena could not complete this event operation."): AthenaEventError {
   return new AthenaEventError("conflict", buildError("athena_event_conflict", "conflict", false, safeSummary, correlationId));
+}
+
+// A11 hardening (docs/athena/09-security/README.md "Secrets, PII, And Data
+// Minimization"). Mirrors athena-memory/writePolicy.ts's own posture for
+// prohibited content exactly: a secret-shaped payload is *rejected*, never
+// silently redacted-and-persisted - an event payload is structured business
+// data other services deserialize by field name, so silently mutating a
+// field's value in place would corrupt correctness in a way a caller could
+// not detect, whereas a loud rejection surfaces the bug at the call site
+// that produced it.
+export function athenaEventSecretShapedPayloadError(correlationId: string): AthenaEventError {
+  return new AthenaEventError("secret_shaped_payload", buildError("athena_event_secret_shaped_payload", "validation", false, "Athena rejected this event: its payload appears to carry credential-shaped data.", correlationId));
 }

@@ -1,8 +1,10 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-11
 source_of_truth: true
+related_docs:
+  - ../roadmap/A11-security-hardening-implementation-plan.md
 ---
 
 # Volume 9 - Security And Permissions
@@ -91,3 +93,83 @@ Third-party plugins run with explicit manifests, least-privilege capability
 grants, sandboxed execution, reviewed network/storage access, output
 validation, telemetry, and revocation. A plugin cannot receive broad context or
 invoke a tool merely because it is installed.
+
+## Threat Model (A11)
+
+Implemented by `app/modules/athena-security/`
+(`docs/athena/roadmap/A11-security-hardening-implementation-plan.md`), which
+adds a security *evaluation, classification, and audit* layer over the
+decisions this document already required of A3/A4/A6/A7/A8/A9/A10 - it does
+not replace any of them.
+
+### Assets
+
+- TradeOS tenant business data (customers, jobs, estimates, invoices,
+  documents) reachable through Athena's context providers and tools.
+- Credentials and secrets (API keys, tokens, passwords, connection
+  strings) that must never reach a prompt, telemetry record, memory
+  record, tool result, or event payload.
+- Athena's own permission and approval decisions (A4/A6) - the mechanism
+  that stands between a request and a real side effect.
+- Memory records (A7) - durable, reused across future turns, so a
+  poisoned record has a longer-lived blast radius than a single bad
+  response.
+- The telemetry/audit trail (A10/C011) - the record a human uses to detect
+  and investigate an incident.
+- Athena's own system/developer instructions - the one thing in the whole
+  pipeline that is authority rather than content.
+
+### Attackers (trust levels)
+
+- **An authenticated, lower-privilege org member** - legitimate bearer
+  JWT and org membership, attempting an action their role/permissions
+  should not allow (privilege escalation, forged execution context).
+- **A malicious or compromised counterparty** (customer, supplier) whose
+  submitted content (a note, an email, an uploaded document) Athena's
+  context providers or Knowledge Runtime will retrieve and summarize -
+  content, never authority, but the source of prompt-injection attempts.
+- **A compromised or buggy first-party tool** - passes A2 registration but
+  returns malicious/unsafe output (tool-output injection, hidden side
+  effects, secret-shaped data in its result).
+- **Cross-tenant probing** - a request that is valid for one org attempting
+  to reference, by a known id, a resource/memory/tool/trace belonging to a
+  different org.
+- **A malicious third-party plugin** - explicitly out of scope for A11 (see
+  "Plugin Sandboxing" above and A13); `athena-security/toolTrust.ts`'s
+  `restricted`/`plugin:` classification is kept ready for that milestone
+  but unreachable in production today.
+
+### Trust boundaries
+
+1. Bearer JWT verification + organization-membership authorization +
+   forced PostgreSQL RLS (unchanged - the existing floor every other layer
+   sits on top of).
+2. A4's permission decision (`athena-permissions/policy.ts`) - the sole
+   authorization authority.
+3. A11's risk-evaluation gate (`athena-security/riskEngine.ts`) - narrows
+   an already-permitted path further; never widens one.
+4. A6's approval-binding check (`athena-action-engine/approval.ts`) - an
+   approval is bound to exact org/actor/tool/risk/idempotency-key/input-hash/
+   plan/step, fail-closed by default.
+5. A7's write-policy trust check (`athena-memory/writePolicy.ts`) - an
+   untrusted or secret-shaped write candidate is rejected before storage.
+
+### Attack scenarios and mitigations
+
+| Scenario | Mitigation |
+| --- | --- |
+| User message tries to override Athena's own instructions ("ignore previous instructions...") | Kernel keeps system/developer instructions structurally separate from user message content; A11's `promptInjection.ts` additionally classifies the pattern for audit. |
+| A retrieved context section (customer note, knowledge-runtime record) contains an embedded instruction | `athena-security/contextTrust.ts` classifies every A3 section as `organization_content` (data, never authority) and flags a match as an advisory warning - the section is still assembled, never silently altered. |
+| A tool's own output contains an embedded instruction or malicious command | `detectPromptInjectionDeep` is available for tool-output scanning; the exact validated payload about to reach a *subsequent* tool call is scanned by `riskEngine.ts` and denied on a confirmed match. |
+| Memory contains a malicious or false "trusted" instruction | Unchanged A7 defense: `writePolicy.ts` rejects any candidate whose `source.trusted` is false, and rejects secret-shaped content regardless of trust. |
+| A caller attempts to invoke a tool with insufficient permissions | A4 denies (unchanged); A11 never re-derives or overrides this. |
+| A permission-granted, risk-blocked action is executed without approval | A6's fail-closed approval verifier plus A10's `approval_bypass_attempt`/`unauthorized_execution` alert rules (unchanged, pre-A11). |
+| A tool input carries a secret-shaped value (an API key pasted into a chat message) | `riskEngine.ts` denies via `detectSecrets`; A10's `secret_leak_detected` alert fires. |
+| A request references a resource/id belonging to a different org | `riskEngine.ts` denies via its `referencedOrgId` check when a caller has resolved one; A10's `cross_tenant_access_attempt` alert fires. RLS remains the unconditional floor regardless of this check. |
+| A secret ends up in telemetry, memory, tool results, or an event payload | `athena-security/secretProtection.ts` is the single centralized detector/redactor called from all four surfaces (see the roadmap plan's "Secret Protection" section for exact call sites). |
+| An experimental/unreviewed tool is reachable without explicit opt-in | `toolTrust.ts` requires an explicit enablement flag for `experimental`/`restricted` tools, additive to A2/A4. |
+
+Explicitly out of scope for A11 (unchanged from before this milestone):
+Plugin SDK security, marketplace review, a full SIEM/WAF, and any new
+authorization or execution engine - see the roadmap plan's "Explicit
+Non-Goals" section.

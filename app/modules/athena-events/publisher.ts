@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { athenaEventInvalidInputError, athenaEventUnregisteredEventTypeError } from "./errors";
+import { detectSecrets } from "../athena-security/secretProtection";
+import { athenaEventInvalidInputError, athenaEventSecretShapedPayloadError, athenaEventUnregisteredEventTypeError } from "./errors";
 import { isAthenaEventTypeVersionRegistered } from "./registry";
 import type { AthenaEventRepository } from "./store";
 import type { AthenaBusinessEvent, AthenaEventSubscriber, AthenaPublishEventInput, AthenaPublishEventResult } from "./types";
@@ -56,6 +57,17 @@ export async function publishAthenaEvent<TPayload = unknown>(
     assertValidAthenaBusinessEvent(candidate);
   } catch {
     throw athenaEventInvalidInputError(correlationId);
+  }
+
+  // A11 hardening: reject rather than silently persist a payload that looks
+  // like it carries a credential (task brief "Protect: ... events. Detect:
+  // API keys, tokens, passwords, credentials... sanitize before
+  // persistence"). Scoped to `payload` only, not the whole candidate - id/
+  // type/version/entity/actor/correlationId/idempotencyKey are Athena's own
+  // structural fields, never caller-supplied free-form content, so scanning
+  // them would only produce false positives on legitimate identifiers.
+  if (detectSecrets(candidate.payload).detected) {
+    throw athenaEventSecretShapedPayloadError(correlationId);
   }
 
   const event = candidate as AthenaBusinessEvent;

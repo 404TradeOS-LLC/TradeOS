@@ -1,3 +1,4 @@
+import { redactSecrets } from "../athena-security/secretProtection";
 import type { AthenaEventReference, AthenaFollowUp, AthenaTelemetryReference, AthenaToolError, AthenaToolResult, AthenaWarning } from "./types";
 
 // Success/failure result builders (docs/athena/roadmap/
@@ -38,7 +39,19 @@ export function successResult<TData = unknown>(input: AthenaSuccessResultInput<T
   return {
     success: true,
     summary: input.summary,
-    data: input.data,
+    // A11 hardening (docs/athena/09-security/README.md "Secrets, PII, And
+    // Data Minimization"): a tool's returned `data` reaches telemetry,
+    // memory-extraction candidates, and the LLM's own next-turn context, so
+    // it is redacted through the same centralized detector every other
+    // persistence surface uses (athena-security/secretProtection.ts) before
+    // ever leaving this constructor - unlike A8 events (publisher.ts),
+    // where a secret-shaped *business* payload is rejected outright, `data`
+    // here is a tool author's own free-form return value, not a
+    // schema-typed business record other services deserialize by field
+    // name, so redact-in-place (keep the result, replace only the
+    // offending value) is the safer default than failing the whole tool
+    // call.
+    data: redactSecrets(input.data).data,
     events: input.events ?? [],
     warnings: input.warnings ?? [],
     followUps: input.followUps ?? [],

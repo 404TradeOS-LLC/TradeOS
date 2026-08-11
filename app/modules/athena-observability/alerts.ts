@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
+import type { AthenaSecurityReasonCode } from "../athena-security/types";
 import { getEventHealth, getModelMetrics, getOverviewMetrics, getToolMetrics } from "./metricsService";
 import { AthenaAlertEvaluation, AthenaAlertRecord, AthenaAlertRuleId, AthenaAlertSeverity, AthenaAlertStatus, AthenaModelMetric, AthenaOverviewMetrics, AthenaToolMetric } from "./types";
 
@@ -61,6 +62,13 @@ const UNAUTHORIZED_EXECUTION_THRESHOLD = envInt("ATHENA_ALERT_UNAUTHORIZED_EXECU
 // rule's own doc comment below for exact scope/gaps) - any occurrence is
 // significant, so the default threshold is 1.
 const APPROVAL_BYPASS_THRESHOLD = envInt("ATHENA_ALERT_APPROVAL_BYPASS_THRESHOLD", 1);
+// A11's three risk-engine deny signals (secret-shaped input, confirmed
+// prompt injection, cross-tenant reference) are each an unambiguous,
+// already-confirmed abuse signal, not a rate-based heuristic - like
+// approval_bypass_attempt, any single occurrence is significant.
+const SECRET_LEAK_DETECTED_THRESHOLD = envInt("ATHENA_ALERT_SECRET_LEAK_DETECTED_THRESHOLD", 1);
+const PROMPT_INJECTION_DETECTED_THRESHOLD = envInt("ATHENA_ALERT_PROMPT_INJECTION_DETECTED_THRESHOLD", 1);
+const CROSS_TENANT_ACCESS_ATTEMPT_THRESHOLD = envInt("ATHENA_ALERT_CROSS_TENANT_ACCESS_ATTEMPT_THRESHOLD", 1);
 
 function toAlertRecord(row: {
   id: string;
@@ -284,6 +292,68 @@ function readMetadataString(metadataJson: unknown, key: string): string | null {
   return null;
 }
 
+function metadataStringArrayIncludes(metadataJson: unknown, key: string, value: string): boolean {
+  if (!metadataJson || typeof metadataJson !== "object" || !(key in (metadataJson as Record<string, unknown>))) return false;
+  const arr = (metadataJson as Record<string, unknown>)[key];
+  return Array.isArray(arr) && arr.includes(value);
+}
+
+// A11 risk-engine deny evaluators (athena-security/riskEngine.ts;
+// athena-kernel/service.ts's "athena_security_risk_engine" span). Unlike
+// unauthorized_execution above (which counts every denied "approval" span
+// regardless of layer), these three narrow to the specific
+// layer/securityReasons metadata athena-kernel/service.ts's A11 gate
+// attaches via athena-security/audit.ts's buildAthenaSecurityAuditMetadata
+// - each one an already-confirmed, unambiguous abuse signal (not a
+// rate-based heuristic), so - like approval_bypass_attempt - any single
+// occurrence in the window is significant enough to fire by default.
+async function evaluateSecurityRiskDenialRule(
+  orgId: string,
+  from: Date,
+  to: Date,
+  ruleId: "cross_tenant_access_attempt" | "secret_leak_detected" | "prompt_injection_detected",
+  // Typed against athena-security's own AthenaSecurityReasonCode union
+  // (type-only import - no runtime dependency on athena-security) so a
+  // future rename of one of these reason codes in riskEngine.ts fails this
+  // file's own compile, rather than silently drifting into a rule that can
+  // never fire.
+  securityReason: AthenaSecurityReasonCode,
+  threshold: number,
+  severity: AthenaAlertSeverity,
+  label: string
+): Promise<AthenaAlertEvaluation> {
+  const rows = await prisma.athenaTelemetryRecordRow.findMany({
+    where: { orgId, spanType: "approval", status: "denied", createdAt: { gte: from, lt: to } },
+    select: { metadataJson: true },
+  });
+  const matchCount = rows.filter(
+    (row) => readMetadataString(row.metadataJson, "layer") === "athena_security_risk_engine" && metadataStringArrayIncludes(row.metadataJson, "securityReasons", securityReason)
+  ).length;
+  const firing = matchCount >= threshold;
+  return {
+    ruleId,
+    dedupeKey: ruleId,
+    firing,
+    severity,
+    summary: firing
+      ? `${matchCount} ${label} denial(s) in the last ${ALERT_EVALUATION_WINDOW_MINUTES}m - the A11 risk engine correctly blocked these; review immediately`
+      : `${matchCount} ${label} denial(s), within threshold`,
+    metadata: { matchCount, threshold, windowMinutes: ALERT_EVALUATION_WINDOW_MINUTES, securityReason },
+  };
+}
+
+function evaluateCrossTenantAccessAttempt(orgId: string, from: Date, to: Date): Promise<AthenaAlertEvaluation> {
+  return evaluateSecurityRiskDenialRule(orgId, from, to, "cross_tenant_access_attempt", "athena_security_denied_cross_tenant_reference", CROSS_TENANT_ACCESS_ATTEMPT_THRESHOLD, "critical", "cross-tenant reference");
+}
+
+function evaluateSecretLeakDetected(orgId: string, from: Date, to: Date): Promise<AthenaAlertEvaluation> {
+  return evaluateSecurityRiskDenialRule(orgId, from, to, "secret_leak_detected", "athena_security_denied_secret_shaped_input", SECRET_LEAK_DETECTED_THRESHOLD, "critical", "secret-shaped input");
+}
+
+function evaluatePromptInjectionDetected(orgId: string, from: Date, to: Date): Promise<AthenaAlertEvaluation> {
+  return evaluateSecurityRiskDenialRule(orgId, from, to, "prompt_injection_detected", "athena_security_denied_confirmed_prompt_injection", PROMPT_INJECTION_DETECTED_THRESHOLD, "high", "confirmed prompt injection");
+}
+
 // approval_bypass_attempt - SECURITY-SENSITIVE. Read this comment in full
 // before trusting or tuning this rule; it is a proxy over persisted
 // telemetry, not a live authorization check, and its scope is deliberately
@@ -408,6 +478,9 @@ export async function evaluateAthenaAlerts(orgId: string, now: Date = new Date()
   evaluations.push(evaluateCostSpike(overview));
   evaluations.push(await evaluateUnauthorizedExecution(orgId, from, to));
   evaluations.push(await evaluateApprovalBypassAttempt(orgId, from, to));
+  evaluations.push(await evaluateCrossTenantAccessAttempt(orgId, from, to));
+  evaluations.push(await evaluateSecretLeakDetected(orgId, from, to));
+  evaluations.push(await evaluatePromptInjectionDetected(orgId, from, to));
   // athenaAlertRuleIds also includes "telemetry_write_failure" - deliberately
   // skipped, see the doc comment directly above this function.
 

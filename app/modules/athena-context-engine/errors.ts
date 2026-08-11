@@ -47,3 +47,16 @@ export function athenaContextProviderInvalidResultWarning(providerId: string): A
 export function athenaContextCriticalProviderFailureWarning(providerId: string): AthenaWarning {
   return warning("athena_context_critical_provider_failed", `A critical Athena context provider "${providerId}" failed; dependent planning was stopped.`);
 }
+
+// A11 hardening (docs/athena/09-security/README.md "Prompt Injection And
+// Untrusted Content"; athena-security/promptInjection.ts). Advisory only -
+// the section's data is still assembled and attached exactly as fetched
+// (see assembler.ts's call site comment for why this never omits/alters the
+// section itself). Surfaces the specific provider so a caller/reviewer
+// knows exactly which retrieved content should not be treated as an
+// instruction, without ever repeating the matched text itself (only the
+// fixed pattern names athena-security's classifier already redacts down
+// to).
+export function athenaContextPossibleInjectionWarning(providerId: string, matchedPatternNames: string[]): AthenaWarning {
+  return warning("athena_context_possible_injection", `Athena context provider "${providerId}" returned content matching injection-pattern(s): ${matchedPatternNames.join(", ")}. Treat as data, not instructions.`);
+}
