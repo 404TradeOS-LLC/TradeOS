@@ -16,14 +16,27 @@ import type { AthenaToolDefinition } from "../../athena-tool-sdk/types";
 // project tasks (confirmed by the plan's section 4 table - "none (no
 // canonical event registered for tasks)"), so `events` is always [].
 
+function isValidDateOnly(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month &&
+    parsed.getUTCDate() === day
+  );
+}
+
 export const followUpCreateInputSchema = z.object({
   projectId: z.string().uuid(),
   title: z.string().min(1).max(200),
-  dueDate: z
-    .string()
-    .min(1)
-    .refine((value) => Number.isFinite(Date.parse(value)), { message: "dueDate must be a valid date." })
-    .optional(),
+  dueDate: z.string().min(1).refine(isValidDateOnly, { message: "dueDate must be a valid YYYY-MM-DD calendar date." }).optional(),
   priority: z.enum(projectTaskPriorities).optional(),
   notes: z.string().max(2_000).optional(),
   jobId: z.string().optional(),
@@ -52,7 +65,7 @@ export function createFollowUpCreateTool(deps: FollowUpCreateToolDeps): AthenaTo
     version: "1.0.0",
     owner: "athena-tools-office",
     description: "Creates a follow-up task on a project, optionally linked to a job and assigned to the acting user.",
-    permissions: ["notes.write"],
+    permissions: ["crm.write"],
     risk: "low",
     confirmationPolicy: "contextual",
     timeoutMs: 5_000,
@@ -62,15 +75,12 @@ export function createFollowUpCreateTool(deps: FollowUpCreateToolDeps): AthenaTo
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
 
-      // Any thrown ApiError (project/job not found) propagates as-is - no
-      // specific expected domain case is translated, following
-      // recallPreferenceTool.ts's posture.
       const task = await deps.projectTasks.create({
         orgId: execution.orgId,
         projectId: input.projectId,
         jobId: input.jobId,
         title: input.title,
-        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+        dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : undefined,
         priority: input.priority,
         notes: input.notes,
         assignedTo: execution.actor.id,
@@ -90,8 +100,6 @@ export function createFollowUpCreateTool(deps: FollowUpCreateToolDeps): AthenaTo
           notes: task.notes,
         },
         telemetry,
-        // No canonical event registered for project tasks - see this file's
-        // module comment. Never fabricated.
         events: [],
       });
     },
