@@ -33,12 +33,12 @@
   "dependencies": {
     "@prisma/client": "^5.20.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
-    "express-rate-limit": "^7.4.1",
+    "express-rate-limit": "^8.6.2",
     "jose": "^4.15.9",
-    "node-cron": "^3.0.3",
-    "pdfkit": "^0.15.0",
+    "node-cron": "^4.6.0",
+    "pdfkit": "^0.19.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
