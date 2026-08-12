@@ -221,6 +221,10 @@ export function HierarchyCatalog({
 
   return (
     <div className="grid gap-6">
+      {error ? (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>
+      ) : null}
+
       {canWrite ? (
         <div>
           {creatingDivision ? (
@@ -229,7 +233,7 @@ export function HierarchyCatalog({
               form={form}
               setForm={setForm}
               saving={saving}
-              error={error}
+              error={null}
               onCancel={resetInlineState}
               onSubmit={handleCreateDivision}
               submitLabel="Add Division"
@@ -267,7 +271,7 @@ export function HierarchyCatalog({
                       form={form}
                       setForm={setForm}
                       saving={saving}
-                      error={error}
+                      error={null}
                       onCancel={resetInlineState}
                       onSubmit={(event) => handleUpdateDivision(event, division.id)}
                       submitLabel="Save Division"
@@ -316,7 +320,7 @@ export function HierarchyCatalog({
                           form={form}
                           setForm={setForm}
                           saving={saving}
-                          error={error}
+                          error={null}
                           onCancel={resetInlineState}
                           onSubmit={(event) => handleCreateCategory(event, division.id)}
                           submitLabel="Add Category"
@@ -346,7 +350,7 @@ export function HierarchyCatalog({
                                     form={form}
                                     setForm={setForm}
                                     saving={saving}
-                                    error={error}
+                                    error={null}
                                     onCancel={resetInlineState}
                                     onSubmit={(event) => handleUpdateCategory(event, category.id)}
                                     submitLabel="Save Category"
@@ -395,7 +399,7 @@ export function HierarchyCatalog({
                                         form={form}
                                         setForm={setForm}
                                         saving={saving}
-                                        error={error}
+                                        error={null}
                                         onCancel={resetInlineState}
                                         onSubmit={(event) => handleCreateSubcategory(event, category.id)}
                                         submitLabel="Add Subcategory"
@@ -420,7 +424,7 @@ export function HierarchyCatalog({
                                               form={form}
                                               setForm={setForm}
                                               saving={saving}
-                                              error={error}
+                                              error={null}
                                               onCancel={resetInlineState}
                                               onSubmit={(event) => handleUpdateSubcategory(event, subcategory.id)}
                                               submitLabel="Save Subcategory"
@@ -579,10 +583,10 @@ function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
   return map;
 }
 
-function sortHierarchy<T extends { isActive: boolean; name: string; createdAt: string }>(rows: T[]): T[] {
+function sortHierarchy<T extends { isActive: boolean; sortOrder: number; name: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => {
     if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    return a.name.localeCompare(b.name) || a.createdAt.localeCompare(b.createdAt);
+    return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
   });
 }
 
