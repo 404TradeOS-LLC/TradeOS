@@ -117,6 +117,16 @@ editing repository controls.
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
 
+## Autonomous maintenance governance
+
+`AGENTS.md` defines the repository-specific execution contract for autonomous maintenance agents. That contract may make low-risk repairs more action-oriented, but it cannot weaken the repository controls in this document.
+
+Autonomous agents may diagnose, repair, test, publish, and merge bounded low-risk work only when the live branch rules permit it and the final head satisfies every required check, up-to-date requirement, review-thread requirement, ownership requirement, and merge-readiness condition. A maintenance agent must prefer advancing an existing overlapping PR over creating a competing implementation.
+
+The following remain human-decision or PR-only boundaries unless a narrower approved runbook explicitly authorizes the exact operation: new or materially changed database migrations, destructive data operations, authentication or authorization policy changes, RLS redesign, production secrets or credential rotation, billing or money movement, major architecture or repository-boundary changes, and new production trust boundaries. Agents must never bypass branch protection, disable tests to obtain green CI, push directly to `main`, or convert an unverified result into a pass.
+
+This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
+
 ## Branch and worktree lifecycle
 
 The executable agent startup and completion sequences are owned only by the
