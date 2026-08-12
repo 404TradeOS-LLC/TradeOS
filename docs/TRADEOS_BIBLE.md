@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -26,25 +26,28 @@ product session starts its source-of-truth review here. The executable order is
 owned by the canonical startup flow in
 `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
-When an eligible `READY` sprint exists, the agent selects and executes it through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. The founder should not need to reconstruct a custom implementation prompt.
+When an eligible `READY` sprint exists, the agent selects and executes it through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. The founder should not need to reconstruct a custom implementation prompt. If no numbered sprint is `READY`, the correct computed state is `Sprint ID: NONE`; agents must advance or repair already-authorized work, resolve blockers, or prepare a governance-only readiness promotion rather than inventing feature scope.
 
-S005 completed this operating-contract consolidation in PR #84, merged on
+S005 completed the original operating-contract consolidation in PR #84, merged on
 2026-08-06 as `7d1c48376861468122347e19c41f0a007d7b5fc9`. The Next Sprint
-Protocol is the sole executable owner of startup and completion; supporting
-documents may define doctrine, lifecycle policy, or scoped additions only.
+Protocol remains the sole executable owner of startup and completion; supporting
+documents may define doctrine, lifecycle policy, or scoped additions only. The
+repository-specific autonomous maintenance contract was strengthened later in PR
+#177, merged 2026-08-12 as `25ce0817b8a87a068348496fca12bd32230bfaf9`,
+without changing that source-of-truth hierarchy.
 
-S006 — Lifecycle compatibility inventory is the next lifecycle-normalization
-sprint. Its readiness promotion is governance-only and explicitly separates
-inventory work from parallel UI implementation: S006 may inspect UI lifecycle
-values as evidence, but implementation is forbidden from changing UI runtime
-paths or any product behavior until the compatibility inventory is approved.
+S006 — Lifecycle compatibility inventory is complete. PR #95 merged on
+2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, preserving an
+authoritative compatibility inventory for the later S007-S012 normalization
+sprints. Completion of S006 does not automatically promote any of those
+`PLANNED` sprints to `READY`.
 
-S027 — Intelligent Costbook production readiness now has a founder-requested
-readiness contract recorded in the Sprint Backlog, but it is not executable
-while active PR overlap exists. Its implementation must extend the existing
-Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine
-seams; it must not create mock production data, a parallel AI estimator, or
-autonomous AI write paths.
+S027 — Intelligent Costbook production readiness retains its founder-requested
+readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
+and #96 have merged, but S027 remains non-executable while current Costbook work
+owns overlapping runtime, migration, test, and UI surfaces—most notably PR #128
+(C004 equipment catalog foundation) and PR #151 (Costbook hierarchy RLS/parent
+activity hardening). Re-read live GitHub state before any later promotion.
 
 ## Volume I — Vision
 
