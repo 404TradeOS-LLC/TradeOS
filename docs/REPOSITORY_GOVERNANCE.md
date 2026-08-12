@@ -53,9 +53,9 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build` — installs from lockfile, validates the Prisma schema, audits production dependencies at high severity or above, runs TypeScript typechecking, backend unit tests, Athena contract/smoke gates, builds the backend, and verifies the build did not modify tracked source;
-- `App integration tests` — provisions PostgreSQL and runs the same migration-deployment path used by production before live integration/RLS tests;
-- `Web lint and build` — installs from lockfile, audits production dependencies at high severity or above, runs frontend unit tests, lint, build, and verifies tracked source remains clean.
+- `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
+- `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
+- `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
 
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
@@ -76,9 +76,37 @@ Do not weaken CI, up-to-date requirements, deletion protection, force-push prote
 
 ## Verified default-branch controls
 
-On 2026-08-04, S003 performed a read-only verification of the live GitHub configuration at `main` commit `cdadd24d`. No repository setting or ruleset was changed.
+On 2026-08-04, S003 performed a read-only verification of the live GitHub
+configuration at `main` commit `cdadd24d`. No repository setting or ruleset
+was changed.
 
-The active `TradeOS Main Branch Protection` ruleset targets the default branch and contains deletion and non-fast-forward protection, mandatory pull requests with zero required approving reviews, required review-thread resolution, strict required-status-check enforcement, linear-history enforcement, and allowed pull-request merge methods of merge and squash. Re-run live read-only inspection before changing those statements or editing repository controls.
+The active `TradeOS Main Branch Protection` ruleset
+([ID 18958081](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/18958081))
+targets the default branch and contains:
+
+- deletion and non-fast-forward protection;
+- mandatory pull requests with zero required approving reviews;
+- required review-thread resolution, with neither code-owner review nor
+  last-push approval required;
+- strict required-status-check enforcement, which requires the branch to be
+  current before merge;
+- the exact required checks `Docs consistency`,
+  `App lint, unit tests, and build`, `App integration tests`, and
+  `Web lint and build`;
+- linear-history enforcement;
+- allowed pull-request merge methods of merge and squash; and
+- Copilot review on pushes and draft pull requests.
+
+The separate active
+`Code Quality Copilot review for default branch` ruleset
+([ID 19465256](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/19465256))
+also targets the default branch and requests Copilot review on pushes and draft
+pull requests.
+
+GitHub's unauthenticated public ruleset response does not disclose bypass
+actors, so this verification makes no claim about bypass-actor configuration.
+Re-run the live read-only inspection before changing these statements or
+editing repository controls.
 
 ## Merge posture
 
@@ -91,9 +119,34 @@ The active `TradeOS Main Branch Protection` ruleset targets the default branch a
 
 ## Branch and worktree lifecycle
 
-The executable agent startup and completion sequences are owned only by the [Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document owns the repository policy those flows enforce: branch and worktree lifecycle, PR readiness, review, merge, and cleanup.
+The executable agent startup and completion sequences are owned only by the
+[Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document
+owns the repository policy those flows enforce: branch and worktree lifecycle,
+PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists,
+and backend, frontend, docs, or recovery contracts may link to the canonical
+flows and add lane-specific requirements; they must not duplicate or weaken the
+general sequence.
 
 Use one clean `main` worktree plus one linked worktree per active mission.
+
+Standard flow:
+
+1. fetch origin;
+2. verify exact repository, path, branch, upstream, and clean state;
+3. create one short-lived branch and linked worktree for the bounded mission;
+4. state allowed paths, forbidden paths, validation, and stop conditions;
+5. inspect open PR and worktree overlap;
+6. perform only the approved mission;
+7. update required source-of-truth documents in the same branch;
+8. run required local checks;
+9. inspect the complete diff against the correct base;
+10. push normally and open or update one PR;
+11. wait for required checks;
+12. merge only after review readiness is established;
+13. sync `main` and verify the landed content;
+14. remove linked worktrees with `git worktree remove`;
+15. delete merged branches when safe;
+16. run `git worktree prune`.
 
 Required policy:
 
@@ -110,19 +163,48 @@ Required policy:
 
 When a changed file triggers an ownership requirement, the owning document must be included and updated meaningfully in the same PR. Do not add an empty or cosmetic edit merely to satisfy the checker.
 
-The Bible does not replace `CURRENT_STATE.md` for verified implementation truth, `SPRINT_BACKLOG.md` for executable work, `SESSION_HANDOFF.md` for current continuity, module docs for implementation contracts, accepted ADRs for architectural rationale, or research docs for supporting evidence.
+Changes to `docs/DOC_OWNERSHIP.yml` itself must include this file (`docs/REPOSITORY_GOVERNANCE.md`, which defines the enforced policy) and `docs/README.md` (the docs entrypoint), not only `docs/ENGINEERING_COMMAND_CENTER.md` — a PR that only touches `DOC_OWNERSHIP.yml` and the Command Center can otherwise change enforced ownership rules without the document that describes them to contributors ever being reviewed.
+
+Ownership is not limited to `app/**` and `web/**`. A package-level data corpus can be its own
+owning subject with its own README as the canonical entry point, rather than requiring a
+`docs/modules/*.md` file for every change. `packages/knowledge-engine/README.md` is the first
+instance of this pattern: it owns the package's canonical-path, provenance, and known-duplicate
+documentation, separate from `app/modules/knowledge-runtime/README.md`, which owns the live API
+consumer's documentation.
+
+The Bible does not replace:
+
+- `CURRENT_STATE.md` for verified implementation truth;
+- `SPRINT_BACKLOG.md` for executable work;
+- `SESSION_HANDOFF.md` for current continuity;
+- module docs for detailed implementation contracts;
+- accepted ADRs for active architectural rationale;
+- research docs for supporting evidence.
 
 ## Production migration history reconciliation
 
-Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL. Production migration changes remain approval-gated. CI may validate Prisma schema and rehearse the migration path against an isolated disposable PostgreSQL instance, but it must never apply pull-request migrations to production or mutate production migration history.
+Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL.
+
+The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, shares the production migration concurrency group, scopes `DATABASE_ADMIN_URL` to the Prisma steps as `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by diagnostic `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
+
+PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
+
+CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
 
 ## Session continuity
 
-Every contributor uses the Canonical Startup Flow and Canonical Completion Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. `ENGINEERING_COMMAND_CENTER.md` is a concise operating overview, not a running log. `SESSION_HANDOFF.md` is replaced with current truth at the end of a substantive session.
+Every contributor uses the
+[Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
+and
+[Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow).
+Those sections own the reading order, live-state checks, handoff requirements,
+and completion report; this policy does not define a competing checklist.
+
+`ENGINEERING_COMMAND_CENTER.md` is a concise operating overview, not a running log. `SESSION_HANDOFF.md` is replaced with current truth at the end of a substantive session.
 
 ## Pull request readiness
 
-A PR is ready for human review or autonomous merge consideration only when:
+A PR is ready for human review only when:
 
 - work stayed within its approved scope;
 - required owner documents are present;
@@ -133,10 +215,56 @@ A PR is ready for human review or autonomous merge consideration only when:
 - review threads are resolved;
 - the PR description accurately states current scope, validation, limitations, and remaining risks.
 
+Branch-specific changed-file counts, temporary PR blockers, and validation notes belong in `docs/SESSION_HANDOFF.md` or the pull request body. Do not preserve them as durable governance policy after the branch lands.
+
 ## Pull request templates
 
-The default PR template is the required baseline for every pull request. Specialized backend, frontend, docs/governance, and security templates do not replace the default readiness standard.
+The default PR template is the required baseline for every pull request.
 
-## Issue templates and labels
+It must capture:
 
-Normal public issues use the repository issue templates; sensitive vulnerability details belong in private security advisories. Labels follow `.github/labels.yml`; do not invent one-off taxonomy outside that file.
+- summary, scope, branch, worktree, and linked issue
+- startup verification against the Command Center and source-of-truth docs
+- allowed-path and forbidden-path compliance
+- documentation impact and `DOC_OWNERSHIP.yml` review
+- exact verification commands and blocked checks
+- final `git status --short --branch`
+- known limitations and follow-up work
+
+Specialized templates under `.github/PULL_REQUEST_TEMPLATE/` provide focused review prompts for:
+
+- backend changes
+- frontend changes
+- docs and governance changes
+- security hardening
+
+Specialized templates do not replace the default readiness standard. They exist to make the relevant risks harder to miss.
+
+## Issue templates
+
+Issue templates under `.github/ISSUE_TEMPLATE/` are required for normal public issue intake.
+
+Templates cover:
+
+- bug reports
+- engineering tasks
+- feature requests
+- governance and docs tasks
+- security review requests
+
+Blank issues are disabled so every issue starts with enough scope, risk, and verification context for triage. Security-sensitive reports that include exploitable details, secrets, or customer data must use private security advisories instead of public issues.
+
+## Label taxonomy
+
+The canonical repository label taxonomy lives in `.github/labels.yml`.
+
+Label groups:
+
+- `type:*` describes the kind of work
+- `area:*` describes the product or platform surface
+- `priority:*` describes severity and scheduling pressure
+- `risk:*` highlights release, data, security, migration, or external-service risk
+- `status:*` describes review, triage, blocked, stale, or merge readiness state
+- `owner:*` identifies the expected owner lane when work is split across agents or humans
+
+Labels should be applied consistently during triage. Do not create one-off labels until the taxonomy is updated in the same branch.
