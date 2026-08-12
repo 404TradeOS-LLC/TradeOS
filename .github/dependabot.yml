@@ -22,14 +22,22 @@ updates:
       timezone: "America/New_York"
     open-pull-requests-limit: 5
     groups:
+      prisma-stack:
+        patterns:
+          - "prisma"
+          - "@prisma/client"
       api-runtime:
         dependency-type: "production"
         patterns:
           - "*"
+        exclude-patterns:
+          - "@prisma/client"
       api-development:
         dependency-type: "development"
         patterns:
           - "*"
+        exclude-patterns:
+          - "prisma"
 
   - package-ecosystem: "npm"
     directory: "/web"
