@@ -2,8 +2,24 @@ const mockPrisma = {
   costbookWorkspace: {
     findUnique: jest.fn(),
   },
+  division: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
   category: {
     count: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  subcategory: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
   },
   costItem: {
     count: jest.fn(),
@@ -48,6 +64,18 @@ describe("CostbookService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.costbookWorkspace.findUnique.mockResolvedValue(null);
+    mockPrisma.division.findMany.mockResolvedValue([]);
+    mockPrisma.division.findFirst.mockResolvedValue(null);
+    mockPrisma.division.create.mockResolvedValue(divisionRow());
+    mockPrisma.division.update.mockResolvedValue(divisionRow());
+    mockPrisma.category.findMany.mockResolvedValue([]);
+    mockPrisma.category.findFirst.mockResolvedValue(null);
+    mockPrisma.category.create.mockResolvedValue(categoryRow());
+    mockPrisma.category.update.mockResolvedValue(categoryRow());
+    mockPrisma.subcategory.findMany.mockResolvedValue([]);
+    mockPrisma.subcategory.findFirst.mockResolvedValue(null);
+    mockPrisma.subcategory.create.mockResolvedValue(subcategoryRow());
+    mockPrisma.subcategory.update.mockResolvedValue(subcategoryRow());
     mockPrisma.category.count.mockResolvedValue(6);
     mockPrisma.costItem.count.mockResolvedValue(8);
     mockPrisma.laborRate.count.mockResolvedValue(3);
@@ -103,7 +131,7 @@ describe("CostbookService", () => {
     expect(mockPrisma.costbookWorkspace.findUnique).toHaveBeenCalledWith({
       where: { organizationId: "org-tenant-a" },
     });
-    expect(mockPrisma.category.count).toHaveBeenCalledWith({ where: { division: { orgId: "org-tenant-a" } } });
+    expect(mockPrisma.category.count).toHaveBeenCalledWith({ where: { division: { orgId: "org-tenant-a" }, isActive: true } });
     expect(mockPrisma.costItem.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", isActive: true } });
     expect(mockPrisma.laborRate.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a", active: true } });
     expect(mockPrisma.material.count).toHaveBeenCalledWith({ where: { orgId: "org-tenant-a" } });
@@ -308,6 +336,165 @@ describe("CostbookService", () => {
 
     expect(mockPrisma.material.update).not.toHaveBeenCalled();
   });
+
+  it("creates a division only inside the authenticated organization", async () => {
+    await new CostbookService().createDivision(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      { code: "ELEC", name: "Electrical", sortOrder: 1 }
+    );
+
+    expect(mockPrisma.division.create).toHaveBeenCalledWith({
+      data: { orgId: "org-tenant-a", code: "ELEC", name: "Electrical", sortOrder: 1 },
+    });
+  });
+
+  it("updates a division by id and org", async () => {
+    mockPrisma.division.findFirst.mockResolvedValue(divisionRow({ id: "division-1", orgId: "org-tenant-a" }));
+
+    await new CostbookService().updateDivision(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "division-1",
+      { name: "Electrical Systems" }
+    );
+
+    expect(mockPrisma.division.findFirst).toHaveBeenCalledWith({ where: { id: "division-1", orgId: "org-tenant-a" } });
+    expect(mockPrisma.division.update).toHaveBeenCalledWith({
+      where: { id: "division-1" },
+      data: { code: undefined, name: "Electrical Systems", sortOrder: undefined, isActive: undefined },
+    });
+  });
+
+  it("returns not found instead of updating a cross-organization division", async () => {
+    mockPrisma.division.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().updateDivision(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "division-from-org-b",
+        { name: "Cross Org" }
+      )
+    ).rejects.toThrow("Division division-from-org-b not found");
+
+    expect(mockPrisma.division.update).not.toHaveBeenCalled();
+  });
+
+  it("deactivates a division only inside the authenticated organization", async () => {
+    mockPrisma.division.findFirst.mockResolvedValue(divisionRow({ id: "division-1", orgId: "org-tenant-a" }));
+
+    await new CostbookService().deactivateDivision(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "division-1"
+    );
+
+    expect(mockPrisma.division.update).toHaveBeenCalledWith({
+      where: { id: "division-1" },
+      data: { isActive: false },
+    });
+  });
+
+  it("creates a category only when the division belongs to the authenticated organization", async () => {
+    mockPrisma.division.findFirst.mockResolvedValue({ id: "division-1" });
+
+    await new CostbookService().createCategory(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      { divisionId: "division-1", code: "WIRE", name: "Wiring", sortOrder: 2 }
+    );
+
+    expect(mockPrisma.division.findFirst).toHaveBeenCalledWith({
+      where: { id: "division-1", orgId: "org-tenant-a" },
+      select: { id: true },
+    });
+    expect(mockPrisma.category.create).toHaveBeenCalledWith({
+      data: { divisionId: "division-1", code: "WIRE", name: "Wiring", sortOrder: 2 },
+      include: { division: { select: { orgId: true } } },
+    });
+  });
+
+  it("rejects a division from another organization before creating a category", async () => {
+    mockPrisma.division.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().createCategory(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        { divisionId: "division-from-org-b", code: "WIRE", name: "Wiring" }
+      )
+    ).rejects.toThrow("Division must belong to the authenticated organization");
+
+    expect(mockPrisma.category.create).not.toHaveBeenCalled();
+  });
+
+  it("returns not found instead of updating a cross-organization category", async () => {
+    mockPrisma.category.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().updateCategory(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "category-from-org-b",
+        { name: "Cross Org" }
+      )
+    ).rejects.toThrow("Category category-from-org-b not found");
+
+    expect(mockPrisma.category.update).not.toHaveBeenCalled();
+  });
+
+  it("creates a subcategory only when the category belongs to the authenticated organization", async () => {
+    mockPrisma.category.findFirst.mockResolvedValue({ id: "category-1" });
+
+    await new CostbookService().createSubcategory(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      { categoryId: "category-1", code: "ROMEX", name: "Romex" }
+    );
+
+    expect(mockPrisma.category.findFirst).toHaveBeenCalledWith({
+      where: { id: "category-1", division: { orgId: "org-tenant-a" } },
+      select: { id: true },
+    });
+    expect(mockPrisma.subcategory.create).toHaveBeenCalledWith({
+      data: { categoryId: "category-1", code: "ROMEX", name: "Romex", sortOrder: 0 },
+      include: { category: { include: { division: { select: { orgId: true } } } } },
+    });
+  });
+
+  it("rejects a category from another organization before creating a subcategory", async () => {
+    mockPrisma.category.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().createSubcategory(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        { categoryId: "category-from-org-b", code: "ROMEX", name: "Romex" }
+      )
+    ).rejects.toThrow("Category must belong to the authenticated organization");
+
+    expect(mockPrisma.subcategory.create).not.toHaveBeenCalled();
+  });
+
+  it("returns not found instead of updating a cross-organization subcategory", async () => {
+    mockPrisma.subcategory.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().updateSubcategory(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "subcategory-from-org-b",
+        { name: "Cross Org" }
+      )
+    ).rejects.toThrow("Subcategory subcategory-from-org-b not found");
+
+    expect(mockPrisma.subcategory.update).not.toHaveBeenCalled();
+  });
+
+  it("deactivates a subcategory only inside the authenticated organization", async () => {
+    mockPrisma.subcategory.findFirst.mockResolvedValue(subcategoryRow({ id: "subcategory-1" }));
+
+    await new CostbookService().deactivateSubcategory(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "subcategory-1"
+    );
+
+    expect(mockPrisma.subcategory.update).toHaveBeenCalledWith({
+      where: { id: "subcategory-1" },
+      data: { isActive: false },
+    });
+  });
 });
 
 function materialRow(overrides: Record<string, unknown> = {}) {
@@ -342,6 +529,47 @@ function laborRateRow(overrides: Record<string, unknown> = {}) {
     burdenPct: 0,
     createdAt: new Date("2026-08-10T00:00:00.000Z"),
     updatedAt: new Date("2026-08-11T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function divisionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "division-1",
+    orgId: "org-tenant-a",
+    code: "ELEC",
+    name: "Electrical",
+    sortOrder: 0,
+    isActive: true,
+    createdAt: new Date("2026-08-10T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function categoryRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "category-1",
+    divisionId: "division-1",
+    code: "WIRE",
+    name: "Wiring",
+    sortOrder: 0,
+    isActive: true,
+    createdAt: new Date("2026-08-10T00:00:00.000Z"),
+    division: { orgId: "org-tenant-a" },
+    ...overrides,
+  };
+}
+
+function subcategoryRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "subcategory-1",
+    categoryId: "category-1",
+    code: "ROMEX",
+    name: "Romex",
+    sortOrder: 0,
+    isActive: true,
+    createdAt: new Date("2026-08-10T00:00:00.000Z"),
+    category: { division: { orgId: "org-tenant-a" } },
     ...overrides,
   };
 }

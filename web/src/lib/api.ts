@@ -230,6 +230,70 @@ export function listCostbookLaborRates(token: string) {
   return apiFetch<CostbookLaborRate[]>("/api/v1/costbook/labor-rates", { token });
 }
 
+export interface CostbookDivision {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookDivisionInput {
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export function listCostbookDivisions(token: string) {
+  return apiFetch<CostbookDivision[]>("/api/v1/costbook/divisions", { token });
+}
+
+export interface CostbookCategory {
+  id: string;
+  divisionId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookCategoryInput {
+  divisionId: string;
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export function listCostbookCategories(token: string) {
+  return apiFetch<CostbookCategory[]>("/api/v1/costbook/categories", { token });
+}
+
+export interface CostbookSubcategory {
+  id: string;
+  categoryId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookSubcategoryInput {
+  categoryId: string;
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export function listCostbookSubcategories(token: string) {
+  return apiFetch<CostbookSubcategory[]>("/api/v1/costbook/subcategories", { token });
+}
+
 export interface Customer {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - app/modules/costbook
@@ -11,6 +11,7 @@ related_code:
   - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
   - app/prisma/migrations/20260811130000_restrict_costbook_material_writes/migration.sql
   - app/prisma/migrations/20260811140000_add_costbook_labor_rates_foundation/migration.sql
+  - app/prisma/migrations/20260812120000_add_costbook_hierarchy_foundation/migration.sql
   - web/src/app/(app)/costbook
   - web/src/components/costbook
 ---
@@ -72,6 +73,7 @@ The current authenticated Costbook workspace under `/api/v1/costbook/*` and
 - workspace summary and permission surface
 - materials catalog foundation
 - labor-rates foundation
+- Division/Category/Subcategory hierarchy management (C005)
 
 Implemented labor-rate fields:
 
@@ -90,6 +92,16 @@ burden calculations, labor rollups, pricing-engine logic, estimate
 integration, equipment-rate workflows, assembly-builder behavior, supplier
 automation, or Athena recommendations are part of this slice.
 
+C005 completes CRUD for the existing `Division`, `Category`, and
+`Subcategory` hierarchy models — the one gap C001-C004 left, since those
+three previously had only list and create (unlike `CostItem`, which already
+had full CRUD). Division scopes directly by `orgId`; Category and
+Subcategory inherit organization scope through their parent join, matching
+how `CostItem` already inherits scope through `Subcategory`. All three
+gained an `isActive` flag for soft-delete, matching the `CostItem`/
+`LaborRate` pattern. No pricing calculations, estimate integration, or
+Athena advisor behavior is part of this slice.
+
 ## Legacy compatibility
 
 The repository still contains the older `app/modules/labor-database/*` module
@@ -106,6 +118,7 @@ The current authenticated Costbook web surface is:
 - `/costbook`
 - `/costbook/materials`
 - `/costbook/labor-rates`
+- `/costbook/divisions`
 
 Each route follows the existing page-shell pattern: thin route files, server
 loading of authenticated backend data, reusable Costbook components, and

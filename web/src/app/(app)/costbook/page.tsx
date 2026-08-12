@@ -18,7 +18,7 @@ const countCards: {
   icon: typeof Package;
   href?: string;
 }[] = [
-  { key: "categories", label: "Categories", icon: ClipboardList },
+  { key: "categories", label: "Categories", icon: ClipboardList, href: "/costbook/divisions" },
   { key: "costItems", label: "Cost Items", icon: Boxes },
   { key: "materials", label: "Materials", icon: Package, href: "/costbook/materials" },
   { key: "laborRates", label: "Labor Rates", icon: Hammer, href: "/costbook/labor-rates" },

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -13,9 +13,12 @@ related_code:
   - app/backend/routes/costbook.routes.ts
   - web/src/app/(app)/costbook/page.tsx
   - web/src/app/(app)/costbook/materials/page.tsx
+  - web/src/app/(app)/costbook/divisions/page.tsx
   - web/src/components/costbook/materials-catalog.tsx
+  - web/src/components/costbook/hierarchy-catalog.tsx
   - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
   - app/prisma/migrations/20260811130000_restrict_costbook_material_writes/migration.sql
+  - app/prisma/migrations/20260812120000_add_costbook_hierarchy_foundation/migration.sql
   - app/modules/admin-dashboard
   - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
   - app/backend/routes/costDatabase.routes.ts
@@ -31,7 +34,7 @@ related_code:
 
 Provide the tenant-scoped estimating catalog: divisions, categories, subcategories, cost items, labor rates, materials, equipment rates, and assemblies.
 
-C001 adds the Costbook workspace foundation around those existing catalog primitives. C002 adds the first unified Costbook catalog management surface for organization-scoped materials. C003 adds the foundational organization-scoped labor-rates surface. It does not add labor-engine rules, equipment workflows, assembly-builder behavior, pricing calculations, estimate integration, price history, supplier sync automation, Athena recommendations, or autonomous writes.
+C001 adds the Costbook workspace foundation around those existing catalog primitives. C002 adds the first unified Costbook catalog management surface for organization-scoped materials. C003 adds the foundational organization-scoped labor-rates surface. C005 completes Division/Category/Subcategory hierarchy CRUD (the one gap C001-C004 left) under the same Costbook boundary. It does not add labor-engine rules, equipment workflows, assembly-builder behavior, pricing calculations, estimate integration, price history, supplier sync automation, Athena recommendations, or autonomous writes.
 
 ## Source code locations
 
@@ -68,6 +71,12 @@ C001 adds the Costbook workspace foundation around those existing catalog primit
 - `/api/v1/costbook/materials/:id`
 - `/api/v1/costbook/labor-rates`
 - `/api/v1/costbook/labor-rates/:id`
+- `/api/v1/costbook/divisions`
+- `/api/v1/costbook/divisions/:id`
+- `/api/v1/costbook/categories`
+- `/api/v1/costbook/categories/:id`
+- `/api/v1/costbook/subcategories`
+- `/api/v1/costbook/subcategories/:id`
 
 `GET /api/v1/costbook/workspace` is a read-only workspace-foundation summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records. It does not expose CRUD or pricing workflows.
 
@@ -93,6 +102,16 @@ The C003 DTO includes `id`, `organizationId`, `role`, `description`, `hourlyCost
 C002 reuses the existing `materials` table rather than adding a duplicate material table. Migration `20260811130000_restrict_costbook_material_writes` keeps material reads organization-scoped and tightens material/material-price-audit writes to the existing owner/admin Costbook boundary.
 
 The legacy `/api/v1/materials/*` and `/api/v1/labor-rates/*` route groups remain mounted for compatibility and share the same Costbook permission boundary: read-style operations require `costbook.read`; labor and material create/update operations require `costbook.write`; and labor-rate deletes require `costbook.manage`.
+
+C005 hierarchy routes under the unified Costbook boundary:
+
+- `GET /api/v1/costbook/divisions`, `GET /api/v1/costbook/categories?divisionId=`, and `GET /api/v1/costbook/subcategories?categoryId=` require `costbook.read` and list DTOs for the authenticated organization only, with an optional parent-scoped filter for categories/subcategories
+- `GET .../:id` requires `costbook.read` and returns 404 for missing or cross-organization IDs
+- `POST` requires `costbook.write`; accepted strict fields are `code`, `name`, optional `sortOrder`, plus the parent id (`divisionId` for categories, `categoryId` for subcategories)
+- `PATCH .../:id` requires `costbook.write`; accepted fields are the same subset (parent id is not re-parentable through update)
+- `DELETE .../:id` requires `costbook.manage` and soft-deactivates the row by setting `isActive` to `false`
+
+The C005 DTOs add `isActive` and `createdAt` to the existing Division/Category/Subcategory shape (`id`, `code`, `name`, `sortOrder`, plus `organizationId` on Division and the parent id + derived `organizationId` on Category/Subcategory). Category and Subcategory creates/updates validate that the supplied parent id belongs to the authenticated organization before writing, mirroring the existing `assertSupplierBelongsToOrganization` pattern from C002. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted unchanged; C005 only adds the missing get/update/deactivate operations under the Costbook boundary.
 
 Supplier price update approve/reject routes that review material price proposals require `costbook.write`, matching the material and material-price-audit forced-RLS write boundary.
 
@@ -126,6 +145,7 @@ Current C001 behavior:
 - labor rates participate in the authenticated Costbook workspace through an `active` flag; the current delete behavior is soft deactivate, not hard delete
 - material archive/deactivate is not exposed in C002 because the existing `Material` schema has no active/archive column
 - Costbook workspace foundation state uses `foundation`, `active`, and `archived`; current UI and API use `foundation` unless a future workflow initializes workspace state
+- Division/Category/Subcategory gained an `isActive` flag in C005 (migration `20260812120000_add_costbook_hierarchy_foundation`; previously only `CostItem` had one in this hierarchy). Delete is soft-deactivate only, matching CostItem/LaborRate; child rows are never cascade-deleted through the API
 
 ## Frontend surfaces
 
@@ -133,6 +153,7 @@ Current C001 behavior:
 - `/costbook` shows the workspace foundation, permission boundary, org-scoped catalog counts, and empty/error states
 - `/costbook/materials` lists real material API data, shows route loading and load-error states, handles empty catalogs, and exposes create/edit controls only when the authenticated Costbook permission summary includes write access
 - `/costbook/labor-rates` lists real labor-rate API data, shows route loading and load-error states, handles empty catalogs, and exposes create/edit controls only when the authenticated Costbook permission summary includes write access
+- `/costbook/divisions` renders the Division → Category → Subcategory hierarchy as an expandable tree (loaded in one server pass, not per-level client fetches), with inline create/edit forms and deactivate controls at each level gated on the same Costbook permission summary
 
 ## Tests
 
@@ -142,6 +163,7 @@ Current C001 behavior:
 - `app/tests/costbook.migration.test.ts`
 - `app/tests/costbook-materials.migration.test.ts`
 - `app/tests/costbook-labor-rates.migration.test.ts`
+- `app/tests/costbook-hierarchy.migration.test.ts`
 - `app/tests/costbook.rls.integration.ts`
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
@@ -150,7 +172,8 @@ Current C001 behavior:
 ## Implementation notes
 
 - C003 extends the existing `labor_rates` table in place with foundational `role`, `description`, `hourlyCost`, `billRate`, and `active` fields rather than creating a second labor catalog table.
-- The authenticated Costbook workspace (`app/modules/costbook/*`) is the current first-party UI/API surface for workspace summary, materials catalog, and labor-rates foundation.
+- The authenticated Costbook workspace (`app/modules/costbook/*`) is the current first-party UI/API surface for workspace summary, materials catalog, labor-rates foundation, and Division/Category/Subcategory hierarchy management.
+- C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide `current_app_can_write()` (owner/admin/legacy-estimator) to the Costbook-specific `current_app_can_manage_costbook()` (owner/admin only), matching the C002/C003 precedent; legacy estimator loses direct database write access to these three tables as a result.
 - `cost-database` and `assemblies-database` services import the shared `round2()` rounding helper from `estimate-engine/formulas.ts` rather than each defining their own private copy (cleanup only; rounding behavior unchanged)
 
 ## Known limitations
@@ -174,4 +197,4 @@ Current C001 behavior:
 
 ## Last verified date
 
-2026-08-11
+2026-08-12
