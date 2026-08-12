@@ -11,6 +11,7 @@ import {
   requestLogger,
   securityHeaders,
 } from "./middleware/productionHardening";
+import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
@@ -55,14 +56,17 @@ export function createServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
+  // Liveness is intentionally dependency-free: it proves the process is up.
   app.get("/health", (_req: Request, res: Response) => {
-    res.json({
-      status: "ok",
-      service: "tradeos-costbook-api",
-      version: process.env.npm_package_version ?? "0.1.0",
-      timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.round(process.uptime()),
-    });
+    res.json(buildHealthPayload());
+  });
+
+  // Readiness verifies the API can reach critical runtime dependencies. It is
+  // safe for external monitors and deliberately exposes no credentials or
+  // database details beyond component status and latency.
+  app.get("/ready", async (_req: Request, res: Response) => {
+    const readiness = await checkReadiness();
+    res.status(readiness.status === "ready" ? 200 : 503).json(readiness);
   });
 
   app.use("/admin", adminUiRouter);
