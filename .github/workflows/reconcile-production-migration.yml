@@ -43,7 +43,7 @@ jobs:
           mkdir -p "$(dirname "${MIGRATION_PATH}")"
           git show "${PR_SHA}:${MIGRATION_PATH}" > "${MIGRATION_PATH}"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
 
