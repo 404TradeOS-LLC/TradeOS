@@ -372,7 +372,8 @@ function toEquipmentRecord(row: {
     ownershipCostPerHour,
     operatingCostPerHour,
     dailyRate: row.dailyRate != null ? Number(row.dailyRate) : null,
-    hourlyCost: ownershipCostPerHour + operatingCostPerHour,
+    hourlyCost:
+      (Math.round(ownershipCostPerHour * 100) + Math.round(operatingCostPerHour * 100)) / 100,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
