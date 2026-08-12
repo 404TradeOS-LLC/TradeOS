@@ -10,9 +10,9 @@
   --frame-accent: #f97316;
   --frame-ink: #0f172a;
   --frame-muted: #475569;
-  --frame-heading-font: Arial, sans-serif;
-  --frame-body-font: Arial, sans-serif;
-  --frame-accent-font: Arial, sans-serif;
+  --frame-heading-font: arial, sans-serif;
+  --frame-body-font: arial, sans-serif;
+  --frame-accent-font: arial, sans-serif;
 }
 
 * {
