@@ -32,7 +32,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
         run: npm run lint
 
       - name: Unit tests
@@ -46,6 +52,10 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify tracked source remains clean
+        working-directory: .
+        run: git diff --check && git diff --exit-code
 
   app-integration:
     name: App integration tests
@@ -69,7 +79,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Integration tests
+      - name: Integration and migration rehearsal
         run: npm run test:integration
 
   web:
@@ -90,6 +100,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Unit tests
         run: npm test
 
@@ -98,3 +111,7 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify tracked source remains clean
+        working-directory: .
+        run: git diff --check && git diff --exit-code
