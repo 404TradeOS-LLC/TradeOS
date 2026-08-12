@@ -32,9 +32,7 @@ S005 completed the original operating-contract consolidation in PR #84, merged o
 2026-08-06 as `7d1c48376861468122347e19c41f0a007d7b5fc9`. The Next Sprint
 Protocol remains the sole executable owner of startup and completion; supporting
 documents may define doctrine, lifecycle policy, or scoped additions only. The
-repository-specific autonomous maintenance contract was strengthened later in PR
-#177, merged 2026-08-12 as `25ce0817b8a87a068348496fca12bd32230bfaf9`,
-without changing that source-of-truth hierarchy.
+repository-specific autonomous maintenance contract was strengthened later in PR #177, merged 2026-08-12 as `25ce0817b8a87a068348496fca12bd32230bfaf9`, without changing that source-of-truth hierarchy.
 
 S006 — Lifecycle compatibility inventory is complete. PR #95 merged on
 2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, preserving an
