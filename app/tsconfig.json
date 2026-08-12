@@ -13,9 +13,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "types": ["node", "jest"],
     "declaration": false,
-    "sourceMap": true,
-    "baseUrl": "."
+    "sourceMap": true
   },
   "include": ["backend", "db", "modules", "tests", "prisma", "scripts", "index.ts"],
   "exclude": ["node_modules", "dist"]
