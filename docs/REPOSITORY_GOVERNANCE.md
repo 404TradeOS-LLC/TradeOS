@@ -61,6 +61,8 @@ A green required-check set is the minimum evidence for autonomous merge eligibil
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
+Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. Any application-runtime version change remains a separate compatibility decision and must be validated as such.
+
 ## Solo-maintainer review posture
 
 TradeOS is currently operated by one repository maintainer. The intended solo-maintainer configuration is:
