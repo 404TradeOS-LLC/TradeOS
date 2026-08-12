@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -12,6 +12,7 @@ related_code:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SESSION_HANDOFF.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
 ---
 
@@ -137,9 +138,11 @@ substitute for live PR state.
 Expected CI jobs include:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build` (also runs the `athena:contracts` and `athena:smoke` gates for the Athena A1 kernel foundation, see `app/modules/athena-kernel`);
-- `App integration tests`;
-- `Web lint and build` (includes frontend unit tests before lint and build).
+- `App lint, unit tests, and build` — Prisma schema validation, production dependency audit at high severity or above, TypeScript typechecking, backend unit tests, Athena contracts/smoke, backend build, and tracked-source cleanliness;
+- `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
+- `Web lint and build` — production dependency audit at high severity or above, frontend unit tests, lint, build, and tracked-source cleanliness.
+
+A green CI result is intended to be the technical gate for low-risk autonomous merge. Agents must repair failing gates rather than bypassing or weakening them. Security-audit, schema, migration, test, typecheck, lint, build, or clean-tree failures are blockers unless a separate governance change explicitly changes policy.
 
 Documentation foundation work must run:
 
