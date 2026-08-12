@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -53,12 +53,11 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build` (now also runs the `athena:contracts` and `athena:smoke` named gates for the Project Athena A1 kernel foundation before the build step, per `docs/athena/roadmap/A1-ai-kernel-implementation-plan.md` "Named Validation Gates");
-- `App integration tests`;
-- `Web lint and build` (includes frontend unit tests before lint and build).
+- `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
+- `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
+- `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
 
-The frontend job must run `npm test` before lint/build so server/client
-environment-boundary regressions are part of the merge gate.
+A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
@@ -189,6 +188,8 @@ Normal production schema rollout uses the protected migration deployment process
 The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, shares the production migration concurrency group, scopes `DATABASE_ADMIN_URL` to the Prisma steps as `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by diagnostic `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
 
 PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
+
+CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
 
 ## Session continuity
 
