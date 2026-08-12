@@ -67,7 +67,7 @@ describe("estimateEngineController", () => {
   });
 
   it("records an activity event when an estimate is created", async () => {
-    createMock.mockResolvedValue({
+    const estimate = {
       id: "estimate-1",
       orgId: "org-1",
       projectId: "project-1",
@@ -78,7 +78,8 @@ describe("estimateEngineController", () => {
       targetMarginPct: null,
       subtotalCost: 0,
       totalPrice: 0,
-    });
+    };
+    createMock.mockResolvedValue(estimate);
     recordMock.mockResolvedValue({});
 
     const req = buildRequest("dispatcher", { projectId: "550e8400-e29b-41d4-a716-446655440000" });
@@ -97,6 +98,33 @@ describe("estimateEngineController", () => {
       })
     );
     expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(estimate);
+  });
+
+  it("passes through the optional Athena event reference when estimate publication succeeds", async () => {
+    const estimate = {
+      id: "estimate-1",
+      orgId: "org-1",
+      projectId: "project-1",
+      version: 2,
+      status: "draft",
+      overheadPct: 0,
+      profitPct: 0,
+      targetMarginPct: null,
+      subtotalCost: 0,
+      totalPrice: 0,
+      athenaEvent: { eventId: "event-1", eventType: "EstimateStarted" },
+    };
+    createMock.mockResolvedValue(estimate);
+    recordMock.mockResolvedValue({});
+
+    const req = buildRequest("dispatcher", { projectId: "550e8400-e29b-41d4-a716-446655440000" });
+    const res = buildResponse();
+
+    await estimateEngineController.create(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(estimate);
   });
 
   it("records the line item's actual estimate id, not the URL's, when the two differ", async () => {
