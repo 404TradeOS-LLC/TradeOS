@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { minimatch } from "minimatch";
-import yaml from "js-yaml";
+import { load as loadYaml } from "js-yaml";
 
 export const EXIT_CODES = {
   OK: 0,
@@ -51,7 +51,7 @@ export function helpText() {
 
 export function loadOwnershipConfig(filePath) {
   const raw = fs.readFileSync(filePath, "utf8");
-  const parsed = yaml.load(raw);
+  const parsed = loadYaml(raw);
   if (!parsed || typeof parsed !== "object") {
     throw new Error("DOC_OWNERSHIP config must be a YAML object");
   }
