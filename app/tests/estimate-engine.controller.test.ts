@@ -113,7 +113,7 @@ describe("estimateEngineController", () => {
       targetMarginPct: null,
       subtotalCost: 0,
       totalPrice: 0,
-      athenaEvent: { eventId: "event-1", eventType: "EstimateStarted" },
+      athenaEvent: { id: "event-1", type: "EstimateStarted" },
     };
     createMock.mockResolvedValue(estimate);
     recordMock.mockResolvedValue({});
