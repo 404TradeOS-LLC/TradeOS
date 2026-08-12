@@ -33,6 +33,8 @@ jobs:
         run: npm ci
 
       - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://tradeos_ci:tradeos_ci@127.0.0.1:5432/tradeos_ci?schema=public
         run: npx prisma validate
 
       - name: Audit production dependencies
