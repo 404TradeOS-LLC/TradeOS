@@ -91,6 +91,14 @@ The Sprint Backlog is the tactical queue. An agent may begin only when:
 
 If no sprint is eligible, stop and report the blocker instead of inventing work.
 
+## Autonomous maintenance operating mode
+
+Scheduled maintenance and repair agents follow `AGENTS.md` in addition to the canonical sprint protocol and repository governance. Their purpose is to finish bounded maintenance work—not merely generate reports—when risk and repository state permit it.
+
+For a validated low-risk defect, the expected loop is inspect, reproduce or validate, root-cause, repair, test, review the diff, publish a focused PR, verify the exact CI/review state, and merge only when every live protection and the `AGENTS.md` auto-merge contract are satisfied. Existing PRs take precedence over duplicate repair branches when they already own the same scope.
+
+Autonomous maintenance does not override the sprint queue for feature invention and does not grant authority over protected decisions. Database migration behavior, destructive data work, authentication or RLS policy, production secrets, billing or money movement, major architecture, and new production trust boundaries remain PR-only or human-decision work unless an explicit approved runbook says otherwise. Green CI is required technical evidence, not blanket authority to merge protected changes.
+
 ## Active PR coordination
 
 Live GitHub state verified on 2026-08-09 while preparing S027 readiness:
