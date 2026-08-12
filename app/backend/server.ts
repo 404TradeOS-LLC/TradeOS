@@ -11,6 +11,7 @@ import {
   requestLogger,
   securityHeaders,
 } from "./middleware/productionHardening";
+import { buildHealthPayload, checkReadiness } from "./health";
 import { adminUiRouter } from "./routes/adminUi.routes";
 import { costbookRouter } from "./routes/costbook.routes";
 import { costDatabaseRouter } from "./routes/costDatabase.routes";
@@ -56,30 +57,19 @@ export function createServer() {
   app.use(express.urlencoded({ extended: false }));
 
   app.get("/health", (_req: Request, res: Response) => {
-    res.json({
-      status: "ok",
-      service: "tradeos-costbook-api",
-      version: process.env.npm_package_version ?? "0.1.0",
-      timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.round(process.uptime()),
-    });
+    res.json(buildHealthPayload());
+  });
+
+  app.get("/ready", async (_req: Request, res: Response) => {
+    const readiness = await checkReadiness();
+    res.status(readiness.status === "ready" ? 200 : 503).json(readiness);
   });
 
   app.use("/admin", adminUiRouter);
-
-  // Platform provisioning uses a separate high-entropy credential because no
-  // tenant identity exists until this transaction creates the first owner.
   app.use("/api/v1/platform", organizationProvisioningRouter);
-
-  // Public self-serve signup/login — no bearer token exists yet, that's what
-  // these issue. Rate-limited per IP (see authRateLimit) since unlike
-  // platform provisioning these are meant to be reachable by anyone.
   app.use("/api/v1/auth", authRouter);
-
-  // requireAuth now verifies bearer JWTs and loads org membership context.
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
-
   app.use("/api/v1/costbook", costbookRouter);
   app.use("/api/v1/cost-database", costDatabaseRouter);
   app.use("/api/v1/labor-rates", laborDatabaseRouter);
