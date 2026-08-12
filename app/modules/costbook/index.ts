@@ -2,6 +2,14 @@ export { CostbookService } from "./service";
 export { CostbookRepository } from "./repository";
 export { costbookPermissions, getCostbookPermissionSummary } from "./permissions";
 export type {
+  CostbookCategoryDTO,
+  CostbookCategoryInput,
+  CostbookCategoryRecord,
+  CostbookCategoryUpdateInput,
+  CostbookDivisionDTO,
+  CostbookDivisionInput,
+  CostbookDivisionRecord,
+  CostbookDivisionUpdateInput,
   CostbookInventoryCounts,
   CostbookLaborRateDTO,
   CostbookLaborRateInput,
@@ -11,6 +19,10 @@ export type {
   CostbookMaterialInput,
   CostbookMaterialRecord,
   CostbookMaterialUpdateInput,
+  CostbookSubcategoryDTO,
+  CostbookSubcategoryInput,
+  CostbookSubcategoryRecord,
+  CostbookSubcategoryUpdateInput,
   CostbookWorkspaceArea,
   CostbookWorkspaceDTO,
   CostbookWorkspaceRecord,

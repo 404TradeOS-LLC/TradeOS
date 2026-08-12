@@ -3,6 +3,14 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostbookRepository } from "./repository";
 import { getCostbookPermissionSummary } from "./permissions";
 import type {
+  CostbookCategoryDTO,
+  CostbookCategoryInput,
+  CostbookCategoryRecord,
+  CostbookCategoryUpdateInput,
+  CostbookDivisionDTO,
+  CostbookDivisionInput,
+  CostbookDivisionRecord,
+  CostbookDivisionUpdateInput,
   CostbookLaborRateDTO,
   CostbookLaborRateInput,
   CostbookLaborRateRecord,
@@ -11,6 +19,10 @@ import type {
   CostbookMaterialInput,
   CostbookMaterialRecord,
   CostbookMaterialUpdateInput,
+  CostbookSubcategoryDTO,
+  CostbookSubcategoryInput,
+  CostbookSubcategoryRecord,
+  CostbookSubcategoryUpdateInput,
   CostbookWorkspaceArea,
   CostbookWorkspaceDTO,
 } from "./types";
@@ -124,6 +136,88 @@ export class CostbookService {
     if (!row) throw new ApiError(404, `Material ${id} not found`);
     return toMaterialDTO(row);
   }
+
+  async listDivisions(auth: AuthContext): Promise<CostbookDivisionDTO[]> {
+    const rows = await this.repository.listDivisions(auth.orgId);
+    return rows.map(toDivisionDTO);
+  }
+
+  async getDivision(auth: AuthContext, id: string): Promise<CostbookDivisionDTO> {
+    const row = await this.repository.getDivisionById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Division ${id} not found`);
+    return toDivisionDTO(row);
+  }
+
+  async createDivision(auth: AuthContext, input: CostbookDivisionInput): Promise<CostbookDivisionDTO> {
+    return toDivisionDTO(await this.repository.createDivision(auth.orgId, input));
+  }
+
+  async updateDivision(auth: AuthContext, id: string, input: CostbookDivisionUpdateInput): Promise<CostbookDivisionDTO> {
+    const row = await this.repository.updateDivision(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Division ${id} not found`);
+    return toDivisionDTO(row);
+  }
+
+  async deactivateDivision(auth: AuthContext, id: string): Promise<void> {
+    const deactivated = await this.repository.deactivateDivision(auth.orgId, id);
+    if (!deactivated) throw new ApiError(404, `Division ${id} not found`);
+  }
+
+  async listCategories(auth: AuthContext, divisionId?: string): Promise<CostbookCategoryDTO[]> {
+    const rows = await this.repository.listCategories(auth.orgId, divisionId);
+    return rows.map(toCategoryDTO);
+  }
+
+  async getCategory(auth: AuthContext, id: string): Promise<CostbookCategoryDTO> {
+    const row = await this.repository.getCategoryById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Category ${id} not found`);
+    return toCategoryDTO(row);
+  }
+
+  async createCategory(auth: AuthContext, input: CostbookCategoryInput): Promise<CostbookCategoryDTO> {
+    return toCategoryDTO(await this.repository.createCategory(auth.orgId, input));
+  }
+
+  async updateCategory(auth: AuthContext, id: string, input: CostbookCategoryUpdateInput): Promise<CostbookCategoryDTO> {
+    const row = await this.repository.updateCategory(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Category ${id} not found`);
+    return toCategoryDTO(row);
+  }
+
+  async deactivateCategory(auth: AuthContext, id: string): Promise<void> {
+    const deactivated = await this.repository.deactivateCategory(auth.orgId, id);
+    if (!deactivated) throw new ApiError(404, `Category ${id} not found`);
+  }
+
+  async listSubcategories(auth: AuthContext, categoryId?: string): Promise<CostbookSubcategoryDTO[]> {
+    const rows = await this.repository.listSubcategories(auth.orgId, categoryId);
+    return rows.map(toSubcategoryDTO);
+  }
+
+  async getSubcategory(auth: AuthContext, id: string): Promise<CostbookSubcategoryDTO> {
+    const row = await this.repository.getSubcategoryById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Subcategory ${id} not found`);
+    return toSubcategoryDTO(row);
+  }
+
+  async createSubcategory(auth: AuthContext, input: CostbookSubcategoryInput): Promise<CostbookSubcategoryDTO> {
+    return toSubcategoryDTO(await this.repository.createSubcategory(auth.orgId, input));
+  }
+
+  async updateSubcategory(
+    auth: AuthContext,
+    id: string,
+    input: CostbookSubcategoryUpdateInput
+  ): Promise<CostbookSubcategoryDTO> {
+    const row = await this.repository.updateSubcategory(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Subcategory ${id} not found`);
+    return toSubcategoryDTO(row);
+  }
+
+  async deactivateSubcategory(auth: AuthContext, id: string): Promise<void> {
+    const deactivated = await this.repository.deactivateSubcategory(auth.orgId, id);
+    if (!deactivated) throw new ApiError(404, `Subcategory ${id} not found`);
+  }
 }
 
 function toMaterialDTO(row: CostbookMaterialRecord): CostbookMaterialDTO {
@@ -154,5 +248,43 @@ function toLaborRateDTO(row: CostbookLaborRateRecord): CostbookLaborRateDTO {
     active: row.active,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toDivisionDTO(row: CostbookDivisionRecord): CostbookDivisionDTO {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    code: row.code,
+    name: row.name,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toCategoryDTO(row: CostbookCategoryRecord): CostbookCategoryDTO {
+  return {
+    id: row.id,
+    divisionId: row.divisionId,
+    organizationId: row.organizationId,
+    code: row.code,
+    name: row.name,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toSubcategoryDTO(row: CostbookSubcategoryRecord): CostbookSubcategoryDTO {
+  return {
+    id: row.id,
+    categoryId: row.categoryId,
+    organizationId: row.organizationId,
+    code: row.code,
+    name: row.name,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    createdAt: row.createdAt.toISOString(),
   };
 }

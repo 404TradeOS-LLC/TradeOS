@@ -218,6 +218,17 @@ C003 exposes the existing `LaborRate` model through the unified Costbook boundar
 - `DELETE /api/v1/costbook/labor-rates/:id` and the legacy `/api/v1/labor-rates/:id` compatibility route soft-deactivate the row by setting `active` to `false`
 - C003 does not add labor burden calculations, pricing rollups, estimate integration, or Athena advisor state
 
+## Costbook hierarchy management
+
+C005 exposes the existing `Division`, `Category`, and `Subcategory` models through the unified Costbook boundary, completing the CRUD gap C001-C004 left (those models previously had only list + create; `CostItem` already had full CRUD).
+
+- `Division` belongs to one organization directly (`orgId`); `Category` and `Subcategory` inherit organization scope through their parent join (`Category.divisionId -> Division.orgId`, `Subcategory.categoryId -> Category.divisionId -> Division.orgId`), matching how `CostItem` already inherits scope through `Subcategory`
+- all three models gained an `isActive` boolean (default `true`) in C005 — previously only `CostItem` had a soft-delete flag anywhere in this hierarchy
+- Costbook hierarchy create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted, and a category/subcategory create rejects a parent id that does not belong to the authenticated organization
+- delete is soft-deactivate only (`isActive = false`); child `Category`/`Subcategory`/`CostItem` rows are never cascade-deleted through the Costbook API, even though the underlying Prisma relations define `onDelete: Cascade` for a true hard delete
+- C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary to the Costbook-specific owner/admin boundary, matching C002/C003; legacy `estimator` loses direct database write access to these three tables
+- C005 does not add pricing calculations, estimate integration, or Athena advisor state
+
 ## Core relationships
 
 Canonical relationship flow:
