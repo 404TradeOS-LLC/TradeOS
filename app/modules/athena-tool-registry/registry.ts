@@ -2,7 +2,7 @@ import { AthenaToolDefinition, AthenaToolDiscoveryActor, AthenaToolResolution } 
 import { hasAllRequiredFeatureFlags, hasAllRequiredPermissions } from "./policy";
 
 interface RegistryEntry {
-  definition: AthenaToolDefinition<unknown, unknown>;
+  definition: AthenaToolDefinition;
   removed: boolean;
 }
 
@@ -15,7 +15,7 @@ interface RegistryEntry {
 // files - the registry is still entirely code-defined and non-persisted
 // either way; nothing here is written to or read from a database.
 export interface AthenaToolRegistry {
-  register(definition: AthenaToolDefinition<unknown, unknown>): void;
+  register(definition: AthenaToolDefinition): void;
   // Does not delete the entry - marks it so resolve() can distinguish "never
   // existed" (tool_not_found) from "existed and was retired" (tool_removed),
   // per docs/athena/06-tool-registry/README.md's versioning rules. A2 has no
@@ -23,7 +23,7 @@ export interface AthenaToolRegistry {
   // exercised deterministically by tests.
   remove(id: string, version: string): void;
   resolve(id: string, version: string): AthenaToolResolution;
-  discover(actor: AthenaToolDiscoveryActor): AthenaToolDefinition<unknown, unknown>[];
+  discover(actor: AthenaToolDiscoveryActor): AthenaToolDefinition[];
 }
 
 // Stable lowercase reverse-domain-style ID (docs/athena/roadmap/
@@ -62,7 +62,7 @@ function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknow
 // function instead of carrying a second copy of A2's own registration
 // validation - see docs/athena/roadmap/A9-tool-sdk-implementation-plan.md
 // "Contract-test kit". register() below still calls it identically.
-export function assertValidToolDefinition(definition: AthenaToolDefinition<unknown, unknown>): void {
+export function assertValidToolDefinition(definition: AthenaToolDefinition): void {
   if (typeof definition.id !== "string" || !TOOL_ID_PATTERN.test(definition.id)) {
     throw new Error(`AthenaToolDefinition.id must be a lowercase reverse-domain-style id (e.g. "tradeos.athena.fixture.echo"): ${String(definition.id)}`);
   }

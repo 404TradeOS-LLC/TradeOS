@@ -5,6 +5,14 @@
 
 :root {
   color-scheme: light;
+  --frame-primary: #0f172a;
+  --frame-secondary: #f8fafc;
+  --frame-accent: #f97316;
+  --frame-ink: #0f172a;
+  --frame-muted: #475569;
+  --frame-heading-font: arial, sans-serif;
+  --frame-body-font: arial, sans-serif;
+  --frame-accent-font: arial, sans-serif;
 }
 
 * {
@@ -17,7 +25,7 @@ body {
   padding: 0;
   background: #f3f5f7;
   color: var(--frame-ink);
-  font-family: var(--frame-body-font);
+  font-family: var(--frame-body-font), sans-serif;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
