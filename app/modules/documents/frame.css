@@ -25,7 +25,7 @@ body {
   padding: 0;
   background: #f3f5f7;
   color: var(--frame-ink);
-  font-family: var(--frame-body-font);
+  font-family: var(--frame-body-font), sans-serif;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
