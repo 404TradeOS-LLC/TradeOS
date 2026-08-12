@@ -53,6 +53,8 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
 - **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
+- **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
+- **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
@@ -70,9 +72,7 @@ Prioritize existing authorized work before inventing new scope:
 1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work. It includes a forward migration, so it remains protected PR-only/human-decision work. Its documented blocker is synchronization of `docs/CURRENT_STATE.md` and `docs/DOMAIN_MODEL.md`; do not bypass the docs or migration gates.
 2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and review deliberately; do not treat it as maintenance auto-merge.
 3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
-4. **PR #171 — CodeRabbit repository configuration.** Automation-only change that may be rebuilt from current `main` after reconciliation if still useful.
-5. **PR #169 — broad API development dependency group.** Contains major toolchain upgrades and requires explicit compatibility review; not low-risk autonomous merge.
-6. **PRs #130/#131 — GitHub Actions upgrades.** Workflow changes trigger documentation ownership; replace or repair them through a governed workflow/docs PR instead of merging raw stale automation updates.
+4. **GitHub Actions runtime modernization.** Replace stale PRs #130/#131 with one governed workflow/docs change that upgrades `actions/checkout` and `actions/setup-node` together while preserving the explicit TradeOS Node workload versions. Close the stale bot PRs after the governed replacement lands.
 
 Open issue inventory verified during reconciliation is small: issue #144 covers Athena transactional event reliability and issue #153 covers Costbook hierarchy activation permissions/migration sequencing.
 
@@ -102,6 +102,8 @@ Expected required CI jobs include:
 - `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness;
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
+
+The workflow action implementations should remain on supported majors independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require their own compatibility evidence.
 
 Documentation foundation/governance work should run:
 

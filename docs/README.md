@@ -103,6 +103,8 @@ tracked-source cleanliness check. These checks are intended to make a green PR
 a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
 
+The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
+
 The enforcement flow is:
 
 1. `scripts/docs-check.mjs` determines the changed files against the PR base.
