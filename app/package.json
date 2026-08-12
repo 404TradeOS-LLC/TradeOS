@@ -15,6 +15,7 @@
     "db:deploy": "bash scripts/deploy-migrations.sh",
     "db:provision-role": "bash scripts/provision-app-role.sh",
     "db:seed": "prisma db seed",
+    "admin:bootstrap": "ts-node scripts/bootstrap-admin.ts",
     "jobs:supplier-price-sync": "ts-node scripts/run-supplier-price-sync.ts",
     "jobs:athena-observability-retention": "ts-node scripts/run-athena-observability-retention.ts",
     "jobs:athena-observability-export": "ts-node scripts/run-athena-observability-export.ts",
