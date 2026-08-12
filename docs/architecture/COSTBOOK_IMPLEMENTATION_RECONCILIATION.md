@@ -306,6 +306,76 @@ deleted.** Repository governance requires explicit review before removing
 tooling; that decision belongs to a separate, explicitly scoped cleanup
 change, not this reconciliation.
 
+## 7. C005 merge validation summary
+
+The `C005 — Add Costbook hierarchy management foundation` PR closed exactly
+the gap Section 1 and Section 5 identified above and has merged.
+
+**What changed:**
+
+- `app/modules/costbook/{types,repository,service}.ts`: full CRUD
+  (`list`/`get`/`create`/`update`/`deactivate`) for `Division`, `Category`,
+  and `Subcategory`, following the C001-C004 bounded-context pattern rather
+  than a new module. Division scopes by `orgId` directly; Category and
+  Subcategory inherit organization scope through their parent join, matching
+  how `CostItem` already inherits scope.
+- `app/backend/{controllers,routes}/costbook.*`: new
+  `GET/POST/PATCH/DELETE` routes under `/api/v1/costbook/{divisions,
+  categories,subcategories}`, gated on `costbook.read`/`write`/`manage`.
+- `app/backend/controllers/costDatabase.controller.ts`: the legacy
+  `/api/v1/cost-database/{divisions,categories,subcategories}` create
+  handlers gained an explicit `costbook.write` permission check (previously
+  unguarded at the controller layer, relying solely on RLS).
+- `app/prisma/schema.prisma` + migration
+  `20260812120000_add_costbook_hierarchy_foundation`: adds `isActive`
+  (default `true`) to `divisions`, `categories`, `subcategories`, and
+  tightens `divisions_write_policy`/`categories_write_policy`/
+  `subcategories_write_policy` from the generic app-wide
+  `current_app_can_write()` (owner/admin/legacy-estimator) to the
+  Costbook-specific `current_app_can_manage_costbook()` (owner/admin only) —
+  legacy `estimator` loses direct database write access to these three
+  tables.
+- `web/src/app/(app)/costbook/divisions/*` and
+  `web/src/components/costbook/hierarchy-catalog.tsx`: a new expandable
+  Division → Category → Subcategory tree UI, linked from the Categories
+  count on `/costbook`.
+- `docs/{API_REFERENCE,CURRENT_STATE,DOMAIN_MODEL}.md`,
+  `docs/architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md`, and
+  `docs/modules/cost-book.md` updated to describe the new routes, schema
+  change, and permission boundary.
+
+**Affected TradeOS domains:** Costbook API/controllers/services/repository;
+Costbook database schema and RLS policies; Costbook web workspace
+(`/costbook/divisions`); legacy `cost-database` create routes. Assemblies
+and supplier modules were not touched, matching Section 3's decision not to
+introduce a parallel pricing system.
+
+**Validation evidence (as reported in the merged PR description; not
+independently re-run for this record):**
+
+- `cd app && npm test` — 1581/1581 passed
+- `cd app && npm run test:integration` — 74/74 passed (Docker-backed live
+  Postgres, including new cross-org RLS coverage for the hierarchy tables
+  and the tightened write boundary)
+- `cd app && npm run lint && npm run build` — reported clean
+- `cd web && npm test` — 62/62 passed
+- `cd web && npm run lint && npm run build` — reported clean
+  (`/costbook/divisions` present in build output)
+- `npm run docs:test` — 39/39 passed
+- `npm run docs:check -- --base origin/main` — reported PASS
+- `git diff --check` — reported clean
+
+No blocked or skipped checks were reported in the PR. This record does not
+claim independent re-execution of the above commands, nor does it claim
+production deployment or live-environment integration beyond what the PR
+description states.
+
+**Open follow-up from the PR itself:** PR #128 (C004, equipment catalog) was
+still open when this branch was cut; the PR notes its migration timestamp
+(`20260812120000`) sorts after C004's (`20260811150000`) with no overlap,
+but flags it "worth a quick reverify if #128 lands first." That reverification
+is not performed here and remains open.
+
 ## Definition of done for this document
 
 - [x] Costbook architecture is accurately documented against live `main`
@@ -317,5 +387,7 @@ change, not this reconciliation.
       in-flight #128 fix) is documented
 - [x] Future implementation path (`feature/costbook-admin-management` /
       next `C00N` slice) is clear and scoped to the real gaps only
-- [ ] Documentation checks (`npm run docs:test`, `npm run docs:check --
+- [x] Documentation checks (`npm run docs:test`, `npm run docs:check --
       base origin/main`) — run and recorded in the pull request
+- [x] C005 merge validation summary recorded (Section 7) after the
+      hierarchy-management PR merged
