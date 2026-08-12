@@ -7,6 +7,7 @@ reviews:
   high_level_summary: true
   review_status: true
   review_details: true
+  fail_commit_status: true
   poem: false
   auto_review:
     enabled: true
