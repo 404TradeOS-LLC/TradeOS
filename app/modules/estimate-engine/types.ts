@@ -51,3 +51,23 @@ export interface EstimateLineItemDTO {
   sortOrder: number;
   sourceKey: string | null;
 }
+
+export interface EstimateComparisonSideDTO {
+  id: string;
+  version: number;
+  subtotalCost: number;
+  totalPrice: number;
+  marginPct: number;
+  lineItemCount: number;
+}
+
+export interface EstimateComparisonDTO {
+  base: EstimateComparisonSideDTO;
+  candidate: EstimateComparisonSideDTO;
+  delta: {
+    subtotalCost: number;
+    totalPrice: number;
+    marginPct: number;
+    lineItemCount: number;
+  };
+}

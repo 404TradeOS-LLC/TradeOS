@@ -1,12 +1,14 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-11
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
   - app/modules/auth/service.ts
   - app/modules/jobs/service.ts
+  - app/modules/athena-tools
+  - app/modules/athena-permissions
 ---
 
 # RBAC Matrix
@@ -77,6 +79,24 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - owners and admins can override schedule conflicts
 - only owners and admins can reopen completed jobs
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
+
+## Athena business tools (A12)
+
+A12's 19 first-party Athena tools (`app/modules/athena-tools/**`) declare permissions from the exact same shared permission-key list above - no separate Athena permission system exists, and A4 (`app/modules/athena-permissions`) remains the sole authority that evaluates them at dispatch time. Every tool is `risk: "low"`, so A4 auto-`allow`s any actor whose role already holds the declared permission via the shared role table above; A4 `deny`s everyone else, the same as any other route.
+
+| Permission | Athena tools gated by it |
+| --- | --- |
+| `crm.read` | `office.search-customers`, `office.summarize-customer`, `field.job-context`, `field.create-recommendation` |
+| `crm.write` | `office.create-follow-up` |
+| `billing.read` | `estimator.analyze-estimate`, `estimator.compare-estimates`, `costbook.lookup`, `costbook.analyze-margin`, `costbook.recommend-price` |
+| `billing.write` | `estimator.create-estimate`, `estimator.update-estimate`, `office.prepare-invoice` (preview-only - see below) |
+| `dispatch.manage` | `dispatcher.schedule-job`, `dispatcher.assign-technician`, `dispatcher.optimize-day`, `dispatcher.weather-impact` |
+| `notes.write` | `field.add-note` |
+| none (`[]`) | `field.update-job-status` - `JobsService`'s own `assertFieldWorker`/`assertManager` and technician-assignment checks are the real authorization boundary for who can transition a specific job, since no shared permission key here is granular enough to express "the technician assigned to this job" |
+
+Two tools are gated by a permission stronger than what they technically execute, deliberately, to keep the *capability* restricted to the intended persona even though the *action* is read-only: `office.prepare-invoice` requires `billing.write` (office/management roles only) but never creates or sends an invoice - it returns a preview draft only, matching the shared permission table's existing "Proposals, contracts, invoices" row (technician stays read-only). `costbook.recommend-price` requires only `billing.read` and never writes a stored price, so a technician (who already holds `billing.read`) can see a price recommendation without needing `billing.write`.
+
+See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` section 5 for why every A12 tool is `risk: "low"` rather than `medium`/`high` (in short: none of them sends, finalizes, or changes a stored price - the categories that would require approval - and production has no real approval-verifier submission surface yet for a `medium`/`high`-risk tool to complete against).
 
 ## Current auth-specific constraints
 

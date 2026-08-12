@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-11
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -30,6 +30,10 @@ Own customer records, service addresses, customer equipment, service agreements,
 - `ServiceAddress`
 - `CustomerEquipment`
 - `ServiceAgreement`
+
+## Customer listing and search
+
+`CrmService.listCustomers(orgId, options)` remains tenant-scoped and excludes soft-deleted customers. Callers may provide a trimmed `query` that is applied in PostgreSQL across customer name, email, and phone, plus a bounded `limit`; the service clamps the result count to prevent unbounded customer-directory reads. Ordinary callers that omit options continue to receive a bounded customer list.
 
 ## Routes
 
@@ -65,6 +69,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Tests
 
 - `app/tests/crm.service.test.ts`
+- A12 Athena Office Manager contract coverage verifies bounded name/email/phone customer searches through the service boundary
 
 ## Known limitations
 
@@ -76,4 +81,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-07-14
+2026-08-11

@@ -78,6 +78,7 @@ Implementation notes:
 - `EstimateEngineService`'s cost/price rounding now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining its own private copy (a duplication cleanup with no change to rounding behavior or transition rules).
 - Structured AI estimator replay protection adds optional line-item `sourceKey` handling but does not change estimate lifecycle states or the draft-only mutation rule.
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
+- A12: `EstimateEngineService.create()` now publishes the canonical `EstimateStarted` A8 event and `finalize()` publishes `EstimateCompleted`, both after their existing mutation/transition already commits - publishing failures are logged and never block or alter the transition itself. Neither adds a new estimate state or changes `draft -> ready` enforcement; see `docs/modules/estimating.md`.
 
 ## Costbook Workspace
 
@@ -189,6 +190,7 @@ Operational role note:
 
 - dispatchers coordinate assignment, schedule changes, and permitted job-state progression within the current RBAC model, but current docs do not claim automated routing or optimization behavior
 - the Dispatcher Workspace (`/dispatch`) is a read-mostly overview surface built on the existing job list/status model above — it introduces no new canonical status, no new transition, and no new privileged action; "needs attention" is a derived, non-persisted view computed from existing status/schedule/assignment fields (see `app/modules/jobs/dispatchRules.ts`), not a new lifecycle state
+- A12: `JobsService.schedule()` now publishes the canonical `JobScheduled` A8 event, `addAssignment()` publishes `TechnicianAssigned`, and `complete()` publishes `WorkCompleted`, all after their existing mutation/transition already commits - publishing failures are logged and never block or alter the transition itself. `reschedule()` and every other transition above are unchanged. None of these add a new job state or transition; see `docs/modules/jobs-and-scheduling.md`.
 
 ## Invoices
 

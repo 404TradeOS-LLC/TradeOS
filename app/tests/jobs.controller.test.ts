@@ -234,7 +234,8 @@ describe("jobsController", () => {
   });
 
   it("converts scheduling payloads into Dates", async () => {
-    schedule.mockResolvedValue({ id: "job-1", status: "scheduled" });
+    const result = { id: "job-1", status: "scheduled" };
+    schedule.mockResolvedValue(result);
     const req = {
       params: { jobId: "job-1" },
       body: {
@@ -259,6 +260,30 @@ describe("jobsController", () => {
         overrideReason: "Owner approved",
       })
     );
+    expect(res.json).toHaveBeenCalledWith(result);
+  });
+
+  it("passes through the optional Athena event reference when job publication succeeds", async () => {
+    const result = {
+      id: "job-1",
+      status: "scheduled",
+      athenaEvent: { eventId: "event-1", eventType: "JobScheduled" },
+    };
+    schedule.mockResolvedValue(result);
+    const req = {
+      params: { jobId: "job-1" },
+      body: {
+        scheduledStart: "2026-07-16T13:00:00.000Z",
+        scheduledEnd: "2026-07-16T15:00:00.000Z",
+      },
+      orgId: "org-1",
+      auth: { userId: "owner-1", orgId: "org-1", role: "owner" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.schedule(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(result);
   });
 
   it("returns 204 after soft-archiving a job", async () => {

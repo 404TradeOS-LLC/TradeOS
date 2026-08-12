@@ -1,25 +1,31 @@
+import { randomUUID } from "node:crypto";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
+import { getDefaultAthenaEventService } from "../athena-events/service";
 import { applyOverhead, sellPrice, round2 } from "./formulas";
 import { canTransitionEstimateStatus, normalizeEstimateStatus } from "../../domain";
 import {
   AddLineItemInput,
   CreateEstimateInput,
+  EstimateComparisonDTO,
   EstimateDTO,
   EstimateLineItemDTO,
   SetPricingModeInput,
 } from "./types";
 
-// Estimate Engine module: applies contractor-entered quantities to selected
-// cost items/assemblies, then sequences Labor -> Material -> Equipment ->
-// Overhead -> Profit per Deliverable 3 ("Estimating Formula Engine").
+export interface EstimateEventRef {
+  type: string;
+  id: string;
+}
+
 export class EstimateEngineService {
   private readonly costDatabase = new CostDatabaseService();
   private readonly assembliesDatabase = new AssembliesDatabaseService();
 
-  async create(input: CreateEstimateInput): Promise<EstimateDTO> {
+  async create(input: CreateEstimateInput): Promise<EstimateDTO & { athenaEvent?: EstimateEventRef }> {
     const project = await prisma.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
     if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
 
@@ -32,7 +38,28 @@ export class EstimateEngineService {
         overheadPct: input.overheadPct ?? 0,
       },
     });
-    return toEstimateDTO(row);
+    const athenaEvent = await this.publishEstimateEvent(input.orgId, "EstimateStarted", row.id, `estimate:${row.id}:started:v1`, { projectId: row.projectId, version: row.version });
+    return { ...toEstimateDTO(row), athenaEvent };
+  }
+
+  private async publishEstimateEvent(orgId: string | undefined, type: string, estimateId: string, idempotencyKey: string, payload: unknown): Promise<EstimateEventRef | undefined> {
+    if (!orgId) return undefined;
+    try {
+      const { event } = await getDefaultAthenaEventService().publish({
+        orgId,
+        type,
+        version: "1.0.0",
+        entity: { type: "estimate", id: estimateId },
+        actor: { type: "system", id: null },
+        payload,
+        correlationId: randomUUID(),
+        idempotencyKey,
+      });
+      return { type: event.type, id: event.id };
+    } catch (error) {
+      console.error(`[athena-events] failed to publish ${type} event`, error);
+      return undefined;
+    }
   }
 
   async getById(id: string, orgId?: string): Promise<EstimateDTO & { lineItems: EstimateLineItemDTO[] }> {
@@ -46,7 +73,6 @@ export class EstimateEngineService {
     return rows.map(toEstimateDTO);
   }
 
-  /** Creates the next project version as a draft, copying line-item snapshots and pricing settings. */
   async duplicateFromVersion(sourceEstimateId: string, orgId?: string): Promise<EstimateDTO & { lineItems: EstimateLineItemDTO[] }> {
     const source = await prisma.estimate.findFirst({
       where: { id: sourceEstimateId, orgId },
@@ -84,7 +110,6 @@ export class EstimateEngineService {
     return this.getById(row.id, orgId);
   }
 
-  /** Adds a line item, snapshotting its unit cost at the moment it's added. */
   async addLineItem(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
     await this.assertDraft(input.estimateId, input.orgId);
     if (!input.costItemId && !input.assemblyId) {
@@ -160,6 +185,14 @@ export class EstimateEngineService {
     return toLineItemDTO(row);
   }
 
+  async addLineItemAndRecalculate(input: AddLineItemInput): Promise<{ lineItem: EstimateLineItemDTO; estimate: EstimateDTO }> {
+    return runInDatabaseTransaction(prisma, async () => {
+      const lineItem = await this.addLineItem(input);
+      const { lineItems: _lineItems, ...estimate } = await this.getById(input.estimateId, input.orgId);
+      return { lineItem, estimate };
+    });
+  }
+
   async removeLineItem(lineItemId: string, orgId?: string): Promise<{ estimateId: string }> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
@@ -182,7 +215,6 @@ export class EstimateEngineService {
     return this.recalculate(input.estimateId, input.orgId);
   }
 
-  /** Re-sums line items and re-applies overhead + profit. Called after any line item or pricing-mode change. */
   async recalculate(estimateId: string, orgId?: string): Promise<EstimateDTO> {
     const estimate = await prisma.estimate.findFirst({ where: { id: estimateId, orgId }, include: { lineItems: true } });
     if (!estimate) throw new ApiError(404, `Estimate ${estimateId} not found`);
@@ -202,8 +234,7 @@ export class EstimateEngineService {
     return toEstimateDTO(row);
   }
 
-  /** Locks the estimate so its line-item unit_cost snapshots and total never silently change again. */
-  async finalize(estimateId: string, orgId?: string): Promise<EstimateDTO> {
+  async finalize(estimateId: string, orgId?: string): Promise<EstimateDTO & { athenaEvent?: EstimateEventRef }> {
     await this.recalculate(estimateId, orgId);
     const estimate = await prisma.estimate.findFirst({ where: { id: estimateId, orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${estimateId} not found`);
@@ -212,7 +243,9 @@ export class EstimateEngineService {
       throw new ApiError(409, `Estimate ${estimateId} cannot transition from ${currentStatus} to ready`);
     }
     const row = await prisma.estimate.update({ where: { id: estimateId }, data: { status: "ready" } });
-    return toEstimateDTO(row);
+    const dto = toEstimateDTO(row);
+    const athenaEvent = await this.publishEstimateEvent(orgId, "EstimateCompleted", row.id, `estimate:${row.id}:completed:v1`, { projectId: row.projectId, totalPrice: dto.totalPrice });
+    return { ...dto, athenaEvent };
   }
 
   private async assertDraft(estimateId: string, orgId?: string): Promise<void> {
@@ -221,6 +254,25 @@ export class EstimateEngineService {
     if (normalizeEstimateStatus(estimate.status) !== "draft") {
       throw new ApiError(409, `Estimate ${estimateId} is not in draft status and can no longer be modified`);
     }
+  }
+
+  async compareEstimates(baseEstimateId: string, candidateEstimateId: string, orgId?: string): Promise<EstimateComparisonDTO> {
+    const [base, candidate] = await Promise.all([this.getById(baseEstimateId, orgId), this.getById(candidateEstimateId, orgId)]);
+    const marginPct = (estimate: EstimateDTO): number => {
+      const totalCost = applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct);
+      return estimate.totalPrice > 0 ? round2(((estimate.totalPrice - totalCost) / estimate.totalPrice) * 100) : 0;
+    };
+
+    return {
+      base: { id: base.id, version: base.version, subtotalCost: base.subtotalCost, totalPrice: base.totalPrice, marginPct: marginPct(base), lineItemCount: base.lineItems.length },
+      candidate: { id: candidate.id, version: candidate.version, subtotalCost: candidate.subtotalCost, totalPrice: candidate.totalPrice, marginPct: marginPct(candidate), lineItemCount: candidate.lineItems.length },
+      delta: {
+        subtotalCost: round2(candidate.subtotalCost - base.subtotalCost),
+        totalPrice: round2(candidate.totalPrice - base.totalPrice),
+        marginPct: round2(marginPct(candidate) - marginPct(base)),
+        lineItemCount: candidate.lineItems.length - base.lineItems.length,
+      },
+    };
   }
 }
 

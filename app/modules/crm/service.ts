@@ -14,11 +14,42 @@ import {
   UpdateCustomerInput,
 } from "./types";
 
+export interface CustomerListOptions {
+  query?: string;
+  limit?: number;
+}
+
+const CUSTOMER_LIST_DEFAULT_LIMIT = 100;
+const CUSTOMER_LIST_MAX_LIMIT = 250;
+
 export class CrmService {
-  async listCustomers(orgId: string) {
+  async listCustomers(orgId: string, options: CustomerListOptions = {}) {
+    const query = options.query?.trim();
+    const requestedLimit = options.limit;
+    const limit =
+      requestedLimit === undefined
+        ? undefined
+        : Math.min(
+            Math.max(Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : CUSTOMER_LIST_DEFAULT_LIMIT), 1),
+            CUSTOMER_LIST_MAX_LIMIT
+          );
+
     return prisma.customer.findMany({
-      where: { orgId, deletedAt: null },
+      where: {
+        orgId,
+        deletedAt: null,
+        ...(query
+          ? {
+              OR: [
+                { name: { contains: query, mode: "insensitive" } },
+                { email: { contains: query, mode: "insensitive" } },
+                { phone: { contains: query, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { name: "asc" },
+      ...(limit !== undefined ? { take: limit } : {}),
     });
   }
 
@@ -80,6 +111,7 @@ export class CrmService {
 
   async addServiceAddress(orgId: string, customerId: string, input: ServiceAddressInput) {
     await this.assertCustomer(orgId, customerId);
+
     return prisma.$transaction(async (transaction) => {
       if (input.isPrimary) {
         await transaction.serviceAddress.updateMany({
