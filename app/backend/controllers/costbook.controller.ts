@@ -148,7 +148,9 @@ export const costbookController = {
   async updateDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateDivision(auth, id, divisionUpdateSchema.parse(req.body)));
+    const input = divisionUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateDivision(auth, id, input));
   },
   async removeDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
@@ -173,7 +175,9 @@ export const costbookController = {
   async updateCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateCategory(auth, id, categoryUpdateSchema.parse(req.body)));
+    const input = categoryUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateCategory(auth, id, input));
   },
   async removeCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
@@ -198,7 +202,9 @@ export const costbookController = {
   async updateSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateSubcategory(auth, id, subcategoryUpdateSchema.parse(req.body)));
+    const input = subcategoryUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateSubcategory(auth, id, input));
   },
   async removeSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
