@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -12,6 +12,8 @@ related_code:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SESSION_HANDOFF.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - .github/CODEOWNERS
+  - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
 ---
 
@@ -29,115 +31,81 @@ Start with:
 4. [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 5. [agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md)
 
-## Project identity
+## Project identity and boundary
 
 - `404 TradeOS` is the parent company and operating context.
 - `TradeOS` is the contractor SaaS product in this repository.
-- The repository remains named `TradeOScostbook`, while the implemented surface and doctrine cover the broader TradeOS platform.
-
-## Monorepo platform boundary
-
-TradeOS remains one first-party monorepo. Repository boundaries and agent workstream boundaries are intentionally different: focused Codex or AI-agent sessions may target Athena, Costbook, Dispatcher, Estimator, Field Tech, CRM, or another capability while still operating from the repository root and respecting the same governance and source-of-truth hierarchy.
-
-Athena is the reusable AI/orchestration platform layer and its canonical package location is `packages/athena/`. Athena owns the AI kernel, tool registry, context engine, router, action framework, and shared AI interfaces. It must not absorb Costbook, estimating, dispatch, CRM, Field Tech, or other domain business logic. Domain modules own their rules and expose bounded capabilities to Athena through explicit interfaces or tool registration.
-
-Do not move existing production code solely to match the target package layout during RC1 hardening. New Athena foundation work should target `packages/athena/`; `packages/costbook/` should be introduced only when a real reusable Costbook package boundary exists rather than as a cosmetic reorganization.
+- TradeOS remains one first-party monorepo. Focused agent workstreams such as Athena, Costbook, Estimator, Dispatcher, Field Tech, CRM, or Office Manager are execution-context boundaries, not separate repository boundaries.
+- Athena is the reusable orchestration platform layer; domain business rules remain owned by their domains and register capabilities through explicit contracts.
+- Existing `app/` and `web/` deployable boundaries remain authoritative during RC1 hardening. Do not move production code merely to match a target package layout.
 
 ## Current engineering phase
 
 TradeOS is in `RC1 hardening`.
 
-Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). Strategic sequencing belongs in [ROADMAP.md](ROADMAP.md). Executable work belongs in [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md).
+Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). Strategic sequencing belongs in [ROADMAP.md](ROADMAP.md). Executable numbered work belongs in [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md).
 
-## Current milestone
+## Hardening baseline landed 2026-08-12
 
-The Bible foundation has landed (S001, `DONE`). S003 (solo-maintainer
-governance calibration) is complete: PR #73 merged on 2026-08-04 as
-`9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. S004 (session handoff
-normalization) is complete: PR #80 merged on 2026-08-06 as
-`f8179c739cdb7691de2cb3d776f9e7c5da34084f`. PR #81 recorded its completion
-evidence and merged as `5efa9835`. PR #82 promoted S005 and merged as
-`36a87bea`; a pre-implementation audit then found its readiness record omitted
-explicit forbidden paths and named tests. PR #83 repaired those gates and
-merged as `ee5000b4`. S005 is complete: PR #84 merged on 2026-08-06 as
-`7d1c48376861468122347e19c41f0a007d7b5fc9`. Production auth/runtime recovery
-through PR #92 is merged on `main` as
-`477fb2e919d4001772628c6a91fcded07555ba74`. S006 — Lifecycle compatibility
-inventory is now `READY` after governance-only PR #93 merged. S027 —
-Intelligent Costbook production readiness has a founder-requested readiness
-contract, but remains a broad non-executable sprint. Live GitHub verification
-on 2026-08-11 found zero open PRs, clearing the earlier stale overlap claim.
-That governance correction does not change the canonical execution rule: backlog
-selection still runs through the Next Sprint Protocol unless the founder issues
-an explicit one-off branch commission.
+The repository now has a stronger autonomous-maintenance safety envelope:
 
-Completed foundation work includes:
+- **CI gatekeeper:** PR #172 merged as `cd9a960861e611956f7ff55d9704461b6586ae47`. Required verification now includes Prisma schema validation, high-severity production dependency audits, backend typechecking/unit/Athena checks/build, live migration-path rehearsal and integration/RLS tests, frontend tests/lint/build, and tracked-source cleanliness.
+- **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
+- **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
+- **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
+- **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
+- **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 
-- seven Bible volumes;
-- a 50-sprint dependency-ordered backlog;
-- a mechanical next-sprint protocol;
-- merged Volume 3 engineering expansion from PR #32;
-- corrected sprint dependency logic;
-- updated handoff and governance integration;
-- a separate segmented audit and phased cleanup of the knowledge-engine corpus (Phase A/B landed via PR #33 and #34; Phase C deletion of the confirmed duplicate tree remains gated on founder sign-off).
+These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
-## Canonical execution rule
+## Current numbered-sprint state
 
-The Sprint Backlog is the tactical queue. An agent may begin only when:
+- S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
+- S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
+- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged, but current Costbook overlap exists in PR #128 and PR #151.
+- No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
 
-- the sprint is `READY`;
-- every sprint dependency is `DONE`;
-- no overlapping PR or worktree exists;
-- required external infrastructure is available;
-- no founder decision remains unresolved.
+## Active engineering queue
 
-If no sprint is eligible, stop and report the blocker instead of inventing work.
+Prioritize existing authorized work before inventing new scope:
 
-## Active PR coordination
+1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work. It includes a forward migration, so it remains protected PR-only/human-decision work. Its documented blocker is synchronization of `docs/CURRENT_STATE.md` and `docs/DOMAIN_MODEL.md`; do not bypass the docs or migration gates.
+2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and review deliberately; do not treat it as maintenance auto-merge.
+3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
+4. **GitHub Actions runtime modernization.** Replace stale PRs #130/#131 with one governed workflow/docs change that upgrades `actions/checkout` and `actions/setup-node` together while preserving the explicit TradeOS Node workload versions. Close the stale bot PRs after the governed replacement lands.
 
-Live GitHub state verified on 2026-08-11:
+Open issue inventory verified during reconciliation is small: issue #144 covers Athena transactional event reliability and issue #153 covers Costbook hierarchy activation permissions/migration sequencing.
 
-- zero open PRs on `main`, so the older S027 overlap references to PRs #94,
-  #95, and #96 are stale historical evidence rather than current blockers;
-- S006 still remains the lowest-numbered `READY` sprint in the governed queue;
-- the August 11, 2026 C004 Equipment Catalog Foundation branch is recorded as
-  an explicit one-off founder commission from current `main`; that historical
-  fact does not create a second standing startup path; and
-- historical overlap evidence remains preserved in the sprint backlog and
-  session handoff rather than erased.
+Stale Dependabot PR #158 targeted the documented non-canonical self-nested Knowledge Engine duplicate tree and was closed as not planned.
 
-Historical coordination evidence remains in the sprint backlog and repository
-governance records; always verify GitHub before editing. This summary is not a
-substitute for live PR state.
+## Autonomous maintenance operating mode
 
-## Current blockers and risks
+Scheduled maintenance and repair agents follow `AGENTS.md`, the Next Sprint Protocol, and Repository Governance together.
 
-- Entry-point READMEs and legacy generator scripts contain stale material, but useful setup, competitive, pricing, and historical evidence must be preserved before archive or removal decisions.
-- `packages/knowledge-engine/**` (9,986 files) received its separate segmented audit on 2026-07-16. Phase A documentation/governance guardrails (root README, corrected canonical-path docs, focused `docs/DOC_OWNERSHIP.yml` rules, historical notices on conflicting runtime guidance, a package-scoped `.gitignore`) and Phase B pipeline path-canonicalization (`PATHS.md`, `path-manifest.json`, a marker-validated Python resolver, and a fix for divergent generated-export copies) have both landed via PR #33 and #34. The package still contains a confirmed 4,746-tracked-file self-nested exact-duplicate tree and ~1,400 vendored third-party skill directories with incomplete license coverage; both are documented but intentionally untouched pending founder-approved Phase C migration work — do not begin archive or deletion in this package without that approval.
-- The live default-branch rulesets were verified read-only for S003 on
-  2026-08-04. Their IDs and exact observed controls are recorded in
-  [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md); external state must be
-  rechecked before later claims or changes.
-- Production migration changes remain manual and `production` Environment-gated. Reconciliation records existing schema state in Prisma history; it must not be confused with executing a normal migration deployment.
-- Settings/Brand Studio asset persistence must keep the `project-files` bucket private and all service-role access server-only. Metadata writes are restricted to the authenticated organization's generated `organizations/<orgId>/brand-assets/<assetKey>-<uuid>` namespace, passive raster formats up to 6 MB, and the four supported asset slots; reads must stay behind the authenticated same-org proxy.
-- S006 is an inventory sprint, not permission to normalize behavior yet. Any
-  discovered drift must be recorded and handed to S007-S012 rather than fixed
-  in place.
-- S027 is not the current executable sprint. Any future implementation must
-  extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist,
-  and Estimate Engine seams without mock production data or autonomous AI
-  writes.
+For a validated low-risk maintenance defect, the expected loop is:
+
+**inspect → reproduce/validate → root-cause → repair → test → inspect diff → publish focused PR → verify exact CI/review state → merge only when permitted → verify landed state**
+
+Agents should advance an existing overlapping PR instead of creating duplicate work. Green CI is required technical evidence, not authority to merge protected changes.
+
+Production repair should use the health split first:
+
+- `/health` failing → investigate process/deployment/routing/platform availability;
+- `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
+- both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
 
 ## Required verification
 
-Expected CI jobs include:
+Expected required CI jobs include:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build` (also runs the `athena:contracts` and `athena:smoke` gates for the Athena A1 kernel foundation, see `app/modules/athena-kernel`);
-- `App integration tests`;
-- `Web lint and build` (includes frontend unit tests before lint and build).
+- `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness;
+- `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
+- `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
-Documentation foundation work must run:
+The workflow action implementations should remain on supported majors independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require their own compatibility evidence.
+
+Documentation foundation/governance work should run:
 
 ```bash
 npm run docs:test
@@ -145,30 +113,23 @@ npm run docs:check -- --base origin/main
 git diff --check
 ```
 
-The exact required-check configuration remains live GitHub state.
+The exact required-check and ruleset configuration remains live GitHub state and must be verified before changing repository controls.
 
-PR templates must capture startup verification, scope, documentation impact, risk review, and exact final status. Issue templates must capture area, priority, owner path, verification expectations, and stop conditions before work starts. Labels must follow the taxonomy in `.github/labels.yml`. See [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the full policy.
+## Current risks and guarded areas
+
+- Production migration changes remain manual/approval-gated; pull-request CI may rehearse tracked migrations only against disposable databases.
+- `packages/knowledge-engine/knowledge-engine/**` is a confirmed self-nested duplicate tree, not a second canonical package. Do not normalize it through dependency maintenance or delete it without the approved cleanup decision/process.
+- Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
+- S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
+- CODEOWNERS currently provides routing/visibility. Requiring code-owner approval in live branch rules needs separate solo-maintainer compatibility review to avoid deadlocking self-authored PRs.
 
 ## Session execution
 
-The sole executable session contract is
-`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`: use its
-[Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
-before editing and its
-[Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow)
-before handoff. This Command Center reports current operating context and does
-not restate those flows.
+The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Use its Canonical Startup Flow before editing and Canonical Completion Flow before handoff. The Command Center reports current operating context and does not define a competing checklist.
 
 ## Next engineer starts here
 
-Read [TRADEOS_BIBLE.md](TRADEOS_BIBLE.md),
-[SESSION_HANDOFF.md](SESSION_HANDOFF.md), and
-[agent-prompts/NEXT_SPRINT_PROTOCOL.md](agent-prompts/NEXT_SPRINT_PROTOCOL.md).
-S006 is the next `READY` sprint in governed backlog order. Future work follows
-the Next Sprint Protocol and the backlog unless the founder explicitly issues a
-new one-off branch commission. S027 may be promoted to `READY` only after a
-governance-only update confirms the exact current base, open PRs, worktrees,
-and required validation.
+There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially the security/data-integrity blocker in PR #151—without bypassing protected migration or documentation requirements. If existing PR work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
 
 ## Source-of-truth links
 
