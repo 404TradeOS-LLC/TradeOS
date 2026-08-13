@@ -1,10 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
+import { createPrismaAthenaEventRepository } from "../modules/athena-events/store";
 import {
   recordCanonicalEventPublishFailure,
   runWithRequiredCanonicalEvents,
 } from "../modules/athena-events/transactionalContext";
+import type { AthenaBusinessEvent } from "../modules/athena-events/types";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -22,6 +24,11 @@ const originalStart = new Date("2026-08-11T13:00:00.000Z");
 const originalEnd = new Date("2026-08-11T15:00:00.000Z");
 const attemptedStart = new Date("2026-08-12T13:00:00.000Z");
 const attemptedEnd = new Date("2026-08-12T15:00:00.000Z");
+const concurrentEventIdA = "54000000-0000-0000-0000-000000000041";
+const concurrentEventIdB = "54000000-0000-0000-0000-000000000042";
+const concurrentIdempotencyKey = `job:${jobId}:transactional-race:v1`;
+
+const auth = { userId: adminUserId, orgId, role: "admin" as const };
 
 describe("transactional canonical event rollback against live PostgreSQL", () => {
   beforeAll(async () => {
@@ -85,7 +92,7 @@ describe("transactional canonical event rollback against live PostgreSQL", () =>
     await expect(
       runWithDatabaseSession(
         appClient,
-        { userId: adminUserId, orgId, role: "admin" },
+        auth,
         () =>
           runWithRequiredCanonicalEvents(["JobScheduled"], async () => {
             await prisma.job.update({
@@ -107,7 +114,55 @@ describe("transactional canonical event rollback against live PostgreSQL", () =>
     expect(persisted.scheduledStart?.toISOString()).toBe(originalStart.toISOString());
     expect(persisted.scheduledEnd?.toISOString()).toBe(originalEnd.toISOString());
   });
+
+  it("reconciles concurrent inserts for one idempotency key without aborting either transaction", async () => {
+    const repository = createPrismaAthenaEventRepository();
+    const eventA = buildConcurrentEvent(concurrentEventIdA, "corr-a");
+    const eventB = buildConcurrentEvent(concurrentEventIdB, "corr-b");
+
+    const [resultA, resultB] = await Promise.all([
+      runWithDatabaseSession(
+        appClient,
+        auth,
+        () => repository.createEventWithDeliveries(eventA, []),
+        "integration-test"
+      ),
+      runWithDatabaseSession(
+        appClient,
+        auth,
+        () => repository.createEventWithDeliveries(eventB, []),
+        "integration-test"
+      ),
+    ]);
+
+    expect(resultA.event.id).toBe(resultB.event.id);
+    expect([concurrentEventIdA, concurrentEventIdB]).toContain(resultA.event.id);
+    expect(resultA.deliveries).toHaveLength(0);
+    expect(resultB.deliveries).toHaveLength(0);
+
+    const rows = await adminClient.athenaEvent.findMany({
+      where: { orgId, idempotencyKey: concurrentIdempotencyKey },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).toBe(resultA.event.id);
+  });
 });
+
+function buildConcurrentEvent(id: string, correlationId: string): AthenaBusinessEvent {
+  return {
+    id,
+    orgId,
+    type: "JobScheduled",
+    version: "1.0.0",
+    entity: { type: "job", id: jobId },
+    actor: { type: "user", id: adminUserId },
+    occurredAt: new Date("2026-08-12T16:00:00.000Z").toISOString(),
+    payload: { jobId, projectId, customerId },
+    correlationId,
+    idempotencyKey: concurrentIdempotencyKey,
+    isReplay: false,
+  };
+}
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
