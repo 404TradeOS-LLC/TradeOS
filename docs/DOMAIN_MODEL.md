@@ -218,6 +218,16 @@ C003 exposes the existing `LaborRate` model through the unified Costbook boundar
 - `DELETE /api/v1/costbook/labor-rates/:id` and the legacy `/api/v1/labor-rates/:id` compatibility route soft-deactivate the row by setting `active` to `false`
 - C003 does not add labor burden calculations, pricing rollups, estimate integration, or Athena advisor state
 
+## Costbook equipment foundation
+
+C004 exposes the existing `Equipment` model through the unified Costbook boundary.
+
+- `Equipment` belongs to one organization and stores `name`, `ownershipCostPerHour`, `operatingCostPerHour`, optional `dailyRate`, timestamps, and a derived `hourlyCost` in DTO/view-model surfaces
+- equipment reads remain tenant-scoped by `orgId`; C004 tightens equipment writes to the owner/admin Costbook boundary through forced RLS
+- Costbook equipment create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
+- `DELETE /api/v1/costbook/equipment/:id` and the legacy `/api/v1/equipment/:id` compatibility route hard-delete the row because the current schema has no `active` or archive state
+- C004 does not add advanced equipment-rate analytics, estimate integration, or Athena advisor state
+
 ## Costbook hierarchy management
 
 C005 exposes the existing `Division`, `Category`, and `Subcategory` models through the unified Costbook boundary, completing the CRUD gap C001-C004 left (those models previously had only list + create; `CostItem` already had full CRUD).
