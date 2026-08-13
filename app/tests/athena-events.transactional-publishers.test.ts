@@ -30,7 +30,11 @@ describe("transactional publisher service contracts", () => {
   ])("wraps %p.%s with required event %s", async (ServiceClass, basePrototype, methodName, eventType, args) => {
     const result = { ok: true };
     const baseMethod = jest.spyOn(basePrototype as never, methodName as never).mockResolvedValue(result as never);
-    const service = new (ServiceClass as new () => Record<string, (...methodArgs: unknown[]) => Promise<unknown>>)();
+    const ServiceConstructor = ServiceClass as unknown as new () => Record<
+      string,
+      (...methodArgs: unknown[]) => Promise<unknown>
+    >;
+    const service = new ServiceConstructor();
 
     await expect(service[methodName as string](...(args as unknown[]))).resolves.toBe(result);
 
