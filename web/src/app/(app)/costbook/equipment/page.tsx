@@ -3,8 +3,24 @@ import { Wrench } from "lucide-react";
 import { EquipmentCatalog } from "@/components/costbook/equipment-catalog";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ApiClientError, getCostbookWorkspace, listCostbookEquipment, type CostbookEquipment, type CostbookWorkspaceSummary } from "@/lib/api";
+import { ApiClientError, apiFetch, getCostbookWorkspace, type CostbookWorkspaceSummary } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+
+interface CostbookEquipment {
+  id: string;
+  organizationId: string;
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate: number | null;
+  hourlyCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function listCostbookEquipment(token: string) {
+  return apiFetch<CostbookEquipment[]>("/api/v1/costbook/equipment", { token });
+}
 
 export const metadata: Metadata = {
   title: "Equipment | TradeOS",
