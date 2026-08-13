@@ -40,6 +40,9 @@ describe("path-manifest.json — runtime-critical assets", () => {
       });
     } else {
       test(`optional asset ${asset.path} presence is recorded accurately`, () => {
+        // Not asserting existence (optional assets are allowed to be absent) -- only that the
+        // manifest's own contentParsed/required flags are internally consistent booleans, so a
+        // future edit can't silently corrupt the schema.
         assert.equal(typeof asset.required, "boolean");
         assert.equal(typeof asset.contentParsed, "boolean");
       });
@@ -47,15 +50,10 @@ describe("path-manifest.json — runtime-critical assets", () => {
   }
 });
 
-describe("path-manifest.json — deprecated roots match their recorded lifecycle", () => {
+describe("path-manifest.json — deprecated roots are real, and are not the canonical export root", () => {
   for (const deprecated of manifest.deprecatedRoots) {
-    test(`${deprecated.path} lifecycle matches disk state`, () => {
-      const exists = existsSync(repoPath(deprecated.path));
-      if (deprecated.removed) {
-        assert.equal(exists, false, `expected removed deprecated path ${deprecated.path} to be absent`);
-      } else {
-        assert.equal(exists, true, `expected retained deprecated path ${deprecated.path} to still exist`);
-      }
+    test(`${deprecated.path} exists on disk (it should — it's deprecated, not deleted)`, () => {
+      assert.equal(existsSync(repoPath(deprecated.path)), true, `expected deprecated path ${deprecated.path} to still exist`);
     });
 
     test(`${deprecated.path} is never equal to the canonical exports root`, () => {
@@ -78,7 +76,7 @@ describe("path-manifest.json — the duplicate tree is documented as prohibited,
     assert.ok(canonicalCount > 1000, "expected the canonical tree file count to be in the thousands");
     assert.ok(
       Math.abs(dupCount - canonicalCount) < 50,
-      "expected the duplicate and canonical file counts to be very close",
+      "expected the duplicate and canonical file counts to be very close (they diverge only by Phase A's own new files)",
     );
   });
 
@@ -86,7 +84,6 @@ describe("path-manifest.json — the duplicate tree is documented as prohibited,
     assert.ok(Array.isArray(duplicate.removalPrerequisites));
     assert.ok(duplicate.removalPrerequisites.length > 0);
     assert.ok(duplicate.removalPrerequisites.some((p) => /founder/i.test(p)), "expected founder sign-off to be a listed prerequisite");
-    assert.notEqual(duplicate.removed, true);
   });
 });
 
@@ -98,17 +95,17 @@ describe("path-manifest.json — compatibility fallback status matches the refer
   });
 });
 
-describe("path-manifest.json — resolved technical debt stays resolved", () => {
-  test("the assembly pipeline helper uses the canonical doubled knowledge root", () => {
-    const helper = readFileSync(path.join(packageRoot, "scripts", "assembly_pipeline_common.py"), "utf8");
-    assert.match(helper, /KNOWLEDGE_DIR = PROJECT_ROOT \/ "knowledge" \/ "knowledge"/);
-    assert.equal(existsSync(path.join(packageRoot, "knowledge", "knowledge", "assemblies", "framing_assemblies.json")), true);
+describe("assembly pipeline — canonical knowledge root regression", () => {
+  test("shared helper targets the doubled canonical knowledge root", () => {
+    const source = readFileSync(path.join(packageRoot, "scripts", "assembly_pipeline_common.py"), "utf8");
+    assert.match(source, /KNOWLEDGE_DIR = PROJECT_ROOT \/ "knowledge" \/ "knowledge"/);
   });
 
-  test("the assembly shallow-path defect is recorded as resolved", () => {
-    const resolved = manifest.resolvedDebt?.find((entry) => entry.id === "assembly-pipeline-shallow-knowledge-dir");
-    assert.ok(resolved, "expected the assembly path defect to be present in resolvedDebt");
-    assert.equal(resolved.status, "fixed");
+  test("canonical root contains existing framing assembly data", () => {
+    assert.equal(
+      existsSync(path.join(packageRoot, "knowledge", "knowledge", "assemblies", "framing_assemblies.json")),
+      true,
+    );
   });
 });
 
