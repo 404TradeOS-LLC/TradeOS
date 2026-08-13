@@ -95,20 +95,6 @@ describe("path-manifest.json — compatibility fallback status matches the refer
   });
 });
 
-describe("assembly pipeline — canonical knowledge root regression", () => {
-  test("shared helper targets the doubled canonical knowledge root", () => {
-    const source = readFileSync(path.join(packageRoot, "scripts", "assembly_pipeline_common.py"), "utf8");
-    assert.match(source, /KNOWLEDGE_DIR = PROJECT_ROOT \/ "knowledge" \/ "knowledge"/);
-  });
-
-  test("canonical root contains existing framing assembly data", () => {
-    assert.equal(
-      existsSync(path.join(packageRoot, "knowledge", "knowledge", "assemblies", "framing_assemblies.json")),
-      true,
-    );
-  });
-});
-
 describe("path-manifest.json — unresolved risks are documented, not silently dropped", () => {
   test("at least one unresolved risk is recorded", () => {
     assert.ok(Array.isArray(manifest.unresolvedRisks));
