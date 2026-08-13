@@ -16,6 +16,10 @@ type AthenaEventRow = Awaited<ReturnType<typeof prisma.athenaEvent.findFirstOrTh
 type AthenaEventDeliveryRow = Awaited<ReturnType<typeof prisma.athenaEventDelivery.findFirstOrThrow>>;
 type AthenaEventDeadLetterRow = Awaited<ReturnType<typeof prisma.athenaEventDeadLetter.findFirstOrThrow>>;
 
+export function runAthenaEventTransaction<T>(operation: () => Promise<T>): Promise<T> {
+  return runInDatabaseTransaction(prisma, operation);
+}
+
 function toEventRecord(row: AthenaEventRow): AthenaBusinessEvent {
   return {
     id: row.id,
