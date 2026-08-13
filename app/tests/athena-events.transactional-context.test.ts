@@ -1,7 +1,6 @@
-const runInDatabaseTransaction = jest.fn((_client, operation: () => unknown) => operation());
+const runAthenaEventTransaction = jest.fn((operation: () => unknown) => operation());
 
-jest.mock("../db/client", () => ({ prisma: {} }));
-jest.mock("../db/requestSession", () => ({ runInDatabaseTransaction }));
+jest.mock("../modules/athena-events/store", () => ({ runAthenaEventTransaction }));
 
 import {
   recordCanonicalEventPublished,
@@ -23,7 +22,7 @@ describe("transactional canonical event requirements", () => {
       })
     ).resolves.toEqual({ id: "estimate-1" });
 
-    expect(runInDatabaseTransaction).toHaveBeenCalledTimes(1);
+    expect(runAthenaEventTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when a required event is missing after the mutation returns", async () => {
