@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -225,6 +225,8 @@ C005 exposes the existing `Division`, `Category`, and `Subcategory` models throu
 - `Division` belongs to one organization directly (`orgId`); `Category` and `Subcategory` inherit organization scope through their parent join (`Category.divisionId -> Division.orgId`, `Subcategory.categoryId -> Category.divisionId -> Division.orgId`), matching how `CostItem` already inherits scope through `Subcategory`
 - all three models gained an `isActive` boolean (default `true`) in C005 — previously only `CostItem` had a soft-delete flag anywhere in this hierarchy
 - Costbook hierarchy create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted, and a category/subcategory create rejects a parent id that does not belong to the authenticated organization
+- category and subcategory database write policies also carry explicit authenticated-organization predicates through their parent joins, so write isolation does not depend on nested row visibility alone
+- the database rejects any create/reactivation that would leave an active `Category` under an inactive `Division`, or an active `Subcategory` under an inactive `Category` or `Division`; these active-parent invariants apply even when application-layer code is bypassed
 - delete is soft-deactivate only (`isActive = false`); child `Category`/`Subcategory`/`CostItem` rows are never cascade-deleted through the Costbook API, even though the underlying Prisma relations define `onDelete: Cascade` for a true hard delete
 - C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary to the Costbook-specific owner/admin boundary, matching C002/C003; legacy `estimator` loses direct database write access to these three tables
 - C005 does not add pricing calculations, estimate integration, or Athena advisor state
