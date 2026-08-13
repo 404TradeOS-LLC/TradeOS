@@ -74,7 +74,11 @@ export function createAthenaEventService(deps: AthenaEventServiceDeps = {}): Ath
     async publish(input) {
       try {
         const result = await publishAthenaEvent(repository, input, subscribers);
-        recordCanonicalEventPublished(input.type);
+        // Record what the repository actually persisted. On an idempotency
+        // collision the returned row may predate this call; using its type
+        // prevents a mismatched key from falsely satisfying a transactional
+        // wrapper that requires a different canonical event type.
+        recordCanonicalEventPublished(result.event.type);
         return result;
       } catch (error) {
         recordCanonicalEventPublishFailure(input.type, error);
