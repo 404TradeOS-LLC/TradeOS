@@ -32,7 +32,7 @@ except ImportError:
     Draft7Validator = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge"
+KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge" / "knowledge"
 RUNTIME_DIR = PROJECT_ROOT / "runtime"
 DOCS_DIR = PROJECT_ROOT / "docs"
 REVIEW_DIR = PROJECT_ROOT / "review"
