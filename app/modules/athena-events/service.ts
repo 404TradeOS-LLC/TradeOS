@@ -6,6 +6,7 @@ import { publishAthenaEvent } from "./publisher";
 import { replayAthenaDeadLetter } from "./replay";
 import { createPrismaAthenaEventRepository } from "./store";
 import type { AthenaEventRepository } from "./store";
+import { recordCanonicalEventPublished, recordCanonicalEventPublishFailure } from "./transactionalContext";
 import type {
   AthenaBusinessEvent,
   AthenaEventActor,
@@ -71,7 +72,14 @@ export function createAthenaEventService(deps: AthenaEventServiceDeps = {}): Ath
 
   return {
     async publish(input) {
-      return publishAthenaEvent(repository, input, subscribers);
+      try {
+        const result = await publishAthenaEvent(repository, input, subscribers);
+        recordCanonicalEventPublished(input.type);
+        return result;
+      } catch (error) {
+        recordCanonicalEventPublishFailure(input.type, error);
+        throw error;
+      }
     },
 
     async getById(orgId, actor, id) {
