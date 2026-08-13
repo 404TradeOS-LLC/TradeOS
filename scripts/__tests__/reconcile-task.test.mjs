@@ -42,6 +42,25 @@ test("treats a missing historical branch as stale when main already contains the
   assert.equal(result.staleReferencedBranch, true);
 });
 
+test("detects a matching main commit beyond the first 20 history entries", () => {
+  const mainCommits = Array.from({ length: 20 }, (_, index) => ({
+    sha: `unrelated-${index + 1}`,
+    title: `fix invoice rounding ${index + 1}`,
+  }));
+  mainCommits.push({
+    sha: "older-match",
+    title: "wrap canonical event write in database transaction",
+  });
+
+  const result = classifyTask(snapshot({
+    task: "Make canonical event persistence transactional",
+    mainCommits,
+  }));
+
+  assert.equal(result.classification, CLASSIFICATIONS.NO_ACTION_REQUIRED);
+  assert.equal(result.mainMatches[0].sha, "older-match");
+});
+
 test("permits new work only when no viable overlapping evidence exists", () => {
   const result = classifyTask(snapshot({
     task: "Add governance preflight for duplicate pull requests",
