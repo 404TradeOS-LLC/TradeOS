@@ -59,30 +59,29 @@ describe("athena-events publisher", () => {
     expect(due).toHaveLength(1);
   });
 
-  it("recovers gracefully when a concurrent publish wins the race to insert the same idempotency key", async () => {
-    // Simulates the TOCTOU window between publisher.ts's findByIdempotencyKey
-    // check and its createEventWithDeliveries insert: a second, truly
-    // concurrent caller's insert lands first (backed in production by the
-    // real (org_id, idempotency_key) unique constraint), so this call's own
-    // insert attempt fails - it must fall back to the now-existing row and
-    // report deduplicated:true rather than surfacing a raw storage error.
+  it("reconciles a concurrent winner returned by the repository without surfacing a storage error", async () => {
+    // Simulates the TOCTOU window between the fast-path idempotency SELECT and
+    // the authoritative conflict-safe insert. The repository reports the
+    // already-persisted winner with a different event id and no new
+    // deliveries; publisher.ts must expose that as deduplicated:true.
     const repository = createInMemoryAthenaEventRepository();
     const real = repository.createEventWithDeliveries.bind(repository);
     let winner: Awaited<ReturnType<typeof real>> | undefined;
     repository.createEventWithDeliveries = async (event, subscriberIds) => {
-      winner = await real(event, subscriberIds);
-      throw new Error("simulated unique constraint violation on (org_id, idempotency_key)");
+      winner = await real({ ...event, id: "concurrent-winner" }, subscriberIds);
+      return { event: winner.event, deliveries: [] };
     };
 
     const result = await publishAthenaEvent(repository, buildInput(), []);
 
     expect(result.deduplicated).toBe(true);
     expect(result.deliveriesCreated).toBe(0);
+    expect(result.event.id).toBe("concurrent-winner");
     expect(result.event.id).toBe(winner?.event.id);
     expect(await repository.findDuePendingDeliveries(ORG_ID, 10)).toHaveLength(0);
   });
 
-  it("re-throws a genuine storage failure that is not a raced duplicate", async () => {
+  it("re-throws a genuine storage failure", async () => {
     const repository = createInMemoryAthenaEventRepository();
     repository.createEventWithDeliveries = async () => {
       throw new Error("database unavailable");
