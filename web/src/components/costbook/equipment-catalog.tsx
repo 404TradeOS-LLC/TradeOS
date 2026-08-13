@@ -3,6 +3,12 @@
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  createEquipmentCatalogRecord,
+  deleteEquipmentCatalogRecord,
+  getEquipmentCatalogCapabilities,
+  updateEquipmentCatalogRecord,
+} from "@/components/costbook/equipment-catalog-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -37,6 +43,7 @@ export function EquipmentCatalog({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const capabilities = getEquipmentCatalogCapabilities(canWrite, canManage);
 
   const editingEquipment = useMemo(
     () => equipment.find((item) => item.id === editingId) ?? null,
@@ -68,14 +75,8 @@ export function EquipmentCatalog({
     const payload = toPayload(form);
     try {
       const saved = editingId
-        ? await clientFetch<CostbookEquipment>(`/costbook/equipment/${editingId}`, {
-            method: "PATCH",
-            body: JSON.stringify(payload),
-          })
-        : await clientFetch<CostbookEquipment>("/costbook/equipment", {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
+        ? await updateEquipmentCatalogRecord(clientFetch, editingId, payload)
+        : await createEquipmentCatalogRecord(clientFetch, payload);
 
       setEquipment((current) => {
         const next = editingId
@@ -99,7 +100,7 @@ export function EquipmentCatalog({
     setError(null);
 
     try {
-      await clientFetch<void>(`/costbook/equipment/${id}`, { method: "DELETE" });
+      await deleteEquipmentCatalogRecord(clientFetch, id);
       setEquipment((current) => current.filter((item) => item.id !== id));
       if (editingId === id) {
         setEditingId(null);
@@ -114,7 +115,7 @@ export function EquipmentCatalog({
 
   return (
     <div className="grid gap-6">
-      {canWrite ? (
+      {capabilities.canCreate ? (
         <section className="rounded-lg border border-border/70 bg-surface p-4" aria-label={editingEquipment ? "Edit equipment" : "Create equipment"}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -201,7 +202,7 @@ export function EquipmentCatalog({
                   <th scope="col" className="px-4 py-3 text-right font-medium">Operating</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Hourly</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Daily</th>
-                  {(canWrite || canManage) ? <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th> : null}
+                  {capabilities.showActions ? <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -212,16 +213,16 @@ export function EquipmentCatalog({
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(item.operatingCostPerHour)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(item.hourlyCost)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{item.dailyRate == null ? "Not set" : formatCurrency(item.dailyRate)}</td>
-                    {(canWrite || canManage) ? (
+                    {capabilities.showActions ? (
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          {canWrite ? (
+                          {capabilities.canEdit ? (
                             <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)}>
                               <Pencil className="size-4" aria-hidden="true" />
                               Edit
                             </Button>
                           ) : null}
-                          {canManage ? (
+                          {capabilities.canDelete ? (
                             <Button type="button" variant="outline" size="sm" onClick={() => handleDelete(item.id)} disabled={saving}>
                               <Trash2 className="size-4" aria-hidden="true" />
                               Delete
@@ -252,13 +253,13 @@ export function EquipmentCatalog({
                   <Metric label="Updated" value={formatDate(item.updatedAt)} />
                 </dl>
                 <div className="flex gap-2">
-                  {canWrite ? (
+                  {capabilities.canEdit ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)}>
                       <Pencil className="size-4" aria-hidden="true" />
                       Edit
                     </Button>
                   ) : null}
-                  {canManage ? (
+                  {capabilities.canDelete ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => handleDelete(item.id)} disabled={saving}>
                       <Trash2 className="size-4" aria-hidden="true" />
                       Delete
