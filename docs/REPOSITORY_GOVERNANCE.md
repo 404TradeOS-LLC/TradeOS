@@ -78,41 +78,29 @@ Do not weaken CI, up-to-date requirements, deletion protection, force-push prote
 
 ## Verified default-branch controls
 
-On 2026-08-04, S003 performed a read-only verification of the live GitHub
-configuration at `main` commit `cdadd24d`. No repository setting or ruleset
-was changed.
+On 2026-08-12, a read-only live GitHub verification was performed against repository `404TradeOS-LLC/TradeOS`. No repository setting or ruleset was changed by that verification.
 
-The active `TradeOS Main Branch Protection` ruleset
-([ID 18958081](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/18958081))
-targets the default branch and contains:
+The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://github.com/404TradeOS-LLC/TradeOS/rules/18958081)) targets the default branch and currently contains:
 
 - deletion and non-fast-forward protection;
 - mandatory pull requests with zero required approving reviews;
-- required review-thread resolution, with neither code-owner review nor
-  last-push approval required;
-- strict required-status-check enforcement, which requires the branch to be
-  current before merge;
-- the exact required checks `Docs consistency`,
-  `App lint, unit tests, and build`, `App integration tests`, and
-  `Web lint and build`;
+- required review-thread resolution, with neither code-owner review nor last-push approval required;
+- strict required-status-check enforcement, which requires the branch to be current before merge;
+- the exact required checks `Docs consistency`, `App lint, unit tests, and build`, `App integration tests`, and `Web lint and build`;
 - linear-history enforcement;
-- allowed pull-request merge methods of merge and squash; and
-- Copilot review on pushes and draft pull requests.
+- allowed pull-request merge methods of **squash and rebase**;
+- Copilot review on pushes and draft pull requests;
+- no configured bypass actors; and
+- `current_user_can_bypass: never` for the connected user during verification.
 
-The separate active
-`Code Quality Copilot review for default branch` ruleset
-([ID 19465256](https://github.com/404TradeOS-LLC/TradeOScostbook/rules/19465256))
-also targets the default branch and requests Copilot review on pushes and draft
-pull requests.
+The separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)) still exists but is currently **disabled**. It must not be described as an active enforcement layer unless a later live verification shows it enabled again.
 
-GitHub's unauthenticated public ruleset response does not disclose bypass
-actors, so this verification makes no claim about bypass-actor configuration.
-Re-run the live read-only inspection before changing these statements or
-editing repository controls.
+Re-run live read-only inspection before changing these statements or editing repository controls. Documentation records observed state; GitHub remains authoritative.
 
 ## Merge posture
 
 - prefer squash merge for normal feature, fix, and documentation PRs;
+- rebase merge is also permitted by the live main ruleset when appropriate;
 - do not merge a draft PR;
 - do not merge with failing required checks;
 - do not merge with unresolved review threads;
@@ -131,13 +119,7 @@ This governance model intentionally separates **technical merge evidence** from 
 
 ## Branch and worktree lifecycle
 
-The executable agent startup and completion sequences are owned only by the
-[Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document
-owns the repository policy those flows enforce: branch and worktree lifecycle,
-PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists,
-and backend, frontend, docs, or recovery contracts may link to the canonical
-flows and add lane-specific requirements; they must not duplicate or weaken the
-general sequence.
+The executable agent startup and completion sequences are owned only by the [Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document owns the repository policy those flows enforce: branch and worktree lifecycle, PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists, and backend, frontend, docs, or recovery contracts may link to the canonical flows and add lane-specific requirements; they must not duplicate or weaken the general sequence.
 
 Use one clean `main` worktree plus one linked worktree per active mission.
 
@@ -177,12 +159,7 @@ When a changed file triggers an ownership requirement, the owning document must 
 
 Changes to `docs/DOC_OWNERSHIP.yml` itself must include this file (`docs/REPOSITORY_GOVERNANCE.md`, which defines the enforced policy) and `docs/README.md` (the docs entrypoint), not only `docs/ENGINEERING_COMMAND_CENTER.md` — a PR that only touches `DOC_OWNERSHIP.yml` and the Command Center can otherwise change enforced ownership rules without the document that describes them to contributors ever being reviewed.
 
-Ownership is not limited to `app/**` and `web/**`. A package-level data corpus can be its own
-owning subject with its own README as the canonical entry point, rather than requiring a
-`docs/modules/*.md` file for every change. `packages/knowledge-engine/README.md` is the first
-instance of this pattern: it owns the package's canonical-path, provenance, and known-duplicate
-documentation, separate from `app/modules/knowledge-runtime/README.md`, which owns the live API
-consumer's documentation.
+Ownership is not limited to `app/**` and `web/**`. A package-level data corpus can be its own owning subject with its own README as the canonical entry point, rather than requiring a `docs/modules/*.md` file for every change. `packages/knowledge-engine/README.md` is the first instance of this pattern: it owns the package's canonical-path, provenance, and known-duplicate documentation, separate from `app/modules/knowledge-runtime/README.md`, which owns the live API consumer's documentation.
 
 The Bible does not replace:
 
@@ -205,12 +182,7 @@ CI schema validation and migration rehearsal must remain isolated from productio
 
 ## Session continuity
 
-Every contributor uses the
-[Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow)
-and
-[Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow).
-Those sections own the reading order, live-state checks, handoff requirements,
-and completion report; this policy does not define a competing checklist.
+Every contributor uses the [Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow) and [Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow). Those sections own the reading order, live-state checks, handoff requirements, and completion report; this policy does not define a competing checklist.
 
 `ENGINEERING_COMMAND_CENTER.md` is a concise operating overview, not a running log. `SESSION_HANDOFF.md` is replaced with current truth at the end of a substantive session.
 

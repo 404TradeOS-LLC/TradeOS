@@ -49,12 +49,13 @@ Verified implementation truth belongs in [CURRENT_STATE.md](CURRENT_STATE.md). S
 
 The repository now has a stronger autonomous-maintenance safety envelope:
 
-- **CI gatekeeper:** PR #172 merged as `cd9a960861e611956f7ff55d9704461b6586ae47`. Required verification now includes Prisma schema validation, high-severity production dependency audits, backend typechecking/unit/Athena checks/build, live migration-path rehearsal and integration/RLS tests, frontend tests/lint/build, and tracked-source cleanliness.
+- **CI gatekeeper:** PR #172 merged as `cd9a960861e611956f7ff55d9704461b6586ae47`. Required verification includes Prisma schema validation, high-severity production dependency audits, backend typechecking/unit/Athena checks/build, live migration-path rehearsal and integration/RLS tests, frontend tests/lint/build, and tracked-source cleanliness.
 - **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
 - **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
 - **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
+- **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
@@ -69,14 +70,11 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 Prioritize existing authorized work before inventing new scope:
 
-1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work. It includes a forward migration, so it remains protected PR-only/human-decision work. Its documented blocker is synchronization of `docs/CURRENT_STATE.md` and `docs/DOMAIN_MODEL.md`; do not bypass the docs or migration gates.
-2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and review deliberately; do not treat it as maintenance auto-merge.
+1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work with a forward migration, so it remains protected PR-only/human-decision work. Its previous documentation blocker has been repaired. CodeRabbit then identified two substantive integrity/test-isolation findings that were implemented: parent deactivation is rejected while active descendants remain, and cross-organization RLS tests now isolate tenant-policy rejection from active-parent trigger rejection. Fresh required CI/review evidence is still required before merge.
+2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and reconcile deliberately against current `main` and C005-era hierarchy changes; do not treat it as maintenance auto-merge.
 3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
-4. **GitHub Actions runtime modernization.** Replace stale PRs #130/#131 with one governed workflow/docs change that upgrades `actions/checkout` and `actions/setup-node` together while preserving the explicit TradeOS Node workload versions. Close the stale bot PRs after the governed replacement lands.
 
-Open issue inventory verified during reconciliation is small: issue #144 covers Athena transactional event reliability and issue #153 covers Costbook hierarchy activation permissions/migration sequencing.
-
-Stale Dependabot PR #158 targeted the documented non-canonical self-nested Knowledge Engine duplicate tree and was closed as not planned.
+Open issue inventory verified during reconciliation includes issue #144 for Athena transactional event reliability and issue #153 for Costbook hierarchy activation permissions/migration sequencing.
 
 ## Autonomous maintenance operating mode
 
@@ -103,7 +101,7 @@ Expected required CI jobs include:
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
-The workflow action implementations should remain on supported majors independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require their own compatibility evidence.
+Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
 
 Documentation foundation/governance work should run:
 
@@ -129,7 +127,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially the security/data-integrity blocker in PR #151—without bypassing protected migration or documentation requirements. If existing PR work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
+There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially protected Costbook PR #151 and overlapping C004 PR #128—without bypassing migration, RLS, documentation, review, or current-base requirements. If existing PR work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
 
 ## Source-of-truth links
 
