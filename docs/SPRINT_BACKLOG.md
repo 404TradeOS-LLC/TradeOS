@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-13
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -224,8 +224,8 @@ Forbidden paths: broad application redesign; autonomous AI database writes; dire
 Required verification: backend unit/type/build/integration/RLS coverage; frontend unit/lint/build coverage; docs tests/ownership; focused Costbook search/browse/pricing/supplier/Knowledge Runtime/AI behavior tests; and E2E coverage for representative contractor Costbook workflows before production-readiness claims.
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
-Blocked by: current overlapping Costbook work in PR #128 (C004 equipment catalog foundation) and PR #151 (hierarchy RLS/active-parent hardening). PR #151 also contains a migration and remains protected PR-only/human-decision work under `AGENTS.md`. Reverify all live Costbook PRs before promotion.
-Reconciled evidence: the original 2026-08-09 blockers are no longer active—PR #94 merged as `ab89268fdcfe3da665a640372f6196dca12e9d81`, PR #95 merged as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and PR #96 merged as `7b80ec63432bcf941219b4a3d83b75980ab01d92`. Their completion removes those specific blockers but does not make S027 `READY` while current overlap remains.
+Blocked by: current overlapping Costbook work in open PR #183 (C004 equipment catalog, rebuilt on hardened `main`) and open PR #184 (hierarchy activation-permission boundary, issue #153 item 1). Reverify all live Costbook PRs before promotion.
+Reconciled evidence: the original 2026-08-09 blockers are no longer active—PR #94 merged as `ab89268fdcfe3da665a640372f6196dca12e9d81`, PR #95 merged as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and PR #96 merged as `7b80ec63432bcf941219b4a3d83b75980ab01d92`. PR #151 (hierarchy RLS/active-parent hardening) also merged as `5b7dbcbfaa589360fb349f4badaca394683c3da7`; PR #128 was closed without merging and superseded by PR #183. Their completion removes those specific blockers but does not make S027 `READY` while current overlap remains.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -406,15 +406,14 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-12 reconciliation, notable live work includes:
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-13 reconciliation, notable live work includes:
 
-- PR #151 — Costbook hierarchy RLS/parent-activity hardening; security/data-integrity value, migration protected boundary, docs synchronization required before merge.
-- PR #128 — C004 Costbook equipment catalog foundation; large feature/migration/UI scope requiring deliberate review.
-- PR #145 / issue #144 — Athena transactional event persistence; draft/incomplete.
-- PR #171 — CodeRabbit repository configuration; automation-only and rebuildable from current `main` if still desired.
-- PR #169 — broad API development dependency group; major compatibility review required.
-- PRs #130/#131 — GitHub Actions dependency upgrades; workflow/docs governance applies.
-- issue #153 — Costbook activation permission and migration-sequencing follow-up.
+- PR #183 — C004 Costbook equipment catalog, rebuilt on post-#151 hardened `main`; supersedes closed PR #128; large feature/migration/UI scope requiring deliberate review.
+- PR #184 — Costbook hierarchy activation-permission boundary (issue #153 item 1); requires `costbook.manage` for activation/deactivation.
+- PR #191 / issue #144 — Athena transactional event persistence; draft, supersedes closed PR #145; needs fresh required-check evidence on current head.
+- issue #153 — Costbook activation permission (in progress via PR #184) and migration-sequencing follow-up (pending once #183 lands).
+
+Resolved since the prior reconciliation: PR #151 (Costbook hierarchy RLS/parent-activity hardening) merged as `5b7dbcbfaa589360fb349f4badaca394683c3da7`. PR #128 and PR #145 were closed without merging, superseded by #183 and #191 respectively. PR #171 (CodeRabbit repository configuration) and PRs #130/#131 (GitHub Actions dependency upgrades) are superseded by already-merged PR #180 and PR #181; PR #169's broad API dependency group also merged. None remain open out-of-band work.
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
@@ -425,5 +424,5 @@ Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after ch
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`. S006 and S013 now have merged completion evidence. S027 remains `BLOCKED` by current Costbook overlap. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Reverify live GitHub state. Current significant overlap includes PR #128 and #151 in Costbook, draft PR #145 in Athena, plus repository automation/dependency work. Existing authorized PRs should be advanced instead of duplicated.
+Overlap check: Reverify live GitHub state. Current significant overlap includes open PR #183 and #184 in Costbook and draft PR #191 in Athena. PR #151 merged and PR #128/#145 closed (superseded by #183/#191). Existing authorized PRs should be advanced instead of duplicated.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

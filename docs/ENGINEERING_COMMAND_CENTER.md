@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-13
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -56,6 +56,8 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions.
+- **Costbook hierarchy hardening:** PR #151 merged as `5b7dbcbfaa589360fb349f4badaca394683c3da7`, enforcing organization-scoped category/subcategory writes and rejecting inconsistent active/inactive hierarchy states at the database boundary.
+- **Readiness-probe documentation:** PR #192 merged as `d4cdbc3c2df5425c399d5459f52aa8c51a9aaf0e`, reconciling `docs/API_REFERENCE.md`/`docs/DEPLOYMENT_GUIDE.md` with the `/ready` endpoint and documenting the auth/AI-estimate rate-limit and AI Estimator review-token env vars in `app/.env.example`.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
