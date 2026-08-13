@@ -1,12 +1,13 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-13
 source_of_truth: false
 related_code:
   - app/backend/start.ts
   - app/index.ts
   - app/backend/server.ts
+  - app/backend/health.ts
   - web/src/lib/api.ts
   - .github/workflows/deploy-migrations.yml
 ---
@@ -338,11 +339,12 @@ The job exits non-zero if any configured target fails, which is better for alert
 
 ### Backend
 
-1. `GET /health` returns `200`.
-2. signup/login or a known authenticated route succeeds.
-3. one authenticated read route and one authenticated write route succeed.
-4. a forced-RLS cross-org access attempt is denied.
-5. logs include request IDs and structured request completion entries.
+1. `GET /health` returns `200` (liveness).
+2. `GET /ready` returns `200` with `status: "ready"` (database-aware readiness; see `docs/PRODUCTION_HEALTH.md`).
+3. signup/login or a known authenticated route succeeds.
+4. one authenticated read route and one authenticated write route succeed.
+5. a forced-RLS cross-org access attempt is denied.
+6. logs include request IDs and structured request completion entries.
 
 ### Frontend
 
@@ -377,7 +379,7 @@ Because migrations include RLS and privilege-related DDL, rollback should be tre
 
 - Supplier sync infrastructure is real, but live supplier feed ingestion is still not production-complete unless a real connector is added.
 - Provisioning IP allowlists depend on correct proxy configuration and should not be the only network protection.
-- `/health` is currently a liveness endpoint, not a full dependency-readiness probe.
+- `/health` is a dependency-free liveness probe; `/ready` is the database-aware readiness probe. See `docs/PRODUCTION_HEALTH.md` for the full contract and repair-agent triage order.
 
 ## Pre-release command checklist
 
