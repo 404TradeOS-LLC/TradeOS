@@ -30,10 +30,10 @@ export async function publishAthenaEvent<TPayload = unknown>(
     throw athenaEventUnregisteredEventTypeError(correlationId);
   }
 
-  // Idempotency check must happen before any event/delivery row is created
-  // (10-events/README.md "Deduplication": "Publication dedupes by (orgId,
-  // idempotencyKey)") - a duplicate publish call returns the *original*
-  // event and creates no second row, no re-fan-out.
+  // Fast-path idempotency check before constructing a candidate. The
+  // repository insert below is independently conflict-safe, so this SELECT
+  // is only an optimization; correctness does not depend on winning a
+  // check-then-insert race.
   const existing = await repository.findByIdempotencyKey(input.orgId, input.idempotencyKey);
   if (existing) {
     return { event: existing, deliveriesCreated: 0, deduplicated: true };
@@ -78,25 +78,17 @@ export async function publishAthenaEvent<TPayload = unknown>(
   // this milestone, since no subscriber ships).
   const subscriberIds = [...new Set(subscribers.filter((subscriber) => subscriber.eventType === input.type).map((subscriber) => subscriber.id))];
 
-  try {
-    const { event: created, deliveries } = await repository.createEventWithDeliveries(event, subscriberIds);
-    return { event: created, deliveriesCreated: deliveries.length, deduplicated: false };
-  } catch (error) {
-    // TOCTOU guard for the check-then-insert above: two concurrent publish
-    // calls for the same (orgId, idempotencyKey) can both pass the
-    // findByIdempotencyKey check before either has inserted. The database's
-    // own unique constraint on (org_id, idempotency_key) (migration.sql)
-    // prevents a duplicate row either way, but without this catch the
-    // loser of the race would surface a raw storage error instead of the
-    // documented "duplicate publish call returns the original event"
-    // contract (plan doc "Publication: ... Publication is idempotent").
-    // Re-querying and returning deduplicated:true only when a row now
-    // exists preserves that contract; any other failure (e.g. a real
-    // storage outage) still propagates unchanged.
-    const raced = await repository.findByIdempotencyKey(input.orgId, input.idempotencyKey);
-    if (raced) {
-      return { event: raced, deliveriesCreated: 0, deduplicated: true };
-    }
-    throw error;
-  }
+  // createEventWithDeliveries performs the authoritative conflict-safe insert.
+  // If another concurrent publisher wins the same (orgId, idempotencyKey), it
+  // returns that already-persisted event and no deliveries. Comparing IDs lets
+  // us preserve the public deduplication contract without recovering from a
+  // unique-constraint exception inside an already-aborted PostgreSQL
+  // transaction.
+  const { event: persisted, deliveries } = await repository.createEventWithDeliveries(event, subscriberIds);
+  const deduplicated = persisted.id !== event.id;
+  return {
+    event: persisted,
+    deliveriesCreated: deduplicated ? 0 : deliveries.length,
+    deduplicated,
+  };
 }
