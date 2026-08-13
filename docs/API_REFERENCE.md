@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-08-13
 source_of_truth: true
 related_code:
   - app/backend/server.ts
+  - app/backend/health.ts
   - app/backend/routes
   - app/modules/auth
   - app/backend/middleware/auth.ts
@@ -19,7 +20,8 @@ The backend is mounted under `/api/v1`.
 
 Special cases:
 
-- `/health` is the unauthenticated health endpoint
+- `/health` is the unauthenticated, dependency-free liveness endpoint
+- `/ready` is the unauthenticated, database-aware readiness endpoint (see `docs/PRODUCTION_HEALTH.md`)
 - `/admin` is the internal HTML admin surface
 - `/api/v1/platform/*` is reserved for organization provisioning
 - `/api/v1/auth/*` is public auth
