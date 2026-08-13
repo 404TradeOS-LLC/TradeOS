@@ -125,30 +125,47 @@ export function createPrismaAthenaEventRepository(): AthenaEventRepository {
     // Every real request already runs inside runWithDatabaseSession's own
     // outer transaction, and Prisma does not allow a nested $transaction()
     // on that already-active Prisma.TransactionClient. runInDatabaseTransaction
-    // (app/db/requestSession.ts, the same helper athena-memory/store.ts's
-    // correct() uses) reuses that ambient transaction when one is active and
-    // opens a real one only for callers outside a request session - so this
-    // fan-out is still atomic either way. Delivery rows are inserted
-    // sequentially (not Promise.all) to keep the transaction's query order
-    // deterministic.
+    // reuses that ambient transaction when one is active and opens a real one
+    // only for callers outside a request session.
+    //
+    // The event insert deliberately uses createMany(skipDuplicates) instead
+    // of create(). Under PostgreSQL, a concurrent publisher can otherwise hit
+    // the (org_id, idempotency_key) unique constraint and abort the ambient
+    // transaction before publisher.ts can reconcile the winning row. The
+    // conflict-safe insert waits for the competing transaction, returns
+    // count=0 when that publisher won, and leaves this transaction usable for
+    // the follow-up SELECT. Deliveries are created only by the winning insert.
     async createEventWithDeliveries(event, subscriberIds) {
       const result = await runInDatabaseTransaction(prisma, async (tx) => {
-        const eventRow = await tx.athenaEvent.create({ data: toEventCreateData(event) });
+        const inserted = await tx.athenaEvent.createMany({
+          data: toEventCreateData(event),
+          skipDuplicates: true,
+        });
+
+        const eventRow = await tx.athenaEvent.findFirst({
+          where: { orgId: event.orgId, idempotencyKey: event.idempotencyKey },
+        });
+        if (!eventRow) {
+          throw new Error("Athena event could not be reconciled after idempotent insert");
+        }
+
         const deliveryRows: AthenaEventDeliveryRow[] = [];
-        for (const subscriberId of subscriberIds) {
-          const deliveryRow = await tx.athenaEventDelivery.create({
-            data: {
-              id: randomUUID(),
-              orgId: event.orgId,
-              eventId: eventRow.id,
-              subscriberId,
-              status: "pending",
-              attemptCount: 0,
-              nextAttemptAt: new Date(),
-              isReplay: false,
-            },
-          });
-          deliveryRows.push(deliveryRow);
+        if (inserted.count > 0) {
+          for (const subscriberId of subscriberIds) {
+            const deliveryRow = await tx.athenaEventDelivery.create({
+              data: {
+                id: randomUUID(),
+                orgId: event.orgId,
+                eventId: eventRow.id,
+                subscriberId,
+                status: "pending",
+                attemptCount: 0,
+                nextAttemptAt: new Date(),
+                isReplay: false,
+              },
+            });
+            deliveryRows.push(deliveryRow);
+          }
         }
         return { eventRow, deliveryRows };
       });
