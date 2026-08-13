@@ -100,7 +100,7 @@ function main() {
     .map((branch) => branch.trim())
     .filter((branch) => branch && branch !== "origin" && branch !== "origin/HEAD" && !branch.startsWith("origin/pr/"));
   const mainCommits = parseCommitLog(
-    git(["log", "-n", "20", "--format=%H%x1f%s%x1f%b%x1e", args.base]),
+    git(["log", "--format=%H%x1f%s%x1f%b%x1e", args.base]),
   );
 
   const snapshot = {
