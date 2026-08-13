@@ -1,6 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { prisma } from "../../db/client";
-import { runInDatabaseTransaction } from "../../db/requestSession";
+import { runAthenaEventTransaction } from "./store";
 
 interface RequiredCanonicalEventState {
   requiredTypes: Set<string>;
@@ -14,7 +13,7 @@ export async function runWithRequiredCanonicalEvents<T>(
   requiredTypes: readonly string[],
   operation: () => Promise<T>
 ): Promise<T> {
-  return runInDatabaseTransaction(prisma, async () => {
+  return runAthenaEventTransaction(async () => {
     const state: RequiredCanonicalEventState = {
       requiredTypes: new Set(requiredTypes),
       publishedTypes: new Set(),
