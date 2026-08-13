@@ -40,3 +40,16 @@ test("equipment catalog preserves the factual empty-state copy", () => {
   assert.match(source, /Add equipment to prepare Costbook for estimating workflows\./);
   assert.match(source, /Delete/);
 });
+
+test("equipment catalog is wired to the behaviorally tested mutation and permission seam", () => {
+  const source = readSource("../../../../components/costbook/equipment-catalog.tsx");
+
+  assert.match(source, /getEquipmentCatalogCapabilities\(canWrite, canManage\)/);
+  assert.match(source, /createEquipmentCatalogRecord\(clientFetch, payload\)/);
+  assert.match(source, /updateEquipmentCatalogRecord\(clientFetch, editingId, payload\)/);
+  assert.match(source, /deleteEquipmentCatalogRecord\(clientFetch, id\)/);
+  assert.match(source, /capabilities\.canCreate/);
+  assert.match(source, /capabilities\.canEdit/);
+  assert.match(source, /capabilities\.canDelete/);
+  assert.match(source, /capabilities\.showActions/);
+});
