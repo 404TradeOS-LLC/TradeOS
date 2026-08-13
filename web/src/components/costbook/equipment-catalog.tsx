@@ -52,12 +52,14 @@ export function EquipmentCatalog({
   );
 
   function startCreate() {
+    if (saving) return;
     setEditingId(null);
     setForm(emptyForm);
     setError(null);
   }
 
   function startEdit(item: EquipmentCatalogRecord) {
+    if (saving) return;
     setEditingId(item.id);
     setForm({
       name: item.name,
@@ -124,7 +126,7 @@ export function EquipmentCatalog({
               <p className="mt-1 text-sm text-muted-foreground">Manage basic organization-scoped equipment catalog records for future estimating workflows.</p>
             </div>
             {editingEquipment ? (
-              <Button type="button" variant="outline" size="sm" onClick={startCreate}>
+              <Button type="button" variant="outline" size="sm" onClick={startCreate} disabled={saving}>
                 <X className="size-4" aria-hidden="true" />
                 Cancel
               </Button>
@@ -218,7 +220,7 @@ export function EquipmentCatalog({
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           {capabilities.canEdit ? (
-                            <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)}>
+                            <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)} disabled={saving}>
                               <Pencil className="size-4" aria-hidden="true" />
                               Edit
                             </Button>
@@ -255,7 +257,7 @@ export function EquipmentCatalog({
                 </dl>
                 <div className="flex gap-2">
                   {capabilities.canEdit ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(item)} disabled={saving}>
                       <Pencil className="size-4" aria-hidden="true" />
                       Edit
                     </Button>
