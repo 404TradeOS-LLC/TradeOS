@@ -8,12 +8,13 @@ import {
   deleteEquipmentCatalogRecord,
   getEquipmentCatalogCapabilities,
   updateEquipmentCatalogRecord,
+  type EquipmentCatalogPayload,
+  type EquipmentCatalogRecord,
 } from "@/components/costbook/equipment-catalog-actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { clientFetch } from "@/lib/clientApi";
-import type { CostbookEquipment, CostbookEquipmentInput } from "@/lib/api";
 
 type EquipmentFormState = {
   name: string;
@@ -34,7 +35,7 @@ export function EquipmentCatalog({
   canWrite,
   canManage,
 }: {
-  initialEquipment: CostbookEquipment[];
+  initialEquipment: EquipmentCatalogRecord[];
   canWrite: boolean;
   canManage: boolean;
 }) {
@@ -56,7 +57,7 @@ export function EquipmentCatalog({
     setError(null);
   }
 
-  function startEdit(item: CostbookEquipment) {
+  function startEdit(item: EquipmentCatalogRecord) {
     setEditingId(item.id);
     setForm({
       name: item.name,
@@ -293,7 +294,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function toPayload(form: EquipmentFormState): CostbookEquipmentInput {
+function toPayload(form: EquipmentFormState): EquipmentCatalogPayload {
   return {
     name: form.name.trim(),
     ownershipCostPerHour: Number(form.ownershipCostPerHour),
@@ -302,7 +303,7 @@ function toPayload(form: EquipmentFormState): CostbookEquipmentInput {
   };
 }
 
-function sortEquipment(items: CostbookEquipment[]) {
+function sortEquipment(items: EquipmentCatalogRecord[]) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name) || a.createdAt.localeCompare(b.createdAt));
 }
 
