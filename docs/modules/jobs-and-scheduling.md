@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-12
 source_of_truth: false
 related_code:
   - app/modules/jobs
@@ -12,6 +12,8 @@ related_code:
   - web/src/components/dispatch
   - app/modules/athena-tools/dispatcher
   - app/modules/athena-tools/field
+  - app/modules/athena-events/transactionalContext.ts
+  - app/modules/athena-events/transactionalPublishers.ts
 ---
 
 # Jobs and Scheduling
@@ -68,7 +70,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 ## Emitted activity events
 
 - job scheduling, rescheduling, dispatch, movement through field states, assignment changes, conflict overrides, reopening, and archiving write activity records
-- separately, as of A12, three of these transitions also publish a canonical A8 business event (distinct from the activity records above): `JobsService.schedule()` publishes `JobScheduled`, `addAssignment()` publishes `TechnicianAssigned`, and `complete()` publishes `WorkCompleted` - each after its mutation commits, non-blocking on publish failure (same posture as `ProposalsService.send()`'s existing `ProposalSent` publish). `reschedule()`, `updateAssignment()`, and the other field-state transitions (`startTravel`, `arrive`, `pause`, `resume`, `cancel`, `reopen`) do not publish an event. `schedule()`, `addAssignment()`, and `complete()`'s return types gained an additive, optional `athenaEvent?: { type, id }` field so a calling Athena tool can wrap the real published event with `eventRef()`; existing callers (the jobs controller) are unaffected.
+- separately, A12 publishes three canonical A8 business events from Jobs: `JobsService.schedule()` → `JobScheduled`, `addAssignment()` → `TechnicianAssigned`, and `complete()` → `WorkCompleted`. A12.1 makes these three canonical event writes part of the same database transaction as the corresponding business mutation. A required event-persistence failure now aborts and rolls back the enclosing schedule/assignment/completion mutation instead of being logged-and-ignored. The returned optional `athenaEvent?: { type, id }` reference remains additive for Athena tool wrappers. `reschedule()`, `updateAssignment()`, and the other field-state transitions (`startTravel`, `arrive`, `pause`, `resume`, `cancel`, `reopen`) do not publish a canonical event.
 
 ## Athena business tools (A12)
 
@@ -89,6 +91,7 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 - `app/tests/jobs.migration.test.ts`
 - `app/tests/dispatchRules.test.ts`
 - `app/tests/rls.integration.ts`
+- `app/tests/athena-events.transactional-rollback.integration.ts`
 - `app/tests/athena-tools.dispatcher.schedule-job.contracts.test.ts`
 - `app/tests/athena-tools.dispatcher.assign-technician.contracts.test.ts`
 - `app/tests/athena-tools.dispatcher.optimize-day.contracts.test.ts`
@@ -108,4 +111,4 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 
 ## Last verified date
 
-2026-08-11
+2026-08-12
