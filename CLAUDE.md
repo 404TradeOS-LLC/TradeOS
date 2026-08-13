@@ -18,3 +18,8 @@ Do not use this file as a rolling session log. Immediate continuity belongs in `
 The previous long-form Claude session log contained useful history, but it also referenced obsolete `app/api/**` paths, archived planning docs, and pre-Bible current-state claims. It remains available in git history for archaeology only.
 
 Current active Claude lanes must be verified live before editing. Do not touch `packages/knowledge-engine/**` from unrelated branches, and do not begin Phase C duplicate-tree cleanup without explicit founder authorization.
+
+For scheduled or autonomous implementation, run the mandatory reconciliation
+gate in `docs/agent-prompts/AUTONOMY_RECONCILIATION.md` before creating or
+recreating any branch. Repository and live PR state are authoritative; a branch
+named by historical task input is not proof that the branch should exist.
