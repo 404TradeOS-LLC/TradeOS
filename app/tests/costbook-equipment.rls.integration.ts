@@ -19,14 +19,14 @@ const membershipOwnerB = "83000000-0000-0000-0000-000000000041";
 const equipmentA = "73000000-0000-0000-0000-000000000051";
 const equipmentB = "83000000-0000-0000-0000-000000000052";
 
-function requiredEnvironment(name: string) {
+function requiredEnvironment(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required for Costbook equipment RLS integration tests`);
   return value;
 }
 
-function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>) {
-  return runWithDatabaseSession(appClient, { userId, orgId, role }, operation);
+function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
+  return runWithDatabaseSession(appClient, { userId, orgId, role }, operation, "integration-test");
 }
 
 describe("live row-level security for Costbook equipment", () => {
