@@ -93,6 +93,8 @@ export function EquipmentCatalog({
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Permanently delete this equipment record?")) return;
+
     setSaving(true);
     setError(null);
 
