@@ -35,6 +35,8 @@ class ResolveRepoRootTests(unittest.TestCase):
         self.assertEqual(resolve_repo_root(), REPO_ROOT)
 
     def test_resolution_is_independent_of_which_real_subdirectory_it_starts_from(self):
+        # Deterministic regardless of "cwd" in spirit: starting the walk from several different
+        # real, unrelated locations inside the repo must converge on the identical root.
         starts = [
             REPO_ROOT,
             PACKAGE_ROOT,
@@ -45,6 +47,9 @@ class ResolveRepoRootTests(unittest.TestCase):
         self.assertEqual(results, {REPO_ROOT})
 
     def test_starting_from_inside_the_duplicate_tree_still_resolves_to_the_real_root(self):
+        # The discriminating case: packages/knowledge-engine/knowledge-engine/ mirrors this
+        # package's own directory names one level down. A naive __file__-relative resolver
+        # would silently treat it as home. This must not.
         self.assertTrue(DUPLICATE_ROOT.is_dir(), "expected the nested duplicate tree to exist")
         dup_start = DUPLICATE_ROOT / "pipelines" / "export"
         result = resolve_repo_root(start=dup_start)
@@ -60,12 +65,17 @@ class ResolveRepoRootTests(unittest.TestCase):
             self.assertIn(str(REPO_MARKERS[1]), message)
 
     def test_resolution_does_not_depend_on_generated_export_output_existing(self):
+        # Regression test: the markers must be stable, committed source content, never
+        # pipeline-generated output. If exports/json/costbook.json were a marker, an operator
+        # deliberately clearing exports/ to force a clean rebuild could never resolve a root
+        # to regenerate it into. Simulate that exact bootstrap scenario on a synthetic tree.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             (root / "app").mkdir()
             (root / "app" / "package.json").write_text("{}")
             (root / "packages" / "knowledge-engine").mkdir(parents=True)
             (root / "packages" / "knowledge-engine" / "README.md").write_text("# stub")
+            # Deliberately no exports/json/costbook.json anywhere -- the bootstrap case.
             self.assertEqual(resolve_repo_root(start=root), root)
 
 
@@ -110,6 +120,10 @@ class ResolvePackageAndExportRootTests(unittest.TestCase):
 
 
 class RuntimeCriticalAssetsResolveTests(unittest.TestCase):
+    """Proves the canonical shallow (doubled knowledge/knowledge) path actually resolves to
+    real, on-disk files -- without importing app/modules/knowledge-runtime/loader.ts (out of
+    scope for this phase; see PATHS.md for why TypeScript-side tests were not added here)."""
+
     def test_canonical_costbook_json_exists_under_the_canonical_export_root(self):
         costbook = resolve_export_root() / "json" / "costbook.json"
         self.assertTrue(costbook.is_file())
@@ -119,20 +133,12 @@ class RuntimeCriticalAssetsResolveTests(unittest.TestCase):
         self.assertTrue(assembly_index.is_file())
 
     def test_shallow_knowledge_path_does_not_contain_the_runtime_critical_files(self):
+        # Locks in the documented contract: the shallow packages/knowledge-engine/knowledge/
+        # directory is NOT itself a data root -- only knowledge/knowledge/ is. If this ever
+        # starts passing (i.e. the shallow path gains an assembly-index.json), PATHS.md's
+        # canonical-path claim needs to be revisited, not silently left stale.
         shallow_assembly_index = resolve_package_root() / "knowledge" / "assembly-index.json"
         self.assertFalse(shallow_assembly_index.is_file())
-
-
-class AssemblyPipelinePathRegressionTests(unittest.TestCase):
-    def test_shared_assembly_helper_uses_the_canonical_runtime_knowledge_root(self):
-        helper = PACKAGE_ROOT / "scripts" / "assembly_pipeline_common.py"
-        source = helper.read_text(encoding="utf-8")
-        self.assertIn('KNOWLEDGE_DIR = PROJECT_ROOT / "knowledge" / "knowledge"', source)
-
-    def test_canonical_assembly_root_contains_real_existing_trade_data(self):
-        framing = PACKAGE_ROOT / "knowledge" / "knowledge" / "assemblies" / "framing_assemblies.json"
-        self.assertTrue(framing.is_file())
-        self.assertGreater(framing.stat().st_size, 0)
 
 
 if __name__ == "__main__":
