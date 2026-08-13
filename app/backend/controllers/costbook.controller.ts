@@ -48,6 +48,43 @@ const laborRateUpdateSchema = laborRateSchema.partial().refine((value) => Object
   message: "At least one labor-rate field is required",
 });
 
+const listQuerySchema = z.object({ divisionId: z.string().uuid().optional(), categoryId: z.string().uuid().optional() });
+
+const divisionSchema = z.object({
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(200),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+}).strict();
+
+const divisionUpdateSchema = divisionSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "At least one division field is required" }
+);
+
+const categorySchema = z.object({
+  divisionId: z.string().uuid(),
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(200),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+}).strict();
+
+const categoryUpdateSchema = categorySchema.omit({ divisionId: true }).partial().extend({ isActive: z.boolean().optional() }).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "At least one category field is required" }
+);
+
+const subcategorySchema = z.object({
+  categoryId: z.string().uuid(),
+  code: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(200),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+}).strict();
+
+const subcategoryUpdateSchema = subcategorySchema.omit({ categoryId: true }).partial().extend({ isActive: z.boolean().optional() }).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "At least one subcategory field is required" }
+);
+
 export const costbookController = {
   async workspace(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
@@ -94,6 +131,80 @@ export const costbookController = {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
     res.json(await service.updateMaterial(auth, id, materialUpdateSchema.parse(req.body)));
+  },
+  async listDivisions(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await service.listDivisions(auth));
+  },
+  async getDivision(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getDivision(auth, id));
+  },
+  async createDivision(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createDivision(auth, divisionSchema.parse(req.body)));
+  },
+  async updateDivision(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateDivision(auth, id, divisionUpdateSchema.parse(req.body)));
+  },
+  async removeDivision(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.deactivateDivision(auth, id);
+    res.status(204).send();
+  },
+  async listCategories(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { divisionId } = listQuerySchema.parse(req.query);
+    res.json(await service.listCategories(auth, divisionId));
+  },
+  async getCategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getCategory(auth, id));
+  },
+  async createCategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createCategory(auth, categorySchema.parse(req.body)));
+  },
+  async updateCategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateCategory(auth, id, categoryUpdateSchema.parse(req.body)));
+  },
+  async removeCategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.deactivateCategory(auth, id);
+    res.status(204).send();
+  },
+  async listSubcategories(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { categoryId } = listQuerySchema.parse(req.query);
+    res.json(await service.listSubcategories(auth, categoryId));
+  },
+  async getSubcategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getSubcategory(auth, id));
+  },
+  async createSubcategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createSubcategory(auth, subcategorySchema.parse(req.body)));
+  },
+  async updateSubcategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateSubcategory(auth, id, subcategoryUpdateSchema.parse(req.body)));
+  },
+  async removeSubcategory(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.deactivateSubcategory(auth, id);
+    res.status(204).send();
   },
 };
 

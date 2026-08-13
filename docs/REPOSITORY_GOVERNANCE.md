@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -53,14 +53,15 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency`;
-- `App lint, unit tests, and build` (now also runs the `athena:contracts` and `athena:smoke` named gates for the Project Athena A1 kernel foundation before the build step, per `docs/athena/roadmap/A1-ai-kernel-implementation-plan.md` "Named Validation Gates");
-- `App integration tests`;
-- `Web lint and build` (includes frontend unit tests before lint and build).
+- `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
+- `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
+- `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
 
-The frontend job must run `npm test` before lint/build so server/client
-environment-boundary regressions are part of the merge gate.
+A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
+
+Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. Any application-runtime version change remains a separate compatibility decision and must be validated as such.
 
 ## Solo-maintainer review posture
 
@@ -117,6 +118,16 @@ editing repository controls.
 - do not merge with unresolved review threads;
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
+
+## Autonomous maintenance governance
+
+`AGENTS.md` defines the repository-specific execution contract for autonomous maintenance agents. That contract may make low-risk repairs more action-oriented, but it cannot weaken the repository controls in this document.
+
+Autonomous agents may diagnose, repair, test, publish, and merge bounded low-risk work only when the live branch rules permit it and the final head satisfies every required check, up-to-date requirement, review-thread requirement, ownership requirement, and merge-readiness condition. A maintenance agent must prefer advancing an existing overlapping PR over creating a competing implementation.
+
+The following remain human-decision or PR-only boundaries unless a narrower approved runbook explicitly authorizes the exact operation: new or materially changed database migrations, destructive data operations, authentication or authorization policy changes, RLS redesign, production secrets or credential rotation, billing or money movement, major architecture or repository-boundary changes, and new production trust boundaries. Agents must never bypass branch protection, disable tests to obtain green CI, push directly to `main`, or convert an unverified result into a pass.
+
+This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
 
 ## Branch and worktree lifecycle
 
@@ -189,6 +200,8 @@ Normal production schema rollout uses the protected migration deployment process
 The temporary `.github/workflows/reconcile-production-migration.yml` workflow exists only to mark `20260728120000_add_settings_asset_uploads` as already applied after production schema equivalence has been verified. It is `workflow_dispatch` only, uses the `production` Environment approval gate, shares the production migration concurrency group, scopes `DATABASE_ADMIN_URL` to the Prisma steps as `DATABASE_URL`, runs only `prisma migrate resolve --applied` followed by diagnostic `prisma migrate status`, and must not run `prisma migrate deploy` or alter schema objects, policies, or buckets.
 
 PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
+
+CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
 
 ## Session continuity
 

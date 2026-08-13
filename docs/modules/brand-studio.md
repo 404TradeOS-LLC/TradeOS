@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-12
 source_of_truth: false
 related_code:
   - app/modules/brand-studio
@@ -42,6 +42,10 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 - `/brand-studio`
 
+## Document-frame defaults
+
+The shared document frame defines safe fallback CSS custom properties for its palette and typography so the stylesheet renders deterministically even before organization branding is injected. `renderDocumentFrameHtml()` still injects the organization's configured colors and font families at runtime and those values override the fallbacks. The fallback font stacks include a generic `sans-serif` family and do not change persisted Brand Studio settings or document data.
+
 ## Tests
 
 - `app/tests/brand-studio.service.test.ts`
@@ -58,4 +62,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-07-14
+2026-08-12

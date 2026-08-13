@@ -178,6 +178,42 @@ operations require `costbook.write`; delete requires `costbook.manage`; and
 its writes stay inside the same forced-RLS Costbook manage boundary as the new
 Costbook labor-rate routes.
 
+C005 hierarchy routes under `/api/v1/costbook`:
+
+- `GET /api/v1/costbook/divisions` — requires `costbook.read`; returns organization-scoped Division DTOs, active rows first.
+- `GET /api/v1/costbook/divisions/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/divisions` — requires `costbook.write`; strict body: `code`, `name`, optional `sortOrder`.
+- `PATCH /api/v1/costbook/divisions/:id` — requires `costbook.write`; same field set, partial.
+- `DELETE /api/v1/costbook/divisions/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
+- `GET /api/v1/costbook/categories?divisionId=` — requires `costbook.read`; optional `divisionId` filter, organization-scoped through the parent Division.
+- `GET /api/v1/costbook/categories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/categories` — requires `costbook.write`; strict body: `divisionId`, `code`, `name`, optional `sortOrder`. Rejects a `divisionId` that does not belong to the authenticated organization.
+- `PATCH /api/v1/costbook/categories/:id` — requires `costbook.write`; same field set minus `divisionId` (not re-parentable through update), partial.
+- `DELETE /api/v1/costbook/categories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
+- `GET /api/v1/costbook/subcategories?categoryId=` — requires `costbook.read`; optional `categoryId` filter, organization-scoped through Category → Division.
+- `GET /api/v1/costbook/subcategories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/subcategories` — requires `costbook.write`; strict body: `categoryId`, `code`, `name`, optional `sortOrder`. Rejects a `categoryId` that does not belong to the authenticated organization.
+- `PATCH /api/v1/costbook/subcategories/:id` — requires `costbook.write`; same field set minus `categoryId`, partial.
+- `DELETE /api/v1/costbook/subcategories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
+
+Costbook division DTO:
+
+```json
+{
+  "id": "uuid",
+  "organizationId": "uuid",
+  "code": "ELEC",
+  "name": "Electrical",
+  "sortOrder": 0,
+  "isActive": true,
+  "createdAt": "2026-08-12T00:00:00.000Z"
+}
+```
+
+Category and Subcategory DTOs are the same shape, replacing `organizationId`-only with `divisionId`/`organizationId` (Category) or `categoryId`/`organizationId` (Subcategory); `organizationId` on both is derived through the parent join, not a stored column.
+
+C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` now require `costbook.write` at the controller layer too (previously unguarded, relying solely on RLS) so a role that lost the underlying write access gets a clean 403 instead of a raw database authorization failure. C005 does not add labor engine, equipment workflow, assembly builder, pricing calculation, estimate integration, or Athena recommendation behavior.
+
 Settings asset storage metadata routes under `/api/v1/settings`:
 
 - `GET /api/v1/settings/assets/:assetKey` — any authenticated org member; returns the current storage bucket/path/content-type/size for one of `logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, or 404 if nothing has been uploaded for that slot

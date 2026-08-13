@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -94,9 +94,16 @@ links or lane-specific additions and do not define parallel general contracts.
 
 Documentation changes are enforced in the same branch and pull request as relevant code changes.
 
-The repository verification workflow also runs the frontend's framework-free
-unit tests before lint and build, so source-level environment-security guards
-are enforced on pull requests rather than remaining local-only checks.
+The repository verification workflow runs backend typechecking, unit tests,
+Athena contract/smoke checks, Prisma schema validation, production-dependency
+security auditing, build verification, live integration/migration rehearsal,
+and tracked-source cleanliness checks. The frontend gate runs production-
+dependency auditing, framework-free unit tests, lint, build, and the same
+tracked-source cleanliness check. These checks are intended to make a green PR
+a meaningful prerequisite for safe autonomous merging rather than a shallow
+build signal.
+
+The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
 
 The enforcement flow is:
 

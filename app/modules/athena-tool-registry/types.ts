@@ -78,14 +78,14 @@ export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
 }
 
 export type AthenaToolResolution =
-  | { outcome: "found"; definition: AthenaToolDefinition<unknown, unknown> }
+  | { outcome: "found"; definition: AthenaToolDefinition }
   | { outcome: "tool_not_found" }
   // Carries the other active (non-removed) versions registered under this
   // id so the dispatcher can decide whether the caller is authorized to
   // know this id exists at all before exposing the more specific
   // tool_version_not_found shape (see dispatcher.ts's "Hide version
   // resolution from unauthorized callers" fix).
-  | { outcome: "tool_version_not_found"; knownVersions: AthenaToolDefinition<unknown, unknown>[] }
+  | { outcome: "tool_version_not_found"; knownVersions: AthenaToolDefinition[] }
   | { outcome: "tool_removed" };
 
 export interface AthenaToolDiscoveryActor {

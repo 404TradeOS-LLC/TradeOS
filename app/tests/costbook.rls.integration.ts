@@ -25,6 +25,12 @@ const materialA = "71000000-0000-0000-0000-000000000061";
 const materialB = "81000000-0000-0000-0000-000000000062";
 const laborRateA = "71000000-0000-0000-0000-000000000071";
 const laborRateB = "81000000-0000-0000-0000-000000000072";
+const divisionA = "71000000-0000-0000-0000-000000000081";
+const divisionB = "81000000-0000-0000-0000-000000000082";
+const categoryA = "71000000-0000-0000-0000-000000000091";
+const categoryB = "81000000-0000-0000-0000-000000000092";
+const subcategoryA = "71000000-0000-0000-0000-0000000000a1";
+const subcategoryB = "81000000-0000-0000-0000-0000000000a2";
 
 describe("live row-level security for the C001 costbook workspace foundation", () => {
   beforeAll(async () => {
@@ -95,6 +101,24 @@ describe("live row-level security for the C001 costbook workspace foundation", (
           burdenPct: 0,
         },
       })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.division.create({ data: { id: divisionA, orgId: orgA, code: "ELEC-A", name: "Org A Electrical" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.division.create({ data: { id: divisionB, orgId: orgB, code: "ELEC-B", name: "Org B Electrical" } })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.category.create({ data: { id: categoryA, divisionId: divisionA, code: "WIRE-A", name: "Org A Wiring" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.category.create({ data: { id: categoryB, divisionId: divisionB, code: "WIRE-B", name: "Org B Wiring" } })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.subcategory.create({ data: { id: subcategoryA, categoryId: categoryA, code: "ROMEX-A", name: "Org A Romex" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.subcategory.create({ data: { id: subcategoryB, categoryId: categoryB, code: "ROMEX-B", name: "Org B Romex" } })
     );
   });
 
@@ -168,6 +192,58 @@ describe("live row-level security for the C001 costbook workspace foundation", (
     await expect(
       inSession(technicianA, orgA, "technician", () =>
         prisma.laborRate.update({ where: { id: laborRateA }, data: { billRate: 90 } })
+      )
+    ).rejects.toBeTruthy();
+  });
+
+  it("scopes the hierarchy (divisions, categories, subcategories) by organization at the database layer", async () => {
+    const divisionRows = await inSession(technicianA, orgA, "technician", () => prisma.division.findMany({ orderBy: { code: "asc" } }));
+    const categoryRows = await inSession(technicianA, orgA, "technician", () => prisma.category.findMany({ where: { id: { in: [categoryA, categoryB] } } }));
+    const subcategoryRows = await inSession(technicianA, orgA, "technician", () => prisma.subcategory.findMany({ where: { id: { in: [subcategoryA, subcategoryB] } } }));
+
+    expect(divisionRows.map((row) => row.id)).toEqual([divisionA]);
+    expect(categoryRows.map((row) => row.id)).toEqual([categoryA]);
+    expect(subcategoryRows.map((row) => row.id)).toEqual([subcategoryA]);
+  });
+
+  it("rejects technician writes to the hierarchy", async () => {
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.division.create({ data: { orgId: orgA, code: "TECH-ATTEMPT", name: "Technician Attempt" } })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.division.update({ where: { id: divisionA }, data: { name: "Technician Edit Attempt" } })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.category.create({ data: { divisionId: divisionA, code: "TECH-CAT", name: "Technician Attempt" } })
+      )
+    ).rejects.toBeTruthy();
+
+    await expect(
+      inSession(technicianA, orgA, "technician", () =>
+        prisma.subcategory.create({ data: { categoryId: categoryA, code: "TECH-SUB", name: "Technician Attempt" } })
+      )
+    ).rejects.toBeTruthy();
+  });
+
+  it("lets an owner/admin-capable actor write the hierarchy inside their own organization", async () => {
+    const updated = await inSession(ownerA, orgA, "owner", () =>
+      prisma.division.update({ where: { id: divisionA }, data: { name: "Org A Electrical Systems" } })
+    );
+
+    expect(updated.name).toBe("Org A Electrical Systems");
+  });
+
+  it("rejects Costbook workspace-scoped writes to another organization's category, even through a same-org division lookup", async () => {
+    await expect(
+      inSession(ownerA, orgA, "owner", () =>
+        prisma.category.update({ where: { id: categoryB }, data: { name: "Cross Org Edit Attempt" } })
       )
     ).rejects.toBeTruthy();
   });

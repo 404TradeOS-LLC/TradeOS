@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { CostDatabaseService } from "../../modules/cost-database/service";
-import { parsePositiveNumber, requireOrgId } from "../requestContext";
+import { parsePositiveNumber, requireOrgId, requirePermissions } from "../requestContext";
 
 const service = new CostDatabaseService();
 
@@ -27,18 +27,21 @@ export const costDatabaseController = {
   },
 
   async createDivision(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.write"]);
     const schema = z.object({ code: z.string().min(1), name: z.string().min(1), sortOrder: z.coerce.number().int().min(0).optional() });
     const division = await service.createDivision({ ...schema.parse(req.body), orgId: requireOrgId(req) });
     res.status(201).json(division);
   },
 
   async createCategory(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.write"]);
     const schema = z.object({ divisionId: z.string().uuid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
     const category = await service.createCategory(schema.parse(req.body));
     res.status(201).json(category);
   },
 
   async createSubcategory(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.write"]);
     const schema = z.object({ categoryId: z.string().uuid(), code: z.string(), name: z.string(), sortOrder: z.number().optional() });
     const subcategory = await service.createSubcategory(schema.parse(req.body));
     res.status(201).json(subcategory);

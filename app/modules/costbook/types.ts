@@ -113,3 +113,93 @@ export interface CostbookLaborRateInput {
 }
 
 export type CostbookLaborRateUpdateInput = Partial<CostbookLaborRateInput>;
+
+export interface CostbookDivisionRecord {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface CostbookDivisionDTO {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookDivisionInput {
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export type CostbookDivisionUpdateInput = Partial<CostbookDivisionInput> & { isActive?: boolean };
+
+export interface CostbookCategoryRecord {
+  id: string;
+  divisionId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface CostbookCategoryDTO {
+  id: string;
+  divisionId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookCategoryInput {
+  divisionId: string;
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export type CostbookCategoryUpdateInput = Partial<Omit<CostbookCategoryInput, "divisionId">> & { isActive?: boolean };
+
+export interface CostbookSubcategoryRecord {
+  id: string;
+  categoryId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface CostbookSubcategoryDTO {
+  id: string;
+  categoryId: string;
+  organizationId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CostbookSubcategoryInput {
+  categoryId: string;
+  code: string;
+  name: string;
+  sortOrder?: number;
+}
+
+export type CostbookSubcategoryUpdateInput = Partial<Omit<CostbookSubcategoryInput, "categoryId">> & { isActive?: boolean };

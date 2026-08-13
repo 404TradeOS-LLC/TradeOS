@@ -8,9 +8,9 @@ import { ATHENA_CONTEXT_SECTIONS, AthenaContextDiscoveryActor, AthenaContextProv
 // catalog per call, same test-isolation reasoning as
 // athena-tool-registry/registry.ts's createAthenaToolRegistry().
 export interface AthenaContextRegistry {
-  register(definition: AthenaContextProviderDefinition<unknown>): void;
-  resolve(id: string, version: string): AthenaContextProviderDefinition<unknown> | undefined;
-  discover(actor: AthenaContextDiscoveryActor): AthenaContextProviderDefinition<unknown>[];
+  register(definition: AthenaContextProviderDefinition): void;
+  resolve(id: string, version: string): AthenaContextProviderDefinition | undefined;
+  discover(actor: AthenaContextDiscoveryActor): AthenaContextProviderDefinition[];
   // Every registered provider, regardless of permission/feature-flag fit.
   // The assembler uses this (not discover()) to iterate, so a
   // permission-denied provider can be marked status: "denied" in the
@@ -18,7 +18,7 @@ export interface AthenaContextRegistry {
   // drop it instead, and 07-context-engine/README.md requires denial to be
   // disclosed ("Permission-denied providers disclose only that access is
   // unavailable"), not hidden.
-  list(): AthenaContextProviderDefinition<unknown>[];
+  list(): AthenaContextProviderDefinition[];
 }
 
 const VALID_ACTIVATIONS = new Set(["eager_minimal", "lazy_intent", "explicit_only"]);
@@ -36,7 +36,7 @@ const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$
 // Exported for reuse by athena:contracts, matching A2's precedent of
 // exercising the exact production validator rather than a test-only
 // duplicate.
-export function assertValidProviderDefinition(definition: AthenaContextProviderDefinition<unknown>): void {
+export function assertValidProviderDefinition(definition: AthenaContextProviderDefinition): void {
   if (typeof definition.id !== "string" || !PROVIDER_ID_PATTERN.test(definition.id)) {
     throw new Error(`AthenaContextProviderDefinition.id must be a lowercase reverse-domain-style id: ${String(definition.id)}`);
   }
@@ -101,7 +101,7 @@ function key(id: string, version: string): string {
 }
 
 export function createAthenaContextRegistry(): AthenaContextRegistry {
-  const entries = new Map<string, AthenaContextProviderDefinition<unknown>>();
+  const entries = new Map<string, AthenaContextProviderDefinition>();
   const sectionOwners = new Map<string, string>();
 
   return {

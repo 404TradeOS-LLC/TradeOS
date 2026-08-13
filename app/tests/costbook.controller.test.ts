@@ -9,6 +9,21 @@ const mockService = {
   getMaterial: jest.fn(),
   createMaterial: jest.fn(),
   updateMaterial: jest.fn(),
+  listDivisions: jest.fn(),
+  getDivision: jest.fn(),
+  createDivision: jest.fn(),
+  updateDivision: jest.fn(),
+  deactivateDivision: jest.fn(),
+  listCategories: jest.fn(),
+  getCategory: jest.fn(),
+  createCategory: jest.fn(),
+  updateCategory: jest.fn(),
+  deactivateCategory: jest.fn(),
+  listSubcategories: jest.fn(),
+  getSubcategory: jest.fn(),
+  createSubcategory: jest.fn(),
+  updateSubcategory: jest.fn(),
+  deactivateSubcategory: jest.fn(),
 };
 
 jest.mock("../modules/costbook", () => ({
@@ -25,10 +40,11 @@ function response() {
   };
 }
 
-function authedRequest(options: { role?: string; body?: unknown; params?: Record<string, string> } = {}) {
+function authedRequest(options: { role?: string; body?: unknown; params?: Record<string, string>; query?: Record<string, string> } = {}) {
   return {
     body: options.body ?? {},
     params: options.params ?? {},
+    query: options.query ?? {},
     orgId: "org-from-auth",
     auth: {
       userId: "user-1",
@@ -52,6 +68,21 @@ describe("costbookController materials endpoints", () => {
     mockService.getMaterial.mockResolvedValue({ id: materialId });
     mockService.createMaterial.mockResolvedValue({ id: materialId });
     mockService.updateMaterial.mockResolvedValue({ id: materialId });
+    mockService.listDivisions.mockResolvedValue([]);
+    mockService.getDivision.mockResolvedValue({ id: materialId });
+    mockService.createDivision.mockResolvedValue({ id: materialId });
+    mockService.updateDivision.mockResolvedValue({ id: materialId });
+    mockService.deactivateDivision.mockResolvedValue(undefined);
+    mockService.listCategories.mockResolvedValue([]);
+    mockService.getCategory.mockResolvedValue({ id: materialId });
+    mockService.createCategory.mockResolvedValue({ id: materialId });
+    mockService.updateCategory.mockResolvedValue({ id: materialId });
+    mockService.deactivateCategory.mockResolvedValue(undefined);
+    mockService.listSubcategories.mockResolvedValue([]);
+    mockService.getSubcategory.mockResolvedValue({ id: materialId });
+    mockService.createSubcategory.mockResolvedValue({ id: materialId });
+    mockService.updateSubcategory.mockResolvedValue({ id: materialId });
+    mockService.deactivateSubcategory.mockResolvedValue(undefined);
   });
 
   it("allows read-only Costbook roles to list materials", async () => {
@@ -357,5 +388,142 @@ describe("costbookController materials endpoints", () => {
     ).rejects.toThrow("You do not have permission");
 
     expect(mockService.deactivateLaborRate).not.toHaveBeenCalled();
+  });
+
+  it("allows read-only Costbook roles to list divisions", async () => {
+    const res = response();
+
+    await costbookController.listDivisions(authedRequest({ role: "technician" }), res as never);
+
+    expect(mockService.listDivisions).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
+    expect(res.json).toHaveBeenCalledWith([]);
+  });
+
+  it("denies division writes to read-only Costbook roles", async () => {
+    await expect(
+      costbookController.createDivision(
+        authedRequest({ role: "dispatcher", body: { code: "ELEC", name: "Electrical" } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.createDivision).not.toHaveBeenCalled();
+  });
+
+  it("rejects caller-supplied fields not on the division schema", async () => {
+    await expect(
+      costbookController.createDivision(
+        authedRequest({ body: { code: "ELEC", name: "Electrical", orgId: "attacker-org" } }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.createDivision).not.toHaveBeenCalled();
+  });
+
+  it("passes validated division create input to the service", async () => {
+    const res = response();
+
+    await costbookController.createDivision(
+      authedRequest({ body: { code: " ELEC ", name: " Electrical " } }),
+      res as never
+    );
+
+    expect(mockService.createDivision).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      { code: "ELEC", name: "Electrical" }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("requires Costbook manage permission to deactivate a division", async () => {
+    await expect(
+      costbookController.removeDivision(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.deactivateDivision).not.toHaveBeenCalled();
+  });
+
+  it("passes a divisionId filter through to the category list service call", async () => {
+    const res = response();
+    const divisionId = "20000000-0000-0000-0000-000000000001";
+
+    await costbookController.listCategories(
+      authedRequest({ role: "technician", query: { divisionId } }),
+      res as never
+    );
+
+    expect(mockService.listCategories).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
+      divisionId
+    );
+  });
+
+  it("denies category writes to read-only Costbook roles", async () => {
+    await expect(
+      costbookController.createCategory(
+        authedRequest({
+          role: "dispatcher",
+          body: { divisionId: "20000000-0000-0000-0000-000000000001", code: "WIRE", name: "Wiring" },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.createCategory).not.toHaveBeenCalled();
+  });
+
+  it("requires Costbook manage permission to deactivate a category", async () => {
+    await expect(
+      costbookController.removeCategory(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.deactivateCategory).not.toHaveBeenCalled();
+  });
+
+  it("passes a categoryId filter through to the subcategory list service call", async () => {
+    const res = response();
+    const categoryId = "30000000-0000-0000-0000-000000000001";
+
+    await costbookController.listSubcategories(
+      authedRequest({ role: "technician", query: { categoryId } }),
+      res as never
+    );
+
+    expect(mockService.listSubcategories).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
+      categoryId
+    );
+  });
+
+  it("denies subcategory writes to read-only Costbook roles", async () => {
+    await expect(
+      costbookController.createSubcategory(
+        authedRequest({
+          role: "dispatcher",
+          body: { categoryId: "30000000-0000-0000-0000-000000000001", code: "ROMEX", name: "Romex" },
+        }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.createSubcategory).not.toHaveBeenCalled();
+  });
+
+  it("requires Costbook manage permission to deactivate a subcategory", async () => {
+    await expect(
+      costbookController.removeSubcategory(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.deactivateSubcategory).not.toHaveBeenCalled();
   });
 });

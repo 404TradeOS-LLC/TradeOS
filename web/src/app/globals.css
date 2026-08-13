@@ -49,14 +49,29 @@
 }
 
 :root {
+  /* Keep the named font variables stable without making production builds
+     depend on external Google Fonts availability. Installed fonts are used
+     when present; otherwise the stacks fall back to platform-native faces. */
+  --font-inter: "Inter", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-ibm-plex-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-ibm-plex-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
+  --font-manrope: "Manrope", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-space-grotesk: "Space Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-cormorant-garamond: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", georgia, serif;
+  --font-dm-sans: "DM Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-oswald: "Oswald", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-source-serif-4: "Source Serif 4", "Iowan Old Style", georgia, serif;
+  --font-source-sans-3: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
+
   /* Blueprint register: the quiet, data-dense product theme. Space Grotesk
      is reserved for headings/display moments; body/UI text stays on system
      sans. Copper (--copper) is the one accent color, used sparingly for
      primary action, active nav state, and focus rings only — never as a
      general-purpose fill. Success stays green, destructive stays red. */
-  --font-sans: var(--font-inter), "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --font-heading-base: var(--font-space-grotesk), var(--font-sans);
-  --font-mono-base: var(--font-ibm-plex-mono), "SFMono-Regular", "SF Mono", "Consolas", monospace;
+  --font-sans: var(--font-inter);
+  --font-heading-base: var(--font-space-grotesk);
+  --font-mono-base: var(--font-ibm-plex-mono);
   --copper: oklch(0.588 0.132 46.5);
   --copper-foreground: oklch(0.99 0 0);
   --background: oklch(1 0 0);
