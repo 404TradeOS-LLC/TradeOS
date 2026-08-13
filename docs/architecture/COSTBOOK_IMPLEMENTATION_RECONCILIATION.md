@@ -25,297 +25,91 @@ related_code:
 
 # Costbook Implementation Reconciliation
 
-## Why this document exists
+## Purpose
 
-An implementation request arrived proposing a greenfield "Costbook Core CRUD"
-build: a new `feature/costbook-core-crud` branch off `main`, new
-`Division`/`Category`/`Subcategory`/`CostItem` models, and a `CostItem` shape
-carrying flat `cost`, `markupPercentage`, and `vendor` fields.
+This document records the live Costbook implementation boundary so new work extends the existing pricing-intelligence domain instead of recreating it. The original reconciliation was written while C001-C004 were landing and before C005 existed; that historical snapshot is no longer an accurate implementation plan.
 
-Repository reconnaissance against live `origin/main` (commit `d21f8af`, fetched
-2026-08-12) found that assumption is incorrect on every material point. This
-document records what is actually true, reconciles it against the proposed
-plan, states the architectural decision, and hands off a bounded next step
-that fits the existing implementation instead of duplicating it. It is
-documentation and planning only — no application code changed on this branch.
+## Current implementation truth
 
-## 1. Current Costbook state
+Costbook is not greenfield. TradeOS already has one authoritative catalog/pricing model built on the existing tenant-scoped `Division`, `Category`, `Subcategory`, `CostItem`, `LaborRate`, `Material`, `Equipment`, `Assembly`, and `AssemblyItem` models.
 
-### Database models (`app/prisma/schema.prisma`, live on `main`)
+Two layers intentionally coexist:
 
-- `Division`, `Category`, `Subcategory`, `CostItem` — the tenant-scoped
-  estimating catalog hierarchy, present since before this reconciliation.
-- `LaborRate`, `Material`, `Equipment`, `Assembly`, `AssemblyItem` — the
-  supporting pricing-input tables `CostItem` composes.
-- `CostbookWorkspace`, `CostbookWorkspaceEvent` — added by migration
-  `20260811120000_add_costbook_workspace_foundation` (C001) as the new unified
-  Costbook boundary described below.
-- `labor_rates` gained foundational `role`, `description`, `hourlyCost`,
-  `billRate`, `active` columns in place (migration
-  `20260811140000_add_costbook_labor_rates_foundation`, C003) rather than a
-  second labor table.
-- All Costbook-relevant tables run under forced row-level security, consistent
-  with the rest of the repository's tenancy model.
+- **Legacy catalog services** under `app/modules/{cost-database,labor-database,material-database,equipment-database,assemblies-database}`.
+- **Unified Costbook boundary** under `app/modules/costbook` and `/api/v1/costbook/*`, which wraps those existing tables behind `costbook.read`, `costbook.write`, and `costbook.manage` rather than duplicating them.
 
-### Modules and services
+The legacy routes remain compatibility surfaces. New Costbook slices should prefer the unified boundary while preserving existing domain ownership and relationship-derived pricing semantics.
 
-Two coexisting layers, both real and both live:
+## C-series status
 
-- **Legacy catalog layer** — `app/modules/{cost-database,labor-database,
-  material-database,equipment-database,assemblies-database}`. This is the
-  original implementation: `Division`/`Category`/`Subcategory` creation and
-  listing, full `CostItem` CRUD plus search, unit-cost computation, and
-  assembly/labor/material/equipment management. Mounted at
-  `/api/v1/{cost-database,labor-rates,materials,equipment,assemblies}/*`.
-- **Costbook workspace layer** — `app/modules/costbook/{service,repository,
-  types,permissions,errors,index}.ts`, added starting 2026-08-10 (PR #120-#128,
-  labeled C001-C004). This is a bounded context that wraps the same underlying
-  tables behind a single permission boundary (`costbook.read`/
-  `costbook.write`/`costbook.manage`) and a unified route group at
-  `/api/v1/costbook/*`. It does not replace the legacy layer; the legacy
-  routes remain mounted and now share the same permission boundary for
-  compatibility.
+### C001 — Workspace foundation — merged
 
-Both layers follow the same standard TradeOS flow: `Route -> Controller ->
-Service -> Repository -> Prisma/PostgreSQL` under forced RLS, per
-`docs/architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md`.
+Provides `GET /api/v1/costbook/workspace`, Costbook-specific permissions, forced-RLS workspace foundation tables, and the `/costbook` route.
 
-### API routes actually present today
+### C002 — Materials catalog — merged
 
-Legacy catalog layer (`app/backend/routes/costDatabase.routes.ts` et al.):
+Provides organization-scoped Costbook material reads/writes over the existing `materials` table, material price-audit behavior, and `/costbook/materials`.
 
-```
-GET    /api/v1/cost-database/divisions
-POST   /api/v1/cost-database/divisions
-POST   /api/v1/cost-database/categories
-POST   /api/v1/cost-database/subcategories
-GET    /api/v1/cost-database/subcategories/:subcategoryId/cost-items
-GET    /api/v1/cost-database/cost-items/search
-GET    /api/v1/cost-database/cost-items/:id
-GET    /api/v1/cost-database/cost-items/:id/unit-cost
-POST   /api/v1/cost-database/cost-items
-PATCH  /api/v1/cost-database/cost-items/:id
-DELETE /api/v1/cost-database/cost-items/:id
-POST   /api/v1/cost-database/cost-items/bulk-import
-```
+### C003 — Labor rates foundation — merged
 
-`CostItem` already has full CRUD, search, and bulk import. `Division`,
-`Category`, and `Subcategory` have only list + create — no `GET :id`, `PATCH`,
-or `DELETE` exists for any of the three hierarchy levels today. This is the
-one real, verified gap between the proposed plan and current reality.
+Extends the existing `labor_rates` table in place and exposes Costbook labor-rate CRUD/deactivation plus `/costbook/labor-rates`.
 
-Costbook workspace layer (`app/backend/routes/costbook.routes.ts`, current
-through C001-C003; C004 equipment routes are in open PR #128):
+### C005 — Hierarchy management — merged
 
-```
-GET    /api/v1/costbook/workspace
-GET    /api/v1/costbook/materials
-GET    /api/v1/costbook/materials/:id
-POST   /api/v1/costbook/materials
-PATCH  /api/v1/costbook/materials/:id
-GET    /api/v1/costbook/labor-rates
-GET    /api/v1/costbook/labor-rates/:id
-POST   /api/v1/costbook/labor-rates
-PATCH  /api/v1/costbook/labor-rates/:id
-DELETE /api/v1/costbook/labor-rates/:id   (soft-deactivate, active=false)
-```
+The earlier reconciliation identified Division/Category/Subcategory detail/update/delete and hierarchy UI as future work. That gap is now closed. C005 provides full hierarchy CRUD under `/api/v1/costbook/{divisions,categories,subcategories}` and the `/costbook/divisions` hierarchy UI.
 
-No workspace-layer routes exist yet for `Division`, `Category`, `Subcategory`,
-or `CostItem` themselves — C001-C003 covered workspace summary, materials, and
-labor rates only.
+PR #151 subsequently hardened that hierarchy and merged as `5b7dbcbfaa589360fb349f4badaca394683c3da7`. The merged boundary includes explicit parent-derived tenant predicates, cross-organization parent rejection, active-child checks beneath inactive ancestors, and parent-deactivation guards that prevent active descendants from being stranded beneath inactive parents. The old plan to build hierarchy CRUD/UI is therefore retired and must not be reimplemented.
 
-### Pricing calculation flow
+### C004 — Equipment catalog — replacement PR #183
 
-`CostItem` cost is **derived**, not stored as a flat field. `GET
-/api/v1/cost-database/cost-items/:id/unit-cost` composes labor, material, and
-equipment unit costs (via the item's `laborRateId`/`materialId`/
-`equipmentId` relations) into a `UnitCostBreakdown` (`laborCostPerUnit`,
-`materialCostPerUnit`, `equipmentCostPerUnit`, `totalUnitCost`). There is no
-`cost`, `markupPercentage`, or `vendor` field anywhere on `CostItem` in the
-live schema.
+Original PR #128 is closed as superseded. PR #183 (`feature/costbook-c004-reconciled`) rebuilds C004 directly on post-#151 hardened `main` and preserves only equipment-specific scope:
 
-### Frontend status
+- Costbook equipment list/detail/create/update/delete APIs;
+- legacy equipment permission alignment;
+- the existing `equipment` table and existing forced-RLS tenant boundary;
+- Costbook-specific owner/admin write policy;
+- cent-safe hourly-cost derivation and nullable daily-rate handling;
+- `/costbook/equipment` real-data UI;
+- live PostgreSQL proof for tenant-scoped reads, owner writes, technician denial, and cross-organization denial.
 
-`web/src/app/(app)/costbook/` exists with three live routes as of this
-reconciliation: `/costbook` (workspace summary), `/costbook/materials`, and
-`/costbook/labor-rates` — each with real API data, loading/error/empty
-states, and permission-gated write controls. Open PR #128 adds
-`/costbook/equipment`. **No hierarchy management UI exists** for Division,
-Category, Subcategory, or CostItem — this is the other real, verified gap.
-The owner dashboard's Costbook entry point previously carried a "Soon" badge;
-that badge is now superseded by the live `/costbook` route.
+As of this reconciliation, PR #183 has green Docs consistency and Verify repository workflows, fresh CodeRabbit approval, and resolved review threads. It still contains a migration and remains a protected human-decision boundary until merged or otherwise retired.
 
-## 2. Planned vs. actual comparison
+## Architectural decision
 
-| Dimension | Proposed plan assumed | Actual repository state |
-|---|---|---|
-| Domain existence | Greenfield — build from scratch | Live since before this reconciliation; `Division`/`Category`/`Subcategory`/`CostItem` already implemented modules |
-| Branch base | New `feature/costbook-core-crud` off `main`, as if starting cold | An active, incremental build-out (C001-C004, PRs #120-#128) is already extending this exact domain from `main` |
-| `CostItem` shape | Flat `cost`, `markupPercentage`, `vendor` fields | Relationship-derived cost via `LaborRate`/`Material`/`Equipment`; no flat pricing fields exist or are compatible with the derived model |
-| CRUD completeness | Assumed nothing exists | `CostItem` already has full CRUD + search + bulk import; `Division`/`Category`/`Subcategory` have only list + create (real gap) |
-| Frontend | Assumed nothing exists | Also assumed correctly here — no hierarchy management UI exists (real gap), though `/costbook`, `/costbook/materials`, `/costbook/labor-rates` (and soon `/costbook/equipment`) already exist for adjacent catalogs |
-| Architecture pattern | Implied a new module under a suggested `app/modules/costbook/{controllers,services,repositories,validators,routes}` shape | An `app/modules/costbook/{service,repository,types,permissions,errors}` bounded context already exists and is the established current pattern (C001-C004); it wraps rather than replaces the legacy catalog modules |
-| Governance | Not addressed | Further Costbook work is a tracked sprint, S027, currently recorded `BLOCKED` in `docs/SPRINT_BACKLOG.md` — see Section 4 |
+The existing Costbook domain remains the source of truth. Future work must:
 
-## 3. Architectural decision
+- extend existing models and services rather than create parallel `Division`/`Category`/`Subcategory`/`CostItem` systems;
+- preserve relationship-derived CostItem cost composition rather than introduce a flat incompatible `cost`/`markupPercentage`/`vendor` model;
+- keep organization isolation enforced by request-scoped database sessions and forced RLS;
+- keep AI review-first for writes and route estimate-line mutations through `EstimateEngineService`;
+- preserve legacy routes only as compatibility surfaces while new functionality converges on `/api/v1/costbook/*`.
 
-**The existing Costbook domain remains the authoritative pricing intelligence
-model for TradeOS. Future work extends the current implementation rather than
-creating parallel pricing systems.**
+## S027 governance status
 
-Specifically:
+S027 — Intelligent Costbook production readiness remains `BLOCKED`, but its recorded blocker history must be interpreted against live GitHub state:
 
-- Do not create a new `Division`/`Category`/`Subcategory`/`CostItem` domain or
-  duplicate models.
-- Do not introduce a flat `cost`/`markupPercentage`/`vendor` field set on
-  `CostItem`. It is incompatible with the live relationship-derived
-  (`LaborRate`/`Material`/`Equipment`) pricing model, which is preserved.
-  `GET /cost-items/:id/unit-cost` and its `UnitCostBreakdown` contract stay as
-  the source of truth for computed cost.
-- Future hierarchy CRUD (Division/Category/Subcategory) and any hierarchy
-  management UI extend the **existing** `app/modules/cost-database` service
-  for reads/writes, exposed either directly or fronted by the
-  `app/modules/costbook` workspace boundary the C-series has already
-  established — not a new parallel module tree.
-- The C001-C004 pattern (bounded `app/modules/costbook` context wrapping
-  existing catalog tables behind `costbook.read`/`costbook.write`/
-  `costbook.manage`, with the legacy `/api/v1/{cost-database,labor-rates,
-  materials,equipment}/*` routes kept mounted for compatibility) is the
-  current, working precedent for how new Costbook slices get added. New work
-  should follow it rather than inventing a new layering convention.
+- PRs #94, #95, and #96 are merged; those original blockers are resolved.
+- PR #151 is merged as `5b7dbcbfaa589360fb349f4badaca394683c3da7`.
+- PR #128 is closed and superseded by PR #183.
+- PR #183 is the current overlapping Costbook implementation and remains open/protected.
 
-## 4. Sprint governance review
+Removing old blockers does **not** automatically make S027 `READY`. S027 is intentionally broader than the C-series catalog foundations. Promotion requires a separate governance-only readiness review after active Costbook overlap is resolved.
 
-Per `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, live GitHub state is
-authoritative over committed doc text, which can go stale between edits. It
-did here:
+## Remaining S027 scope after C001-C005
 
-- `docs/SPRINT_BACKLOG.md`'s `S027 — Intelligent Costbook production
-  readiness` entry (still present verbatim on `main` as of this
-  reconciliation) records: `Status: BLOCKED`, blocked by "active PR #94...
-  active draft PR #95... active PR #96."
-- Live GitHub state: **PR #94, #95, and #96 are all already `MERGED`**
-  (`2026-08-10T03:25:50Z`, `2026-08-10T03:53:32Z`, `2026-08-10T02:37:52Z`
-  respectively). The blocking condition as literally written in
-  `SPRINT_BACKLOG.md` no longer holds.
-- Separately, and not reflected in `docs/SESSION_HANDOFF.md` (`last_verified:
-  2026-08-09`, unchanged since), a distinct C-series of Costbook PRs has been
-  landing since 2026-08-10: #120 (architecture doc), #121 (C001 workspace
-  foundation), #124 (C002 materials), #125 (C003 labor rates) — all merged —
-  and #128 (C004 equipment) — open as of this reconciliation.
-- **PR #128 itself already contains a governance update** that "clears the
-  stale S027 PR-overlap claim verified against live GitHub on August 11,
-  2026" and touches `docs/SPRINT_BACKLOG.md`, `docs/SESSION_HANDOFF.md`,
-  `docs/CURRENT_STATE.md`, and this same architecture doc family. This
-  reconciliation does not duplicate that governance edit — #128 is the
-  in-flight source of truth for clearing the stale blocker text, and this
-  document's scope is analysis, not sprint-record editing.
+The remaining production-readiness mission is not another hierarchy rebuild. It is the evidence-backed integration/hardening layer across the existing system, including where justified by live repository state:
 
-**Is Costbook work currently allowed?** As literally recorded in
-`docs/SPRINT_BACKLOG.md` on `main` today, S027 still reads `BLOCKED`. As
-verified against live GitHub state, the named blocking PRs are resolved and a
-governance fix is already in flight in #128. Per the Next Sprint Protocol's
-stop conditions ("a dependency is not `DONE` or a `READY` record is
-incomplete" / "unexpected dirty work or an active PR/worktree overlaps the
-mission"), a new implementation branch should not promote S027 to `READY` on
-its own authority — that is exactly the kind of governance-record edit #128
-is already carrying. **This document does not start implementation and does
-not alter `SPRINT_BACKLOG.md` or `SESSION_HANDOFF.md`.**
+- coherent search/filter/sort/pagination across Costbook surfaces;
+- assembly and derived-cost workflow hardening;
+- truthful regional/supplier pricing provenance and sync state;
+- Knowledge Runtime retrieval/semantic matching through existing architecture;
+- review-first AI assistance without autonomous database writes;
+- representative contractor E2E coverage;
+- loading/error/empty/accessibility/responsive behavior;
+- query/index work only when supported by measured evidence and the appropriate dependent sprint/governance gates.
 
-Founder decision required for S027: recorded as `NO` in the current backlog
-entry.
+Any future S027 implementation branch must first reverify PR #183 and all other live Costbook overlap, then promote S027 through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. This document does not itself promote the sprint.
 
-## 5. Future implementation plan
+## Repository cleanup note
 
-The next bounded Costbook slice is a hierarchy-management extension,
-continuing the established C-series pattern rather than a standalone
-"greenfield CRUD" branch. Suggested branch name:
-`feature/costbook-admin-management` (or the next `C00N` slice, e.g. `C005`,
-if continuing the existing numbering the founder has been using for C001-C004
-— either name is compatible with the same scope described below; the
-numbering choice belongs to whoever picks up the branch).
-
-### Backend
-
-Complete missing hierarchy management on the **existing** `Division`/
-`Category`/`Subcategory` models, following the exact pattern already used for
-`CostItem` in `app/modules/cost-database`:
-
-```
-GET    /divisions/:id
-PATCH  /divisions/:id
-DELETE /divisions/:id     (soft-deactivate, matching CostItem/LaborRate)
-
-GET    /categories/:id
-PATCH  /categories/:id
-DELETE /categories/:id
-
-GET    /subcategories/:id
-PATCH  /subcategories/:id
-DELETE /subcategories/:id
-```
-
-Whether these land under `/api/v1/cost-database/*` (legacy layer, matching
-today's create/list routes for these three models) or get fronted by
-`/api/v1/costbook/*` (matching the C001-C004 workspace convention) is an
-implementation-time decision for that branch — either is consistent with
-Section 3's decision as long as no new model or parallel service is created.
-
-### Frontend
-
-`web/src/app/(app)/costbook/` does not yet represent the hierarchy at all.
-Future work adds it, following the same page-shell pattern already
-established by `/costbook/materials` and `/costbook/labor-rates`: thin route
-files, server-loaded authenticated data, reusable Costbook components, and
-honest loading/error/empty states. The hierarchy should be represented as it
-actually exists:
-
-```
-Division
-  -> Category
-    -> Subcategory
-      -> CostItem  (composed from Labor / Material / Equipment)
-```
-
-Do not create a separate simplified pricing UI or a parallel data shape for
-this. `CostItem` display/edit surfaces must use the real derived-cost model
-(`UnitCostBreakdown`), not flat cost/markup/vendor fields.
-
-## 6. Repository cleanup review
-
-`app/.claude/skills/run-tradeos-costbook-api/` was inspected. It documents
-driving a standalone "TradeOS Cost Book API" via `api/server.ts` ->
-`dist/api/server.js`, a server-rendered `/admin` and `/admin/pricing-history`
-UI (`api/views/adminShell.view.ts`), and `db/seed/seed.ts` reachable through
-`scripts/deploy-migrations.sh`. Checked against the live `app/` tree:
-
-- `app/api/` does not exist.
-- The real build/start scripts in `app/package.json` are `tsc -p
-  tsconfig.json` and `node dist/backend/start.js`, not `dist/api/server.js`.
-- `app/db/seed/seed.ts` and `app/scripts/deploy-migrations.sh` do exist, so
-  parts of the skill are not entirely fictional, but the `api/server.ts` /
-  `api/views/adminShell.view.ts` admin-UI surface it screenshots does not
-  exist anywhere in the current tree.
-
-This skill predates the merge of the original standalone `TradeOScostbook`
-project into the current `app/`/`web/` monorepo layout (consistent with
-`CLAUDE.md`'s note that the prior long-form Claude session log "referenced
-obsolete `app/api/**` paths" now archived to git history only) and describes
-architecture that no longer exists. **Finding recorded here only — not
-deleted.** Repository governance requires explicit review before removing
-tooling; that decision belongs to a separate, explicitly scoped cleanup
-change, not this reconciliation.
-
-## Definition of done for this document
-
-- [x] Costbook architecture is accurately documented against live `main`
-- [x] Existing implementation (legacy catalog layer + C001-C004 workspace
-      layer) is recognized as source of truth
-- [x] No duplicate models or parallel pricing systems are introduced or
-      proposed
-- [x] Sprint governance status (S027, stale `SPRINT_BACKLOG.md` blocker text,
-      in-flight #128 fix) is documented
-- [x] Future implementation path (`feature/costbook-admin-management` /
-      next `C00N` slice) is clear and scoped to the real gaps only
-- [ ] Documentation checks (`npm run docs:test`, `npm run docs:check --
-      base origin/main`) — run and recorded in the pull request
+The historical `app/.claude/skills/run-tradeos-costbook-api/` material described a standalone Costbook API/admin topology that no longer matches the monorepo runtime. Treat such legacy instructions as historical unless their paths are independently verified against current `app/` and `web/` source. Do not use stale standalone topology as a reason to create duplicate services.
