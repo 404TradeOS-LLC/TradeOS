@@ -3,6 +3,7 @@ import { AthenaRouterDecision, AthenaRouterLogEntry, AthenaRouterOutcome, Athena
 
 const DEFAULT_ROUTING_STRATEGIES: readonly AthenaRoutingStrategy[] = [createKeywordAthenaRoutingStrategy()];
 
+/** Builds the deterministic low-risk draft fallback used when no routing strategy matches. */
 function fallbackDecision(reasonCode: string): AthenaRouterDecision {
   return {
     intent: "draft_response",
@@ -14,6 +15,7 @@ function fallbackDecision(reasonCode: string): AthenaRouterDecision {
   };
 }
 
+/** Runs routing strategies in order, recording outcomes and falling back safely on no-match or strategy errors. */
 export function routeAthenaRequest(message: string, strategies: readonly AthenaRoutingStrategy[] = DEFAULT_ROUTING_STRATEGIES): AthenaRouterOutcome {
   const logs: AthenaRouterLogEntry[] = [];
 
@@ -49,6 +51,7 @@ export function routeAthenaRequest(message: string, strategies: readonly AthenaR
   };
 }
 
+/** Converts an enriched router decision back to the planner-facing router result contract. */
 export function toAthenaRouterResult(decision: AthenaRouterDecision): AthenaRouterResult {
   return {
     intent: decision.intent,
