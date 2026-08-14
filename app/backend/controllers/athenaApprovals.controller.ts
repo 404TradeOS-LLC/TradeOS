@@ -97,6 +97,9 @@ export const athenaApprovalsController = {
         if (error.code === "approval_not_found") {
           throw new ApiError(404, "Approval not found");
         }
+        if (error.code === "approval_not_pending") {
+          throw new ApiError(409, "Approval has already been reviewed or is no longer pending");
+        }
         throw new ApiError(403, "Requesters cannot review their own Athena approval requests");
       }
       throw error;
