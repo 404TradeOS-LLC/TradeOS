@@ -19,7 +19,7 @@ const countCards: {
   href?: string;
 }[] = [
   { key: "categories", label: "Categories", icon: ClipboardList, href: "/costbook/divisions" },
-  { key: "costItems", label: "Cost Items", icon: Boxes },
+  { key: "costItems", label: "Cost Items", icon: Boxes, href: "/costbook/cost-items" },
   { key: "materials", label: "Materials", icon: Package, href: "/costbook/materials" },
   { key: "laborRates", label: "Labor Rates", icon: Hammer, href: "/costbook/labor-rates" },
   { key: "equipment", label: "Equipment", icon: Wrench, href: "/costbook/equipment" },
