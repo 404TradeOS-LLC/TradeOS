@@ -1,5 +1,7 @@
 const handleRequest = jest.fn();
 const isAthenaKernelEnabled = jest.fn();
+const auditRecord = jest.fn(async () => undefined);
+const hasTerminalEvent = jest.fn(() => false);
 
 jest.mock("../modules/athena-kernel/service", () => ({
   ATHENA_MAX_MESSAGE_LENGTH: 4000,
@@ -8,6 +10,14 @@ jest.mock("../modules/athena-kernel/service", () => ({
 
 jest.mock("../modules/athena-kernel/flags", () => ({
   isAthenaKernelEnabled,
+}));
+
+jest.mock("../modules/athena-audit/store", () => ({
+  createPrismaAthenaAuditStore: jest.fn(() => ({ record: auditRecord })),
+  createTerminalTrackingAthenaAuditStore: jest.fn(() => ({
+    record: auditRecord,
+    hasTerminalEvent,
+  })),
 }));
 
 import { athenaController } from "../backend/controllers/athena.controller";
