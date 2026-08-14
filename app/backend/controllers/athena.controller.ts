@@ -60,6 +60,10 @@ const chatRequestSchema = z.object({
   message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH),
   conversationId: z.string().uuid().optional(),
   selectedScope: selectedScopeSchema,
+  // Stable caller-generated retry key for A6 deduplication. This is not an
+  // approval token and grants no permission; the Action Engine binds it to
+  // org + actor + registered tool/version + canonical validated input.
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 
 // docs/athena/roadmap/A1-ai-kernel-implementation-plan.md "Required Backend
@@ -111,6 +115,7 @@ export const athenaController = {
         requestId,
         clientSignal: controller.signal,
         toolRegistry,
+        idempotencyKey: body.idempotencyKey,
         idempotencyStore,
         auditStore: requestAuditStore,
       });
