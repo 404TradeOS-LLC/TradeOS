@@ -76,6 +76,31 @@ If another PR already implements the same fix, verify and advance that work inst
 
 Stop on unexpected branch movement, unexplained dirty state, ambiguous ownership, or overlapping edits that make the bounded mission unsafe.
 
+## Mandatory autonomy reconciliation gate
+
+For scheduled, unattended, or agent-driven implementation, complete
+`docs/agent-prompts/AUTONOMY_RECONCILIATION.md` before creating a branch or
+modifying files. Fetch/prune first, inspect current `origin/main`, and search
+open and draft PRs, recently closed PRs, remote branches, recent commits,
+issue/sprint identifiers, overlapping files, and semantically equivalent
+objectives.
+
+Record exactly one classification:
+
+- `EXISTING_WORK_FOUND` — inspect, rebase/repair, extend, test, and advance the
+  existing branch/PR where technically possible;
+- `NEW_WORK_REQUIRED` — no viable overlapping effort or implementation on
+  `main` exists; only this state permits a new branch;
+- `NO_ACTION_REQUIRED` — the change is already on `main` or the task is stale;
+  make no implementation change and report evidence.
+
+A branch named by old task input is evidence to verify, not authority to
+recreate it. If it no longer exists, reconcile against current repository and
+GitHub state. Before opening a PR, repeat the overlap search. A replacement PR
+requires a documented technical reason, links both PRs, closes the superseded
+PR, and removes the obsolete branch when safe. Never leave two active PRs for
+substantially overlapping work.
+
 ## Autonomous action policy
 
 ### May repair and advance autonomously

@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "db:seed": "npm --prefix app run db:seed",
+    "autonomy:reconcile": "node scripts/reconcile-task.mjs",
+    "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:test": "node --test scripts/__tests__/docs-check.test.mjs"
   },

@@ -80,9 +80,17 @@ Open issue inventory verified during reconciliation includes issue #144 for Athe
 
 Scheduled maintenance and repair agents follow `AGENTS.md`, the Next Sprint Protocol, and Repository Governance together.
 
+Before any scheduled or agent-driven branch is created, agents must run the
+scoped [Autonomy Reconciliation Preflight](agent-prompts/AUTONOMY_RECONCILIATION.md)
+and record `EXISTING_WORK_FOUND`, `NEW_WORK_REQUIRED`, or
+`NO_ACTION_REQUIRED`. Only `NEW_WORK_REQUIRED` permits branch creation. The
+`npm run autonomy:reconcile -- --task "..."` helper gathers current Git/PR
+evidence and likely semantic overlap; agents still inspect the surfaced
+evidence before acting.
+
 For a validated low-risk maintenance defect, the expected loop is:
 
-**inspect → reproduce/validate → root-cause → repair → test → inspect diff → publish focused PR → verify exact CI/review state → merge only when permitted → verify landed state**
+**reconcile → reuse or classify new work → reproduce/validate → root-cause → repair → test → inspect diff → reconcile again → publish one focused PR → verify exact CI/review state → merge only when permitted → verify landed state**
 
 Agents should advance an existing overlapping PR instead of creating duplicate work. Green CI is required technical evidence, not authority to merge protected changes.
 
@@ -96,7 +104,7 @@ Production repair should use the health split first:
 
 Expected required CI jobs include:
 
-- `Docs consistency`;
+- `Docs consistency` — autonomy-reconciliation regressions plus documentation ownership validation;
 - `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness;
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
