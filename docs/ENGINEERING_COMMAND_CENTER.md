@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,6 +15,7 @@ related_code:
   - .github/CODEOWNERS
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/recover-vercel-main-deployment.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -95,6 +96,8 @@ Production repair should use the health split first:
 - `/health` failing → investigate process/deployment/routing/platform availability;
 - `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
 - both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
+
+For GitHub-to-Vercel production handoff drift, `.github/workflows/recover-vercel-main-deployment.yml` is the bounded recovery path. It observes the Vercel-owned check suite for the exact `main` SHA and, only when that suite remains queued with zero runs, re-requests the same suite through GitHub's checks API. It does not deploy a different SHA, rotate credentials, alter project data, or bypass required repository verification.
 
 ## Required verification
 
