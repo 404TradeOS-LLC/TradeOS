@@ -24,5 +24,8 @@ jobs:
       - name: Install docs checker dependencies
         run: npm ci
 
+      - name: Run autonomy reconciliation tests
+        run: npm run autonomy:test
+
       - name: Run docs consistency check
         run: npm run docs:check -- --base "origin/${{ github.base_ref }}"
