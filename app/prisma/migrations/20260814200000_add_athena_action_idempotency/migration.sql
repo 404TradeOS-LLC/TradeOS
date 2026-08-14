@@ -5,7 +5,7 @@ create table athena_action_idempotency (
   tool_id text not null,
   tool_version text not null,
   idempotency_key text not null,
-  input_hash text,
+  input_hash text not null,
   status text not null default 'reserved' check (status in ('reserved', 'completed')),
   action_json jsonb,
   result_json jsonb,
@@ -14,7 +14,7 @@ create table athena_action_idempotency (
   constraint athena_action_idempotency_completed_payload check (
     (status = 'reserved' and action_json is null and result_json is null)
     or
-    (status = 'completed' and input_hash is not null and action_json is not null and result_json is not null)
+    (status = 'completed' and action_json is not null and result_json is not null)
   )
 );
 
