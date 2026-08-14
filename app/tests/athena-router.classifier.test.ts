@@ -1,4 +1,6 @@
 import { classifyAthenaIntent } from "../modules/athena-router/classifier";
+import { routeAthenaRequest } from "../modules/athena-router/router";
+import type { AthenaRoutingStrategy } from "../modules/athena-router/types";
 
 describe("classifyAthenaIntent", () => {
   it("classifies plain questions as draft_response", () => {
@@ -62,5 +64,46 @@ describe("classifyAthenaIntent", () => {
     expect(classifyAthenaIntent("What's the cost of drywall?").reasonCode).toBe("athena_router_knowledge_lookup_matched");
     expect(classifyAthenaIntent("Send the invoice").reasonCode).toBe("athena_router_mutation_keyword_matched");
     expect(classifyAthenaIntent("What is the status of this project?").reasonCode).toBe("athena_router_default_draft_response");
+  });
+
+  it("records a fallback outcome when no routing strategy matches", () => {
+    const outcome = routeAthenaRequest("What is the status of this project?");
+    expect(outcome.decision.intent).toBe("draft_response");
+    expect(outcome.decision.fallbackApplied).toBe(true);
+    expect(outcome.decision.strategyId).toBe("fallback");
+    expect(outcome.logs).toEqual([{ strategyId: "keyword_classifier", matched: false, reasonCode: "athena_router_strategy_no_match" }]);
+  });
+
+  it("continues past a failing strategy and still returns the first successful downstream match", () => {
+    const failing: AthenaRoutingStrategy = {
+      id: "failing",
+      route() {
+        throw new Error("boom");
+      },
+    };
+    const keyword: AthenaRoutingStrategy = {
+      id: "keyword",
+      route(message) {
+        return classifyAthenaIntent(message);
+      },
+    };
+
+    const outcome = routeAthenaRequest("Show me the dispatch board", [failing, keyword]);
+    expect(outcome.decision.intent).toBe("dispatch_overview");
+    expect(outcome.decision.strategyId).toBe("keyword");
+    expect(outcome.decision.fallbackApplied).toBe(false);
+    expect(outcome.logs).toEqual([
+      {
+        strategyId: "failing",
+        matched: false,
+        reasonCode: "athena_router_strategy_error",
+        errorMessage: "boom",
+      },
+      {
+        strategyId: "keyword",
+        matched: true,
+        reasonCode: "athena_router_dispatch_overview_matched",
+      },
+    ]);
   });
 });

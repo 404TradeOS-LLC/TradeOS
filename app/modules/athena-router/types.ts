@@ -23,3 +23,25 @@ export interface AthenaRouterResult {
   requestedContextIntents: string[];
   reasonCode: string;
 }
+
+export interface AthenaRoutingStrategy {
+  id: string;
+  route(message: string): AthenaRouterResult | null;
+}
+
+export interface AthenaRouterLogEntry {
+  strategyId: string;
+  matched: boolean;
+  reasonCode: string;
+  errorMessage?: string;
+}
+
+export interface AthenaRouterDecision extends AthenaRouterResult {
+  strategyId: string;
+  fallbackApplied: boolean;
+}
+
+export interface AthenaRouterOutcome {
+  decision: AthenaRouterDecision;
+  logs: AthenaRouterLogEntry[];
+}

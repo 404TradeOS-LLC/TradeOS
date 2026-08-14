@@ -27,6 +27,8 @@ export function createEchoFixtureTool(overrides: EchoFixtureOverrides = {}): Ath
     id: overrides.id ?? "tradeos.athena.fixture.echo",
     version: overrides.version ?? "1.0.0",
     owner: "athena-tool-registry-fixtures",
+    name: "Echo Fixture",
+    category: "fixture",
     description: "Test-only fixture tool that echoes its input. Calls no application service.",
     permissions: overrides.permissions ?? [],
     risk: overrides.risk ?? "low",
@@ -35,6 +37,7 @@ export function createEchoFixtureTool(overrides: EchoFixtureOverrides = {}): Ath
     idempotency: "not_supported",
     compensationPolicy: "draft_only",
     inputSchema: echoFixtureInputSchema,
+    outputSchema: "AthenaToolResult",
     requiredFeatureFlags: overrides.requiredFeatureFlags,
     async execute(input, _aiContext, execution) {
       overrides.onExecuted?.();

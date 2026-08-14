@@ -16,6 +16,10 @@ export type AthenaToolRisk = "low" | "medium" | "high";
 export type AthenaToolConfirmationPolicy = "never" | "contextual" | "always";
 export type AthenaToolIdempotency = "required" | "optional" | "not_supported";
 export type AthenaToolCompensationPolicy = "none" | "compensating_action" | "service_transaction" | "draft_only";
+export const athenaToolCategories = ["system", "estimator", "dispatcher", "office", "field", "costbook", "fixture"] as const;
+export type AthenaToolCategory = (typeof athenaToolCategories)[number];
+export const athenaToolOutputSchemas = ["AthenaToolResult"] as const;
+export type AthenaToolOutputSchema = (typeof athenaToolOutputSchemas)[number];
 
 export interface AthenaToolDeprecation {
   replacementId?: string;
@@ -60,6 +64,8 @@ export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
   id: string;
   version: string;
   owner: string;
+  name?: string;
+  category?: AthenaToolCategory;
   description: string;
   permissions: string[];
   risk: AthenaToolRisk;
@@ -72,20 +78,28 @@ export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
   // registry/dispatcher implementation only supports Zod, consistent with
   // the rest of the app's validation approach.
   inputSchema: unknown;
+  outputSchema?: AthenaToolOutputSchema;
   requiredFeatureFlags?: string[];
   deprecated?: AthenaToolDeprecation;
   execute(input: TInput, aiContext: AthenaAIContext, execution: AthenaToolExecutionContext): Promise<AthenaToolResult<TData>>;
 }
 
+export interface AthenaRegisteredToolDefinition<TInput = unknown, TData = unknown>
+  extends Omit<AthenaToolDefinition<TInput, TData>, "name" | "category" | "outputSchema"> {
+  name: string;
+  category: AthenaToolCategory;
+  outputSchema: AthenaToolOutputSchema;
+}
+
 export type AthenaToolResolution =
-  | { outcome: "found"; definition: AthenaToolDefinition }
+  | { outcome: "found"; definition: AthenaRegisteredToolDefinition }
   | { outcome: "tool_not_found" }
   // Carries the other active (non-removed) versions registered under this
   // id so the dispatcher can decide whether the caller is authorized to
   // know this id exists at all before exposing the more specific
   // tool_version_not_found shape (see dispatcher.ts's "Hide version
   // resolution from unauthorized callers" fix).
-  | { outcome: "tool_version_not_found"; knownVersions: AthenaToolDefinition[] }
+  | { outcome: "tool_version_not_found"; knownVersions: AthenaRegisteredToolDefinition[] }
   | { outcome: "tool_removed" };
 
 export interface AthenaToolDiscoveryActor {
@@ -110,6 +124,8 @@ export interface AthenaToolDispatchAudit {
   reasonCode: AthenaToolDispatchReasonCode;
   toolId: string;
   version: string;
+  toolName?: string;
+  toolCategory?: AthenaToolCategory;
   evaluatedRole?: CanonicalRole;
   evaluatedPermissions?: string[];
   evaluatedRisk?: AthenaToolRisk;

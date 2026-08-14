@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AthenaToolCompensationPolicy, AthenaToolResult } from "../athena-tool-registry/types";
+import type { AthenaToolCategory, AthenaToolCompensationPolicy, AthenaToolResult } from "../athena-tool-registry/types";
 import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 import { assertValidAthenaToolResult } from "../athena-tool-registry/resultEnvelope";
 import { createFailClosedAthenaApprovalVerifier } from "./approval";
@@ -161,7 +161,10 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
   // engine-generated one only fills the contract's required field.
   const idempotencyKey = request.idempotencyKey ?? randomUUID();
   let toolVersionForAudit = request.toolVersion;
+  let toolNameForAudit = request.toolId;
+  let toolCategoryForAudit: AthenaToolCategory = "system";
   let compensationPolicy: AthenaToolCompensationPolicy = "none";
+  let approvalRequirement: "not_required" | "required" = request.permissionDecision.decision === "approval_required" ? "required" : "not_required";
   // Conservative default ("high") for the rare paths that fail before the
   // tool ever resolves (decision-binding mismatch, unknown/removed/
   // wrong-version tool) - an action record for a step A6 never even
@@ -189,14 +192,23 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       version: "1.0.0",
       orgId: request.orgId,
       actorUserId: request.actor.id,
+      name: toolNameForAudit,
       toolId: request.toolId,
       toolVersion: toolVersionForAudit,
       input: request.input,
       risk: authoritativeRisk,
+      approvalRequirement,
       ...(request.approvalId ? { approvalId: request.approvalId } : {}),
       idempotencyKey,
       status: state,
       attempt: 1,
+      executor: {
+        kind: "tool",
+        name: toolNameForAudit,
+        category: toolCategoryForAudit,
+        toolId: request.toolId,
+        toolVersion: toolVersionForAudit,
+      },
       compensationPolicy,
       ...(toolResult.success === false && toolResult.error ? { lastError: toolResult.error } : {}),
     };
@@ -206,9 +218,18 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       planId: request.planId,
       stepId: request.stepId,
       state,
+      name: toolNameForAudit,
       toolId: request.toolId,
       toolVersion: toolVersionForAudit,
+      approvalRequirement,
       idempotencyKey,
+      executor: {
+        kind: "tool",
+        name: toolNameForAudit,
+        category: toolCategoryForAudit,
+        toolId: request.toolId,
+        toolVersion: toolVersionForAudit,
+      },
       compensationPolicy,
       toolResult,
     };
@@ -266,8 +287,11 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       throw athenaActionUnexpectedError(correlationId);
     }
     toolVersionForAudit = tool.version;
+    toolNameForAudit = tool.name;
+    toolCategoryForAudit = tool.category;
     authoritativeRisk = tool.risk;
     compensationPolicy = tool.compensationPolicy;
+    approvalRequirement = decision.decision === "approval_required" ? "required" : "not_required";
 
     // Step 4 - deny fails immediately, before any input validation,
     // hashing, or approval work.

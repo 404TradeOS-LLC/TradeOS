@@ -11,7 +11,7 @@ import type { AthenaMemoryCandidateExtractor } from "../athena-memory/types";
 import { buildAthenaPlan } from "../athena-planner/planner";
 import type { AthenaPlanCandidateTool } from "../athena-planner/types";
 import { evaluateAthenaPermission } from "../athena-permissions/policy";
-import { classifyAthenaIntent } from "../athena-router/classifier";
+import { routeAthenaRequest, toAthenaRouterResult } from "../athena-router/router";
 import { buildAthenaSecurityAuditMetadata } from "../athena-security/audit";
 import { evaluateAthenaSecurityRisk } from "../athena-security/riskEngine";
 import { createAthenaToolRegistry } from "../athena-tool-registry/registry";
@@ -271,10 +271,16 @@ export class AthenaKernelService {
         // A5-router-planner-implementation-plan.md). Deterministic, no
         // model call for routing/planning itself - only produceDraftResponse
         // below ever calls the AI provider.
-        const routerResult = classifyAthenaIntent(message);
+        const routing = routeAthenaRequest(message);
+        const routerDecision = routing.decision;
+        const routerResult = toAthenaRouterResult(routerDecision);
 
         throwIfAborted();
-        await applyTransition("planning", "intent_classified", { intent: routerResult.intent });
+        await applyTransition("planning", "intent_classified", {
+          intent: routerResult.intent,
+          routingStrategy: routerDecision.strategyId,
+          fallbackApplied: routerDecision.fallbackApplied,
+        });
 
         // A2 has no production tools registered yet (A12 work), so
         // toolRegistry.discover() returns [] here today and plan.steps is
@@ -293,6 +299,7 @@ export class AthenaKernelService {
         await applyTransition("policy_check", "plan_ready", { planId: plan.planId, planStatus: plan.status });
 
         const policyStart = Date.now();
+        let lastSuccessfulToolResult: AthenaKernelResult | null = null;
 
         if (plan.status === "needs_clarification") {
           // mutate_business_record - fall back to the existing, unmodified
@@ -474,6 +481,7 @@ export class AthenaKernelService {
             planId: plan.planId,
             stepId: step.stepId,
             toolId: step.toolId,
+            toolName: actionOutcome.result.name,
             toolVersion: step.toolVersion,
             actionId: actionOutcome.result.actionId,
             state: actionState,
@@ -501,6 +509,17 @@ export class AthenaKernelService {
           }
           // succeeded: continue authorizing/executing any remaining steps,
           // then fall through to the unchanged draft-response stage below.
+          lastSuccessfulToolResult = {
+            success: true,
+            executionId,
+            traceId,
+            state: "succeeded",
+            summary: actionOutcome.result.toolResult.summary,
+            message: actionOutcome.result.toolResult.summary,
+            warnings: actionOutcome.result.toolResult.warnings,
+            followUps: actionOutcome.result.toolResult.followUps,
+            telemetry: { traceId, executionId },
+          };
 
           // A7 memory-candidate hook (Step 12) - a no-op unless a caller
           // supplied both DI seams (never true in production today). Wrapped
@@ -576,12 +595,22 @@ export class AthenaKernelService {
             explicitSections: [],
             clientSignal: controller.signal,
           });
-          if (assemblyResult.sections.dispatch) context.dispatch = assemblyResult.sections.dispatch;
-          if (assemblyResult.sections.knowledgeEngine) context.knowledgeEngine = assemblyResult.sections.knowledgeEngine;
+          const enrichedContext = {
+            ...context,
+            ...assemblyResult.sections,
+          };
           await emitSpan("context", assemblyResult.stoppedByCriticalFailure ? "degraded" : "ok", Date.now() - liveContextStart, {
-            sectionsIncluded: Object.keys(assemblyResult.sections),
+            sectionsIncluded: Object.keys(enrichedContext).filter((key) => key === "dispatch" || key === "knowledgeEngine" || key === "memory"),
             requestedIntents: routerResult.requestedContextIntents,
+            routingStrategy: routerDecision.strategyId,
+            fallbackApplied: routerDecision.fallbackApplied,
           });
+        }
+
+        if (lastSuccessfulToolResult) {
+          await applyTransition("succeeded", "tool_action_completed");
+          await executionStore.finalizeExecutionRecord({ executionId, safeSummary: lastSuccessfulToolResult.summary });
+          return lastSuccessfulToolResult;
         }
       }
 

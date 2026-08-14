@@ -21,6 +21,8 @@ export function createHangingFixtureTool(overrides: HangingFixtureOverrides = {}
     id: "tradeos.athena.fixture.hanging",
     version: "1.0.0",
     owner: "athena-tool-registry-fixtures",
+    name: "Hanging Fixture",
+    category: "fixture",
     description: "Test-only fixture tool that never resolves. Calls no application service.",
     permissions: [],
     risk: "low",
@@ -29,6 +31,7 @@ export function createHangingFixtureTool(overrides: HangingFixtureOverrides = {}
     idempotency: "not_supported",
     compensationPolicy: "draft_only",
     inputSchema: hangingFixtureInputSchema,
+    outputSchema: "AthenaToolResult",
     execute(_input, _aiContext, execution) {
       if (overrides.onCancellationSignal) {
         execution.cancellationSignal.addEventListener("abort", () => overrides.onCancellationSignal?.(), { once: true });
