@@ -20,7 +20,7 @@ export interface CreateSubcategoryInput {
 }
 
 export interface CreateCostItemInput {
-  orgId?: string;
+  orgId: string;
   subcategoryId: string;
   code: string;
   name: string;
