@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -51,6 +51,8 @@ related_code:
   - web/.env.example
   - .github/workflows/verify-repository.yml
   - web/src/proxy.ts
+  - web/src/lib/supabase/proxy.ts
+  - web/src/lib/supabase/proxy.test.ts
   - web/next.config.ts
   - app/backend/middleware/productionHardening.ts
   - app/.env.example
@@ -134,6 +136,7 @@ See module docs in `docs/modules/`.
 
 ## Recent verified changes
 
+- Web app-route auth proxy hardening: unauthenticated requests to authenticated web route families now redirect to `/login` from `web/src/proxy.ts`/`web/src/lib/supabase/proxy.ts` before the `(app)` route tree can render or stream protected page content. The matcher now covers `/athena`, `/brand-studio`, `/costbook`, `/customers`, `/dashboard`, `/dispatch`, `/finish-setup`, `/portal`, `/projects`, and `/settings`. This fixes the production-observed behavior where unauthenticated protected routes could return HTTP 200 with a streamed `NEXT_REDIRECT` marker instead of an upfront redirect. Public `/login` and `/signup` remain outside the proxy matcher. Regression coverage in `web/src/lib/supabase/proxy.test.ts` pins both the unauthenticated redirect gate and the protected-route matcher set.
 - Web font/build reliability: the root web layout no longer imports `next/font/google`. The existing TradeOS font CSS-variable names remain stable, but they now resolve through installed/system fallback stacks in `globals.css`, removing build-time dependence on Google Fonts and Turbopack's external Google-font loader. This is a presentation/build-reliability change only; component behavior, application routing, backend APIs, auth, RLS, and database behavior are unchanged.
 - Project Athena A7 Memory repair: `AthenaMemoryService` now exposes only active, unexpired caller-visible memories; corrected and expired rows are no longer retrievable through `getById`. User/conversation memory remains exact-actor scoped and organization memory remains exact-organization scoped. Contract-recognized `project`/`job` memory now fails closed at both the service and forced-RLS layers until explicit object-scope authorization is implemented, replacing the rejected org-wide-read default. Deterministic write policy, source attribution, correction/supersession, forgetting, retention metadata, the lazy user-memory context provider, and the dormant post-action memory hook remain infrastructure-only; no production memory extraction, business-tool execution, semantic retrieval, or autonomous write path is enabled.
 - Project Athena A8 Event integration adds `AthenaEvent`, `AthenaEventDelivery`, and `AthenaEventDeadLetter` persistence plus an idempotent publisher, static subscriber registry, retry/dead-letter handling, and replay helper. Delivery failure reasons are stored as safe reason codes rather than raw exception messages. The implementation remains dark infrastructure: no autonomous Athena action, no proposal-route response contract change, and no production subscriber dispatch loop is enabled.
