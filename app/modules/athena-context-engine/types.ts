@@ -16,7 +16,7 @@ export type { AthenaFreshnessEvidence, AthenaProviderSection, AthenaSelectedScop
 // assembler from writing an arbitrary provider-supplied key onto the
 // context object - every section this catalog allows already exists as a
 // named optional field on AthenaAIContext.
-export const ATHENA_CONTEXT_SECTIONS = ["knowledgeEngine", "dispatch", "weather", "calendar", "customers", "costbook", "inventory", "notifications", "memory"] as const;
+export const ATHENA_CONTEXT_SECTIONS = ["knowledgeEngine", "dispatch", "weather", "calendar", "customers", "estimates", "costbook", "inventory", "notifications", "memory"] as const;
 export type AthenaContextSectionName = (typeof ATHENA_CONTEXT_SECTIONS)[number];
 
 export type AthenaContextActivationMode = "eager_minimal" | "lazy_intent" | "explicit_only";
@@ -55,6 +55,8 @@ export interface AthenaContextProviderDefinition<TData = unknown> {
   id: string;
   version: string;
   owner: string;
+  name: string;
+  priority: number;
   section: AthenaContextSectionName;
   description: string;
   permissions: string[];
@@ -69,7 +71,7 @@ export interface AthenaContextProviderDefinition<TData = unknown> {
   cacheKeyPolicy: AthenaContextCacheKeyPolicy;
   criticality: AthenaContextCriticality;
   failureBehavior: AthenaContextFailureBehavior;
-  fetch(input: AthenaContextProviderInput): Promise<AthenaContextProviderFetchResult<TData>>;
+  provide(input: AthenaContextProviderInput): Promise<AthenaContextProviderFetchResult<TData>>;
 }
 
 export interface AthenaContextDiscoveryActor {

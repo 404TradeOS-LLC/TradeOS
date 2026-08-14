@@ -15,12 +15,15 @@ const athenaExecutionUpdate = jest.fn(async ({ where, data }: { where: { id: str
 const athenaExecutionFindFirst = jest.fn(async ({ where }: { where: { id: string } }) => executions.get(where.id) ?? null);
 const athenaExecutionTransitionCreate = jest.fn(async () => undefined);
 const athenaTelemetryRecordCreate = jest.fn(async () => undefined);
+const athenaAuditEventFindFirst = jest.fn(async () => null);
+const athenaAuditEventCreate = jest.fn(async () => undefined);
 
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaAuditEvent: { findFirst: athenaAuditEventFindFirst, create: athenaAuditEventCreate },
   },
 }));
 

@@ -1,3 +1,4 @@
+import { getRolePermissions } from "../../../domain";
 import { z } from "zod";
 import type { JobsService } from "../../jobs/service";
 import type { JobDTO } from "../../jobs/types";
@@ -69,7 +70,12 @@ export function createJobUpdateStatusTool(deps: JobUpdateStatusToolDeps): Athena
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const transitionInput = {
         orgId: execution.orgId,
-        actor: { userId: execution.actor.id, orgId: execution.orgId, role: execution.role },
+        actor: {
+          userId: execution.actor.id,
+          orgId: execution.orgId,
+          role: execution.role,
+          permissions: getRolePermissions(execution.role),
+        },
         reason: input.reason,
       };
 

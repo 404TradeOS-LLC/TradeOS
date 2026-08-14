@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 // tab switch over one route.
 export const ATHENA_SECTIONS = [
   { key: "overview", href: "/athena", label: "Overview" },
+  { key: "approvals", href: "/athena/approvals", label: "Approvals" },
   { key: "traces", href: "/athena/traces", label: "Traces" },
   { key: "tools", href: "/athena/tools", label: "Tool Health" },
   { key: "models", href: "/athena/models", label: "Models & Cost" },

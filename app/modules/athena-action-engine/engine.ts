@@ -141,6 +141,10 @@ function buildToolFailureResult<TData>(error: ReturnType<typeof athenaActionUnex
   };
 }
 
+function buildApprovalActionId(request: Pick<AthenaActionExecutionRequest, "toolId" | "toolVersion" | "planId" | "stepId" | "idempotencyKey">): string {
+  return [request.toolId, request.toolVersion, request.planId ?? "unknown-plan", request.stepId ?? "unknown-step", request.idempotencyKey ?? "missing-key"].join(":");
+}
+
 // Executes exactly one already-authorized tool_call step
 // (docs/athena/roadmap/A6-action-engine-implementation-plan.md). Never
 // invoked by A6 itself for a "deny" decision or an unverified
@@ -338,10 +342,11 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
       const verification = await approvalVerifier.verify({
         approvalId: request.approvalId,
         orgId: request.orgId,
-        actorUserId: request.actor.id,
+        userId: request.actor.id,
+        actionId: buildApprovalActionId(request),
         toolId: tool.id,
         toolVersion: tool.version,
-        risk: authoritativeRisk,
+        riskLevel: authoritativeRisk,
         idempotencyKey: request.idempotencyKey,
         inputHash: validatedInputHash,
         planId: request.planId,
@@ -409,6 +414,7 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
             cancellationSignal: signal,
             approvalId: request.approvalId,
             featureFlags: request.featureFlags,
+            permissionContext: request.permissionDecision.permissionContext,
           }),
         tool.timeoutMs,
         request.clientSignal

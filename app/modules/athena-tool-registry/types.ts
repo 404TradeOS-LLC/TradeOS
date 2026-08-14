@@ -1,5 +1,6 @@
 import type { CanonicalRole } from "../../domain";
 import type { AthenaAIContext, AthenaFollowUp, AthenaTelemetryReference, AthenaToolError, AthenaWarning } from "../athena-kernel/types";
+import type { AthenaPermissionDecision } from "../athena-permissions/types";
 
 export type { AthenaAIContext, AthenaToolError };
 
@@ -54,10 +55,16 @@ export interface AthenaToolExecutionContext {
   cancellationSignal: AbortSignal;
   approvalId?: string;
   featureFlags: string[];
+  permissionContext?: AthenaPermissionDecision["permissionContext"];
   // Deliberately excludes any Prisma client, request-scoped transaction
   // handle, or getRequestDatabaseClient() reference (see the A2 plan's "No
   // Ambient Request Transaction" section). Real tools reach application
   // services only, starting at A6 - never the database directly.
+}
+
+export interface AthenaToolResourceScope<TInput = unknown> {
+  entityType: "job" | "customer" | "estimate" | "costbook_item";
+  getEntityId(input: TInput): string | undefined;
 }
 
 export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
@@ -81,6 +88,7 @@ export interface AthenaToolDefinition<TInput = unknown, TData = unknown> {
   outputSchema?: AthenaToolOutputSchema;
   requiredFeatureFlags?: string[];
   deprecated?: AthenaToolDeprecation;
+  resourceScope?: AthenaToolResourceScope<TInput>;
   execute(input: TInput, aiContext: AthenaAIContext, execution: AthenaToolExecutionContext): Promise<AthenaToolResult<TData>>;
 }
 

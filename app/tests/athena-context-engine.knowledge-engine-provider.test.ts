@@ -16,7 +16,7 @@ describe("knowledgeEngine context provider", () => {
 
   it("fetches stats and trades through KnowledgeRuntimeService, producing a valid fetch result", async () => {
     const provider = createKnowledgeEngineProvider();
-    const result = await provider.fetch({
+    const result = await provider.provide({
       orgId: "org-1",
       actor: { userId: "user-1", role: "owner" },
       selectedScope: {},
@@ -33,8 +33,8 @@ describe("knowledgeEngine context provider", () => {
   it("includes a real, deterministic sourceHash rather than a fabricated version string", async () => {
     const provider = createKnowledgeEngineProvider();
     const request = { orgId: "org-1", actor: { userId: "user-1", role: "owner" as const }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal };
-    const first = await provider.fetch(request);
-    const second = await provider.fetch(request);
+    const first = await provider.provide(request);
+    const second = await provider.provide(request);
     expect(first.sourceHash).toBeDefined();
     expect(first.sourceHash).toBe(second.sourceHash);
   });

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-14
 source_of_truth: true
 related_docs:
   - ../TRADEOS_BIBLE.md
@@ -31,6 +31,13 @@ As of Friday, August 14, 2026, current Athena core implementation still lives in
 `app/backend/controllers/athena.controller.ts`. `packages/athena/` remains the
 canonical future ownership boundary per repository governance and ADR-005; it is
 not the current source layout.
+
+PR #202 is the current production-readiness slice on top of the merged Athena
+foundation. It adds durable approval and audit persistence, operator approval
+routes/UI, resource-aware permission context, and additional first-party context
+providers. Those capabilities remain subject to the existing Athena feature
+flags and deployment controls; repository merge state does not by itself mean
+Athena is enabled in production.
 
 ## Binding Decisions
 

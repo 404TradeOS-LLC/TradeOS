@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getRolePermissions, normalizeRole } from "../../domain";
+import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
@@ -16,6 +17,7 @@ const service = new AthenaKernelService();
 // handleRequest() call rather than relying on the kernel's empty default
 // (see athena-kernel/service.ts's `toolRegistry` module comment).
 const toolRegistry = createProductionAthenaToolRegistry();
+const auditStore = createPrismaAthenaAuditStore();
 
 function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.success) return 200;
@@ -86,6 +88,7 @@ export const athenaController = {
     res.once("close", onResponseClose);
 
     try {
+      const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
       const result = await service.handleRequest({
         request: {
           message: body.message,
@@ -97,12 +100,38 @@ export const athenaController = {
           userId: auth.userId,
           orgId,
           role: canonicalRole,
-          permissions: [...getRolePermissions(canonicalRole)],
+          permissions: [...(auth.permissions ?? getRolePermissions(auth.role))],
         },
         requestId,
         clientSignal: controller.signal,
         toolRegistry,
+        auditStore: requestAuditStore,
       });
+
+      // The kernel records terminal audit events for action outcomes. Some
+      // non-action terminal paths (for example draft-only success, permission
+      // denial, and cancellation) historically returned without one. Add the
+      // request-level terminal event only when the kernel did not already
+      // emit one, preserving the exactly-one terminal audit invariant without
+      // duplicating successful/failed action events. Because this fallback is
+      // the only durable terminal record for those paths, persistence failure
+      // fails the request rather than returning without terminal audit state.
+      if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
+        await requestAuditStore.record({
+          id: randomUUID(),
+          timestamp: new Date(),
+          actor: { userId: auth.userId, role: canonicalRole },
+          organization: orgId,
+          eventType: result.success ? "execution_completed" : "failure",
+          metadata: {
+            finalState: result.state,
+            reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
+          },
+          requestId,
+          traceId: result.traceId,
+          executionId: result.executionId,
+        });
+      }
 
       res.status(resolveStatusCode(result)).json(result);
     } finally {

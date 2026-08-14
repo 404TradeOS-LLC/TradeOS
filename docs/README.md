@@ -46,6 +46,7 @@ Use these files first:
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 - `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)
+- `docs/athena/SECURITY_MODEL.md` for Athena trust boundaries, approval rules, and forbidden patterns
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -180,3 +181,8 @@ Rename handling:
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
 - [archive/](archive/)
+
+Athena production-readiness changes that touch approvals, audit persistence,
+permission context, or provider scope should update both the Athena-specific
+docs and whichever shared platform docs describe tenancy, RBAC, or runtime
+architecture.

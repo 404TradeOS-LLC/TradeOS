@@ -56,11 +56,19 @@ import type { AthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryCandidateExtractor } from "../modules/athena-memory/types";
 import type { JobsService } from "../modules/jobs/service";
 import type { PaginatedJobsDTO } from "../modules/jobs/types";
+import { getRolePermissions } from "../domain";
 
 const baseEnv = { ATHENA_PROVIDER_MODE: "fake" } as NodeJS.ProcessEnv;
 
 function actor(overrides: Partial<AthenaActorContext> = {}): AthenaActorContext {
-  return { userId: "user-1", orgId: "org-1", role: "owner", permissions: [], ...overrides };
+  const role = overrides.role ?? "owner";
+  return {
+    userId: "user-1",
+    orgId: "org-1",
+    role,
+    permissions: overrides.permissions ?? [...getRolePermissions(role)],
+    ...overrides,
+  };
 }
 
 describe("AthenaKernelService", () => {
@@ -518,13 +526,13 @@ describe("AthenaKernelService", () => {
       expect(provider.generateDraft).not.toHaveBeenCalled();
     });
 
-    it("never attempts context assembly for draft_response - no requestedContextIntents means no provider fetch", async () => {
+    it("never attempts context assembly for draft_response - no requestedContextIntents means no provider call", async () => {
       const contextRegistry = createAthenaContextRegistry();
       let fetched = false;
       const spyProvider = createKnowledgeEngineProvider({
-        async fetch(fetchInput) {
+        async provide(fetchInput) {
           fetched = true;
-          return createKnowledgeEngineProvider().fetch(fetchInput);
+          return createKnowledgeEngineProvider().provide(fetchInput);
         },
       });
       contextRegistry.register(spyProvider);
@@ -645,10 +653,11 @@ describe("AthenaKernelService", () => {
         async verify(input) {
           expect(input.approvalId).toBe("approval-a6-1");
           expect(input.orgId).toBe("org-1");
-          expect(input.actorUserId).toBe("user-1");
+          expect(input.userId).toBe("user-1");
+          expect(input.actionId).toBe(`tradeos.athena.fixture.a6-approved:1.0.0:${input.planId}:${input.stepId}:idem-a6-1`);
           expect(input.toolId).toBe("tradeos.athena.fixture.a6-approved");
           expect(input.toolVersion).toBe("1.0.0");
-          expect(input.risk).toBe("high");
+          expect(input.riskLevel).toBe("high");
           expect(input.idempotencyKey).toBe("idem-a6-1");
           expect(input.inputHash).toBe(expectedInputHash);
           expect(typeof input.planId).toBe("string");

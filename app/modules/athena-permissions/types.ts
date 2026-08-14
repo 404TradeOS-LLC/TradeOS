@@ -35,7 +35,7 @@ export type AthenaNonToolCapabilityKind = "draft_response" | "mutate_business_re
 // remains blocked on the still-unresolved HIGH-P3 object-scope prerequisite
 // from the A3 plan and must not be silently granted access here.
 export interface AthenaResourceRequest {
-  entityType: "job";
+  entityType: "job" | "customer" | "estimate" | "costbook_item";
   entityId: string;
 }
 
@@ -75,6 +75,16 @@ export interface AthenaPermissionDecision {
   userId: string;
   role: CanonicalRole;
   permissions: string[];
+  permissionContext: {
+    organizationScope: string;
+    userScope: string;
+    roleScope: CanonicalRole;
+    resourceScope?: {
+      entityType: string;
+      entityId: string;
+      relationship: "owner" | "assignee" | "member" | "viewer" | "none";
+    };
+  };
   capability: string;
   resourceScope?: {
     entityType: string;

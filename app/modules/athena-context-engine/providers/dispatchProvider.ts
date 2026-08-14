@@ -1,3 +1,4 @@
+import { getRolePermissions } from "../../../domain";
 import type { AuthContext } from "../../../backend/auth/context";
 import type { JobStatus } from "../../../domain";
 import { JobsService } from "../../jobs/service";
@@ -63,6 +64,8 @@ export function createDispatchProvider(overrides: Partial<AthenaContextProviderD
     id: "tradeos.athena.context.dispatch",
     version: "1.0.0",
     owner: "athena-context-engine",
+    name: "Dispatch Context",
+    priority: 70,
     section: "dispatch",
     description: "Actor-scoped job scheduling summary, inherited from JobsService/jobs_select_policy RLS.",
     // Deliberately no domain-permission requirement here: RBAC_MATRIX.md's
@@ -85,8 +88,14 @@ export function createDispatchProvider(overrides: Partial<AthenaContextProviderD
     cacheKeyPolicy: "none",
     criticality: "optional",
     failureBehavior: "degrade",
-    async fetch(input): Promise<AthenaContextProviderFetchResult<AthenaDispatchContextData>> {
-      const auth: AuthContext = { userId: input.actor.userId, orgId: input.orgId, role: input.actor.role, canonicalRole: input.actor.role };
+    async provide(input): Promise<AthenaContextProviderFetchResult<AthenaDispatchContextData>> {
+      const auth: AuthContext = {
+        userId: input.actor.userId,
+        orgId: input.orgId,
+        role: input.actor.role,
+        canonicalRole: input.actor.role,
+        permissions: getRolePermissions(input.actor.role),
+      };
       if (input.selectedScope.jobId) {
         const job = await jobsService.getById(input.orgId, input.selectedScope.jobId, auth);
         return {

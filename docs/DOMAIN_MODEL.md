@@ -188,6 +188,23 @@ Project Athena A10 observability adds one new table, `AthenaAlert`, plus indexes
 - writes are service-owned (the alert evaluator/exporter/retention jobs run as an authenticated org session scoped to one `{orgId, userId}` membership pair via the existing `runWithBackgroundDatabaseSession` pattern), never tied to the alert's own "actor"
 - observability is feature-flagged off (`ATHENA_OBSERVABILITY_ENABLED=false`) by default; see `app/modules/athena-observability`
 
+## Athena approvals and audit trail
+
+Project Athena production-readiness hardening adds two new entity families:
+
+- `AthenaApproval` stores the exact action-binding required to authorize a
+  medium- or high-risk Athena action: org, requesting user, action id, tool id
+  and version, risk level, idempotency key, canonical input hash, plan id, step
+  id, status, expiration, and review metadata.
+- `AthenaAuditEvent` stores safe internal Athena lifecycle events such as
+  request receipt, context gathering, tool consideration, action attempts,
+  approval requests, completion, and failure.
+
+`AthenaApproval` is requester-readable but reviewable only by operator roles at
+the API layer, with database RLS now also restricting row updates to
+`owner`/`admin`/`dispatcher`. `AthenaAuditEvent` is tenant-scoped and inherits
+the same request-scoped session model as the rest of Athena's runtime tables.
+
 ## Costbook workspace foundation
 
 C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization-scoped foundation records for the future unified Costbook workspace.

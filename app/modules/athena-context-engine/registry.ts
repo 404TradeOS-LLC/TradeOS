@@ -46,6 +46,12 @@ export function assertValidProviderDefinition(definition: AthenaContextProviderD
   if (!definition.owner || typeof definition.owner !== "string") {
     throw new Error("AthenaContextProviderDefinition.owner must be a non-empty string");
   }
+  if (!definition.name || typeof definition.name !== "string") {
+    throw new Error("AthenaContextProviderDefinition.name must be a non-empty string");
+  }
+  if (typeof definition.priority !== "number" || !Number.isFinite(definition.priority)) {
+    throw new Error("AthenaContextProviderDefinition.priority must be a finite number");
+  }
   if (!KNOWN_SECTIONS.has(definition.section)) {
     throw new Error(`AthenaContextProviderDefinition.section is not a recognized C001 section: ${String(definition.section)}`);
   }
@@ -91,8 +97,8 @@ export function assertValidProviderDefinition(definition: AthenaContextProviderD
   if (definition.requiredFeatureFlags !== undefined && !Array.isArray(definition.requiredFeatureFlags)) {
     throw new Error("AthenaContextProviderDefinition.requiredFeatureFlags must be an array when present");
   }
-  if (typeof definition.fetch !== "function") {
-    throw new Error("AthenaContextProviderDefinition.fetch must be a function");
+  if (typeof definition.provide !== "function") {
+    throw new Error("AthenaContextProviderDefinition.provide must be a function");
   }
 }
 
@@ -133,7 +139,7 @@ export function createAthenaContextRegistry(): AthenaContextRegistry {
     },
 
     list() {
-      return [...entries.values()];
+      return [...entries.values()].sort((left, right) => right.priority - left.priority || left.id.localeCompare(right.id));
     },
   };
 }

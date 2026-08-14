@@ -100,6 +100,19 @@ Two tools are gated by a permission stronger than what they technically execute,
 
 See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` section 5 for why every A12 tool is `risk: "low"` rather than `medium`/`high` (in short: none of them sends, finalizes, or changes a stored price - the categories that would require approval - and production has no real approval-verifier submission surface yet for a `medium`/`high`-risk tool to complete against).
 
+## Athena approvals and audit review
+
+- Athena approval review routes and the operator-facing `/athena/approvals`
+  surface are limited to `owner` and `admin`.
+- A requester may submit and read their own approval request record, but may
+  not review or self-grant it.
+- Database RLS on `athena_approvals` allows requester reads and inserts, while
+  row updates are restricted to operator roles (`owner`/`admin`/`dispatcher`)
+  as a defense-in-depth floor under the narrower HTTP layer.
+- Athena audit/event review in the operator console is also owner/admin only,
+  even though the underlying audit table keeps actor-scoped visibility for
+  non-operator callers.
+
 ## Current auth-specific constraints
 
 - first-owner provisioning creates an `owner`; this only happens once per identity — `POST /api/v1/auth/bootstrap` looks up an existing membership (by verified `authSubject`/email) before ever provisioning, so calling it again for an already-bootstrapped user (which the frontend now does on every login, not just at signup) returns their existing role and never creates a second organization or membership, and the client-supplied `organizationName` is ignored entirely once a membership already exists. That lookup runs inside a transaction that explicitly sets the `app.login_lookup` → `app.user_id` → `app.org_id` RLS session flags in sequence (a fixed production bug — see `docs/modules/auth-and-tenancy.md`'s Database security invariants), since the request has no established org context yet

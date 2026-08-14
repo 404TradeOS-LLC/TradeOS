@@ -74,19 +74,15 @@ Prioritize existing authorized work before inventing new scope:
 2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and reconcile deliberately against current `main` and C005-era hierarchy changes; do not treat it as maintenance auto-merge.
 3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
 
+Athena production-readiness work on top of the kernel-foundation dependency now includes durable approvals, audit persistence, operator approval review, and real customer/estimate/costbook context providers. Because this scope includes new migration-backed tables and RLS policies, it remains PR-only/human-decision work even when the code diff itself is bounded.
+
 Open issue inventory verified during reconciliation includes issue #144 for Athena transactional event reliability and issue #153 for Costbook hierarchy activation permissions/migration sequencing.
 
 ## Autonomous maintenance operating mode
 
 Scheduled maintenance and repair agents follow `AGENTS.md`, the Next Sprint Protocol, and Repository Governance together.
 
-Before any scheduled or agent-driven branch is created, agents must run the
-scoped [Autonomy Reconciliation Preflight](agent-prompts/AUTONOMY_RECONCILIATION.md)
-and record `EXISTING_WORK_FOUND`, `NEW_WORK_REQUIRED`, or
-`NO_ACTION_REQUIRED`. Only `NEW_WORK_REQUIRED` permits branch creation. The
-`npm run autonomy:reconcile -- --task "..."` helper gathers current Git/PR
-evidence and likely semantic overlap; agents still inspect the surfaced
-evidence before acting.
+Before any scheduled or agent-driven branch is created, agents must run the scoped [Autonomy Reconciliation Preflight](agent-prompts/AUTONOMY_RECONCILIATION.md) and record `EXISTING_WORK_FOUND`, `NEW_WORK_REQUIRED`, or `NO_ACTION_REQUIRED`. Only `NEW_WORK_REQUIRED` permits branch creation. The `npm run autonomy:reconcile -- --task "..."` helper gathers current Git/PR evidence and likely semantic overlap; agents still inspect the surfaced evidence before acting.
 
 For a validated low-risk maintenance defect, the expected loop is:
 

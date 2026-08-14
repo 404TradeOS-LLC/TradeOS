@@ -26,5 +26,6 @@ export function defineTool<TSchema extends AthenaToolInputSchema, TData = unknow
   };
   if (options.requiredFeatureFlags !== undefined) definition.requiredFeatureFlags = options.requiredFeatureFlags;
   if (options.deprecated !== undefined) definition.deprecated = options.deprecated;
+  if (options.resourceScope !== undefined) definition.resourceScope = options.resourceScope;
   return definition;
 }

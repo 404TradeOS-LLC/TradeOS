@@ -3,6 +3,7 @@ import { createAssignTechnicianTool } from "../modules/athena-tools/dispatcher/a
 import type { AssignTechnicianToolDeps } from "../modules/athena-tools/dispatcher/assignTechnician.tool";
 import type { JobAssignmentDTO } from "../modules/jobs/types";
 import type { AthenaJobEventRef } from "../modules/jobs/service";
+import { getRolePermissions } from "../domain";
 
 // A12 Business Tool Rollout, Dispatcher domain contract test. Fake
 // JobsService dep is a plain jest.fn(), matching the repo convention already
@@ -72,6 +73,11 @@ describe("athena-tools dispatcher: assign-technician", () => {
       deadline: new Date(Date.now() + 1000),
       cancellationSignal: new AbortController().signal,
       featureFlags: [],
+      permissionContext: {
+        organizationScope: "org-1",
+        userScope: "user-1",
+        roleScope: "owner",
+      },
     });
     expect(result.success).toBe(true);
     expect(result.events).toEqual([{ type: "TechnicianAssigned", id: "event-77" }]);
@@ -79,7 +85,7 @@ describe("athena-tools dispatcher: assign-technician", () => {
       validInput.jobId,
       expect.objectContaining({
         orgId: "org-1",
-        actor: { userId: "user-1", orgId: "org-1", role: "owner" },
+        actor: { userId: "user-1", orgId: "org-1", role: "owner", permissions: getRolePermissions("owner") },
         userId: validInput.technicianId,
         assignmentRole: "technician",
       })
@@ -99,6 +105,11 @@ describe("athena-tools dispatcher: assign-technician", () => {
       deadline: new Date(Date.now() + 1000),
       cancellationSignal: new AbortController().signal,
       featureFlags: [],
+      permissionContext: {
+        organizationScope: "org-1",
+        userScope: "user-1",
+        roleScope: "owner",
+      },
     });
     expect(result.success).toBe(true);
     expect(result.events).toEqual([]);
