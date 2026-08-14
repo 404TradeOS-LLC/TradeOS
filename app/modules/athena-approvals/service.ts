@@ -46,7 +46,7 @@ export class AthenaApprovalBindingConflictError extends Error {
 }
 
 export class AthenaApprovalReviewError extends Error {
-  constructor(readonly code: "approval_not_found" | "self_approval_forbidden") {
+  constructor(readonly code: "approval_not_found" | "approval_not_pending" | "self_approval_forbidden") {
     super(code);
   }
 }
@@ -165,15 +165,28 @@ export class AthenaApprovalService {
     if (approval.userId === approvedBy) {
       throw new AthenaApprovalReviewError("self_approval_forbidden");
     }
+    if (approval.status !== "pending") {
+      throw new AthenaApprovalReviewError("approval_not_pending");
+    }
+  }
+
+  private async review(organizationId: string, approvalId: string, approvedBy: string, decision: "grant" | "deny"): Promise<AthenaApprovalRecord> {
+    await this.assertReviewAllowed(organizationId, approvalId, approvedBy);
+    const reviewed = await store.reviewPending(organizationId, approvalId, decision, approvedBy);
+    if (!reviewed) {
+      // The approval was changed after the pre-check. The conditional store
+      // transition is the authority, so a stale reviewer never overwrites a
+      // concurrent grant/deny/revoke/expiry.
+      throw new AthenaApprovalReviewError("approval_not_pending");
+    }
+    return reviewed;
   }
 
   async grant(organizationId: string, approvalId: string, approvedBy: string): Promise<AthenaApprovalRecord> {
-    await this.assertReviewAllowed(organizationId, approvalId, approvedBy);
-    return store.grant(approvalId, approvedBy);
+    return this.review(organizationId, approvalId, approvedBy, "grant");
   }
 
   async deny(organizationId: string, approvalId: string, approvedBy: string): Promise<AthenaApprovalRecord> {
-    await this.assertReviewAllowed(organizationId, approvalId, approvedBy);
-    return store.deny(approvalId, approvedBy);
+    return this.review(organizationId, approvalId, approvedBy, "deny");
   }
 }
