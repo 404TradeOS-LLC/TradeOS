@@ -30,6 +30,7 @@ const emptyForm: EquipmentFormState = {
   dailyRate: "",
 };
 
+/** Renders permission-aware Costbook equipment CRUD without allowing edit changes during pending mutations. */
 export function EquipmentCatalog({
   initialEquipment,
   canWrite,
@@ -51,6 +52,7 @@ export function EquipmentCatalog({
     [editingId, equipment]
   );
 
+  /** Returns the form to create mode unless a save or delete currently owns the form state. */
   function startCreate() {
     if (saving) return;
     setEditingId(null);
@@ -58,6 +60,7 @@ export function EquipmentCatalog({
     setError(null);
   }
 
+  /** Populates the form from one equipment record unless a mutation is already pending. */
   function startEdit(item: EquipmentCatalogRecord) {
     if (saving) return;
     setEditingId(item.id);
@@ -70,6 +73,7 @@ export function EquipmentCatalog({
     setError(null);
   }
 
+  /** Creates or updates one equipment record while the form and edit transitions are locked. */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -96,6 +100,7 @@ export function EquipmentCatalog({
     }
   }
 
+  /** Permanently deletes one equipment record while other form transitions remain locked. */
   async function handleDelete(id: string) {
     if (!window.confirm("Permanently delete this equipment record?")) return;
 
@@ -140,6 +145,7 @@ export function EquipmentCatalog({
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
                 placeholder="Scissor Lift"
                 required
+                disabled={saving}
               />
             </Field>
             <Field label="Ownership Cost">
@@ -151,6 +157,7 @@ export function EquipmentCatalog({
                 onChange={(event) => setForm({ ...form, ownershipCostPerHour: event.target.value })}
                 placeholder="28.50"
                 required
+                disabled={saving}
               />
             </Field>
             <Field label="Operating Cost">
@@ -162,6 +169,7 @@ export function EquipmentCatalog({
                 onChange={(event) => setForm({ ...form, operatingCostPerHour: event.target.value })}
                 placeholder="11.25"
                 required
+                disabled={saving}
               />
             </Field>
             <Field label="Daily Rate" className="md:col-span-2">
@@ -172,6 +180,7 @@ export function EquipmentCatalog({
                 value={form.dailyRate}
                 onChange={(event) => setForm({ ...form, dailyRate: event.target.value })}
                 placeholder="325.00"
+                disabled={saving}
               />
             </Field>
             <div className="flex items-end md:col-span-2">
@@ -278,6 +287,7 @@ export function EquipmentCatalog({
   );
 }
 
+/** Renders a labeled equipment form field. */
 function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
   return (
     <label className={className}>
@@ -287,6 +297,7 @@ function Field({ label, className, children }: { label: string; className?: stri
   );
 }
 
+/** Renders a compact equipment metric pair for the mobile catalog view. */
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -296,6 +307,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Converts string form fields into the equipment API mutation payload. */
 function toPayload(form: EquipmentFormState): EquipmentCatalogPayload {
   return {
     name: form.name.trim(),
@@ -305,14 +317,17 @@ function toPayload(form: EquipmentFormState): EquipmentCatalogPayload {
   };
 }
 
+/** Returns equipment records in stable name/creation order. */
 function sortEquipment(items: EquipmentCatalogRecord[]) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name) || a.createdAt.localeCompare(b.createdAt));
 }
 
+/** Formats equipment money values in US dollars. */
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 }
 
+/** Formats equipment update timestamps for compact display. */
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
