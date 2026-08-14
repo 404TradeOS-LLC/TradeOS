@@ -75,6 +75,12 @@ Approval records bind to exact action identity:
 Any mismatch, missing field, stale approval, future-dated approval, revoked
 status, or unknown approval fails closed.
 
+Before an organization-scoped approval list or detail read, overdue records that
+are still persisted as `pending` are atomically transitioned to `expired` using
+the same organization scope and a conditional pending-state predicate. This
+prevents stale `pending` reads without overwriting concurrent grant/deny/revoke
+transitions or rows owned by another organization.
+
 ## Audit events
 
 Current event types:
