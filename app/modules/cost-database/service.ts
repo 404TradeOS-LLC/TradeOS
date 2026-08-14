@@ -195,7 +195,7 @@ export class CostDatabaseService {
         if (!row.subcategoryId || !row.code || !row.name || !row.unitOfMeasure) {
           throw new Error("subcategoryId, code, name, and unitOfMeasure are required");
         }
-        await this.create({ orgId, ...row });
+        await this.create({ ...row, orgId });
         result.created += 1;
       } catch (err) {
         result.errors.push({ row: i, message: err instanceof Error ? err.message : "Unknown error" });
