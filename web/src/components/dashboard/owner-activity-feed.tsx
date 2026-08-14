@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/document-workflow";
+import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
 import type { OwnerActivityEntry, OwnerActivityTone } from "./owner-dashboard-data";
 import type { ReactNode } from "react";
 
@@ -25,12 +25,7 @@ export function OwnerActivityFeed({
   emptyState = <EmptyState title="No owner activity yet." description="Live customer, job, estimate, and payment milestones will appear here once an authoritative activity feed is wired." />,
 }: OwnerActivityFeedProps) {
   return (
-    <Card className="border-border/70">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <DashboardPanel title={title} description={description} contentClassName="gap-0">
         {entries.length === 0 ? (
           emptyState
         ) : (
@@ -58,7 +53,6 @@ export function OwnerActivityFeed({
             ))}
           </ol>
         )}
-      </CardContent>
-    </Card>
+    </DashboardPanel>
   );
 }

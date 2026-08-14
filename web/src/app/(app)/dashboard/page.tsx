@@ -249,7 +249,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OwnerDashboardHeader companyName={companyName} currentDateLabel={currentDateLabel} notificationCount={notificationCount} weather={weather} />
+      <OwnerDashboardHeader
+        companyName={companyName}
+        currentDateLabel={currentDateLabel}
+        notificationCount={notificationCount}
+        weather={weather}
+        projectScopeLabel={projectScopeLabel}
+        reviewQueue={{
+          estimates: attentionEstimates.length,
+          proposals: attentionProposals.length,
+          invoices: attentionInvoices.length,
+          starts: attentionReadyToStart.length,
+        }}
+      />
 
       <NeedsAttentionCard
         estimates={attentionEstimates}
