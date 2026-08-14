@@ -139,3 +139,7 @@ communications.
 - Provider errors are logged with correlation IDs and redacted inputs.
 - Provider failures never cause Athena to fabricate facts or silently widen
   scope to find substitute data.
+
+## A12.1 transaction-boundary note
+
+A12.1 does not widen or alter context acquisition. The transactional wrappers for the six required canonical business events reuse the same server-derived actor, organization, permissions, and selected resource scope already established before tool/service execution; the Context Engine neither starts those business transactions nor treats event persistence as authorization evidence.
