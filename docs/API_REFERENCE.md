@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-13
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -113,7 +113,7 @@ AI estimating routes under `/api/v1/estimates`:
 
 `ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
 
-Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` gained an additive, optional `athenaEvent` field on their service return values containing the real A8 event reference when publication succeeds. Because the existing estimate/job controllers serialize those service return objects directly, the corresponding HTTP responses also inherit this optional field: it is present when publication succeeds and omitted when publication fails. Event publication is currently non-blocking, so omission of `athenaEvent` does not change the success status of the underlying business mutation. Clients must treat `athenaEvent` as optional additive response metadata. Controller regression tests cover both ordinary responses where the field is omitted and responses where it is present. See [athena/roadmap/A12-business-tool-rollout-implementation-plan.md](athena/roadmap/A12-business-tool-rollout-implementation-plan.md).
+Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
 `POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
 of Friday, August 14, 2026, it:
@@ -255,7 +255,7 @@ Project task routes under `/api/v1/projects`:
 - `limit` — optional integer, `1..50`, default service cap `24`
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
 
-`POST /api/v1/proposals/:id/send`'s request/response contract is unchanged by Project Athena's A8 event integration: after the existing status-transition mutation commits, the route's underlying service call also publishes a canonical `ProposalSent` event (C008, `docs/athena/10-events/README.md`) through `app/modules/athena-events`. This is dark infrastructure, not new API behavior — publication failures are caught and logged, never surfaced to the caller, and no subscriber consumes the event yet. See [modules/proposals.md](modules/proposals.md).
+`POST /api/v1/proposals/:id/send` retains its existing request/response shape. Under A12.1, the `ProposalSent` canonical event must persist in the same database transaction as the `draft -> sent` mutation; failure of required event persistence rolls that mutation back. Subscriber delivery remains asynchronous and is not part of the HTTP transaction contract. See [modules/proposals.md](modules/proposals.md) and [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
 ## Detailed module links
 

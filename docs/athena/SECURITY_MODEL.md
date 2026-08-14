@@ -131,3 +131,7 @@ Athena may summarize or route on that input, but it may not:
   so compatibility fallback remains in the shared auth type;
 - broader first-party context providers beyond dispatch/knowledge/memory are
   still framework-ready rather than fully wired to live module data.
+
+## A12.1 transactional event security invariant
+
+For the six required canonical business events, event persistence now participates in the same database transaction as the authorized business mutation. This does not move authorization into the event layer: identity, organization scope, permissions, object-scope checks, approval policy, service validation, and forced RLS remain authoritative before and during the mutation. A required event-persistence failure rolls the authorized business mutation back; it never creates a permission bypass or cross-tenant fallback. Subscriber delivery remains asynchronous after commit.

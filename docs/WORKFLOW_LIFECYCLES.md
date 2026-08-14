@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-28
+last_verified: 2026-08-12
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -10,6 +10,8 @@ related_code:
   - app/modules/contracts/service.ts
   - app/modules/invoices/service.ts
   - app/modules/jobs/service.ts
+  - app/modules/athena-events/transactionalContext.ts
+  - app/modules/athena-events/transactionalPublishers.ts
 ---
 
 # Workflow Lifecycles
@@ -78,7 +80,7 @@ Implementation notes:
 - `EstimateEngineService`'s cost/price rounding now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining its own private copy (a duplication cleanup with no change to rounding behavior or transition rules).
 - Structured AI estimator replay protection adds optional line-item `sourceKey` handling but does not change estimate lifecycle states or the draft-only mutation rule.
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
-- A12: `EstimateEngineService.create()` now publishes the canonical `EstimateStarted` A8 event and `finalize()` publishes `EstimateCompleted`, both after their existing mutation/transition already commits - publishing failures are logged and never block or alter the transition itself. Neither adds a new estimate state or changes `draft -> ready` enforcement; see `docs/modules/estimating.md`.
+- A12.1: `EstimateEngineService.create()` requires durable `EstimateStarted` persistence in the same database transaction as estimate creation, and `finalize()` requires durable `EstimateCompleted` persistence in the same transaction as `draft -> ready`. If either required event cannot be persisted, the enclosing estimate mutation/transition rolls back. This does not add an estimate state or alter the allowed transition graph; subscriber delivery remains outside the lifecycle transaction.
 
 ## Costbook Workspace
 
@@ -125,7 +127,7 @@ Compatibility note:
 
 Athena event integration:
 
-- the `draft -> sent` transition also publishes a canonical `ProposalSent` event (Project Athena A8, `docs/athena/10-events/README.md`) after the status mutation commits; no other transition publishes an event yet, and no subscriber consumes it in this milestone
+- A12.1 makes the `draft -> sent` transition and required `ProposalSent` persistence atomic: both commit together or both roll back. No other proposal transition publishes a canonical event yet. Subscriber delivery remains pull-based/asynchronous and is not part of the proposal lifecycle transaction.
 
 ## Contracts
 
@@ -190,7 +192,7 @@ Operational role note:
 
 - dispatchers coordinate assignment, schedule changes, and permitted job-state progression within the current RBAC model, but current docs do not claim automated routing or optimization behavior
 - the Dispatcher Workspace (`/dispatch`) is a read-mostly overview surface built on the existing job list/status model above — it introduces no new canonical status, no new transition, and no new privileged action; "needs attention" is a derived, non-persisted view computed from existing status/schedule/assignment fields (see `app/modules/jobs/dispatchRules.ts`), not a new lifecycle state
-- A12: `JobsService.schedule()` now publishes the canonical `JobScheduled` A8 event, `addAssignment()` publishes `TechnicianAssigned`, and `complete()` publishes `WorkCompleted`, all after their existing mutation/transition already commits - publishing failures are logged and never block or alter the transition itself. `reschedule()` and every other transition above are unchanged. None of these add a new job state or transition; see `docs/modules/jobs-and-scheduling.md`.
+- A12.1: `JobsService.schedule()` + `JobScheduled`, `addAssignment()` + `TechnicianAssigned`, and `complete()` + `WorkCompleted` each commit atomically. Required canonical event-persistence failure rolls back the corresponding schedule/assignment/completion mutation, leaving the prior lifecycle state intact. `reschedule()` and every other transition above remain unchanged. Subscriber delivery is not part of the transaction.
 
 ## Invoices
 
@@ -213,6 +215,10 @@ Current enforced transitions:
 Compatibility persistence:
 
 - legacy values such as `void` and `cancelled` normalize to canonical `voided`
+
+## Transactional canonical-event invariant (A12.1)
+
+For the six required A12 canonical mutation events — `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent` — the business mutation and durable canonical-event persistence share one database transaction. A required event-persistence failure therefore leaves the corresponding business/lifecycle mutation uncommitted. This atomicity applies to persistence only; event delivery, subscribers, retries, dead-lettering, and replay remain separate asynchronous A8 concerns.
 
 ## Privileged overrides summary
 

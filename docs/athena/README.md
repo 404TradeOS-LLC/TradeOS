@@ -111,3 +111,7 @@ Athena extends existing TradeOS seams rather than replacing them:
 If this Bible conflicts with verified implementation truth, stop and identify
 the owning source-of-truth layer before editing. Do not silently duplicate or
 override TradeOS canonical docs.
+
+## A12.1 canonical event reliability
+
+A12.1 strengthens decision 11 without introducing another event system: the six required production canonical events reuse the existing A8 event store and now persist atomically with their corresponding estimate, job, or proposal mutation. Subscriber dispatch, retry, dead-letter, and replay remain asynchronous concerns after commit. This is a service transaction-boundary repair, not a new Athena framework, permission model, tool registry, or event bus.

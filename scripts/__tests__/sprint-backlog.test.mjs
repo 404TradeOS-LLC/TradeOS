@@ -109,7 +109,7 @@ test("first eligible READY sprint is mechanically selected", () => {
       `Next Eligible Sprint does not identify computed sprint ${eligible.id}`
     );
   } else {
-    assert.match(nextEligibleSection, /No other sprint is\s+currently marked `READY`/);
+    assert.match(nextEligibleSection, /No numbered sprint is currently `READY`/);
   }
 });
 

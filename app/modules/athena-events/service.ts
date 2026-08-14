@@ -6,6 +6,7 @@ import { publishAthenaEvent } from "./publisher";
 import { replayAthenaDeadLetter } from "./replay";
 import { createPrismaAthenaEventRepository } from "./store";
 import type { AthenaEventRepository } from "./store";
+import { recordCanonicalEventPublished, recordCanonicalEventPublishFailure } from "./transactionalContext";
 import type {
   AthenaBusinessEvent,
   AthenaEventActor,
@@ -71,7 +72,18 @@ export function createAthenaEventService(deps: AthenaEventServiceDeps = {}): Ath
 
   return {
     async publish(input) {
-      return publishAthenaEvent(repository, input, subscribers);
+      try {
+        const result = await publishAthenaEvent(repository, input, subscribers);
+        // Record what the repository actually persisted. On an idempotency
+        // collision the returned row may predate this call; using its type
+        // prevents a mismatched key from falsely satisfying a transactional
+        // wrapper that requires a different canonical event type.
+        recordCanonicalEventPublished(result.event.type);
+        return result;
+      } catch (error) {
+        recordCanonicalEventPublishFailure(input.type, error);
+        throw error;
+      }
     },
 
     async getById(orgId, actor, id) {

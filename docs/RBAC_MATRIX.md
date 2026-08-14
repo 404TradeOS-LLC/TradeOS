@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -120,3 +120,7 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 - team invites are currently limited to `dispatcher` and `technician` roles
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
 - legacy `estimator` retains existing compatibility permissions and has read-only Costbook access through `costbook.read`; it does not receive `costbook.write` or `costbook.manage`
+
+## A12.1 transactional event authorization
+
+A12.1 changes transaction semantics, not permissions. The six required canonical event publishers continue to use the same authenticated organization, actor, service-level authorization, and shared permission boundaries described above. Making business mutation plus durable canonical-event persistence atomic does not grant a new role, permission, bypass, or cross-tenant capability; subscriber delivery remains asynchronous and outside the authorization-sensitive business transaction.

@@ -18,8 +18,10 @@ import type { AthenaToolRegistry } from "../athena-tool-registry/registry";
 // comment on why a second copy is never introduced).
 
 import { CrmService } from "../crm/service";
-import { EstimateEngineService } from "../estimate-engine/service";
-import { JobsService } from "../jobs/service";
+import {
+  TransactionalEstimateEngineService,
+  TransactionalJobsService,
+} from "../athena-events/transactionalPublishers";
 import { InvoicesService } from "../invoices/service";
 import { ProjectTasksService } from "../project-tasks/service";
 import { CostDatabaseService } from "../cost-database/service";
@@ -53,8 +55,8 @@ export function createProductionAthenaToolRegistry(): AthenaToolRegistry {
   const registry = createAthenaToolRegistry();
 
   const crm = new CrmService();
-  const estimateEngine = new EstimateEngineService();
-  const jobs = new JobsService();
+  const estimateEngine = new TransactionalEstimateEngineService();
+  const jobs = new TransactionalJobsService();
   const invoices = new InvoicesService();
   const projectTasks = new ProjectTasksService();
   const costDatabase = new CostDatabaseService();
