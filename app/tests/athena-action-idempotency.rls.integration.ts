@@ -7,6 +7,7 @@ import {
   createPrismaAthenaIdempotencyStore,
   type AthenaCompletedActionOutcome,
 } from "../modules/athena-action-engine/idempotency";
+import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -52,52 +53,67 @@ describe("live row-level security for Athena action idempotency", () => {
   it("persists a completed outcome across fresh store instances", async () => {
     const key = `restart-${randomUUID()}`;
     const scope = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, key);
+    const original = completedOutcome(orgA, ownerA, key, "persisted");
+    const inputHash = computeCanonicalInputHash(original.action.input);
     const firstStore = createPrismaAthenaIdempotencyStore();
-    const first = await inSession(ownerA, orgA, "owner", () => firstStore.reserve(scope));
+    const first = await inSession(ownerA, orgA, "owner", () => firstStore.reserve(scope, inputHash));
     expect(first.outcome).toBe("new");
 
-    const original = completedOutcome(orgA, ownerA, key, "persisted");
     await inSession(ownerA, orgA, "owner", () => firstStore.complete(scope, original));
 
     const freshStore = createPrismaAthenaIdempotencyStore();
-    const duplicate = await inSession(ownerA, orgA, "owner", () => freshStore.reserve(scope));
+    const duplicate = await inSession(ownerA, orgA, "owner", () => freshStore.reserve(scope, inputHash));
     expect(duplicate.outcome).toBe("duplicate");
     expect(duplicate.existing?.action.id).toBe(original.action.id);
     expect(duplicate.existing?.result.toolResult.data).toEqual({ value: "persisted" });
   });
 
-  it("allows only one concurrent claimant for the same actor/org/tool/version/key", async () => {
+  it("allows only one concurrent claimant for the same actor/org/tool/version/key/input", async () => {
     const key = `race-${randomUUID()}`;
     const scope = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, key);
+    const inputHash = computeCanonicalInputHash({ value: "race" });
     const store = createPrismaAthenaIdempotencyStore();
 
     const results = await Promise.all([
-      inSession(ownerA, orgA, "owner", () => store.reserve(scope)),
-      inSession(ownerA, orgA, "owner", () => store.reserve(scope)),
+      inSession(ownerA, orgA, "owner", () => store.reserve(scope, inputHash)),
+      inSession(ownerA, orgA, "owner", () => store.reserve(scope, inputHash)),
     ]);
 
     expect(results.filter((result) => result.outcome === "new")).toHaveLength(1);
     expect(results.filter((result) => result.outcome === "duplicate")).toHaveLength(1);
   });
 
+  it("fails closed when the same key is reused for different validated input", async () => {
+    const key = `input-${randomUUID()}`;
+    const scope = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, key);
+    const store = createPrismaAthenaIdempotencyStore();
+    expect((await inSession(ownerA, orgA, "owner", () => store.reserve(scope, computeCanonicalInputHash({ value: "first" })))).outcome).toBe("new");
+
+    await expect(
+      inSession(ownerA, orgA, "owner", () => store.reserve(scope, computeCanonicalInputHash({ value: "different" })))
+    ).rejects.toThrow(/different validated input/i);
+  });
+
   it("fails closed when a peer actor in the same organization reuses another actor's key", async () => {
     const key = `actor-${randomUUID()}`;
     const scope = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, key);
+    const inputHash = computeCanonicalInputHash({ value: "actor" });
     const store = createPrismaAthenaIdempotencyStore();
-    expect((await inSession(ownerA, orgA, "owner", () => store.reserve(scope))).outcome).toBe("new");
+    expect((await inSession(ownerA, orgA, "owner", () => store.reserve(scope, inputHash))).outcome).toBe("new");
 
-    await expect(inSession(peerA, orgA, "technician", () => store.reserve(scope))).rejects.toThrow(/another actor|not visible/i);
+    await expect(inSession(peerA, orgA, "technician", () => store.reserve(scope, inputHash))).rejects.toThrow(/another actor|not visible/i);
   });
 
   it("keeps the same literal idempotency key independent across organizations", async () => {
     const literalKey = `cross-org-${randomUUID()}`;
     const scopeA = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, literalKey);
     const scopeB = buildAthenaIdempotencyScopeKey(orgB, toolId, toolVersion, literalKey);
+    const inputHash = computeCanonicalInputHash({ value: "cross-org" });
     const store = createPrismaAthenaIdempotencyStore();
 
     const [resultA, resultB] = await Promise.all([
-      inSession(ownerA, orgA, "owner", () => store.reserve(scopeA)),
-      inSession(ownerB, orgB, "owner", () => store.reserve(scopeB)),
+      inSession(ownerA, orgA, "owner", () => store.reserve(scopeA, inputHash)),
+      inSession(ownerB, orgB, "owner", () => store.reserve(scopeB, inputHash)),
     ]);
 
     expect(resultA.outcome).toBe("new");
