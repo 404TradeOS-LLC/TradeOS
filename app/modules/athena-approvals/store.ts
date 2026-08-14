@@ -102,6 +102,26 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
       records.set(record.approvalId, record);
       return record;
     },
+    async upsertPending(input) {
+      const existing = [...records.values()].find(
+        (record) => record.organizationId === input.organizationId && record.actionId === input.actionId
+      );
+      if (existing) return existing;
+      const record = buildRecord({ ...input, status: "pending", approvedBy: undefined, approvedAt: new Date(0) }, now());
+      record.approvedBy = "system";
+      records.set(record.approvalId, record);
+      return record;
+    },
+    async list(query) {
+      return [...records.values()]
+        .filter(
+          (record) =>
+            record.organizationId === query.organizationId &&
+            (!query.status || record.status === query.status) &&
+            (!query.userId || record.userId === query.userId)
+        )
+        .slice(0, query.limit);
+    },
     async getById(approvalId) {
       return records.get(approvalId) ?? null;
     },
@@ -189,6 +209,39 @@ export function createPrismaAthenaApprovalStore(options: AthenaApprovalStoreOpti
         },
       });
       return toApprovalRecord(row);
+    },
+    async upsertPending(input) {
+      const row = await prisma.athenaApproval.upsert({
+        where: { orgId_actionId: { orgId: input.organizationId, actionId: input.actionId } },
+        update: {},
+        create: {
+          id: input.approvalId,
+          userId: input.userId,
+          orgId: input.organizationId,
+          actionId: input.actionId,
+          toolId: input.toolId,
+          toolVersion: input.toolVersion,
+          riskLevel: input.riskLevel,
+          approvedAt: null,
+          approvedBy: null,
+          expiresAt: input.expiration,
+          status: "pending",
+          idempotencyKey: input.idempotencyKey,
+          inputHash: input.inputHash,
+          planId: input.planId,
+          stepId: input.stepId,
+          metadataJson: (input.metadata ?? {}) as Prisma.InputJsonValue,
+        },
+      });
+      return toApprovalRecord(row);
+    },
+    async list(query) {
+      const rows = await prisma.athenaApproval.findMany({
+        where: { orgId: query.organizationId, status: query.status, userId: query.userId },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        take: query.limit,
+      });
+      return rows.map(toApprovalRecord);
     },
     async getById(approvalId) {
       const row = await prisma.athenaApproval.findFirst({ where: { id: approvalId } });
