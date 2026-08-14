@@ -12,6 +12,10 @@ export interface AthenaApprovalStoreOptions {
   now?: () => Date;
 }
 
+export type AthenaInMemoryApprovalStore = Omit<AthenaApprovalStore, "grant"> & {
+  grant(approvalOrId: string | AthenaApprovalRecord, approvedBy?: string, approvedAt?: Date): Promise<AthenaApprovalRecord>;
+};
+
 export function toApprovalRecord(row: {
   id: string;
   userId: string;
@@ -88,7 +92,7 @@ function buildRecord(input: AthenaApprovalCreateInput): AthenaApprovalRecord {
   };
 }
 
-export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOptions = {}): AthenaApprovalStore {
+export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOptions = {}): AthenaInMemoryApprovalStore {
   const now = options.now ?? (() => new Date());
   const records = new Map<string, AthenaApprovalRecord>();
 
@@ -101,11 +105,15 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
     async getById(approvalId) {
       return records.get(approvalId) ?? null;
     },
-    async grant(approvalId, approvedBy, approvedAt = now()) {
-      const existing = records.get(approvalId);
-      if (!existing) throw new Error(`Athena approval not found: ${approvalId}`);
+    async grant(approvalOrId, approvedBy, approvedAt = now()) {
+      if (typeof approvalOrId !== "string") {
+        records.set(approvalOrId.approvalId, approvalOrId);
+        return approvalOrId;
+      }
+      const existing = records.get(approvalOrId);
+      if (!existing) throw new Error(`Athena approval not found: ${approvalOrId}`);
       const record = { ...existing, approvedBy: approvedBy ?? existing.approvedBy, approvedAt, status: "granted" as const };
-      records.set(approvalId, record);
+      records.set(approvalOrId, record);
       return record;
     },
     async deny(approvalId, approvedBy, approvedAt = now()) {
