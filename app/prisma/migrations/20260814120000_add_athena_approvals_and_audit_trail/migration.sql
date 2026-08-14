@@ -1,7 +1,7 @@
 create table athena_approvals (
   id uuid primary key,
   org_id uuid not null references organizations(id) on delete cascade,
-  user_id uuid not null references app_users(id) on delete restrict,
+  user_id uuid not null references users(id) on delete restrict,
   action_id text not null,
   tool_id text not null,
   tool_version text not null,
@@ -60,7 +60,7 @@ create policy athena_approvals_update_policy on athena_approvals
 create table athena_audit_events (
   id uuid primary key,
   org_id uuid not null references organizations(id) on delete cascade,
-  actor_user_id uuid references app_users(id) on delete set null,
+  actor_user_id uuid references users(id) on delete set null,
   actor_role text,
   request_id text,
   trace_id text,
@@ -75,6 +75,8 @@ create table athena_audit_events (
 create index idx_athena_audit_events_org_created on athena_audit_events(org_id, created_at);
 create index idx_athena_audit_events_org_event_type_created on athena_audit_events(org_id, event_type, created_at);
 create index idx_athena_audit_events_org_execution_created on athena_audit_events(org_id, execution_id, created_at);
+create index idx_athena_audit_events_org_approval_created on athena_audit_events(org_id, approval_id, created_at);
+create index idx_athena_audit_events_org_action_created on athena_audit_events(org_id, action_id, created_at);
 
 alter table athena_audit_events enable row level security;
 alter table athena_audit_events force row level security;
