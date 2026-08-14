@@ -17,8 +17,7 @@ Finish PR #203, the bounded follow-up to merged C004 equipment work. The fronten
 ## Current branch
 
 - Branch: `fix/equipment-loading-edit-race`
-- Base: current `main`
-- Current reviewed head after merging current `main`: `b261ab331e5eb3151f11b853cd03943506de5166`
+- Base: `main`; reverify live before merge.
 - PR: #203
 
 ## Verified scope
@@ -26,17 +25,16 @@ Finish PR #203, the bounded follow-up to merged C004 equipment work. The fronten
 - `web/src/app/(app)/costbook/equipment/page.tsx`
 - `web/src/app/(app)/costbook/equipment/equipment-route.test.ts`
 - `web/src/components/costbook/equipment-catalog.tsx`
+- `web/src/lib/costbook-equipment-load.ts`
 - `docs/CURRENT_STATE.md`
 - `docs/SESSION_HANDOFF.md`
 
 ## Current verification
 
-- Branch is up to date with `main` (`behind_by: 0`).
-- GitHub reports PR #203 mergeable on head `b261ab331e5eb3151f11b853cd03943506de5166`.
-- Fresh protected checks spawned on the final reconciled head:
-  - Docs consistency #600 — queued at handoff refresh time.
-  - Verify repository #727 — queued at handoff refresh time.
-- No unresolved inline review threads were present on the reviewed pre-merge-main head; final merge should remain gated by protected checks and review policy.
+- The branch was reconciled with current `main` during this repair cycle; reverify live ahead/behind state before merge.
+- Required `Docs consistency` and `Verify repository` checks passed on the prior repaired head after the runtime-behavior test fixes.
+- The final documentation-only refresh must receive fresh protected checks and satisfy the repository review policy before merge.
+- Both previously actionable CodeRabbit threads were resolved before this refresh; any new blocking review finding must be repaired rather than bypassed.
 
 ## Known limitations
 
@@ -45,4 +43,4 @@ Finish PR #203, the bounded follow-up to merged C004 equipment work. The fronten
 
 ## Next action
 
-Allow protected CI to complete. Merge only after required checks are green and no new blocking review finding appears.
+Merge only after the refreshed head is current with `main`, required checks are green, and required review policy is satisfied.
