@@ -70,8 +70,8 @@ function verifyRecord(record: AthenaApprovalRecord | null, input: AthenaApproval
   return { valid: true };
 }
 
-function buildRecord(input: AthenaApprovalCreateInput): AthenaApprovalRecord {
-  const approvedAt = input.approvedAt ?? new Date();
+function buildRecord(input: AthenaApprovalCreateInput, now: Date): AthenaApprovalRecord {
+  const approvedAt = input.approvedAt ?? now;
   return {
     approvalId: input.approvalId,
     userId: input.userId,
@@ -98,7 +98,7 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
 
   return {
     async create(input) {
-      const record = buildRecord(input);
+      const record = buildRecord(input, now());
       records.set(record.approvalId, record);
       return record;
     },
@@ -120,6 +120,20 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
       const existing = records.get(approvalId);
       if (!existing) throw new Error(`Athena approval not found: ${approvalId}`);
       const record = { ...existing, approvedBy, approvedAt, status: "denied" as const };
+      records.set(approvalId, record);
+      return record;
+    },
+    async reviewPending(organizationId, approvalId, decision, approvedBy, reviewedAt = now()) {
+      const existing = records.get(approvalId);
+      if (!existing || existing.organizationId !== organizationId || existing.status !== "pending") {
+        return null;
+      }
+      const record = {
+        ...existing,
+        approvedBy,
+        approvedAt: reviewedAt,
+        status: decision === "grant" ? ("granted" as const) : ("denied" as const),
+      };
       records.set(approvalId, record);
       return record;
     },
@@ -148,7 +162,7 @@ export function createPrismaAthenaApprovalStore(options: AthenaApprovalStoreOpti
 
   return {
     async create(input) {
-      const approvedAt = input.approvedAt ?? new Date();
+      const approvedAt = input.approvedAt ?? now();
       const row = await prisma.athenaApproval.create({
         data: {
           id: input.approvalId,
@@ -188,6 +202,20 @@ export function createPrismaAthenaApprovalStore(options: AthenaApprovalStoreOpti
         data: { approvedBy, approvedAt, status: "denied" },
       });
       return toApprovalRecord(row);
+    },
+    async reviewPending(organizationId, approvalId, decision, approvedBy, reviewedAt = now()) {
+      const targetStatus = decision === "grant" ? "granted" : "denied";
+      const update = await prisma.athenaApproval.updateMany({
+        where: { id: approvalId, orgId: organizationId, status: "pending" },
+        data: { approvedBy, approvedAt: reviewedAt, status: targetStatus },
+      });
+      if (update.count !== 1) {
+        return null;
+      }
+      const row = await prisma.athenaApproval.findFirst({
+        where: { id: approvalId, orgId: organizationId, status: targetStatus },
+      });
+      return row ? toApprovalRecord(row) : null;
     },
     async revoke(approvalId) {
       const row = await prisma.athenaApproval.update({
