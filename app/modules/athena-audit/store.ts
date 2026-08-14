@@ -2,14 +2,19 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import type { AthenaAuditEvent, AthenaAuditStore } from "./types";
 
-function withInheritedActionCorrelation(event: AthenaAuditEvent, prior?: Pick<AthenaAuditEvent, "actionId" | "approvalId"> | null): AthenaAuditEvent {
+type AuditCorrelation = {
+  actionId?: string | null;
+  approvalId?: string | null;
+};
+
+function withInheritedActionCorrelation(event: AthenaAuditEvent, prior?: AuditCorrelation | null): AthenaAuditEvent {
   if (event.eventType !== "execution_completed" || (event.actionId && event.approvalId)) {
     return event;
   }
   return {
     ...event,
-    actionId: event.actionId ?? prior?.actionId,
-    approvalId: event.approvalId ?? prior?.approvalId,
+    actionId: event.actionId ?? prior?.actionId ?? undefined,
+    approvalId: event.approvalId ?? prior?.approvalId ?? undefined,
   };
 }
 
