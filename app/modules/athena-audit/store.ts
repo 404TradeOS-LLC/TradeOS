@@ -7,6 +7,8 @@ type AuditCorrelation = {
   approvalId?: string | null;
 };
 
+const TERMINAL_AUDIT_EVENTS = new Set<AthenaAuditEvent["eventType"]>(["execution_completed", "failure"]);
+
 function withInheritedActionCorrelation(event: AthenaAuditEvent, prior?: AuditCorrelation | null): AthenaAuditEvent {
   if (event.eventType !== "execution_completed" || (event.actionId && event.approvalId)) {
     return event;
@@ -15,6 +17,25 @@ function withInheritedActionCorrelation(event: AthenaAuditEvent, prior?: AuditCo
     ...event,
     actionId: event.actionId ?? prior?.actionId ?? undefined,
     approvalId: event.approvalId ?? prior?.approvalId ?? undefined,
+  };
+}
+
+export type AthenaTerminalTrackingAuditStore = AthenaAuditStore & {
+  hasTerminalEvent(executionId: string): boolean;
+};
+
+export function createTerminalTrackingAthenaAuditStore(delegate: AthenaAuditStore): AthenaTerminalTrackingAuditStore {
+  const terminalExecutions = new Set<string>();
+  return {
+    async record(event) {
+      await delegate.record(event);
+      if (event.executionId && TERMINAL_AUDIT_EVENTS.has(event.eventType)) {
+        terminalExecutions.add(event.executionId);
+      }
+    },
+    hasTerminalEvent(executionId) {
+      return terminalExecutions.has(executionId);
+    },
   };
 }
 
