@@ -1716,5 +1716,7 @@ model AthenaAuditEvent {
   @@index([orgId, createdAt])
   @@index([orgId, eventType, createdAt])
   @@index([orgId, executionId, createdAt])
+  @@index([orgId, approvalId, createdAt])
+  @@index([orgId, actionId, createdAt])
   @@map("athena_audit_events")
 }
