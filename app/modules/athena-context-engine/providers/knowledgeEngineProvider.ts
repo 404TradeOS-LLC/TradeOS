@@ -38,6 +38,8 @@ export function createKnowledgeEngineProvider(overrides: Partial<AthenaContextPr
     id: "tradeos.athena.context.knowledge-engine",
     version: "1.0.0",
     owner: "athena-context-engine",
+    name: "Knowledge Engine Context",
+    priority: 60,
     section: "knowledgeEngine",
     description: "Read-only Knowledge Runtime stats and trade catalog. Non-tenant reference data.",
     permissions: [],
@@ -51,7 +53,7 @@ export function createKnowledgeEngineProvider(overrides: Partial<AthenaContextPr
     cacheKeyPolicy: "tenant_actor_permission_input",
     criticality: "optional",
     failureBehavior: "degrade",
-    async fetch(): Promise<AthenaContextProviderFetchResult<AthenaKnowledgeEngineContextData>> {
+    async provide(): Promise<AthenaContextProviderFetchResult<AthenaKnowledgeEngineContextData>> {
       const stats = knowledgeRuntimeService.getStats();
       const trades = knowledgeRuntimeService.listTrades();
       return {

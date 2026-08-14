@@ -3,6 +3,7 @@ import { createJobUpdateStatusTool } from "../modules/athena-tools/field/updateJ
 import type { JobUpdateStatusToolDeps } from "../modules/athena-tools/field/updateJobStatus.tool";
 import type { JobDTO } from "../modules/jobs/types";
 import type { AthenaJobEventRef } from "../modules/jobs/service";
+import { getRolePermissions } from "../domain";
 
 function buildFakeJobDTO(overrides: Partial<JobDTO> = {}): JobDTO {
   return {
@@ -88,6 +89,11 @@ describe("athena-tools field: update-job-status", () => {
       deadline: new Date(Date.now() + 1000),
       cancellationSignal: new AbortController().signal,
       featureFlags: [],
+      permissionContext: {
+        organizationScope: "org-1",
+        userScope: "user-1",
+        roleScope: "technician" as const,
+      },
     };
   }
 
@@ -107,7 +113,7 @@ describe("athena-tools field: update-job-status", () => {
 
     expect(jobs.startTravel).toHaveBeenCalledWith(validInput.jobId, {
       orgId: "org-1",
-      actor: { userId: "user-1", orgId: "org-1", role: "technician" },
+      actor: { userId: "user-1", orgId: "org-1", role: "technician", permissions: getRolePermissions("technician") },
       reason: undefined,
     });
     expect(jobs.arrive).not.toHaveBeenCalled();
@@ -125,7 +131,7 @@ describe("athena-tools field: update-job-status", () => {
 
     expect(jobs.arrive).toHaveBeenCalledWith(validInput.jobId, {
       orgId: "org-1",
-      actor: { userId: "user-1", orgId: "org-1", role: "technician" },
+      actor: { userId: "user-1", orgId: "org-1", role: "technician", permissions: getRolePermissions("technician") },
       reason: undefined,
     });
     expect(jobs.startTravel).not.toHaveBeenCalled();
@@ -143,7 +149,7 @@ describe("athena-tools field: update-job-status", () => {
 
     expect(jobs.complete).toHaveBeenCalledWith(validInput.jobId, {
       orgId: "org-1",
-      actor: { userId: "user-1", orgId: "org-1", role: "technician" },
+      actor: { userId: "user-1", orgId: "org-1", role: "technician", permissions: getRolePermissions("technician") },
       reason: "Finished repair",
     });
     expect(jobs.startTravel).not.toHaveBeenCalled();

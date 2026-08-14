@@ -73,13 +73,17 @@ describe("resolveAuthContext (production schema compatibility)", () => {
 
     const auth = await resolveAuthContext(buildClaims({ orgId: "org-1" }));
 
-    expect(auth).toEqual({
+    expect(auth).toEqual(
+      expect.objectContaining({
       userId: "user-1",
       orgId: "org-1",
       role: "admin",
       canonicalRole: "admin",
       email: "owner@example.com",
-    });
+      })
+    );
+    expect(auth.permissions).toBeDefined();
+    expect(auth.permissions?.length).toBeGreaterThan(0);
   });
 
   it("rejects an inactive user", async () => {

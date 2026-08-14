@@ -1,3 +1,4 @@
+import { getRolePermissions } from "../../../domain";
 import { z } from "zod";
 import { defineTool, eventRef, successResult } from "../../athena-tool-sdk";
 import type { AthenaToolDefinition } from "../../athena-tool-sdk";
@@ -52,7 +53,12 @@ export function createScheduleJobTool(deps: ScheduleJobToolDeps): AthenaToolDefi
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const result = await deps.jobs.schedule(input.jobId, {
         orgId: execution.orgId,
-        actor: { userId: execution.actor.id, orgId: execution.orgId, role: execution.role },
+        actor: {
+          userId: execution.actor.id,
+          orgId: execution.orgId,
+          role: execution.role,
+          permissions: getRolePermissions(execution.role),
+        },
         scheduledStart: new Date(input.scheduledStart),
         scheduledEnd: new Date(input.scheduledEnd),
         arrivalWindowStart: input.arrivalWindowStart ? new Date(input.arrivalWindowStart) : undefined,

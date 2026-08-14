@@ -198,6 +198,7 @@ export interface AthenaAIContext {
   weather?: AthenaProviderSection;
   calendar?: AthenaProviderSection;
   customers?: AthenaProviderSection;
+  estimates?: AthenaProviderSection;
   costbook?: AthenaProviderSection;
   inventory?: AthenaProviderSection;
   notifications?: AthenaProviderSection;

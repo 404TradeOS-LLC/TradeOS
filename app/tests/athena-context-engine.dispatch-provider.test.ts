@@ -65,7 +65,7 @@ describe("dispatch context provider", () => {
     const jobsService = fakeJobsService(result);
     const provider = createDispatchProvider({}, jobsService);
 
-    const fetchResult = await provider.fetch(baseInput());
+    const fetchResult = await provider.provide(baseInput());
 
     expect(() => assertValidContextProviderFetchResult(fetchResult)).not.toThrow();
     expect(fetchResult.data.jobs).toEqual([
@@ -92,7 +92,7 @@ describe("dispatch context provider", () => {
     const jobsService = fakeJobsService({ items: [], page: 1, pageSize: 25, total: 0 }, (filters) => { capturedFilters = filters; });
     const provider = createDispatchProvider({}, jobsService);
 
-    await provider.fetch(baseInput({ orgId: "org-42", actor: { userId: "user-9", role: "technician" } }));
+    await provider.provide(baseInput({ orgId: "org-42", actor: { userId: "user-9", role: "technician" } }));
 
     expect(capturedFilters?.orgId).toBe("org-42");
     expect(capturedFilters?.auth.userId).toBe("user-9");
@@ -104,7 +104,7 @@ describe("dispatch context provider", () => {
     const jobsService = fakeJobsService({ items: [], page: 1, pageSize: 25, total: 0 }, (filters) => { capturedFilters = filters; });
     const provider = createDispatchProvider({}, jobsService);
 
-    await provider.fetch(baseInput({ selectedScope: { projectId: "project-9", customerId: "customer-9" } }));
+    await provider.provide(baseInput({ selectedScope: { projectId: "project-9", customerId: "customer-9" } }));
 
     expect(capturedFilters?.projectId).toBe("project-9");
     expect(capturedFilters?.customerId).toBe("customer-9");
@@ -143,7 +143,7 @@ describe("dispatch context provider", () => {
     );
     const provider = createDispatchProvider({}, jobsService);
 
-    const result = await provider.fetch(baseInput({ orgId: "org-42", actor: { userId: "tech-1", role: "technician" }, selectedScope: { jobId: "job-9", projectId: "project-broader" } }));
+    const result = await provider.provide(baseInput({ orgId: "org-42", actor: { userId: "tech-1", role: "technician" }, selectedScope: { jobId: "job-9", projectId: "project-broader" } }));
 
     expect(listed).toBe(false);
     expect(capturedGetById).toEqual({ orgId: "org-42", jobId: "job-9", userId: "tech-1", role: "technician" });

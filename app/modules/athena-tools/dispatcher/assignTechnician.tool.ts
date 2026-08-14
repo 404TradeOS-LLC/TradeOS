@@ -1,3 +1,4 @@
+import { getRolePermissions } from "../../../domain";
 import { z } from "zod";
 import { defineTool, eventRef, successResult } from "../../athena-tool-sdk";
 import type { AthenaToolDefinition } from "../../athena-tool-sdk";
@@ -39,12 +40,23 @@ export function createAssignTechnicianTool(deps: AssignTechnicianToolDeps): Athe
     // Removing the assignment (JobsService.removeAssignment) is the real
     // compensating action for an incorrect assignment call.
     compensationPolicy: "compensating_action",
+    resourceScope: {
+      entityType: "job",
+      getEntityId(input) {
+        return input.jobId;
+      },
+    },
     inputSchema: assignTechnicianInputSchema,
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const result = await deps.jobs.addAssignment(input.jobId, {
         orgId: execution.orgId,
-        actor: { userId: execution.actor.id, orgId: execution.orgId, role: execution.role },
+        actor: {
+          userId: execution.actor.id,
+          orgId: execution.orgId,
+          role: execution.role,
+          permissions: getRolePermissions(execution.role),
+        },
         userId: input.technicianId,
         assignmentRole: input.assignmentRole,
         isLead: input.isLead,

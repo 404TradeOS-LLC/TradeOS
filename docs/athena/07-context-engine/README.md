@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-08-14
 source_of_truth: true
 ---
 
@@ -31,6 +31,7 @@ freshness policy.
 | `calendar` | Availability, appointments, blackout windows |
 | `dispatch` | Jobs, assignments, conflicts, technician status |
 | `customers` | Customer, address, equipment, agreements, notes |
+| `estimates` | Selected estimate scope, status, totals, and bounded estimate context |
 | `costbook` | Cost items, assemblies, supplier and regional pricing summaries |
 | `knowledgeEngine` | Read-only Knowledge Runtime facts and retrieval metadata |
 | `inventory` | Materials, reservations, order constraints |
@@ -40,15 +41,22 @@ freshness policy.
 ## Live Today Versus Contract Surface
 
 As of Friday, August 14, 2026, Athena recognizes the full contract surface
-above, but only a subset is live-wired on `main`:
+above. The production-readiness slice in PR #202 adds first-party customer,
+estimate, and Costbook providers alongside the existing dispatch,
+knowledge-engine, and memory provider seams. These providers remain bounded by
+server-derived organization/user context, permission checks, selected resource
+scope, and the existing Athena feature flags; merging the code does not by
+itself prove that Athena is enabled in production.
 
 - minimal request/organization/user/permissions/conversation/telemetry context
   is always available through the kernel;
 - `dispatch` and `knowledgeEngine` are live provider-backed sections;
+- `customers`, `estimates`, and `costbook` now have first-party provider
+  implementations available to the live context registry;
 - `memory` is a real provider registration seam but remains gated/dormant for
   ordinary runtime use;
-- `workspace`, `dashboard`, `weather`, `calendar`, `customers`, `costbook`,
-  `inventory`, and `notifications` remain contract-recognized future sections.
+- `workspace`, `dashboard`, `weather`, `calendar`, `inventory`, and
+  `notifications` remain contract-recognized future sections.
 
 ## Context Minimization
 

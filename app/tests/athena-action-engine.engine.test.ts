@@ -31,6 +31,11 @@ function allowDecision(overrides: Partial<AthenaPermissionDecision> = {}): Athen
     userId: "user-1",
     role: "owner",
     permissions: [],
+    permissionContext: {
+      organizationScope: "org-1",
+      userScope: "user-1",
+      roleScope: "owner",
+    },
     capability: "tradeos.athena.fixture.echo",
     deniedFields: [],
     decision: "allow",
@@ -88,17 +93,20 @@ function buildApprovalRecord(overrides: Partial<AthenaApprovalRecord> = {}): Ath
   const now = Date.now();
   return {
     approvalId: "approval-1",
-    orgId: "org-1",
-    actorUserId: "user-1",
+    userId: "user-1",
+    organizationId: "org-1",
+    actionId: "tradeos.athena.fixture.echo:1.0.0:plan-1:step-1:key-1",
     toolId: "tradeos.athena.fixture.echo",
     toolVersion: "1.0.0",
-    risk: "high",
+    riskLevel: "high",
+    approvedBy: "user-1",
     idempotencyKey: "key-1",
     inputHash: computeCanonicalInputHash(DEFAULT_INPUT),
     planId: "plan-1",
     stepId: "step-1",
     approvedAt: new Date(now - 1_000),
-    expiresAt: new Date(now + 3_600_000),
+    expiration: new Date(now + 3_600_000),
+    metadata: {},
     status: "granted",
     ...overrides,
   };
@@ -106,7 +114,7 @@ function buildApprovalRecord(overrides: Partial<AthenaApprovalRecord> = {}): Ath
 
 function grantedApprovalStore(overrides: Partial<AthenaApprovalRecord> = {}): AthenaApprovalStore {
   const store = createInMemoryAthenaApprovalStore();
-  store.grant(buildApprovalRecord(overrides));
+  void store.create(buildApprovalRecord(overrides));
   return store;
 }
 
@@ -225,7 +233,7 @@ describe("athena action engine - executeAthenaAction", () => {
   it("always uses the registered tool's own risk for the action record - never a caller-influenced value", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.high-risk", risk: "high" }));
-    const approvals = grantedApprovalStore({ toolId: "tradeos.athena.fixture.high-risk", risk: "high" });
+    const approvals = grantedApprovalStore({ toolId: "tradeos.athena.fixture.high-risk", riskLevel: "high", actionId: "tradeos.athena.fixture.high-risk:1.0.0:plan-1:step-1:key-1" });
 
     // AthenaActionExecutionRequest carries no `risk` field at all - this
     // simulates a caller bypassing the type system (deserialized/untyped
@@ -291,7 +299,7 @@ describe("athena action engine - executeAthenaAction", () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore({ idempotencyKey: "key-for-a-different-action" });
+      const approvals = grantedApprovalStore({ idempotencyKey: "key-for-a-different-action", actionId: "tradeos.athena.fixture.echo:1.0.0:plan-1:step-1:key-for-a-different-action" });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
@@ -306,7 +314,7 @@ describe("athena action engine - executeAthenaAction", () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore({ orgId: "some-other-org" });
+      const approvals = grantedApprovalStore({ organizationId: "some-other-org" });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
@@ -321,7 +329,7 @@ describe("athena action engine - executeAthenaAction", () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore({ actorUserId: "user-A" });
+      const approvals = grantedApprovalStore({ userId: "user-A" });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
@@ -336,7 +344,7 @@ describe("athena action engine - executeAthenaAction", () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore({ risk: "medium" });
+      const approvals = grantedApprovalStore({ riskLevel: "medium" });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
@@ -347,11 +355,11 @@ describe("athena action engine - executeAthenaAction", () => {
       expect(outcome.result.state).toBe("awaiting_approval");
     });
 
-    it("rejects a stale approval past its expiresAt, even though its stored status still says granted", async () => {
+    it("rejects a stale approval past its expiration, even though its stored status still says granted", async () => {
       const registry = createAthenaToolRegistry();
       let executed = false;
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
-      const approvals = grantedApprovalStore({ expiresAt: new Date(Date.now() - 60_000) });
+      const approvals = grantedApprovalStore({ expiration: new Date(Date.now() - 60_000) });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },
@@ -369,7 +377,7 @@ describe("athena action engine - executeAthenaAction", () => {
       const grantTime = new Date("2026-01-01T00:00:00.000Z");
       const verifyTime = new Date("2026-01-01T02:00:00.000Z"); // 2h later, past a 1h expiry
       const store = createInMemoryAthenaApprovalStore({ now: () => verifyTime });
-      store.grant(buildApprovalRecord({ approvedAt: grantTime, expiresAt: new Date(grantTime.getTime() + 3_600_000) }));
+      void store.grant(buildApprovalRecord({ approvedAt: grantTime, expiration: new Date(grantTime.getTime() + 3_600_000) }));
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: store },
@@ -471,7 +479,7 @@ describe("athena action engine - executeAthenaAction", () => {
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
       const nowTime = new Date("2026-01-01T12:00:00.000Z");
       const store = createInMemoryAthenaApprovalStore({ now: () => nowTime });
-      store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:10:00.000Z"), expiresAt: new Date("2026-01-01T13:00:00.000Z") }));
+      void store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:10:00.000Z"), expiration: new Date("2026-01-01T13:00:00.000Z") }));
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: store },
@@ -488,7 +496,7 @@ describe("athena action engine - executeAthenaAction", () => {
       registry.register(createEchoFixtureTool({ risk: "high", onExecuted: () => { executed = true; } }));
       const nowTime = new Date("2026-01-01T12:30:00.000Z");
       const store = createInMemoryAthenaApprovalStore({ now: () => nowTime });
-      store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:00:00.000Z"), expiresAt: new Date("2026-01-01T13:00:00.000Z") }));
+      void store.grant(buildApprovalRecord({ approvedAt: new Date("2026-01-01T12:00:00.000Z"), expiration: new Date("2026-01-01T13:00:00.000Z") }));
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: store },
@@ -544,7 +552,11 @@ describe("athena action engine - executeAthenaAction", () => {
       // Approved for tags inserted a-then-b; the actual call inserts b-then-a.
       const approvedInput = { tags: { a: "1", b: "2" } };
       const submittedInput = { tags: { b: "2", a: "1" } };
-      const approvals = grantedApprovalStore({ toolId: "tradeos.athena.fixture.record-input", inputHash: computeCanonicalInputHash(approvedInput) });
+      const approvals = grantedApprovalStore({
+        toolId: "tradeos.athena.fixture.record-input",
+        actionId: "tradeos.athena.fixture.record-input:1.0.0:plan-1:step-1:key-1",
+        inputHash: computeCanonicalInputHash(approvedInput),
+      });
 
       const outcome = await executeAthenaAction(
         { toolRegistry: registry, approvalVerifier: approvals },

@@ -155,17 +155,20 @@ export async function assertToolExecutesValidInput<TInput, TData>(tool: AthenaTo
   const approvalStore = createInMemoryAthenaApprovalStore();
   approvalStore.grant({
     approvalId,
-    orgId,
-    actorUserId: userId,
+    userId,
+    organizationId: orgId,
+    actionId: `${tool.id}:${tool.version}:${planId}:${stepId}:${idempotencyKey}`,
     toolId: tool.id,
     toolVersion: tool.version,
-    risk: tool.risk,
+    riskLevel: tool.risk,
+    approvedBy: userId,
     idempotencyKey,
     inputHash,
     planId,
     stepId,
     approvedAt: new Date(Date.now() - 1_000),
-    expiresAt: new Date(Date.now() + 60_000),
+    expiration: new Date(Date.now() + 60_000),
+    metadata: {},
     status: "granted",
   });
 

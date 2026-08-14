@@ -1,4 +1,7 @@
 import type { CanonicalRole } from "../../domain";
+import type { CostDatabaseService } from "../cost-database/service";
+import type { CrmService } from "../crm/service";
+import type { EstimateEngineService } from "../estimate-engine/service";
 import type { JobsService } from "../jobs/service";
 
 // Job is the only entity with a real object-scope precedent
@@ -30,4 +33,43 @@ export async function resolveJobResourceScope(jobsService: Pick<JobsService, "ge
   } catch {
     return { relationship: "none" };
   }
+}
+
+async function resolveOrgScopedMembership(
+  lookup: () => Promise<unknown>,
+  relationship: "member" | "viewer" = "member"
+): Promise<{ relationship: "member" | "viewer" | "none" }> {
+  try {
+    await lookup();
+    return { relationship };
+  } catch {
+    return { relationship: "none" };
+  }
+}
+
+export async function resolveCustomerResourceScope(
+  crmService: Pick<CrmService, "getCustomer">,
+  orgId: string,
+  actor: { userId: string; role: CanonicalRole },
+  customerId: string
+): Promise<{ relationship: "member" | "viewer" | "none" }> {
+  return resolveOrgScopedMembership(() => crmService.getCustomer(orgId, customerId), actor.role === "technician" ? "viewer" : "member");
+}
+
+export async function resolveEstimateResourceScope(
+  estimateEngine: Pick<EstimateEngineService, "getById">,
+  orgId: string,
+  actor: { userId: string; role: CanonicalRole },
+  estimateId: string
+): Promise<{ relationship: "member" | "viewer" | "none" }> {
+  return resolveOrgScopedMembership(() => estimateEngine.getById(estimateId, orgId), actor.role === "technician" ? "viewer" : "member");
+}
+
+export async function resolveCostbookItemResourceScope(
+  costDatabase: Pick<CostDatabaseService, "getById">,
+  orgId: string,
+  actor: { userId: string; role: CanonicalRole },
+  costItemId: string
+): Promise<{ relationship: "member" | "viewer" | "none" }> {
+  return resolveOrgScopedMembership(() => costDatabase.getById(costItemId, orgId), actor.role === "technician" ? "viewer" : "member");
 }

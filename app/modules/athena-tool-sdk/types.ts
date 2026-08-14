@@ -11,6 +11,7 @@ import type {
   AthenaToolExecutionContext,
   AthenaToolIdempotency,
   AthenaToolOutputSchema,
+  AthenaToolResourceScope,
   AthenaToolResult,
   AthenaToolRisk,
 } from "../athena-tool-registry/types";
@@ -38,6 +39,7 @@ export type {
   AthenaToolExecutionContext,
   AthenaToolIdempotency,
   AthenaToolOutputSchema,
+  AthenaToolResourceScope,
   AthenaToolResult,
   AthenaToolRisk,
   AthenaWarning,
@@ -73,5 +75,6 @@ export interface AthenaToolDefineOptions<TSchema extends AthenaToolInputSchema, 
   outputSchema?: AthenaToolOutputSchema;
   requiredFeatureFlags?: string[];
   deprecated?: AthenaToolDeprecation;
+  resourceScope?: AthenaToolResourceScope<z.infer<TSchema>>;
   execute(input: z.infer<TSchema>, aiContext: AthenaAIContext, execution: AthenaToolExecutionContext): Promise<AthenaToolResult<TData>>;
 }

@@ -176,6 +176,26 @@ rules:
     explanation: Portal changes affect customer-facing implementation status.
 
   - paths:
+      - app/modules/athena-approvals/**
+      - app/modules/athena-audit/**
+      - app/modules/athena-kernel/**
+      - app/modules/athena-context-engine/**
+      - app/modules/athena-permissions/**
+      - app/modules/athena-action-engine/**
+      - app/modules/athena-tool-registry/**
+      - app/modules/athena-tool-sdk/**
+      - app/modules/athena-tools/**
+      - app/backend/controllers/athena.controller.ts
+      - app/backend/routes/athena.routes.ts
+    requires:
+      - docs/athena/README.md
+      - docs/athena/07-context-engine/README.md
+      - docs/athena/SECURITY_MODEL.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Athena runtime, approval, permission, audit, and tool-surface changes must keep the Athena docs and public endpoint references aligned.
+
+  - paths:
       - web/src/app/**
       - web/src/components/**
       - web/src/lib/**

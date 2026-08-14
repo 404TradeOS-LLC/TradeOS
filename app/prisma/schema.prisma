@@ -76,6 +76,8 @@ model Organization {
   athenaEventDeliveries AthenaEventDelivery[]
   athenaEventDeadLetters AthenaEventDeadLetter[]
   athenaAlerts AthenaAlert[]
+  athenaApprovals AthenaApproval[]
+  athenaAuditEvents AthenaAuditEvent[]
 
   @@map("organizations")
 }
@@ -265,6 +267,8 @@ model AppUser {
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
   assignedJobActions JobAssignment[] @relation("JobAssignedBy")
   athenaExecutions AthenaExecution[]
+  athenaApprovals AthenaApproval[]
+  athenaAuditEvents AthenaAuditEvent[]
 
   @@map("users")
 }
@@ -1661,4 +1665,58 @@ model AthenaAlert {
   @@unique([orgId, dedupeKey])
   @@index([orgId, status, lastSeenAt])
   @@map("athena_alerts")
+}
+
+model AthenaApproval {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  userId         String   @map("user_id")
+  actionId       String   @map("action_id")
+  toolId         String   @map("tool_id")
+  toolVersion    String   @map("tool_version")
+  riskLevel      String   @map("risk_level")
+  approvedAt     DateTime? @map("approved_at")
+  approvedBy     String?  @map("approved_by")
+  expiresAt      DateTime @map("expires_at")
+  status         String   @default("pending")
+  idempotencyKey String   @map("idempotency_key")
+  inputHash      String   @map("input_hash")
+  planId         String   @map("plan_id")
+  stepId         String   @map("step_id")
+  metadataJson   Json     @default("{}") @map("metadata_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, actionId])
+  @@index([orgId, userId, status])
+  @@index([orgId, expiresAt])
+  @@map("athena_approvals")
+}
+
+model AthenaAuditEvent {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  actorUserId String?  @map("actor_user_id")
+  actorRole   String?  @map("actor_role")
+  requestId   String?  @map("request_id")
+  traceId     String?  @map("trace_id")
+  executionId String?  @map("execution_id")
+  actionId    String?  @map("action_id")
+  approvalId  String?  @map("approval_id")
+  eventType   String   @map("event_type")
+  metadataJson Json    @default("{}") @map("metadata_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, eventType, createdAt])
+  @@index([orgId, executionId, createdAt])
+  @@index([orgId, approvalId, createdAt])
+  @@index([orgId, actionId, createdAt])
+  @@map("athena_audit_events")
 }

@@ -66,6 +66,12 @@ export function createEstimateUpdateTool(deps: EstimateUpdateToolDeps): AthenaTo
     timeoutMs: 5_000,
     idempotency: "not_supported",
     compensationPolicy: "draft_only",
+    resourceScope: {
+      entityType: "estimate",
+      getEntityId(input) {
+        return input.estimateId;
+      },
+    },
     inputSchema: estimateUpdateInputSchema,
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };

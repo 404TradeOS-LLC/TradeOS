@@ -46,7 +46,7 @@ describe("memory context provider", () => {
     const memoryService = await seededMemoryService("org-1", "user-1");
     const provider = createMemoryContextProvider({}, memoryService);
 
-    const result = await provider.fetch(baseInput());
+    const result = await provider.provide(baseInput());
 
     expect(() => assertValidContextProviderFetchResult(result)).not.toThrow();
     expect(result.data.preferences).toEqual([expect.objectContaining({ kind: "preference.response_style", value: "concise" })]);
@@ -59,7 +59,7 @@ describe("memory context provider", () => {
     await memoryService.remember({ orgId: "org-1", actor: { orgId: "org-1", userId: "user-2", role: "owner" }, scope: "user", subjectId: "user-2", kind: "preference.response_style", value: "verbose", source: { kind: "user_message", trusted: true } });
 
     const provider = createMemoryContextProvider({}, memoryService);
-    const result = await provider.fetch(baseInput({ actor: { userId: "user-1", role: "owner" } }));
+    const result = await provider.provide(baseInput({ actor: { userId: "user-1", role: "owner" } }));
 
     expect(result.data.preferences).toEqual([]);
   });

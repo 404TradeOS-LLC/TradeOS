@@ -89,7 +89,7 @@ describe("live row-level security for the A3 dispatch context provider", () => {
   it("lets the assigned technician see the job through the dispatch provider", async () => {
     const provider = createDispatchProvider();
     const result = await inSession(technicianA1, orgA, "technician", () =>
-      provider.fetch({ orgId: orgA, actor: { userId: technicianA1, role: "technician" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
+      provider.provide({ orgId: orgA, actor: { userId: technicianA1, role: "technician" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
     );
     expect(result.data.jobs.map((job) => job.jobId)).toContain(jobA);
   });
@@ -97,7 +97,7 @@ describe("live row-level security for the A3 dispatch context provider", () => {
   it("hides the job from a peer technician in the same org who is not assigned (object-scope, not just org-scope)", async () => {
     const provider = createDispatchProvider();
     const result = await inSession(technicianA2, orgA, "technician", () =>
-      provider.fetch({ orgId: orgA, actor: { userId: technicianA2, role: "technician" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
+      provider.provide({ orgId: orgA, actor: { userId: technicianA2, role: "technician" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
     );
     expect(result.data.jobs.map((job) => job.jobId)).not.toContain(jobA);
   });
@@ -105,7 +105,7 @@ describe("live row-level security for the A3 dispatch context provider", () => {
   it("lets an org admin see the job regardless of assignment", async () => {
     const provider = createDispatchProvider();
     const result = await inSession(adminA, orgA, "admin", () =>
-      provider.fetch({ orgId: orgA, actor: { userId: adminA, role: "admin" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
+      provider.provide({ orgId: orgA, actor: { userId: adminA, role: "admin" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
     );
     expect(result.data.jobs.map((job) => job.jobId)).toContain(jobA);
   });
@@ -113,7 +113,7 @@ describe("live row-level security for the A3 dispatch context provider", () => {
   it("never exposes another organization's job, even to that org's owner", async () => {
     const provider = createDispatchProvider();
     const result = await inSession(ownerB, orgB, "owner", () =>
-      provider.fetch({ orgId: orgB, actor: { userId: ownerB, role: "owner" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
+      provider.provide({ orgId: orgB, actor: { userId: ownerB, role: "owner" }, selectedScope: {}, deadline: new Date(Date.now() + 5_000), cancellationSignal: new AbortController().signal })
     );
     expect(result.data.jobs.map((job) => job.jobId)).not.toContain(jobA);
     expect(result.data.total).toBe(0);
