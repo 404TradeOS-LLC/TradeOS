@@ -31,7 +31,7 @@ describe("web auth proxy", () => {
       "/projects/:path*",
       "/settings/:path*",
     ]) {
-      assert.match(proxySource, new RegExp(route.replace(/[/:*]/g, "\\$&")));
+      assert.ok(proxySource.includes(route));
     }
   });
 });
