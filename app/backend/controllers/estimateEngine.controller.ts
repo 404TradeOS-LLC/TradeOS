@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { EstimateEngineService } from "../../modules/estimate-engine/service";
+import { TransactionalEstimateEngineService } from "../../modules/athena-events/transactionalPublishers";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { requireOrgId, requirePermissions } from "../requestContext";
 
-const service = new EstimateEngineService();
+const service = new TransactionalEstimateEngineService();
 const activityService = new ActivityTimelineService();
 
 export const estimateEngineController = {

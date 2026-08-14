@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { ProposalsService } from "../../modules/proposals/service";
+import { TransactionalProposalsService } from "../../modules/athena-events/transactionalPublishers";
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 
-const service = new ProposalsService();
+const service = new TransactionalProposalsService();
 
 const createSchema = z.object({
   estimateId: z.string().uuid().optional(),

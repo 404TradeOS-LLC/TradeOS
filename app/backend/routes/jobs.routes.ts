@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { jobsController, scheduleController } from "../controllers/jobs.controller";
+import { jobsController, scheduleController } from "../controllers/jobsTransactional.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const jobsRouter = Router();

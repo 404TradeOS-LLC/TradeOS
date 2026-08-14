@@ -4,17 +4,13 @@ import { prisma } from "../../db/client";
 import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import type { AthenaBusinessEvent, AthenaEventActorType, AthenaEventDeadLetter, AthenaEventDelivery, AthenaEventDeliveryStatus } from "./types";
 
-// Application-service-owned persistence seam for A8 events (mirrors
-// athena-memory/store.ts's posture verbatim): this is the only file in
-// athena-events allowed to import Prisma/db/client - service.ts,
-// publisher.ts, dispatch.ts, replay.ts, and every fixture reach persistence
-// exclusively through the AthenaEventRepository interface below, never this
-// module's internals directly. Enforced by
-// athena-events.import-boundary.test.ts.
-
 type AthenaEventRow = Awaited<ReturnType<typeof prisma.athenaEvent.findFirstOrThrow>>;
 type AthenaEventDeliveryRow = Awaited<ReturnType<typeof prisma.athenaEventDelivery.findFirstOrThrow>>;
 type AthenaEventDeadLetterRow = Awaited<ReturnType<typeof prisma.athenaEventDeadLetter.findFirstOrThrow>>;
+
+export function runAthenaEventTransaction<T>(operation: () => Promise<T>): Promise<T> {
+  return runInDatabaseTransaction(prisma, operation);
+}
 
 function toEventRecord(row: AthenaEventRow): AthenaBusinessEvent {
   return {
@@ -87,26 +83,9 @@ function toDeadLetterRecord(row: AthenaEventDeadLetterRow): AthenaEventDeadLette
   };
 }
 
-// Publishing an event is documented as a best-effort side effect that must
-// never block or roll back the caller's already-committed business mutation
-// (10-events/README.md "Publisher And Subscriber Rules"; every publish call
-// site wraps publish() in its own try/catch on that basis). But every real
-// request already runs inside runWithDatabaseSession's own outer Postgres
-// transaction (app/db/requestSession.ts, needed so app.org_id/app.user_id
-// stay set for RLS), and once any query in that transaction errors, Postgres
-// rejects every later query in the same transaction with 25P02 ("current
-// transaction is aborted") until it's rolled back - regardless of whether
-// the JS-level exception was already caught. A production incident (the
-// athena_events table not existing yet on a database that hadn't received a
-// pending migration) reproduced exactly this: the caller's try/catch
-// swallowed the publish failure as designed, but the request's next,
-// unrelated write then failed too because the shared transaction was
-// already poisoned. Wrapping repository access in its own SAVEPOINT means a
-// publish-path failure only rolls back to that savepoint, leaving the
-// caller's ambient transaction healthy for whatever it does next - outside
-// an ambient transaction (e.g. a background job bootstrap), there's nothing
-// to protect, so this falls back to the existing runInDatabaseTransaction
-// behavior unchanged.
+// Preserve the post-A12 savepoint isolation already on main: best-effort event
+// operations outside the required transactional wrapper must not poison an
+// ambient request transaction when PostgreSQL rejects an event query/write.
 async function withRepositorySavepoint<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   const activeTransaction = getRequestDatabaseClient();
   if (!activeTransaction) {
@@ -127,25 +106,15 @@ async function withRepositorySavepoint<T>(operation: (tx: Prisma.TransactionClie
 
 export interface AthenaEventRepository {
   findByIdempotencyKey(orgId: string, idempotencyKey: string): Promise<AthenaBusinessEvent | null>;
-  // Atomic: inserts the event row and one pending delivery row per
-  // subscriberId in a single transaction, so a publish() call never leaves
-  // an event persisted without its full fan-out (or vice versa).
   createEventWithDeliveries(event: AthenaBusinessEvent, subscriberIds: string[]): Promise<{ event: AthenaBusinessEvent; deliveries: AthenaEventDelivery[] }>;
   findEventById(orgId: string, id: string): Promise<AthenaBusinessEvent | null>;
-  // status in ('pending', 'failed') and nextAttemptAt <= now, ordered by
-  // nextAttemptAt ascending - the pull-based dispatch worker's claim query.
   findDuePendingDeliveries(orgId: string, limit: number): Promise<AthenaEventDelivery[]>;
   getEventForDelivery(delivery: AthenaEventDelivery): Promise<AthenaBusinessEvent | null>;
   markDeliverySucceeded(id: string): Promise<void>;
   markDeliveryFailedAndReschedule(id: string, attemptCount: number, nextAttemptAt: string, lastError: string): Promise<void>;
-  // Atomic: transitions the delivery to 'dead_letter' AND inserts the
-  // AthenaEventDeadLetter row in the same transaction.
   deadLetterDelivery(id: string, attemptCount: number, failureReason: string, payloadSnapshot: unknown): Promise<AthenaEventDeadLetter>;
   findDeadLetterById(orgId: string, id: string): Promise<AthenaEventDeadLetter | null>;
   listDeadLetters(orgId: string, eventId?: string): Promise<AthenaEventDeadLetter[]>;
-  // Creates a NEW delivery row with isReplay=true, replayedFromId set to the
-  // dead-lettered delivery's id, status='pending', attemptCount=0. Does not
-  // touch the original delivery/dead-letter row.
   createReplayDelivery(orgId: string, eventId: string, subscriberId: string, replayedFromDeliveryId: string): Promise<AthenaEventDelivery>;
 }
 
@@ -158,33 +127,40 @@ export function createPrismaAthenaEventRepository(): AthenaEventRepository {
       });
     },
 
-    // Every real request already runs inside runWithDatabaseSession's own
-    // outer transaction, and Prisma does not allow a nested $transaction()
-    // on that already-active Prisma.TransactionClient. withRepositorySavepoint
-    // reuses that ambient transaction inside its own SAVEPOINT when one is
-    // active (falling back to runInDatabaseTransaction - the same helper
-    // athena-memory/store.ts's correct() uses - only for callers outside a
-    // request session), so this fan-out is still atomic either way. Delivery
-    // rows are inserted sequentially (not Promise.all) to keep the
-    // transaction's query order deterministic.
     async createEventWithDeliveries(event, subscriberIds) {
       const result = await withRepositorySavepoint(async (tx) => {
-        const eventRow = await tx.athenaEvent.create({ data: toEventCreateData(event) });
+        // Conflict-safe insertion is required inside an ambient business
+        // transaction: a normal unique-constraint exception would abort the
+        // PostgreSQL transaction before the concurrent winner can be read.
+        const inserted = await tx.athenaEvent.createMany({
+          data: toEventCreateData(event),
+          skipDuplicates: true,
+        });
+
+        const eventRow = await tx.athenaEvent.findFirst({
+          where: { orgId: event.orgId, idempotencyKey: event.idempotencyKey },
+        });
+        if (!eventRow) {
+          throw new Error("Athena event could not be reconciled after idempotent insert");
+        }
+
         const deliveryRows: AthenaEventDeliveryRow[] = [];
-        for (const subscriberId of subscriberIds) {
-          const deliveryRow = await tx.athenaEventDelivery.create({
-            data: {
-              id: randomUUID(),
-              orgId: event.orgId,
-              eventId: eventRow.id,
-              subscriberId,
-              status: "pending",
-              attemptCount: 0,
-              nextAttemptAt: new Date(),
-              isReplay: false,
-            },
-          });
-          deliveryRows.push(deliveryRow);
+        if (inserted.count > 0) {
+          for (const subscriberId of subscriberIds) {
+            const deliveryRow = await tx.athenaEventDelivery.create({
+              data: {
+                id: randomUUID(),
+                orgId: event.orgId,
+                eventId: eventRow.id,
+                subscriberId,
+                status: "pending",
+                attemptCount: 0,
+                nextAttemptAt: new Date(),
+                isReplay: false,
+              },
+            });
+            deliveryRows.push(deliveryRow);
+          }
         }
         return { eventRow, deliveryRows };
       });
@@ -196,12 +172,6 @@ export function createPrismaAthenaEventRepository(): AthenaEventRepository {
       return row ? toEventRecord(row) : null;
     },
 
-    // Plain SELECT, no claim/lock step (e.g. no `FOR UPDATE SKIP LOCKED`):
-    // acceptable only because nothing in this milestone invokes the dispatch
-    // worker concurrently or at all in production (plan doc: "pull-based...
-    // no distributed platform yet"). A future scheduler that runs more than
-    // one dispatch worker against the same org must add row claiming here
-    // first, or two workers could dispatch the same delivery twice.
     async findDuePendingDeliveries(orgId, limit) {
       const rows = await prisma.athenaEventDelivery.findMany({
         where: { orgId, status: { in: ["pending", "failed"] }, nextAttemptAt: { lte: new Date() } },
