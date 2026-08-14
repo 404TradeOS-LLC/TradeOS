@@ -81,6 +81,13 @@ export interface AthenaApprovalStore extends AthenaApprovalVerifier {
   getById(approvalId: string): Promise<AthenaApprovalRecord | null>;
   grant(approvalId: string, approvedBy?: string, approvedAt?: Date): Promise<AthenaApprovalRecord>;
   deny(approvalId: string, approvedBy: string, approvedAt?: Date): Promise<AthenaApprovalRecord>;
+  reviewPending(
+    organizationId: string,
+    approvalId: string,
+    decision: "grant" | "deny",
+    approvedBy: string,
+    reviewedAt?: Date
+  ): Promise<AthenaApprovalRecord | null>;
   revoke(approvalId: string): Promise<AthenaApprovalRecord>;
   expire(approvalId: string, expiredAt?: Date): Promise<AthenaApprovalRecord>;
 }
