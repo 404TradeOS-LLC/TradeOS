@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../db/client";
-import type { AthenaAuditEventType } from "../athena-audit/types";
-import { createPrismaAthenaApprovalStore, toApprovalRecord } from "./store";
-import type { AthenaApprovalRecord, AthenaApprovalStatus } from "./types";
+import { createPrismaAthenaAuditStore } from "../athena-audit/store";
+import type { AthenaAuditEvent, AthenaAuditEventType, AthenaAuditReader } from "../athena-audit/types";
+import { createPrismaAthenaApprovalStore } from "./store";
+import type { AthenaApprovalRecord, AthenaApprovalStatus, AthenaApprovalStore } from "./types";
 
 export interface AthenaApprovalSubmissionInput {
   organizationId: string;
@@ -51,24 +50,16 @@ export class AthenaApprovalReviewError extends Error {
   }
 }
 
-const store = createPrismaAthenaApprovalStore();
 const DEFAULT_LIMIT = 50;
 
-function toAuditRecord(row: {
-  id: string;
-  createdAt: Date;
-  eventType: string;
-  actorUserId: string | null;
-  actorRole: string | null;
-  metadataJson: Prisma.JsonValue;
-}): AthenaApprovalAuditRecord {
+function toAuditRecord(event: AthenaAuditEvent): AthenaApprovalAuditRecord {
   return {
-    id: row.id,
-    timestamp: row.createdAt.toISOString(),
-    eventType: row.eventType as AthenaAuditEventType,
-    actorUserId: row.actorUserId,
-    actorRole: row.actorRole,
-    metadata: (row.metadataJson ?? {}) as Record<string, unknown>,
+    id: event.id,
+    timestamp: event.timestamp.toISOString(),
+    eventType: event.eventType,
+    actorUserId: event.actor.userId,
+    actorRole: event.actor.role,
+    metadata: event.metadata,
   };
 }
 
@@ -88,35 +79,28 @@ function hasMatchingBinding(record: AthenaApprovalRecord, input: AthenaApprovalS
 }
 
 export class AthenaApprovalService {
+  constructor(
+    private readonly store: AthenaApprovalStore = createPrismaAthenaApprovalStore(),
+    private readonly auditReader: AthenaAuditReader = createPrismaAthenaAuditStore()
+  ) {}
+
   async submit(input: AthenaApprovalSubmissionInput): Promise<AthenaApprovalRecord> {
-    const row = await prisma.athenaApproval.upsert({
-      where: {
-        orgId_actionId: {
-          orgId: input.organizationId,
-          actionId: input.actionId,
-        },
-      },
-      update: {},
-      create: {
-        id: randomUUID(),
-        userId: input.userId,
-        orgId: input.organizationId,
-        actionId: input.actionId,
-        toolId: input.toolId,
-        toolVersion: input.toolVersion,
-        riskLevel: input.riskLevel,
-        approvedAt: null,
-        approvedBy: null,
-        expiresAt: input.expiration,
-        status: "pending",
-        idempotencyKey: input.idempotencyKey,
-        inputHash: input.inputHash,
-        planId: input.planId,
-        stepId: input.stepId,
-        metadataJson: (input.metadata ?? {}) as Prisma.InputJsonValue,
-      },
+    const approval = await this.store.upsertPending({
+      approvalId: randomUUID(),
+      userId: input.userId,
+      organizationId: input.organizationId,
+      actionId: input.actionId,
+      toolId: input.toolId,
+      toolVersion: input.toolVersion,
+      riskLevel: input.riskLevel,
+      expiration: input.expiration,
+      status: "pending",
+      idempotencyKey: input.idempotencyKey,
+      inputHash: input.inputHash,
+      planId: input.planId,
+      stepId: input.stepId,
+      metadata: input.metadata,
     });
-    const approval = toApprovalRecord(row);
     if (!hasMatchingBinding(approval, input)) {
       throw new AthenaApprovalBindingConflictError("An approval already exists for this action with a different binding");
     }
@@ -124,31 +108,25 @@ export class AthenaApprovalService {
   }
 
   async list(filters: AthenaApprovalListFilters): Promise<AthenaApprovalRecord[]> {
-    const rows = await prisma.athenaApproval.findMany({
-      where: {
-        orgId: filters.organizationId,
-        status: filters.status,
-        userId: filters.userId,
-      },
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      take: filters.limit ?? DEFAULT_LIMIT,
+    return this.store.list({
+      organizationId: filters.organizationId,
+      status: filters.status,
+      userId: filters.userId,
+      limit: filters.limit ?? DEFAULT_LIMIT,
     });
-    return rows.map(toApprovalRecord);
   }
 
   async getDetail(organizationId: string, approvalId: string): Promise<AthenaApprovalDetail | null> {
-    const approval = await store.getById(approvalId);
+    const approval = await this.store.getById(approvalId);
     if (!approval || approval.organizationId !== organizationId) {
       return null;
     }
 
-    const auditEvents = await prisma.athenaAuditEvent.findMany({
-      where: {
-        orgId: organizationId,
-        OR: [{ approvalId }, { actionId: approval.actionId }],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 25,
+    const auditEvents = await this.auditReader.listForApproval({
+      organizationId,
+      approvalId,
+      actionId: approval.actionId,
+      limit: 25,
     });
 
     return {
@@ -158,7 +136,7 @@ export class AthenaApprovalService {
   }
 
   private async assertReviewAllowed(organizationId: string, approvalId: string, approvedBy: string, reviewedAt: Date): Promise<void> {
-    const approval = await store.getById(approvalId);
+    const approval = await this.store.getById(approvalId);
     if (!approval || approval.organizationId !== organizationId) {
       throw new AthenaApprovalReviewError("approval_not_found");
     }
@@ -173,7 +151,7 @@ export class AthenaApprovalService {
   private async review(organizationId: string, approvalId: string, approvedBy: string, decision: "grant" | "deny"): Promise<AthenaApprovalRecord> {
     const reviewedAt = new Date();
     await this.assertReviewAllowed(organizationId, approvalId, approvedBy, reviewedAt);
-    const reviewed = await store.reviewPending(organizationId, approvalId, decision, approvedBy, reviewedAt);
+    const reviewed = await this.store.reviewPending(organizationId, approvalId, decision, approvedBy, reviewedAt);
     if (!reviewed) {
       // The approval was changed or expired after the pre-check. The conditional
       // store transition is the authority, so a stale reviewer never overwrites
