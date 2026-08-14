@@ -8,19 +8,19 @@ const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
 const appClient = new PrismaClient({ datasources: { db: { url: appDatabaseUrl } } });
 const adminClient = new PrismaClient({ datasources: { db: { url: adminDatabaseUrl } } });
 
-const orgA = "72000000-0000-0000-0000-000000000001";
-const orgB = "82000000-0000-0000-0000-000000000002";
-const ownerA = "72000000-0000-0000-0000-000000000011";
-const technicianA = "72000000-0000-0000-0000-000000000012";
-const ownerB = "82000000-0000-0000-0000-000000000021";
-const divisionA = "72000000-0000-0000-0000-000000000031";
-const divisionB = "82000000-0000-0000-0000-000000000032";
-const categoryA = "72000000-0000-0000-0000-000000000041";
-const categoryB = "82000000-0000-0000-0000-000000000042";
-const subcategoryA = "72000000-0000-0000-0000-000000000051";
-const subcategoryB = "82000000-0000-0000-0000-000000000052";
-const costItemA = "72000000-0000-0000-0000-000000000061";
-const costItemB = "82000000-0000-0000-0000-000000000062";
+const orgA = "73000000-0000-0000-0000-000000000001";
+const orgB = "83000000-0000-0000-0000-000000000002";
+const ownerA = "73000000-0000-0000-0000-000000000011";
+const technicianA = "73000000-0000-0000-0000-000000000012";
+const ownerB = "83000000-0000-0000-0000-000000000021";
+const divisionA = "73000000-0000-0000-0000-000000000031";
+const divisionB = "83000000-0000-0000-0000-000000000032";
+const categoryA = "73000000-0000-0000-0000-000000000041";
+const categoryB = "83000000-0000-0000-0000-000000000042";
+const subcategoryA = "73000000-0000-0000-0000-000000000051";
+const subcategoryB = "83000000-0000-0000-0000-000000000052";
+const costItemA = "73000000-0000-0000-0000-000000000061";
+const costItemB = "83000000-0000-0000-0000-000000000062";
 
 // The CostItem service adds explicit parent/reference validation. These live
 // tests independently prove the existing database RLS still enforces the
