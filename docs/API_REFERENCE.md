@@ -117,6 +117,7 @@ Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new RES
 
 `POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
 of Friday, August 14, 2026, it:
+
 - requires standard authenticated organization access;
 - derives actor/org/role from server-trusted auth context, not request body;
 - resolves exact granted permissions from the authenticated TradeOS session when
