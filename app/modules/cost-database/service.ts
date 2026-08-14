@@ -139,6 +139,7 @@ export class CostDatabaseService {
     if (!item) throw new ApiError(404, `CostItem ${costItemId} not found`);
 
     const region = regionId ? await prisma.region.findFirst({ where: { id: regionId, orgId } }) : null;
+    if (regionId && !region) throw new ApiError(404, `Region ${regionId} not found`);
     const regionLaborIndex = region ? Number(region.laborIndex) : item.laborRate?.region ? Number(item.laborRate.region.laborIndex) : 1;
     const regionMaterialIndex = region ? Number(region.materialIndex) : 1;
 
