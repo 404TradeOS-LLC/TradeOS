@@ -31,6 +31,7 @@ freshness policy.
 | `calendar` | Availability, appointments, blackout windows |
 | `dispatch` | Jobs, assignments, conflicts, technician status |
 | `customers` | Customer, address, equipment, agreements, notes |
+| `estimates` | Selected estimate scope, status, totals, and bounded estimate context |
 | `costbook` | Cost items, assemblies, supplier and regional pricing summaries |
 | `knowledgeEngine` | Read-only Knowledge Runtime facts and retrieval metadata |
 | `inventory` | Materials, reservations, order constraints |
