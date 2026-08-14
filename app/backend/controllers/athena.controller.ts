@@ -113,27 +113,24 @@ export const athenaController = {
       // denial, and cancellation) historically returned without one. Add the
       // request-level terminal event only when the kernel did not already
       // emit one, preserving the exactly-one terminal audit invariant without
-      // duplicating successful/failed action events. Audit failure remains
-      // non-fatal to the business response, matching the kernel's posture.
+      // duplicating successful/failed action events. Because this fallback is
+      // the only durable terminal record for those paths, persistence failure
+      // fails the request rather than returning without terminal audit state.
       if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
-        try {
-          await requestAuditStore.record({
-            id: randomUUID(),
-            timestamp: new Date(),
-            actor: { userId: auth.userId, role: canonicalRole },
-            organization: orgId,
-            eventType: result.success ? "execution_completed" : "failure",
-            metadata: {
-              finalState: result.state,
-              reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
-            },
-            requestId,
-            traceId: result.traceId,
-            executionId: result.executionId,
-          });
-        } catch {
-          // Audit persistence must never flip an otherwise valid Athena result.
-        }
+        await requestAuditStore.record({
+          id: randomUUID(),
+          timestamp: new Date(),
+          actor: { userId: auth.userId, role: canonicalRole },
+          organization: orgId,
+          eventType: result.success ? "execution_completed" : "failure",
+          metadata: {
+            finalState: result.state,
+            reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
+          },
+          requestId,
+          traceId: result.traceId,
+          executionId: result.executionId,
+        });
       }
 
       res.status(resolveStatusCode(result)).json(result);
