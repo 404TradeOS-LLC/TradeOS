@@ -46,9 +46,9 @@ export class CostDatabaseService {
     });
   }
 
-  async listSubcategoryCostItems(subcategoryId: string, orgId?: string): Promise<CostItemDTO[]> {
-    if (orgId) await this.assertSubcategoryBelongsToOrganization(orgId, subcategoryId);
-    const rows = await prisma.costItem.findMany({ where: { subcategoryId, ...(orgId ? { orgId } : {}) }, orderBy: { code: "asc" } });
+  async listSubcategoryCostItems(subcategoryId: string, orgId: string): Promise<CostItemDTO[]> {
+    await this.assertSubcategoryBelongsToOrganization(orgId, subcategoryId);
+    const rows = await prisma.costItem.findMany({ where: { subcategoryId, orgId }, orderBy: { code: "asc" } });
     return rows.map(toDTO);
   }
 
@@ -77,7 +77,7 @@ export class CostDatabaseService {
   }
 
   async create(input: CreateCostItemInput): Promise<CostItemDTO> {
-    if (input.orgId) await this.assertCostItemReferencesBelongToOrganization(input.orgId, input);
+    await this.assertCostItemReferencesBelongToOrganization(input.orgId, input);
 
     const row = await prisma.costItem.create({
       data: {
@@ -97,9 +97,9 @@ export class CostDatabaseService {
     return toDTO(row);
   }
 
-  async update(id: string, input: UpdateCostItemInput, orgId?: string): Promise<CostItemDTO> {
+  async update(id: string, input: UpdateCostItemInput, orgId: string): Promise<CostItemDTO> {
     await this.assertExists(id, orgId);
-    if (orgId) await this.assertCostItemReferencesBelongToOrganization(orgId, input);
+    await this.assertCostItemReferencesBelongToOrganization(orgId, input);
 
     const row = await prisma.costItem.update({
       where: { id },
@@ -186,7 +186,7 @@ export class CostDatabaseService {
   }
 
   /** Bulk import/update cost items from a parsed CSV/Excel row set. */
-  async bulkImport(orgId: string | undefined, rows: BulkImportCostItemRow[]): Promise<BulkImportResult> {
+  async bulkImport(orgId: string, rows: BulkImportCostItemRow[]): Promise<BulkImportResult> {
     const result: BulkImportResult = { created: 0, errors: [] };
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
