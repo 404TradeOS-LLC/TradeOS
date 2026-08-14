@@ -33,7 +33,15 @@ export interface CreateCostItemInput {
   notes?: string;
 }
 
-export type UpdateCostItemInput = Partial<Omit<CreateCostItemInput, "subcategoryId">> & { isActive?: boolean };
+export type UpdateCostItemInput = Partial<Omit<CreateCostItemInput,
+  "orgId" | "subcategoryId" | "laborRateId" | "materialId" | "equipmentId" | "subcontractorId"
+>> & {
+  laborRateId?: string | null;
+  materialId?: string | null;
+  equipmentId?: string | null;
+  subcontractorId?: string | null;
+  isActive?: boolean;
+};
 
 export interface CostItemDTO {
   id: string;
