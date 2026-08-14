@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import type { SupportedRole } from "../domain";
 
@@ -79,16 +80,16 @@ describe("live CostItem row-level security", () => {
   });
 
   it("shows a read-only Costbook actor only their organization's CostItems", async () => {
-    const rows = await inSession(technicianA, orgA, "technician", (tx) =>
-      tx.costItem.findMany({ orderBy: { code: "asc" } })
+    const rows = await inSession(technicianA, orgA, "technician", () =>
+      prisma.costItem.findMany({ orderBy: { code: "asc" } })
     );
 
     expect(rows.map((row) => row.id)).toEqual([costItemA]);
   });
 
   it("hides a cross-organization CostItem from an owner", async () => {
-    const rows = await inSession(ownerA, orgA, "owner", (tx) =>
-      tx.costItem.findMany({ where: { id: costItemB } })
+    const rows = await inSession(ownerA, orgA, "owner", () =>
+      prisma.costItem.findMany({ where: { id: costItemB } })
     );
 
     expect(rows).toEqual([]);
@@ -96,8 +97,8 @@ describe("live CostItem row-level security", () => {
 
   it("rejects a CostItem write that supplies another organization id", async () => {
     await expect(
-      inSession(ownerA, orgA, "owner", (tx) =>
-        tx.costItem.create({
+      inSession(ownerA, orgA, "owner", () =>
+        prisma.costItem.create({
           data: {
             orgId: orgB,
             subcategoryId: subcategoryB,
@@ -111,12 +112,7 @@ describe("live CostItem row-level security", () => {
   });
 });
 
-function inSession<T>(
-  userId: string,
-  orgId: string,
-  role: SupportedRole,
-  operation: (tx: PrismaClient) => Promise<T>
-): Promise<T> {
+function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>): Promise<T> {
   return runWithDatabaseSession(appClient, { userId, orgId, role }, operation, "costitem-integration-test");
 }
 
