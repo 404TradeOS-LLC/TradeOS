@@ -46,8 +46,9 @@ export class CostDatabaseService {
     });
   }
 
-  async listSubcategoryCostItems(subcategoryId: string): Promise<CostItemDTO[]> {
-    const rows = await prisma.costItem.findMany({ where: { subcategoryId }, orderBy: { code: "asc" } });
+  async listSubcategoryCostItems(subcategoryId: string, orgId?: string): Promise<CostItemDTO[]> {
+    if (orgId) await this.assertSubcategoryBelongsToOrganization(orgId, subcategoryId);
+    const rows = await prisma.costItem.findMany({ where: { subcategoryId, ...(orgId ? { orgId } : {}) }, orderBy: { code: "asc" } });
     return rows.map(toDTO);
   }
 
@@ -76,6 +77,8 @@ export class CostDatabaseService {
   }
 
   async create(input: CreateCostItemInput): Promise<CostItemDTO> {
+    if (input.orgId) await this.assertCostItemReferencesBelongToOrganization(input.orgId, input);
+
     const row = await prisma.costItem.create({
       data: {
         orgId: input.orgId,
@@ -96,6 +99,8 @@ export class CostDatabaseService {
 
   async update(id: string, input: UpdateCostItemInput, orgId?: string): Promise<CostItemDTO> {
     await this.assertExists(id, orgId);
+    if (orgId) await this.assertCostItemReferencesBelongToOrganization(orgId, input);
+
     const row = await prisma.costItem.update({
       where: { id },
       data: {
@@ -201,6 +206,34 @@ export class CostDatabaseService {
   private async assertExists(id: string, orgId?: string): Promise<void> {
     const exists = await prisma.costItem.findFirst({ where: { id, orgId } });
     if (!exists) throw new ApiError(404, `CostItem ${id} not found`);
+  }
+
+  private async assertCostItemReferencesBelongToOrganization(
+    orgId: string,
+    input: Pick<CreateCostItemInput, "subcategoryId" | "laborRateId" | "materialId" | "equipmentId" | "subcontractorId"> | UpdateCostItemInput
+  ): Promise<void> {
+    if ("subcategoryId" in input && input.subcategoryId) {
+      await this.assertSubcategoryBelongsToOrganization(orgId, input.subcategoryId);
+    }
+
+    const checks: Array<Promise<unknown>> = [];
+    if (input.laborRateId) checks.push(prisma.laborRate.findFirst({ where: { id: input.laborRateId, orgId }, select: { id: true } }));
+    if (input.materialId) checks.push(prisma.material.findFirst({ where: { id: input.materialId, orgId }, select: { id: true } }));
+    if (input.equipmentId) checks.push(prisma.equipment.findFirst({ where: { id: input.equipmentId, orgId }, select: { id: true } }));
+    if (input.subcontractorId) checks.push(prisma.subcontractor.findFirst({ where: { id: input.subcontractorId, orgId }, select: { id: true } }));
+
+    const results = await Promise.all(checks);
+    if (results.some((result) => !result)) {
+      throw new ApiError(400, "Cost item references must belong to the authenticated organization");
+    }
+  }
+
+  private async assertSubcategoryBelongsToOrganization(orgId: string, subcategoryId: string): Promise<void> {
+    const subcategory = await prisma.subcategory.findFirst({
+      where: { id: subcategoryId, category: { division: { orgId } } },
+      select: { id: true },
+    });
+    if (!subcategory) throw new ApiError(400, "Subcategory must belong to the authenticated organization");
   }
 }
 
