@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -20,6 +20,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/recover-vercel-main-deployment.yml
 ---
 
 # TradeOS Documentation
@@ -104,6 +105,8 @@ dependency auditing, framework-free unit tests, lint, build, and the same
 tracked-source cleanliness check. These checks are intended to make a green PR
 a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
+
+The main-branch Vercel handoff recovery workflow is an operational fail-safe, not a replacement for normal Git deployment. On a `main` push it observes the Vercel-owned GitHub check suite for that exact SHA; when the suite remains queued with zero check runs, it re-requests that suite through GitHub's checks API using only the repository-scoped `GITHUB_TOKEN`. It never receives Vercel credentials, deploys an alternate SHA, changes secrets, or bypasses repository verification.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
 
