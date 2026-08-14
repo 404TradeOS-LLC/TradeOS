@@ -72,12 +72,21 @@ export interface AthenaApprovalCreateInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface AthenaApprovalListQuery {
+  organizationId: string;
+  status?: AthenaApprovalStatus;
+  userId?: string;
+  limit: number;
+}
+
 export interface AthenaApprovalVerifier {
   verify(input: AthenaApprovalVerificationInput): Promise<AthenaApprovalVerificationResult>;
 }
 
 export interface AthenaApprovalStore extends AthenaApprovalVerifier {
   create(input: AthenaApprovalCreateInput): Promise<AthenaApprovalRecord>;
+  upsertPending(input: AthenaApprovalCreateInput): Promise<AthenaApprovalRecord>;
+  list(query: AthenaApprovalListQuery): Promise<AthenaApprovalRecord[]>;
   getById(approvalId: string): Promise<AthenaApprovalRecord | null>;
   grant(approvalId: string, approvedBy?: string, approvedAt?: Date): Promise<AthenaApprovalRecord>;
   deny(approvalId: string, approvedBy: string, approvedAt?: Date): Promise<AthenaApprovalRecord>;
