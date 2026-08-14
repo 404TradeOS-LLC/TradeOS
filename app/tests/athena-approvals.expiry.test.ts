@@ -82,4 +82,15 @@ describe("Athena approval expiry lifecycle", () => {
     expect(detail?.approval.status).toBe("expired");
     expect((await store.getById("approval-1"))?.status).toBe("expired");
   });
+
+  it("expires a pending approval at the exact expiry cutoff", async () => {
+    const store = createInMemoryAthenaApprovalStore({ now: () => NOW });
+    const service = new AthenaApprovalService(store, auditReader);
+    await store.create(buildApproval({ expiration: new Date(NOW) }));
+
+    const detail = await service.getDetail(ORG_ID, "approval-1");
+
+    expect(detail?.approval.status).toBe("expired");
+    expect((await store.getById("approval-1"))?.status).toBe("expired");
+  });
 });
