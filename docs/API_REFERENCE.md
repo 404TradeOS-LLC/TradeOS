@@ -127,7 +127,19 @@ of Friday, August 14, 2026, it:
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
   hash, plan id, and step id;
+- injects the durable A6 action-idempotency store for dedup-eligible tool calls,
+  so a caller-supplied key is claimed across instances under organization,
+  exact actor, tool/version, and canonical validated-input identity before tool
+  execution;
 - exposes no separate tool-specific mutation endpoints.
+
+Durable action idempotency is an internal execution-control behavior and does
+not add a new REST route or change the `/athena/chat` request shape. A completed
+duplicate with the same actor/org/tool/version/key/input identity returns the
+original persisted action result without invoking the tool again; reusing the
+key for different validated input fails closed. The production store runs inside
+the authenticated request-scoped RLS transaction, while the process-local store
+remains a test/local fixture.
 
 Approval and audit persistence for Athena are internal implementation details,
 not new public REST resources. Before organization-scoped approval list/detail
@@ -169,7 +181,7 @@ Costbook material DTO:
 }
 ```
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the existing `Material` table has no active/archive state, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
 
 Costbook labor-rate DTO:
 
