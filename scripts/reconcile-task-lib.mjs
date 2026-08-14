@@ -138,6 +138,49 @@ function branchName(branch) {
   return typeof branch === "string" ? branch : branch.name;
 }
 
+function isRevertCommit(commit) {
+  const title = String(commit.title ?? commit.message ?? "");
+  const body = String(commit.body ?? "");
+  return /^revert\b/i.test(title) || /\bthis reverts commit\b/i.test(body);
+}
+
+function commitTitle(commit) {
+  return String(commit.title ?? commit.message ?? "").trim();
+}
+
+function isRevertOfCommit(revert, original) {
+  if (!isRevertCommit(revert)) return false;
+
+  const revertText = itemText(revert).toLowerCase();
+  const originalSha = String(original.sha ?? "").toLowerCase();
+  const originalTitle = commitTitle(original).toLowerCase();
+
+  return Boolean(
+    (originalSha.length >= 7 && revertText.includes(originalSha.slice(0, 12))) ||
+      (originalTitle && revertText.includes(`revert "${originalTitle}"`)) ||
+      (originalTitle && revertText.includes(originalTitle)),
+  );
+}
+
+function splitCurrentAndRevertedMainMatches(mainCommits, mainMatches) {
+  const commitIndexes = new Map((mainCommits ?? []).map((commit, index) => [commit.sha, index]));
+  const current = [];
+  const reverted = [];
+
+  for (const match of mainMatches) {
+    const matchIndex = commitIndexes.get(match.sha);
+    const laterCommits = Number.isInteger(matchIndex)
+      ? mainCommits.slice(0, matchIndex)
+      : [];
+    const revert = laterCommits.find((commit) => isRevertOfCommit(commit, match));
+
+    if (revert) reverted.push({ ...match, revertedBy: revert });
+    else current.push(match);
+  }
+
+  return { current, reverted };
+}
+
 export function classifyTask(snapshot) {
   const task = snapshot.task;
   if (!task || String(task).trim() === "") {
@@ -147,7 +190,14 @@ export function classifyTask(snapshot) {
   const branches = snapshot.remoteBranches ?? [];
   const openMatches = findMatches(task, snapshot.openPrs);
   const closedMatches = findMatches(task, snapshot.closedPrs);
-  const mainMatches = findMatches(task, snapshot.mainCommits);
+  const mainMatches = findMatches(
+    task,
+    (snapshot.mainCommits ?? []).filter((commit) => !isRevertCommit(commit)),
+  );
+  const { current: currentMainMatches, reverted: revertedMainMatches } = splitCurrentAndRevertedMainMatches(
+    snapshot.mainCommits ?? [],
+    mainMatches,
+  );
   const branchMatches = findMatches(
     task,
     branches.map((branch) => ({ name: branchName(branch) })),
@@ -169,20 +219,22 @@ export function classifyTask(snapshot) {
       openMatches,
       closedMatches,
       mainMatches,
+      revertedMainMatches,
       branchMatches,
     };
   }
 
-  if (mainMatches.length > 0) {
+  if (currentMainMatches.length > 0) {
     return {
       classification: CLASSIFICATIONS.NO_ACTION_REQUIRED,
       chosenAction: "Make no implementation change and report the main-branch evidence.",
-      reason: "Recent origin/main history substantially matches the requested work.",
+      reason: "The complete base-branch history substantially matches the requested work, with no later revert evidence.",
       referencedBranchExists,
       staleReferencedBranch: Boolean(referencedBranch),
       openMatches,
       closedMatches,
-      mainMatches,
+      mainMatches: currentMainMatches,
+      revertedMainMatches,
       branchMatches,
     };
   }
@@ -198,6 +250,7 @@ export function classifyTask(snapshot) {
     openMatches,
     closedMatches,
     mainMatches,
+    revertedMainMatches,
     branchMatches,
   };
 }
@@ -220,6 +273,7 @@ export function formatAutonomyPreflight(snapshot, result) {
     `Relevant remote branches: ${formatList(result.branchMatches, (branch) => branch.name)}`,
     `Recent related closed PRs: ${formatList(result.closedMatches, formatPr)}`,
     `Existing implementation on main: ${formatList(result.mainMatches, (commit) => `${commit.sha?.slice(0, 12) ?? "unknown"} ${commit.title ?? commit.message ?? ""}`.trim())}`,
+    `Reverted main evidence: ${formatList(result.revertedMainMatches ?? [], (commit) => `${commit.sha?.slice(0, 12) ?? "unknown"} reverted by ${commit.revertedBy?.sha?.slice(0, 12) ?? "unknown"}`)}`,
     `Referenced branch: ${snapshot.referencedBranch ?? "none"}${result.staleReferencedBranch ? " (stale input)" : ""}`,
     `Classification: ${result.classification}`,
     `Chosen action: ${result.chosenAction}`,
