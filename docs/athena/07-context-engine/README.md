@@ -143,3 +143,7 @@ communications.
 ## A12.1 transaction-boundary note
 
 A12.1 does not widen or alter context acquisition. The transactional wrappers for the six required canonical business events reuse the same server-derived actor, organization, permissions, and selected resource scope already established before tool/service execution; the Context Engine neither starts those business transactions nor treats event persistence as authorization evidence.
+
+## Approval expiry read boundary
+
+Approval list/detail normalization is not Context Engine behavior: the approval service uses the already server-derived organization scope to atomically persist overdue `pending` approvals as `expired` before those reads, without widening context acquisition or authorization.
