@@ -189,6 +189,7 @@ Current behavior:
 
 - `app/tests/cost-database.service.test.ts`
 - `app/tests/cost-database.tenant-references.test.ts`
+- `app/tests/costbook-cost-items.rls.integration.ts`
 - `app/tests/costbook.service.test.ts`
 - `app/tests/costbook.controller.test.ts`
 - `app/tests/costbook.migration.test.ts`
