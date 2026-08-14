@@ -176,6 +176,20 @@ export function createInMemoryAthenaApprovalStore(options: AthenaApprovalStoreOp
       records.set(approvalId, record);
       return record;
     },
+    async expirePending(organizationId, asOf = now()) {
+      let count = 0;
+      for (const [approvalId, existing] of records.entries()) {
+        if (
+          existing.organizationId === organizationId &&
+          existing.status === "pending" &&
+          existing.expiration.getTime() <= asOf.getTime()
+        ) {
+          records.set(approvalId, { ...existing, status: "expired" as const });
+          count += 1;
+        }
+      }
+      return count;
+    },
     async verify(input) {
       return verifyRecord(records.get(input.approvalId) ?? null, input, now());
     },
@@ -293,6 +307,17 @@ export function createPrismaAthenaApprovalStore(options: AthenaApprovalStoreOpti
         data: { status: "expired", expiresAt: expiredAt },
       });
       return toApprovalRecord(row);
+    },
+    async expirePending(organizationId, asOf = now()) {
+      const update = await prisma.athenaApproval.updateMany({
+        where: {
+          orgId: organizationId,
+          status: "pending",
+          expiresAt: { lte: asOf },
+        },
+        data: { status: "expired" },
+      });
+      return update.count;
     },
     async verify(input) {
       const row = await prisma.athenaApproval.findFirst({ where: { id: input.approvalId } });
