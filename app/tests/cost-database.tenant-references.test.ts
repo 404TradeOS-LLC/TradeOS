@@ -139,6 +139,21 @@ describe("CostDatabaseService cost-item tenant references", () => {
     expect(result.materialId).toBeNull();
   });
 
+  it("keeps bulk-import rows pinned to the service-boundary organization", async () => {
+    const service = new CostDatabaseService();
+    const create = jest.spyOn(service, "create").mockResolvedValue({} as never);
+
+    await service.bulkImport("org-1", [{
+      orgId: "org-other",
+      subcategoryId: "11111111-1111-4111-8111-111111111111",
+      code: "CI-BULK",
+      name: "Imported item",
+      unitOfMeasure: "EA",
+    } as never]);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-1", code: "CI-BULK" }));
+  });
+
   it("scopes subcategory cost-item reads to the authenticated organization", async () => {
     mockPrisma.costItem.findMany.mockResolvedValue([]);
     const service = new CostDatabaseService();
