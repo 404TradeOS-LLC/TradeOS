@@ -1,67 +1,43 @@
-import { AthenaToolDefinition, AthenaToolDiscoveryActor, AthenaToolResolution } from "./types";
+import {
+  AthenaRegisteredToolDefinition,
+  AthenaToolCategory,
+  AthenaToolDefinition,
+  AthenaToolDiscoveryActor,
+  AthenaToolOutputSchema,
+  AthenaToolResolution,
+  athenaToolCategories,
+  athenaToolOutputSchemas,
+} from "./types";
 import { hasAllRequiredFeatureFlags, hasAllRequiredPermissions } from "./policy";
 
 interface RegistryEntry {
-  definition: AthenaToolDefinition;
+  definition: AthenaRegisteredToolDefinition;
   removed: boolean;
 }
 
-// Code-defined, in-memory tool catalog (docs/athena/roadmap/
-// A2-tool-registry-implementation-plan.md "Required Backend Seams" /
-// "Migration Requirements": "A2's registry is a static, code-loaded
-// catalog... not a database table"). createAthenaToolRegistry() builds a
-// fresh, isolated catalog per call rather than a module-level singleton, so
-// tests can register/remove/discover without leaking state across test
-// files - the registry is still entirely code-defined and non-persisted
-// either way; nothing here is written to or read from a database.
 export interface AthenaToolRegistry {
   register(definition: AthenaToolDefinition): void;
-  // Does not delete the entry - marks it so resolve() can distinguish "never
-  // existed" (tool_not_found) from "existed and was retired" (tool_removed),
-  // per docs/athena/06-tool-registry/README.md's versioning rules. A2 has no
-  // production removal workflow; this exists so the tool_removed path is
-  // exercised deterministically by tests.
   remove(id: string, version: string): void;
   resolve(id: string, version: string): AthenaToolResolution;
-  discover(actor: AthenaToolDiscoveryActor): AthenaToolDefinition[];
+  discover(actor: AthenaToolDiscoveryActor): AthenaRegisteredToolDefinition[];
 }
 
-// Stable lowercase reverse-domain-style ID (docs/athena/roadmap/
-// A2-tool-registry-implementation-plan.md "Tool Identity, Naming, And
-// Versioning Rules": "tradeos.<module>.<capability>", e.g.
-// "tradeos.athena.fixture.echo"). Each dot-separated segment is
-// lowercase-kebab; at least one dot is required, and leading/trailing/
-// doubled dots are rejected because every segment must be non-empty.
 const TOOL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$/;
-
-// Semver-compatible MAJOR.MINOR.PATCH, with optional pre-release/build
-// metadata. Rejects "latest", "v1", "1", "1.0", and whitespace - a
-// non-semver version can't participate in major-version pinning (docs/athena/
-// roadmap/A2-tool-registry-implementation-plan.md "Tool Identity, Naming,
-// And Versioning Rules").
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_CONFIRMATION_POLICIES = new Set(["never", "contextual", "always"]);
 const VALID_IDEMPOTENCY = new Set(["required", "optional", "not_supported"]);
 const VALID_COMPENSATION_POLICIES = new Set(["none", "compensating_action", "service_transaction", "draft_only"]);
+const VALID_CATEGORIES = new Set<string>(athenaToolCategories);
+const VALID_OUTPUT_SCHEMAS = new Set<string>(athenaToolOutputSchemas);
 
+/** Detects the minimal runtime interface required from an A2 input schema. */
 function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknown) => { success: boolean } } {
   return !!schema && typeof (schema as { safeParse?: unknown }).safeParse === "function";
 }
 
-// Validates every field the A2 exit criteria require to be present before a
-// tool can be registered at all - timeoutMs, idempotency, compensationPolicy,
-// and a Zod-like inputSchema all fail fast here rather than being discovered
-// at first dispatch. Mirrors athena-kernel/telemetry.ts's
-// assertValidTelemetryRecord posture of failing loudly at the boundary
-// rather than trusting callers.
-//
-// Exported (additive, no behavior change) so A9's SDK contract-test kit
-// (app/modules/athena-tool-sdk/contractTestKit.ts) can reuse this exact
-// function instead of carrying a second copy of A2's own registration
-// validation - see docs/athena/roadmap/A9-tool-sdk-implementation-plan.md
-// "Contract-test kit". register() below still calls it identically.
+/** Validates the raw registration contract before any legacy metadata defaults are applied. */
 export function assertValidToolDefinition(definition: AthenaToolDefinition): void {
   if (typeof definition.id !== "string" || !TOOL_ID_PATTERN.test(definition.id)) {
     throw new Error(`AthenaToolDefinition.id must be a lowercase reverse-domain-style id (e.g. "tradeos.athena.fixture.echo"): ${String(definition.id)}`);
@@ -74,6 +50,12 @@ export function assertValidToolDefinition(definition: AthenaToolDefinition): voi
   }
   if (!definition.description || typeof definition.description !== "string") {
     throw new Error("AthenaToolDefinition.description must be a non-empty string");
+  }
+  if (definition.name !== undefined && (typeof definition.name !== "string" || definition.name.trim().length === 0)) {
+    throw new Error("AthenaToolDefinition.name must be a non-empty string when present");
+  }
+  if (definition.category !== undefined && !VALID_CATEGORIES.has(definition.category)) {
+    throw new Error(`AthenaToolDefinition.category is not valid: ${String(definition.category)}`);
   }
   if (!Array.isArray(definition.permissions)) {
     throw new Error("AthenaToolDefinition.permissions must be an array");
@@ -96,6 +78,9 @@ export function assertValidToolDefinition(definition: AthenaToolDefinition): voi
   if (!isZodLikeSchema(definition.inputSchema)) {
     throw new Error("AthenaToolDefinition.inputSchema must be a Zod-like schema exposing safeParse() in A2");
   }
+  if (definition.outputSchema !== undefined && !VALID_OUTPUT_SCHEMAS.has(definition.outputSchema)) {
+    throw new Error(`AthenaToolDefinition.outputSchema is not valid: ${String(definition.outputSchema)}`);
+  }
   if (definition.requiredFeatureFlags !== undefined && !Array.isArray(definition.requiredFeatureFlags)) {
     throw new Error("AthenaToolDefinition.requiredFeatureFlags must be an array when present");
   }
@@ -104,10 +89,51 @@ export function assertValidToolDefinition(definition: AthenaToolDefinition): voi
   }
 }
 
+/** Converts the last namespaced ID segment into a stable human-readable default name. */
+function titleCaseFromSegment(segment: string): string {
+  return segment
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+/** Infers a closed Athena tool category for legacy definitions that omit discovery metadata. */
+function inferToolCategory(definition: AthenaToolDefinition): AthenaToolCategory {
+  if (definition.category) {
+    return definition.category;
+  }
+  const segments = definition.id.split(".");
+  const toolsIndex = segments.indexOf("tools");
+  if (toolsIndex >= 0 && segments[toolsIndex + 1] && VALID_CATEGORIES.has(segments[toolsIndex + 1])) {
+    return segments[toolsIndex + 1] as AthenaToolCategory;
+  }
+  if (segments.includes("fixture")) {
+    return "fixture";
+  }
+  return "system";
+}
+
+/** Produces the fully populated registered-tool contract stored and returned by the registry. */
+function normalizeToolDefinition(definition: AthenaToolDefinition): AthenaRegisteredToolDefinition {
+  const segments = definition.id.split(".");
+  const defaultName = titleCaseFromSegment(segments[segments.length - 1] ?? definition.id);
+  const outputSchema: AthenaToolOutputSchema = definition.outputSchema ?? "AthenaToolResult";
+
+  return {
+    ...definition,
+    name: definition.name?.trim() || defaultName,
+    category: inferToolCategory(definition),
+    outputSchema,
+  };
+}
+
+/** Builds the internal identity key for one exact tool-version registration. */
 function key(id: string, version: string): string {
   return `${id}@${version}`;
 }
 
+/** Creates an isolated in-memory Athena tool registry with deterministic registration, resolution, removal, and discovery behavior. */
 export function createAthenaToolRegistry(): AthenaToolRegistry {
   const entries = new Map<string, RegistryEntry>();
   const knownIds = new Set<string>();
@@ -115,12 +141,13 @@ export function createAthenaToolRegistry(): AthenaToolRegistry {
   return {
     register(definition) {
       assertValidToolDefinition(definition);
-      const entryKey = key(definition.id, definition.version);
+      const normalized = normalizeToolDefinition(definition);
+      const entryKey = key(normalized.id, normalized.version);
       if (entries.has(entryKey)) {
         throw new Error(`Athena tool already registered: ${entryKey}`);
       }
-      entries.set(entryKey, { definition, removed: false });
-      knownIds.add(definition.id);
+      entries.set(entryKey, { definition: normalized, removed: false });
+      knownIds.add(normalized.id);
     },
 
     remove(id, version) {

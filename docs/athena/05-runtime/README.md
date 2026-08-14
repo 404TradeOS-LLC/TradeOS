@@ -47,6 +47,16 @@ Every kernel execution has:
   conversation reference, and telemetry metadata;
 - no authority to approve, authorize, or mutate based on model output.
 
+## Current Runtime Posture
+
+As of Friday, August 14, 2026, the current repository implementation has moved
+past the original A1-only source posture. The kernel route is feature-flagged,
+the router and planner path is wired, the action engine can execute approved
+tool steps, and the production registry/context-provider seams exist in source.
+The conservative operating boundary remains the same: approvals stay
+fail-closed by default, and feature flags still control reachability of the
+newer surfaces.
+
 ## Lifecycle State Machine
 
 | State | Meaning | Allowed next states |

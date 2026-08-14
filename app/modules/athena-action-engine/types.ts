@@ -1,7 +1,7 @@
 import type { CanonicalRole } from "../../domain";
 import type { AthenaAIContext, AthenaToolError } from "../athena-kernel/types";
 import type { AthenaPermissionDecision } from "../athena-permissions/types";
-import type { AthenaToolCompensationPolicy, AthenaToolResult } from "../athena-tool-registry/types";
+import type { AthenaToolCategory, AthenaToolCompensationPolicy, AthenaToolResult } from "../athena-tool-registry/types";
 
 // A6 Action Engine contracts (docs/athena/roadmap/A6-action-engine-implementation-plan.md,
 // C005 in docs/athena/contracts/README.md). AthenaAction below is the exact
@@ -22,6 +22,15 @@ import type { AthenaToolCompensationPolicy, AthenaToolResult } from "../athena-t
 // modified by A6.
 export const athenaActionStates = ["created", "pending", "running", "awaiting_approval", "partially_succeeded", "succeeded", "failed", "denied", "expired", "cancelled"] as const;
 export type AthenaActionState = (typeof athenaActionStates)[number];
+export type AthenaActionApprovalRequirement = "not_required" | "required";
+
+export interface AthenaActionExecutor {
+  kind: "tool";
+  name: string;
+  category: AthenaToolCategory;
+  toolId: string;
+  toolVersion: string;
+}
 
 // C005 Action v1.0.0, verbatim shape from docs/athena/contracts/README.md.
 export interface AthenaAction {
@@ -29,14 +38,17 @@ export interface AthenaAction {
   version: "1.0.0";
   orgId: string;
   actorUserId: string;
+  name: string;
   toolId: string;
   toolVersion: string;
   input: unknown;
   risk: "low" | "medium" | "high";
+  approvalRequirement: AthenaActionApprovalRequirement;
   approvalId?: string;
   idempotencyKey: string;
   status: AthenaActionState;
   attempt: number;
+  executor: AthenaActionExecutor;
   checkpoint?: Record<string, unknown>;
   compensationPolicy: AthenaToolCompensationPolicy;
   lastError?: AthenaToolError;
@@ -101,9 +113,12 @@ export interface AthenaActionResult<TData = unknown> {
   planId?: string;
   stepId?: string;
   state: AthenaActionState;
+  name: string;
   toolId: string;
   toolVersion: string;
+  approvalRequirement: AthenaActionApprovalRequirement;
   idempotencyKey: string;
+  executor: AthenaActionExecutor;
   compensationPolicy: AthenaToolCompensationPolicy;
   toolResult: AthenaToolResult<TData>;
 }

@@ -18,14 +18,16 @@ export interface AthenaTool<TInput, TData> {
   id: string;
   version: string;
   name: string;
+  category: "system" | "estimator" | "dispatcher" | "office" | "field" | "costbook" | "fixture";
   description: string;
   risk: "low" | "medium" | "high";
   permissions: string[];
+  confirmationPolicy: "never" | "contextual" | "always";
   timeoutMs: number;
   idempotency: "required" | "optional" | "not_supported";
   compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: unknown;
-  outputSchema: unknown;
+  outputSchema: "AthenaToolResult";
   execute(
     input: TInput,
     aiContext: AthenaAIContext,
@@ -46,6 +48,13 @@ owner, version, deprecation status, and service dependency. Discovery returns
 only tools permitted for the authenticated user, organization, feature flags,
 and plugin policy.
 
+Newly authored v1 tools should provide `name`, `category`, and `outputSchema`
+explicitly. For compatibility with older hand-written definitions, the raw
+`AthenaToolDefinition` registration shape may omit those three discovery fields;
+the registry validates the raw definition and normalizes them before storage.
+Every resolved or discovered `AthenaRegisteredToolDefinition` therefore has a
+non-empty `name`, a closed Athena `category`, and `outputSchema: "AthenaToolResult"`.
+
 ## Required Metadata
 
 | Field | Required behavior |
@@ -53,11 +62,13 @@ and plugin policy.
 | `id` | Stable reverse-domain or namespaced ID |
 | `version` | Semver-compatible contract version |
 | `owner` | First-party module or approved plugin |
+| `name` | Human-readable tool/action name; authored v1 tools provide it, legacy registrations are normalized |
+| `category` | Closed Athena tool category: system, estimator, dispatcher, office, field, costbook, or fixture; legacy registrations are normalized |
 | `permissions` | TradeOS permissions/capabilities required |
 | `risk` | Low, medium, or high default risk |
 | `confirmationPolicy` | Whether approval is never/contextual/always required |
 | `inputSchema` | Runtime-validated shape |
-| `outputSchema` | Must be standard result envelope |
+| `outputSchema` | Standard result envelope; defaults to `AthenaToolResult` only for legacy raw registrations |
 | `timeoutMs` | Maximum execution time |
 | `idempotency` | Required for mutating tools |
 | `compensationPolicy` | None, compensating action, service transaction, or draft only |
@@ -71,9 +82,12 @@ lower a high-risk tool below explicit approval.
 
 ## Version 1 Required Versus Deferred Metadata
 
-Required in v1: ID, version, owner, permissions, risk, confirmation policy,
-timeout, idempotency policy, input schema, standard result envelope, service
-dependency, and compensation policy.
+Required for newly authored v1 tools: ID, version, owner, name, category,
+permissions, risk, confirmation policy, timeout, idempotency policy, input
+schema, output schema, standard result envelope, service dependency, and
+compensation policy. Legacy raw registrations may omit only `name`, `category`,
+and `outputSchema`; the registry supplies those values in the normalized
+registered definition.
 
 Optional in v1: feature flag, deprecation notice, model hints, cost estimate,
 and first-party helper metadata.
@@ -123,6 +137,8 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
     id: "tradeos.example.readSomething",
     version: "1.0.0",
     owner: "platform",
+    name: "Read Something",
+    category: "system",
     description: "Example first-party tool.",
     permissions: ["example.read"],
     risk: "low",
@@ -131,6 +147,7 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
     idempotency: "not_supported",
     compensationPolicy: "none",
     inputSchema,
+    outputSchema: "AthenaToolResult",
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const summary = await deps.someService.getSummary(execution.orgId, input.jobId);
@@ -148,6 +165,18 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
   });
 }
 ```
+
+### First-party production path
+
+As of Friday, August 14, 2026, the concrete first-party authoring flow in the
+current repository implementation is:
+
+1. add the tool under `app/modules/athena-tools/**`;
+2. author it with `defineTool()` or a direct `AthenaToolDefinition`;
+3. inject only application-service dependencies;
+4. register it in `createProductionAthenaToolRegistry()` in
+   `app/modules/athena-tools/registry.ts`;
+5. add focused contract and service-level tests.
 
 Authoring steps: (1) identify the application service the tool calls - never
 Prisma/a raw tenant DB client directly; (2) define the input schema with Zod

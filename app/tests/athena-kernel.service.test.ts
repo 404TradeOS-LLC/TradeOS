@@ -49,6 +49,7 @@ import { createKnowledgeEngineProvider } from "../modules/athena-context-engine/
 import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
 import type { AthenaToolRegistry } from "../modules/athena-tool-registry/registry";
 import { createEchoFixtureTool } from "../modules/athena-tool-registry/fixtures/echoFixtureTool";
+import type { AthenaRegisteredToolDefinition } from "../modules/athena-tool-registry/types";
 import { createInMemoryAthenaMemoryRepository } from "../modules/athena-memory/fixtures/inMemoryRepository";
 import { createAthenaMemoryService } from "../modules/athena-memory/service";
 import type { AthenaMemoryService } from "../modules/athena-memory/service";
@@ -481,7 +482,7 @@ describe("AthenaKernelService", () => {
     });
 
     it("fails closed when a plan step's tool can no longer be resolved at the kernel's authorization stage", async () => {
-      const tool = createEchoFixtureTool({ id: "tradeos.athena.fixture.vanishing", permissions: [], risk: "low" });
+      const tool = createEchoFixtureTool({ id: "tradeos.athena.fixture.vanishing", permissions: [], risk: "low" }) as AthenaRegisteredToolDefinition;
       let resolveCallCount = 0;
       // Simulates the tool becoming unavailable between planning and
       // authorization (e.g. a concurrent remove()): the first resolve() call
