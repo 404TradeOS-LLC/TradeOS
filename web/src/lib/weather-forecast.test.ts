@@ -51,10 +51,10 @@ test("selectRelevantForecastPeriod falls forward to the next upcoming period whe
         shortForecast: "Partly Cloudy",
       },
     ],
-    new Date("2026-08-13T17:59:59-04:00")
+    new Date("2026-08-13T18:00:00-04:00")
   );
 
-  assert.equal(result?.name, "Thursday");
+  assert.equal(result?.name, "Thursday Night");
 });
 
 test("selectRelevantForecastPeriod ignores malformed rows and returns null when no usable period exists", () => {

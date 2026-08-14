@@ -16,6 +16,7 @@ interface OwnerDashboardHeaderProps {
   currentDateLabel: string;
   notificationCount: number;
   weather: WeatherSnapshot | null;
+  projectScopeLabel: string;
   reviewQueue: ReviewQueueSnapshot;
 }
 
@@ -45,6 +46,7 @@ export function OwnerDashboardHeader({
   currentDateLabel,
   notificationCount,
   weather,
+  projectScopeLabel,
   reviewQueue,
 }: OwnerDashboardHeaderProps) {
   return (
@@ -57,7 +59,7 @@ export function OwnerDashboardHeader({
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{companyName}</h1>
             </div>
             <Badge variant="outline" className="border-primary/20 bg-primary/8 text-primary">
-              {notificationCount} in queue
+              {notificationCount} in recent-project queue
             </Badge>
           </div>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -84,7 +86,7 @@ export function OwnerDashboardHeader({
                 <Bell aria-hidden="true" className="size-4" />
                 Notifications
               </div>
-              <p className="mt-2 text-sm font-medium text-foreground">{notificationCount} need review</p>
+              <p className="mt-2 text-sm font-medium text-foreground">{notificationCount} need review in {projectScopeLabel}</p>
             </div>
           </div>
 
@@ -108,10 +110,10 @@ export function OwnerDashboardHeader({
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-foreground">Review Queue</div>
-              <p className="mt-1 text-sm text-muted-foreground">Owner-visible work waiting on a decision across estimating, billing, and starts.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Owner-visible work waiting on a decision in {projectScopeLabel}.</p>
             </div>
             <div className="rounded-full border border-border/70 bg-muted px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Live totals
+              Recent snapshot
             </div>
           </div>
 

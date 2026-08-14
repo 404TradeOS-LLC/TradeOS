@@ -254,6 +254,7 @@ export default async function DashboardPage() {
         currentDateLabel={currentDateLabel}
         notificationCount={notificationCount}
         weather={weather}
+        projectScopeLabel={projectScopeLabel}
         reviewQueue={{
           estimates: attentionEstimates.length,
           proposals: attentionProposals.length,

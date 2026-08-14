@@ -150,6 +150,7 @@
   }
   body {
     @apply bg-background text-foreground;
+
     background-image:
       radial-gradient(circle at top left, color-mix(in oklch, var(--accent) 28%, transparent) 0, transparent 30%),
       linear-gradient(180deg, color-mix(in oklch, var(--background) 94%, white 6%) 0%, var(--background) 18rem);
