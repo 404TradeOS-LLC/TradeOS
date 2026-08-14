@@ -8,19 +8,22 @@ const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
 const appClient = new PrismaClient({ datasources: { db: { url: appDatabaseUrl } } });
 const adminClient = new PrismaClient({ datasources: { db: { url: adminDatabaseUrl } } });
 
-const orgA = "73000000-0000-0000-0000-000000000001";
-const orgB = "83000000-0000-0000-0000-000000000002";
-const ownerA = "73000000-0000-0000-0000-000000000011";
-const technicianA = "73000000-0000-0000-0000-000000000012";
-const ownerB = "83000000-0000-0000-0000-000000000021";
-const divisionA = "73000000-0000-0000-0000-000000000031";
-const divisionB = "83000000-0000-0000-0000-000000000032";
-const categoryA = "73000000-0000-0000-0000-000000000041";
-const categoryB = "83000000-0000-0000-0000-000000000042";
-const subcategoryA = "73000000-0000-0000-0000-000000000051";
-const subcategoryB = "83000000-0000-0000-0000-000000000052";
-const costItemA = "73000000-0000-0000-0000-000000000061";
-const costItemB = "83000000-0000-0000-0000-000000000062";
+const orgA = "74000000-0000-0000-0000-000000000001";
+const orgB = "84000000-0000-0000-0000-000000000002";
+const ownerA = "74000000-0000-0000-0000-000000000011";
+const technicianA = "74000000-0000-0000-0000-000000000012";
+const ownerB = "84000000-0000-0000-0000-000000000021";
+const membershipOwnerA = "74000000-0000-0000-0000-000000000031";
+const membershipTechA = "74000000-0000-0000-0000-000000000032";
+const membershipOwnerB = "84000000-0000-0000-0000-000000000041";
+const divisionA = "74000000-0000-0000-0000-000000000051";
+const divisionB = "84000000-0000-0000-0000-000000000052";
+const categoryA = "74000000-0000-0000-0000-000000000061";
+const categoryB = "84000000-0000-0000-0000-000000000062";
+const subcategoryA = "74000000-0000-0000-0000-000000000071";
+const subcategoryB = "84000000-0000-0000-0000-000000000072";
+const costItemA = "74000000-0000-0000-0000-000000000081";
+const costItemB = "84000000-0000-0000-0000-000000000082";
 
 // The CostItem service adds explicit parent/reference validation. These live
 // tests independently prove the existing database RLS still enforces the
@@ -42,35 +45,40 @@ describe("live CostItem row-level security", () => {
     });
     await adminClient.organizationMembership.createMany({
       data: [
-        { orgId: orgA, userId: ownerA, role: "owner", status: "active" },
-        { orgId: orgA, userId: technicianA, role: "technician", status: "active" },
-        { orgId: orgB, userId: ownerB, role: "owner", status: "active" },
+        { id: membershipOwnerA, orgId: orgA, userId: ownerA, role: "owner", status: "active" },
+        { id: membershipTechA, orgId: orgA, userId: technicianA, role: "technician", status: "active" },
+        { id: membershipOwnerB, orgId: orgB, userId: ownerB, role: "owner", status: "active" },
       ],
     });
-    await adminClient.division.createMany({
-      data: [
-        { id: divisionA, orgId: orgA, code: "CI-A", name: "Org A Division" },
-        { id: divisionB, orgId: orgB, code: "CI-B", name: "Org B Division" },
-      ],
-    });
-    await adminClient.category.createMany({
-      data: [
-        { id: categoryA, divisionId: divisionA, code: "CAT-A", name: "Org A Category" },
-        { id: categoryB, divisionId: divisionB, code: "CAT-B", name: "Org B Category" },
-      ],
-    });
-    await adminClient.subcategory.createMany({
-      data: [
-        { id: subcategoryA, categoryId: categoryA, code: "SUB-A", name: "Org A Subcategory" },
-        { id: subcategoryB, categoryId: categoryB, code: "SUB-B", name: "Org B Subcategory" },
-      ],
-    });
-    await adminClient.costItem.createMany({
-      data: [
-        { id: costItemA, orgId: orgA, subcategoryId: subcategoryA, code: "ITEM-A", name: "Org A Cost Item", unitOfMeasure: "EA" },
-        { id: costItemB, orgId: orgB, subcategoryId: subcategoryB, code: "ITEM-B", name: "Org B Cost Item", unitOfMeasure: "EA" },
-      ],
-    });
+
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.division.create({ data: { id: divisionA, orgId: orgA, code: "CI-A", name: "Org A Division" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.division.create({ data: { id: divisionB, orgId: orgB, code: "CI-B", name: "Org B Division" } })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.category.create({ data: { id: categoryA, divisionId: divisionA, code: "CAT-A", name: "Org A Category" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.category.create({ data: { id: categoryB, divisionId: divisionB, code: "CAT-B", name: "Org B Category" } })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.subcategory.create({ data: { id: subcategoryA, categoryId: categoryA, code: "SUB-A", name: "Org A Subcategory" } })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.subcategory.create({ data: { id: subcategoryB, categoryId: categoryB, code: "SUB-B", name: "Org B Subcategory" } })
+    );
+    await inSession(ownerA, orgA, "owner", () =>
+      prisma.costItem.create({
+        data: { id: costItemA, orgId: orgA, subcategoryId: subcategoryA, code: "ITEM-A", name: "Org A Cost Item", unitOfMeasure: "EA" },
+      })
+    );
+    await inSession(ownerB, orgB, "owner", () =>
+      prisma.costItem.create({
+        data: { id: costItemB, orgId: orgB, subcategoryId: subcategoryB, code: "ITEM-B", name: "Org B Cost Item", unitOfMeasure: "EA" },
+      })
+    );
   });
 
   afterAll(async () => {
