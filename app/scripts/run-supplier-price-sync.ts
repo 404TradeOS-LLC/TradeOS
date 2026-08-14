@@ -11,7 +11,6 @@ import { parseSupplierPriceSyncJobSpecs, runSupplierPriceSyncJobs } from "../mod
 async function main() {
   const jobSpecs = parseSupplierPriceSyncJobSpecs(process.env.SUPPLIER_PRICE_SYNC_JOBS);
   if (jobSpecs.length === 0) {
-    // eslint-disable-next-line no-console
     console.log("[supplier-price-sync] SUPPLIER_PRICE_SYNC_JOBS is empty, nothing to do");
     return;
   }
@@ -22,10 +21,8 @@ async function main() {
     const label = outcome.spec.label ?? outcome.spec.supplierId;
     if (outcome.error) {
       failed += 1;
-      // eslint-disable-next-line no-console
       console.error(`[supplier-price-sync] ${label} failed: ${outcome.error}`);
     } else {
-      // eslint-disable-next-line no-console
       console.log(`[supplier-price-sync] ${label}: proposed ${outcome.result?.proposed}, skipped ${outcome.result?.skipped}`);
     }
   }
@@ -37,7 +34,6 @@ async function main() {
 
 main()
   .catch((err) => {
-    // eslint-disable-next-line no-console
     console.error(err);
     process.exitCode = 1;
   })
