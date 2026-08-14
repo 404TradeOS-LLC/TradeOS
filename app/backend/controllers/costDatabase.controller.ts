@@ -22,7 +22,7 @@ const updateCostItemSchema = z.object({
   code: z.string().trim().min(1).max(80).optional(),
   name: z.string().trim().min(1).max(200).optional(),
   unitOfMeasure: z.string().trim().min(1).max(40).optional(),
-  productionRate: z.number().finite().positive().max(99_999_999.9999).optional(),
+  productionRate: z.number().finite().positive().max(99_999_999.9999).nullable().optional(),
   laborRateId: z.string().uuid().nullable().optional(),
   materialId: z.string().uuid().nullable().optional(),
   equipmentId: z.string().uuid().nullable().optional(),
