@@ -13,10 +13,18 @@ test("equipment page loads the authenticated Costbook workspace and equipment ca
   const source = readSource("page.tsx");
 
   assert.match(source, /title:\s*"Equipment \| TradeOS"/);
-  assert.match(source, /getCostbookWorkspace\(token\)/);
-  assert.match(source, /listCostbookEquipment\(token\)/);
+  assert.match(source, /getEquipmentWorkspace\(token, signal\)/);
+  assert.match(source, /listCostbookEquipment\(token, signal\)/);
   assert.match(source, /Couldn't load equipment/);
   assert.match(source, /Organization-scoped equipment catalog records for Costbook/);
+});
+
+test("equipment page bounds backend loading and reports timeout failures", () => {
+  const source = readSource("page.tsx");
+
+  assert.match(source, /EQUIPMENT_LOAD_TIMEOUT_MS\s*=\s*15_000/);
+  assert.match(source, /AbortSignal\.timeout\(EQUIPMENT_LOAD_TIMEOUT_MS\)/);
+  assert.match(source, /Costbook equipment took too long to load\. Try again\./);
 });
 
 test("equipment loading route exposes a dedicated loading summary", () => {
@@ -52,4 +60,13 @@ test("equipment catalog is wired to the behaviorally tested mutation and permiss
   assert.match(source, /capabilities\.canEdit/);
   assert.match(source, /capabilities\.canDelete/);
   assert.match(source, /capabilities\.showActions/);
+});
+
+test("equipment catalog locks editable form state while a mutation is pending", () => {
+  const source = readSource("../../../../components/costbook/equipment-catalog.tsx");
+  const disabledWhileSaving = source.match(/disabled=\{saving\}/g) ?? [];
+
+  assert.ok(disabledWhileSaving.length >= 9, "expected form inputs and mutation transitions to be disabled while saving");
+  assert.match(source, /function startCreate\(\) \{\s*if \(saving\) return;/);
+  assert.match(source, /function startEdit\(item: EquipmentCatalogRecord\) \{\s*if \(saving\) return;/);
 });
