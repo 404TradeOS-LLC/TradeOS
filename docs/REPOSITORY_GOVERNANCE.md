@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -9,6 +9,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/recover-vercel-main-deployment.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -38,6 +39,12 @@ Existing `app/` and `web/` deployable boundaries remain authoritative during RC1
 GitHub rulesets, branch protection, required checks, merge methods, and review requirements are external state. They must be verified directly in GitHub before being described as current.
 
 Do not preserve dated statements such as “no rulesets exist” or “one approval is required” as present truth after configuration may have changed.
+
+## Vercel main-handoff recovery
+
+Normal production release remains Vercel's Git integration from the repository production branch. `.github/workflows/recover-vercel-main-deployment.yml` is a narrow recovery control for the observed failure mode where the Vercel-owned GitHub check suite for a `main` SHA remains `queued` with zero check runs and no Vercel deployment object is created.
+
+The recovery workflow may re-request only the Vercel check suite attached to the exact `main` SHA that triggered the workflow. It uses repository-scoped `GITHUB_TOKEN` checks permission and carries no Vercel access token. It must not create or deploy another SHA, rotate secrets, alter database state, bypass required PR verification, or turn a failed Vercel handoff into a false success. If re-requesting still produces no Vercel check run, the workflow fails visibly and the production-drift incident remains open.
 
 ## Required protection target
 
