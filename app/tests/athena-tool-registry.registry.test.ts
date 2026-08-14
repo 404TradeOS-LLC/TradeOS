@@ -20,6 +20,25 @@ describe("athena tool registry", () => {
       expect(resolution.outcome === "found" && resolution.definition.outputSchema).toBe("AthenaToolResult");
     });
 
+    it("normalizes missing discovery metadata for hand-written legacy tool definitions", () => {
+      const registry = createAthenaToolRegistry();
+      const { name: _name, category: _category, outputSchema: _outputSchema, ...legacyTool } = createEchoFixtureTool({
+        id: "tradeos.athena.tools.dispatcher.schedule-job",
+      });
+
+      registry.register(legacyTool as AthenaToolDefinition);
+      const resolution = registry.resolve(legacyTool.id, legacyTool.version);
+
+      expect(resolution.outcome).toBe("found");
+      expect(resolution.outcome === "found" && resolution.definition).toEqual(
+        expect.objectContaining({
+          name: "Schedule Job",
+          category: "dispatcher",
+          outputSchema: "AthenaToolResult",
+        })
+      );
+    });
+
     it("rejects duplicate registration of the same id@version", () => {
       const registry = createAthenaToolRegistry();
       registry.register(createEchoFixtureTool());
@@ -42,6 +61,16 @@ describe("athena tool registry", () => {
     it("rejects an invalid explicit category", () => {
       const registry = createAthenaToolRegistry();
       expect(() => registry.register(fixtureWith({ category: "billing" as never }))).toThrow(/category/);
+    });
+
+    it("rejects a blank explicit name", () => {
+      const registry = createAthenaToolRegistry();
+      expect(() => registry.register(fixtureWith({ name: "  " }))).toThrow(/name/);
+    });
+
+    it("rejects an unsupported explicit output schema", () => {
+      const registry = createAthenaToolRegistry();
+      expect(() => registry.register(fixtureWith({ outputSchema: "AnythingElse" as never }))).toThrow(/outputSchema/);
     });
 
     it("rejects registration without a declared idempotency policy", () => {

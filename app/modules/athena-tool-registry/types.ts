@@ -16,8 +16,10 @@ export type AthenaToolRisk = "low" | "medium" | "high";
 export type AthenaToolConfirmationPolicy = "never" | "contextual" | "always";
 export type AthenaToolIdempotency = "required" | "optional" | "not_supported";
 export type AthenaToolCompensationPolicy = "none" | "compensating_action" | "service_transaction" | "draft_only";
-export type AthenaToolCategory = "system" | "estimator" | "dispatcher" | "office" | "field" | "costbook" | "fixture";
-export type AthenaToolOutputSchema = "AthenaToolResult";
+export const athenaToolCategories = ["system", "estimator", "dispatcher", "office", "field", "costbook", "fixture"] as const;
+export type AthenaToolCategory = (typeof athenaToolCategories)[number];
+export const athenaToolOutputSchemas = ["AthenaToolResult"] as const;
+export type AthenaToolOutputSchema = (typeof athenaToolOutputSchemas)[number];
 
 export interface AthenaToolDeprecation {
   replacementId?: string;

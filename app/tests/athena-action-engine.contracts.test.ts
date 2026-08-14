@@ -99,8 +99,24 @@ describe("athena:contracts - action (C005)", () => {
 
   it("accepts every documented approval requirement value", () => {
     for (const approvalRequirement of ["not_required", "required"] as const) {
-      expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement })).not.toThrow();
+      const status = approvalRequirement === "required" ? "awaiting_approval" : "succeeded";
+      expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement, status })).not.toThrow();
     }
+  });
+
+  it("rejects an approval-required action that reached execution without an approval id", () => {
+    expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement: "required", status: "succeeded" })).toThrow(/approvalId/);
+  });
+
+  it("accepts an approval-required executed action when the approval id is present", () => {
+    expect(() =>
+      assertValidAthenaAction({
+        ...validAction(),
+        approvalRequirement: "required",
+        approvalId: "approval-1",
+        status: "succeeded",
+      })
+    ).not.toThrow();
   });
 
   it("rejects an action missing a required key", () => {
@@ -131,6 +147,15 @@ describe("athena:contracts - action (C005)", () => {
 
   it("rejects an empty idempotencyKey", () => {
     expect(() => assertValidAthenaAction({ ...validAction(), idempotencyKey: "" })).toThrow(/idempotencyKey/);
+  });
+
+  it("rejects an unsupported executor category", () => {
+    expect(() =>
+      assertValidAthenaAction({
+        ...validAction(),
+        executor: { ...validAction().executor, category: "billing" as never },
+      })
+    ).toThrow(/executor\.category/);
   });
 });
 
@@ -168,6 +193,15 @@ describe("athena:contracts - action result envelope", () => {
 
   it("rejects an unknown state value", () => {
     expect(() => assertValidAthenaActionResult({ ...validActionResult(), state: "in_progress" as never })).toThrow(/state/);
+  });
+
+  it("rejects an unsupported result executor category", () => {
+    expect(() =>
+      assertValidAthenaActionResult({
+        ...validActionResult(),
+        executor: { ...validActionResult().executor, category: "billing" as never },
+      })
+    ).toThrow(/executor\.category/);
   });
 
   it("rejects a malformed nested toolResult (reuses the C003 validator, not a duplicate)", () => {

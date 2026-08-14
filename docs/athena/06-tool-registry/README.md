@@ -18,15 +18,16 @@ export interface AthenaTool<TInput, TData> {
   id: string;
   version: string;
   name: string;
-  category: string;
+  category: "system" | "estimator" | "dispatcher" | "office" | "field" | "costbook" | "fixture";
   description: string;
   risk: "low" | "medium" | "high";
   permissions: string[];
+  confirmationPolicy: "never" | "contextual" | "always";
   timeoutMs: number;
   idempotency: "required" | "optional" | "not_supported";
   compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: unknown;
-  outputSchema: unknown;
+  outputSchema: "AthenaToolResult";
   execute(
     input: TInput,
     aiContext: AthenaAIContext,
@@ -54,6 +55,8 @@ and plugin policy.
 | `id` | Stable reverse-domain or namespaced ID |
 | `version` | Semver-compatible contract version |
 | `owner` | First-party module or approved plugin |
+| `name` | Human-readable tool/action name |
+| `category` | Closed Athena tool category: system, estimator, dispatcher, office, field, costbook, or fixture |
 | `permissions` | TradeOS permissions/capabilities required |
 | `risk` | Low, medium, or high default risk |
 | `confirmationPolicy` | Whether approval is never/contextual/always required |
@@ -72,9 +75,9 @@ lower a high-risk tool below explicit approval.
 
 ## Version 1 Required Versus Deferred Metadata
 
-Required in v1: ID, version, owner, permissions, risk, confirmation policy,
-timeout, idempotency policy, input schema, output schema, standard result
-envelope, service dependency, and compensation policy.
+Required in v1: ID, version, owner, name, category, permissions, risk,
+confirmation policy, timeout, idempotency policy, input schema, output schema,
+standard result envelope, service dependency, and compensation policy.
 
 Optional in v1: feature flag, deprecation notice, model hints, cost estimate,
 and first-party helper metadata.

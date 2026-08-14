@@ -14,7 +14,7 @@ breaking TradeOS boundaries.
 
 1. Identify the application service that owns the business behavior.
 2. Add the tool under `app/modules/athena-tools/**` and register it in `createProductionAthenaToolRegistry()`.
-3. Define the C002 tool metadata and C003 result shape, including `name`, `category`, and `outputSchema`.
+3. Define the C002 tool metadata and C003 result shape through `defineTool()`, including `name`, `category`, `permissions`, `risk`, `confirmationPolicy`, `timeoutMs`, `idempotency`, `compensationPolicy`, `inputSchema`, and `outputSchema`.
 4. Prefer `defineTool()` from `app/modules/athena-tool-sdk`.
 5. Validate input before execution.
 6. Call the service; do not query the database directly.

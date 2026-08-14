@@ -1,4 +1,5 @@
 import { assertValidAthenaToolResult } from "../athena-tool-registry/resultEnvelope";
+import { athenaToolCategories } from "../athena-tool-registry/types";
 import { AthenaAction, athenaActionStates, AthenaActionResult } from "./types";
 
 const VALID_STATES = new Set<string>(athenaActionStates);
@@ -12,6 +13,8 @@ const VALID_ERROR_CATEGORIES = new Set(["validation", "authorization", "conflict
 
 const VALID_APPROVAL_REQUIREMENTS = new Set(["not_required", "required"]);
 const VALID_EXECUTOR_KINDS = new Set(["tool"]);
+const VALID_EXECUTOR_CATEGORIES = new Set<string>(athenaToolCategories);
+const ACTION_STATUSES_REQUIRING_APPROVAL_ID = new Set(["pending", "running", "partially_succeeded", "succeeded", "failed", "expired", "cancelled"]);
 
 const ACTION_REQUIRED_KEYS = ["id", "version", "orgId", "actorUserId", "name", "toolId", "toolVersion", "input", "risk", "approvalRequirement", "idempotencyKey", "status", "attempt", "executor", "compensationPolicy"] as const;
 const ACTION_ALLOWED_KEYS = new Set<string>([...ACTION_REQUIRED_KEYS, "approvalId", "checkpoint", "lastError"]);
@@ -84,6 +87,9 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   if (candidate.approvalId !== undefined && (typeof candidate.approvalId !== "string" || candidate.approvalId.length === 0)) {
     throw new Error("AthenaAction.approvalId must be a non-empty string when present");
   }
+  if (candidate.approvalRequirement === "required" && ACTION_STATUSES_REQUIRING_APPROVAL_ID.has(candidate.status) && candidate.approvalId === undefined) {
+    throw new Error("AthenaAction.approvalId is required before an approval-required action can execute");
+  }
   if (candidate.checkpoint !== undefined && (typeof candidate.checkpoint !== "object" || candidate.checkpoint === null)) {
     throw new Error("AthenaAction.checkpoint must be an object when present");
   }
@@ -97,8 +103,8 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   if (typeof executor.name !== "string" || executor.name.length === 0) {
     throw new Error("AthenaAction.executor.name must be a non-empty string");
   }
-  if (typeof executor.category !== "string" || executor.category.length === 0) {
-    throw new Error("AthenaAction.executor.category must be a non-empty string");
+  if (typeof executor.category !== "string" || !VALID_EXECUTOR_CATEGORIES.has(executor.category)) {
+    throw new Error(`AthenaAction.executor.category is not valid: ${String(executor.category)}`);
   }
   if (typeof executor.toolId !== "string" || executor.toolId.length === 0) {
     throw new Error("AthenaAction.executor.toolId must be a non-empty string");
@@ -178,8 +184,8 @@ export function assertValidAthenaActionResult(value: unknown): asserts value is 
   if (typeof executor.name !== "string" || executor.name.length === 0) {
     throw new Error("AthenaActionResult.executor.name must be a non-empty string");
   }
-  if (typeof executor.category !== "string" || executor.category.length === 0) {
-    throw new Error("AthenaActionResult.executor.category must be a non-empty string");
+  if (typeof executor.category !== "string" || !VALID_EXECUTOR_CATEGORIES.has(executor.category)) {
+    throw new Error(`AthenaActionResult.executor.category is not valid: ${String(executor.category)}`);
   }
   if (typeof executor.toolId !== "string" || executor.toolId.length === 0) {
     throw new Error("AthenaActionResult.executor.toolId must be a non-empty string");

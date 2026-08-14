@@ -5,6 +5,8 @@ import {
   AthenaToolDiscoveryActor,
   AthenaToolOutputSchema,
   AthenaToolResolution,
+  athenaToolCategories,
+  athenaToolOutputSchemas,
 } from "./types";
 import { hasAllRequiredFeatureFlags, hasAllRequiredPermissions } from "./policy";
 
@@ -52,8 +54,8 @@ const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_CONFIRMATION_POLICIES = new Set(["never", "contextual", "always"]);
 const VALID_IDEMPOTENCY = new Set(["required", "optional", "not_supported"]);
 const VALID_COMPENSATION_POLICIES = new Set(["none", "compensating_action", "service_transaction", "draft_only"]);
-const VALID_CATEGORIES = new Set(["system", "estimator", "dispatcher", "office", "field", "costbook", "fixture"]);
-const VALID_OUTPUT_SCHEMAS = new Set(["AthenaToolResult"]);
+const VALID_CATEGORIES = new Set<string>(athenaToolCategories);
+const VALID_OUTPUT_SCHEMAS = new Set<string>(athenaToolOutputSchemas);
 
 function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknown) => { success: boolean } } {
   return !!schema && typeof (schema as { safeParse?: unknown }).safeParse === "function";

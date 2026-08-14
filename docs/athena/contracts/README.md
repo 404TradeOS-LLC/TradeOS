@@ -142,7 +142,7 @@ export interface AthenaToolDefinition {
   version: string;
   owner: string;
   name: string;
-  category: string;
+  category: "system" | "estimator" | "dispatcher" | "office" | "field" | "costbook" | "fixture";
   description: string;
   permissions: string[];
   risk: "low" | "medium" | "high";
@@ -168,8 +168,9 @@ export interface AthenaToolExecutionContext {
 }
 ```
 
-Required: `id`, `version`, `owner`, `name`, `category`, `permissions`, `risk`, `timeoutMs`,
-`inputSchema`, `outputSchema`, and `compensationPolicy`. Optional: feature flag,
+Required: `id`, `version`, `owner`, `name`, `category`, `permissions`, `risk`,
+`confirmationPolicy`, `timeoutMs`, `idempotency`, `inputSchema`,
+`outputSchema`, and `compensationPolicy`. Optional: feature flag,
 deprecation, plugin ID. Execution requires both AI Context and
 `AthenaToolExecutionContext`; tools must not infer authority from model output.
 Validation: unknown tools, invalid schemas, and permissionless mutating tools
@@ -248,7 +249,7 @@ export interface AthenaAction {
   executor: {
     kind: "tool";
     name: string;
-    category: string;
+    category: "system" | "estimator" | "dispatcher" | "office" | "field" | "costbook" | "fixture";
     toolId: string;
     toolVersion: string;
   };
@@ -259,7 +260,7 @@ export interface AthenaAction {
 ```
 
 Required: action ID, org, actor, action name, tool, risk, approval requirement,
-idempotency key, status, attempt, executor, and compensation policy. Optional: approval, checkpoint, retry count, last
+idempotency key, status, attempt, executor, and compensation policy. Optional: approval, checkpoint, and last
 error. Validation: high-risk actions require approval ID before running; terminal
 states are immutable; resume requires a checkpoint and fresh policy check.
 Compatibility: statuses may only be added with documented terminal/non-terminal
