@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { AuthContext } from "../backend/auth/context";
-import { normalizeRole, SupportedRole } from "../domain";
+import { getRolePermissions, normalizeRole, SupportedRole } from "../domain";
 
 const requestDatabase = new AsyncLocalStorage<Prisma.TransactionClient>();
 
@@ -79,6 +79,7 @@ export async function runWithBackgroundDatabaseSession<T>(
       orgId: membership.orgId,
       role: membership.role as SupportedRole,
       canonicalRole: normalizeRole(membership.role),
+      permissions: getRolePermissions(membership.role),
       email: user.email,
     };
   });

@@ -1,7 +1,7 @@
 import { canonicalRoles } from "../../domain";
 import { AthenaPermissionDecision } from "./types";
 
-const REQUIRED_KEYS = ["version", "orgId", "userId", "role", "permissions", "capability", "deniedFields", "decision", "reasonCode"] as const;
+const REQUIRED_KEYS = ["version", "orgId", "userId", "role", "permissions", "permissionContext", "capability", "deniedFields", "decision", "reasonCode"] as const;
 const ALLOWED_KEYS = new Set<string>([...REQUIRED_KEYS, "resourceScope"]);
 
 const VALID_ROLES = new Set<string>(canonicalRoles);
@@ -44,6 +44,19 @@ export function assertValidAthenaPermissionDecision(value: unknown): asserts val
   if (!Array.isArray(candidate.permissions) || candidate.permissions.some((permission) => typeof permission !== "string")) {
     throw new Error("AthenaPermissionDecision.permissions must be an array of strings");
   }
+  if (typeof candidate.permissionContext !== "object" || candidate.permissionContext === null) {
+    throw new Error("AthenaPermissionDecision.permissionContext must be an object");
+  }
+  const permissionContext = candidate.permissionContext as Record<string, unknown>;
+  if (typeof permissionContext.organizationScope !== "string" || permissionContext.organizationScope.length === 0) {
+    throw new Error("AthenaPermissionDecision.permissionContext.organizationScope must be a non-empty string");
+  }
+  if (typeof permissionContext.userScope !== "string" || permissionContext.userScope.length === 0) {
+    throw new Error("AthenaPermissionDecision.permissionContext.userScope must be a non-empty string");
+  }
+  if (typeof permissionContext.roleScope !== "string" || !VALID_ROLES.has(permissionContext.roleScope)) {
+    throw new Error(`AthenaPermissionDecision.permissionContext.roleScope must be a canonical role: ${String(permissionContext.roleScope)}`);
+  }
   if (typeof candidate.capability !== "string" || candidate.capability.length === 0) {
     throw new Error("AthenaPermissionDecision.capability must be a non-empty string");
   }
@@ -58,18 +71,29 @@ export function assertValidAthenaPermissionDecision(value: unknown): asserts val
   }
 
   if (candidate.resourceScope !== undefined) {
-    if (typeof candidate.resourceScope !== "object" || candidate.resourceScope === null) {
-      throw new Error("AthenaPermissionDecision.resourceScope must be an object when present");
-    }
     const scope = candidate.resourceScope as Record<string, unknown>;
-    if (typeof scope.entityType !== "string" || scope.entityType.length === 0) {
-      throw new Error("AthenaPermissionDecision.resourceScope.entityType must be a non-empty string");
+    validateScope(scope, "AthenaPermissionDecision.resourceScope");
+  }
+
+  if (permissionContext.resourceScope !== undefined) {
+    if (typeof permissionContext.resourceScope !== "object" || permissionContext.resourceScope === null) {
+      throw new Error("AthenaPermissionDecision.permissionContext.resourceScope must be an object when present");
     }
-    if (typeof scope.entityId !== "string" || scope.entityId.length === 0) {
-      throw new Error("AthenaPermissionDecision.resourceScope.entityId must be a non-empty string");
-    }
-    if (typeof scope.relationship !== "string" || !VALID_RELATIONSHIPS.has(scope.relationship)) {
-      throw new Error(`AthenaPermissionDecision.resourceScope.relationship is not a known relationship: ${String(scope.relationship)}`);
-    }
+    validateScope(permissionContext.resourceScope as Record<string, unknown>, "AthenaPermissionDecision.permissionContext.resourceScope");
+  }
+}
+
+function validateScope(scope: Record<string, unknown>, label: string): void {
+  if (typeof scope !== "object" || scope === null) {
+    throw new Error(`${label} must be an object when present`);
+  }
+  if (typeof scope.entityType !== "string" || scope.entityType.length === 0) {
+    throw new Error(`${label}.entityType must be a non-empty string`);
+  }
+  if (typeof scope.entityId !== "string" || scope.entityId.length === 0) {
+    throw new Error(`${label}.entityId must be a non-empty string`);
+  }
+  if (typeof scope.relationship !== "string" || !VALID_RELATIONSHIPS.has(scope.relationship)) {
+    throw new Error(`${label}.relationship is not a known relationship: ${String(scope.relationship)}`);
   }
 }

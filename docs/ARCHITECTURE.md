@@ -116,6 +116,22 @@ Preferred frontend paths:
 - Web route surface: `web/src/app/**/page.tsx`
 - Athena platform boundary: `docs/decisions/ADR-005-athena-monorepo-platform-boundary.md`
 
+## Athena production-readiness boundary
+
+Athena's current RC1 hardening work remains inside the monorepo runtime rather
+than a separate package extraction. The implemented boundary now includes:
+
+- durable approval persistence and review routes under `app/modules/athena-approvals/**` and `app/backend/routes/athena.routes.ts`;
+- durable audit persistence under `app/modules/athena-audit/**`;
+- operator-facing approval review at `web/src/app/(app)/athena/approvals/page.tsx`;
+- first-party context providers for customers, estimates, and costbook, all of
+  which still call existing application services instead of reaching Prisma
+  directly.
+
+The request-scoped RLS session remains the floor for all of these paths. Athena
+review UI and APIs may narrow access further, but they do not bypass the
+tenant-scoped database session model documented above.
+
 ## Search indexing notes
 
 The repository now requires PostgreSQL `pg_trgm` for substring-search acceleration in the estimating catalog.

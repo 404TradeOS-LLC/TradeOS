@@ -11,16 +11,18 @@ export interface TestContextProviderOverrides extends Partial<AthenaContextProvi
   omittedFields?: string[];
   sourceVersion?: string;
   onFetch?: () => void;
-  fetchImpl?: AthenaContextProviderDefinition<unknown>["fetch"];
+  provideImpl?: AthenaContextProviderDefinition<unknown>["provide"];
 }
 
 export function createTestContextProvider(overrides: TestContextProviderOverrides = {}): AthenaContextProviderDefinition<unknown> {
-  const { data, itemCount, omittedFields, sourceVersion, onFetch, fetchImpl, ...definitionOverrides } = overrides;
+  const { data, itemCount, omittedFields, sourceVersion, onFetch, provideImpl, ...definitionOverrides } = overrides;
 
   return {
     id: "tradeos.athena.context.fixture.test",
     version: "1.0.0",
     owner: "athena-context-engine-fixtures",
+    name: "Test Context Provider",
+    priority: 10,
     section: "knowledgeEngine",
     description: "Test-only fixture provider. Calls no application service.",
     permissions: [],
@@ -34,9 +36,9 @@ export function createTestContextProvider(overrides: TestContextProviderOverride
     cacheKeyPolicy: "none",
     criticality: "optional",
     failureBehavior: "degrade",
-    async fetch(input): Promise<AthenaContextProviderFetchResult<unknown>> {
+    async provide(input): Promise<AthenaContextProviderFetchResult<unknown>> {
       onFetch?.();
-      if (fetchImpl) return fetchImpl(input);
+      if (provideImpl) return provideImpl(input);
       return {
         data: data ?? { echoed: true },
         itemCount: itemCount ?? 1,

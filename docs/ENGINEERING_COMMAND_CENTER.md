@@ -74,6 +74,12 @@ Prioritize existing authorized work before inventing new scope:
 2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and reconcile deliberately against current `main` and C005-era hierarchy changes; do not treat it as maintenance auto-merge.
 3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
 
+Athena production-readiness work on top of the kernel-foundation dependency now
+includes durable approvals, audit persistence, operator approval review, and
+real customer/estimate/costbook context providers. Because this scope includes
+new migration-backed tables and RLS policies, it remains PR-only/human-decision
+work even when the code diff itself is bounded.
+
 Open issue inventory verified during reconciliation includes issue #144 for Athena transactional event reliability and issue #153 for Costbook hierarchy activation permissions/migration sequencing.
 
 ## Autonomous maintenance operating mode

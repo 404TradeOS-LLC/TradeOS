@@ -13,6 +13,11 @@ function validDecision(): AthenaPermissionDecision {
     userId: "user-1",
     role: "dispatcher",
     permissions: ["dispatch.manage"],
+    permissionContext: {
+      organizationScope: "org-1",
+      userScope: "user-1",
+      roleScope: "dispatcher",
+    },
     capability: "tradeos.athena.fixture.echo",
     deniedFields: [],
     decision: "allow",

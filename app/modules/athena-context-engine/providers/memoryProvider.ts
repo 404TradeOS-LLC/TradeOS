@@ -41,6 +41,8 @@ export function createMemoryContextProvider(
     id: "tradeos.athena.context.memory",
     version: "1.0.0",
     owner: "athena-context-engine",
+    name: "Memory Context",
+    priority: 80,
     section: "memory",
     description: "Actor-scoped durable preference memory. AthenaMemoryService already excludes another user's, another org's, deleted, and expired records.",
     // No domain-permission requirement: every authenticated actor may read
@@ -60,7 +62,7 @@ export function createMemoryContextProvider(
     cacheKeyPolicy: "tenant_actor_permission_input",
     criticality: "optional",
     failureBehavior: "degrade",
-    async fetch(input): Promise<AthenaContextProviderFetchResult<AthenaMemoryContextData>> {
+    async provide(input): Promise<AthenaContextProviderFetchResult<AthenaMemoryContextData>> {
       const records = await memoryService.list({
         orgId: input.orgId,
         actor: { orgId: input.orgId, userId: input.actor.userId, role: input.actor.role },

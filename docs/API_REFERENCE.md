@@ -115,6 +115,24 @@ AI estimating routes under `/api/v1/estimates`:
 
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` gained an additive, optional `athenaEvent` field on their service return values containing the real A8 event reference when publication succeeds. Because the existing estimate/job controllers serialize those service return objects directly, the corresponding HTTP responses also inherit this optional field: it is present when publication succeeds and omitted when publication fails. Event publication is currently non-blocking, so omission of `athenaEvent` does not change the success status of the underlying business mutation. Clients must treat `athenaEvent` as optional additive response metadata. Controller regression tests cover both ordinary responses where the field is omitted and responses where it is present. See [athena/roadmap/A12-business-tool-rollout-implementation-plan.md](athena/roadmap/A12-business-tool-rollout-implementation-plan.md).
 
+`POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
+of Friday, August 14, 2026, it:
+
+- requires standard authenticated organization access;
+- derives actor/org/role from server-trusted auth context, not request body;
+- resolves exact granted permissions from the authenticated TradeOS session when
+  available, with raw-role fallback only for older compatibility call paths;
+- can record Athena audit events for request receipt, context gathering, tool
+  consideration, action attempt, approval request, completion, and failure;
+- enforces fail-closed approval verification for medium/high-risk actions by
+  binding approval to org, user, tool, risk, idempotency key, canonical input
+  hash, plan id, and step id;
+- exposes no separate tool-specific mutation endpoints.
+
+Approval and audit persistence for Athena are internal implementation details,
+not new public REST resources. Their current source-of-truth behavior is
+documented in [athena/SECURITY_MODEL.md](athena/SECURITY_MODEL.md).
+
 Costbook workspace routes under `/api/v1/costbook`:
 
 - `GET /api/v1/costbook/workspace` — requires `costbook.read`; returns the authenticated organization's Costbook workspace foundation status, role-derived Costbook permission flags, and organization-scoped counts for existing divisions, active cost items, labor rates, materials, equipment, and active assemblies. This C001 endpoint is read-only and does not create materials, labor rates, assemblies, pricing calculations, estimate line items, price-history records, or Athena actions.

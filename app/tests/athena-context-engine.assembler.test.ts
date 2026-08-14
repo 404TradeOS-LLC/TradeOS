@@ -59,7 +59,7 @@ describe("athena context assembler", () => {
   });
 
   describe("permission gating", () => {
-    it("marks a section denied (not merely absent) when the actor lacks the required permission, without calling fetch()", async () => {
+    it("marks a section denied (not merely absent) when the actor lacks the required permission, without calling provide()", async () => {
       const registry = createAthenaContextRegistry();
       let fetched = false;
       registry.register(createTestContextProvider({ permissions: ["billing.write"], onFetch: () => { fetched = true; } }));
@@ -105,7 +105,7 @@ describe("athena context assembler", () => {
   describe("timeout and failure behavior", () => {
     it("forces a degraded section when a non-cooperative provider never resolves and failureBehavior is degrade", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ timeoutMs: 20, failureBehavior: "degrade", fetchImpl: () => new Promise(() => {}) }));
+      registry.register(createTestContextProvider({ timeoutMs: 20, failureBehavior: "degrade", provideImpl: () => new Promise(() => {}) }));
       const outcome = await assembleAthenaContext(registry, buildRequest());
       expect(outcome.sections.knowledgeEngine?.status).toBe("degraded");
       expect(outcome.warnings.some((w) => w.code === "athena_context_provider_timeout")).toBe(true);
@@ -113,15 +113,25 @@ describe("athena context assembler", () => {
 
     it("forces an omitted section when a non-cooperative provider never resolves and failureBehavior is omit", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ timeoutMs: 20, failureBehavior: "omit", fetchImpl: () => new Promise(() => {}) }));
+      registry.register(createTestContextProvider({ timeoutMs: 20, failureBehavior: "omit", provideImpl: () => new Promise(() => {}) }));
       const outcome = await assembleAthenaContext(registry, buildRequest());
       expect(outcome.sections.knowledgeEngine?.status).toBe("omitted");
     }, 10_000);
 
     it("stops the whole assembly when a stop-behavior provider fails, and skips providers registered after it", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ id: "tradeos.athena.context.fixture.critical", section: "customers", failureBehavior: "stop", fetchImpl: () => { throw new Error("boom"); } }));
-      registry.register(createTestContextProvider({ id: "tradeos.athena.context.fixture.after", section: "costbook" }));
+      registry.register(
+        createTestContextProvider({
+          id: "tradeos.athena.context.fixture.critical",
+          section: "customers",
+          priority: 100,
+          failureBehavior: "stop",
+          provideImpl: () => {
+            throw new Error("boom");
+          },
+        })
+      );
+      registry.register(createTestContextProvider({ id: "tradeos.athena.context.fixture.after", section: "costbook", priority: 10 }));
 
       const outcome = await assembleAthenaContext(registry, buildRequest());
 
@@ -133,7 +143,7 @@ describe("athena context assembler", () => {
     });
 
     it("treats criticality as authoritative even if a provider was constructed with a non-stop failure behavior outside registration", async () => {
-      const provider = createTestContextProvider({ criticality: "critical", failureBehavior: "degrade", fetchImpl: () => { throw new Error("boom"); } });
+      const provider = createTestContextProvider({ criticality: "critical", failureBehavior: "degrade", provideImpl: () => { throw new Error("boom"); } });
       const registry: AthenaContextRegistry = {
         register() {
           throw new Error("registration bypassed intentionally for defensive assembler coverage");
@@ -158,7 +168,7 @@ describe("athena context assembler", () => {
 
     it("maps client cancellation to the cancellation warning instead of unexpected-error", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ timeoutMs: 1_000, failureBehavior: "degrade", fetchImpl: () => new Promise(() => {}) }));
+      registry.register(createTestContextProvider({ timeoutMs: 1_000, failureBehavior: "degrade", provideImpl: () => new Promise(() => {}) }));
       const controller = new AbortController();
       const promise = assembleAthenaContext(registry, buildRequest({ clientSignal: controller.signal }));
 
@@ -172,21 +182,21 @@ describe("athena context assembler", () => {
 
     it("never fabricates data or widens scope when a provider fails - the section is always null, never a substitute value", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ failureBehavior: "degrade", fetchImpl: () => { throw new Error("boom"); } }));
+      registry.register(createTestContextProvider({ failureBehavior: "degrade", provideImpl: () => { throw new Error("boom"); } }));
       const outcome = await assembleAthenaContext(registry, buildRequest());
       expect(outcome.sections.knowledgeEngine?.data).toBeNull();
     });
 
     it("maps an unexpected thrown error to a degraded/omitted section rather than propagating the raw error", async () => {
       const registry = createAthenaContextRegistry();
-      registry.register(createTestContextProvider({ failureBehavior: "degrade", fetchImpl: () => { throw new Error("raw internal detail"); } }));
+      registry.register(createTestContextProvider({ failureBehavior: "degrade", provideImpl: () => { throw new Error("raw internal detail"); } }));
       const outcome = await assembleAthenaContext(registry, buildRequest());
       expect(outcome.sections.knowledgeEngine?.status).toBe("degraded");
     });
   });
 
   describe("caching", () => {
-    it("serves a cache hit without calling fetch() again, and marks cacheHit true", async () => {
+    it("serves a cache hit without calling provide() again, and marks cacheHit true", async () => {
       const registry = createAthenaContextRegistry();
       let fetchCount = 0;
       registry.register(createTestContextProvider({ cacheKeyPolicy: "tenant_actor_permission_input", onFetch: () => { fetchCount += 1; } }));

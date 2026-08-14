@@ -3,6 +3,7 @@ import { createScheduleJobTool } from "../modules/athena-tools/dispatcher/schedu
 import type { ScheduleJobToolDeps } from "../modules/athena-tools/dispatcher/scheduleJob.tool";
 import type { JobDTO } from "../modules/jobs/types";
 import type { AthenaJobEventRef } from "../modules/jobs/service";
+import { getRolePermissions } from "../domain";
 
 // A12 Business Tool Rollout, Dispatcher domain contract test (docs/athena/
 // roadmap/A12-business-tool-rollout-implementation-plan.md steps 7-8). Fake
@@ -102,6 +103,11 @@ describe("athena-tools dispatcher: schedule-job", () => {
       deadline: new Date(Date.now() + 1000),
       cancellationSignal: new AbortController().signal,
       featureFlags: [],
+      permissionContext: {
+        organizationScope: "org-1",
+        userScope: "user-1",
+        roleScope: "owner",
+      },
     });
     expect(result.success).toBe(true);
     expect(result.events).toEqual([{ type: "JobScheduled", id: "event-42" }]);
@@ -109,7 +115,7 @@ describe("athena-tools dispatcher: schedule-job", () => {
       validInput.jobId,
       expect.objectContaining({
         orgId: "org-1",
-        actor: { userId: "user-1", orgId: "org-1", role: "owner" },
+        actor: { userId: "user-1", orgId: "org-1", role: "owner", permissions: getRolePermissions("owner") },
       })
     );
   });
@@ -127,6 +133,11 @@ describe("athena-tools dispatcher: schedule-job", () => {
       deadline: new Date(Date.now() + 1000),
       cancellationSignal: new AbortController().signal,
       featureFlags: [],
+      permissionContext: {
+        organizationScope: "org-1",
+        userScope: "user-1",
+        roleScope: "owner",
+      },
     });
     expect(result.success).toBe(true);
     expect(result.events).toEqual([]);

@@ -224,7 +224,7 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
     try {
       const result = await raceWithTimeout(
         (signal) =>
-          provider.fetch({
+          provider.provide({
             orgId: request.orgId,
             actor: request.actor,
             selectedScope: request.selectedScope,

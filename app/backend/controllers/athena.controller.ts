@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getRolePermissions, normalizeRole } from "../../domain";
+import { createPrismaAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
@@ -16,6 +17,7 @@ const service = new AthenaKernelService();
 // handleRequest() call rather than relying on the kernel's empty default
 // (see athena-kernel/service.ts's `toolRegistry` module comment).
 const toolRegistry = createProductionAthenaToolRegistry();
+const auditStore = createPrismaAthenaAuditStore();
 
 function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.success) return 200;
@@ -97,11 +99,12 @@ export const athenaController = {
           userId: auth.userId,
           orgId,
           role: canonicalRole,
-          permissions: [...getRolePermissions(canonicalRole)],
+          permissions: [...(auth.permissions ?? getRolePermissions(auth.role))],
         },
         requestId,
         clientSignal: controller.signal,
         toolRegistry,
+        auditStore,
       });
 
       res.status(resolveStatusCode(result)).json(result);

@@ -55,6 +55,12 @@ export function createCustomerSummarizeTool(deps: CustomerSummarizeToolDeps): At
     timeoutMs: 5_000,
     idempotency: "not_supported",
     compensationPolicy: "none",
+    resourceScope: {
+      entityType: "customer",
+      getEntityId(input) {
+        return input.customerId;
+      },
+    },
     inputSchema: customerSummarizeInputSchema,
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };

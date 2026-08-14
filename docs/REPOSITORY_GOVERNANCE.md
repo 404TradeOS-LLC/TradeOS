@@ -115,6 +115,11 @@ Autonomous agents may diagnose, repair, test, publish, and merge bounded low-ris
 
 The following remain human-decision or PR-only boundaries unless a narrower approved runbook explicitly authorizes the exact operation: new or materially changed database migrations, destructive data operations, authentication or authorization policy changes, RLS redesign, production secrets or credential rotation, billing or money movement, major architecture or repository-boundary changes, and new production trust boundaries. Agents must never bypass branch protection, disable tests to obtain green CI, push directly to `main`, or convert an unverified result into a pass.
 
+Athena approval/audit hardening is an example of this protected class: even
+when the implementation is narrow, any change that adds approval-backed tables,
+changes RLS policies, or tightens operator review boundaries must stop at a
+reviewable PR and may not be autonomously merged.
+
 This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
 
 ## Branch and worktree lifecycle

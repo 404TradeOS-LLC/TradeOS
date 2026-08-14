@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - docs/REPOSITORY_GOVERNANCE.md
@@ -15,6 +15,19 @@ related_code:
 
 ## Current state
 
+- Athena production-readiness work is in progress on `feature/athena-production-readiness`, stacked on open PR #200 rather than merged `main`. As of Friday, August 14, 2026, the code path now includes:
+  - durable approval and verification boundaries in `app/modules/athena-approvals`;
+  - durable audit event boundaries in `app/modules/athena-audit`;
+  - Prisma models and migration `20260814120000_add_athena_approvals_and_audit_trail`;
+  - explicit Athena permission context plus tool-declared resource scope;
+  - context-provider `name`/`priority`/`provide()` contracts with registry ordering by priority;
+  - kernel audit emission for request/context/tool/action/approval/completion/failure stages.
+- Validation completed in the stacked worktree:
+  - `cd app && npm test -- --runTestsByPath tests/athena-action-engine.engine.test.ts tests/athena-kernel.service.test.ts tests/athena-context-engine.assembler.test.ts`
+  - `cd app && npm run athena:contracts`
+  - `cd app && npm run lint`
+  - `cd app && npm run build`
+- `npm run docs:check` was blocked until root dependencies were installed in the worktree; after `env -u npm_config_prefix npm ci` at repo root, rerun docs validation before PR publication.
 - Repository hardening completed on 2026-08-12:
   - PR #172 strengthened the required CI gates and merged as `cd9a960861e611956f7ff55d9704461b6586ae47`.
   - PR #175 added sensitive-path CODEOWNERS coverage and merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`.

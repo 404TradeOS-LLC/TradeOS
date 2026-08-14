@@ -1,7 +1,10 @@
 import { getRolePermissions, normalizeRole } from "../../domain";
-import type { CanonicalRole } from "../../domain";
+import type { CanonicalRole, DomainPermission } from "../../domain";
+import { CostDatabaseService } from "../cost-database/service";
+import { CrmService } from "../crm/service";
+import { EstimateEngineService } from "../estimate-engine/service";
 import { JobsService } from "../jobs/service";
-import { resolveJobResourceScope } from "./resourceScope";
+import { resolveCostbookItemResourceScope, resolveCustomerResourceScope, resolveEstimateResourceScope, resolveJobResourceScope } from "./resourceScope";
 import { AthenaCapabilityRequest, AthenaPermissionDecision } from "./types";
 
 // Deterministic A4 permission adapter (docs/athena/09-security/README.md
@@ -18,16 +21,25 @@ export interface AthenaPermissionPolicyInput {
   orgId: string;
   userId: string;
   request: AthenaCapabilityRequest;
+  grantedPermissions?: readonly DomainPermission[];
   jobsService?: Pick<JobsService, "getById">;
+  crmService?: Pick<CrmService, "getCustomer">;
+  estimateEngine?: Pick<EstimateEngineService, "getById">;
+  costDatabase?: Pick<CostDatabaseService, "getById">;
 }
 
-function baseDecision(role: CanonicalRole, orgId: string, userId: string, request: AthenaCapabilityRequest): AthenaPermissionDecision {
+function baseDecision(role: CanonicalRole, orgId: string, userId: string, request: AthenaCapabilityRequest, grantedPermissions: readonly DomainPermission[]): AthenaPermissionDecision {
   return {
     version: "1.0.0",
     orgId,
     userId,
     role,
-    permissions: [...getRolePermissions(role)],
+    permissions: [...grantedPermissions],
+    permissionContext: {
+      organizationScope: orgId,
+      userScope: userId,
+      roleScope: role,
+    },
     capability: request.id,
     deniedFields: [],
     decision: "deny",
@@ -38,9 +50,9 @@ function baseDecision(role: CanonicalRole, orgId: string, userId: string, reques
 export async function evaluateAthenaPermission(input: AthenaPermissionPolicyInput): Promise<AthenaPermissionDecision> {
   const role = normalizeRole(input.rawRole);
   const { request } = input;
-  const decision = baseDecision(role, input.orgId, input.userId, request);
+  const granted = (input.grantedPermissions ?? getRolePermissions(input.rawRole)) as readonly DomainPermission[];
+  const decision = baseDecision(role, input.orgId, input.userId, request, granted);
 
-  const granted = getRolePermissions(role) as readonly string[];
   const missing = request.requiredPermissions.filter((permission) => !granted.includes(permission));
   if (missing.length > 0) {
     decision.deniedFields = [...missing];
@@ -54,15 +66,27 @@ export async function evaluateAthenaPermission(input: AthenaPermissionPolicyInpu
     // module's own contract is the authorization boundary for any caller
     // that reaches it with unchecked/deserialized input - never widen
     // access for an entity type this module doesn't actually understand.
-    if ((entityType as string) !== "job") {
+    let scope: { relationship: "owner" | "assignee" | "member" | "viewer" | "none" };
+    if (entityType === "job") {
+      const jobsService = input.jobsService ?? new JobsService();
+      scope = await resolveJobResourceScope(jobsService, input.orgId, { userId: input.userId, role }, entityId);
+    } else if (entityType === "customer") {
+      const crmService = input.crmService ?? new CrmService();
+      scope = await resolveCustomerResourceScope(crmService, input.orgId, { userId: input.userId, role }, entityId);
+    } else if (entityType === "estimate") {
+      const estimateEngine = input.estimateEngine ?? new EstimateEngineService();
+      scope = await resolveEstimateResourceScope(estimateEngine, input.orgId, { userId: input.userId, role }, entityId);
+    } else if (entityType === "costbook_item") {
+      const costDatabase = input.costDatabase ?? new CostDatabaseService();
+      scope = await resolveCostbookItemResourceScope(costDatabase, input.orgId, { userId: input.userId, role }, entityId);
+    } else {
       decision.resourceScope = { entityType, entityId, relationship: "none" };
+      decision.permissionContext.resourceScope = decision.resourceScope;
       decision.reasonCode = "athena_permission_object_scope_unsupported_entity";
       return decision;
     }
-
-    const jobsService = input.jobsService ?? new JobsService();
-    const scope = await resolveJobResourceScope(jobsService, input.orgId, { userId: input.userId, role }, entityId);
     decision.resourceScope = { entityType, entityId, relationship: scope.relationship };
+    decision.permissionContext.resourceScope = decision.resourceScope;
     if (scope.relationship === "none") {
       decision.reasonCode = "athena_permission_object_scope_denied";
       return decision;

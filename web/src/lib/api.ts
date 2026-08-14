@@ -1239,3 +1239,77 @@ export function listAthenaAlerts(token: string, params: { status?: AthenaAlertSt
   const qs = query.toString();
   return apiFetch<AthenaAlertRecord[]>(`/api/v1/athena/observability/alerts${qs ? `?${qs}` : ""}`, { token });
 }
+
+export interface AthenaApprovalRecord {
+  approvalId: string;
+  userId: string;
+  organizationId: string;
+  actionId: string;
+  toolId: string;
+  toolVersion: string;
+  riskLevel: "low" | "medium" | "high";
+  approvedAt: string;
+  approvedBy: string;
+  expiration: string;
+  status: "pending" | "granted" | "denied" | "revoked" | "expired";
+  idempotencyKey: string;
+  inputHash: string;
+  planId: string;
+  stepId: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AthenaApprovalAuditRecord {
+  id: string;
+  timestamp: string;
+  eventType: "request_received" | "context_gathered" | "tools_considered" | "action_attempted" | "approval_requested" | "execution_completed" | "failure";
+  actorUserId: string | null;
+  actorRole: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface AthenaApprovalDetail {
+  approval: AthenaApprovalRecord;
+  auditEvents: AthenaApprovalAuditRecord[];
+}
+
+export interface AthenaApprovalSubmissionInput {
+  actionId: string;
+  toolId: string;
+  toolVersion: string;
+  riskLevel: "medium" | "high";
+  expiration: string;
+  idempotencyKey: string;
+  inputHash: string;
+  planId: string;
+  stepId: string;
+  metadata?: Record<string, unknown>;
+}
+
+export function listAthenaApprovals(token: string, params: { status?: AthenaApprovalRecord["status"]; limit?: number } = {}) {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  const qs = query.toString();
+  return apiFetch<AthenaApprovalRecord[]>(`/api/v1/athena/approvals${qs ? `?${qs}` : ""}`, { token });
+}
+
+export function getAthenaApproval(token: string, approvalId: string) {
+  return apiFetch<AthenaApprovalDetail>(`/api/v1/athena/approvals/${approvalId}`, { token });
+}
+
+export function submitAthenaApproval(token: string, input: AthenaApprovalSubmissionInput) {
+  return apiFetch<AthenaApprovalRecord>("/api/v1/athena/approvals", {
+    token,
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function reviewAthenaApproval(token: string, approvalId: string, decision: "grant" | "deny") {
+  return apiFetch<AthenaApprovalRecord>(`/api/v1/athena/approvals/${approvalId}/review`, {
+    token,
+    method: "POST",
+    body: JSON.stringify({ decision }),
+  });
+}
