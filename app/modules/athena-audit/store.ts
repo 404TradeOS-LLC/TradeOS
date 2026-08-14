@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
-import type { AthenaAuditEvent, AthenaAuditStore } from "./types";
+import type { AthenaAuditEvent, AthenaAuditRepository, AthenaAuditStore } from "./types";
 
 type AuditCorrelation = {
   actionId?: string | null;
@@ -17,6 +17,35 @@ function withInheritedActionCorrelation(event: AthenaAuditEvent, prior?: AuditCo
     ...event,
     actionId: event.actionId ?? prior?.actionId ?? undefined,
     approvalId: event.approvalId ?? prior?.approvalId ?? undefined,
+  };
+}
+
+function toAuditEvent(row: {
+  id: string;
+  createdAt: Date;
+  actorUserId: string | null;
+  actorRole: string | null;
+  orgId: string;
+  eventType: string;
+  metadataJson: Prisma.JsonValue;
+  requestId: string | null;
+  traceId: string | null;
+  executionId: string | null;
+  actionId: string | null;
+  approvalId: string | null;
+}): AthenaAuditEvent {
+  return {
+    id: row.id,
+    timestamp: row.createdAt,
+    actor: { userId: row.actorUserId, role: row.actorRole },
+    organization: row.orgId,
+    eventType: row.eventType as AthenaAuditEvent["eventType"],
+    metadata: (row.metadataJson ?? {}) as Record<string, unknown>,
+    requestId: row.requestId ?? undefined,
+    traceId: row.traceId ?? undefined,
+    executionId: row.executionId ?? undefined,
+    actionId: row.actionId ?? undefined,
+    approvalId: row.approvalId ?? undefined,
   };
 }
 
@@ -39,7 +68,7 @@ export function createTerminalTrackingAthenaAuditStore(delegate: AthenaAuditStor
   };
 }
 
-export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []): AthenaAuditStore & { events: AthenaAuditEvent[] } {
+export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []): AthenaAuditRepository & { events: AthenaAuditEvent[] } {
   return {
     events,
     async record(event) {
@@ -49,10 +78,20 @@ export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []):
           : undefined;
       events.push(withInheritedActionCorrelation(event, priorAction));
     },
+    async listForApproval(query) {
+      return events
+        .filter(
+          (event) =>
+            event.organization === query.organizationId &&
+            (event.approvalId === query.approvalId || event.actionId === query.actionId)
+        )
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, query.limit);
+    },
   };
 }
 
-export function createPrismaAthenaAuditStore(): AthenaAuditStore {
+export function createPrismaAthenaAuditStore(): AthenaAuditRepository {
   return {
     async record(event) {
       const priorAction =
@@ -85,6 +124,17 @@ export function createPrismaAthenaAuditStore(): AthenaAuditStore {
           createdAt: correlatedEvent.timestamp,
         },
       });
+    },
+    async listForApproval(query) {
+      const rows = await prisma.athenaAuditEvent.findMany({
+        where: {
+          orgId: query.organizationId,
+          OR: [{ approvalId: query.approvalId }, { actionId: query.actionId }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: query.limit,
+      });
+      return rows.map(toAuditEvent);
     },
   };
 }
