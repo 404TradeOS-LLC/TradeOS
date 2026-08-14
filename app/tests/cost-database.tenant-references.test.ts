@@ -95,6 +95,50 @@ describe("CostDatabaseService cost-item tenant references", () => {
     expect(mockPrisma.costItem.create).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects an update that links a record from another organization", async () => {
+    mockPrisma.costItem.findFirst.mockResolvedValue({ id: "cost-item-1", orgId: "org-1" });
+    mockPrisma.material.findFirst.mockResolvedValue(null);
+
+    await expect(new CostDatabaseService().update(
+      "cost-item-1",
+      { materialId: "33333333-3333-4333-8333-333333333333" },
+      "org-1"
+    )).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(mockPrisma.material.findFirst).toHaveBeenCalledWith({
+      where: { id: "33333333-3333-4333-8333-333333333333", orgId: "org-1" },
+      select: { id: true },
+    });
+    expect(mockPrisma.costItem.update).not.toHaveBeenCalled();
+  });
+
+  it("allows an update to explicitly clear a nullable catalog reference without a lookup", async () => {
+    mockPrisma.costItem.findFirst.mockResolvedValue({ id: "cost-item-1", orgId: "org-1" });
+    mockPrisma.costItem.update.mockResolvedValue({
+      id: "cost-item-1",
+      orgId: "org-1",
+      subcategoryId: "11111111-1111-4111-8111-111111111111",
+      code: "CI-4",
+      name: "Cleared material",
+      unitOfMeasure: "EA",
+      productionRate: null,
+      laborRateId: null,
+      materialId: null,
+      equipmentId: null,
+      subcontractorId: null,
+      isActive: true,
+    });
+
+    const result = await new CostDatabaseService().update("cost-item-1", { materialId: null }, "org-1");
+
+    expect(mockPrisma.material.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.costItem.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "cost-item-1" },
+      data: expect.objectContaining({ materialId: null }),
+    }));
+    expect(result.materialId).toBeNull();
+  });
+
   it("scopes subcategory cost-item reads to the authenticated organization", async () => {
     mockPrisma.costItem.findMany.mockResolvedValue([]);
     const service = new CostDatabaseService();
