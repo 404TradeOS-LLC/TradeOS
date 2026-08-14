@@ -52,7 +52,7 @@ Protect `main` with a branch ruleset that:
 
 Expected verification jobs are:
 
-- `Docs consistency`;
+- `Docs consistency` (runs the autonomy-reconciliation regression suite before documentation ownership validation);
 - `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
 - `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
 - `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
@@ -117,6 +117,38 @@ The following remain human-decision or PR-only boundaries unless a narrower appr
 
 This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
 
+## Reconciliation and duplicate-PR gate
+
+Scheduled and agent-driven implementation must complete the scoped
+[Autonomy Reconciliation Preflight](agent-prompts/AUTONOMY_RECONCILIATION.md)
+before branch creation. The preflight deepens step 4 of the canonical startup
+flow; it does not replace or duplicate that general flow.
+
+New branch creation is prohibited until the task is classified
+`NEW_WORK_REQUIRED`. `EXISTING_WORK_FOUND` requires advancing the viable
+existing branch or PR wherever technically possible. `NO_ACTION_REQUIRED`
+requires an evidence report and no implementation branch.
+
+Substantially overlapping work includes the same bug, acceptance criteria,
+files, sprint/task identifier, architecture objective, failing test,
+production incident, or documentation requirement. Semantic equivalence
+matters; title equality is not required. Before opening a PR, repeat the search
+across open, draft, and recently closed PRs. If an open PR already addresses
+the objective, update it instead of opening a competitor.
+
+A replacement PR is allowed only when the existing effort is technically
+unsalvageable or intentionally superseded. Valid reasons include corrupted or
+unrecoverable history, retained secret material, a fundamentally unsafe
+approach, branch permissions that prevent continuation, an explicit founder
+request, or a rebase that cannot avoid preserving invalid architecture. The
+replacement PR must document the reason, link the old PR, close it, avoid a
+period with both efforts active, and delete/prune the obsolete branch when
+safe.
+
+Named branches in task instructions must be verified. A missing historical
+branch is stale task input: inspect `main`, live PRs, and current branches, and
+do not recreate it automatically.
+
 ## Branch and worktree lifecycle
 
 The executable agent startup and completion sequences are owned only by the [Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document owns the repository policy those flows enforce: branch and worktree lifecycle, PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists, and backend, frontend, docs, or recovery contracts may link to the canonical flows and add lane-specific requirements; they must not duplicate or weaken the general sequence.
@@ -127,20 +159,21 @@ Standard flow:
 
 1. fetch origin;
 2. verify exact repository, path, branch, upstream, and clean state;
-3. create one short-lived branch and linked worktree for the bounded mission;
-4. state allowed paths, forbidden paths, validation, and stop conditions;
-5. inspect open PR and worktree overlap;
-6. perform only the approved mission;
-7. update required source-of-truth documents in the same branch;
-8. run required local checks;
-9. inspect the complete diff against the correct base;
-10. push normally and open or update one PR;
-11. wait for required checks;
-12. merge only after review readiness is established;
-13. sync `main` and verify the landed content;
-14. remove linked worktrees with `git worktree remove`;
-15. delete merged branches when safe;
-16. run `git worktree prune`.
+3. reconcile open/draft/recently closed PRs, branches, commits, and semantic overlap;
+4. classify the mission `EXISTING_WORK_FOUND`, `NEW_WORK_REQUIRED`, or `NO_ACTION_REQUIRED`;
+5. create one short-lived branch and linked worktree only for `NEW_WORK_REQUIRED`;
+6. state allowed paths, forbidden paths, validation, and stop conditions;
+7. perform only the approved mission;
+8. update required source-of-truth documents in the same branch;
+9. run required local checks;
+10. inspect the complete diff against the correct base;
+11. repeat reconciliation, then push normally and open or update one PR;
+12. wait for required checks;
+13. merge only after review readiness is established;
+14. sync `main` and verify the landed content;
+15. remove linked worktrees with `git worktree remove`;
+16. delete merged or superseded branches when safe;
+17. run `git worktree prune`.
 
 Required policy:
 

@@ -62,6 +62,8 @@ Shared permission keys from `app/domain/contracts.ts`:
 | Notes and activity | Full | Full | Full | Can write notes and read activity |
 | Brand Studio and settings | Full | Full | Supported through `settings.manage` and `company.manage` | No |
 
+Costbook hierarchy PATCH operations intentionally split ordinary editing from lifecycle control. Changes to Division, Category, or Subcategory fields such as `code`, `name`, and `sortOrder` require `costbook.write`; any PATCH that includes `isActive` additionally requires `costbook.manage`, matching the existing manage-only DELETE/deactivation boundary. Owner/admin currently hold both permissions, but this distinction is enforced independently so a future write-only Costbook role cannot activate or deactivate hierarchy records.
+
 ## Tenant-boundary behavior
 
 - all roles are tenant-scoped by organization membership

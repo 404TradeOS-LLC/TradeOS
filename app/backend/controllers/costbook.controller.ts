@@ -48,6 +48,44 @@ const laborRateUpdateSchema = laborRateSchema.partial().refine((value) => Object
   message: "At least one labor-rate field is required",
 });
 
+const equipmentMoneySchema = z.preprocess(
+  rejectBlankNumericInput,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  })
+);
+const optionalEquipmentMoneyUpdateSchema = z.preprocess(
+  rejectInvalidOptionalNumericInput,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  }).optional()
+);
+const equipmentDailyRateUpdateSchema = z.preprocess(
+  normalizeOptionalDailyRateUpdate,
+  z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+    message: "Number must fit the database precision",
+  }).nullable().optional()
+);
+const equipmentSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  ownershipCostPerHour: equipmentMoneySchema,
+  operatingCostPerHour: equipmentMoneySchema,
+  dailyRate: z.preprocess(
+    rejectBlankNumericInput,
+    z.coerce.number().finite().nonnegative().max(99_999_999.99).refine((value) => hasAtMostDecimalPlaces(value, 2), {
+      message: "Number must fit the database precision",
+    }).nullable().optional()
+  ),
+}).strict();
+const equipmentUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  ownershipCostPerHour: optionalEquipmentMoneyUpdateSchema,
+  operatingCostPerHour: optionalEquipmentMoneyUpdateSchema,
+  dailyRate: equipmentDailyRateUpdateSchema,
+}).strict().refine((value) => Object.keys(value).length > 0, {
+  message: "At least one equipment field is required",
+});
+
 const listQuerySchema = z.object({ divisionId: z.string().uuid().optional(), categoryId: z.string().uuid().optional() });
 
 const divisionSchema = z.object({
@@ -103,6 +141,30 @@ export const costbookController = {
     const auth = requirePermissions(req, ["costbook.write"]);
     res.status(201).json(await service.createMaterial(auth, materialSchema.parse(req.body)));
   },
+  async listEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await service.listEquipment(auth));
+  },
+  async getEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.getEquipment(auth, id));
+  },
+  async createEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    res.status(201).json(await service.createEquipment(auth, equipmentSchema.parse(req.body)));
+  },
+  async updateEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.updateEquipment(auth, id, equipmentUpdateSchema.parse(req.body)));
+  },
+  async removeEquipment(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.removeEquipment(auth, id);
+    res.status(204).send();
+  },
   async listLaborRates(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     res.json(await service.listLaborRates(auth));
@@ -148,7 +210,9 @@ export const costbookController = {
   async updateDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateDivision(auth, id, divisionUpdateSchema.parse(req.body)));
+    const input = divisionUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateDivision(auth, id, input));
   },
   async removeDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
@@ -173,7 +237,9 @@ export const costbookController = {
   async updateCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateCategory(auth, id, categoryUpdateSchema.parse(req.body)));
+    const input = categoryUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateCategory(auth, id, input));
   },
   async removeCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
@@ -198,7 +264,9 @@ export const costbookController = {
   async updateSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateSubcategory(auth, id, subcategoryUpdateSchema.parse(req.body)));
+    const input = subcategoryUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateSubcategory(auth, id, input));
   },
   async removeSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
@@ -211,6 +279,20 @@ export const costbookController = {
 function rejectBlankNumericInput(value: unknown) {
   if (value === null) return undefined;
   if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}
+
+function rejectInvalidOptionalNumericInput(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null) return Number.NaN;
+  if (typeof value === "string" && value.trim() === "") return Number.NaN;
+  return value;
+}
+
+function normalizeOptionalDailyRateUpdate(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
   return value;
 }
 

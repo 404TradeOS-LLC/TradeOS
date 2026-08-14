@@ -13,12 +13,13 @@ breaking TradeOS boundaries.
 ## Add A Tool
 
 1. Identify the application service that owns the business behavior.
-2. Define the C002 tool metadata and C003 result shape.
-3. Declare permissions, risk, timeout, idempotency, and confirmation policy.
-4. Validate input before execution.
-5. Call the service; do not query the database directly.
-6. Emit events through service-owned behavior where appropriate.
-7. Add unit, contract, authorization, tenant, retry, and envelope tests.
+2. Add the tool under `app/modules/athena-tools/**` and register it in `createProductionAthenaToolRegistry()`.
+3. Define the C002 tool metadata and C003 result shape through `defineTool()`, including `name`, `category`, `permissions`, `risk`, `confirmationPolicy`, `timeoutMs`, `idempotency`, `compensationPolicy`, `inputSchema`, and `outputSchema`.
+4. Prefer `defineTool()` from `app/modules/athena-tool-sdk`.
+5. Validate input before execution.
+6. Call the service; do not query the database directly.
+7. Emit events through service-owned behavior where appropriate.
+8. Add unit, contract, authorization, tenant, retry, and envelope tests.
 
 ## Add A Context Provider
 

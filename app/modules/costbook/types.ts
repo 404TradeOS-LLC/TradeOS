@@ -203,3 +203,36 @@ export interface CostbookSubcategoryInput {
 }
 
 export type CostbookSubcategoryUpdateInput = Partial<Omit<CostbookSubcategoryInput, "categoryId">> & { isActive?: boolean };
+
+export interface CostbookEquipmentRecord {
+  id: string;
+  organizationId: string;
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate: number | null;
+  hourlyCost: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CostbookEquipmentDTO {
+  id: string;
+  organizationId: string;
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate: number | null;
+  hourlyCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CostbookEquipmentInput {
+  name: string;
+  ownershipCostPerHour: number;
+  operatingCostPerHour: number;
+  dailyRate?: number | null;
+}
+
+export type CostbookEquipmentUpdateInput = Partial<CostbookEquipmentInput>;

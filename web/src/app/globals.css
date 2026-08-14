@@ -66,31 +66,31 @@
 
   /* Blueprint register: the quiet, data-dense product theme. Space Grotesk
      is reserved for headings/display moments; body/UI text stays on system
-     sans. Copper (--copper) is the one accent color, used sparingly for
-     primary action, active nav state, and focus rings only — never as a
-     general-purpose fill. Success stays green, destructive stays red. */
+     sans. The accent moved from warm copper to a cooler electric blue so
+     the dashboard and navigation read cleaner at RC1 density, while amber
+     remains reserved for meaningful attention states. */
   --font-sans: var(--font-inter);
   --font-heading-base: var(--font-space-grotesk);
   --font-mono-base: var(--font-ibm-plex-mono);
-  --copper: oklch(0.588 0.132 46.5);
-  --copper-foreground: oklch(0.99 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0 0);
+  --copper: oklch(0.61 0.17 257);
+  --copper-foreground: oklch(0.99 0.01 255);
+  --background: oklch(0.975 0.004 247);
+  --foreground: oklch(0.24 0.014 255);
+  --card: oklch(0.995 0.003 255);
+  --card-foreground: oklch(0.24 0.014 255);
+  --popover: oklch(0.995 0.003 255);
+  --popover-foreground: oklch(0.24 0.014 255);
   --primary: var(--copper);
   --primary-foreground: var(--copper-foreground);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.975 0 0);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.965 0.02 55);
-  --accent-foreground: oklch(0.35 0.08 46.5);
+  --secondary: oklch(0.95 0.007 252);
+  --secondary-foreground: oklch(0.28 0.015 255);
+  --muted: oklch(0.958 0.005 252);
+  --muted-foreground: oklch(0.5 0.013 256);
+  --accent: oklch(0.92 0.023 248);
+  --accent-foreground: oklch(0.33 0.055 257);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
+  --border: oklch(0.9 0.01 255);
+  --input: oklch(0.9 0.01 255);
   --ring: var(--copper);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -98,48 +98,48 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.5rem;
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.18 0 0);
+  --sidebar: oklch(0.965 0.006 248);
+  --sidebar-foreground: oklch(0.24 0.014 255);
   --sidebar-primary: var(--copper);
   --sidebar-primary-foreground: var(--copper-foreground);
-  --sidebar-accent: oklch(0.965 0.02 55);
-  --sidebar-accent-foreground: oklch(0.35 0.08 46.5);
-  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-accent: oklch(0.93 0.02 248);
+  --sidebar-accent-foreground: oklch(0.34 0.05 257);
+  --sidebar-border: oklch(0.89 0.01 255);
   --sidebar-ring: var(--copper);
 }
 
 .dark {
-  --copper: oklch(0.68 0.135 50);
-  --copper-foreground: oklch(0.16 0 0);
-  --background: oklch(0.16 0 0);
-  --foreground: oklch(0.94 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.94 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.94 0 0);
+  --copper: oklch(0.72 0.14 257);
+  --copper-foreground: oklch(0.18 0.01 255);
+  --background: oklch(0.18 0.01 255);
+  --foreground: oklch(0.95 0.003 255);
+  --card: oklch(0.22 0.012 255);
+  --card-foreground: oklch(0.95 0.003 255);
+  --popover: oklch(0.22 0.012 255);
+  --popover-foreground: oklch(0.95 0.003 255);
   --primary: var(--copper);
   --primary-foreground: var(--copper-foreground);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.94 0 0);
-  --muted: oklch(0.24 0 0);
-  --muted-foreground: oklch(0.68 0 0);
-  --accent: oklch(0.28 0.03 50);
-  --accent-foreground: oklch(0.88 0.06 55);
+  --secondary: oklch(0.27 0.013 255);
+  --secondary-foreground: oklch(0.95 0.003 255);
+  --muted: oklch(0.25 0.01 255);
+  --muted-foreground: oklch(0.72 0.01 255);
+  --accent: oklch(0.31 0.03 252);
+  --accent-foreground: oklch(0.9 0.03 250);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 14%);
   --ring: var(--copper);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.19 0 0);
-  --sidebar-foreground: oklch(0.94 0 0);
+  --sidebar: oklch(0.2 0.012 255);
+  --sidebar-foreground: oklch(0.95 0.003 255);
   --sidebar-primary: var(--copper);
   --sidebar-primary-foreground: var(--copper-foreground);
-  --sidebar-accent: oklch(0.28 0.03 50);
-  --sidebar-accent-foreground: oklch(0.88 0.06 55);
+  --sidebar-accent: oklch(0.3 0.03 252);
+  --sidebar-accent-foreground: oklch(0.9 0.03 250);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: var(--copper);
 }
@@ -150,6 +150,10 @@
   }
   body {
     @apply bg-background text-foreground;
+
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklch, var(--accent) 28%, transparent) 0, transparent 30%),
+      linear-gradient(180deg, color-mix(in oklch, var(--background) 94%, white 6%) 0%, var(--background) 18rem);
   }
   html {
     @apply font-sans;

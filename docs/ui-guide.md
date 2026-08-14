@@ -11,6 +11,9 @@ exists today; update it whenever a new reusable component or pattern is added.
 - **Design tokens**: all colors are CSS variables driven by `oklch()`, themed via `.dark` on
   `<html>`. Never hardcode a color — use the token classes (`bg-card`, `text-muted-foreground`,
   `border-border`, `bg-destructive/10 text-destructive`, etc.) so light/dark both work.
+- **Current shell theme**: the RC1 app shell uses a cool neutral surface palette with an
+  electric-blue primary accent for action, active navigation state, and focus treatment. Amber
+  stays reserved for meaningful attention/queue states instead of general decoration.
 - **Radius scale**: `--radius` (0.625rem) drives `--radius-sm` through `--radius-4xl` in
   `@theme inline`. Cards use `rounded-xl`; small chips/badges use `rounded-4xl` (pill).
 - **`cn()`** (`web/src/lib/utils.ts`, `clsx` + `tailwind-merge`) is the standard way to merge
@@ -49,8 +52,11 @@ exists today; update it whenever a new reusable component or pattern is added.
   `snake_case` statuses into readable text (`in_progress` → `In progress`). Use this instead of
   a raw `Badge` whenever you're rendering a backend status enum.
 - **`AppNav`** (`app-nav.tsx`) — the top app nav: active-section highlighting, a responsive
-  mobile menu, and the command-palette trigger. This is the only nav component — don't add a
-  second one.
+  mobile menu, a split primary/secondary hierarchy on wide screens, and the command-palette
+  trigger. This is the only nav component — don't add a second one.
+- **`DashboardPanel`** (`components/dashboard/dashboard-panel.tsx`) — the standard shell for
+  owner-dashboard sections that need the same card/header/body rhythm. Prefer it over
+  hand-assembling a new `CardHeader`/`CardContent` pair for dashboard surfaces.
 - `MetricCard` / `SummaryMetricCard` — two intentionally distinct metric-tile styles (compact
   numeric stat vs. a labeled text summary). Don't merge them without checking both call sites;
   they read differently in context (`ProjectMetricsCard` vs. the proposal preview summary).
@@ -74,6 +80,9 @@ instead of copy-pasting a third time.
 - **Page headers**: `<div className="flex flex-wrap items-center justify-between gap-3">` for
   a title + primary action, so the action wraps under the title instead of forcing horizontal
   scroll on narrow screens (see `customers/page.tsx`, `projects/page.tsx`).
+- **Owner dashboard sections**: keep the scan order consistent: decision queue first, then
+  today's schedule / briefing, then KPI scan, then task board and activity, with quieter
+  operational summaries below. Avoid burying the actionable work beneath a wall of metrics.
 - **Data access**: Server Components/Server Actions for CRUD; the one Client Component with
   real interactivity (search-as-you-type, live totals) is the Estimate Builder, which goes
   through the generic `/api/proxy/[...path]` route handler via TanStack Query. Follow that

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
-import { runInDatabaseTransaction } from "../../db/requestSession";
+import { getRequestDatabaseClient, runInDatabaseTransaction } from "../../db/requestSession";
 import type { AthenaBusinessEvent, AthenaEventActorType, AthenaEventDeadLetter, AthenaEventDelivery, AthenaEventDeliveryStatus } from "./types";
 
 // Application-service-owned persistence seam for A8 events (mirrors
@@ -87,6 +87,44 @@ function toDeadLetterRecord(row: AthenaEventDeadLetterRow): AthenaEventDeadLette
   };
 }
 
+// Publishing an event is documented as a best-effort side effect that must
+// never block or roll back the caller's already-committed business mutation
+// (10-events/README.md "Publisher And Subscriber Rules"; every publish call
+// site wraps publish() in its own try/catch on that basis). But every real
+// request already runs inside runWithDatabaseSession's own outer Postgres
+// transaction (app/db/requestSession.ts, needed so app.org_id/app.user_id
+// stay set for RLS), and once any query in that transaction errors, Postgres
+// rejects every later query in the same transaction with 25P02 ("current
+// transaction is aborted") until it's rolled back - regardless of whether
+// the JS-level exception was already caught. A production incident (the
+// athena_events table not existing yet on a database that hadn't received a
+// pending migration) reproduced exactly this: the caller's try/catch
+// swallowed the publish failure as designed, but the request's next,
+// unrelated write then failed too because the shared transaction was
+// already poisoned. Wrapping repository access in its own SAVEPOINT means a
+// publish-path failure only rolls back to that savepoint, leaving the
+// caller's ambient transaction healthy for whatever it does next - outside
+// an ambient transaction (e.g. a background job bootstrap), there's nothing
+// to protect, so this falls back to the existing runInDatabaseTransaction
+// behavior unchanged.
+async function withRepositorySavepoint<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  const activeTransaction = getRequestDatabaseClient();
+  if (!activeTransaction) {
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  const savepoint = `athena_events_${randomUUID().replace(/-/g, "")}`;
+  await activeTransaction.$executeRawUnsafe(`SAVEPOINT "${savepoint}"`);
+  try {
+    const result = await operation(activeTransaction);
+    await activeTransaction.$executeRawUnsafe(`RELEASE SAVEPOINT "${savepoint}"`);
+    return result;
+  } catch (error) {
+    await activeTransaction.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT "${savepoint}"`);
+    throw error;
+  }
+}
+
 export interface AthenaEventRepository {
   findByIdempotencyKey(orgId: string, idempotencyKey: string): Promise<AthenaBusinessEvent | null>;
   // Atomic: inserts the event row and one pending delivery row per
@@ -114,21 +152,23 @@ export interface AthenaEventRepository {
 export function createPrismaAthenaEventRepository(): AthenaEventRepository {
   return {
     async findByIdempotencyKey(orgId, idempotencyKey) {
-      const row = await prisma.athenaEvent.findFirst({ where: { orgId, idempotencyKey } });
-      return row ? toEventRecord(row) : null;
+      return withRepositorySavepoint(async (tx) => {
+        const row = await tx.athenaEvent.findFirst({ where: { orgId, idempotencyKey } });
+        return row ? toEventRecord(row) : null;
+      });
     },
 
     // Every real request already runs inside runWithDatabaseSession's own
     // outer transaction, and Prisma does not allow a nested $transaction()
-    // on that already-active Prisma.TransactionClient. runInDatabaseTransaction
-    // (app/db/requestSession.ts, the same helper athena-memory/store.ts's
-    // correct() uses) reuses that ambient transaction when one is active and
-    // opens a real one only for callers outside a request session - so this
-    // fan-out is still atomic either way. Delivery rows are inserted
-    // sequentially (not Promise.all) to keep the transaction's query order
-    // deterministic.
+    // on that already-active Prisma.TransactionClient. withRepositorySavepoint
+    // reuses that ambient transaction inside its own SAVEPOINT when one is
+    // active (falling back to runInDatabaseTransaction - the same helper
+    // athena-memory/store.ts's correct() uses - only for callers outside a
+    // request session), so this fan-out is still atomic either way. Delivery
+    // rows are inserted sequentially (not Promise.all) to keep the
+    // transaction's query order deterministic.
     async createEventWithDeliveries(event, subscriberIds) {
-      const result = await runInDatabaseTransaction(prisma, async (tx) => {
+      const result = await withRepositorySavepoint(async (tx) => {
         const eventRow = await tx.athenaEvent.create({ data: toEventCreateData(event) });
         const deliveryRows: AthenaEventDeliveryRow[] = [];
         for (const subscriberId of subscriberIds) {
