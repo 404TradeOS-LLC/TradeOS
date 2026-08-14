@@ -5,15 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
-  Building2,
+  BriefcaseBusiness,
+  CalendarDays,
   ChevronRight,
   LayoutGrid,
   Menu,
-  PanelsTopLeft,
+  Palette,
   Settings,
   Sparkles,
   Users,
-  Wrench,
   X,
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
@@ -30,14 +30,14 @@ interface NavLink {
 
 const PRIMARY_NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
-  { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: PanelsTopLeft },
-  { href: "/projects", label: "Projects", shortLabel: "Projects", icon: Wrench },
+  { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
+  { href: "/projects", label: "Projects", shortLabel: "Projects", icon: BriefcaseBusiness },
   { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
   { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
 ];
 
 const SECONDARY_NAV_LINKS: NavLink[] = [
-  { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Building2 },
+  { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Palette },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
 
@@ -106,11 +106,11 @@ export function AppNav({ email, canViewAthena = false }: { email?: string | null
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden lg:block">
+            <div className="hidden xl:block">
               <CommandPaletteTrigger />
             </div>
 
-            <div className="hidden min-w-0 rounded-lg border border-border/70 bg-card/80 px-3 py-2 lg:block">
+            <div className="hidden min-w-0 rounded-lg border border-border/70 bg-card/80 px-3 py-2 xl:block">
               <div className="max-w-[14rem] truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
               <div className="text-xs text-muted-foreground">Secure workspace</div>
             </div>
@@ -150,9 +150,7 @@ export function AppNav({ email, canViewAthena = false }: { email?: string | null
         {mobileOpen ? (
           <div className="border-t border-border/60 py-4 xl:hidden">
             <div className="grid gap-4">
-              <div className="lg:hidden">
-                <CommandPaletteTrigger />
-              </div>
+              <CommandPaletteTrigger />
 
               <div className="grid gap-2">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</div>
