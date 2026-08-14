@@ -18,10 +18,10 @@ export interface AthenaIdempotencyReservation<TData = unknown> {
 }
 
 export interface AthenaIdempotencyStore {
-  // Atomically claims `scopeKey` for a new attempt if unclaimed, or reports
-  // the existing attempt's outcome if already claimed. Must never let two
-  // concurrent callers both observe "new" for the same key.
-  reserve<TData = unknown>(scopeKey: string): Promise<AthenaIdempotencyReservation<TData>>;
+  // Atomically claims `scopeKey` for one canonical validated-input identity if
+  // unclaimed, or reports the existing attempt's outcome if already claimed.
+  // Reusing the same key for different validated input must fail closed.
+  reserve<TData = unknown>(scopeKey: string, inputHash: string): Promise<AthenaIdempotencyReservation<TData>>;
   // Records the terminal action/result for a previously reserved key so
   // later duplicate calls can return them instead of re-invoking the tool.
   complete<TData = unknown>(scopeKey: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void>;
@@ -32,6 +32,7 @@ export interface AthenaIdempotencyStore {
 }
 
 interface InMemoryEntry {
+  inputHash: string;
   outcome?: AthenaCompletedActionOutcome;
 }
 
@@ -40,16 +41,24 @@ export function createInMemoryAthenaIdempotencyStore(): AthenaIdempotencyStore {
   const entries = new Map<string, InMemoryEntry>();
 
   return {
-    async reserve(scopeKey) {
+    async reserve(scopeKey, inputHash) {
       const existing = entries.get(scopeKey);
       if (existing) {
+        if (existing.inputHash !== inputHash) {
+          throw new Error("Athena idempotency key was already used for different validated input");
+        }
         return { outcome: "duplicate", existing: existing.outcome } as AthenaIdempotencyReservation<never>;
       }
-      entries.set(scopeKey, {});
+      entries.set(scopeKey, { inputHash });
       return { outcome: "new" };
     },
     async complete(scopeKey, outcome) {
-      entries.set(scopeKey, { outcome });
+      const inputHash = computeCanonicalInputHash(outcome.action.input);
+      const existing = entries.get(scopeKey);
+      if (!existing || existing.inputHash !== inputHash) {
+        throw new Error("Athena idempotency completion did not own the matching input reservation");
+      }
+      entries.set(scopeKey, { inputHash, outcome });
     },
     async release(scopeKey) {
       entries.delete(scopeKey);
@@ -65,6 +74,7 @@ interface ParsedScopeKey {
 }
 
 interface DurableIdempotencyRow {
+  inputHash: string;
   status: "reserved" | "completed";
   actionJson: unknown | null;
   resultJson: unknown | null;
@@ -89,10 +99,12 @@ function parseAthenaIdempotencyScopeKey(scopeKey: string): ParsedScopeKey {
 // actor_user_id is derived from current_app_user_id() inside PostgreSQL and
 // RLS restricts every operation to that exact actor+organization. A same-org
 // key collision from another user therefore fails closed instead of exposing
-// the first actor's persisted action result.
+// the first actor's persisted action result. input_hash is persisted at claim
+// time, so one literal key can never be silently reused for a different action
+// payload even before the original attempt completes.
 export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
   return {
-    async reserve<TData = unknown>(scopeKey: string): Promise<AthenaIdempotencyReservation<TData>> {
+    async reserve<TData = unknown>(scopeKey: string, inputHash: string): Promise<AthenaIdempotencyReservation<TData>> {
       const identity = parseAthenaIdempotencyScopeKey(scopeKey);
       const inserted = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         insert into athena_action_idempotency (
@@ -102,6 +114,7 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
           tool_id,
           tool_version,
           idempotency_key,
+          input_hash,
           status
         ) values (
           ${randomUUID()}::uuid,
@@ -110,6 +123,7 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
           ${identity.toolId},
           ${identity.toolVersion},
           ${identity.idempotencyKey},
+          ${inputHash},
           'reserved'
         )
         on conflict (org_id, tool_id, tool_version, idempotency_key) do nothing
@@ -122,6 +136,7 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
 
       const rows = await prisma.$queryRaw<DurableIdempotencyRow[]>(Prisma.sql`
         select
+          input_hash as "inputHash",
           status,
           action_json as "actionJson",
           result_json as "resultJson"
@@ -136,6 +151,9 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
       const existing = rows[0];
       if (!existing) {
         throw new Error("Athena idempotency key is reserved by another actor or is not visible in the current tenant session");
+      }
+      if (existing.inputHash !== inputHash) {
+        throw new Error("Athena idempotency key was already used for different validated input");
       }
       if (existing.status !== "completed" || !existing.actionJson || !existing.resultJson) {
         return { outcome: "duplicate" };
@@ -156,7 +174,6 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
         update athena_action_idempotency
         set
           status = 'completed',
-          input_hash = ${inputHash},
           action_json = ${JSON.stringify(outcome.action)}::jsonb,
           result_json = ${JSON.stringify(outcome.result)}::jsonb,
           updated_at = now()
@@ -165,10 +182,11 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
           and tool_id = ${identity.toolId}
           and tool_version = ${identity.toolVersion}
           and idempotency_key = ${identity.idempotencyKey}
+          and input_hash = ${inputHash}
           and status = 'reserved'
       `);
       if (updated !== 1) {
-        throw new Error("Athena idempotency completion did not own an active reservation");
+        throw new Error("Athena idempotency completion did not own the matching input reservation");
       }
     },
 
