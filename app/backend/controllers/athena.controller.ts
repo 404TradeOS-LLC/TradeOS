@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { getRolePermissions, normalizeRole } from "../../domain";
-import { createPrismaAthenaAuditStore } from "../../modules/athena-audit/store";
+import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
@@ -88,6 +88,7 @@ export const athenaController = {
     res.once("close", onResponseClose);
 
     try {
+      const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
       const result = await service.handleRequest({
         request: {
           message: body.message,
@@ -104,8 +105,36 @@ export const athenaController = {
         requestId,
         clientSignal: controller.signal,
         toolRegistry,
-        auditStore,
+        auditStore: requestAuditStore,
       });
+
+      // The kernel records terminal audit events for action outcomes. Some
+      // non-action terminal paths (for example draft-only success, permission
+      // denial, and cancellation) historically returned without one. Add the
+      // request-level terminal event only when the kernel did not already
+      // emit one, preserving the exactly-one terminal audit invariant without
+      // duplicating successful/failed action events. Audit failure remains
+      // non-fatal to the business response, matching the kernel's posture.
+      if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
+        try {
+          await requestAuditStore.record({
+            id: randomUUID(),
+            timestamp: new Date(),
+            actor: { userId: auth.userId, role: canonicalRole },
+            organization: orgId,
+            eventType: result.success ? "execution_completed" : "failure",
+            metadata: {
+              finalState: result.state,
+              reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
+            },
+            requestId,
+            traceId: result.traceId,
+            executionId: result.executionId,
+          });
+        } catch {
+          // Audit persistence must never flip an otherwise valid Athena result.
+        }
+      }
 
       res.status(resolveStatusCode(result)).json(result);
     } finally {
