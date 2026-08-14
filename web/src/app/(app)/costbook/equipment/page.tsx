@@ -4,9 +4,8 @@ import { EquipmentCatalog } from "@/components/costbook/equipment-catalog";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApiClientError, apiFetch, type CostbookWorkspaceSummary } from "@/lib/api";
+import { loadEquipmentPageData } from "@/lib/costbook-equipment-load";
 import { getSessionToken } from "@/lib/session";
-
-const EQUIPMENT_LOAD_TIMEOUT_MS = 15_000;
 
 interface CostbookEquipment {
   id: string;
@@ -55,11 +54,10 @@ export default async function CostbookEquipmentPage() {
     loadError = "You need to be signed in to view Costbook equipment.";
   } else {
     try {
-      const signal = AbortSignal.timeout(EQUIPMENT_LOAD_TIMEOUT_MS);
-      [workspace, equipment] = await Promise.all([
-        getEquipmentWorkspace(token, signal),
-        listCostbookEquipment(token, signal),
-      ]);
+      [workspace, equipment] = await loadEquipmentPageData(token, {
+        getWorkspace: getEquipmentWorkspace,
+        listEquipment: listCostbookEquipment,
+      });
     } catch (error) {
       loadError = toErrorMessage(error);
     }
