@@ -118,4 +118,4 @@ A12.1 strengthens decision 11 without introducing another event system: the six 
 
 ## Approval expiry read normalization
 
-Before organization-scoped approval list or detail reads, Athena atomically transitions only overdue approvals that are still persisted as `pending` to `expired`; concurrent terminal changes and approvals from other organizations are not overwritten.
+Before organization-scoped approval list or detail reads, the approval application service atomically transitions only overdue approvals that are still persisted as `pending` to `expired`; concurrent terminal changes and approvals from other organizations are not overwritten.
