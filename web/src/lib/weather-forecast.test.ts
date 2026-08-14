@@ -45,7 +45,7 @@ test("selectRelevantForecastPeriod falls forward to the next upcoming period whe
       },
       {
         name: "Thursday Night",
-        startTime: "2026-08-13T18:00:00-04:00",
+        startTime: "2026-08-13T20:00:00-04:00",
         endTime: "2026-08-14T06:00:00-04:00",
         temperature: 73,
         shortForecast: "Partly Cloudy",
