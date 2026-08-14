@@ -5,21 +5,29 @@ import { parsePositiveNumber, requireOrgId, requirePermissions } from "../reques
 
 const service = new CostDatabaseService();
 
-const optionalUuidSchema = z.string().uuid().optional();
 const createCostItemSchema = z.object({
   subcategoryId: z.string().uuid(),
   code: z.string().trim().min(1).max(80),
   name: z.string().trim().min(1).max(200),
   unitOfMeasure: z.string().trim().min(1).max(40),
   productionRate: z.number().finite().positive().max(99_999_999.9999).optional(),
-  laborRateId: optionalUuidSchema,
-  materialId: optionalUuidSchema,
-  equipmentId: optionalUuidSchema,
-  subcontractorId: optionalUuidSchema,
+  laborRateId: z.string().uuid().optional(),
+  materialId: z.string().uuid().optional(),
+  equipmentId: z.string().uuid().optional(),
+  subcontractorId: z.string().uuid().optional(),
   notes: z.string().trim().max(2000).optional(),
 }).strict();
 
-const updateCostItemSchema = createCostItemSchema.omit({ subcategoryId: true }).partial().extend({
+const updateCostItemSchema = z.object({
+  code: z.string().trim().min(1).max(80).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
+  unitOfMeasure: z.string().trim().min(1).max(40).optional(),
+  productionRate: z.number().finite().positive().max(99_999_999.9999).optional(),
+  laborRateId: z.string().uuid().nullable().optional(),
+  materialId: z.string().uuid().nullable().optional(),
+  equipmentId: z.string().uuid().nullable().optional(),
+  subcontractorId: z.string().uuid().nullable().optional(),
+  notes: z.string().trim().max(2000).optional(),
   isActive: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
   message: "At least one cost-item field is required",
