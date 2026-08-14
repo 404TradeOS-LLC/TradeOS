@@ -34,8 +34,9 @@ export interface CreateCostItemInput {
 }
 
 export type UpdateCostItemInput = Partial<Omit<CreateCostItemInput,
-  "orgId" | "subcategoryId" | "laborRateId" | "materialId" | "equipmentId" | "subcontractorId"
+  "orgId" | "subcategoryId" | "productionRate" | "laborRateId" | "materialId" | "equipmentId" | "subcontractorId"
 >> & {
+  productionRate?: number | null;
   laborRateId?: string | null;
   materialId?: string | null;
   equipmentId?: string | null;
