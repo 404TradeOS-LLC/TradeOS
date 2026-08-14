@@ -14,6 +14,7 @@ related_code:
   - app/modules/athena-audit/**
   - app/prisma/schema.prisma
   - app/prisma/migrations/20260814120000_add_athena_approvals_and_audit_trail/migration.sql
+  - app/prisma/migrations/20260814200000_add_athena_action_idempotency/migration.sql
 ---
 
 # Athena Security Model
@@ -48,7 +49,10 @@ authentication, membership, and database-session model as the rest of the app.
   presented;
 - audit trail: request, context, tool consideration, action attempt, approval
   request, completion, and failure can be recorded with actor and organization
-  metadata.
+  metadata;
+- action idempotency: dedup-eligible production actions use a durable
+  organization/tool/version/key claim inside the same request-scoped RLS
+  transaction as tool execution rather than process-local memory.
 
 ## Approval model
 
@@ -81,6 +85,27 @@ the same organization scope and a conditional pending-state predicate. This
 prevents stale `pending` reads without overwriting concurrent grant/deny/revoke
 transitions or rows owned by another organization.
 
+## Durable action idempotency
+
+For tools that declare `required` or `optional` idempotency and receive an
+explicit caller-supplied key, production A6 execution uses
+`athena_action_idempotency` rather than the in-memory fixture.
+
+The durable boundary enforces:
+
+- uniqueness on organization + tool id + tool version + idempotency key;
+- exact-actor visibility through forced RLS in addition to organization scope;
+- actor identity derived from `current_app_user_id()` rather than caller data;
+- persistence of the original completed action/result so a later process can
+  suppress re-execution and return the original outcome;
+- transaction coupling with the authenticated request database session, so an
+  uncommitted reservation rolls back if the business mutation rolls back;
+- fail-closed behavior if a peer actor collides with a key they do not own.
+
+The in-memory idempotency store remains a unit-test/local fixture and is not
+injected by the production Athena controller. This repair does not implement or
+alter approval-bound action resume/execution.
+
 ## Audit events
 
 Current event types:
@@ -112,6 +137,7 @@ prompts, bearer tokens, and unrestricted record payloads are forbidden.
 - trusting planner/model output for authorization, tenant choice, or approval;
 - executing medium/high-risk actions without verified approval;
 - reusing an approval across actor, org, input, plan, or step changes;
+- using a process-local idempotency store as the production dedupe boundary;
 - fabricating context when a provider is denied, timed out, or failed;
 - exposing sensitive customer, billing, or tenant data outside the scoped
   service boundary;
@@ -131,12 +157,14 @@ Athena may summarize or route on that input, but it may not:
 
 ## Remaining risks
 
-- approval and audit persistence now exist in schema and store boundaries, but
-  operational lifecycle UI and human review workflows are still follow-up work;
+- approved-action continuation/resume is still a separate follow-up; this
+  idempotency repair does not make approval-required actions independently
+  executable from the live chat surface;
 - non-Athena repo tests still rely on older `AuthContext` construction patterns,
   so compatibility fallback remains in the shared auth type;
-- broader first-party context providers beyond dispatch/knowledge/memory are
-  still framework-ready rather than fully wired to live module data.
+- context providers remain intentionally bounded by currently implemented
+  domains and selected-scope support rather than hydrating every recognized
+  context section.
 
 ## A12.1 transactional event security invariant
 
