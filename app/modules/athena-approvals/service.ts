@@ -157,7 +157,7 @@ export class AthenaApprovalService {
     };
   }
 
-  private async assertReviewAllowed(organizationId: string, approvalId: string, approvedBy: string): Promise<void> {
+  private async assertReviewAllowed(organizationId: string, approvalId: string, approvedBy: string, reviewedAt: Date): Promise<void> {
     const approval = await store.getById(approvalId);
     if (!approval || approval.organizationId !== organizationId) {
       throw new AthenaApprovalReviewError("approval_not_found");
@@ -165,18 +165,19 @@ export class AthenaApprovalService {
     if (approval.userId === approvedBy) {
       throw new AthenaApprovalReviewError("self_approval_forbidden");
     }
-    if (approval.status !== "pending") {
+    if (approval.status !== "pending" || approval.expiration.getTime() <= reviewedAt.getTime()) {
       throw new AthenaApprovalReviewError("approval_not_pending");
     }
   }
 
   private async review(organizationId: string, approvalId: string, approvedBy: string, decision: "grant" | "deny"): Promise<AthenaApprovalRecord> {
-    await this.assertReviewAllowed(organizationId, approvalId, approvedBy);
-    const reviewed = await store.reviewPending(organizationId, approvalId, decision, approvedBy);
+    const reviewedAt = new Date();
+    await this.assertReviewAllowed(organizationId, approvalId, approvedBy, reviewedAt);
+    const reviewed = await store.reviewPending(organizationId, approvalId, decision, approvedBy, reviewedAt);
     if (!reviewed) {
-      // The approval was changed after the pre-check. The conditional store
-      // transition is the authority, so a stale reviewer never overwrites a
-      // concurrent grant/deny/revoke/expiry.
+      // The approval was changed or expired after the pre-check. The conditional
+      // store transition is the authority, so a stale reviewer never overwrites
+      // a concurrent grant/deny/revoke/expiry or grants an expired request.
       throw new AthenaApprovalReviewError("approval_not_pending");
     }
     return reviewed;
