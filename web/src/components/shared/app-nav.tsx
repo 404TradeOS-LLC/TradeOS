@@ -1,124 +1,191 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  Building2,
+  ChevronRight,
+  LayoutGrid,
+  Menu,
+  PanelsTopLeft,
+  Settings,
+  Sparkles,
+  Users,
+  Wrench,
+  X,
+} from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const BASE_NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dispatch", label: "Dispatch" },
-  { href: "/customers", label: "Customers" },
-  { href: "/projects", label: "Projects" },
-  { href: "/costbook", label: "Costbook" },
-  { href: "/brand-studio", label: "Brand Studio" },
-  { href: "/settings", label: "Settings" },
+interface NavLink {
+  href: string;
+  label: string;
+  icon: typeof LayoutGrid;
+  shortLabel: string;
+}
+
+const PRIMARY_NAV_LINKS: NavLink[] = [
+  { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
+  { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: PanelsTopLeft },
+  { href: "/projects", label: "Projects", shortLabel: "Projects", icon: Wrench },
+  { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
+  { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
 ];
 
-const ATHENA_NAV_LINK = { href: "/athena", label: "Athena" };
+const SECONDARY_NAV_LINKS: NavLink[] = [
+  { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Building2 },
+  { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
+];
+
+const ATHENA_NAV_LINK: NavLink = {
+  href: "/athena",
+  label: "Athena",
+  shortLabel: "Athena",
+  icon: Sparkles,
+};
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 }
 
-// `canViewAthena` gates the "Athena" link to owner/admin sessions only - see
-// web/src/app/(app)/layout.tsx, which resolves it via the same
-// getOrganizationSettings currentRole lookup the Settings page uses. This is
-// the first role-gated nav item in this app (every other link above is
-// visible to all roles), so there's no prior nav-gating pattern to diverge
-// from.
+function NavPill({ link, pathname, onNavigate }: { link: NavLink; pathname: string; onNavigate?: () => void }) {
+  const active = isActive(pathname, link.href);
+  const Icon = link.icon;
+
+  return (
+    <Link
+      href={link.href}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+      className={cn(
+        "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        active
+          ? "border-primary/20 bg-primary/10 text-foreground shadow-[inset_0_1px_0_0_color-mix(in_oklch,var(--primary)_25%,transparent)]"
+          : "border-transparent text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+      )}
+    >
+      <Icon className={cn("size-4", active ? "text-primary" : "text-muted-foreground")} aria-hidden="true" />
+      <span>{link.label}</span>
+    </Link>
+  );
+}
+
 export function AppNav({ email, canViewAthena = false }: { email?: string | null; canViewAthena?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const navLinks = canViewAthena ? [...BASE_NAV_LINKS.slice(0, -1), ATHENA_NAV_LINK, BASE_NAV_LINKS[BASE_NAV_LINKS.length - 1]] : BASE_NAV_LINKS;
+
+  const primaryLinks = useMemo(
+    () => (canViewAthena ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS),
+    [canViewAthena]
+  );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex h-14 items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center gap-2 font-heading text-base font-semibold tracking-tight">
-            <span aria-hidden className="inline-block size-2.5 rounded-[3px] bg-primary" />
-            TradeOS
-          </Link>
-          <nav className="ml-4 hidden items-center gap-1 text-sm font-medium md:flex">
-            {navLinks.map((link) => {
-              const active = isActive(pathname, link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "rounded-md px-3 py-2 transition-colors",
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
+      <div className="mx-auto flex w-full max-w-[96rem] flex-col px-4 sm:px-6 lg:px-8">
+        <div className="flex min-h-16 items-center justify-between gap-3 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate font-heading text-[1rem] font-semibold leading-none text-foreground">TradeOS</div>
+                <div className="mt-1 truncate text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Contractor command center</div>
+              </div>
+            </Link>
 
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:block">
-            <CommandPaletteTrigger />
+            <nav className="hidden items-center gap-1.5 xl:flex" aria-label="Primary">
+              {primaryLinks.map((link) => (
+                <NavPill key={link.href} link={link} pathname={pathname} />
+              ))}
+            </nav>
           </div>
-          <span className="hidden text-sm text-muted-foreground lg:inline">{email}</span>
-          <form action={logoutAction} className="hidden sm:block">
-            <Button type="submit" variant="outline" size="sm">
-              Sign out
-            </Button>
-          </form>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-11 md:hidden"
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((value) => !value)}
-          >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </Button>
-        </div>
-      </div>
 
-      {mobileOpen ? (
-        <nav className="border-t border-border px-4 py-3 md:hidden">
-          <div className="flex flex-col gap-1">
-            {navLinks.map((link) => {
-              const active = isActive(pathname, link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex min-h-11 items-center rounded-md px-3 text-sm font-medium transition-colors",
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-            <span className="truncate text-sm text-muted-foreground">{email}</span>
-            <form action={logoutAction}>
+          <div className="flex items-center gap-2">
+            <div className="hidden lg:block">
+              <CommandPaletteTrigger />
+            </div>
+
+            <div className="hidden items-center gap-2 rounded-lg border border-border/70 bg-card/80 px-3 py-2 lg:flex">
+              <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Bell className="size-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <div className="max-w-[14rem] truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
+                <div className="text-xs text-muted-foreground">Secure workspace</div>
+              </div>
+            </div>
+
+            <form action={logoutAction} className="hidden sm:block">
               <Button type="submit" variant="outline" size="sm">
                 Sign out
               </Button>
             </form>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-10 xl:hidden"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((value) => !value)}
+            >
+              {mobileOpen ? <X className="size-4.5" /> : <Menu className="size-4.5" />}
+            </Button>
           </div>
-        </nav>
-      ) : null}
+        </div>
+
+        <div className="hidden items-center justify-between gap-4 border-t border-border/60 py-3 xl:flex">
+          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Secondary">
+            {SECONDARY_NAV_LINKS.map((link) => (
+              <NavPill key={link.href} link={link} pathname={pathname} />
+            ))}
+          </nav>
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">RC1 hardening workspace</div>
+        </div>
+
+        {mobileOpen ? (
+          <div className="border-t border-border/60 py-4 xl:hidden">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</div>
+                <nav className="grid gap-2" aria-label="Mobile primary">
+                  {primaryLinks.map((link) => (
+                    <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+                  ))}
+                </nav>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Administration</div>
+                <nav className="grid gap-2" aria-label="Mobile secondary">
+                  {SECONDARY_NAV_LINKS.map((link) => (
+                    <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+                  ))}
+                </nav>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/80 px-3 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
+                  <div className="text-xs text-muted-foreground">Secure workspace</div>
+                </div>
+                <form action={logoutAction}>
+                  <Button type="submit" variant="outline" size="sm">
+                    Sign out
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </header>
   );
 }

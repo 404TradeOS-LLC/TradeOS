@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowUpRight } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
 import { cn } from "@/lib/utils";
 import type { OwnerQuickAction } from "./owner-dashboard-data";
 
@@ -10,12 +11,11 @@ interface OwnerQuickActionsProps {
 
 export function OwnerQuickActions({ actions }: OwnerQuickActionsProps) {
   return (
-    <Card className="border-border/70">
-      <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
-        <CardDescription>Morning shortcuts for the work owners start most often.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <DashboardPanel
+      title="Quick Actions"
+      description="Morning shortcuts for the work owners start most often."
+      contentClassName="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+    >
         {actions.map((action) => {
           const Icon = action.icon;
           const content = (
@@ -26,10 +26,11 @@ export function OwnerQuickActions({ actions }: OwnerQuickActionsProps) {
           );
 
           return (
-            <div key={action.id} className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-3">
+            <div key={action.id} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-background/85 p-3 shadow-sm">
               {action.href ? (
-                <Link href={action.href} className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start")}>
-                  {content}
+                <Link href={action.href} className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between")}>
+                  <span className="flex items-center gap-2">{content}</span>
+                  <ArrowUpRight className="size-4" />
                 </Link>
               ) : (
                 <div className="flex items-center justify-between gap-2">
@@ -45,7 +46,6 @@ export function OwnerQuickActions({ actions }: OwnerQuickActionsProps) {
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+    </DashboardPanel>
   );
 }

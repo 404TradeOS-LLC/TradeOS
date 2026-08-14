@@ -44,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex flex-1 flex-col">
       <AppNav email={session.email} canViewAthena={canViewAthena} />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[96rem] flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">{children}</main>
     </div>
   );
 }

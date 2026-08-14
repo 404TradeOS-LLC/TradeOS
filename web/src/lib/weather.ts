@@ -1,4 +1,5 @@
 import "server-only";
+import { ForecastPeriodCandidate, selectRelevantForecastPeriod } from "@/lib/weather-forecast";
 
 export interface WeatherSnapshot {
   locationLabel: string;
@@ -39,13 +40,7 @@ interface NwsPointsResponse {
 
 interface NwsForecastResponse {
   properties?: {
-    periods?: Array<{
-      name?: string;
-      temperature?: number;
-      temperatureUnit?: string;
-      shortForecast?: string;
-      probabilityOfPrecipitation?: { value?: number | null };
-    }>;
+    periods?: ForecastPeriodCandidate[];
   };
 }
 
@@ -97,8 +92,8 @@ export async function getWeatherForAddress(address: string): Promise<WeatherSnap
     });
     if (!forecastResponse.ok) return null;
     const forecast = (await forecastResponse.json()) as NwsForecastResponse;
-    const period = forecast.properties?.periods?.[0];
-    if (!period || typeof period.temperature !== "number" || !period.shortForecast || !period.name) return null;
+    const period = selectRelevantForecastPeriod(forecast.properties?.periods);
+    if (!period) return null;
 
     const relativeLocation = points.properties?.relativeLocation?.properties;
     const locationLabel =
