@@ -188,6 +188,33 @@ describe("live row-level security for the A8 athena_events tables", () => {
     expect(asOwnerB).toHaveLength(0);
   });
 
+  // Regression coverage for a real production incident: `athena_events`
+  // didn't exist yet on a database that hadn't received a pending migration,
+  // so createEventWithDeliveries failed with a raw Postgres error inside the
+  // request's ambient transaction. The caller's try/catch swallowed that JS
+  // exception exactly as designed, but the transaction itself was left
+  // aborted (Postgres 25P02), so the request's next, unrelated query failed
+  // too - even though nothing in application code ever saw that second
+  // failure. store.ts's withRepositorySavepoint wraps repository access in
+  // its own SAVEPOINT so a failure here only rolls back to that savepoint,
+  // not the whole request. This reproduces that exact shape using a real
+  // Postgres error already proven above (an RLS insert-policy rejection)
+  // rather than dropping a table, then proves the *next* query in the same
+  // ambient transaction still succeeds instead of throwing 25P02.
+  it("a repository failure does not poison later queries in the same request transaction", async () => {
+    await inSession(technicianA1, orgA, "technician", async () => {
+      await expect(
+        repository.createEventWithDeliveries(buildEvent({ orgId: orgB, idempotencyKey: `idem-${randomUUID()}` }), [])
+      ).rejects.toBeTruthy();
+
+      // Before the fix, this would fail with Postgres 25P02 ("current
+      // transaction is aborted") even though this query has nothing to do
+      // with the failed insert above.
+      const rows = await prisma.athenaEvent.findMany({ where: { id: eventTechA1Id } });
+      expect(rows).toHaveLength(1);
+    });
+  });
+
   it("scopes dead-letter visibility to the parent event's own visibility rule", async () => {
     const asPeer = await inSession(technicianA2, orgA, "technician", () => prisma.athenaEventDeadLetter.findMany({ where: { id: deadLetterTechA1Id } }));
     expect(asPeer).toHaveLength(0);
