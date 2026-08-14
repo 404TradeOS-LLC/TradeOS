@@ -2,24 +2,28 @@ import { assertValidAthenaAction, assertValidAthenaActionResult } from "../modul
 import type { AthenaAction, AthenaActionResult } from "../modules/athena-action-engine/types";
 import type { AthenaToolResult } from "../modules/athena-tool-registry/types";
 
-// Backs the `athena:contracts` gate alongside the kernel/tool-registry/
-// context-engine/permissions/planner contract tests. Exercises the exact
-// assertValidAthenaAction/assertValidAthenaActionResult functions
-// engine.ts's callers should validate against, not a test-only duplicate
-// (C005, docs/athena/contracts/README.md).
 function validAction(): AthenaAction {
   return {
     id: "action-1",
     version: "1.0.0",
     orgId: "org-1",
     actorUserId: "user-1",
+    name: "Echo Fixture",
     toolId: "tradeos.athena.fixture.echo",
     toolVersion: "1.0.0",
     input: { message: "hello" },
     risk: "low",
+    approvalRequirement: "not_required",
     idempotencyKey: "key-1",
     status: "succeeded",
     attempt: 1,
+    executor: {
+      kind: "tool",
+      name: "Echo Fixture",
+      category: "fixture",
+      toolId: "tradeos.athena.fixture.echo",
+      toolVersion: "1.0.0",
+    },
     compensationPolicy: "none",
   };
 }
@@ -41,9 +45,18 @@ function validActionResult(): AthenaActionResult {
     version: "1.0.0",
     actionId: "action-1",
     state: "succeeded",
+    name: "Echo Fixture",
     toolId: "tradeos.athena.fixture.echo",
     toolVersion: "1.0.0",
+    approvalRequirement: "not_required",
     idempotencyKey: "key-1",
+    executor: {
+      kind: "tool",
+      name: "Echo Fixture",
+      category: "fixture",
+      toolId: "tradeos.athena.fixture.echo",
+      toolVersion: "1.0.0",
+    },
     compensationPolicy: "none",
     toolResult: successToolResult(),
   };
@@ -54,9 +67,10 @@ describe("athena:contracts - action (C005)", () => {
     expect(() => assertValidAthenaAction(validAction())).not.toThrow();
   });
 
-  it("accepts an action with approvalId, checkpoint, and lastError present", () => {
+  it("accepts an approval-required action with approvalId, checkpoint, and lastError present", () => {
     const withOptionalFields: AthenaAction = {
       ...validAction(),
+      approvalRequirement: "required",
       approvalId: "approval-1",
       checkpoint: { stage: "running" },
       lastError: { code: "athena_action_timeout", category: "timeout", retryable: true, safeSummary: "Timed out.", correlationId: "trace-1" },
@@ -79,14 +93,32 @@ describe("athena:contracts - action (C005)", () => {
     }
   });
 
+  it("accepts every documented approval requirement value", () => {
+    for (const approvalRequirement of ["not_required", "required"] as const) {
+      const status = approvalRequirement === "required" ? "awaiting_approval" : "succeeded";
+      expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement, status })).not.toThrow();
+    }
+  });
+
+  it("rejects an approval-required action that reached execution without an approval id", () => {
+    expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement: "required", status: "succeeded" })).toThrow(/approvalId/);
+  });
+
+  it("accepts an approval-required executed action when the approval id is present", () => {
+    expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement: "required", approvalId: "approval-1", status: "succeeded" })).not.toThrow();
+  });
+
+  it("rejects approval evidence when approval is not required", () => {
+    expect(() => assertValidAthenaAction({ ...validAction(), approvalId: "approval-1" })).toThrow(/not required/);
+  });
+
   it("rejects an action missing a required key", () => {
     const { idempotencyKey: _idempotencyKey, ...rest } = validAction();
     expect(() => assertValidAthenaAction(rest)).toThrow(/idempotencyKey/);
   });
 
   it("rejects an action carrying an undocumented top-level key", () => {
-    const withExtra = { ...validAction(), extra: "not allowed" };
-    expect(() => assertValidAthenaAction(withExtra)).toThrow(/undocumented/);
+    expect(() => assertValidAthenaAction({ ...validAction(), extra: "not allowed" })).toThrow(/undocumented/);
   });
 
   it("rejects a wrong version string", () => {
@@ -108,6 +140,10 @@ describe("athena:contracts - action (C005)", () => {
   it("rejects an empty idempotencyKey", () => {
     expect(() => assertValidAthenaAction({ ...validAction(), idempotencyKey: "" })).toThrow(/idempotencyKey/);
   });
+
+  it("rejects an unsupported executor category", () => {
+    expect(() => assertValidAthenaAction({ ...validAction(), executor: { ...validAction().executor, category: "billing" as never } })).toThrow(/executor\.category/);
+  });
 });
 
 describe("athena:contracts - action result envelope", () => {
@@ -126,32 +162,34 @@ describe("athena:contracts - action result envelope", () => {
     }
   });
 
+  it("accepts every documented approval requirement value on the result envelope", () => {
+    for (const approvalRequirement of ["not_required", "required"] as const) {
+      expect(() => assertValidAthenaActionResult({ ...validActionResult(), approvalRequirement })).not.toThrow();
+    }
+  });
+
   it("rejects a result missing a required key", () => {
     const { compensationPolicy: _compensationPolicy, ...rest } = validActionResult();
     expect(() => assertValidAthenaActionResult(rest)).toThrow(/compensationPolicy/);
   });
 
   it("rejects a result carrying an undocumented top-level key", () => {
-    const withExtra = { ...validActionResult(), extra: "not allowed" };
-    expect(() => assertValidAthenaActionResult(withExtra)).toThrow(/undocumented/);
+    expect(() => assertValidAthenaActionResult({ ...validActionResult(), extra: "not allowed" })).toThrow(/undocumented/);
   });
 
   it("rejects an unknown state value", () => {
     expect(() => assertValidAthenaActionResult({ ...validActionResult(), state: "in_progress" as never })).toThrow(/state/);
   });
 
-  it("rejects a malformed nested toolResult (reuses the C003 validator, not a duplicate)", () => {
-    const malformed = { ...validActionResult(), toolResult: { success: true } };
-    expect(() => assertValidAthenaActionResult(malformed)).toThrow(/AthenaToolResult/);
+  it("rejects an unsupported result executor category", () => {
+    expect(() => assertValidAthenaActionResult({ ...validActionResult(), executor: { ...validActionResult().executor, category: "billing" as never } })).toThrow(/executor\.category/);
   });
 
-  it("rejects a failed-state result whose toolResult reports success", () => {
-    // Not independently cross-validated here (state vs toolResult.success
-    // consistency is engine.ts's own responsibility to construct correctly,
-    // the same posture the C003 validator itself takes toward its callers)
-    // - this only proves the nested C003 validator's own shape rules still
-    // apply unconditionally regardless of the outer state field.
-    const inconsistentButShapeValid: AthenaActionResult = { ...validActionResult(), state: "failed" };
-    expect(() => assertValidAthenaActionResult(inconsistentButShapeValid)).not.toThrow();
+  it("rejects a malformed nested toolResult", () => {
+    expect(() => assertValidAthenaActionResult({ ...validActionResult(), toolResult: { success: true } })).toThrow(/AthenaToolResult/);
+  });
+
+  it("accepts a shape-valid failed result with a successful nested result because state/result consistency is engine-owned", () => {
+    expect(() => assertValidAthenaActionResult({ ...validActionResult(), state: "failed" })).not.toThrow();
   });
 });

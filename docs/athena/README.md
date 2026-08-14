@@ -26,6 +26,12 @@ still belongs to [Current State](../CURRENT_STATE.md), current TradeOS doctrine
 still begins at [TradeOS Bible](../TRADEOS_BIBLE.md), and detailed module truth
 still belongs in [modules](../modules/).
 
+As of Friday, August 14, 2026, current Athena core implementation still lives in
+`app/modules/**`, with the HTTP entrypoint in
+`app/backend/controllers/athena.controller.ts`. `packages/athena/` remains the
+canonical future ownership boundary per repository governance and ADR-005; it is
+not the current source layout.
+
 ## Binding Decisions
 
 1. Athena is one assistant that dynamically adopts different capabilities.

@@ -69,6 +69,11 @@ Completion, Invoice, Payment, Warranty, Maintenance, and Repeat Customer.
 
 ## Implementation Posture
 
-This Bible is A0: architecture and contracts. Production Athena code should
-arrive only through later milestones after contracts, security policy,
-observability, and tests are in place.
+As of Friday, August 14, 2026, Athena is no longer doctrine-only. The current
+repository implementation contains real A1/A3/A5/A6/A7/A10/A11/A12 foundations
+in `app/modules/athena-*` and the feature-flagged HTTP entrypoint in
+`app/backend/controllers/athena.controller.ts`.
+
+Current implementation truth still belongs to [Current State](../CURRENT_STATE.md).
+The Bible remains the architecture and contract owner; rollout plans stay in
+`docs/athena/roadmap/**`.

@@ -22,6 +22,8 @@ function buildGreetTool(overrides: { requiredFeatureFlags?: string[] } = {}) {
     id: "tradeos.athena.fixture.sdk-greet",
     version: "1.0.0",
     owner: "athena-tool-sdk-tests",
+    name: "SDK Greet",
+    category: "fixture",
     description: "SDK-defined test tool that greets by name.",
     permissions: [],
     risk: "low",
@@ -30,6 +32,7 @@ function buildGreetTool(overrides: { requiredFeatureFlags?: string[] } = {}) {
     idempotency: "not_supported",
     compensationPolicy: "none",
     inputSchema: greetInputSchema,
+    outputSchema: "AthenaToolResult",
     requiredFeatureFlags: overrides.requiredFeatureFlags,
     async execute(input, _aiContext, execution) {
       return successResult({
@@ -74,12 +77,15 @@ describe("athena-tool-sdk defineTool()", () => {
     expect(tool.id).toBe("tradeos.athena.fixture.sdk-greet");
     expect(tool.version).toBe("1.0.0");
     expect(tool.owner).toBe("athena-tool-sdk-tests");
+    expect(tool.name).toBe("SDK Greet");
+    expect(tool.category).toBe("fixture");
     expect(tool.risk).toBe("low");
     expect(tool.confirmationPolicy).toBe("never");
     expect(tool.timeoutMs).toBe(1_000);
     expect(tool.idempotency).toBe("not_supported");
     expect(tool.compensationPolicy).toBe("none");
     expect(tool.inputSchema).toBe(greetInputSchema);
+    expect(tool.outputSchema).toBe("AthenaToolResult");
     expect(typeof tool.execute).toBe("function");
   });
 
@@ -99,6 +105,8 @@ describe("athena-tool-sdk defineTool()", () => {
       id: "tradeos.athena.fixture.sdk-deprecated",
       version: "1.0.0",
       owner: "athena-tool-sdk-tests",
+      name: "SDK Deprecated",
+      category: "fixture",
       description: "Deprecated SDK-defined test tool.",
       permissions: [],
       risk: "low",
@@ -107,6 +115,7 @@ describe("athena-tool-sdk defineTool()", () => {
       idempotency: "not_supported",
       compensationPolicy: "none",
       inputSchema: z.object({}),
+      outputSchema: "AthenaToolResult",
       deprecated: { replacementId: "tradeos.athena.fixture.sdk-greet", sunsetAt: "2027-01-01T00:00:00Z", note: "Use sdkGreet instead." },
       async execute(_input, _aiContext, execution) {
         return successResult({ summary: "n/a", data: null, telemetry: { traceId: execution.traceId, executionId: execution.executionId } });
