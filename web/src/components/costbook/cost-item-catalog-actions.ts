@@ -24,7 +24,8 @@ export type CostItemCreatePayload = {
   equipmentId?: string;
 };
 
-export type CostItemUpdatePayload = Omit<CostItemCreatePayload, "subcategoryId" | "laborRateId" | "materialId" | "equipmentId"> & {
+export type CostItemUpdatePayload = Omit<CostItemCreatePayload, "subcategoryId" | "productionRate" | "laborRateId" | "materialId" | "equipmentId"> & {
+  productionRate?: number | null;
   laborRateId?: string | null;
   materialId?: string | null;
   equipmentId?: string | null;
