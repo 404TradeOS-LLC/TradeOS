@@ -149,6 +149,15 @@ Costbook workspace routes under `/api/v1/costbook`:
 - `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
 - `PATCH /api/v1/costbook/labor-rates/:id` — requires `costbook.write`; updates the same strict field set for the authenticated organization only.
 - `DELETE /api/v1/costbook/labor-rates/:id` — requires `costbook.manage`; soft-deactivates the labor-rate row by setting `active` to `false`.
+- `GET /api/v1/costbook/cost-items` — requires `costbook.read`; returns active CostItems scoped to the authenticated organization. Optional `q` performs the existing case-insensitive name-or-code search.
+- `GET /api/v1/costbook/cost-items/search` — requires `costbook.read`; compatibility search alias under the unified namespace.
+- `GET /api/v1/costbook/cost-items/:id` — requires `costbook.read`; returns one CostItem in the authenticated organization or 404.
+- `GET /api/v1/costbook/cost-items/:id/unit-cost` — requires `costbook.read`; accepts optional positive `quantity` and optional same-organization `regionId` and returns the existing relationship-derived labor/material/equipment unit-cost breakdown.
+- `POST /api/v1/costbook/cost-items` — requires `costbook.write`; creates a CostItem for the authenticated organization. Strict required body fields: `subcategoryId`, `code`, `name`, `unitOfMeasure`. Optional fields: `productionRate`, `laborRateId`, `materialId`, `equipmentId`, `subcontractorId`, `notes`.
+- `PATCH /api/v1/costbook/cost-items/:id` — requires `costbook.write`; supports partial edits without re-parenting `subcategoryId`. Nullable `productionRate`, `laborRateId`, `materialId`, `equipmentId`, and `subcontractorId` can be explicitly cleared. A PATCH containing `isActive` additionally requires `costbook.manage`.
+- `DELETE /api/v1/costbook/cost-items/:id` — requires `costbook.manage`; soft-deactivates the CostItem to preserve historical Estimate references.
+
+CostItem writes never accept a caller-controlled organization id. Before create/update, the service validates the referenced Subcategory and any supplied LaborRate, Material, Equipment, or Subcontractor against the authenticated organization. The same checks back the legacy `/api/v1/cost-database/cost-items/*` compatibility endpoints, which now explicitly require `costbook.read`, `costbook.write`, or `costbook.manage` according to the same read/write/lifecycle split. Existing forced RLS remains database-level defense in depth.
 
 Costbook material DTO:
 
@@ -207,17 +216,17 @@ C005 hierarchy routes under `/api/v1/costbook`:
 - `GET /api/v1/costbook/divisions` — requires `costbook.read`; returns organization-scoped Division DTOs, active rows first.
 - `GET /api/v1/costbook/divisions/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/divisions` — requires `costbook.write`; strict body: `code`, `name`, optional `sortOrder`.
-- `PATCH /api/v1/costbook/divisions/:id` — requires `costbook.write`; same field set, partial.
+- `PATCH /api/v1/costbook/divisions/:id` — requires `costbook.write` for ordinary fields; a PATCH carrying `isActive` additionally requires `costbook.manage`.
 - `DELETE /api/v1/costbook/divisions/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
 - `GET /api/v1/costbook/categories?divisionId=` — requires `costbook.read`; optional `divisionId` filter, organization-scoped through the parent Division.
 - `GET /api/v1/costbook/categories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/categories` — requires `costbook.write`; strict body: `divisionId`, `code`, `name`, optional `sortOrder`. Rejects a `divisionId` that does not belong to the authenticated organization.
-- `PATCH /api/v1/costbook/categories/:id` — requires `costbook.write`; same field set minus `divisionId` (not re-parentable through update), partial.
+- `PATCH /api/v1/costbook/categories/:id` — requires `costbook.write` for ordinary fields; `divisionId` is not re-parentable through update and `isActive` additionally requires `costbook.manage`.
 - `DELETE /api/v1/costbook/categories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
 - `GET /api/v1/costbook/subcategories?categoryId=` — requires `costbook.read`; optional `categoryId` filter, organization-scoped through Category → Division.
 - `GET /api/v1/costbook/subcategories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/subcategories` — requires `costbook.write`; strict body: `categoryId`, `code`, `name`, optional `sortOrder`. Rejects a `categoryId` that does not belong to the authenticated organization.
-- `PATCH /api/v1/costbook/subcategories/:id` — requires `costbook.write`; same field set minus `categoryId`, partial.
+- `PATCH /api/v1/costbook/subcategories/:id` — requires `costbook.write` for ordinary fields; `categoryId` is not re-parentable through update and `isActive` additionally requires `costbook.manage`.
 - `DELETE /api/v1/costbook/subcategories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
 
 Costbook division DTO:
@@ -236,7 +245,7 @@ Costbook division DTO:
 
 Category and Subcategory DTOs are the same shape, replacing `organizationId`-only with `divisionId`/`organizationId` (Category) or `categoryId`/`organizationId` (Subcategory); `organizationId` on both is derived through the parent join, not a stored column.
 
-C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` now require `costbook.write` at the controller layer too (previously unguarded, relying solely on RLS) so a role that lost the underlying write access gets a clean 403 instead of a raw database authorization failure. C005 does not add labor engine, equipment workflow, assembly builder, pricing calculation, estimate integration, or Athena recommendation behavior.
+C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` require `costbook.write` at the controller layer too. C005 does not add pricing calculations, a first-class assembly builder, supplier synchronization, or Athena recommendation behavior.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 
