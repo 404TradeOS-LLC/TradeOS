@@ -27,3 +27,16 @@ export interface AthenaAuditEvent {
 export interface AthenaAuditStore {
   record(event: AthenaAuditEvent): Promise<void>;
 }
+
+export interface AthenaAuditApprovalQuery {
+  organizationId: string;
+  approvalId: string;
+  actionId: string;
+  limit: number;
+}
+
+export interface AthenaAuditReader {
+  listForApproval(query: AthenaAuditApprovalQuery): Promise<AthenaAuditEvent[]>;
+}
+
+export type AthenaAuditRepository = AthenaAuditStore & AthenaAuditReader;
