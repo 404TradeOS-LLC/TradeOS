@@ -1,5 +1,6 @@
 import type { AuthContext } from "../../backend/auth/context";
 import { ApiError } from "../../backend/middleware/errorHandler";
+import { CostbookEquipmentRepository } from "./equipmentRepository";
 import { CostbookRepository } from "./repository";
 import { getCostbookPermissionSummary } from "./permissions";
 import type {
@@ -11,6 +12,10 @@ import type {
   CostbookDivisionInput,
   CostbookDivisionRecord,
   CostbookDivisionUpdateInput,
+  CostbookEquipmentDTO,
+  CostbookEquipmentInput,
+  CostbookEquipmentRecord,
+  CostbookEquipmentUpdateInput,
   CostbookLaborRateDTO,
   CostbookLaborRateInput,
   CostbookLaborRateRecord,
@@ -67,7 +72,10 @@ const workspaceAreas: CostbookWorkspaceArea[] = [
 ];
 
 export class CostbookService {
-  constructor(private readonly repository = new CostbookRepository()) {}
+  constructor(
+    private readonly repository = new CostbookRepository(),
+    private readonly equipmentRepository = new CostbookEquipmentRepository()
+  ) {}
 
   async getWorkspace(auth: AuthContext): Promise<CostbookWorkspaceDTO> {
     const [workspace, counts] = await Promise.all([
@@ -88,6 +96,32 @@ export class CostbookService {
   async listMaterials(auth: AuthContext): Promise<CostbookMaterialDTO[]> {
     const rows = await this.repository.listMaterials(auth.orgId);
     return rows.map(toMaterialDTO);
+  }
+
+  async listEquipment(auth: AuthContext): Promise<CostbookEquipmentDTO[]> {
+    const rows = await this.equipmentRepository.list(auth.orgId);
+    return rows.map(toEquipmentDTO);
+  }
+
+  async getEquipment(auth: AuthContext, id: string): Promise<CostbookEquipmentDTO> {
+    const row = await this.equipmentRepository.getById(auth.orgId, id);
+    if (!row) throw new ApiError(404, `Equipment ${id} not found`);
+    return toEquipmentDTO(row);
+  }
+
+  async createEquipment(auth: AuthContext, input: CostbookEquipmentInput): Promise<CostbookEquipmentDTO> {
+    return toEquipmentDTO(await this.equipmentRepository.create(auth.orgId, input));
+  }
+
+  async updateEquipment(auth: AuthContext, id: string, input: CostbookEquipmentUpdateInput): Promise<CostbookEquipmentDTO> {
+    const row = await this.equipmentRepository.update(auth.orgId, id, input);
+    if (!row) throw new ApiError(404, `Equipment ${id} not found`);
+    return toEquipmentDTO(row);
+  }
+
+  async removeEquipment(auth: AuthContext, id: string): Promise<void> {
+    const removed = await this.equipmentRepository.remove(auth.orgId, id);
+    if (!removed) throw new ApiError(404, `Equipment ${id} not found`);
   }
 
   async listLaborRates(auth: AuthContext): Promise<CostbookLaborRateDTO[]> {
@@ -232,6 +266,20 @@ function toMaterialDTO(row: CostbookMaterialRecord): CostbookMaterialDTO {
     supplierId: row.supplierId,
     supplierName: row.supplierName,
     lastPriceUpdate: row.lastPriceUpdate?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toEquipmentDTO(row: CostbookEquipmentRecord): CostbookEquipmentDTO {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    ownershipCostPerHour: row.ownershipCostPerHour,
+    operatingCostPerHour: row.operatingCostPerHour,
+    dailyRate: row.dailyRate,
+    hourlyCost: row.hourlyCost,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
