@@ -130,8 +130,12 @@ of Friday, August 14, 2026, it:
 - exposes no separate tool-specific mutation endpoints.
 
 Approval and audit persistence for Athena are internal implementation details,
-not new public REST resources. Their current source-of-truth behavior is
-documented in [athena/SECURITY_MODEL.md](athena/SECURITY_MODEL.md).
+not new public REST resources. Before organization-scoped approval list/detail
+reads, overdue rows still persisted as `pending` are conditionally and atomically
+transitioned to `expired`; the update is scoped to the authenticated organization
+and current `pending` status so concurrent terminal changes are preserved. Their
+current source-of-truth behavior is documented in
+[athena/SECURITY_MODEL.md](athena/SECURITY_MODEL.md).
 
 Costbook workspace routes under `/api/v1/costbook`:
 

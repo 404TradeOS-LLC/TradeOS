@@ -108,6 +108,7 @@ export class AthenaApprovalService {
   }
 
   async list(filters: AthenaApprovalListFilters): Promise<AthenaApprovalRecord[]> {
+    await this.store.expirePending(filters.organizationId);
     return this.store.list({
       organizationId: filters.organizationId,
       status: filters.status,
@@ -117,6 +118,7 @@ export class AthenaApprovalService {
   }
 
   async getDetail(organizationId: string, approvalId: string): Promise<AthenaApprovalDetail | null> {
+    await this.store.expirePending(organizationId);
     const approval = await this.store.getById(approvalId);
     if (!approval || approval.organizationId !== organizationId) {
       return null;

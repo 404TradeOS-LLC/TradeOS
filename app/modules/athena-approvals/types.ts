@@ -99,4 +99,5 @@ export interface AthenaApprovalStore extends AthenaApprovalVerifier {
   ): Promise<AthenaApprovalRecord | null>;
   revoke(approvalId: string): Promise<AthenaApprovalRecord>;
   expire(approvalId: string, expiredAt?: Date): Promise<AthenaApprovalRecord>;
+  expirePending(organizationId: string, asOf?: Date): Promise<number>;
 }
