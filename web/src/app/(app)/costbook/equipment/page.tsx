@@ -3,8 +3,10 @@ import { Wrench } from "lucide-react";
 import { EquipmentCatalog } from "@/components/costbook/equipment-catalog";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ApiClientError, apiFetch, getCostbookWorkspace, type CostbookWorkspaceSummary } from "@/lib/api";
+import { ApiClientError, apiFetch, type CostbookWorkspaceSummary } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+
+const EQUIPMENT_LOAD_TIMEOUT_MS = 15_000;
 
 interface CostbookEquipment {
   id: string;
@@ -18,8 +20,14 @@ interface CostbookEquipment {
   updatedAt: string;
 }
 
-function listCostbookEquipment(token: string) {
-  return apiFetch<CostbookEquipment[]>("/api/v1/costbook/equipment", { token });
+/** Loads the organization-scoped equipment catalog with a caller-owned cancellation signal. */
+function listCostbookEquipment(token: string, signal: AbortSignal) {
+  return apiFetch<CostbookEquipment[]>("/api/v1/costbook/equipment", { token, signal });
+}
+
+/** Loads Costbook workspace permissions and counts with the same bounded request signal. */
+function getEquipmentWorkspace(token: string, signal: AbortSignal) {
+  return apiFetch<CostbookWorkspaceSummary>("/api/v1/costbook/workspace", { token, signal });
 }
 
 export const metadata: Metadata = {
@@ -27,11 +35,16 @@ export const metadata: Metadata = {
   description: "Manage organization-scoped Costbook equipment records with authenticated TradeOS permissions.",
 };
 
+/** Converts backend and timeout failures into contractor-facing equipment load errors. */
 function toErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) return error.message;
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    return "Costbook equipment took too long to load. Try again.";
+  }
   return "Unable to load Costbook equipment from the backend.";
 }
 
+/** Renders the authenticated Costbook equipment workspace with bounded backend loading. */
 export default async function CostbookEquipmentPage() {
   const token = await getSessionToken();
   let workspace: CostbookWorkspaceSummary | null = null;
@@ -42,9 +55,10 @@ export default async function CostbookEquipmentPage() {
     loadError = "You need to be signed in to view Costbook equipment.";
   } else {
     try {
+      const signal = AbortSignal.timeout(EQUIPMENT_LOAD_TIMEOUT_MS);
       [workspace, equipment] = await Promise.all([
-        getCostbookWorkspace(token),
-        listCostbookEquipment(token),
+        getEquipmentWorkspace(token, signal),
+        listCostbookEquipment(token, signal),
       ]);
     } catch (error) {
       loadError = toErrorMessage(error);
