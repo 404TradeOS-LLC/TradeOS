@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell,
   BookOpen,
   Building2,
   ChevronRight,
@@ -111,14 +110,9 @@ export function AppNav({ email, canViewAthena = false }: { email?: string | null
               <CommandPaletteTrigger />
             </div>
 
-            <div className="hidden items-center gap-2 rounded-lg border border-border/70 bg-card/80 px-3 py-2 lg:flex">
-              <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <Bell className="size-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <div className="max-w-[14rem] truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
-                <div className="text-xs text-muted-foreground">Secure workspace</div>
-              </div>
+            <div className="hidden min-w-0 rounded-lg border border-border/70 bg-card/80 px-3 py-2 lg:block">
+              <div className="max-w-[14rem] truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
+              <div className="text-xs text-muted-foreground">Secure workspace</div>
             </div>
 
             <form action={logoutAction} className="hidden sm:block">
@@ -142,17 +136,24 @@ export function AppNav({ email, canViewAthena = false }: { email?: string | null
         </div>
 
         <div className="hidden items-center justify-between gap-4 border-t border-border/60 py-3 xl:flex">
-          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Secondary">
-            {SECONDARY_NAV_LINKS.map((link) => (
-              <NavPill key={link.href} link={link} pathname={pathname} />
-            ))}
-          </nav>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Tools & admin</span>
+            <nav className="flex flex-wrap items-center gap-1.5" aria-label="Tools and administration">
+              {SECONDARY_NAV_LINKS.map((link) => (
+                <NavPill key={link.href} link={link} pathname={pathname} />
+              ))}
+            </nav>
+          </div>
           <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">RC1 hardening workspace</div>
         </div>
 
         {mobileOpen ? (
           <div className="border-t border-border/60 py-4 xl:hidden">
             <div className="grid gap-4">
+              <div className="lg:hidden">
+                <CommandPaletteTrigger />
+              </div>
+
               <div className="grid gap-2">
                 <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</div>
                 <nav className="grid gap-2" aria-label="Mobile primary">
@@ -163,8 +164,8 @@ export function AppNav({ email, canViewAthena = false }: { email?: string | null
               </div>
 
               <div className="grid gap-2">
-                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Administration</div>
-                <nav className="grid gap-2" aria-label="Mobile secondary">
+                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tools & admin</div>
+                <nav className="grid gap-2" aria-label="Mobile tools and administration">
                   {SECONDARY_NAV_LINKS.map((link) => (
                     <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
                   ))}
