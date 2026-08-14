@@ -37,6 +37,19 @@ freshness policy.
 | `notifications` | Unread alerts, reminders, follow-up queue |
 | `telemetry` | Correlation IDs, trace IDs, model/tool budget hints |
 
+## Live Today Versus Contract Surface
+
+As of Friday, August 14, 2026, Athena recognizes the full contract surface
+above, but only a subset is live-wired on `main`:
+
+- minimal request/organization/user/permissions/conversation/telemetry context
+  is always available through the kernel;
+- `dispatch` and `knowledgeEngine` are live provider-backed sections;
+- `memory` is a real provider registration seam but remains gated/dormant for
+  ordinary runtime use;
+- `workspace`, `dashboard`, `weather`, `calendar`, `customers`, `costbook`,
+  `inventory`, and `notifications` remain contract-recognized future sections.
+
 ## Context Minimization
 
 The Context Engine defaults to least context. It should pass references,
