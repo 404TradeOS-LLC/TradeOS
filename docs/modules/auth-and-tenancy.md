@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-14
 source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
@@ -135,4 +135,4 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 ## Last verified date
 
-2026-08-08
+2026-08-14
