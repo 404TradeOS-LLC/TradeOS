@@ -24,7 +24,11 @@ export type CostItemCreatePayload = {
   equipmentId?: string;
 };
 
-export type CostItemUpdatePayload = Omit<CostItemCreatePayload, "subcategoryId">;
+export type CostItemUpdatePayload = Omit<CostItemCreatePayload, "subcategoryId" | "laborRateId" | "materialId" | "equipmentId"> & {
+  laborRateId?: string | null;
+  materialId?: string | null;
+  equipmentId?: string | null;
+};
 export type CostItemCatalogFetcher = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 export function createCostItemCatalogRecord(fetcher: CostItemCatalogFetcher, payload: CostItemCreatePayload) {
