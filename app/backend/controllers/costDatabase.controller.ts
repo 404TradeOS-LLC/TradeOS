@@ -5,7 +5,7 @@ import { parsePositiveNumber, requireOrgId, requirePermissions } from "../reques
 
 const service = new CostDatabaseService();
 
-const optionalUuidSchema = z.string().uuid().nullable().optional();
+const optionalUuidSchema = z.string().uuid().optional();
 const createCostItemSchema = z.object({
   subcategoryId: z.string().uuid(),
   code: z.string().trim().min(1).max(80),
@@ -16,7 +16,7 @@ const createCostItemSchema = z.object({
   materialId: optionalUuidSchema,
   equipmentId: optionalUuidSchema,
   subcontractorId: optionalUuidSchema,
-  notes: z.string().trim().max(2000).nullable().optional(),
+  notes: z.string().trim().max(2000).optional(),
 }).strict();
 
 const updateCostItemSchema = createCostItemSchema.omit({ subcategoryId: true }).partial().extend({
