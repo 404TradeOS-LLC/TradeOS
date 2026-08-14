@@ -18,6 +18,7 @@ export interface AthenaTool<TInput, TData> {
   id: string;
   version: string;
   name: string;
+  category: string;
   description: string;
   risk: "low" | "medium" | "high";
   permissions: string[];
@@ -72,8 +73,8 @@ lower a high-risk tool below explicit approval.
 ## Version 1 Required Versus Deferred Metadata
 
 Required in v1: ID, version, owner, permissions, risk, confirmation policy,
-timeout, idempotency policy, input schema, standard result envelope, service
-dependency, and compensation policy.
+timeout, idempotency policy, input schema, output schema, standard result
+envelope, service dependency, and compensation policy.
 
 Optional in v1: feature flag, deprecation notice, model hints, cost estimate,
 and first-party helper metadata.
@@ -123,6 +124,8 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
     id: "tradeos.example.readSomething",
     version: "1.0.0",
     owner: "platform",
+    name: "Read Something",
+    category: "system",
     description: "Example first-party tool.",
     permissions: ["example.read"],
     risk: "low",
@@ -131,6 +134,7 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
     idempotency: "not_supported",
     compensationPolicy: "none",
     inputSchema,
+    outputSchema: "AthenaToolResult",
     async execute(input, _aiContext, execution) {
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const summary = await deps.someService.getSummary(execution.orgId, input.jobId);
@@ -148,6 +152,18 @@ export function createExampleTool(deps: { someService: Pick<SomeApplicationServi
   });
 }
 ```
+
+### First-party production path
+
+As of Friday, August 14, 2026, the concrete first-party authoring flow on
+`main` is:
+
+1. add the tool under `app/modules/athena-tools/**`;
+2. author it with `defineTool()` or a direct `AthenaToolDefinition`;
+3. inject only application-service dependencies;
+4. register it in `createProductionAthenaToolRegistry()` in
+   `app/modules/athena-tools/registry.ts`;
+5. add focused contract and service-level tests.
 
 Authoring steps: (1) identify the application service the tool calls - never
 Prisma/a raw tenant DB client directly; (2) define the input schema with Zod

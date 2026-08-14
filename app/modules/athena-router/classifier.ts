@@ -1,4 +1,4 @@
-import { AthenaRouterResult } from "./types";
+import { AthenaRouterResult, AthenaRoutingStrategy } from "./types";
 
 // Deterministic, non-LLM intent classification (docs/athena/04-system-architecture/
 // README.md "Intent Router"). No model call - mirrors athena-kernel/policy.ts's
@@ -40,4 +40,17 @@ export function classifyAthenaIntent(message: string): AthenaRouterResult {
     return { intent: "mutate_business_record", riskHint: "high", requestedContextIntents: [], reasonCode: "athena_router_mutation_keyword_matched" };
   }
   return { intent: "draft_response", riskHint: "low", requestedContextIntents: [], reasonCode: "athena_router_default_draft_response" };
+}
+
+export function createKeywordAthenaRoutingStrategy(): AthenaRoutingStrategy {
+  return {
+    id: "keyword_classifier",
+    route(message) {
+      const result = classifyAthenaIntent(message);
+      if (result.reasonCode === "athena_router_default_draft_response") {
+        return null;
+      }
+      return result;
+    },
+  };
 }

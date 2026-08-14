@@ -28,6 +28,8 @@ export function defineTool<TSchema extends AthenaToolInputSchema, TData = unknow
     id: options.id,
     version: options.version,
     owner: options.owner,
+    name: options.name,
+    category: options.category,
     description: options.description,
     permissions: options.permissions,
     risk: options.risk,
@@ -36,6 +38,7 @@ export function defineTool<TSchema extends AthenaToolInputSchema, TData = unknow
     idempotency: options.idempotency,
     compensationPolicy: options.compensationPolicy,
     inputSchema: options.inputSchema,
+    outputSchema: options.outputSchema,
     execute: options.execute,
   };
   if (options.requiredFeatureFlags !== undefined) definition.requiredFeatureFlags = options.requiredFeatureFlags;

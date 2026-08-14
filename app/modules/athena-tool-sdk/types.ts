@@ -2,12 +2,15 @@ import type { z } from "zod";
 import type { AthenaAIContext, AthenaErrorCategory, AthenaFollowUp, AthenaTelemetryReference, AthenaToolError, AthenaWarning } from "../athena-kernel/types";
 import type {
   AthenaEventReference,
+  AthenaRegisteredToolDefinition,
+  AthenaToolCategory,
   AthenaToolCompensationPolicy,
   AthenaToolConfirmationPolicy,
   AthenaToolDefinition,
   AthenaToolDeprecation,
   AthenaToolExecutionContext,
   AthenaToolIdempotency,
+  AthenaToolOutputSchema,
   AthenaToolResult,
   AthenaToolRisk,
 } from "../athena-tool-registry/types";
@@ -23,6 +26,8 @@ export type {
   AthenaAIContext,
   AthenaErrorCategory,
   AthenaEventReference,
+  AthenaRegisteredToolDefinition,
+  AthenaToolCategory,
   AthenaFollowUp,
   AthenaTelemetryReference,
   AthenaToolCompensationPolicy,
@@ -32,6 +37,7 @@ export type {
   AthenaToolError,
   AthenaToolExecutionContext,
   AthenaToolIdempotency,
+  AthenaToolOutputSchema,
   AthenaToolResult,
   AthenaToolRisk,
   AthenaWarning,
@@ -54,6 +60,8 @@ export interface AthenaToolDefineOptions<TSchema extends AthenaToolInputSchema, 
   id: string;
   version: string;
   owner: string;
+  name?: string;
+  category?: AthenaToolCategory;
   description: string;
   permissions: string[];
   risk: AthenaToolRisk;
@@ -62,6 +70,7 @@ export interface AthenaToolDefineOptions<TSchema extends AthenaToolInputSchema, 
   idempotency: AthenaToolIdempotency;
   compensationPolicy: AthenaToolCompensationPolicy;
   inputSchema: TSchema;
+  outputSchema?: AthenaToolOutputSchema;
   requiredFeatureFlags?: string[];
   deprecated?: AthenaToolDeprecation;
   execute(input: z.infer<TSchema>, aiContext: AthenaAIContext, execution: AthenaToolExecutionContext): Promise<AthenaToolResult<TData>>;

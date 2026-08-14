@@ -10,7 +10,10 @@ const VALID_COMPENSATION_POLICIES = new Set(["none", "compensating_action", "ser
 // kernel).
 const VALID_ERROR_CATEGORIES = new Set(["validation", "authorization", "conflict", "timeout", "provider", "service", "unknown"]);
 
-const ACTION_REQUIRED_KEYS = ["id", "version", "orgId", "actorUserId", "toolId", "toolVersion", "input", "risk", "idempotencyKey", "status", "attempt", "compensationPolicy"] as const;
+const VALID_APPROVAL_REQUIREMENTS = new Set(["not_required", "required"]);
+const VALID_EXECUTOR_KINDS = new Set(["tool"]);
+
+const ACTION_REQUIRED_KEYS = ["id", "version", "orgId", "actorUserId", "name", "toolId", "toolVersion", "input", "risk", "approvalRequirement", "idempotencyKey", "status", "attempt", "executor", "compensationPolicy"] as const;
 const ACTION_ALLOWED_KEYS = new Set<string>([...ACTION_REQUIRED_KEYS, "approvalId", "checkpoint", "lastError"]);
 
 // Runtime validator for C005 AthenaAction (docs/athena/contracts/README.md),
@@ -48,6 +51,9 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   if (typeof candidate.actorUserId !== "string" || candidate.actorUserId.length === 0) {
     throw new Error("AthenaAction.actorUserId must be a non-empty string");
   }
+  if (typeof candidate.name !== "string" || candidate.name.length === 0) {
+    throw new Error("AthenaAction.name must be a non-empty string");
+  }
   if (typeof candidate.toolId !== "string" || candidate.toolId.length === 0) {
     throw new Error("AthenaAction.toolId must be a non-empty string");
   }
@@ -59,6 +65,9 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   }
   if (typeof candidate.risk !== "string" || !VALID_RISKS.has(candidate.risk)) {
     throw new Error(`AthenaAction.risk is not a known risk: ${String(candidate.risk)}`);
+  }
+  if (typeof candidate.approvalRequirement !== "string" || !VALID_APPROVAL_REQUIREMENTS.has(candidate.approvalRequirement)) {
+    throw new Error(`AthenaAction.approvalRequirement is not valid: ${String(candidate.approvalRequirement)}`);
   }
   if (typeof candidate.idempotencyKey !== "string" || candidate.idempotencyKey.length === 0) {
     throw new Error("AthenaAction.idempotencyKey must be a non-empty string");
@@ -78,6 +87,25 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   if (candidate.checkpoint !== undefined && (typeof candidate.checkpoint !== "object" || candidate.checkpoint === null)) {
     throw new Error("AthenaAction.checkpoint must be an object when present");
   }
+  if (typeof candidate.executor !== "object" || candidate.executor === null) {
+    throw new Error("AthenaAction.executor must be an object");
+  }
+  const executor = candidate.executor as Record<string, unknown>;
+  if (typeof executor.kind !== "string" || !VALID_EXECUTOR_KINDS.has(executor.kind)) {
+    throw new Error(`AthenaAction.executor.kind is not valid: ${String(executor.kind)}`);
+  }
+  if (typeof executor.name !== "string" || executor.name.length === 0) {
+    throw new Error("AthenaAction.executor.name must be a non-empty string");
+  }
+  if (typeof executor.category !== "string" || executor.category.length === 0) {
+    throw new Error("AthenaAction.executor.category must be a non-empty string");
+  }
+  if (typeof executor.toolId !== "string" || executor.toolId.length === 0) {
+    throw new Error("AthenaAction.executor.toolId must be a non-empty string");
+  }
+  if (typeof executor.toolVersion !== "string" || executor.toolVersion.length === 0) {
+    throw new Error("AthenaAction.executor.toolVersion must be a non-empty string");
+  }
   if (candidate.lastError !== undefined) {
     if (typeof candidate.lastError !== "object" || candidate.lastError === null) {
       throw new Error("AthenaAction.lastError must be an object when present");
@@ -92,7 +120,7 @@ export function assertValidAthenaAction(value: unknown): asserts value is Athena
   }
 }
 
-const RESULT_REQUIRED_KEYS = ["version", "actionId", "state", "toolId", "toolVersion", "idempotencyKey", "compensationPolicy", "toolResult"] as const;
+const RESULT_REQUIRED_KEYS = ["version", "actionId", "state", "name", "toolId", "toolVersion", "approvalRequirement", "idempotencyKey", "executor", "compensationPolicy", "toolResult"] as const;
 const RESULT_ALLOWED_KEYS = new Set<string>([...RESULT_REQUIRED_KEYS, "planId", "stepId"]);
 
 // Runtime validator for the A6 AthenaActionResult envelope (not a numbered
@@ -125,14 +153,39 @@ export function assertValidAthenaActionResult(value: unknown): asserts value is 
   if (typeof candidate.state !== "string" || !VALID_STATES.has(candidate.state)) {
     throw new Error(`AthenaActionResult.state is not a known state: ${String(candidate.state)}`);
   }
+  if (typeof candidate.name !== "string" || candidate.name.length === 0) {
+    throw new Error("AthenaActionResult.name must be a non-empty string");
+  }
   if (typeof candidate.toolId !== "string" || candidate.toolId.length === 0) {
     throw new Error("AthenaActionResult.toolId must be a non-empty string");
   }
   if (typeof candidate.toolVersion !== "string" || candidate.toolVersion.length === 0) {
     throw new Error("AthenaActionResult.toolVersion must be a non-empty string");
   }
+  if (typeof candidate.approvalRequirement !== "string" || !VALID_APPROVAL_REQUIREMENTS.has(candidate.approvalRequirement)) {
+    throw new Error(`AthenaActionResult.approvalRequirement is not valid: ${String(candidate.approvalRequirement)}`);
+  }
   if (typeof candidate.idempotencyKey !== "string" || candidate.idempotencyKey.length === 0) {
     throw new Error("AthenaActionResult.idempotencyKey must be a non-empty string");
+  }
+  if (typeof candidate.executor !== "object" || candidate.executor === null) {
+    throw new Error("AthenaActionResult.executor must be an object");
+  }
+  const executor = candidate.executor as Record<string, unknown>;
+  if (typeof executor.kind !== "string" || !VALID_EXECUTOR_KINDS.has(executor.kind)) {
+    throw new Error(`AthenaActionResult.executor.kind is not valid: ${String(executor.kind)}`);
+  }
+  if (typeof executor.name !== "string" || executor.name.length === 0) {
+    throw new Error("AthenaActionResult.executor.name must be a non-empty string");
+  }
+  if (typeof executor.category !== "string" || executor.category.length === 0) {
+    throw new Error("AthenaActionResult.executor.category must be a non-empty string");
+  }
+  if (typeof executor.toolId !== "string" || executor.toolId.length === 0) {
+    throw new Error("AthenaActionResult.executor.toolId must be a non-empty string");
+  }
+  if (typeof executor.toolVersion !== "string" || executor.toolVersion.length === 0) {
+    throw new Error("AthenaActionResult.executor.toolVersion must be a non-empty string");
   }
   if (typeof candidate.compensationPolicy !== "string" || !VALID_COMPENSATION_POLICIES.has(candidate.compensationPolicy)) {
     throw new Error(`AthenaActionResult.compensationPolicy is not valid: ${String(candidate.compensationPolicy)}`);

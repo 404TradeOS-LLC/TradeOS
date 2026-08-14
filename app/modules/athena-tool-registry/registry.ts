@@ -1,8 +1,15 @@
-import { AthenaToolDefinition, AthenaToolDiscoveryActor, AthenaToolResolution } from "./types";
+import {
+  AthenaRegisteredToolDefinition,
+  AthenaToolCategory,
+  AthenaToolDefinition,
+  AthenaToolDiscoveryActor,
+  AthenaToolOutputSchema,
+  AthenaToolResolution,
+} from "./types";
 import { hasAllRequiredFeatureFlags, hasAllRequiredPermissions } from "./policy";
 
 interface RegistryEntry {
-  definition: AthenaToolDefinition;
+  definition: AthenaRegisteredToolDefinition;
   removed: boolean;
 }
 
@@ -23,7 +30,7 @@ export interface AthenaToolRegistry {
   // exercised deterministically by tests.
   remove(id: string, version: string): void;
   resolve(id: string, version: string): AthenaToolResolution;
-  discover(actor: AthenaToolDiscoveryActor): AthenaToolDefinition[];
+  discover(actor: AthenaToolDiscoveryActor): AthenaRegisteredToolDefinition[];
 }
 
 // Stable lowercase reverse-domain-style ID (docs/athena/roadmap/
@@ -45,6 +52,8 @@ const VALID_RISKS = new Set(["low", "medium", "high"]);
 const VALID_CONFIRMATION_POLICIES = new Set(["never", "contextual", "always"]);
 const VALID_IDEMPOTENCY = new Set(["required", "optional", "not_supported"]);
 const VALID_COMPENSATION_POLICIES = new Set(["none", "compensating_action", "service_transaction", "draft_only"]);
+const VALID_CATEGORIES = new Set(["system", "estimator", "dispatcher", "office", "field", "costbook", "fixture"]);
+const VALID_OUTPUT_SCHEMAS = new Set(["AthenaToolResult"]);
 
 function isZodLikeSchema(schema: unknown): schema is { safeParse: (input: unknown) => { success: boolean } } {
   return !!schema && typeof (schema as { safeParse?: unknown }).safeParse === "function";
@@ -75,6 +84,12 @@ export function assertValidToolDefinition(definition: AthenaToolDefinition): voi
   if (!definition.description || typeof definition.description !== "string") {
     throw new Error("AthenaToolDefinition.description must be a non-empty string");
   }
+  if (definition.name !== undefined && (typeof definition.name !== "string" || definition.name.trim().length === 0)) {
+    throw new Error("AthenaToolDefinition.name must be a non-empty string when present");
+  }
+  if (definition.category !== undefined && !VALID_CATEGORIES.has(definition.category)) {
+    throw new Error(`AthenaToolDefinition.category is not valid: ${String(definition.category)}`);
+  }
   if (!Array.isArray(definition.permissions)) {
     throw new Error("AthenaToolDefinition.permissions must be an array");
   }
@@ -96,12 +111,51 @@ export function assertValidToolDefinition(definition: AthenaToolDefinition): voi
   if (!isZodLikeSchema(definition.inputSchema)) {
     throw new Error("AthenaToolDefinition.inputSchema must be a Zod-like schema exposing safeParse() in A2");
   }
+  if (definition.outputSchema !== undefined && !VALID_OUTPUT_SCHEMAS.has(definition.outputSchema)) {
+    throw new Error(`AthenaToolDefinition.outputSchema is not valid: ${String(definition.outputSchema)}`);
+  }
   if (definition.requiredFeatureFlags !== undefined && !Array.isArray(definition.requiredFeatureFlags)) {
     throw new Error("AthenaToolDefinition.requiredFeatureFlags must be an array when present");
   }
   if (typeof definition.execute !== "function") {
     throw new Error("AthenaToolDefinition.execute must be a function");
   }
+}
+
+function titleCaseFromSegment(segment: string): string {
+  return segment
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function inferToolCategory(definition: AthenaToolDefinition): AthenaToolCategory {
+  if (definition.category) {
+    return definition.category;
+  }
+  const segments = definition.id.split(".");
+  const toolsIndex = segments.indexOf("tools");
+  if (toolsIndex >= 0 && segments[toolsIndex + 1] && VALID_CATEGORIES.has(segments[toolsIndex + 1])) {
+    return segments[toolsIndex + 1] as AthenaToolCategory;
+  }
+  if (segments.includes("fixture")) {
+    return "fixture";
+  }
+  return "system";
+}
+
+function normalizeToolDefinition(definition: AthenaToolDefinition): AthenaRegisteredToolDefinition {
+  const segments = definition.id.split(".");
+  const defaultName = titleCaseFromSegment(segments[segments.length - 1] ?? definition.id);
+  const outputSchema: AthenaToolOutputSchema = definition.outputSchema ?? "AthenaToolResult";
+
+  return {
+    ...definition,
+    name: definition.name?.trim() || defaultName,
+    category: inferToolCategory(definition),
+    outputSchema,
+  };
 }
 
 function key(id: string, version: string): string {
@@ -115,12 +169,13 @@ export function createAthenaToolRegistry(): AthenaToolRegistry {
   return {
     register(definition) {
       assertValidToolDefinition(definition);
-      const entryKey = key(definition.id, definition.version);
+      const normalized = normalizeToolDefinition(definition);
+      const entryKey = key(normalized.id, normalized.version);
       if (entries.has(entryKey)) {
         throw new Error(`Athena tool already registered: ${entryKey}`);
       }
-      entries.set(entryKey, { definition, removed: false });
-      knownIds.add(definition.id);
+      entries.set(entryKey, { definition: normalized, removed: false });
+      knownIds.add(normalized.id);
     },
 
     remove(id, version) {

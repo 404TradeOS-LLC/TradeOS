@@ -13,13 +13,22 @@ function validAction(): AthenaAction {
     version: "1.0.0",
     orgId: "org-1",
     actorUserId: "user-1",
+    name: "Echo Fixture",
     toolId: "tradeos.athena.fixture.echo",
     toolVersion: "1.0.0",
     input: { message: "hello" },
     risk: "low",
+    approvalRequirement: "not_required",
     idempotencyKey: "key-1",
     status: "succeeded",
     attempt: 1,
+    executor: {
+      kind: "tool",
+      name: "Echo Fixture",
+      category: "fixture",
+      toolId: "tradeos.athena.fixture.echo",
+      toolVersion: "1.0.0",
+    },
     compensationPolicy: "none",
   };
 }
@@ -41,9 +50,18 @@ function validActionResult(): AthenaActionResult {
     version: "1.0.0",
     actionId: "action-1",
     state: "succeeded",
+    name: "Echo Fixture",
     toolId: "tradeos.athena.fixture.echo",
     toolVersion: "1.0.0",
+    approvalRequirement: "not_required",
     idempotencyKey: "key-1",
+    executor: {
+      kind: "tool",
+      name: "Echo Fixture",
+      category: "fixture",
+      toolId: "tradeos.athena.fixture.echo",
+      toolVersion: "1.0.0",
+    },
     compensationPolicy: "none",
     toolResult: successToolResult(),
   };
@@ -76,6 +94,12 @@ describe("athena:contracts - action (C005)", () => {
     }
     for (const compensationPolicy of ["none", "compensating_action", "service_transaction", "draft_only"] as const) {
       expect(() => assertValidAthenaAction({ ...validAction(), compensationPolicy })).not.toThrow();
+    }
+  });
+
+  it("accepts every documented approval requirement value", () => {
+    for (const approvalRequirement of ["not_required", "required"] as const) {
+      expect(() => assertValidAthenaAction({ ...validAction(), approvalRequirement })).not.toThrow();
     }
   });
 
@@ -123,6 +147,12 @@ describe("athena:contracts - action result envelope", () => {
   it("accepts every documented action state", () => {
     for (const state of ["created", "pending", "running", "awaiting_approval", "partially_succeeded", "succeeded", "failed", "denied", "expired", "cancelled"] as const) {
       expect(() => assertValidAthenaActionResult({ ...validActionResult(), state })).not.toThrow();
+    }
+  });
+
+  it("accepts every documented approval requirement value on the result envelope", () => {
+    for (const approvalRequirement of ["not_required", "required"] as const) {
+      expect(() => assertValidAthenaActionResult({ ...validActionResult(), approvalRequirement })).not.toThrow();
     }
   });
 

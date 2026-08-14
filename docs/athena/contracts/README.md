@@ -67,9 +67,7 @@ export interface AthenaAIContext {
   permissions: AthenaPermissionSnapshot;
   selectedScope: AthenaSelectedScope;
   budget: AthenaContextBudget;
-  workspace?: AthenaWorkspaceContext;
   conversation?: AthenaConversationContext;
-  dashboard?: AthenaDashboardContext;
   weather?: AthenaProviderSection;
   calendar?: AthenaProviderSection;
   dispatch?: AthenaProviderSection;
@@ -143,6 +141,8 @@ export interface AthenaToolDefinition {
   id: string;
   version: string;
   owner: string;
+  name: string;
+  category: string;
   description: string;
   permissions: string[];
   risk: "low" | "medium" | "high";
@@ -151,7 +151,7 @@ export interface AthenaToolDefinition {
   idempotency: "required" | "optional" | "not_supported";
   compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   inputSchema: Record<string, unknown>;
-  resultSchema: "AthenaToolResult";
+  outputSchema: "AthenaToolResult";
 }
 
 export interface AthenaToolExecutionContext {
@@ -168,8 +168,8 @@ export interface AthenaToolExecutionContext {
 }
 ```
 
-Required: `id`, `version`, `owner`, `permissions`, `risk`, `timeoutMs`,
-`inputSchema`, `resultSchema`, and `compensationPolicy`. Optional: feature flag,
+Required: `id`, `version`, `owner`, `name`, `category`, `permissions`, `risk`, `timeoutMs`,
+`inputSchema`, `outputSchema`, and `compensationPolicy`. Optional: feature flag,
 deprecation, plugin ID. Execution requires both AI Context and
 `AthenaToolExecutionContext`; tools must not infer authority from model output.
 Validation: unknown tools, invalid schemas, and permissionless mutating tools
@@ -225,10 +225,12 @@ export interface AthenaAction {
   version: "1.0.0";
   orgId: string;
   actorUserId: string;
+  name: string;
   toolId: string;
   toolVersion: string;
   input: unknown;
   risk: "low" | "medium" | "high";
+  approvalRequirement: "not_required" | "required";
   approvalId?: string;
   idempotencyKey: string;
   status:
@@ -243,14 +245,21 @@ export interface AthenaAction {
     | "expired"
     | "cancelled";
   attempt: number;
+  executor: {
+    kind: "tool";
+    name: string;
+    category: string;
+    toolId: string;
+    toolVersion: string;
+  };
   checkpoint?: Record<string, unknown>;
   compensationPolicy: "none" | "compensating_action" | "service_transaction" | "draft_only";
   lastError?: AthenaToolError;
 }
 ```
 
-Required: action ID, org, actor, tool, risk, idempotency key, status, attempt,
-and compensation policy. Optional: approval, checkpoint, retry count, last
+Required: action ID, org, actor, action name, tool, risk, approval requirement,
+idempotency key, status, attempt, executor, and compensation policy. Optional: approval, checkpoint, retry count, last
 error. Validation: high-risk actions require approval ID before running; terminal
 states are immutable; resume requires a checkpoint and fresh policy check.
 Compatibility: statuses may only be added with documented terminal/non-terminal

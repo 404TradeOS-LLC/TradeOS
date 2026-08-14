@@ -14,7 +14,10 @@ describe("athena tool registry", () => {
       registry.register(tool);
       const resolution = registry.resolve(tool.id, tool.version);
       expect(resolution.outcome).toBe("found");
-      expect(resolution.outcome === "found" && resolution.definition).toBe(tool);
+      expect(resolution.outcome === "found" && resolution.definition.id).toBe(tool.id);
+      expect(resolution.outcome === "found" && resolution.definition.name).toBe("Echo Fixture");
+      expect(resolution.outcome === "found" && resolution.definition.category).toBe("fixture");
+      expect(resolution.outcome === "found" && resolution.definition.outputSchema).toBe("AthenaToolResult");
     });
 
     it("rejects duplicate registration of the same id@version", () => {
@@ -34,6 +37,11 @@ describe("athena tool registry", () => {
     it("rejects registration without an owner", () => {
       const registry = createAthenaToolRegistry();
       expect(() => registry.register(fixtureWith({ owner: "" }))).toThrow(/owner/);
+    });
+
+    it("rejects an invalid explicit category", () => {
+      const registry = createAthenaToolRegistry();
+      expect(() => registry.register(fixtureWith({ category: "billing" as never }))).toThrow(/category/);
     });
 
     it("rejects registration without a declared idempotency policy", () => {
@@ -149,6 +157,13 @@ describe("athena tool registry", () => {
       registry.register(createEchoFixtureTool());
       const discovered = registry.discover({ role: "technician", featureFlags: [] });
       expect(discovered.map((t) => t.id)).toContain("tradeos.athena.fixture.echo");
+      expect(discovered.find((t) => t.id === "tradeos.athena.fixture.echo")).toEqual(
+        expect.objectContaining({
+          name: "Echo Fixture",
+          category: "fixture",
+          outputSchema: "AthenaToolResult",
+        })
+      );
     });
 
     it("excludes a removed tool from discovery", () => {
