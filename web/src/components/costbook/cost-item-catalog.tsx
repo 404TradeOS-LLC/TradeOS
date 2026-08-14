@@ -96,20 +96,28 @@ export function CostItemCatalog({
     setSaving(true);
     setError(null);
 
-    const sharedPayload = {
+    const common = {
       code: form.code.trim(),
       name: form.name.trim(),
       unitOfMeasure: form.unitOfMeasure.trim(),
       ...(form.productionRate ? { productionRate: Number(form.productionRate) } : {}),
-      ...(form.laborRateId ? { laborRateId: form.laborRateId } : {}),
-      ...(form.materialId ? { materialId: form.materialId } : {}),
-      ...(form.equipmentId ? { equipmentId: form.equipmentId } : {}),
     };
 
     try {
       const saved = editingId
-        ? await updateCostItemCatalogRecord(clientFetch, editingId, sharedPayload)
-        : await createCostItemCatalogRecord(clientFetch, { ...sharedPayload, subcategoryId: form.subcategoryId });
+        ? await updateCostItemCatalogRecord(clientFetch, editingId, {
+            ...common,
+            laborRateId: form.laborRateId || null,
+            materialId: form.materialId || null,
+            equipmentId: form.equipmentId || null,
+          })
+        : await createCostItemCatalogRecord(clientFetch, {
+            ...common,
+            subcategoryId: form.subcategoryId,
+            ...(form.laborRateId ? { laborRateId: form.laborRateId } : {}),
+            ...(form.materialId ? { materialId: form.materialId } : {}),
+            ...(form.equipmentId ? { equipmentId: form.equipmentId } : {}),
+          });
       setCostItems((current) => sortCostItems(editingId
         ? current.map((item) => (item.id === saved.id ? saved : item))
         : [...current, saved]));
@@ -129,7 +137,10 @@ export function CostItemCatalog({
     try {
       await deactivateCostItemCatalogRecord(clientFetch, id);
       setCostItems((current) => current.filter((item) => item.id !== id));
-      if (editingId === id) startCreate();
+      if (editingId === id) {
+        setEditingId(null);
+        setForm(emptyForm);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cost item could not be deactivated.");
     } finally {
