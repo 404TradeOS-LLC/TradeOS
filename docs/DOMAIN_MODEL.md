@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -9,6 +9,8 @@ related_code:
   - app/modules/athena-memory
   - app/modules/athena-events
   - app/modules/athena-observability
+  - app/modules/assemblies-database
+  - app/prisma/migrations/20260814221000_restrict_costbook_assembly_writes/migration.sql
 ---
 
 # Domain Model
@@ -92,6 +94,7 @@ A priced commercial draft stored in `Estimate`.
 - owns estimate line items
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
+- Costbook-backed `EstimateLineItem` rows retain `costItemId` or `assemblyId` as source provenance and persist `unitCost`/`lineCost` as historical pricing snapshots; later Costbook price changes do not silently mutate those persisted line values
 
 ## Proposal
 
@@ -207,68 +210,27 @@ the same request-scoped session model as the rest of Athena's runtime tables.
 
 ## Costbook workspace foundation
 
-C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization-scoped foundation records for the future unified Costbook workspace.
+`CostbookWorkspace` and `CostbookWorkspaceEvent` are organization-scoped workspace foundation records.
 
-- `CostbookWorkspace` belongs to one organization and stores workspace setup state and foundation lifecycle status
-- `CostbookWorkspaceEvent` belongs to one organization and one Costbook workspace; database guardrails require the event organization to match the workspace organization
-- both tables use forced RLS and do not replace existing `Division`, `Category`, `Subcategory`, `CostItem`, `LaborRate`, `Material`, `Equipment`, `Assembly`, or `AssemblyItem` catalog models
-- the C001 workspace foundation does not add pricing calculations, materials CRUD, labor-engine state, estimate integration snapshots, or Athena advisor records
+- they do not replace the existing catalog entities
+- workspace status is separate from pricing previews, price-history reads, supplier-review state, and Estimate pricing snapshots
 
-## Costbook material catalog
+## Costbook catalog entities
 
-C002 exposes the existing `Material` model through the unified Costbook boundary.
+`Material`, `LaborRate`, `Equipment`, `Division`, `Category`, `Subcategory`, and `CostItem` remain the canonical Costbook catalog entities. The unified Costbook API is an application boundary over those existing tables rather than a duplicate schema.
 
-- `Material` belongs to one organization and stores SKU, name, unit of measure, current unit cost, waste factor, optional supplier link, last price-update timestamp, and timestamps
-- material reads remain tenant-scoped by `orgId`; C002 tightens material and material-price-audit writes to the owner/admin Costbook boundary through forced RLS
-- Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
-- a material may link to a supplier only when that supplier belongs to the same authenticated organization
-- material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
-- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+`MaterialPriceAudit` is the authoritative catalog price-change audit record for material unit-cost changes. Historical `EstimateLineItem` pricing is a separate consumption snapshot and is not a catalog-change event.
 
-## Costbook labor-rates foundation
+## Costbook assemblies
 
-C003 exposes the existing `LaborRate` model through the unified Costbook boundary.
+`Assembly` and `AssemblyItem` remain the canonical reusable composition models.
 
-- `LaborRate` belongs to one organization and now stores foundational `role`, optional `description`, `hourlyCost`, `billRate`, `active`, and timestamps alongside older compatibility fields still consumed by legacy labor and cost services
-- labor-rate reads remain tenant-scoped by `orgId`; C003 tightens labor-rate writes to the owner/admin Costbook boundary through forced RLS
-- Costbook labor-rate create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
-- `DELETE /api/v1/costbook/labor-rates/:id` and the legacy `/api/v1/labor-rates/:id` compatibility route soft-deactivate the row by setting `active` to `false`
-- C003 does not add labor burden calculations, pricing rollups, estimate integration, or Athena advisor state
+- `Assembly` belongs directly to one organization and may be active/inactive or marked as a reusable template
+- `AssemblyItem` belongs to one parent Assembly and references exactly one source: either a `CostItem` or a child `Assembly`
+- service validation requires newly attached CostItems/child Assemblies to be active and in the same authenticated organization as the parent
+- recursive unit-cost calculation preserves cycle detection while permitting legitimate DAG reuse
+- migration `20260814221000_restrict_costbook_assembly_writes` narrows Assembly writes to the Costbook management RLS boundary and adds database-level tenant validation for parent/source relationships
+- the database constraint `assembly_items_exactly_one_source_check` rejects rows that reference both sources or neither source
+- AssemblyItem RLS validates same-organization parent Assembly, referenced CostItem, and referenced child Assembly, providing defense in depth beneath controller/service validation
 
-## Costbook equipment foundation
-
-C004 exposes the existing `Equipment` model through the unified Costbook boundary.
-
-- `Equipment` belongs to one organization and stores `name`, `ownershipCostPerHour`, `operatingCostPerHour`, optional `dailyRate`, timestamps, and a derived `hourlyCost` in DTO/view-model surfaces
-- equipment reads remain tenant-scoped by `orgId`; C004 tightens equipment writes to the owner/admin Costbook boundary through forced RLS
-- Costbook equipment create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
-- `DELETE /api/v1/costbook/equipment/:id` and the legacy `/api/v1/equipment/:id` compatibility route hard-delete the row because the current schema has no `active` or archive state
-- C004 does not add advanced equipment-rate analytics, estimate integration, or Athena advisor state
-
-## Costbook hierarchy management
-
-C005 exposes the existing `Division`, `Category`, and `Subcategory` models through the unified Costbook boundary, completing the CRUD gap C001-C004 left (those models previously had only list + create; `CostItem` already had full CRUD).
-
-- `Division` belongs to one organization directly (`orgId`); `Category` and `Subcategory` inherit organization scope through their parent join (`Category.divisionId -> Division.orgId`, `Subcategory.categoryId -> Category.divisionId -> Division.orgId`), matching how `CostItem` already inherits scope through `Subcategory`
-- all three models gained an `isActive` boolean (default `true`) in C005 — previously only `CostItem` had a soft-delete flag anywhere in this hierarchy
-- Costbook hierarchy create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted, and a category/subcategory create rejects a parent id that does not belong to the authenticated organization
-- category and subcategory database write policies also carry explicit authenticated-organization predicates through their parent joins, so write isolation does not depend on nested row visibility alone
-- the database rejects any create/reactivation that would leave an active `Category` under an inactive `Division`, or an active `Subcategory` under an inactive `Category` or `Division`; these active-parent invariants apply even when application-layer code is bypassed
-- delete is soft-deactivate only (`isActive = false`); child `Category`/`Subcategory`/`CostItem` rows are never cascade-deleted through the Costbook API, even though the underlying Prisma relations define `onDelete: Cascade` for a true hard delete
-- C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary to the Costbook-specific owner/admin boundary, matching C002/C003; legacy `estimator` loses direct database write access to these three tables
-- C005 does not add pricing calculations, estimate integration, or Athena advisor state
-
-## Core relationships
-
-Canonical relationship flow:
-
-`Organization -> Customer -> Project -> Estimate/Proposal/Contract/Invoice/Job`
-
-Operational sub-relationships:
-
-- `Customer -> ServiceAddress -> Job`
-- `Project -> SiteVisit`
-- `Project -> ProjectTask`
-- `Invoice -> Payment`
-- `Job -> JobAssignment`
-- `ActivityEvent` may describe changes across multiple entity types
+No new pricing-policy, generic price-history, or supplier-sync persistence entity is introduced by the practical Costbook continuation.
