@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-15
 source_of_truth: false
 related_code:
   - app/modules/settings
@@ -12,6 +12,8 @@ related_code:
   - app/backend/routes/adminDashboard.routes.ts
   - app/backend/routes/supplierIntegration.routes.ts
   - app/backend/routes/supplierDatabase.routes.ts
+  - app/backend/controllers/supplierIntegration.controller.ts
+  - app/tests/supplier-integration.feed.test.ts
   - web/src/app/(app)/settings/page.tsx
   - web/src/components/settings/settings-console.tsx
 ---
@@ -48,9 +50,27 @@ Own the organization settings control center, internal admin summaries, supplier
 
 See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
-Important current rule:
+Current supplier-integration boundary:
 
-- supplier review and approval are tighter than ordinary queue submission behavior
+- supplier integration reads require `costbook.read`
+- queue creation/sync operations use the Costbook write boundary
+- approve/reject requires `costbook.manage` and remains an owner/admin governance operation under current role mappings
+
+## Supplier price-feed transport
+
+The existing SupplierIntegrationService queue/review/worker/scheduler remains canonical. The Costbook continuation adds only the previously missing feed transport adapter; it does not create another supplier synchronization system.
+
+- trusted feed endpoints come only from server-side `SUPPLIER_PRICE_FEED_ENDPOINTS`, keyed by Supplier ID
+- arbitrary request URLs and `Supplier.website` are never treated as feed endpoints
+- configured endpoints must use HTTPS; redirects are rejected
+- an existing supplier `apiIntegrationKey`, when present, is used server-side as a bearer credential and is never returned by the API
+- responses use a strict minimal quote contract (`materialId`, `proposedUnitCost`), are bounded in quote count and response size, and are subject to an abort timeout
+- absent configuration is an honest safe no-op/unconfigured state rather than a fabricated successful sync
+- feed ingestion only creates pending `SupplierPriceUpdate` proposals; it never changes `Material.unitCost` directly
+- approved proposals continue through the existing transactional material update plus `MaterialPriceAudit` path
+- duplicate pending-proposal suppression remains in the existing service
+
+There is no supplier-SKU matching layer in this slice; feed rows must already identify a TradeOS Material by `materialId`.
 
 ## Frontend surfaces
 
@@ -65,6 +85,7 @@ Important current rule:
 - `app/tests/supplier-integration.service.test.ts`
 - `app/tests/supplier-integration.scheduler.test.ts`
 - `app/tests/supplier-integration.worker.test.ts`
+- `app/tests/supplier-integration.feed.test.ts`
 
 ## Implementation notes
 
@@ -73,15 +94,17 @@ Important current rule:
 
 ## Known limitations
 
-- live supplier feed fetching is still stubbed
+- supplier feeds require explicit trusted server configuration per supplier; the adapter does not imply every Supplier is synchronized
+- supplier-SKU discovery/matching is not implemented
+- supplier pricing is review/proposal based and never auto-applied
 - internal admin surfaces are operational tooling, not contractor-facing product routes
 - Settings Console's brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, persisted via `organization.logoUrl` and `organizationSettings.settingsJson`) are not currently rendered into any generated document or customer portal page. The live PDF generators (`app/modules/invoices/pdf.ts`, `app/modules/contracts/pdf.ts`, `app/modules/proposal-generator/service.ts`) are pdfkit-based and draw only a `companyName` text header — none of them call `.image()` or reference a logo/brand field, and the portal pages under `web/src/app/(app)/portal/**` don't render one either. The one place in the codebase that does treat a logo as a real `<img>` (`app/modules/documents/frame.ts` / `templates.ts`) has no live caller outside `app/tests/document-frame.test.ts`. A prior commit fixing this module's asset-upload persistence bug described the affected fields as driving "customer-facing PDF and portal branding" — that description is not accurate as of this writing; persisting these fields correctly is still a real, worthwhile fix (the previous blob-URL behavior broke on reload), it just has no visible customer-facing effect yet because nothing consumes the fields downstream.
 
 ## Deferred work
 
-- real supplier feed connectors
+- supplier-specific adapters and SKU/product matching beyond the configured generic feed contract
 - additional operational reporting beyond current queue and admin summaries
 
 ## Last verified date
 
-2026-07-14
+2026-08-15
