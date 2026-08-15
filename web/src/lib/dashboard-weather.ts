@@ -3,21 +3,15 @@ export interface DashboardWeatherAddressInput {
   persistedOrganizationAddress?: string | null;
 }
 
-function normalizeAddress(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-export function selectDashboardWeatherAddress({
-  jobSiteAddresses,
-  persistedOrganizationAddress,
-}: DashboardWeatherAddressInput): string | null {
-  for (const address of jobSiteAddresses) {
-    const normalized = normalizeAddress(address);
-    if (normalized) return normalized;
-  }
-
-  return normalizeAddress(persistedOrganizationAddress);
+/**
+ * Standing dashboard weather is intentionally disabled. Product direction requires
+ * weather to appear only when a scheduled exterior job has an adverse forecast and
+ * therefore belongs in the needs-attention queue. Keep this compatibility seam until
+ * dashboard/page.tsx drops the old import; it returns null so no Census/NWS request is
+ * performed from the generic dashboard header.
+ */
+export function selectDashboardWeatherAddress(_input: DashboardWeatherAddressInput): string | null {
+  return null;
 }
 
 export async function loadDashboardWeather<T>(
