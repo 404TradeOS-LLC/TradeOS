@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -63,20 +63,21 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 - S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged, but current Costbook overlap exists in PR #128 and PR #151.
+- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged; PR #128 (closed unmerged, superseded by merged PR #183) and PR #151 (merged 2026-08-13) are resolved; PR #210 (CostItem management slice, merged 2026-08-15) advanced S027 further. The current overlap is the unopened `feature/costbook-practical-pricing-reconciled` branch, which must pass PR review and the reconciliation gate before further S027 work.
 - No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
 
 ## Active engineering queue
 
 Prioritize existing authorized work before inventing new scope:
 
-1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work with a forward migration, so it remains protected PR-only/human-decision work. Its previous documentation blocker has been repaired. CodeRabbit then identified two substantive integrity/test-isolation findings that were implemented: parent deactivation is rejected while active descendants remain, and cross-organization RLS tests now isolate tenant-policy rejection from active-parent trigger rejection. Fresh required CI/review evidence is still required before merge.
-2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and reconcile deliberately against current `main` and C005-era hierarchy changes; do not treat it as maintenance auto-merge.
-3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
+1. **`feature/costbook-practical-pricing-reconciled` — Costbook assemblies/pricing-preview/price-history/supplier-feed slice.** A 114-commit remote branch continuing S027 scope. It has never been opened as a pull request. Before any agent advances it, run the reconciliation gate, open it as a PR against current `main`, and verify it does not duplicate already-merged C004/C005/CostItem work.
+2. **PR #214 (draft) — Athena durable action idempotency.**
+3. **PR #213 — knowledge-engine assembly corpus discovery restoration.**
+4. **PR #211 (draft) — dashboard navigation UX.**
 
 Athena production-readiness work on top of the kernel-foundation dependency now includes durable approvals, audit persistence, operator approval review, and real customer/estimate/costbook context providers. Because this scope includes new migration-backed tables and RLS policies, it remains PR-only/human-decision work even when the code diff itself is bounded.
 
-Open issue inventory verified during reconciliation includes issue #144 for Athena transactional event reliability and issue #153 for Costbook hierarchy activation permissions/migration sequencing.
+Resolved since the 2026-08-12 reconciliation: PR #151 (Costbook hierarchy RLS/parent activity hardening) merged 2026-08-13; PR #128 (C004 equipment catalog foundation) closed unmerged, superseded by merged PR #183; issue #144 / PR #145 (Athena transactional event persistence) closed, delivered via merged PR #191; issue #153 (Costbook hierarchy activation permissions/migration sequencing) closed completed 2026-08-14; PR #210 (CostItem management slice) merged 2026-08-15.
 
 ## Autonomous maintenance operating mode
 
@@ -131,7 +132,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially protected Costbook PR #151 and overlapping C004 PR #128—without bypassing migration, RLS, documentation, review, or current-base requirements. If existing PR work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
+There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially the unopened `feature/costbook-practical-pricing-reconciled` branch, which must pass PR review and the reconciliation gate before continuing S027—without bypassing migration, RLS, documentation, review, or current-base requirements. If existing work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
 
 ## Source-of-truth links
 

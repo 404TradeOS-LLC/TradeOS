@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -224,8 +224,8 @@ Forbidden paths: broad application redesign; autonomous AI database writes; dire
 Required verification: backend unit/type/build/integration/RLS coverage; frontend unit/lint/build coverage; docs tests/ownership; focused Costbook search/browse/pricing/supplier/Knowledge Runtime/AI behavior tests; and E2E coverage for representative contractor Costbook workflows before production-readiness claims.
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
-Blocked by: current overlapping Costbook work in PR #128 (C004 equipment catalog foundation) and PR #151 (hierarchy RLS/active-parent hardening). PR #151 also contains a migration and remains protected PR-only/human-decision work under `AGENTS.md`. Reverify all live Costbook PRs before promotion.
-Reconciled evidence: the original 2026-08-09 blockers are no longer active—PR #94 merged as `ab89268fdcfe3da665a640372f6196dca12e9d81`, PR #95 merged as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and PR #96 merged as `7b80ec63432bcf941219b4a3d83b75980ab01d92`. Their completion removes those specific blockers but does not make S027 `READY` while current overlap remains.
+Blocked by: an unopened remote branch, `feature/costbook-practical-pricing-reconciled` (114 commits: assemblies, pricing preview, price history, supplier feed), that substantially overlaps remaining S027 scope but has never gone through PR review or the reconciliation gate. Reverify all live Costbook PRs and branches before promotion.
+Reconciled evidence: the 2026-08-12 blockers are resolved—PR #128 (C004 equipment catalog foundation) closed unmerged and was superseded when C004 landed via merged PR #183, and PR #151 (hierarchy RLS/active-parent hardening) merged 2026-08-13 as `c948998c112436e807603246fe3eda2468737e08`, already reflected in the C005 entry in `docs/CURRENT_STATE.md`. PR #210 (CostItem management slice) merged 2026-08-15 as `3c3037faf5c7c3b4f3660b6f43cc6a3b90372e4e`, promoting first-class CostItem management into the unified Costbook API/UI. Their completion removes those specific blockers but does not make S027 `READY` while the unreviewed practical-pricing branch remains unreconciled.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -406,15 +406,14 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-12 reconciliation, notable live work includes:
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-15 reconciliation, notable live work includes:
 
-- PR #151 — Costbook hierarchy RLS/parent-activity hardening; security/data-integrity value, migration protected boundary, docs synchronization required before merge.
-- PR #128 — C004 Costbook equipment catalog foundation; large feature/migration/UI scope requiring deliberate review.
-- PR #145 / issue #144 — Athena transactional event persistence; draft/incomplete.
-- PR #171 — CodeRabbit repository configuration; automation-only and rebuildable from current `main` if still desired.
-- PR #169 — broad API development dependency group; major compatibility review required.
-- PRs #130/#131 — GitHub Actions dependency upgrades; workflow/docs governance applies.
-- issue #153 — Costbook activation permission and migration-sequencing follow-up.
+- `feature/costbook-practical-pricing-reconciled` — 114-commit remote branch (assemblies, pricing preview, price history, supplier feed) continuing S027 scope; not yet opened as a PR and must pass the reconciliation gate before advancing.
+- PR #214 (draft) — Athena durable action idempotency.
+- PR #213 — knowledge-engine assembly corpus discovery restoration.
+- PR #211 (draft) — dashboard navigation UX.
+
+Resolved since the 2026-08-12 reconciliation, no longer live: PR #145/issue #144 (Athena transactional event persistence) — issue #144 closed completed via merged PR #191, PR #145 itself closed unmerged; PR #171 (CodeRabbit repository configuration) closed unmerged, but `.coderabbit.yaml` is present on current `main` via a later path, so the underlying need is satisfied; PR #169 (API development dependency group) merged 2026-08-12; PRs #130/#131 (GitHub Actions dependency bumps) closed unmerged with no open replacement; issue #153 (Costbook activation permission / migration-sequencing follow-up) closed completed 2026-08-14; PR #151 (Costbook hierarchy RLS/parent-activity hardening) merged 2026-08-13; PR #128 (C004 equipment catalog foundation) closed unmerged, superseded by merged PR #183; PR #203 (equipment loading timeout/edit-race lock) merged 2026-08-14; PR #210 (CostItem management slice) merged 2026-08-15.
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
@@ -423,7 +422,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S006 and S013 now have merged completion evidence. S027 remains `BLOCKED` by current Costbook overlap. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
+Eligibility: No numbered sprint is currently `READY`. S006 and S013 now have merged completion evidence. S027 remains `BLOCKED`: PR #210 (CostItem management slice) merged 2026-08-15 and advances S027, but the unopened `feature/costbook-practical-pricing-reconciled` branch overlaps remaining scope and must pass the reconciliation gate first. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Reverify live GitHub state. Current significant overlap includes PR #128 and #151 in Costbook, draft PR #145 in Athena, plus repository automation/dependency work. Existing authorized PRs should be advanced instead of duplicated.
+Overlap check: Reverify live GitHub state. Current significant overlap is the unopened `feature/costbook-practical-pricing-reconciled` branch in Costbook, plus draft PR #214 (Athena) and open PR #213/draft PR #211. Existing authorized PRs/branches should be advanced instead of duplicated.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.
