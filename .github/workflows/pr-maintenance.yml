@@ -1,0 +1,65 @@
+name: PR maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to rebase onto main
+        required: true
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-maintenance-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  rebase:
+    name: Rebase PR onto main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          base_ref="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)"
+          head_repo="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRepository --jq .headRepository.nameWithOwner)"
+          state="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+
+          if [ "$state" != "OPEN" ]; then
+            echo "PR #$PR_NUMBER is not open."
+            exit 1
+          fi
+
+          if [ "$base_ref" != "main" ]; then
+            echo "PR #$PR_NUMBER targets '$base_ref', not 'main'."
+            exit 1
+          fi
+
+          if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "PR #$PR_NUMBER comes from '$head_repo'; fork PRs are not modified."
+            exit 1
+          fi
+
+      - name: Rebase pull request branch onto main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: gh pr update-branch "$PR_NUMBER" --rebase --repo "$GITHUB_REPOSITORY"
+
+      - name: Report updated head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json number,url,baseRefName,headRefName,headRefOid,mergeStateStatus \
+            --jq '{number,url,base:.baseRefName,head:.headRefName,headSha:.headRefOid,mergeState:.mergeStateStatus}'
