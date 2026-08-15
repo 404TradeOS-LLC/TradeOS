@@ -20,7 +20,7 @@ export interface CreateSubcategoryInput {
 }
 
 export interface CreateCostItemInput {
-  orgId?: string;
+  orgId: string;
   subcategoryId: string;
   code: string;
   name: string;
@@ -33,7 +33,16 @@ export interface CreateCostItemInput {
   notes?: string;
 }
 
-export type UpdateCostItemInput = Partial<Omit<CreateCostItemInput, "subcategoryId">> & { isActive?: boolean };
+export type UpdateCostItemInput = Partial<Omit<CreateCostItemInput,
+  "orgId" | "subcategoryId" | "productionRate" | "laborRateId" | "materialId" | "equipmentId" | "subcontractorId"
+>> & {
+  productionRate?: number | null;
+  laborRateId?: string | null;
+  materialId?: string | null;
+  equipmentId?: string | null;
+  subcontractorId?: string | null;
+  isActive?: boolean;
+};
 
 export interface CostItemDTO {
   id: string;
