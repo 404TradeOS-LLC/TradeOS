@@ -258,4 +258,46 @@ describe("Estimate Costbook historical pricing contract", () => {
     expect(line.unitCost).toBe(45);
     expect(line.lineCost).toBe(90);
   });
+
+  it("rejects recalculating a foreign-organization estimate before any write", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue(null);
+
+    await expect(new EstimateEngineService().recalculate("estimate-org-2", "org-1")).rejects.toThrow("not found");
+
+    expect(mockPrisma.estimate.findFirst).toHaveBeenCalledWith({
+      where: { id: "estimate-org-2", orgId: "org-1" },
+      include: { lineItems: true },
+    });
+    expect(mockPrisma.estimate.update).not.toHaveBeenCalled();
+    expect(mockCostDatabase.getUnitCost).not.toHaveBeenCalled();
+    expect(mockAssembliesDatabase.getAssemblyUnitCost).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicating a foreign-organization estimate before copying snapshots", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue(null);
+
+    await expect(new EstimateEngineService().duplicateFromVersion("estimate-org-2", "org-1")).rejects.toThrow("not found");
+
+    expect(mockPrisma.estimate.create).not.toHaveBeenCalled();
+    expect(mockCostDatabase.getUnitCost).not.toHaveBeenCalled();
+    expect(mockAssembliesDatabase.getAssemblyUnitCost).not.toHaveBeenCalled();
+  });
+
+  it("rejects adding a line to a foreign-organization estimate before catalog lookup or write", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue(null);
+
+    await expect(new EstimateEngineService().addLineItem({
+      estimateId: "estimate-org-2",
+      orgId: "org-1",
+      costItemId: "cost-item-1",
+      quantity: 1,
+    })).rejects.toThrow("not found");
+
+    expect(mockPrisma.costItem.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.assembly.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.estimateLineItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.estimateLineItem.createMany).not.toHaveBeenCalled();
+    expect(mockCostDatabase.getUnitCost).not.toHaveBeenCalled();
+    expect(mockAssembliesDatabase.getAssemblyUnitCost).not.toHaveBeenCalled();
+  });
 });
