@@ -162,6 +162,10 @@ Rename handling:
 - controller and middleware files should be listed when they own module-specific validation, permission, throttling, or security behavior; for example, AI estimator controller and rate-limit changes are owned by the AI Estimate Assist documentation set
 - package-level data corpora are listed when their content feeds a documented runtime consumer; for example, `packages/knowledge-engine/**` runtime and vendored-content changes are owned by `packages/knowledge-engine/README.md`, which is the package's own canonical entry point rather than a `docs/modules/*.md` file
 
+### Nightly repository health
+
+`.github/workflows/nightly-repository-health.yml` provides a scheduled and manually dispatchable diagnostic signal for dependency, Prisma, build, Athena-contract, tracked-source, and workflow-file drift. It is not a branch-protection requirement and does not deploy or mutate production data.
+
 ## Source-of-truth files
 
 - [CURRENT_STATE.md](CURRENT_STATE.md)
