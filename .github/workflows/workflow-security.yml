@@ -1,0 +1,89 @@
+name: Workflow security
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2
+
+  policy:
+    name: Enforce workflow security policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Identify changed workflow files
+        id: changed
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '.github/workflows/*.yml' '.github/workflows/*.yaml')"
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "$files"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Reject unsafe workflow patterns
+        if: steps.changed.outputs.files != ''
+        shell: bash
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          set -euo pipefail
+          failed=0
+
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            [ -f "$file" ] || continue
+            echo "Checking $file"
+
+            if grep -nE '^[[:space:]]*pull_request_target:' "$file"; then
+              echo "::error file=$file::pull_request_target is prohibited without an explicit security exception."
+              failed=1
+            fi
+
+            if grep -nE '^[[:space:]]*permissions:[[:space:]]*write-all([[:space:]]|$)' "$file"; then
+              echo "::error file=$file::permissions: write-all is prohibited."
+              failed=1
+            fi
+
+            if grep -nE '^[[:space:]]*actions:[[:space:]]*write([[:space:]]|$)' "$file"; then
+              echo "::error file=$file::actions: write requires explicit review and is prohibited by the default workflow policy."
+              failed=1
+            fi
+
+            if grep -nE '^[[:space:]]*id-token:[[:space:]]*write([[:space:]]|$)' "$file"; then
+              echo "::error file=$file::id-token: write requires an explicit OIDC exception and is prohibited by the default workflow policy."
+              failed=1
+            fi
+
+            if grep -nE '\$\{\{[[:space:]]*github\.event\.(issue|pull_request|comment|review|discussion).*\}\}' "$file" | grep -E 'run:|script:'; then
+              echo "::error file=$file::Untrusted event content must not be interpolated directly into run/script commands."
+              failed=1
+            fi
+          done <<< "$FILES"
+
+          exit "$failed"
