@@ -3,6 +3,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createPrismaAthenaIdempotencyStore } from "../../db/athenaActionIdempotencyStore";
 import { getRolePermissions, normalizeRole } from "../../domain";
+import { athenaActionIdempotencyConflictError } from "../../modules/athena-action-engine/errors";
+import { AthenaIdempotencyConflictError, type AthenaIdempotencyStore } from "../../modules/athena-action-engine/idempotency";
 import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
@@ -25,6 +27,23 @@ const auditStore = createPrismaAthenaAuditStore();
 // the same RLS transaction as the business service invoked by the tool.
 const idempotencyStore = createPrismaAthenaIdempotencyStore();
 
+function bindIdempotencyConflictsToRequest(store: AthenaIdempotencyStore, correlationId: string): AthenaIdempotencyStore {
+  return {
+    async reserve<TData = unknown>(scopeKey: string, inputHash: string) {
+      try {
+        return await store.reserve<TData>(scopeKey, inputHash);
+      } catch (error) {
+        if (error instanceof AthenaIdempotencyConflictError) {
+          throw athenaActionIdempotencyConflictError(correlationId);
+        }
+        throw error;
+      }
+    },
+    complete: (scopeKey, outcome) => store.complete(scopeKey, outcome),
+    release: (scopeKey) => store.release(scopeKey),
+  };
+}
+
 function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.success) return 200;
   if (result.state === "denied") return 403;
@@ -35,6 +54,8 @@ function resolveStatusCode(result: AthenaKernelResult): number {
       return 400;
     case "authorization":
       return 403;
+    case "conflict":
+      return 409;
     case "timeout":
       return 504;
     case "provider":
@@ -99,6 +120,7 @@ export const athenaController = {
 
     try {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
+      const requestIdempotencyStore = bindIdempotencyConflictsToRequest(idempotencyStore, requestId);
       const result = await service.handleRequest({
         request: {
           message: body.message,
@@ -116,7 +138,7 @@ export const athenaController = {
         clientSignal: controller.signal,
         toolRegistry,
         idempotencyKey: body.idempotencyKey,
-        idempotencyStore,
+        idempotencyStore: requestIdempotencyStore,
         auditStore: requestAuditStore,
       });
 
