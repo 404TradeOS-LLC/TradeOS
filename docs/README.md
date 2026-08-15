@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -20,6 +20,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/workflow-security.yml
 ---
 
 # TradeOS Documentation
@@ -106,6 +107,8 @@ a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
+
+Changes under `.github/workflows/**` and `.github/actions/**` are additionally checked by `workflow-security.yml`. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
 The enforcement flow is:
 
