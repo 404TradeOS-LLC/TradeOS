@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
+import { createPrismaAthenaIdempotencyStore } from "../../db/athenaActionIdempotencyStore";
 import { getRolePermissions, normalizeRole } from "../../domain";
-import { createPrismaAthenaIdempotencyStore } from "../../modules/athena-action-engine/idempotency";
 import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
@@ -20,9 +20,9 @@ const service = new AthenaKernelService();
 const toolRegistry = createProductionAthenaToolRegistry();
 const auditStore = createPrismaAthenaAuditStore();
 // A6 durable idempotency: production never relies on the Action Engine's
-// process-local test fallback. This store executes through the request-scoped
-// Prisma proxy, so its reservation/result persistence shares the same RLS
-// transaction as the business service invoked by the tool.
+// process-local test fallback. This infrastructure adapter executes through
+// the request-scoped Prisma proxy, so reservation/result persistence shares
+// the same RLS transaction as the business service invoked by the tool.
 const idempotencyStore = createPrismaAthenaIdempotencyStore();
 
 function resolveStatusCode(result: AthenaKernelResult): number {
