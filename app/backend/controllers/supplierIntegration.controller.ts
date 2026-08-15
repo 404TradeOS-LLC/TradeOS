@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
-import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
+import { requireOrgId, requirePermissions } from "../requestContext";
 
 const service = new SupplierIntegrationService();
 const idSchema = z.string().uuid();
