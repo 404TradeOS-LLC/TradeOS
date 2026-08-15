@@ -16,7 +16,9 @@ alter table public.assembly_items
   drop constraint if exists assembly_items_exactly_one_component_check;
 alter table public.assembly_items
   add constraint assembly_items_exactly_one_component_check
-  check ((cost_item_id is null) <> (child_assembly_id is null));
+  check ((cost_item_id is null) <> (child_assembly_id is null)) not valid;
+alter table public.assembly_items
+  validate constraint assembly_items_exactly_one_component_check;
 
 drop policy if exists assembly_items_write_policy on public.assembly_items;
 create policy assembly_items_write_policy on public.assembly_items
