@@ -5,7 +5,7 @@ import type {
   AthenaIdempotencyReservation,
   AthenaIdempotencyStore,
 } from "../modules/athena-action-engine/idempotency";
-import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
+import { AthenaIdempotencyConflictError } from "../modules/athena-action-engine/idempotency";
 import type { AthenaAction, AthenaActionResult } from "../modules/athena-action-engine/types";
 import { prisma } from "./client";
 
@@ -23,10 +23,24 @@ interface DurableIdempotencyRow {
   resultJson: unknown | null;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function parseAthenaIdempotencyScopeKey(scopeKey: string): ParsedScopeKey {
-  const [orgId, toolId, toolVersion, ...keyParts] = scopeKey.split("::");
-  const idempotencyKey = keyParts.join("::");
-  if (!orgId || !toolId || !toolVersion || !idempotencyKey) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(scopeKey);
+  } catch {
+    throw new Error("Invalid Athena idempotency scope key");
+  }
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== 4 ||
+    parsed.some((part) => typeof part !== "string" || part.length === 0)
+  ) {
+    throw new Error("Invalid Athena idempotency scope key");
+  }
+  const [orgId, toolId, toolVersion, idempotencyKey] = parsed as [string, string, string, string];
+  if (!UUID_PATTERN.test(orgId)) {
     throw new Error("Invalid Athena idempotency scope key");
   }
   return { orgId, toolId, toolVersion, idempotencyKey };
@@ -62,7 +76,7 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
           ${inputHash},
           'reserved'
         )
-        on conflict (org_id, tool_id, tool_version, idempotency_key) do nothing
+        on conflict (org_id, actor_user_id, tool_id, tool_version, idempotency_key) do nothing
         returning id::text as id
       `);
 
@@ -86,10 +100,10 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
       `);
       const existing = rows[0];
       if (!existing) {
-        throw new Error("Athena idempotency key is reserved by another actor or is not visible in the current tenant session");
+        throw new Error("Athena idempotency reservation is not visible in the current tenant session");
       }
       if (existing.inputHash !== inputHash) {
-        throw new Error("Athena idempotency key was already used for different validated input");
+        throw new AthenaIdempotencyConflictError("Athena idempotency key was already used for different validated input");
       }
       if (existing.status !== "completed" || !existing.actionJson || !existing.resultJson) {
         return { outcome: "duplicate" };
@@ -103,9 +117,8 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
       };
     },
 
-    async complete<TData = unknown>(scopeKey: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void> {
+    async complete<TData = unknown>(scopeKey: string, inputHash: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void> {
       const identity = parseAthenaIdempotencyScopeKey(scopeKey);
-      const inputHash = computeCanonicalInputHash(outcome.action.input);
       const updated = await prisma.$executeRaw(Prisma.sql`
         update athena_action_idempotency
         set
