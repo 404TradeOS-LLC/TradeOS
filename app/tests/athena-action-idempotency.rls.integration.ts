@@ -94,14 +94,17 @@ describe("live row-level security for Athena action idempotency", () => {
     ).rejects.toThrow(/different validated input/i);
   });
 
-  it("fails closed when a peer actor in the same organization reuses another actor's key", async () => {
+  it("keeps the same literal key independent across actors in one organization", async () => {
     const key = `actor-${randomUUID()}`;
     const scope = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, key);
     const inputHash = computeCanonicalInputHash({ value: "actor" });
     const store = createPrismaAthenaIdempotencyStore();
-    expect((await inSession(ownerA, orgA, "owner", () => store.reserve(scope, inputHash))).outcome).toBe("new");
 
-    await expect(inSession(peerA, orgA, "technician", () => store.reserve(scope, inputHash))).rejects.toThrow(/another actor|not visible/i);
+    const ownerResult = await inSession(ownerA, orgA, "owner", () => store.reserve(scope, inputHash));
+    const peerResult = await inSession(peerA, orgA, "technician", () => store.reserve(scope, inputHash));
+
+    expect(ownerResult.outcome).toBe("new");
+    expect(peerResult.outcome).toBe("new");
   });
 
   it("keeps the same literal idempotency key independent across organizations", async () => {
@@ -118,6 +121,14 @@ describe("live row-level security for Athena action idempotency", () => {
 
     expect(resultA.outcome).toBe("new");
     expect(resultB.outcome).toBe("new");
+  });
+
+  it("rejects an org B session attempting to reserve an org A scope", async () => {
+    const scopeA = buildAthenaIdempotencyScopeKey(orgA, toolId, toolVersion, `tenant-${randomUUID()}`);
+    const inputHash = computeCanonicalInputHash({ value: "wrong-tenant" });
+    const store = createPrismaAthenaIdempotencyStore();
+
+    await expect(inSession(ownerB, orgB, "owner", () => store.reserve(scopeA, inputHash))).rejects.toThrow();
   });
 });
 
