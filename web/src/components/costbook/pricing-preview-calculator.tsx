@@ -32,6 +32,7 @@ export function PricingPreviewCalculator() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setPreview(null);
     try {
       setPreview(await clientFetch<Preview>("/costbook/pricing/preview", {
         method: "POST",
@@ -44,6 +45,7 @@ export function PricingPreviewCalculator() {
         }),
       }));
     } catch (err) {
+      setPreview(null);
       setError(err instanceof Error ? err.message : "Pricing preview could not be calculated.");
     } finally {
       setLoading(false);
