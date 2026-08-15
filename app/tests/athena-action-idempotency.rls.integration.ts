@@ -14,14 +14,14 @@ const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
 const appClient = new PrismaClient({ datasources: { db: { url: appDatabaseUrl } } });
 const adminClient = new PrismaClient({ datasources: { db: { url: adminDatabaseUrl } } });
 
-const orgA = "d1000000-0000-0000-0000-000000000001";
-const orgB = "d2000000-0000-0000-000000000002";
-const ownerA = "d1000000-0000-0000-0000-000000000011";
-const peerA = "d1000000-0000-0000-0000-000000000012";
-const ownerB = "d2000000-0000-0000-0000-000000000021";
-const membershipOwnerA = "d1000000-0000-0000-0000-000000000031";
-const membershipPeerA = "d1000000-0000-0000-0000-000000000032";
-const membershipOwnerB = "d2000000-0000-0000-0000-000000000041";
+const orgA = randomUUID();
+const orgB = randomUUID();
+const ownerA = randomUUID();
+const peerA = randomUUID();
+const ownerB = randomUUID();
+const membershipOwnerA = randomUUID();
+const membershipPeerA = randomUUID();
+const membershipOwnerB = randomUUID();
 const toolId = "tradeos.athena.fixture.durable-idempotency";
 const toolVersion = "1.0.0";
 
@@ -30,9 +30,9 @@ describe("live row-level security for Athena action idempotency", () => {
     await adminClient.organization.createMany({ data: [{ id: orgA, name: "Idempotency Org A" }, { id: orgB, name: "Idempotency Org B" }] });
     await adminClient.appUser.createMany({
       data: [
-        { id: ownerA, authSubject: "idem-owner-a", email: "idem-owner-a@example.com" },
-        { id: peerA, authSubject: "idem-peer-a", email: "idem-peer-a@example.com" },
-        { id: ownerB, authSubject: "idem-owner-b", email: "idem-owner-b@example.com" },
+        { id: ownerA, authSubject: `idem-owner-a-${ownerA}`, email: `idem-owner-a-${ownerA}@example.com` },
+        { id: peerA, authSubject: `idem-peer-a-${peerA}`, email: `idem-peer-a-${peerA}@example.com` },
+        { id: ownerB, authSubject: `idem-owner-b-${ownerB}`, email: `idem-owner-b-${ownerB}@example.com` },
       ],
     });
     await adminClient.organizationMembership.createMany({
