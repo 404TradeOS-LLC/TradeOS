@@ -30,16 +30,12 @@ export interface SupplierPriceUpdateDTO {
   createdAt: Date;
 }
 
-// One price quote a supplier feed reports for a material. The actual feed
-// transport (REST pull, webhook, file drop) is not implemented in the MVP —
-// see SupplierFeedFetcher below, which lets a real integration be plugged in
-// later without changing the queue/review/worker plumbing.
 interface SupplierFeedQuote {
   materialId: string;
   proposedUnitCost: number;
 }
 
-export type SupplierFeedFetcher = (supplierId: string) => Promise<SupplierFeedQuote[]>;
+export type SupplierFeedFetcher = (supplierId: string, orgId: string) => Promise<SupplierFeedQuote[]>;
 
 export interface SyncFromFeedInput {
   orgId: string;
