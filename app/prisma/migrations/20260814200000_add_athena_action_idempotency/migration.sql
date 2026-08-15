@@ -19,7 +19,7 @@ create table athena_action_idempotency (
 );
 
 create unique index idx_athena_action_idempotency_scope
-  on athena_action_idempotency(org_id, tool_id, tool_version, idempotency_key);
+  on athena_action_idempotency(org_id, actor_user_id, tool_id, tool_version, idempotency_key);
 create index idx_athena_action_idempotency_actor_updated
   on athena_action_idempotency(org_id, actor_user_id, updated_at);
 
