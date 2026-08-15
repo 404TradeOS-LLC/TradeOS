@@ -5,8 +5,13 @@ const mockPrisma = {
 };
 
 const transaction = {
-  supplierPriceUpdate: { findFirst: jest.fn(), update: jest.fn() },
-  material: { findFirst: jest.fn(), update: jest.fn() },
+  supplierPriceUpdate: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    createMany: jest.fn(),
+    update: jest.fn(),
+  },
+  material: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
   materialPriceAudit: { create: jest.fn() },
 };
 const basePrisma = {
@@ -167,45 +172,72 @@ describe("SupplierIntegrationService", () => {
   });
 
   describe("syncFromFeed", () => {
-    it("enqueues only materials whose quoted price differs and that aren't already pending", async () => {
+    it("batches scoped materials and pending proposals before creating changed quotes", async () => {
       const fetchFeed = jest.fn().mockResolvedValue([
         { materialId: "material-changed", proposedUnitCost: 200 },
         { materialId: "material-unchanged", proposedUnitCost: 150 },
         { materialId: "material-already-pending", proposedUnitCost: 99 },
       ]);
-
-      mockPrisma.material.findFirst.mockImplementation(({ where }: { where: { id: string } }) => {
-        if (where.id === "material-changed") return Promise.resolve({ id: "material-changed", orgId: "org-1", unitCost: 150 });
-        if (where.id === "material-unchanged") return Promise.resolve({ id: "material-unchanged", orgId: "org-1", unitCost: 150 });
-        if (where.id === "material-already-pending") return Promise.resolve({ id: "material-already-pending", orgId: "org-1", unitCost: 50 });
-        return Promise.resolve(null);
-      });
-      mockPrisma.supplierPriceUpdate.findFirst.mockImplementation(({ where }: { where: { materialId: string } }) =>
-        Promise.resolve(where.materialId === "material-already-pending" ? { id: "existing-pending" } : null)
-      );
-      mockPrisma.supplier.findFirst.mockResolvedValue({ id: "supplier-1", orgId: "org-1" });
-      mockPrisma.supplierPriceUpdate.create.mockResolvedValue({
-        id: "queue-new",
-        orgId: "org-1",
-        supplierId: "supplier-1",
-        materialId: "material-changed",
-        currentUnitCost: 150,
-        proposedUnitCost: 200,
-        status: "pending",
-        source: "supplier-feed",
-        requestedByJob: null,
-        reviewedByUserId: null,
-        reviewedAt: null,
-        createdAt: new Date(),
-      });
+      mockPrisma.supplier.findFirst.mockResolvedValue({ id: "supplier-1" });
+      transaction.material.findMany.mockResolvedValue([
+        { id: "material-changed", unitCost: 150 },
+        { id: "material-unchanged", unitCost: 150 },
+        { id: "material-already-pending", unitCost: 50 },
+      ]);
+      transaction.supplierPriceUpdate.findMany.mockResolvedValue([{ materialId: "material-already-pending" }]);
+      transaction.supplierPriceUpdate.createMany.mockResolvedValue({ count: 1 });
 
       const result = await new SupplierIntegrationService(fetchFeed).syncFromFeed({
         orgId: "org-1",
         supplierId: "supplier-1",
       });
 
+      expect(fetchFeed).toHaveBeenCalledWith("supplier-1", "org-1");
+      expect(mockPrisma.supplier.findFirst).toHaveBeenCalledWith({
+        where: { id: "supplier-1", orgId: "org-1" },
+        select: { id: true },
+      });
+      expect(transaction.material.findMany).toHaveBeenCalledWith({
+        where: { orgId: "org-1", id: { in: ["material-changed", "material-unchanged", "material-already-pending"] } },
+        select: { id: true, unitCost: true },
+      });
+      expect(transaction.supplierPriceUpdate.findMany).toHaveBeenCalledWith({
+        where: {
+          orgId: "org-1",
+          supplierId: "supplier-1",
+          status: "pending",
+          materialId: { in: ["material-changed", "material-unchanged", "material-already-pending"] },
+        },
+        select: { materialId: true },
+      });
+      expect(transaction.supplierPriceUpdate.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({
+          orgId: "org-1",
+          supplierId: "supplier-1",
+          materialId: "material-changed",
+          currentUnitCost: 150,
+          proposedUnitCost: 200,
+        })],
+      });
       expect(result).toEqual({ proposed: 1, skipped: 2 });
-      expect(mockPrisma.supplierPriceUpdate.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a supplier that is not visible in the requested organization before fetching", async () => {
+      const fetchFeed = jest.fn();
+      mockPrisma.supplier.findFirst.mockResolvedValue(null);
+
+      await expect(new SupplierIntegrationService(fetchFeed).syncFromFeed({
+        orgId: "org-1",
+        supplierId: "supplier-from-org-2",
+      })).rejects.toThrow("Supplier supplier-from-org-2 not found");
+
+      expect(mockPrisma.supplier.findFirst).toHaveBeenCalledWith({
+        where: { id: "supplier-from-org-2", orgId: "org-1" },
+        select: { id: true },
+      });
+      expect(fetchFeed).not.toHaveBeenCalled();
+      expect(transaction.material.findMany).not.toHaveBeenCalled();
+      expect(transaction.supplierPriceUpdate.createMany).not.toHaveBeenCalled();
     });
   });
 });
