@@ -205,6 +205,10 @@ The Bible does not replace:
 - accepted ADRs for active architectural rationale;
 - research docs for supporting evidence.
 
+## Nightly repository health workflow
+
+`.github/workflows/nightly-repository-health.yml` is a diagnostic maintenance workflow, not a merge-time authority. It may run on schedule or by manual dispatch to re-check drift-sensitive repository health with read-only repository permissions. It must not deploy, mutate production data, weaken required pull-request checks, or automatically convert a nightly failure into repository changes. Any repair prompted by the nightly signal follows the normal reconciliation, PR, verification, and merge controls in this document.
+
 ## Production migration history reconciliation
 
 Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL.
