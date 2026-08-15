@@ -1,4 +1,3 @@
-import { computeCanonicalInputHash } from "./inputHash";
 import type { AthenaAction, AthenaActionResult } from "./types";
 
 export interface AthenaCompletedActionOutcome<TData = unknown> {
@@ -14,17 +13,25 @@ export interface AthenaIdempotencyReservation<TData = unknown> {
   existing?: AthenaCompletedActionOutcome<TData>;
 }
 
+export class AthenaIdempotencyConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AthenaIdempotencyConflictError";
+  }
+}
+
 export interface AthenaIdempotencyStore {
   // Atomically claims `scopeKey` for one canonical validated-input identity if
   // unclaimed, or reports the existing attempt's outcome if already claimed.
   // Reusing the same key for different validated input must fail closed.
   reserve<TData = unknown>(scopeKey: string, inputHash: string): Promise<AthenaIdempotencyReservation<TData>>;
-  // Records the terminal action/result for a previously reserved key so
-  // later duplicate calls can return them instead of re-invoking the tool.
-  complete<TData = unknown>(scopeKey: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void>;
+  // Records the terminal action/result for the exact validated-input hash that
+  // was reserved. Callers must forward the same hash rather than re-deriving
+  // identity from an action envelope containing raw request input.
+  complete<TData = unknown>(scopeKey: string, inputHash: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void>;
   // Releases a reservation without recording a result. Production uses this
-  // only inside the request/background RLS transaction, so a rollback also
-  // removes an uncommitted reservation after process/request failure.
+  // inside the request/background RLS transaction for an attempt that claimed
+  // a key but could not durably complete it.
   release(scopeKey: string): Promise<void>;
 }
 
@@ -43,15 +50,14 @@ export function createInMemoryAthenaIdempotencyStore(): AthenaIdempotencyStore {
       const existing = entries.get(scopeKey);
       if (existing) {
         if (existing.inputHash !== inputHash) {
-          throw new Error("Athena idempotency key was already used for different validated input");
+          throw new AthenaIdempotencyConflictError("Athena idempotency key was already used for different validated input");
         }
         return { outcome: "duplicate", existing: existing.outcome } as AthenaIdempotencyReservation<never>;
       }
       entries.set(scopeKey, { inputHash });
       return { outcome: "new" };
     },
-    async complete(scopeKey, outcome) {
-      const inputHash = computeCanonicalInputHash(outcome.action.input);
+    async complete(scopeKey, inputHash, outcome) {
       const existing = entries.get(scopeKey);
       if (!existing || existing.inputHash !== inputHash) {
         throw new Error("Athena idempotency completion did not own the matching input reservation");
@@ -64,9 +70,10 @@ export function createInMemoryAthenaIdempotencyStore(): AthenaIdempotencyStore {
   };
 }
 
-// Tenant-, tool-, version-, and key-qualified scope. Never key on the caller
-// supplied idempotency key alone: two organizations or two tools using the
-// same literal key must never collide or dedupe against each other.
+// The internal scope key is a structured tuple rather than a delimiter-based
+// string so tool IDs, versions, and caller keys cannot shift fields by
+// containing the same separator. The durable adapter validates this tuple at
+// its database boundary.
 export function buildAthenaIdempotencyScopeKey(orgId: string, toolId: string, toolVersion: string, idempotencyKey: string): string {
-  return `${orgId}::${toolId}::${toolVersion}::${idempotencyKey}`;
+  return JSON.stringify([orgId, toolId, toolVersion, idempotencyKey]);
 }
