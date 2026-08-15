@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { createPrismaAthenaIdempotencyStore } from "../db/athenaActionIdempotencyStore";
 import { runWithDatabaseSession } from "../db/requestSession";
 import type { SupportedRole } from "../domain";
 import {
   buildAthenaIdempotencyScopeKey,
-  createPrismaAthenaIdempotencyStore,
   type AthenaCompletedActionOutcome,
 } from "../modules/athena-action-engine/idempotency";
 import { computeCanonicalInputHash } from "../modules/athena-action-engine/inputHash";
@@ -15,7 +15,7 @@ const appClient = new PrismaClient({ datasources: { db: { url: appDatabaseUrl } 
 const adminClient = new PrismaClient({ datasources: { db: { url: adminDatabaseUrl } } });
 
 const orgA = "d1000000-0000-0000-0000-000000000001";
-const orgB = "d2000000-0000-0000-0000-000000000002";
+const orgB = "d2000000-0000-0000-000000000002";
 const ownerA = "d1000000-0000-0000-0000-000000000011";
 const peerA = "d1000000-0000-0000-0000-000000000012";
 const ownerB = "d2000000-0000-0000-0000-000000000021";
