@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
 import { z } from "zod";
+import { createPrismaAthenaIdempotencyStore } from "../../db/athenaActionIdempotencyStore";
 import { getRolePermissions, normalizeRole } from "../../domain";
+import { athenaActionIdempotencyConflictError } from "../../modules/athena-action-engine/errors";
+import { AthenaIdempotencyConflictError, type AthenaIdempotencyStore } from "../../modules/athena-action-engine/idempotency";
 import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
@@ -18,6 +21,49 @@ const service = new AthenaKernelService();
 // (see athena-kernel/service.ts's `toolRegistry` module comment).
 const toolRegistry = createProductionAthenaToolRegistry();
 const auditStore = createPrismaAthenaAuditStore();
+// A6 durable idempotency: production never relies on the Action Engine's
+// process-local test fallback. This infrastructure adapter executes through
+// the request-scoped Prisma proxy, so reservation/result persistence shares
+// the same RLS transaction as the business service invoked by the tool.
+const idempotencyStore = createPrismaAthenaIdempotencyStore();
+
+function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlationId: string): {
+  store: AthenaIdempotencyStore;
+  releaseIncomplete(): Promise<void>;
+} {
+  const claimed = new Set<string>();
+  const requestStore: AthenaIdempotencyStore = {
+    async reserve<TData = unknown>(scopeKey: string, inputHash: string) {
+      try {
+        const reservation = await store.reserve<TData>(scopeKey, inputHash);
+        if (reservation.outcome === "new") claimed.add(scopeKey);
+        return reservation;
+      } catch (error) {
+        if (error instanceof AthenaIdempotencyConflictError) {
+          throw athenaActionIdempotencyConflictError(correlationId);
+        }
+        throw error;
+      }
+    },
+    async complete(scopeKey, outcome) {
+      await store.complete(scopeKey, outcome);
+      claimed.delete(scopeKey);
+    },
+    async release(scopeKey) {
+      await store.release(scopeKey);
+      claimed.delete(scopeKey);
+    },
+  };
+
+  return {
+    store: requestStore,
+    async releaseIncomplete() {
+      for (const scopeKey of [...claimed]) {
+        await requestStore.release(scopeKey);
+      }
+    },
+  };
+}
 
 function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.success) return 200;
@@ -29,6 +75,8 @@ function resolveStatusCode(result: AthenaKernelResult): number {
       return 400;
     case "authorization":
       return 403;
+    case "conflict":
+      return 409;
     case "timeout":
       return 504;
     case "provider":
@@ -54,6 +102,10 @@ const chatRequestSchema = z.object({
   message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH),
   conversationId: z.string().uuid().optional(),
   selectedScope: selectedScopeSchema,
+  // Stable caller-generated retry key for A6 deduplication. This is not an
+  // approval token and grants no permission; the Action Engine binds it to
+  // org + actor + registered tool/version + canonical validated input.
+  idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 
 // docs/athena/roadmap/A1-ai-kernel-implementation-plan.md "Required Backend
@@ -89,6 +141,7 @@ export const athenaController = {
 
     try {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
+      const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
       const result = await service.handleRequest({
         request: {
           message: body.message,
@@ -105,8 +158,16 @@ export const athenaController = {
         requestId,
         clientSignal: controller.signal,
         toolRegistry,
+        idempotencyKey: body.idempotencyKey,
+        idempotencyStore: requestIdempotency.store,
         auditStore: requestAuditStore,
       });
+
+      // If A6 claimed a reservation but returned through a path that never
+      // completed it, remove that claim before the request-scoped database
+      // transaction can commit. Completed outcomes have already removed their
+      // key from the request-local claimed set.
+      await requestIdempotency.releaseIncomplete();
 
       // The kernel records terminal audit events for action outcomes. Some
       // non-action terminal paths (for example draft-only success, permission
