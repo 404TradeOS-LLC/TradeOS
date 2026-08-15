@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,6 +15,7 @@ related_code:
   - .github/CODEOWNERS
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/pr-maintenance.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -95,6 +96,8 @@ Production repair should use the health split first:
 - `/health` failing → investigate process/deployment/routing/platform availability;
 - `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
 - both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
+
+The guarded `PR maintenance` workflow is manual-only (`workflow_dispatch`). Given an explicit open same-repository PR number targeting `main`, it may request GitHub to rebase that PR branch onto current `main`; it refuses forks, closed PRs, and non-`main` bases. It does not bypass review, required checks, branch protection, or conflict resolution requirements.
 
 ## Required verification
 
