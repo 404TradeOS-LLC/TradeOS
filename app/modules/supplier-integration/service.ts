@@ -2,6 +2,7 @@ import { prisma, basePrisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { AuthContext } from "../../backend/auth/context";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { fetchConfiguredSupplierFeed } from "./feed";
 import {
   EnqueuePriceUpdateInput,
   ListQueueFilters,
@@ -11,20 +12,12 @@ import {
   SyncFromFeedResult,
 } from "./types";
 
-// No live supplier feed exists yet (MVP scope) — this stub always reports
-// nothing to propose. A real implementation (REST pull, webhook consumer,
-// file drop parser) can be injected via the constructor without touching
-// the queue/review/worker plumbing below.
-async function stubFetchSupplierFeed(): Promise<never[]> {
-  return [];
-}
-
-// Supplier Integrations module: queued-review staging for supplier-fed price
-// proposals (see modules/material-database/service.ts's prior placeholder
-// comment). A sync job enqueues proposals here instead of writing straight
-// to materials; an admin/owner reviews and approves/rejects each one.
+// Supplier Integrations module: supplier-fed prices are proposals, never direct
+// autonomous writes. The default fetcher is operator-configured and remains a
+// no-op when no endpoint mapping is configured. Approval is still required
+// before a Material price changes.
 export class SupplierIntegrationService {
-  constructor(private readonly fetchFeed: SupplierFeedFetcher = stubFetchSupplierFeed) {}
+  constructor(private readonly fetchFeed: SupplierFeedFetcher = fetchConfiguredSupplierFeed) {}
 
   async listQueue(orgId: string, filters: ListQueueFilters = {}): Promise<SupplierPriceUpdateDTO[]> {
     const rows = await prisma.supplierPriceUpdate.findMany({
@@ -106,10 +99,6 @@ export class SupplierIntegrationService {
     });
   }
 
-  // Fetches quotes from the (currently stubbed) supplier feed and enqueues
-  // one proposal per material whose quoted price actually differs from the
-  // current price and isn't already awaiting review. Intended to run inside
-  // runWithBackgroundDatabaseSession, not as part of a normal HTTP request.
   async syncFromFeed(input: SyncFromFeedInput): Promise<SyncFromFeedResult> {
     const quotes = await this.fetchFeed(input.supplierId);
     let proposed = 0;
