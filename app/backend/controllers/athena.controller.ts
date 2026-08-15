@@ -27,11 +27,17 @@ const auditStore = createPrismaAthenaAuditStore();
 // the same RLS transaction as the business service invoked by the tool.
 const idempotencyStore = createPrismaAthenaIdempotencyStore();
 
-function bindIdempotencyConflictsToRequest(store: AthenaIdempotencyStore, correlationId: string): AthenaIdempotencyStore {
-  return {
+function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlationId: string): {
+  store: AthenaIdempotencyStore;
+  releaseIncomplete(): Promise<void>;
+} {
+  const claimed = new Set<string>();
+  const requestStore: AthenaIdempotencyStore = {
     async reserve<TData = unknown>(scopeKey: string, inputHash: string) {
       try {
-        return await store.reserve<TData>(scopeKey, inputHash);
+        const reservation = await store.reserve<TData>(scopeKey, inputHash);
+        if (reservation.outcome === "new") claimed.add(scopeKey);
+        return reservation;
       } catch (error) {
         if (error instanceof AthenaIdempotencyConflictError) {
           throw athenaActionIdempotencyConflictError(correlationId);
@@ -39,8 +45,23 @@ function bindIdempotencyConflictsToRequest(store: AthenaIdempotencyStore, correl
         throw error;
       }
     },
-    complete: (scopeKey, outcome) => store.complete(scopeKey, outcome),
-    release: (scopeKey) => store.release(scopeKey),
+    async complete(scopeKey, outcome) {
+      await store.complete(scopeKey, outcome);
+      claimed.delete(scopeKey);
+    },
+    async release(scopeKey) {
+      await store.release(scopeKey);
+      claimed.delete(scopeKey);
+    },
+  };
+
+  return {
+    store: requestStore,
+    async releaseIncomplete() {
+      for (const scopeKey of [...claimed]) {
+        await requestStore.release(scopeKey);
+      }
+    },
   };
 }
 
@@ -120,7 +141,7 @@ export const athenaController = {
 
     try {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
-      const requestIdempotencyStore = bindIdempotencyConflictsToRequest(idempotencyStore, requestId);
+      const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
       const result = await service.handleRequest({
         request: {
           message: body.message,
@@ -138,9 +159,15 @@ export const athenaController = {
         clientSignal: controller.signal,
         toolRegistry,
         idempotencyKey: body.idempotencyKey,
-        idempotencyStore: requestIdempotencyStore,
+        idempotencyStore: requestIdempotency.store,
         auditStore: requestAuditStore,
       });
+
+      // If A6 claimed a reservation but returned through a path that never
+      // completed it, remove that claim before the request-scoped database
+      // transaction can commit. Completed outcomes have already removed their
+      // key from the request-local claimed set.
+      await requestIdempotency.releaseIncomplete();
 
       // The kernel records terminal audit events for action outcomes. Some
       // non-action terminal paths (for example draft-only success, permission
