@@ -157,7 +157,7 @@ export class AssembliesDatabaseService {
     assemblyId: string,
     regionId: string | undefined,
     visited: Set<string> = new Set(),
-    orgId?: string
+    orgId: string
   ): Promise<AssemblyUnitCostResult> {
     if (!orgId) throw new ApiError(400, "Organization context is required for assembly pricing");
     if (visited.has(assemblyId)) {
