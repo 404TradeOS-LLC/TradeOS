@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,6 +15,7 @@ related_code:
   - .github/CODEOWNERS
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/dependency-review.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -104,6 +105,8 @@ Expected required CI jobs include:
 - `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness;
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
+
+The dedicated `Dependency review` workflow runs on pull requests with read-only repository contents access and fails when a PR introduces a dependency with a known **high** or **critical** vulnerability. It complements, rather than replaces, the package-manager audits already exercised by the main verification workflow. If made a required check in the live GitHub ruleset, its exact check name and enforcement status must be verified from GitHub before being documented as active branch protection.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
 
