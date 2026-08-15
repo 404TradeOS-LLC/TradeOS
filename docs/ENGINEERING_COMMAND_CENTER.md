@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,6 +15,7 @@ related_code:
   - .github/CODEOWNERS
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/workflow-security.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -106,6 +107,8 @@ Expected required CI jobs include:
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
+
+Workflow changes also receive a supplemental `Workflow security` check. It runs pinned `actionlint` directly on the runner and rejects default-prohibited workflow patterns such as `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event content into shell/script commands. It is supplemental CI unless the live GitHub ruleset is separately updated to require it.
 
 Documentation foundation/governance work should run:
 
