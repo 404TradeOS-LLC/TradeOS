@@ -134,10 +134,15 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
         }),
       });
       setItems((current) => [...current, created].sort((a, b) => a.sortOrder - b.sortOrder || a.componentName.localeCompare(b.componentName)));
-      const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`);
-      setUnitCost(cost.unitCost);
       setComponentId("");
       setQuantity("1");
+      try {
+        const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`);
+        setUnitCost(cost.unitCost);
+      } catch {
+        setUnitCost(null);
+        setError("Component was added, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly component could not be added.");
     } finally {
@@ -152,8 +157,13 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
     try {
       await clientFetch<void>(`/costbook/assemblies/${selectedId}/items/${id}`, { method: "DELETE" });
       setItems((current) => current.filter((item) => item.id !== id));
-      const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`);
-      setUnitCost(cost.unitCost);
+      try {
+        const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`);
+        setUnitCost(cost.unitCost);
+      } catch {
+        setUnitCost(null);
+        setError("Component was removed, but the current unit cost could not be refreshed. Refresh the assembly to retry the calculation.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly component could not be removed.");
     } finally {
