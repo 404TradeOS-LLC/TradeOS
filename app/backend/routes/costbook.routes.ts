@@ -1,10 +1,18 @@
 import { Router } from "express";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
+import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.search));
+costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));
+costbookRouter.get("/cost-items/:id/unit-cost", asyncHandler(costItemCtrl.getUnitCost));
+costbookRouter.get("/cost-items/:id", asyncHandler(costItemCtrl.getById));
+costbookRouter.post("/cost-items", asyncHandler(costItemCtrl.create));
+costbookRouter.patch("/cost-items/:id", asyncHandler(costItemCtrl.update));
+costbookRouter.delete("/cost-items/:id", asyncHandler(costItemCtrl.remove));
 costbookRouter.get("/equipment", asyncHandler(ctrl.listEquipment));
 costbookRouter.get("/equipment/:id", asyncHandler(ctrl.getEquipment));
 costbookRouter.post("/equipment", asyncHandler(ctrl.createEquipment));

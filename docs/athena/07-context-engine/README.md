@@ -147,3 +147,7 @@ A12.1 does not widen or alter context acquisition. The transactional wrappers fo
 ## Approval expiry read boundary
 
 Approval list/detail normalization is not Context Engine behavior: the approval service uses the already server-derived organization scope to atomically persist overdue `pending` approvals as `expired` before those reads, without widening context acquisition or authorization.
+
+## Action idempotency boundary
+
+Durable A6 idempotency is also downstream of context assembly. The Context Engine may carry an idempotency seed/reference in request context, but it does not claim or persist action keys. The Action Engine derives the final tool/version-qualified key after planning and policy, while the production idempotency store binds the database claim to the server-derived organization and current RLS actor inside the same scoped transaction as tool execution. Context freshness or model output never grants ownership of an idempotency record.

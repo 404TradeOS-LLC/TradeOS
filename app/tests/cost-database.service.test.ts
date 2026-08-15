@@ -3,7 +3,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
   },
   region: {
-    findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
 };
 
@@ -75,5 +75,31 @@ describe("CostDatabaseService", () => {
 
     expect(breakdown.laborCostPerUnit).toBe(0);
     expect(breakdown.totalUnitCost).toBe(0);
+  });
+
+  it("fails closed when an explicit pricing region is missing or outside the organization", async () => {
+    mockPrisma.costItem.findFirst.mockResolvedValue({
+      id: "cost-item-1",
+      orgId: "org-1",
+      subcategoryId: "sub-1",
+      code: "02-200-10-001",
+      name: "Excavation Per Cubic Yard",
+      unitOfMeasure: "CY",
+      productionRate: 10,
+      laborRate: {
+        baseHourlyRate: 30,
+        burdenPct: 25,
+        active: true,
+        region: { laborIndex: 1.1 },
+      },
+      material: null,
+      equipment: null,
+    });
+    mockPrisma.region.findFirst.mockResolvedValue(null);
+
+    const service = new CostDatabaseService();
+
+    await expect(service.getUnitCost("cost-item-1", 1, "region-other-org", "org-1")).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.region.findFirst).toHaveBeenCalledWith({ where: { id: "region-other-org", orgId: "org-1" } });
   });
 });
