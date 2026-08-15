@@ -258,6 +258,10 @@ C005 exposes the existing `Division`, `Category`, and `Subcategory` models throu
 - C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary to the Costbook-specific owner/admin boundary, matching C002/C003; legacy `estimator` loses direct database write access to these three tables
 - C005 does not add pricing calculations, estimate integration, or Athena advisor state
 
+## Costbook assemblies and historical pricing
+
+PR #216 does not add replacement catalog entities. It promotes the existing `Assembly` and `AssemblyItem` models under the canonical Costbook workflow and strengthens database checks so parent Assembly, referenced CostItem, and referenced child Assembly remain in the authenticated organization. Estimate lines continue to persist `costItemId` or `assemblyId` provenance together with `unitCost` and `lineCost`; those persisted values are historical pricing snapshots and are not rewritten when current Costbook prices later change. `MaterialPriceAudit` remains the catalog price-change record; Estimate snapshots are a separate read-model input rather than price-change events.
+
 ## Core relationships
 
 Canonical relationship flow:
