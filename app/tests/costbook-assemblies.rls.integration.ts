@@ -20,6 +20,7 @@ const subB = "86000000-0000-0000-0000-000000000052";
 const itemA = "76000000-0000-0000-0000-000000000061";
 const itemB = "86000000-0000-0000-0000-000000000062";
 const assemblyA = "76000000-0000-0000-0000-000000000071";
+const assemblyB = "86000000-0000-0000-0000-000000000072";
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>) {
   return runWithDatabaseSession(appClient, { userId, orgId, role }, operation, "assembly-integration-test");
@@ -48,6 +49,7 @@ describe("live Costbook assembly RLS", () => {
     await inSession(ownerA, orgA, "owner", () => prisma.costItem.create({ data: { id: itemA, orgId: orgA, subcategoryId: subA, code: "ITEM-A", name: "Item A", unitOfMeasure: "EA" } }));
     await inSession(ownerB, orgB, "owner", () => prisma.costItem.create({ data: { id: itemB, orgId: orgB, subcategoryId: subB, code: "ITEM-B", name: "Item B", unitOfMeasure: "EA" } }));
     await inSession(ownerA, orgA, "owner", () => prisma.assembly.create({ data: { id: assemblyA, orgId: orgA, code: "ASM-A", name: "Assembly A", unitOfMeasure: "EA" } }));
+    await inSession(ownerB, orgB, "owner", () => prisma.assembly.create({ data: { id: assemblyB, orgId: orgB, code: "ASM-B", name: "Assembly B", unitOfMeasure: "EA" } }));
   });
 
   afterAll(async () => {
@@ -56,9 +58,14 @@ describe("live Costbook assembly RLS", () => {
     await adminClient.$disconnect();
   });
 
-  it("allows read-only Costbook roles to see their tenant assembly", async () => {
-    const rows = await inSession(techA, orgA, "technician", () => prisma.assembly.findMany({ where: { id: assemblyA } }));
-    expect(rows.map((row) => row.id)).toEqual([assemblyA]);
+  it("allows read-only Costbook roles to see only their tenant assemblies", async () => {
+    const ownRows = await inSession(techA, orgA, "technician", () => prisma.assembly.findMany({ where: { id: assemblyA } }));
+    const foreignById = await inSession(techA, orgA, "technician", () => prisma.assembly.findFirst({ where: { id: assemblyB } }));
+    const allVisible = await inSession(techA, orgA, "technician", () => prisma.assembly.findMany({ orderBy: { id: "asc" } }));
+
+    expect(ownRows.map((row) => row.id)).toEqual([assemblyA]);
+    expect(foreignById).toBeNull();
+    expect(allVisible.map((row) => row.id)).not.toContain(assemblyB);
   });
 
   it("denies direct assembly writes to a read-only Costbook role", async () => {
