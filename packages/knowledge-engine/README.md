@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-05
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - app/modules/knowledge-runtime/README.md
@@ -14,6 +14,8 @@ related_code:
   - packages/knowledge-engine/PATHS.md
   - packages/knowledge-engine/path-manifest.json
   - packages/knowledge-engine/pipelines/package_root.py
+  - packages/knowledge-engine/scripts/assembly_pipeline_common.py
+  - packages/knowledge-engine/scripts/tests/test_assembly_pipeline_common.py
 ---
 
 # TradeOS Knowledge Engine — Package Root
@@ -28,9 +30,10 @@ reference-hardening) added [`PATHS.md`](PATHS.md) as the detailed canonical path
 machine-readable [`path-manifest.json`](path-manifest.json), a marker-validated Python path
 resolver at `pipelines/package_root.py`, and fixed the specific relative-path defect that was
 producing divergent `costbook.json`/`sync_final.sql` copies under `pipelines/exports/**` —
-see §8 and [`PATHS.md`](PATHS.md) for exactly what changed. **Neither phase has moved, deleted,
-deduplicated, or regenerated anything under this package; the nested duplicate tree in §6 is
-still fully untouched.**
+see §8 and [`PATHS.md`](PATHS.md) for exactly what changed. A later bounded 2026-08-14 technical-
+debt repair corrected the assembly-specific pipeline's shallow knowledge-root bug and added
+focused regression coverage. **None of these repairs moved, deleted, deduplicated, or regenerated
+anything under this package; the nested duplicate tree in §6 is still fully untouched.**
 
 If any other document under `packages/knowledge-engine/**` disagrees with this file about what is
 canonical, current, or safe to delete, **this file wins** until it is explicitly updated.
@@ -147,7 +150,10 @@ repository's CI (no CI workflow references them, but that does not prove they ar
 `pipelines/master_pipeline.py`, `pipelines/export/sync_manager.py`, and
 `pipelines/export/publish_to_supabase.py` resolve their read/write paths through
 `pipelines/package_root.py` instead of bare `cwd`-relative strings — see [`PATHS.md`](PATHS.md)
-for exactly what that changed and what it deliberately did not.
+for exactly what that changed and what it deliberately did not. Since the bounded 2026-08-14
+debt repair, `scripts/assembly_pipeline_common.py` also resolves its assembly corpus from the
+canonical `knowledge/knowledge/` root, so the audit/start/next/validate/approve/reject assembly
+pipeline can see the existing committed assemblies again.
 
 ## 6. Known-nested duplicate tree — `packages/knowledge-engine/knowledge-engine/`
 
@@ -203,7 +209,7 @@ canonical summary:
 
 - **Exact nested duplicate tree**: `knowledge-engine/knowledge-engine/**`, 4,746 tracked files
   (see §6 for the corrected count), zero functional references anywhere. Still fully untouched
-  by Phase B. Do not delete yet.
+  by Phase B and the later assembly-path repair. Do not delete yet.
 - **Divergent `costbook.json` / `sync_final.sql` copies — path defect fixed in Phase B, historical
   files left untouched**: `exports/json/costbook.json` (canonical, 1,795 items / 289 assemblies)
   still differs from `pipelines/exports/json/costbook.json` (1,795 items / 39 assemblies, a stale
@@ -223,21 +229,20 @@ canonical summary:
 - **Near-duplicate export trees**: `pipelines/exports/**` (~836K) is confirmed stale pipeline
   output with zero external references (Phase B re-verified this with a fresh repo-wide search);
   not archived yet pending the same proof standard as §6.
-- **A separate, newly-discovered, currently-live bug — not fixed in Phase B**:
-  `scripts/assembly_pipeline_common.py`'s `KNOWLEDGE_DIR` constant points at the shallow
-  `knowledge/` path, which does not contain `assemblies/` or `trade-progress.json` in the current
-  tree (the real data is one level deeper, at `knowledge/knowledge/`). This means
+- **Assembly existing-record discovery — repaired 2026-08-14**:
+  `scripts/assembly_pipeline_common.py` previously pointed `KNOWLEDGE_DIR` at the shallow
+  `knowledge/` path, which does not contain the live `assemblies/` corpus. That caused
   `audit-assemblies.py` and its 5 dependent scripts (`start-assembly-run.py`,
   `next-assembly-batch.py`, `validate-assembly-batch.py`, `approve-assembly-batch.py`,
-  `reject-assembly-batch.py`) currently, silently report **zero existing assemblies for every
-  trade** — confirmed live, not theoretical: `runtime/assembly-audit-roofing.json` is a real,
-  well-formed prior audit result that could not be reproduced by re-running the documented
-  command today. Separately, `approve-assembly-batch.py` and `validate_batch.py` disagree with
-  each other on where `Data/working/costbook_pending.json` lives, and neither location currently
-  exists. **Phase B intentionally did not fix either of these** — doing so would change those
-  scripts' observable output (from "reports zero" to "reports correctly"), which is a business-
-  behavior change, not a path-construction fix, and is explicitly out of Phase B's scope pending
-  founder review.
+  `reject-assembly-batch.py`) to report zero existing assemblies. The helper now resolves
+  `knowledge/knowledge/`, and `scripts/tests/test_assembly_pipeline_common.py` pins both the path
+  and real roofing-corpus discovery. This repair does **not** alter assembly data or Costbook
+  runtime/application behavior; it restores the offline assembly tooling to the documented
+  canonical corpus.
+- **Still-unresolved approval-path disagreement**: `approve-assembly-batch.py` and
+  `validate_batch.py` disagree with each other on where `Data/working/costbook_pending.json`
+  lives, and neither location currently exists. This remains a separate behavior-characterized
+  repair; it was intentionally not folded into the assembly-root fix.
 - **Unresolved offline-tooling consumers**: Phase B searched exhaustively for IDE task configs,
   Makefiles/justfiles, npm scripts, and CI workflows that might invoke
   `packages/knowledge-engine/{pipelines,scripts}/**` — found none. Every documented invocation
@@ -264,8 +269,8 @@ canonical summary:
 
 ## 9. Where to look next
 
-- [`PATHS.md`](PATHS.md) for the detailed canonical path contract and exactly what Phase B
-  changed vs. deliberately left alone.
+- [`PATHS.md`](PATHS.md) for the detailed canonical path contract and exactly what Phase B and the
+  bounded 2026-08-14 assembly-path repair changed vs. deliberately left alone.
 - [`path-manifest.json`](path-manifest.json) for the machine-readable version of the same
   contract (canonical roots, runtime-critical assets, deprecated roots, unresolved risks).
 - Full audit findings, phased migration plan (Phase A/B/C/D), and the top-25 prioritized action
