@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -9,6 +9,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/pr-maintenance.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -106,6 +107,14 @@ Re-run live read-only inspection before changing these statements or editing rep
 - do not merge with unresolved review threads;
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
+
+## Manual PR maintenance workflow
+
+`.github/workflows/pr-maintenance.yml` provides a guarded server-side branch-update path for an explicitly selected pull request. It is `workflow_dispatch` only and must remain operator-triggered rather than automatically mutating every open branch when `main` moves.
+
+The workflow may act only on an open pull request from this repository whose base is `main`. It must reject closed pull requests, fork-originated pull requests, and pull requests targeting another base branch. Its branch update must use GitHub's supported pull-request branch-update/rebase operation rather than custom force-push logic.
+
+PR maintenance does not grant merge authority. After a successful rebase, normal rules still apply: the branch must satisfy required checks, review-thread resolution, current-head verification, and all other live branch-protection requirements. Conflicts or unsupported server-side updates remain a stop condition for manual resolution in a normal git workspace.
 
 ## Autonomous maintenance governance
 
