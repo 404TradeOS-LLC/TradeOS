@@ -380,7 +380,7 @@ export async function executeAthenaAction<TInput = unknown, TData = unknown>(dep
     };
 
     if (scopeKey) {
-      const reservation = await idempotencyStore.reserve<TData>(scopeKey);
+      const reservation = await idempotencyStore.reserve<TData>(scopeKey, validatedInputHash);
       if (reservation.outcome === "duplicate") {
         if (reservation.existing) {
           // Returns the original action's own record/result (including its

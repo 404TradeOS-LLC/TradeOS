@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-14
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -9,6 +9,7 @@ related_code:
   - app/modules/athena-memory
   - app/modules/athena-events
   - app/modules/athena-observability
+  - app/modules/athena-action-engine
 ---
 
 # Domain Model
@@ -204,6 +205,27 @@ Project Athena production-readiness hardening adds two new entity families:
 the API layer, with database RLS now also restricting row updates to
 `owner`/`admin`/`dispatcher`. `AthenaAuditEvent` is tenant-scoped and inherits
 the same request-scoped session model as the rest of Athena's runtime tables.
+
+## Athena action idempotency
+
+A6 action-execution reliability uses `athena_action_idempotency` as an internal
+control record for dedup-eligible production actions.
+
+- each reservation is uniquely scoped by organization, tool id, tool version,
+  and caller-supplied idempotency key;
+- the current authenticated actor is stored from the PostgreSQL session rather
+  than trusted caller input, and forced RLS restricts visibility/mutation to
+  that exact actor and organization;
+- lifecycle is deliberately narrow: `reserved` while the owning request is in
+  progress, then `completed` with canonical input hash plus the original safe
+  action/result envelopes;
+- reservation and completion run through the same request-scoped transaction as
+  the underlying Athena tool/application-service mutation, so a transaction
+  rollback also removes an uncommitted reservation;
+- the record is execution-control state, not authoritative customer, project,
+  estimate, dispatch, invoice, pricing, Costbook, or approval state;
+- the in-memory A6 idempotency implementation remains a test/local fixture and
+  is not the production controller dependency.
 
 ## Costbook workspace foundation
 

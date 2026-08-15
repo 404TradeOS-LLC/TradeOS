@@ -127,7 +127,25 @@ of Friday, August 14, 2026, it:
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
   hash, plan id, and step id;
+- accepts an optional `idempotencyKey` request field: a caller-generated,
+  trimmed, non-empty retry key of at most 200 characters; it is not an approval
+  token and grants no permission;
+- injects the durable A6 action-idempotency store for dedup-eligible tool calls,
+  so the supplied retry key is claimed across instances under organization,
+  exact actor, tool/version, and canonical validated-input identity before tool
+  execution;
 - exposes no separate tool-specific mutation endpoints.
+
+Durable action idempotency adds no new REST route. The `/athena/chat` request
+shape gains only the optional `idempotencyKey` field described above. The
+controller forwards that stable retry key through the existing kernel seam to
+A6; the Action Engine then binds it to the server-derived organization and
+actor, the registered tool/version, and the canonical hash of validated tool
+input. A completed duplicate with the same actor/org/tool/version/key/input
+identity returns the original persisted action result without invoking the tool
+again; reusing the same key for different validated input fails closed. The
+production store runs inside the authenticated request-scoped RLS transaction,
+while the process-local store remains a test/local fixture.
 
 Approval and audit persistence for Athena are internal implementation details,
 not new public REST resources. Before organization-scoped approval list/detail
@@ -178,7 +196,7 @@ Costbook material DTO:
 }
 ```
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the existing `Material` table has no active/archive state, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
 
 Costbook labor-rate DTO:
 
