@@ -20,8 +20,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Install pinned actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_x86_64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}" \
+            --output "$RUNNER_TEMP/$archive"
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
       - name: Run actionlint
-        uses: raven-actions/actionlint@v2
+        shell: bash
+        run: actionlint
 
   policy:
     name: Enforce workflow security policy
