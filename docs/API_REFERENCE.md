@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -10,6 +10,10 @@ related_code:
   - app/modules/auth
   - app/backend/middleware/auth.ts
   - app/backend/middleware/errorHandler.ts
+  - app/backend/routes/costbook.routes.ts
+  - app/backend/controllers/assembliesDatabase.controller.ts
+  - app/backend/controllers/costbookPricing.controller.ts
+  - app/backend/controllers/supplierIntegration.controller.ts
 ---
 
 # API Reference
@@ -41,34 +45,22 @@ Public routes are limited to:
 - `/api/v1/auth/*`
 - `/api/v1/platform/organizations`
 
-`POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id (`bootstrapSchema` is a Zod `.strict()` object accepting only `organizationName`/`regionCode`/`fullName` — any other field is a `400`). A `400` for a brand-new identity with no `organizationName` carries `details: { code: "organization_name_required" }`, a stable discriminator the frontend uses to route to `/finish-setup` rather than parsing the error message text. A `409` means the identity has an `AppUser` record but no active `OrganizationMembership` (a genuinely rare data-integrity edge case, not a normal path). See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle, including a previously-fixed production bug where every already-provisioned identity's second-and-later call falsely hit that `409`.
+`POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token despite living under the public `/api/v1/auth/*` prefix. It links a verified Supabase or local JWT identity to the application user/organization/membership and never trusts a client-supplied role or organization id.
 
 ## Request and response conventions
 
 - controllers own Zod validation and HTTP shaping
 - services return typed DTOs
-- browser clients normally talk to the backend through `web/src/lib/api.ts` or `web/src/lib/clientApi.ts`
-- signup/login themselves go through Supabase Auth directly in Server Actions (`web/src/app/actions/auth.ts`), not through `api.ts` — the module previously also exported unused `signup`/`login`/`AuthSession` helpers that duplicated this path; those were removed as dead code
+- browser clients normally talk to the backend through server/client API helpers
 - binary documents are proxied separately from JSON APIs
 
 ## Error conventions
 
-The centralized error handler returns a consistent JSON shape with:
-
-- `error`
-- optional `details`
-
-Known Prisma mappings include:
-
-- unique-constraint conflicts to `409`
-- foreign-key conflicts to `409`
-- record-not-found conditions to `404`
-
-`mapPrismaKnownRequestError` (the function implementing this mapping) is an internal helper local to `errorHandler.ts`; it is not exported, since no other module has ever needed to call it directly.
+The centralized error handler returns a consistent JSON shape with `error` and optional `details`. Known Prisma mappings include unique/foreign-key conflicts to `409` and record-not-found conditions to `404`.
 
 ## Route groups
 
-Mounted route groups from `app/backend/server.ts`:
+Mounted route groups from `app/backend/server.ts` include:
 
 - `/api/v1/account`
 - `/api/v1/auth`
@@ -87,7 +79,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/admin`
 - `/api/v1/customers`
 - `/api/v1/projects`
-- `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate)
+- `/api/v1/jobs`
 - `/api/v1/schedule`
 - `/api/v1/notes`
 - `/api/v1/change-orders`
@@ -102,173 +94,108 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/athena`
 - `/api/v1/athena/observability`
 
-`/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
+## Costbook API
 
-AI estimating routes under `/api/v1/estimates`:
+The canonical Costbook namespace is `/api/v1/costbook`. It is a compatibility-preserving boundary over the existing catalog/services rather than a second domain implementation.
 
-- `POST /api/v1/estimates/:id/ai-suggestions`
-- `POST /api/v1/estimates/:id/ai-suggestions/apply`
-- `POST /api/v1/estimates/:id/ai-estimator/draft`
-- `POST /api/v1/estimates/:id/ai-estimator/apply`
+### Workspace
 
-`ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
+- `GET /api/v1/costbook/workspace` — `costbook.read`; returns workspace foundation status, permission flags, and organization-scoped catalog counts.
 
-Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
+### Materials
 
-`POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
-of Friday, August 14, 2026, it:
+- `GET /api/v1/costbook/materials` — `costbook.read`
+- `GET /api/v1/costbook/materials/:id` — `costbook.read`
+- `POST /api/v1/costbook/materials` — `costbook.write`
+- `PATCH /api/v1/costbook/materials/:id` — `costbook.write`; a unit-cost change records the existing `MaterialPriceAudit`
 
-- requires standard authenticated organization access;
-- derives actor/org/role from server-trusted auth context, not request body;
-- resolves exact granted permissions from the authenticated TradeOS session when
-  available, with raw-role fallback only for older compatibility call paths;
-- can record Athena audit events for request receipt, context gathering, tool
-  consideration, action attempt, approval request, completion, and failure;
-- enforces fail-closed approval verification for medium/high-risk actions by
-  binding approval to org, user, tool, risk, idempotency key, canonical input
-  hash, plan id, and step id;
-- exposes no separate tool-specific mutation endpoints.
+### Labor rates
 
-Approval and audit persistence for Athena are internal implementation details,
-not new public REST resources. Before organization-scoped approval list/detail
-reads, overdue rows still persisted as `pending` are conditionally and atomically
-transitioned to `expired`; the update is scoped to the authenticated organization
-and current `pending` status so concurrent terminal changes are preserved. Their
-current source-of-truth behavior is documented in
-[athena/SECURITY_MODEL.md](athena/SECURITY_MODEL.md).
+- `GET /api/v1/costbook/labor-rates` — `costbook.read`
+- `GET /api/v1/costbook/labor-rates/:id` — `costbook.read`
+- `POST /api/v1/costbook/labor-rates` — `costbook.write`
+- `PATCH /api/v1/costbook/labor-rates/:id` — `costbook.write`
+- `DELETE /api/v1/costbook/labor-rates/:id` — `costbook.manage`; soft-deactivate
 
-Costbook workspace routes under `/api/v1/costbook`:
+### Equipment
 
-- `GET /api/v1/costbook/workspace` — requires `costbook.read`; returns the authenticated organization's Costbook workspace foundation status, role-derived Costbook permission flags, and organization-scoped counts for existing divisions, active cost items, labor rates, materials, equipment, and active assemblies. This C001 endpoint is read-only and does not create materials, labor rates, assemblies, pricing calculations, estimate line items, price-history records, or Athena actions.
-- `GET /api/v1/costbook/materials` — requires `costbook.read`; returns organization-scoped material DTOs sorted by name and SKU.
-- `GET /api/v1/costbook/materials/:id` — requires `costbook.read`; returns one material in the authenticated organization or 404 for missing/cross-organization IDs.
-- `POST /api/v1/costbook/materials` — requires `costbook.write`; creates one material for the authenticated organization. Accepted strict body fields: `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`.
-- `PATCH /api/v1/costbook/materials/:id` — requires `costbook.write`; updates the same strict field set and records a material price-audit row when `unitCost` changes.
-- `GET /api/v1/costbook/labor-rates` — requires `costbook.read`; returns organization-scoped labor-rate DTOs sorted with active rows first.
-- `GET /api/v1/costbook/labor-rates/:id` — requires `costbook.read`; returns one labor rate in the authenticated organization or 404 for missing/cross-organization IDs.
-- `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
-- `PATCH /api/v1/costbook/labor-rates/:id` — requires `costbook.write`; updates the same strict field set for the authenticated organization only.
-- `DELETE /api/v1/costbook/labor-rates/:id` — requires `costbook.manage`; soft-deactivates the labor-rate row by setting `active` to `false`.
-- `GET /api/v1/costbook/cost-items` — requires `costbook.read`; returns active CostItems scoped to the authenticated organization. Optional `q` performs the existing case-insensitive name-or-code search.
-- `GET /api/v1/costbook/cost-items/search` — requires `costbook.read`; compatibility search alias under the unified namespace.
-- `GET /api/v1/costbook/cost-items/:id` — requires `costbook.read`; returns one CostItem in the authenticated organization or 404.
-- `GET /api/v1/costbook/cost-items/:id/unit-cost` — requires `costbook.read`; accepts optional positive `quantity` and optional same-organization `regionId` and returns the existing relationship-derived labor/material/equipment unit-cost breakdown.
-- `POST /api/v1/costbook/cost-items` — requires `costbook.write`; creates a CostItem for the authenticated organization. Strict required body fields: `subcategoryId`, `code`, `name`, `unitOfMeasure`. Optional fields: `productionRate`, `laborRateId`, `materialId`, `equipmentId`, `subcontractorId`, `notes`.
-- `PATCH /api/v1/costbook/cost-items/:id` — requires `costbook.write`; supports partial edits without re-parenting `subcategoryId`. Nullable `productionRate`, `laborRateId`, `materialId`, `equipmentId`, and `subcontractorId` can be explicitly cleared. A PATCH containing `isActive` additionally requires `costbook.manage`.
-- `DELETE /api/v1/costbook/cost-items/:id` — requires `costbook.manage`; soft-deactivates the CostItem to preserve historical Estimate references.
+- `GET /api/v1/costbook/equipment` — `costbook.read`
+- `GET /api/v1/costbook/equipment/:id` — `costbook.read`
+- `POST /api/v1/costbook/equipment` — `costbook.write`
+- `PATCH /api/v1/costbook/equipment/:id` — `costbook.write`
+- `DELETE /api/v1/costbook/equipment/:id` — `costbook.manage`
 
-CostItem writes never accept a caller-controlled organization id. Before create/update, the service validates the referenced Subcategory and any supplied LaborRate, Material, Equipment, or Subcontractor against the authenticated organization. The same checks back the legacy `/api/v1/cost-database/cost-items/*` compatibility endpoints, which now explicitly require `costbook.read`, `costbook.write`, or `costbook.manage` according to the same read/write/lifecycle split. Existing forced RLS remains database-level defense in depth.
+### Hierarchy
 
-Costbook material DTO:
+Division, Category, and Subcategory list/detail routes require `costbook.read`; ordinary create/edit requires `costbook.write`; activation/deactivation and DELETE lifecycle operations require `costbook.manage`. Category/Subcategory parents are validated against the authenticated organization and caller-controlled organization IDs are not accepted.
 
-```json
-{
-  "id": "uuid",
-  "organizationId": "uuid",
-  "sku": "CONC-4000",
-  "name": "Ready Mix Concrete",
-  "unitOfMeasure": "CY",
-  "unitCost": 150,
-  "wasteFactorPct": 5,
-  "supplierId": null,
-  "supplierName": null,
-  "lastPriceUpdate": "2026-08-11T00:00:00.000Z",
-  "createdAt": "2026-08-10T00:00:00.000Z",
-  "updatedAt": "2026-08-11T00:00:00.000Z"
-}
-```
+### Cost items
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.write` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the current schema has no active/archive flag, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+- `GET /api/v1/costbook/cost-items` — `costbook.read`; active organization-scoped list/search
+- `GET /api/v1/costbook/cost-items/search` — `costbook.read`
+- `GET /api/v1/costbook/cost-items/:id` — `costbook.read`
+- `GET /api/v1/costbook/cost-items/:id/unit-cost` — `costbook.read`; optional positive `quantity` and same-organization `regionId`
+- `POST /api/v1/costbook/cost-items` — `costbook.write`
+- `PATCH /api/v1/costbook/cost-items/:id` — `costbook.write`; `isActive` additionally requires `costbook.manage`
+- `DELETE /api/v1/costbook/cost-items/:id` — `costbook.manage`; soft-deactivate
 
-Costbook labor-rate DTO:
+CostItem writes derive organization scope from auth and validate the Subcategory plus any LaborRate, Material, Equipment, or Subcontractor reference against that organization. An explicitly supplied region that is missing or cross-organization returns 404 rather than silently falling back. PR #210 merged this canonical CostItem management slice at `3c3037faf5c7c3b4f3660b6f43cc6a3b90372e4e`.
 
-```json
-{
-  "id": "uuid",
-  "organizationId": "uuid",
-  "role": "Lead Carpenter",
-  "description": "Finish trim labor",
-  "hourlyCost": 45.25,
-  "billRate": 88.5,
-  "active": true,
-  "createdAt": "2026-08-11T00:00:00.000Z",
-  "updatedAt": "2026-08-11T00:00:00.000Z"
-}
-```
+### Assemblies
 
-C003 extends the existing `labor_rates` table in place and keeps the older
-`trade`/`base_hourly_rate` compatibility columns for legacy code paths. The
-new Costbook layer treats `role`, optional `description`, `hourlyCost`,
-`billRate`, and `active` as the foundational labor-rate fields. Input rejects
-blank roles, blank/null numeric values, negative numeric values, and values
-outside the `numeric(10,2)` precision before writes reach the database.
+The following routes promote the existing `Assembly`/`AssemblyItem` implementation under the unified namespace:
 
-The legacy `/api/v1/materials/*` route group remains mounted for compatibility, but it now shares the same Costbook permission boundary: read-style operations require `costbook.read`, and create/update/delete/bulk-import operations require `costbook.write`.
+- `GET /api/v1/costbook/assemblies` — `costbook.read`
+- `GET /api/v1/costbook/assemblies/search` — `costbook.read`
+- `GET /api/v1/costbook/assemblies/templates` — `costbook.read`
+- `GET /api/v1/costbook/assemblies/:id` — `costbook.read`
+- `GET /api/v1/costbook/assemblies/:id/unit-cost` — `costbook.read`
+- `GET /api/v1/costbook/assemblies/:id/items` — `costbook.read`
+- `POST /api/v1/costbook/assemblies` — `costbook.write`
+- `PATCH /api/v1/costbook/assemblies/:id` — `costbook.write`; lifecycle `isActive` changes additionally require `costbook.manage`
+- `DELETE /api/v1/costbook/assemblies/:id` — `costbook.manage`; deactivates through the existing service behavior
+- `POST /api/v1/costbook/assemblies/:id/items` — `costbook.write`
+- `DELETE /api/v1/costbook/assemblies/:id/items/:itemId` — `costbook.write`
 
-The legacy `/api/v1/labor-rates/*` route group also remains mounted for
-compatibility. Its read-style operations require `costbook.read`; create/update
-operations require `costbook.write`; delete requires `costbook.manage`; and
-its writes stay inside the same forced-RLS Costbook manage boundary as the new
-Costbook labor-rate routes.
+Assembly requests use strict schemas and never accept caller-controlled organization IDs. New components must reference an active same-organization CostItem or child Assembly. Cycle protection remains enforced. Database RLS/constraints independently verify parent/source tenant scope.
 
-C005 hierarchy routes under `/api/v1/costbook`:
+### Practical pricing preview
 
-- `GET /api/v1/costbook/divisions` — requires `costbook.read`; returns organization-scoped Division DTOs, active rows first.
-- `GET /api/v1/costbook/divisions/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
-- `POST /api/v1/costbook/divisions` — requires `costbook.write`; strict body: `code`, `name`, optional `sortOrder`.
-- `PATCH /api/v1/costbook/divisions/:id` — requires `costbook.write` for ordinary fields; a PATCH carrying `isActive` additionally requires `costbook.manage`.
-- `DELETE /api/v1/costbook/divisions/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
-- `GET /api/v1/costbook/categories?divisionId=` — requires `costbook.read`; optional `divisionId` filter, organization-scoped through the parent Division.
-- `GET /api/v1/costbook/categories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
-- `POST /api/v1/costbook/categories` — requires `costbook.write`; strict body: `divisionId`, `code`, `name`, optional `sortOrder`. Rejects a `divisionId` that does not belong to the authenticated organization.
-- `PATCH /api/v1/costbook/categories/:id` — requires `costbook.write` for ordinary fields; `divisionId` is not re-parentable through update and `isActive` additionally requires `costbook.manage`.
-- `DELETE /api/v1/costbook/categories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
-- `GET /api/v1/costbook/subcategories?categoryId=` — requires `costbook.read`; optional `categoryId` filter, organization-scoped through Category → Division.
-- `GET /api/v1/costbook/subcategories/:id` — requires `costbook.read`; 404 for missing/cross-organization IDs.
-- `POST /api/v1/costbook/subcategories` — requires `costbook.write`; strict body: `categoryId`, `code`, `name`, optional `sortOrder`. Rejects a `categoryId` that does not belong to the authenticated organization.
-- `PATCH /api/v1/costbook/subcategories/:id` — requires `costbook.write` for ordinary fields; `categoryId` is not re-parentable through update and `isActive` additionally requires `costbook.manage`.
-- `DELETE /api/v1/costbook/subcategories/:id` — requires `costbook.manage`; soft-deactivates by setting `isActive` to `false`.
+- `POST /api/v1/costbook/pricing/preview` — `costbook.read`; calculation only.
 
-Costbook division DTO:
+The body accepts finite nonnegative job/direct cost values, overhead percentage, and either markup or target-margin mode. Target margin must remain below 100%. The result is computed with the existing Estimate formula implementation and includes total cost, sell price, gross profit, and effective markup/margin counterparts. The endpoint creates no pricing-rule record and performs no hidden mutation.
 
-```json
-{
-  "id": "uuid",
-  "organizationId": "uuid",
-  "code": "ELEC",
-  "name": "Electrical",
-  "sortOrder": 0,
-  "isActive": true,
-  "createdAt": "2026-08-12T00:00:00.000Z"
-}
-```
+### Price history
 
-Category and Subcategory DTOs are the same shape, replacing `organizationId`-only with `divisionId`/`organizationId` (Category) or `categoryId`/`organizationId` (Subcategory); `organizationId` on both is derived through the parent join, not a stored column.
+- `GET /api/v1/costbook/price-history` — `costbook.manage`.
 
-C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` require `costbook.write` at the controller layer too. C005 does not add pricing calculations, a first-class assembly builder, supplier synchronization, or Athena recommendation behavior.
+Bounded filters include `materialId`, `estimateId`, `sourceType` (`cost_item` or `assembly`), `from`, `to`, and `limit`. The response deliberately separates actual `MaterialPriceAudit` catalog-change events from persisted Estimate pricing snapshots. Estimate snapshots are historical consumption observations, not catalog price-change events.
 
-Settings asset storage metadata routes under `/api/v1/settings`:
+### Supplier integration authorization and feed semantics
 
-- `GET /api/v1/settings/assets/:assetKey` — any authenticated org member; returns the current storage bucket/path/content-type/size for one of `logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, or 404 if nothing has been uploaded for that slot
-- `POST /api/v1/settings/assets` — requires `team.manage`/`company.manage`/`settings.manage` (same gate as `PATCH /api/v1/settings`); accepts only the private `project-files` bucket, the authenticated organization's generated brand-asset path, a supported raster image content type, and a size up to 6 MB; persists new storage metadata and returns the previous record (if any) so the caller can delete the superseded storage object
-- `DELETE /api/v1/settings/assets/:assetKey` — same permission gate; deletes the metadata record and returns it (if any) for the caller to delete the underlying storage object
+Existing `/api/v1/supplier-integrations/*` routes remain the supplier integration surface. Reads require `costbook.read`, proposal enqueue/sync operations use the Costbook write boundary, and approve/reject requires `costbook.manage`.
 
-These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
+Feed endpoints are not accepted from HTTP callers. Server-side `SUPPLIER_PRICE_FEED_ENDPOINTS` maps Supplier IDs to trusted HTTPS endpoints; `Supplier.website` is never used as a feed target. Responses are strictly validated and bounded, credentials remain server-side, and feed results enqueue pending `SupplierPriceUpdate` proposals only. Material prices are never auto-applied; approval continues through the existing transactional Material update plus `MaterialPriceAudit` path.
 
-Project task routes under `/api/v1/projects`:
+## Estimate / Costbook pricing contract
 
-- `GET /api/v1/projects/tasks`
-- `GET /api/v1/projects/:id/tasks`
-- `POST /api/v1/projects/:id/tasks`
-- `PATCH /api/v1/projects/:id/tasks/:taskId`
-- `DELETE /api/v1/projects/:id/tasks/:taskId`
+The existing Estimate Engine is the sole Costbook consumption path. A Costbook-backed `EstimateLineItem` persists `costItemId` or `assemblyId` provenance and captures `unitCost`/`lineCost` when the line is created. Recalculation of existing lines uses the persisted pricing snapshot rather than re-fetching current Costbook pricing. New lines resolve current pricing; duplication/versioning preserves stored source/pricing values.
 
-`GET /api/v1/projects/tasks` is the org-scoped task feed used by the owner dashboard. It requires `crm.read`, stays inside the existing bearer-auth + membership + request-scoped DB session stack, and returns task rows with project, customer, and optional job context. Query parameters:
+## AI estimating routes
 
-- `limit` — optional integer, `1..50`, default service cap `24`
-- `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+Structured and suggestion-based estimate-assist endpoints remain under `/api/v1/estimates/*` and retain their existing authentication, tenant, draft-only, review-token, and rate-limit boundaries. The Costbook continuation does not add a second AI/Estimate route or Athena Costbook mutation path.
 
-`POST /api/v1/proposals/:id/send` retains its existing request/response shape. Under A12.1, the `ProposalSent` canonical event must persist in the same database transaction as the `draft -> sent` mutation; failure of required event persistence rolls that mutation back. Subscriber delivery remains asynchronous and is not part of the HTTP transaction contract. See [modules/proposals.md](modules/proposals.md) and [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
+## Athena
+
+`POST /api/v1/athena/chat` remains the single Athena entrypoint. Athena tools add no Costbook write endpoint in this continuation. Existing Athena approval, audit, event, observability, and transactional event-persistence contracts are unchanged by the Costbook work.
+
+## Settings asset metadata
+
+Settings asset metadata routes under `/api/v1/settings` continue to manage application metadata only; Supabase Storage bytes are handled by the authenticated server-side web layer. Costbook supplier-feed configuration is server environment configuration and does not expose supplier credentials through settings responses.
+
+## Project tasks and jobs
+
+Existing project-task and job/dispatch API contracts are unchanged by this Costbook continuation.
 
 ## Detailed module links
 
