@@ -100,37 +100,71 @@ export class SupplierIntegrationService {
   }
 
   async syncFromFeed(input: SyncFromFeedInput): Promise<SyncFromFeedResult> {
-    const quotes = await this.fetchFeed(input.supplierId);
-    let proposed = 0;
-    let skipped = 0;
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: input.supplierId, orgId: input.orgId },
+      select: { id: true },
+    });
+    if (!supplier) throw new ApiError(404, `Supplier ${input.supplierId} not found`);
 
-    for (const quote of quotes) {
-      const material = await prisma.material.findFirst({ where: { id: quote.materialId, orgId: input.orgId } });
-      if (!material || Number(material.unitCost) === quote.proposedUnitCost) {
-        skipped += 1;
-        continue;
+    const quotes = await this.fetchFeed(input.supplierId, input.orgId);
+    if (quotes.length === 0) return { proposed: 0, skipped: 0 };
+
+    return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      const uniqueQuotes = new Map<string, number>();
+      let skipped = 0;
+      for (const quote of quotes) {
+        if (uniqueQuotes.has(quote.materialId)) {
+          skipped += 1;
+          continue;
+        }
+        uniqueQuotes.set(quote.materialId, quote.proposedUnitCost);
       }
 
-      const alreadyPending = await prisma.supplierPriceUpdate.findFirst({
-        where: { orgId: input.orgId, materialId: quote.materialId, supplierId: input.supplierId, status: "pending" },
-      });
-      if (alreadyPending) {
-        skipped += 1;
-        continue;
+      const materialIds = [...uniqueQuotes.keys()];
+      const [materials, pending] = await Promise.all([
+        transaction.material.findMany({
+          where: { orgId: input.orgId, id: { in: materialIds } },
+          select: { id: true, unitCost: true },
+        }),
+        transaction.supplierPriceUpdate.findMany({
+          where: {
+            orgId: input.orgId,
+            supplierId: input.supplierId,
+            status: "pending",
+            materialId: { in: materialIds },
+          },
+          select: { materialId: true },
+        }),
+      ]);
+
+      const materialsById = new Map(materials.map((material) => [material.id, material]));
+      const pendingMaterialIds = new Set(pending.map((row) => row.materialId));
+      const proposals = [];
+
+      for (const [materialId, proposedUnitCost] of uniqueQuotes) {
+        const material = materialsById.get(materialId);
+        if (!material || Number(material.unitCost) === proposedUnitCost || pendingMaterialIds.has(materialId)) {
+          skipped += 1;
+          continue;
+        }
+
+        proposals.push({
+          orgId: input.orgId,
+          supplierId: input.supplierId,
+          materialId,
+          currentUnitCost: material.unitCost,
+          proposedUnitCost,
+          source: "supplier-feed",
+          requestedByJob: input.requestedByJob,
+        });
       }
 
-      await this.enqueue({
-        orgId: input.orgId,
-        supplierId: input.supplierId,
-        materialId: quote.materialId,
-        proposedUnitCost: quote.proposedUnitCost,
-        source: "supplier-feed",
-        requestedByJob: input.requestedByJob,
-      });
-      proposed += 1;
-    }
+      if (proposals.length > 0) {
+        await transaction.supplierPriceUpdate.createMany({ data: proposals });
+      }
 
-    return { proposed, skipped };
+      return { proposed: proposals.length, skipped };
+    });
   }
 }
 
