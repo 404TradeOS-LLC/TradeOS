@@ -2,43 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardWeather, selectDashboardWeatherAddress } from "./dashboard-weather.ts";
 
-test("selectDashboardWeatherAddress prefers the first valid job-site address", () => {
+test("selectDashboardWeatherAddress suppresses standing dashboard weather even when addresses exist", () => {
   const result = selectDashboardWeatherAddress({
-    jobSiteAddresses: ["", "  101 Jobsite Lane, Terre Haute, IN 47802  ", "202 Backup Road"],
+    jobSiteAddresses: ["101 Jobsite Lane, Terre Haute, IN 47802"],
     persistedOrganizationAddress: "404 Office Avenue, Terre Haute, IN 47807",
   });
 
-  assert.equal(result, "101 Jobsite Lane, Terre Haute, IN 47802");
-});
-
-test("selectDashboardWeatherAddress uses the persisted organization address when no job site is available", () => {
-  const result = selectDashboardWeatherAddress({
-    jobSiteAddresses: [null, undefined, "   "],
-    persistedOrganizationAddress: " 404 Office Avenue, Terre Haute, IN 47807 ",
-  });
-
-  assert.equal(result, "404 Office Avenue, Terre Haute, IN 47807");
-});
-
-test("selectDashboardWeatherAddress does not invent the demo/default settings address", () => {
-  const result = selectDashboardWeatherAddress({
-    jobSiteAddresses: [],
-    persistedOrganizationAddress: undefined,
-  });
-
   assert.equal(result, null);
 });
 
-test("selectDashboardWeatherAddress returns null when no real address exists", () => {
-  const result = selectDashboardWeatherAddress({
-    jobSiteAddresses: ["", "   "],
-    persistedOrganizationAddress: "   ",
+test("loadDashboardWeather skips the upstream lookup when no dashboard weather address is selected", async () => {
+  let calls = 0;
+  const result = await loadDashboardWeather(null, async () => {
+    calls += 1;
+    return { shortForecast: "Sunny" };
   });
 
   assert.equal(result, null);
+  assert.equal(calls, 0);
 });
 
-test("loadDashboardWeather fails soft when the upstream lookup rejects", async () => {
+test("loadDashboardWeather still fails soft for compatibility callers", async () => {
   const result = await loadDashboardWeather("404 Office Avenue, Terre Haute, IN 47807", async () => {
     throw new Error("weather upstream unavailable");
   });
