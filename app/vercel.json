@@ -6,7 +6,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ] || [ -z \"$VERCEL_GIT_COMMIT_SHA\" ]; then exit 1; fi; git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" \"$VERCEL_GIT_COMMIT_SHA\" -- ':(top)app/**'",
+  "ignoreCommand": "git cat-file -e \"$VERCEL_GIT_PREVIOUS_SHA^{commit}\" 2>/dev/null || exit 1; git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" \"$VERCEL_GIT_COMMIT_SHA\" -- ':(top)app/**' ':(top)packages/knowledge-engine/**'",
   "functions": {
     "index.ts": {
       "includeFiles": "vendor/knowledge-engine/**"
