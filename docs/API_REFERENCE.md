@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -117,7 +117,6 @@ Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new RES
 
 `POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
 of Friday, August 14, 2026, it:
-
 - requires standard authenticated organization access;
 - derives actor/org/role from server-trusted auth context, not request body;
 - resolves exact granted permissions from the authenticated TradeOS session when
@@ -291,6 +290,8 @@ Project task routes under `/api/v1/projects`:
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
+
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
 
 ## Detailed module links
 
