@@ -117,7 +117,7 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
       };
     },
 
-    async complete<TData = unknown>(scopeKey: string, inputHash: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void> {
+    async complete<TData = unknown>(scopeKey: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void> {
       const identity = parseAthenaIdempotencyScopeKey(scopeKey);
       const updated = await prisma.$executeRaw(Prisma.sql`
         update athena_action_idempotency
@@ -131,11 +131,10 @@ export function createPrismaAthenaIdempotencyStore(): AthenaIdempotencyStore {
           and tool_id = ${identity.toolId}
           and tool_version = ${identity.toolVersion}
           and idempotency_key = ${identity.idempotencyKey}
-          and input_hash = ${inputHash}
           and status = 'reserved'
       `);
       if (updated !== 1) {
-        throw new Error("Athena idempotency completion did not own the matching input reservation");
+        throw new Error("Athena idempotency completion did not own a reservation");
       }
     },
 
