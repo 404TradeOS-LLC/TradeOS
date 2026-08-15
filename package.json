@@ -7,7 +7,8 @@
     "autonomy:reconcile": "node scripts/reconcile-task.mjs",
     "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
     "docs:check": "node scripts/docs-check.mjs",
-    "docs:test": "node --test scripts/__tests__/docs-check.test.mjs"
+    "docs:test": "node --test scripts/__tests__/docs-check.test.mjs",
+    "vercel:test": "node --test scripts/__tests__/vercel-ignore-command.test.mjs"
   },
   "dependencies": {
     "js-yaml": "^4.3.1",
