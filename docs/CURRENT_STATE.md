@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -90,7 +90,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `main` commit `5d3b3a22a5011e5cbdeab796dddf9230b322a93c` on 2026-08-14 after merged PR #191 (`57f4fe6d37538c755529b099ae79bc425e4d055d`), the landed C004/C005 Costbook work, and unrelated deployment-enablement PR #212. This branch adds first-class CostItem management by reusing the existing CostItem/CostDatabase implementation; it does not add schema, migrations, RLS policy definitions, pricing-engine infrastructure, Estimate mutation semantics, or Athena behavior. Runtime implementation claims remain grounded in the code paths and merged evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `main` commit `3c3037faf5c7c3b4f3660b6f43cc6a3b90372e4e` on 2026-08-15 after PR #210 landed the canonical CostItem management slice. This branch continues Costbook by promoting the existing Assembly implementation into the unified API/UI, verifying Estimate pricing-snapshot semantics, adding calculation-only pricing preview and a split price-history read model, and wiring trusted supplier feed transport into the existing proposal/review/audit flow. It does not create parallel Costbook systems or add Athena Costbook writes. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
@@ -109,6 +109,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Costbook equipment catalog foundation (C004, merged via PR #183): organization-scoped equipment list/detail/create/update/delete under `/api/v1/costbook/equipment`, legacy equipment-route permission alignment, owner/admin-managed forced-RLS writes, cent-safe hourly-cost derivation, nullable daily-rate clearing, and `/costbook/equipment` with real-data loading/error/empty/read-only/mutation states. PR #203 adds a bounded 15-second equipment-page load timeout and locks editable form state/transitions while save or delete mutations are pending.
 - Costbook hierarchy management (C005): full Division/Category/Subcategory CRUD under `/api/v1/costbook/{divisions,categories,subcategories}` and `/costbook/divisions`, with owner/admin-only hierarchy writes, explicit parent-derived tenant predicates for Category/Subcategory RLS, cross-organization parent rejection, active-child guards beneath inactive ancestors, and parent-deactivation guards that prevent active descendants from being stranded beneath an inactive Division or Category
 - Costbook CostItem management: canonical `/api/v1/costbook/cost-items` routes and `/costbook/cost-items` reuse the existing `CostItem` model, `CostDatabaseService`, legacy compatibility routes, and relationship-derived unit-cost formulas. Reads require `costbook.read`, ordinary writes require `costbook.write`, lifecycle activation/deactivation requires `costbook.manage`, strict request validation rejects caller-controlled organization IDs, and service-level checks reject cross-organization Subcategory/LaborRate/Material/Equipment/Subcontractor references before writes. CostItem delete remains soft-deactivate so existing Estimate references are preserved.
+- Costbook continuation on PR #216: canonical Assembly management reuses `Assembly`/`AssemblyItem`; Estimate lines preserve CostItem/Assembly provenance and captured `unitCost`/`lineCost` snapshots; pricing preview reuses shared Estimate formulas without saved pricing-policy state; price history separates `MaterialPriceAudit` changes from Estimate snapshots; and trusted supplier feeds enqueue review proposals only, with no automatic Material mutation.
 - Estimating: estimate creation, line items, duplication, comparison, AI estimate assist, and structured contractor-language draft generation
 - Proposals
 - Contracts
@@ -137,8 +138,8 @@ See module docs in `docs/modules/`.
 - Legacy role values `estimator` and `viewer` are still tolerated in stored data but normalize to canonical roles
 - Project lifecycle persistence still contains legacy values such as `proposal_sent` and `accepted`; UI and shared contracts normalize these into canonical display states
 - Contract persistence still stores `pending_signature`; global lifecycle docs treat that as compatibility storage under canonical contract states
-- Costbook architecture is documented as a pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). C001-C005 provide the workspace, Materials, Labor Rates, Equipment, and complete Division/Category/Subcategory hierarchy management. The reconciled CostItem slice promotes the already-existing CostItem CRUD/unit-cost implementation into the unified Costbook API/UI and hardens explicit tenant/reference validation without creating another model or pricing engine. Assemblies already have organization-scoped legacy CRUD, item composition, template behavior, and relationship-derived unit-cost calculation, while existing Estimate and structured AI-estimator paths already consume active organization-scoped CostItems or Assemblies. The remaining earlier management dependency is a first-class `/costbook/assemblies` workflow; after that, Estimate ↔ Costbook provenance and historical-price snapshot behavior should be explicitly verified before broader markup/rules, price-history expansion, supplier synchronization, or Athena Costbook writes.
-- Supplier integration feed ingestion is scaffolded around a stub fetcher; queue, review, audit, and scheduling plumbing are real
+- Costbook architecture is documented as a pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). C001-C005 and PR #210 provide the workspace, Materials, Labor Rates, Equipment, hierarchy, and canonical CostItem management. PR #216 promotes the existing Assembly implementation into the unified Costbook workflow, verifies Estimate historical pricing snapshots, adds a calculation-only pricing preview and a split price-history read model, and adds trusted supplier-feed transport over the existing review queue. Persisted organization-wide pricing rules, supplier SKU matching/provider-specific connectors, and Athena Costbook writes remain outside this slice.
+- Supplier feed ingestion now has a trusted HTTPS transport adapter driven by server-side configuration; queue, review, audit, worker, scheduler, and duplicate-pending suppression remain the existing implementation, and feed results never auto-apply Material prices
 - Customer portal exists for proposal, contract, invoice, and project views, but hardening is still tracked as RC work
 - Structured AI estimator drafts remain review-first; they do not autonomously write estimate line items and do not call external model APIs in the current implementation
 - Structured AI estimator apply now uses server-signed review tokens, server-side active target validation, per-estimate apply serialization, and optional estimate-line `sourceKey` duplicate protection for reviewed AI lines; Docker-backed live RLS integration verification passed locally on this branch
@@ -146,6 +147,7 @@ See module docs in `docs/modules/`.
 
 ## Recent verified changes
 
+- Costbook continuation on PR #216 reuses the existing Assembly, Estimate, MaterialPriceAudit, supplier-review, and shared pricing-formula paths. It adds canonical Assembly management with RLS defense in depth, verifies CostItem/Assembly Estimate snapshot semantics, provides calculation-only pricing preview and tenant-scoped history views, and adds bounded trusted supplier-feed transport that only queues proposals. No Athena Costbook write path or automatic supplier price application is introduced.
 - CostItem management reconciliation on PR #210 reuses the existing `CostItem` model, `CostDatabaseService`, relationship-derived pricing formulas, and legacy compatibility routes. It adds canonical `/api/v1/costbook/cost-items` routes and `/costbook/cost-items`, strict `costbook.read`/`costbook.write`/`costbook.manage` enforcement, no-org-id request validation, same-organization parent/catalog reference validation, nullable pricing-input clearing, soft deactivation, focused service tests, and live PostgreSQL CostItem RLS coverage. It does not add schema/migrations, new RLS policies, pricing rules, Estimate mutation changes, or Athena behavior.
 - Athena approval read normalization on PR #207 conditionally and atomically transitions overdue approvals that are still persisted as `pending` to `expired` before organization-scoped approval list/detail reads. The predicate remains organization-scoped and pending-state-only, so concurrent terminal changes and rows from other organizations are preserved. This is an approval lifecycle/read consistency repair only: no schema, migration, permission, scheduler, or roadmap scope changes are introduced.
 - A12.1 transactional canonical-event reliability merged as PR #191 at `57f4fe6d37538c755529b099ae79bc425e4d055d`. It reuses the existing `athena_events`/`athena_event_deliveries` outbox, adds transactional service wrappers for the six production canonical publishers, preserves savepoint isolation, uses conflict-safe idempotent insertion for concurrent same-key publication, and includes a live PostgreSQL rollback plus two-session race test. This does not add A13 work, another event bus, a scheduler, new permissions, or production subscriber execution.
@@ -209,9 +211,8 @@ See module docs in `docs/modules/`.
 
 ## Known blockers and unresolved technical debt
 
-- First-class Costbook assembly management remains the next catalog-management dependency; legacy assembly CRUD/composition/template/unit-cost behavior already exists, so the missing work is the unified Costbook API/UI workflow rather than another model.
-- After assembly management, Estimate ↔ Costbook provenance and historical-price snapshot behavior needs dedicated verification so later Costbook changes cannot silently alter already-created Estimate lines.
-- Supplier feed connectors are not live
+- Persisted organization-wide pricing policy/rule governance is not implemented; the current `/costbook/pricing` surface is a calculation-only preview.
+- Supplier feed transport requires trusted server-side endpoint configuration and still has no supplier-SKU matching/provider-specific connector layer; feeds enqueue proposals only and never auto-apply prices.
 - Cost-item and assembly combined name-or-code substring search can still degrade into scan-heavy plans because only `name` columns are trigram-indexed today
 - Documentation governance is implemented; ongoing governance work should update `docs/DOC_OWNERSHIP.yml`, `docs/README.md`, and `docs/REPOSITORY_GOVERNANCE.md` together when ownership policy changes
 - Production deployment state and environment approvals are not inferred from code and must be verified per environment
