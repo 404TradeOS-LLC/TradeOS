@@ -83,10 +83,10 @@ describe("configured supplier price feed", () => {
     })) as typeof fetch;
 
     const request = fetchConfiguredSupplierFeed(supplierId);
+    const rejection = expect(request).rejects.toThrow("supplier feed aborted");
     await Promise.resolve();
     await jest.advanceTimersByTimeAsync(15_000);
-
-    await expect(request).rejects.toThrow("supplier feed aborted");
+    await rejection;
   });
 
   it("rejects oversized responses before parsing them", async () => {
