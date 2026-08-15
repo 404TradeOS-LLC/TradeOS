@@ -53,7 +53,7 @@ export function athenaActionIdempotencyKeyRequiredError(correlationId: string): 
 }
 
 export function athenaActionIdempotencyConflictError(correlationId: string): AthenaActionDispatchError {
-  return new AthenaActionDispatchError("idempotency_conflict", buildError("athena_action_idempotency_conflict", "conflict", true, "This action conflicts with an existing idempotency key.", correlationId));
+  return new AthenaActionDispatchError("unexpected_error", buildError("athena_action_idempotency_conflict", "conflict", true, "This action conflicts with an existing idempotency key.", correlationId));
 }
 
 export function athenaActionTimeoutError(correlationId: string): AthenaActionDispatchError {
