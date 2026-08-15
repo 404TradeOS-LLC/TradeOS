@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -208,8 +208,9 @@ the same request-scoped session model as the rest of Athena's runtime tables.
 
 ## Athena action idempotency
 
-A6 action-execution reliability uses `athena_action_idempotency` as an internal
-control record for dedup-eligible production actions.
+**Unreleased (PR #214):** the durable A6 action-idempotency implementation described below exists on PR #214 and must not be treated as shipped on `main` or available in production until that PR is merged and deployed.
+
+PR #214 introduces `athena_action_idempotency` as an internal control record for dedup-eligible production actions:
 
 - each reservation is uniquely scoped by organization, tool id, tool version,
   and caller-supplied idempotency key;
