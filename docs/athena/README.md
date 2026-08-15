@@ -119,3 +119,7 @@ A12.1 strengthens decision 11 without introducing another event system: the six 
 ## Approval expiry read normalization
 
 Before organization-scoped approval list or detail reads, the approval application service atomically transitions only overdue approvals that are still persisted as `pending` to `expired`; concurrent terminal changes and approvals from other organizations are not overwritten.
+
+## Durable action idempotency
+
+A6 production action execution no longer relies on process-local memory for deduplication when a caller supplies an idempotency key. The production Athena controller injects a PostgreSQL-backed idempotency store that participates in the existing request-scoped RLS transaction, persists completed action/result envelopes, and uses a unique organization/tool/version/key claim to serialize concurrent requests across API instances. Idempotency rows are additionally exact-actor scoped by forced RLS so a peer user cannot recover another actor's persisted action result. The in-memory implementation remains a test/local fixture only.
