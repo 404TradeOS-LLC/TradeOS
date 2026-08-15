@@ -25,10 +25,10 @@ export interface AthenaIdempotencyStore {
   // unclaimed, or reports the existing attempt's outcome if already claimed.
   // Reusing the same key for different validated input must fail closed.
   reserve<TData = unknown>(scopeKey: string, inputHash: string): Promise<AthenaIdempotencyReservation<TData>>;
-  // Records the terminal action/result for the exact validated-input hash that
-  // was reserved. Callers must forward the same hash rather than re-deriving
-  // identity from an action envelope containing raw request input.
-  complete<TData = unknown>(scopeKey: string, inputHash: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void>;
+  // Records the terminal action/result for the reservation already bound to
+  // validated input by reserve(). Completion never re-derives identity from
+  // the raw input retained on the action audit envelope.
+  complete<TData = unknown>(scopeKey: string, outcome: AthenaCompletedActionOutcome<TData>): Promise<void>;
   // Releases a reservation without recording a result. Production uses this
   // inside the request/background RLS transaction for an attempt that claimed
   // a key but could not durably complete it.
@@ -57,12 +57,12 @@ export function createInMemoryAthenaIdempotencyStore(): AthenaIdempotencyStore {
       entries.set(scopeKey, { inputHash });
       return { outcome: "new" };
     },
-    async complete(scopeKey, inputHash, outcome) {
+    async complete(scopeKey, outcome) {
       const existing = entries.get(scopeKey);
-      if (!existing || existing.inputHash !== inputHash) {
-        throw new Error("Athena idempotency completion did not own the matching input reservation");
+      if (!existing) {
+        throw new Error("Athena idempotency completion did not own a reservation");
       }
-      entries.set(scopeKey, { inputHash, outcome });
+      entries.set(scopeKey, { inputHash: existing.inputHash, outcome });
     },
     async release(scopeKey) {
       entries.delete(scopeKey);
