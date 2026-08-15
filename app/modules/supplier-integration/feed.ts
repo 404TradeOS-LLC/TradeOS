@@ -11,6 +11,37 @@ const feedSchema = z.object({
 }).strict();
 const MAX_FEED_RESPONSE_BYTES = 2_000_000;
 
+async function readBodyWithinLimit(response: Response): Promise<string> {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_FEED_RESPONSE_BYTES) {
+    throw new Error("Supplier feed response exceeds the configured size limit");
+  }
+
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let body = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_FEED_RESPONSE_BYTES) {
+        await reader.cancel("Supplier feed response exceeds the configured size limit");
+        throw new Error("Supplier feed response exceeds the configured size limit");
+      }
+      body += decoder.decode(value, { stream: true });
+    }
+    body += decoder.decode();
+    return body;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /**
  * Pulls supplier quotes only from operator-configured HTTPS endpoints. The URL
  * never comes from an HTTP request or the supplier website field, which keeps
@@ -18,7 +49,7 @@ const MAX_FEED_RESPONSE_BYTES = 2_000_000;
  * supplier-specific configuration is an intentional no-op so existing
  * installations preserve their current safe behavior.
  */
-export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierId) => {
+export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierId, orgId) => {
   const raw = process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
   if (!raw?.trim()) return [];
 
@@ -37,10 +68,10 @@ export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierI
   }
 
   const supplier = await prisma.supplier.findFirst({
-    where: { id: supplierId },
+    where: { id: supplierId, orgId },
     select: { id: true, apiIntegrationKey: true },
   });
-  if (!supplier) throw new Error(`Supplier ${supplierId} is not visible in the active organization session`);
+  if (!supplier) throw new Error(`Supplier ${supplierId} is not visible in organization ${orgId}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -56,24 +87,14 @@ export const fetchConfiguredSupplierFeed: SupplierFeedFetcher = async (supplierI
     });
     if (!response.ok) throw new Error(`Supplier feed returned HTTP ${response.status}`);
 
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > MAX_FEED_RESPONSE_BYTES) {
-      throw new Error("Supplier feed response exceeds the configured size limit");
-    }
-
-    const body = await response.text();
-    if (new TextEncoder().encode(body).byteLength > MAX_FEED_RESPONSE_BYTES) {
-      throw new Error("Supplier feed response exceeds the configured size limit");
-    }
-
+    const body = await readBodyWithinLimit(response);
     let json: unknown;
     try {
       json = JSON.parse(body);
     } catch {
       throw new Error("Supplier feed returned invalid JSON");
     }
-    const parsed = feedSchema.parse(json);
-    return parsed.quotes;
+    return feedSchema.parse(json).quotes;
   } finally {
     clearTimeout(timeout);
   }
