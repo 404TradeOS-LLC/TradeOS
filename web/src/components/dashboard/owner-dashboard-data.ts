@@ -131,9 +131,9 @@ export interface OwnerQuickAction {
 export const ownerQuickActions: OwnerQuickAction[] = [
   {
     id: "create-estimate",
-    label: "Create Estimate",
+    label: "Choose Project for Estimate",
     href: "/projects",
-    helper: "Start from a project workspace",
+    helper: "Open the project that should own the estimate",
     icon: FileText,
   },
   {
