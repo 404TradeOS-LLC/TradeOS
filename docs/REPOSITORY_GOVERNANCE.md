@@ -11,6 +11,7 @@ related_code:
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/pr-maintenance.yml
+  - .github/workflows/dependency-review.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -58,6 +59,8 @@ Expected verification jobs are:
 - `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
 - `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
 - `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
+
+The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 

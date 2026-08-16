@@ -22,6 +22,7 @@ related_code:
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/pr-maintenance.yml
+  - .github/workflows/dependency-review.yml
 ---
 
 # TradeOS Documentation
@@ -108,6 +109,8 @@ dependency auditing, framework-free unit tests, lint, build, and the same
 tracked-source cleanliness check. These checks are intended to make a green PR
 a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
+
+The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
 
