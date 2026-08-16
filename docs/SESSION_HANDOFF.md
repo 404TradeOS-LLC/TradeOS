@@ -1,46 +1,35 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-16
 source_of_truth: false
 related_code:
-  - web/src/app/(app)/costbook/equipment/page.tsx
-  - web/src/components/costbook/equipment-catalog.tsx
+  - docs/SPRINT_BACKLOG.md
 ---
 
 # Session Handoff
 
 ## Mission
 
-Finish PR #203, the bounded follow-up to merged C004 equipment work. The frontend hardening adds a page-local 15-second load timeout and locks equipment form edits/transitions while save/delete mutations are pending, preventing indefinite loading and local edit races without changing backend, RLS, migration, auth, billing, or pricing behavior.
+No in-progress numbered-sprint or bounded-fix mission is handed off from this session. PR #203 (the equipment loading/edit-race hardening this file previously tracked) merged as `1b64687`.
 
 ## Current branch
 
-- Branch: `fix/equipment-loading-edit-race`
-- Base: `main`; reverify live before merge.
-- PR: #203
+None in progress. Reverify live `origin/main` and open PRs before starting new work.
 
-## Verified scope
+## Reconciliation performed this session
 
-- `web/src/app/(app)/costbook/equipment/page.tsx`
-- `web/src/app/(app)/costbook/equipment/equipment-route.test.ts`
-- `web/src/components/costbook/equipment-catalog.tsx`
-- `web/src/lib/costbook-equipment-load.ts`
-- `docs/CURRENT_STATE.md`
-- `docs/SESSION_HANDOFF.md`
-
-## Current verification
-
-- The branch was reconciled with current `main` during this repair cycle; reverify live ahead/behind state before merge.
-- Required `Docs consistency` and `Verify repository` checks passed on the prior repaired head after the runtime-behavior test fixes.
-- The final documentation-only refresh must receive fresh protected checks and satisfy the repository review policy before merge.
-- Both previously actionable CodeRabbit threads were resolved before this refresh; any new blocking review finding must be repaired rather than bypassed.
+`docs/SPRINT_BACKLOG.md`'s "Current out-of-band authorized work" and "Next Eligible Sprint" sections referenced a 2026-08-12 snapshot of PRs/issues (#128, #130, #131, #145/#144, #151, #169, #171, #153) that have since all merged, closed-superseded, or closed-completed. That section was refreshed against live GitHub state; the current live out-of-band set is PRs #217, #225, #226, #227, #229, #230, #231.
 
 ## Known limitations
 
-- The timeout is intentionally page-local; global `apiFetch` timeout semantics are unchanged.
-- Mutation locking protects local unsaved form state; this PR does not introduce server-side optimistic concurrency/version checks.
+- S027 ("Intelligent Costbook production readiness") had its 2026-08-12 blockers (PR #128, PR #151) resolved, but promotion to `READY` was deliberately **not** decided in this pass — it needs its own dedicated live-verified scope/overlap review against the substantial Costbook work merged since (PR #183, #210, #216), not just confirmation that the old blocking PRs are gone.
+- No numbered sprint is `READY`. Every unfinished numbered sprint remains `PLANNED` or `BLOCKED`.
 
-## Next action
+## Next Eligible Sprint
 
-Merge only after the refreshed head is current with `main`, required checks are green, and required review policy is satisfied.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S027's prior blockers are resolved but its promotion needs a dedicated readiness pass, and every other unfinished sprint remains `PLANNED` or `BLOCKED`.
+Dependencies: N/A until one planned sprint is selected and verified for promotion.
+Overlap check: Reverify live GitHub state; current live out-of-band work is PRs #217, #225, #226, #227, #229, #230, #231.
+Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, then either advance one of the live out-of-band PRs above or run a dedicated S027 readiness reverification before selecting numbered-sprint work.
