@@ -54,11 +54,12 @@ jobs:
         id: changed
         shell: bash
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
+          BASE_SHA="$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")"
           workflow_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
             '.github/workflows/*.yml' '.github/workflows/*.yaml')"
           action_changes="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '.github/actions/**')"
