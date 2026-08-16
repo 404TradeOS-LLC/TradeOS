@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-16
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -60,6 +60,10 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 - notes and related operational actions may feed broader activity surfaces through the intelligence primitives
 
+## Implementation notes
+
+- Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `addServiceAddress`/`updateServiceAddress` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. Both now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
+
 ## Frontend surfaces
 
 - `/customers`
@@ -81,4 +85,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-11
+2026-08-16

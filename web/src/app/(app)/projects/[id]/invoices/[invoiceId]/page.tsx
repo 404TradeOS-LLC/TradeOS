@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { markInvoicePaidAction, sendInvoiceAction, voidInvoiceAction } from "@/app/actions/invoices";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { LineItemRow } from "@/components/shared/line-item-row";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,13 +20,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`/projects/${projectId}`} className="text-sm text-muted-foreground underline">
-        ← Back to project
-      </Link>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Invoice #{invoice.invoiceNumber}</h1>
-        <StatusBadge status={displayStatus} />
-      </div>
+      <PageHeader
+        title={`Invoice #${invoice.invoiceNumber}`}
+        backHref={`/projects/${projectId}`}
+        backLabel="Back to project"
+        action={<StatusBadge status={displayStatus} />}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="border-border/70">

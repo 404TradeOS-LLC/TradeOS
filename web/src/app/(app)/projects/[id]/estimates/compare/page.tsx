@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { duplicateEstimateAction } from "@/app/actions/projects";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,19 +47,12 @@ export default async function EstimateComparePage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <Link href={`/projects/${projectId}?tab=estimate-history`} className="text-sm text-muted-foreground underline underline-offset-4">
-            ← Back to estimate history
-          </Link>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Compare estimate versions</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Review pricing and scope changes between two saved versions, then duplicate either one into a fresh draft when you need another revision.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Compare estimate versions"
+        description="Review pricing and scope changes between two saved versions, then duplicate either one into a fresh draft when you need another revision."
+        backHref={`/projects/${projectId}?tab=estimate-history`}
+        backLabel="Back to estimate history"
+      />
 
       {estimates.length < 2 ? (
         <Card className="border-border/70">

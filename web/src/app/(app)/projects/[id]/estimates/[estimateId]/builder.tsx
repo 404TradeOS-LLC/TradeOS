@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -81,28 +82,23 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <Link href={`/projects/${projectId}`} className="text-sm text-muted-foreground underline underline-offset-4">
-            ← Back to project
-          </Link>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">Estimate v{estimate.version}</h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback.
-            </p>
+      <PageHeader
+        title={`Estimate v${estimate.version}`}
+        description="Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback."
+        backHref={`/projects/${projectId}`}
+        backLabel="Back to project"
+        action={
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
+              Compare versions
+            </Link>
+            <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
+              AI assist
+            </Link>
+            <StatusBadge status={estimate.status} />
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
-            Compare versions
-          </Link>
-          <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
-            AI assist
-          </Link>
-          <StatusBadge status={estimate.status} />
-        </div>
-      </div>
+        }
+      />
 
       <Card className="border-border/70 bg-muted/10">
         <CardContent className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">

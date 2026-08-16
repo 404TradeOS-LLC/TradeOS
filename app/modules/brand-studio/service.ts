@@ -1,6 +1,7 @@
 import { Prisma, type BrandAsset, type BrandDocumentSettings, type BrandProfile } from "@prisma/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import {
   type BrandAssetDTO,
   type BrandDocumentSettingsDTO,
@@ -97,7 +98,7 @@ export class BrandStudioService {
     const organization = await this.getOrganizationOrThrow(orgId);
     const normalized = normalizeProfileInput(input);
 
-    const row = await prisma.$transaction(async (transaction) => {
+    const row = await runInDatabaseTransaction(prisma, async (transaction) => {
       await transaction.organization.update({
         where: { id: orgId },
         data: {
@@ -139,7 +140,7 @@ export class BrandStudioService {
     await this.getOrganizationOrThrow(orgId);
     const normalized = normalizeBrandAssetInput(input);
 
-    const row = await prisma.$transaction(async (transaction) => {
+    const row = await runInDatabaseTransaction(prisma, async (transaction) => {
       const profile = await ensureBrandProfile(transaction, orgId);
       return transaction.brandAsset.create({
         data: {
@@ -168,7 +169,7 @@ export class BrandStudioService {
     await this.getOrganizationOrThrow(orgId);
     const normalized = normalizeDocumentSettingsInput(input);
 
-    const row = await prisma.$transaction(async (transaction) => {
+    const row = await runInDatabaseTransaction(prisma, async (transaction) => {
       const profile = await ensureBrandProfile(transaction, orgId);
       return transaction.brandDocumentSettings.upsert({
         where: { organizationId: orgId },

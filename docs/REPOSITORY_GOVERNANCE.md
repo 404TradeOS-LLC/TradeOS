@@ -10,6 +10,10 @@ related_code:
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
+  - .github/workflows/pr-maintenance.yml
+  - .github/workflows/dependency-review.yml
+  - .github/workflows/workflow-security.yml
+  - .github/workflows/nightly-repository-health.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -58,11 +62,15 @@ Expected verification jobs are:
 - `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
 - `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
 
+The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
+
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
 Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. Any application-runtime version change remains a separate compatibility decision and must be validated as such.
+
+Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live ruleset verification confirms it has been added there.
 
 ## Solo-maintainer review posture
 
@@ -109,6 +117,14 @@ Re-run live read-only inspection before changing these statements or editing rep
 - only merged evidence may mark a sprint `DONE`.
 
 Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply.
+
+## Manual PR maintenance workflow
+
+`.github/workflows/pr-maintenance.yml` provides a guarded server-side branch-update path for an explicitly selected pull request. It is `workflow_dispatch` only and must remain operator-triggered rather than automatically mutating every open branch when `main` moves.
+
+The workflow may act only on an open pull request from this repository whose base is `main`. It must reject closed pull requests, fork-originated pull requests, and pull requests targeting another base branch. Its branch update must use GitHub's supported pull-request branch-update/rebase operation rather than custom force-push logic.
+
+PR maintenance does not grant merge authority. After a successful rebase, normal rules still apply: the branch must satisfy required checks, review-thread resolution, current-head verification, and all other live branch-protection requirements. Conflicts or unsupported server-side updates remain a stop condition for manual resolution in a normal git workspace.
 
 ## Autonomous maintenance governance
 
@@ -207,6 +223,10 @@ The Bible does not replace:
 - module docs for detailed implementation contracts;
 - accepted ADRs for active architectural rationale;
 - research docs for supporting evidence.
+
+## Nightly repository health workflow
+
+`.github/workflows/nightly-repository-health.yml` is a diagnostic maintenance workflow, not a merge-time authority. It may run on schedule or by manual dispatch to re-check drift-sensitive repository health with read-only repository permissions. It must not deploy, mutate production data, weaken required pull-request checks, or automatically convert a nightly failure into repository changes. Any repair prompted by the nightly signal follows the normal reconciliation, PR, verification, and merge controls in this document.
 
 ## Production migration history reconciliation
 

@@ -3,6 +3,7 @@ import { ActivityTimeline } from "@/components/shared/activity-timeline";
 import { ProposalContextPanel } from "@/components/proposals/proposal-context-panel";
 import { ProposalLifecyclePanel } from "@/components/proposals/proposal-lifecycle-panel";
 import { ProposalReviewForm } from "@/components/proposals/proposal-review-form";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SummaryMetricCard } from "@/components/shared/summary-metric-card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -22,18 +23,13 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <Link href={`/projects/${projectId}`} className="text-sm text-muted-foreground underline">
-            ← Back to project
-          </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">Proposal Review</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Review the final scope, pricing, and payment milestones before the proposal goes out. Keep this page as the source of truth from internal review through customer decision.
-          </p>
-        </div>
-        <StatusBadge status={displayStatus} />
-      </div>
+      <PageHeader
+        title="Proposal Review"
+        description="Review the final scope, pricing, and payment milestones before the proposal goes out. Keep this page as the source of truth from internal review through customer decision."
+        backHref={`/projects/${projectId}`}
+        backLabel="Back to project"
+        action={<StatusBadge status={displayStatus} />}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-border/70">
