@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -117,7 +117,6 @@ Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new RES
 
 `POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
 of Friday, August 14, 2026, it:
-
 - requires standard authenticated organization access;
 - derives actor/org/role from server-trusted auth context, not request body;
 - resolves exact granted permissions from the authenticated TradeOS session when
@@ -127,25 +126,23 @@ of Friday, August 14, 2026, it:
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
   hash, plan id, and step id;
-- accepts an optional `idempotencyKey` request field: a caller-generated,
-  trimmed, non-empty retry key of at most 200 characters; it is not an approval
-  token and grants no permission;
-- injects the durable A6 action-idempotency store for dedup-eligible tool calls,
-  so the supplied retry key is claimed across instances under organization,
-  exact actor, tool/version, and canonical validated-input identity before tool
-  execution;
 - exposes no separate tool-specific mutation endpoints.
 
-Durable action idempotency adds no new REST route. The `/athena/chat` request
-shape gains only the optional `idempotencyKey` field described above. The
-controller forwards that stable retry key through the existing kernel seam to
-A6; the Action Engine then binds it to the server-derived organization and
-actor, the registered tool/version, and the canonical hash of validated tool
-input. A completed duplicate with the same actor/org/tool/version/key/input
-identity returns the original persisted action result without invoking the tool
-again; reusing the same key for different validated input fails closed. The
-production store runs inside the authenticated request-scoped RLS transaction,
-while the process-local store remains a test/local fixture.
+**Unreleased (PR #214):** the optional `idempotencyKey` request contract and durable A6 action-idempotency behavior below exist on PR #214 and must not be treated as shipped on `main` or available in production until that PR is merged and deployed.
+
+PR #214 adds an optional `idempotencyKey` request field: a caller-generated,
+trimmed, non-empty retry key of at most 200 characters. It is not an approval
+token and grants no permission. The controller forwards that stable retry key
+through the existing kernel seam to A6, which binds it to the server-derived
+organization and actor, registered tool/version, and canonical hash of validated
+tool input before tool execution.
+
+Under PR #214, durable action idempotency adds no new REST route. A completed
+duplicate with the same actor/org/tool/version/key/input identity returns the
+original persisted action result without invoking the tool again; reusing the
+same key for different validated input fails closed. The durable store runs
+inside the authenticated request-scoped RLS transaction, while the process-local
+store remains a test/local fixture.
 
 Approval and audit persistence for Athena are internal implementation details,
 not new public REST resources. Before organization-scoped approval list/detail
@@ -287,6 +284,12 @@ Project task routes under `/api/v1/projects`:
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
 
 `POST /api/v1/proposals/:id/send` retains its existing request/response shape. Under A12.1, the `ProposalSent` canonical event must persist in the same database transaction as the `draft -> sent` mutation; failure of required event persistence rolls that mutation back. Subscriber delivery remains asynchronous and is not part of the HTTP transaction contract. See [modules/proposals.md](modules/proposals.md) and [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
+
+## Costbook continuation API additions
+
+PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
+
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
 
 ## Detailed module links
 

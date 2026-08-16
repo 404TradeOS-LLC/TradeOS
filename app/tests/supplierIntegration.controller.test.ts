@@ -11,6 +11,8 @@ jest.mock("../modules/supplier-integration/service", () => ({
 
 import { supplierIntegrationController } from "../backend/controllers/supplierIntegration.controller";
 
+const queueId = "33333333-3333-4333-8333-333333333333";
+
 function response() {
   return {
     json: jest.fn(),
@@ -35,20 +37,20 @@ function authedRequest(options: { role?: string; body?: unknown; params?: Record
 describe("supplierIntegrationController Costbook review boundary", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockService.approve.mockResolvedValue({ id: "queue-1", status: "approved" });
-    mockService.reject.mockResolvedValue({ id: "queue-1", status: "rejected" });
+    mockService.approve.mockResolvedValue({ id: queueId, status: "approved" });
+    mockService.reject.mockResolvedValue({ id: queueId, status: "rejected" });
   });
 
   it("denies supplier price approval and rejection to dispatcher/read-only Costbook roles", async () => {
     await expect(
       supplierIntegrationController.approve(
-        authedRequest({ role: "dispatcher", params: { id: "queue-1" } }),
+        authedRequest({ role: "dispatcher", params: { id: queueId } }),
         response() as never
       )
     ).rejects.toThrow("You do not have permission");
     await expect(
       supplierIntegrationController.reject(
-        authedRequest({ role: "technician", params: { id: "queue-1" } }),
+        authedRequest({ role: "technician", params: { id: queueId } }),
         response() as never
       )
     ).rejects.toThrow("You do not have permission");
@@ -57,13 +59,13 @@ describe("supplierIntegrationController Costbook review boundary", () => {
     expect(mockService.reject).not.toHaveBeenCalled();
   });
 
-  it("allows Costbook writers to approve and reject supplier price updates", async () => {
+  it("allows Costbook managers to approve and reject supplier price updates", async () => {
     const res = response();
 
-    await supplierIntegrationController.approve(authedRequest({ role: "admin", params: { id: "queue-1" } }), res as never);
-    await supplierIntegrationController.reject(authedRequest({ role: "owner", params: { id: "queue-1" } }), res as never);
+    await supplierIntegrationController.approve(authedRequest({ role: "admin", params: { id: queueId } }), res as never);
+    await supplierIntegrationController.reject(authedRequest({ role: "owner", params: { id: queueId } }), res as never);
 
-    expect(mockService.approve).toHaveBeenCalledWith("queue-1", "org-from-auth", expect.objectContaining({ role: "admin" }));
-    expect(mockService.reject).toHaveBeenCalledWith("queue-1", "org-from-auth", expect.objectContaining({ role: "owner" }));
+    expect(mockService.approve).toHaveBeenCalledWith(queueId, "org-from-auth", expect.objectContaining({ role: "admin" }));
+    expect(mockService.reject).toHaveBeenCalledWith(queueId, "org-from-auth", expect.objectContaining({ role: "owner" }));
   });
 });

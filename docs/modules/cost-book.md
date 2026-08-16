@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -41,7 +41,7 @@ related_code:
 
 Provide the tenant-scoped estimating catalog: divisions, categories, subcategories, cost items, labor rates, materials, equipment rates, and assemblies.
 
-The unified Costbook boundary now covers the workspace summary, materials, labor rates, equipment, hierarchy management, and first-class CostItem management while reusing the original catalog tables and services. Division/Category/Subcategory management is complete under the unified boundary, and CostItems can be listed, read, created, edited, soft-deactivated, and priced there without introducing a second CostItem model or pricing engine. Assembly CRUD/composition still exists only through the legacy assemblies route group; a first-class Costbook assembly-management surface remains the next catalog-management gap. Existing Estimate and structured AI-estimator paths already consume organization-scoped CostItems/Assemblies and write reviewed lines through the Estimate Engine, but a dedicated historical-pricing/provenance verification slice remains after assembly management.
+The unified Costbook boundary covers the workspace summary, materials, labor rates, equipment, hierarchy management, CostItem management, and Assembly management while reusing the original catalog tables and services. Assemblies can be managed and composed through the canonical Costbook namespace without introducing a second Assembly model or pricing engine. The existing Estimate Engine remains the Costbook consumption path: persisted CostItem/Assembly IDs provide provenance and persisted `unitCost`/`lineCost` values are historical pricing snapshots. Practical pricing preview reuses the shared Estimate formulas, and the price-history read model keeps `MaterialPriceAudit` catalog changes distinct from Estimate snapshots. Supplier synchronization reuses the existing proposal/review/audit workflow and never auto-applies feed prices.
 
 ## Source code locations
 
@@ -95,6 +95,14 @@ Unified Costbook routes include:
 - `/api/v1/costbook/cost-items/search`
 - `/api/v1/costbook/cost-items/:id`
 - `/api/v1/costbook/cost-items/:id/unit-cost`
+- `/api/v1/costbook/assemblies`
+- `/api/v1/costbook/assemblies/search`
+- `/api/v1/costbook/assemblies/templates`
+- `/api/v1/costbook/assemblies/:id`
+- `/api/v1/costbook/assemblies/:id/unit-cost`
+- `/api/v1/costbook/assemblies/:id/items`
+- `/api/v1/costbook/pricing/preview`
+- `/api/v1/costbook/price-history`
 
 `GET /api/v1/costbook/workspace` is a read-only workspace summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records.
 
@@ -147,6 +155,12 @@ Create requests accept strict `subcategoryId`, `code`, `name`, and `unitOfMeasur
 
 Cost remains derived rather than stored as a flat CostItem price. `UnitCostBreakdown` continues to compose labor, material, and equipment costs using the shared Estimate Engine formulas.
 
+### Assemblies, pricing, history, and supplier feeds
+
+The unified Assembly surface reuses `AssembliesDatabaseService` and the existing `Assembly`/`AssemblyItem` models. Reads require `costbook.read`; ordinary Assembly/component edits require `costbook.write`; lifecycle deactivation requires `costbook.manage`. New components must be active and belong to the authenticated organization, cycle prevention remains enforced, and the database independently validates the parent Assembly plus referenced CostItem/child Assembly tenant scope.
+
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns true `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`.
+
 ## Permissions
 
 See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
@@ -176,14 +190,16 @@ Current behavior:
 
 ## Frontend surfaces
 
-- Estimate Builder and AI Estimate Assist already consume existing organization-scoped CostItems/Assemblies through estimating services; this is not proof that every historical-pricing/provenance edge case is complete
+- Estimate Builder and AI Estimate Assist consume existing organization-scoped CostItems/Assemblies through estimating services; Estimate lines preserve the source IDs and pricing values captured at line creation
 - `/costbook` shows the workspace summary, permissions, organization-scoped catalog counts, and links to implemented management surfaces
 - `/costbook/materials` provides real-data material management
 - `/costbook/labor-rates` provides real-data labor-rate management
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management
 - `/costbook/cost-items` provides real-data CostItem create/edit/deactivate management, read-only behavior for actors without writes, responsive desktop/mobile presentation, and honest empty/load/error/mutation states
-- no first-class `/costbook/assemblies` management page exists yet; assemblies remain available through the legacy API and estimating consumers
+- `/costbook/assemblies` provides Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
+- `/costbook/pricing` provides a calculation-only pricing preview
+- `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
 
 ## Tests
 
@@ -200,32 +216,34 @@ Current behavior:
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
 - `app/tests/estimate-engine.formulas.test.ts`
+- `app/tests/costbook-assemblies.rls.integration.ts`
+- `app/tests/costbook-pricing.test.ts`
+- `app/tests/estimate-costbook-snapshot.test.ts`
+- `app/tests/supplier-integration.feed.test.ts`
 
 ## Implementation notes
 
 - The authenticated Costbook workspace is a compatibility-preserving boundary around existing catalog tables/services, not a parallel pricing domain.
 - `cost-database` and `assemblies-database` services import the shared `round2()` helper from `estimate-engine/formulas.ts` rather than defining private rounding behavior.
-- CostItem write validation is defense in depth over existing RLS: application checks give deterministic client errors while RLS remains the database-level tenant boundary.
-- Existing Estimate line records remain historical records; changing/deactivating a CostItem does not mutate already-created Estimate lines in this CostItem-management slice.
+- CostItem and Assembly write validation are defense in depth over RLS: application checks give deterministic client errors while RLS remains the database-level tenant boundary.
+- Existing Estimate line records are historical pricing snapshots; recalculation does not re-fetch current Costbook unit cost for existing lines, while newly added lines capture current Costbook/Assembly pricing.
 
 ## Known limitations
 
 - system-wide shared template catalogs are not the current model; assemblies are tenant-scoped
 - only `name` columns are trigram-indexed today, so combined name-or-code substring search may still scan when the planner has to satisfy the `code` branch
-- supplier feed connectors are not live
-- assembly management has not yet been promoted into the first-class Costbook workspace
-- Estimate-to-Costbook historical pricing/provenance needs a dedicated verification slice after assembly management; this task does not change Estimate mutation semantics
+- supplier feed transport requires explicit operator configuration per Supplier; no supplier-SKU matching layer is implemented
+- pricing preview is not a persisted organization-wide pricing-policy/rules system
+- Material price-audit events and Estimate snapshots remain intentionally distinct history concepts
 
 ## Deferred work
 
-- first-class Costbook assembly management
-- pricing calculations and markup/rules foundation beyond the existing component-cost formulas
-- Estimate ↔ Costbook provenance/snapshot verification after assembly management
-- price history beyond current material price audits
-- supplier synchronization once real feed connectors exist
+- persisted organization pricing-policy/rule governance if repository evidence justifies it
+- richer supplier-specific connectors and matching beyond the generic trusted-feed transport
+- expanded historical pricing analytics/filters beyond the current read model
 - Athena Costbook recommendations/writes only after non-Athena Costbook dependencies are complete and governed
 - evaluate trigram indexing for `code` search paths if substring code lookup becomes a measurable bottleneck
 
 ## Last verified date
 
-2026-08-14
+2026-08-15
