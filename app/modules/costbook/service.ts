@@ -54,20 +54,20 @@ const workspaceAreas: CostbookWorkspaceArea[] = [
   {
     id: "assemblies",
     label: "Assemblies",
-    description: "Existing tenant-scoped assembly inventory.",
+    description: "Existing tenant-scoped assembly inventory with first-class Costbook management.",
     status: "existing_catalog",
   },
   {
     id: "pricing-rules",
-    label: "Pricing Rules",
-    description: "Reserved for future Costbook pricing governance.",
-    status: "future",
+    label: "Pricing",
+    description: "Calculation-only pricing preview using shared Estimate formulas; saved organization-wide pricing rules are not implemented.",
+    status: "foundation_only",
   },
   {
     id: "price-history",
     label: "Price History",
-    description: "Reserved for future Costbook price-history workflows.",
-    status: "future",
+    description: "Read model for audited material price changes and immutable Estimate pricing snapshots.",
+    status: "foundation_only",
   },
 ];
 

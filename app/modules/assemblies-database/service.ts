@@ -5,37 +5,39 @@ import { round2 } from "../estimate-engine/formulas";
 import {
   AddAssemblyItemInput,
   AssemblyDTO,
+  AssemblyItemDTO,
   AssemblyUnitCostResult,
   CreateAssemblyInput,
   UpdateAssemblyInput,
 } from "./types";
 
 // Assemblies Database module: composes multiple cost items (and, recursively,
-// other assemblies) into a single sellable unit (Deliverable 4 — assemblies
-// and assembly_items tables). Pricing is never duplicated, only referenced —
-// see the Architecture doc's Closing recommendation on this point.
+// other assemblies) into a single sellable unit. Pricing is never duplicated;
+// assemblies reference the canonical Costbook records and resolve current unit
+// cost only when a caller explicitly asks for it.
 export class AssembliesDatabaseService {
   private readonly costDatabase = new CostDatabaseService();
 
-  async list(orgId?: string): Promise<AssemblyDTO[]> {
-    const rows = await prisma.assembly.findMany({ where: orgId ? { orgId } : undefined, orderBy: { name: "asc" } });
+  async list(orgId: string): Promise<AssemblyDTO[]> {
+    const rows = await prisma.assembly.findMany({ where: { orgId }, orderBy: { name: "asc" } });
     return rows.map(toDTO);
   }
 
-  async search(query: string, orgId?: string): Promise<AssemblyDTO[]> {
+  async search(query: string, orgId: string): Promise<AssemblyDTO[]> {
     const rows = await prisma.assembly.findMany({
       where: {
         orgId,
         isActive: true,
         OR: [{ name: { contains: query, mode: "insensitive" } }, { code: { contains: query, mode: "insensitive" } }],
       },
+      orderBy: { name: "asc" },
       take: 50,
     });
     return rows.map(toDTO);
   }
 
   /** Common starting-point assemblies an org has marked for quick reuse on estimates. */
-  async listTemplates(orgId?: string): Promise<AssemblyDTO[]> {
+  async listTemplates(orgId: string): Promise<AssemblyDTO[]> {
     const rows = await prisma.assembly.findMany({
       where: { orgId, isTemplate: true, isActive: true },
       orderBy: { name: "asc" },
@@ -43,10 +45,39 @@ export class AssembliesDatabaseService {
     return rows.map(toDTO);
   }
 
-  async getById(id: string, orgId?: string): Promise<AssemblyDTO> {
+  async getById(id: string, orgId: string): Promise<AssemblyDTO> {
     const row = await prisma.assembly.findFirst({ where: { id, orgId } });
     if (!row) throw new ApiError(404, `Assembly ${id} not found`);
     return toDTO(row);
+  }
+
+  async listAssemblyItems(assemblyId: string, orgId: string): Promise<AssemblyItemDTO[]> {
+    await this.assertExists(assemblyId, orgId);
+    const rows = await prisma.assemblyItem.findMany({
+      where: { assemblyId, assembly: { orgId } },
+      include: {
+        costItem: { select: { code: true, name: true, unitOfMeasure: true } },
+        childAssembly: { select: { code: true, name: true, unitOfMeasure: true } },
+      },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    });
+
+    return rows.map((row) => {
+      const component = row.costItem ?? row.childAssembly;
+      if (!component) throw new ApiError(409, `AssemblyItem ${row.id} has no resolvable component`);
+      return {
+        id: row.id,
+        assemblyId: row.assemblyId,
+        costItemId: row.costItemId,
+        childAssemblyId: row.childAssemblyId,
+        quantityPerUnit: Number(row.quantityPerUnit),
+        sortOrder: row.sortOrder,
+        componentType: row.costItemId ? "cost_item" : "assembly",
+        componentCode: component.code,
+        componentName: component.name,
+        componentUnitOfMeasure: component.unitOfMeasure,
+      };
+    });
   }
 
   async create(input: CreateAssemblyInput): Promise<AssemblyDTO> {
@@ -63,7 +94,7 @@ export class AssembliesDatabaseService {
     return toDTO(row);
   }
 
-  async update(id: string, input: UpdateAssemblyInput, orgId?: string): Promise<AssemblyDTO> {
+  async update(id: string, input: UpdateAssemblyInput, orgId: string): Promise<AssemblyDTO> {
     await this.assertExists(id, orgId);
     const row = await prisma.assembly.update({
       where: { id },
@@ -79,12 +110,12 @@ export class AssembliesDatabaseService {
     return toDTO(row);
   }
 
-  async delete(id: string, orgId?: string): Promise<void> {
+  async delete(id: string, orgId: string): Promise<void> {
     await this.assertExists(id, orgId);
     await prisma.assembly.update({ where: { id }, data: { isActive: false } });
   }
 
-  async addAssemblyItem(input: AddAssemblyItemInput) {
+  async addAssemblyItem(input: AddAssemblyItemInput): Promise<AssemblyItemDTO> {
     if (!input.costItemId && !input.childAssemblyId) {
       throw new ApiError(400, "Either costItemId or childAssemblyId is required");
     }
@@ -93,14 +124,15 @@ export class AssembliesDatabaseService {
     }
     await this.assertExists(input.assemblyId, input.orgId);
     if (input.costItemId) {
-      const costItem = await prisma.costItem.findFirst({ where: { id: input.costItemId, orgId: input.orgId } });
-      if (!costItem) throw new ApiError(404, `CostItem ${input.costItemId} not found`);
+      const costItem = await prisma.costItem.findFirst({ where: { id: input.costItemId, orgId: input.orgId, isActive: true } });
+      if (!costItem) throw new ApiError(404, `Active CostItem ${input.costItemId} not found`);
     }
     if (input.childAssemblyId) {
-      await this.assertExists(input.childAssemblyId, input.orgId);
+      const child = await prisma.assembly.findFirst({ where: { id: input.childAssemblyId, orgId: input.orgId, isActive: true } });
+      if (!child) throw new ApiError(404, `Active Assembly ${input.childAssemblyId} not found`);
       await this.assertNoCycle(input.assemblyId, input.childAssemblyId, input.orgId);
     }
-    return prisma.assemblyItem.create({
+    const created = await prisma.assemblyItem.create({
       data: {
         assemblyId: input.assemblyId,
         costItemId: input.costItemId,
@@ -109,28 +141,34 @@ export class AssembliesDatabaseService {
         sortOrder: input.sortOrder ?? 0,
       },
     });
+    const exact = (await this.listAssemblyItems(input.assemblyId, input.orgId)).find((item) => item.id === created.id);
+    if (!exact) throw new ApiError(409, "Assembly component could not be reconciled after insert");
+    return exact;
   }
 
-  async removeAssemblyItem(assemblyItemId: string, orgId?: string): Promise<void> {
-    const row = await prisma.assemblyItem.findFirst({ where: { id: assemblyItemId, assembly: orgId ? { orgId } : undefined } });
+  async removeAssemblyItem(assemblyItemId: string, orgId: string): Promise<void> {
+    const row = await prisma.assemblyItem.findFirst({ where: { id: assemblyItemId, assembly: { orgId } } });
     if (!row) throw new ApiError(404, `AssemblyItem ${assemblyItemId} not found`);
     await prisma.assemblyItem.delete({ where: { id: assemblyItemId } });
   }
 
-  /**
-   * Recursively resolves an assembly's unit cost by summing its assembly_items,
-   * each multiplied by quantity_per_unit, descending into child assemblies.
-   * Guards against circular references via a visited-set, matching the
-   * cycle guard enforced at write time in addAssemblyItem/assertNoCycle.
-   */
-  async getAssemblyUnitCost(assemblyId: string, regionId?: string, visited: Set<string> = new Set(), orgId?: string): Promise<AssemblyUnitCostResult> {
+  /** Recursively resolves the current unit cost without mutating the assembly. */
+  async getAssemblyUnitCost(
+    assemblyId: string,
+    regionId: string | undefined,
+    visited: Set<string> = new Set(),
+    orgId: string
+  ): Promise<AssemblyUnitCostResult> {
+    if (!orgId) throw new ApiError(400, "Organization context is required for assembly pricing");
     if (visited.has(assemblyId)) {
       throw new ApiError(409, `Circular assembly reference detected at assembly ${assemblyId}`);
     }
-    visited.add(assemblyId);
+    const path = new Set(visited);
+    path.add(assemblyId);
+    await this.assertExists(assemblyId, orgId);
 
     const items = await prisma.assemblyItem.findMany({
-      where: { assemblyId, assembly: orgId ? { orgId } : undefined },
+      where: { assemblyId, assembly: { orgId } },
       orderBy: { sortOrder: "asc" },
     });
     let unitCost = 0;
@@ -141,7 +179,7 @@ export class AssembliesDatabaseService {
         const breakdown = await this.costDatabase.getUnitCost(item.costItemId, 1, regionId, orgId);
         unitCost += breakdown.totalUnitCost * qty;
       } else if (item.childAssemblyId) {
-        const child = await this.getAssemblyUnitCost(item.childAssemblyId, regionId, visited, orgId);
+        const child = await this.getAssemblyUnitCost(item.childAssemblyId, regionId, path, orgId);
         unitCost += child.unitCost * qty;
       }
     }
@@ -149,12 +187,10 @@ export class AssembliesDatabaseService {
     return { unitCost: round2(unitCost), componentCount: items.length };
   }
 
-  private async assertNoCycle(assemblyId: string, proposedChildId: string, orgId?: string): Promise<void> {
+  private async assertNoCycle(assemblyId: string, proposedChildId: string, orgId: string): Promise<void> {
     if (assemblyId === proposedChildId) {
       throw new ApiError(409, "An assembly cannot contain itself");
     }
-    // Walk the proposed child's descendants; if we encounter assemblyId, adding
-    // this edge would create a cycle.
     const stack = [proposedChildId];
     const seen = new Set<string>();
     while (stack.length) {
@@ -162,19 +198,19 @@ export class AssembliesDatabaseService {
       if (seen.has(current)) continue;
       seen.add(current);
       const children = await prisma.assemblyItem.findMany({
-        where: { assemblyId: current, childAssemblyId: { not: null }, assembly: orgId ? { orgId } : undefined },
+        where: { assemblyId: current, childAssemblyId: { not: null }, assembly: { orgId } },
         select: { childAssemblyId: true },
       });
-      for (const c of children) {
-        if (c.childAssemblyId === assemblyId) {
+      for (const child of children) {
+        if (child.childAssemblyId === assemblyId) {
           throw new ApiError(409, "Adding this child assembly would create a circular reference");
         }
-        if (c.childAssemblyId) stack.push(c.childAssemblyId);
+        if (child.childAssemblyId) stack.push(child.childAssemblyId);
       }
     }
   }
 
-  private async assertExists(id: string, orgId?: string): Promise<void> {
+  private async assertExists(id: string, orgId: string): Promise<void> {
     const exists = await prisma.assembly.findFirst({ where: { id, orgId } });
     if (!exists) throw new ApiError(404, `Assembly ${id} not found`);
   }

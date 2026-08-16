@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createCustomerAction } from "@/app/actions/customers";
+import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,10 +13,12 @@ export default function NewCustomerPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Add customer</h1>
-        <p className="text-sm text-muted-foreground">Enter the contact details you want on bids, proposals, invoices, and payment reminders.</p>
-      </div>
+      <PageHeader
+        title="Add customer"
+        description="Enter the contact details you want on bids, proposals, invoices, and payment reminders."
+        backHref="/customers"
+        backLabel="Back to customers"
+      />
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle>Customer details</CardTitle>

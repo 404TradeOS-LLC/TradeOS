@@ -41,12 +41,15 @@ export interface EstimateDTO {
 export interface EstimateLineItemDTO {
   id: string;
   estimateId: string;
+  /** Costbook provenance. Exactly one of costItemId/assemblyId is set for catalog-backed lines. */
   costItemId: string | null;
   assemblyId: string | null;
   description: string;
   quantity: number;
   unitOfMeasure: string;
+  /** Historical snapshot captured when the catalog-backed line was created. */
   unitCost: number;
+  /** Historical quantity × unit-cost snapshot; estimate recalculation reuses this persisted value. */
   lineCost: number;
   sortOrder: number;
   sourceKey: string | null;

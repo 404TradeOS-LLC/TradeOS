@@ -9,6 +9,9 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/dependabot-patch-automerge.yml
+  - .github/workflows/pr-maintenance.yml
+  - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
@@ -57,6 +60,8 @@ Expected verification jobs are:
 - `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
 - `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
 - `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
+
+The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
@@ -109,6 +114,16 @@ Re-run live read-only inspection before changing these statements or editing rep
 - do not merge with unresolved review threads;
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
+
+Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply.
+
+## Manual PR maintenance workflow
+
+`.github/workflows/pr-maintenance.yml` provides a guarded server-side branch-update path for an explicitly selected pull request. It is `workflow_dispatch` only and must remain operator-triggered rather than automatically mutating every open branch when `main` moves.
+
+The workflow may act only on an open pull request from this repository whose base is `main`. It must reject closed pull requests, fork-originated pull requests, and pull requests targeting another base branch. Its branch update must use GitHub's supported pull-request branch-update/rebase operation rather than custom force-push logic.
+
+PR maintenance does not grant merge authority. After a successful rebase, normal rules still apply: the branch must satisfy required checks, review-thread resolution, current-head verification, and all other live branch-protection requirements. Conflicts or unsupported server-side updates remain a stop condition for manual resolution in a normal git workspace.
 
 ## Autonomous maintenance governance
 
