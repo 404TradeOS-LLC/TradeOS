@@ -1,11 +1,16 @@
 import { Router } from "express";
 import { costbookController as ctrl } from "../controllers/costbook.controller";
+import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
+import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
+costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
+
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.search));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));
 costbookRouter.get("/cost-items/:id/unit-cost", asyncHandler(costItemCtrl.getUnitCost));
@@ -13,6 +18,19 @@ costbookRouter.get("/cost-items/:id", asyncHandler(costItemCtrl.getById));
 costbookRouter.post("/cost-items", asyncHandler(costItemCtrl.create));
 costbookRouter.patch("/cost-items/:id", asyncHandler(costItemCtrl.update));
 costbookRouter.delete("/cost-items/:id", asyncHandler(costItemCtrl.remove));
+
+costbookRouter.get("/assemblies", asyncHandler(assemblyCtrl.list));
+costbookRouter.get("/assemblies/search", asyncHandler(assemblyCtrl.search));
+costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates));
+costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
+costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
+costbookRouter.get("/assemblies/:id", asyncHandler(assemblyCtrl.getById));
+costbookRouter.post("/assemblies", asyncHandler(assemblyCtrl.create));
+costbookRouter.patch("/assemblies/:id", asyncHandler(assemblyCtrl.update));
+costbookRouter.delete("/assemblies/:id", asyncHandler(assemblyCtrl.remove));
+costbookRouter.post("/assemblies/:id/items", asyncHandler(assemblyCtrl.addItem));
+costbookRouter.delete("/assemblies/:id/items/:itemId", asyncHandler(assemblyCtrl.removeItem));
+
 costbookRouter.get("/equipment", asyncHandler(ctrl.listEquipment));
 costbookRouter.get("/equipment/:id", asyncHandler(ctrl.getEquipment));
 costbookRouter.post("/equipment", asyncHandler(ctrl.createEquipment));

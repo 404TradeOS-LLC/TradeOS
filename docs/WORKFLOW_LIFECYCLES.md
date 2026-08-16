@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -12,6 +12,7 @@ related_code:
   - app/modules/jobs/service.ts
   - app/modules/athena-events/transactionalContext.ts
   - app/modules/athena-events/transactionalPublishers.ts
+  - app/tests/estimate-costbook-snapshot.test.ts
 ---
 
 # Workflow Lifecycles
@@ -75,6 +76,14 @@ Compatibility persistence:
 - persisted values such as `rejected` normalize to canonical `declined`
 - proposal-linked downstream statuses are normalized for display through `legacyEstimateStatusMap`
 
+Pricing snapshot invariant:
+
+- Costbook-backed estimate lines persist `costItemId` or `assemblyId` provenance plus `unitCost` and `lineCost` at line creation time
+- subsequent Costbook price changes do not transition or silently reprice an existing Estimate line
+- estimate recalculation uses persisted line costs; it does not re-fetch current CostItem/Assembly pricing for existing lines
+- a newly added CostItem or Assembly line captures the current Costbook cost at creation time
+- duplication/versioning preserves the persisted source and pricing snapshot values
+
 Implementation notes:
 
 - `EstimateEngineService`'s cost/price rounding now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining its own private copy (a duplication cleanup with no change to rounding behavior or transition rules).
@@ -94,7 +103,9 @@ Current transition posture:
 
 - C001 creates the database and API foundation for Costbook workspace state, but no user-facing workflow currently transitions these states
 - `GET /api/v1/costbook/workspace` reports `foundation` when no organization workspace record has been initialized
-- future Costbook setup, import, pricing-rule, or review workflows must document their transition rules before mutating this state
+- the practical pricing preview and price-history views do not mutate Costbook workspace state
+- supplier feed ingestion queues review proposals only and does not represent a workspace-state transition or automatic catalog-price transition
+- future saved pricing-policy or import/review workflows must document their transition rules before mutating workspace state
 
 ## Proposals
 
