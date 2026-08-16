@@ -19,6 +19,7 @@ related_code:
   - .github/workflows/pr-maintenance.yml
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
+  - .github/workflows/nightly-repository-health.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -128,6 +129,10 @@ git diff --check
 ```
 
 The exact required-check and ruleset configuration remains live GitHub state and must be verified before changing repository controls.
+
+## Nightly repository health signal
+
+The diagnostic `Nightly repository health` workflow re-runs drift-sensitive repository checks outside the pull-request path. It is scheduled and manually dispatchable, uses read-only repository contents permission, and does not deploy, mutate production data, or replace the required PR verification gates. A nightly failure is a maintenance signal that must be investigated through the normal reconciliation and reviewed repair process.
 
 ## Current risks and guarded areas
 

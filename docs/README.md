@@ -24,6 +24,7 @@ related_code:
   - .github/workflows/pr-maintenance.yml
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
+  - .github/workflows/nightly-repository-health.yml
 ---
 
 # TradeOS Documentation
@@ -175,6 +176,10 @@ Rename handling:
 ## Dependabot patch auto-merge
 
 The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements.
+
+### Nightly repository health
+
+`.github/workflows/nightly-repository-health.yml` provides a scheduled and manually dispatchable diagnostic signal for dependency, Prisma, build, Athena-contract, tracked-source, and workflow-file drift. It is not a branch-protection requirement and does not deploy or mutate production data.
 
 ## Source-of-truth files
 
