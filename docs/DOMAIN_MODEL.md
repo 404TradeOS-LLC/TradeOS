@@ -59,6 +59,7 @@ A serviceable location for a customer stored in `ServiceAddress`.
 
 - belongs to one customer and one organization
 - can be attached to jobs, equipment assets, and service agreements
+- at most one `ServiceAddress` per customer is marked `isPrimary`; creating or updating an address as primary demotes any other primary address for that customer inside a single database transaction. A production bug in that transaction (`prisma.$transaction` called on the request-scoped client instead of the existing `runInDatabaseTransaction()` helper, which throws inside any real request) was fixed without changing this invariant; see [modules/crm.md](modules/crm.md).
 
 ## Equipment
 

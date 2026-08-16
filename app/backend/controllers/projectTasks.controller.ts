@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { requireOrgId, requirePermissions } from "../requestContext";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ProjectTasksService } from "../../modules/project-tasks/service";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { projectTaskPriorities, projectTaskStatuses } from "../../modules/project-tasks/types";
@@ -57,7 +58,7 @@ export const projectTasksController = {
     const auth = requirePermissions(req, ["crm.write"]);
     const body = createSchema.parse(req.body);
     const orgId = requireOrgId(req);
-    const task = await prisma.$transaction(async (transaction) => {
+    const task = await runInDatabaseTransaction(prisma, async (transaction) => {
       const taskService = new ProjectTasksService(transaction as typeof prisma);
       const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
       const createdTask = await taskService.create({
@@ -94,7 +95,7 @@ export const projectTasksController = {
     const auth = requirePermissions(req, ["crm.write"]);
     const body = updateSchema.parse(req.body);
     const orgId = requireOrgId(req);
-    const task = await prisma.$transaction(async (transaction) => {
+    const task = await runInDatabaseTransaction(prisma, async (transaction) => {
       const taskService = new ProjectTasksService(transaction as typeof prisma);
       const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
       const before = await taskService.getById(req.params.taskId, orgId);
@@ -143,7 +144,7 @@ export const projectTasksController = {
   async remove(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
     const orgId = requireOrgId(req);
-    await prisma.$transaction(async (transaction) => {
+    await runInDatabaseTransaction(prisma, async (transaction) => {
       const taskService = new ProjectTasksService(transaction as typeof prisma);
       const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
       const task = await taskService.getById(req.params.taskId, orgId);

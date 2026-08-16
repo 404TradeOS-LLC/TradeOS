@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-16
 source_of_truth: false
 related_code:
   - app/modules/brand-studio
@@ -46,6 +46,10 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 The shared document frame defines safe fallback CSS custom properties for its palette and typography so the stylesheet renders deterministically even before organization branding is injected. `renderDocumentFrameHtml()` still injects the organization's configured colors and font families at runtime and those values override the fallbacks. The fallback font stacks include a generic `sans-serif` family and do not change persisted Brand Studio settings or document data.
 
+## Implementation notes
+
+- Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `updateProfile`, `createAsset`, and `updateDocumentSettings` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. All three now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
+
 ## Tests
 
 - `app/tests/brand-studio.service.test.ts`
@@ -62,4 +66,4 @@ The shared document frame defines safe fallback CSS custom properties for its pa
 
 ## Last verified date
 
-2026-08-12
+2026-08-16
