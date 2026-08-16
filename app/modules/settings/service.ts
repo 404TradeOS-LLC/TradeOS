@@ -2,6 +2,7 @@ import type { AuthContext } from "../../backend/auth/context";
 import { AdminDashboardService } from "../admin-dashboard/service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import {
   OrganizationSettingsDTO,
@@ -65,7 +66,7 @@ export class OrganizationSettingsService {
 
     const settingsJson = input as unknown as Prisma.InputJsonValue;
 
-    const row = await prisma.$transaction(async (transaction) => {
+    const row = await runInDatabaseTransaction(prisma, async (transaction) => {
       await transaction.organization.update({
         where: { id: orgId },
         data: {

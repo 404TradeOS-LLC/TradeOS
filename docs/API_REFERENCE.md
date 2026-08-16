@@ -66,6 +66,8 @@ Known Prisma mappings include:
 
 `mapPrismaKnownRequestError` (the function implementing this mapping) is an internal helper local to `errorHandler.ts`; it is not exported, since no other module has ever needed to call it directly.
 
+Every authenticated request already runs inside a request-scoped `Prisma.TransactionClient` (`databaseSession` middleware, `app/db/requestSession.ts`), so service/controller code that needs its own nested transaction must call the existing `runInDatabaseTransaction()` helper rather than the shared `prisma` client's `.$transaction()` directly — the request-scoped transaction client has no `$transaction` method of its own, so calling it directly throws a `500`. This previously broke `PATCH /api/v1/settings` in production and was fixed alongside the same unexercised pattern in `crm`, `brand-studio`, and the project-tasks controller; see [modules/settings-and-operations.md](modules/settings-and-operations.md). `app/tests/requestScopedTransaction.convention.test.ts` guards against reintroducing this pattern.
+
 ## Route groups
 
 Mounted route groups from `app/backend/server.ts`:

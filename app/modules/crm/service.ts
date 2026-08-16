@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getCompanyLogoStorageAdapter } from "../company/storage";
 import {
@@ -112,7 +113,7 @@ export class CrmService {
   async addServiceAddress(orgId: string, customerId: string, input: ServiceAddressInput) {
     await this.assertCustomer(orgId, customerId);
 
-    return prisma.$transaction(async (transaction) => {
+    return runInDatabaseTransaction(prisma, async (transaction) => {
       if (input.isPrimary) {
         await transaction.serviceAddress.updateMany({
           where: { orgId, customerId, deletedAt: null },
@@ -143,7 +144,7 @@ export class CrmService {
     });
     if (!existing) throw new ApiError(404, `Service address ${addressId} not found`);
 
-    return prisma.$transaction(async (transaction) => {
+    return runInDatabaseTransaction(prisma, async (transaction) => {
       if (input.isPrimary) {
         await transaction.serviceAddress.updateMany({
           where: { orgId, customerId, deletedAt: null },
