@@ -9,8 +9,7 @@ on:
         type: number
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: pr-maintenance-${{ inputs.pr_number }}
@@ -20,6 +19,11 @@ jobs:
   rebase:
     name: Rebase PR onto main
     runs-on: ubuntu-latest
+    # GitHub's server-side PR rebase updates the selected branch and PR metadata;
+    # keep write scopes on this one manual job instead of the whole workflow.
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Validate pull request
         id: pr
