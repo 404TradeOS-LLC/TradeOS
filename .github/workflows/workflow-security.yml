@@ -28,10 +28,13 @@ jobs:
           ACTIONLINT_VERSION: "1.7.7"
         run: |
           set -euo pipefail
-          archive="actionlint_${ACTIONLINT_VERSION}_linux_x86_64.tar.gz"
-          curl --fail --silent --show-error --location \
-            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}" \
-            --output "$RUNNER_TEMP/$archive"
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          checksums="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          release_base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl --fail --silent --show-error --location "$release_base/$archive" --output "$RUNNER_TEMP/$archive"
+          curl --fail --silent --show-error --location "$release_base/$checksums" --output "$RUNNER_TEMP/$checksums"
+          grep -E "[[:space:]]${archive}$" "$RUNNER_TEMP/$checksums" > "$RUNNER_TEMP/actionlint-selected.sha256"
+          (cd "$RUNNER_TEMP" && sha256sum --check actionlint-selected.sha256)
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -version
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
@@ -57,9 +60,39 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
-            '.github/workflows/*.yml' '.github/workflows/*.yaml' \
-            '.github/actions/**/action.yml' '.github/actions/**/action.yaml')"
+
+          workflow_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            '.github/workflows/*.yml' '.github/workflows/*.yaml')"
+          action_changes="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '.github/actions/**')"
+          action_manifests=""
+
+          while IFS= read -r changed_file; do
+            [ -n "$changed_file" ] || continue
+            dir="$(dirname "$changed_file")"
+            manifest=""
+
+            while [[ "$dir" == .github/actions* ]]; do
+              if [ -f "$dir/action.yml" ]; then
+                manifest="$dir/action.yml"
+                break
+              fi
+              if [ -f "$dir/action.yaml" ]; then
+                manifest="$dir/action.yaml"
+                break
+              fi
+              parent="$(dirname "$dir")"
+              [ "$parent" != "$dir" ] || break
+              dir="$parent"
+            done
+
+            if [ -z "$manifest" ]; then
+              echo "::error file=$changed_file::Changed file under .github/actions is not contained by an action.yml or action.yaml manifest."
+              exit 1
+            fi
+            action_manifests="${action_manifests}${manifest}"$'\n'
+          done <<< "$action_changes"
+
+          files="$(printf '%s\n%s\n' "$workflow_files" "$action_manifests" | sed '/^[[:space:]]*$/d' | sort -u)"
           {
             echo 'files<<EOF'
             printf '%s\n' "$files"
