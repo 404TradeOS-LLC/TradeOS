@@ -18,7 +18,7 @@ jobs:
     name: Lint GitHub Actions workflows
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install pinned actionlint
         shell: bash
@@ -42,11 +42,11 @@ jobs:
     name: Enforce workflow security policy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
-      - name: Identify changed workflow files
+      - name: Identify changed workflow and composite-action files
         id: changed
         shell: bash
         env:
@@ -54,7 +54,9 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '.github/workflows/*.yml' '.github/workflows/*.yaml')"
+          files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            '.github/workflows/*.yml' '.github/workflows/*.yaml' \
+            '.github/actions/**/action.yml' '.github/actions/**/action.yaml')"
           {
             echo 'files<<EOF'
             printf '%s\n' "$files"
@@ -68,37 +70,93 @@ jobs:
           FILES: ${{ steps.changed.outputs.files }}
         run: |
           set -euo pipefail
-          failed=0
+          ruby <<'RUBY'
+          require "yaml"
 
-          while IFS= read -r file; do
-            [ -n "$file" ] || continue
-            [ -f "$file" ] || continue
-            echo "Checking $file"
+          files = ENV.fetch("FILES", "").lines.map(&:strip).reject(&:empty?).select { |file| File.file?(file) }
+          failed = false
+          event_expression = /\$\{\{\s*github\.event\.(issue|pull_request|comment|review|discussion)\b[^}]*\}\}/
 
-            if grep -nE '^[[:space:]]*pull_request_target:' "$file"; then
-              echo "::error file=$file::pull_request_target is prohibited without an explicit security exception."
-              failed=1
-            fi
+          def prohibited_trigger?(value)
+            case value
+            when String
+              value == "pull_request_target"
+            when Array
+              value.any? { |entry| prohibited_trigger?(entry) }
+            when Hash
+              value.keys.any? { |key| key.to_s == "pull_request_target" }
+            else
+              false
+            end
+          end
 
-            if grep -nE '^[[:space:]]*permissions:[[:space:]]*write-all([[:space:]]|$)' "$file"; then
-              echo "::error file=$file::permissions: write-all is prohibited."
-              failed=1
-            fi
+          def inspect_permissions(value, file, scope)
+            return false if value.nil?
+            if value.to_s == "write-all"
+              puts "::error file=#{file}::#{scope} permissions: write-all is prohibited."
+              return true
+            end
+            return false unless value.is_a?(Hash)
 
-            if grep -nE '^[[:space:]]*actions:[[:space:]]*write([[:space:]]|$)' "$file"; then
-              echo "::error file=$file::actions: write requires explicit review and is prohibited by the default workflow policy."
-              failed=1
-            fi
+            failed = false
+            { "actions" => "actions: write", "id-token" => "id-token: write" }.each do |key, label|
+              next unless value[key].to_s == "write"
+              puts "::error file=#{file}::#{scope} #{label} is prohibited by the default workflow policy."
+              failed = true
+            end
+            failed
+          end
 
-            if grep -nE '^[[:space:]]*id-token:[[:space:]]*write([[:space:]]|$)' "$file"; then
-              echo "::error file=$file::id-token: write requires an explicit OIDC exception and is prohibited by the default workflow policy."
-              failed=1
-            fi
+          def inspect_commands(node, file, expression, path = [])
+            failed = false
+            case node
+            when Hash
+              node.each do |key, value|
+                if %w[run script].include?(key.to_s) && value.is_a?(String) && value.match?(expression)
+                  puts "::error file=#{file}::Untrusted github.event content is interpolated directly into #{(path + [key]).join('.')} command text."
+                  failed = true
+                end
+                failed = true if inspect_commands(value, file, expression, path + [key])
+              end
+            when Array
+              node.each_with_index do |value, index|
+                failed = true if inspect_commands(value, file, expression, path + [index])
+              end
+            end
+            failed
+          end
 
-            if grep -nE '\$\{\{[[:space:]]*github\.event\.(issue|pull_request|comment|review|discussion).*\}\}' "$file" | grep -E 'run:|script:'; then
-              echo "::error file=$file::Untrusted event content must not be interpolated directly into run/script commands."
-              failed=1
-            fi
-          done <<< "$FILES"
+          files.each do |file|
+            puts "Checking #{file}"
+            data = YAML.safe_load(File.read(file), aliases: true) || {}
+            unless data.is_a?(Hash)
+              puts "::error file=#{file}::Expected a YAML mapping at the document root."
+              failed = true
+              next
+            end
 
-          exit "$failed"
+            if file.start_with?(".github/workflows/")
+              trigger = data.key?("on") ? data["on"] : data[true]
+              if prohibited_trigger?(trigger)
+                puts "::error file=#{file}::pull_request_target is prohibited without an explicit security exception."
+                failed = true
+              end
+
+              failed = true if inspect_permissions(data["permissions"], file, "workflow")
+              jobs = data["jobs"]
+              if jobs.is_a?(Hash)
+                jobs.each do |job_name, job|
+                  next unless job.is_a?(Hash)
+                  failed = true if inspect_permissions(job["permissions"], file, "job #{job_name}")
+                end
+              end
+            end
+
+            failed = true if inspect_commands(data, file, event_expression)
+          rescue Psych::SyntaxError => error
+            puts "::error file=#{file}::Invalid YAML: #{error.message.lines.first.to_s.strip}"
+            failed = true
+          end
+
+          exit(failed ? 1 : 0)
+          RUBY
