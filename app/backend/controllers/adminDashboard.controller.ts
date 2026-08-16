@@ -8,9 +8,11 @@ const service = new AdminDashboardService();
 
 export const adminDashboardController = {
   async getOrganization(req: Request, res: Response) {
+    requireOrgAccess(req, req.params.id);
     res.json(await service.getOrganization(req.params.id));
   },
   async updateOrganization(req: Request, res: Response) {
+    requireOrgAccess(req, req.params.id);
     const schema = z.object({ name: z.string().optional(), regionCode: z.string().optional() });
     res.json(await service.updateOrganization(req.params.id, schema.parse(req.body)));
   },
