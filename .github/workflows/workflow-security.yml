@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           release_base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          curl --fail --silent --show-error --location "$release_base/$archive" --output "$RUNNER_TEMP/$archive"
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 "$release_base/$archive" --output "$RUNNER_TEMP/$archive"
           printf '%s  %s\n' "$ACTIONLINT_SHA256" "$RUNNER_TEMP/$archive" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -version
@@ -109,7 +109,8 @@ jobs:
 
           files = ENV.fetch("FILES", "").lines.map(&:strip).reject(&:empty?).select { |file| File.file?(file) }
           failed = false
-          event_expression = /\$\{\{\s*github\.event\.(issue|pull_request|comment|review|discussion)\b[^}]*\}\}/
+          expression_pattern = /\$\{\{.*?\}\}/m
+          event_reference = /github\.event\.(issue|pull_request|comment|review|discussion)\b/
 
           def prohibited_trigger?(value)
             case value
@@ -141,20 +142,23 @@ jobs:
             failed
           end
 
-          def inspect_commands(node, file, expression, path = [])
+          def inspect_commands(node, file, expression_pattern, event_reference, path = [])
             failed = false
             case node
             when Hash
               node.each do |key, value|
-                if %w[run script].include?(key.to_s) && value.is_a?(String) && value.match?(expression)
-                  puts "::error file=#{file}::Untrusted github.event content is interpolated directly into #{(path + [key]).join('.')} command text."
-                  failed = true
+                if %w[run script].include?(key.to_s) && value.is_a?(String)
+                  unsafe_expression = value.scan(expression_pattern).find { |expression| expression.match?(event_reference) }
+                  if unsafe_expression
+                    puts "::error file=#{file}::Untrusted github.event content is interpolated directly into #{(path + [key]).join('.')} command text."
+                    failed = true
+                  end
                 end
-                failed = true if inspect_commands(value, file, expression, path + [key])
+                failed = true if inspect_commands(value, file, expression_pattern, event_reference, path + [key])
               end
             when Array
               node.each_with_index do |value, index|
-                failed = true if inspect_commands(value, file, expression, path + [index])
+                failed = true if inspect_commands(value, file, expression_pattern, event_reference, path + [index])
               end
             end
             failed
@@ -162,7 +166,7 @@ jobs:
 
           files.each do |file|
             puts "Checking #{file}"
-            data = YAML.safe_load(File.read(file), aliases: true) || {}
+            data = YAML.safe_load(File.read(file), aliases: false) || {}
             unless data.is_a?(Hash)
               puts "::error file=#{file}::Expected a YAML mapping at the document root."
               failed = true
@@ -186,7 +190,7 @@ jobs:
               end
             end
 
-            failed = true if inspect_commands(data, file, event_expression)
+            failed = true if inspect_commands(data, file, expression_pattern, event_reference)
           rescue Psych::Exception => error
             puts "::error file=#{file}::Invalid YAML: #{error.message.lines.first.to_s.strip}"
             failed = true
