@@ -12,6 +12,7 @@ related_code:
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/pr-maintenance.yml
   - .github/workflows/dependency-review.yml
+  - .github/workflows/workflow-security.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -67,6 +68,8 @@ A green required-check set is the minimum evidence for autonomous merge eligibil
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
 Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. Any application-runtime version change remains a separate compatibility decision and must be validated as such.
+
+Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live ruleset verification confirms it has been added there.
 
 ## Solo-maintainer review posture
 
