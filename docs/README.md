@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -20,6 +20,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/dependabot-patch-automerge.yml
 ---
 
 # TradeOS Documentation
@@ -161,6 +162,10 @@ Rename handling:
 - `docs/README.md` is reserved for documentation-governance, hierarchy, ownership-rule, checker, PR-template, and docs-workflow changes — enforced mechanically: any change to `docs/DOC_OWNERSHIP.yml` requires `docs/README.md` and `docs/REPOSITORY_GOVERNANCE.md` to also change in the same PR
 - controller and middleware files should be listed when they own module-specific validation, permission, throttling, or security behavior; for example, AI estimator controller and rate-limit changes are owned by the AI Estimate Assist documentation set
 - package-level data corpora are listed when their content feeds a documented runtime consumer; for example, `packages/knowledge-engine/**` runtime and vendored-content changes are owned by `packages/knowledge-engine/README.md`, which is the package's own canonical entry point rather than a `docs/modules/*.md` file
+
+## Dependabot patch auto-merge
+
+The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements.
 
 ## Source-of-truth files
 

@@ -273,3 +273,7 @@ Current CI workflows:
 - [modules/customer-portal.md](modules/customer-portal.md)
 - [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
 - [modules/settings-and-operations.md](modules/settings-and-operations.md)
+
+## In-flight frontend UX hardening
+
+- PR #211 (`fix/dashboard-navigation-ux`) is an in-flight, frontend-only RC1 hardening pass. It repairs dashboard weather address selection so today's first real job-site address takes priority, with a fallback only to a non-empty persisted organization address from the settings API (never the demo/default address); keeps upstream weather failures fail-soft; aligns responsive navigation controls with the collapsed-primary-nav breakpoint; retains mobile command-palette access and the shared `Tools & admin` hierarchy; uses shared `PageHeader` context on Projects/New Project/New Customer; normalizes primary navigation icon semantics; and replaces the dashboard quick-action `Soon` pill with the shared `Badge` primitive. The PR does not change backend APIs, auth/RLS, database schema, Costbook domain behavior, or Athena orchestration, and it remains draft until required CI plus authenticated rendered viewport verification are complete.

@@ -135,11 +135,19 @@ export default async function CostbookPage() {
             {countCards.map((card) => {
               const Icon = card.icon;
               const content = (
-                <Card className="h-full border-border/70 transition-colors hover:border-border">
+                <Card
+                  className={
+                    card.href
+                      ? "h-full border-border/70 transition-colors hover:border-foreground/30"
+                      : "h-full border-dashed border-border/70 bg-muted/10"
+                  }
+                >
                   <CardHeader className="flex flex-row items-start justify-between gap-3">
                     <div>
                       <CardTitle>{card.label}</CardTitle>
-                      <CardDescription>Organization-scoped records</CardDescription>
+                      <CardDescription>
+                        {card.href ? "Open organization-scoped records" : "Summary only · no dedicated workspace yet"}
+                      </CardDescription>
                     </div>
                     <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
                   </CardHeader>
@@ -150,7 +158,11 @@ export default async function CostbookPage() {
               );
 
               return card.href ? (
-                <Link key={card.key} href={card.href} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                <Link
+                  key={card.key}
+                  href={card.href}
+                  className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
                   {content}
                 </Link>
               ) : (
