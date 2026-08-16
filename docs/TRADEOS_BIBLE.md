@@ -46,8 +46,8 @@ and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
 foundation) and PR #151 (Costbook hierarchy RLS/parent activity hardening), is
 also resolved as of the 2026-08-16 reconciliation (#151 merged, #128 closed
 unmerged and superseded by merged PR #183). S027 is still not promoted to
-`READY` here: substantial further Costbook work has since merged (PR #183,
-#210, #216), so a dedicated live-verified scope/overlap review is required
+`READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
+and PR #216), so a dedicated live-verified scope/overlap review is required
 before promotion, not just confirmation that the old blocking PRs are gone.
 Re-read live GitHub state before any later promotion.
 

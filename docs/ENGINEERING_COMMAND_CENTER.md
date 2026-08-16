@@ -76,7 +76,7 @@ Prioritize existing authorized work before inventing new scope. As of the 2026-0
 3. **PR #229 / #227 / #226 / #225 — CI/workflow governance additions** (nightly repository health, workflow security gate, dependency review gate, guarded PR maintenance workflow); no runtime behavior change.
 4. **PR #217 — Server Action partial-write compensation** for estimate-intake photo uploads; clean mergeable state.
 
-The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap.
+The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap. This resolved-history note intentionally covers only items that remained in that active overlap queue; broader resolved maintenance history such as PR #171, PR #169, and superseded PRs #130/#131 remains recorded in `docs/SPRINT_BACKLOG.md` and the hardening baseline above.
 
 ## Autonomous maintenance operating mode
 
