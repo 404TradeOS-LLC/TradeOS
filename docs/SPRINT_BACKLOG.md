@@ -406,15 +406,9 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-16 reconciliation, notable live work includes:
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the post-PR-#232 reconciliation, **zero PRs are open repository-wide.**
 
-- PR #231 — dashboard hierarchy/navigation affordance hardening (Phase 2 follow-up to merged #211); frontend-only, clean mergeable state.
-- PR #230 — docs reconciliation of `CURRENT_STATE.md`/`SESSION_HANDOFF.md` after PR #211; docs-only.
-- PR #229 — nightly repository-health CI workflow (diagnostic, read-only).
-- PR #227 — workflow security gate CI policy for `.github/workflows/**`.
-- PR #226 — dependency review gate CI workflow.
-- PR #225 — guarded, manual-only PR maintenance/rebase workflow.
-- PR #217 — Server Action partial-write compensation for estimate-intake photo uploads; clean mergeable state.
+The set previously cited here as live (PR #217, #225, #226, #227, #229, #230, #231) is fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged, superseded by PR #232's own (broader) reconciliation. #232 itself has since also merged as `61afd39`, alongside PR #233 (admin organization tenant-boundary fix, merged `607e6c2`), PR #234 (docs evidence for #233), PR #235 (request-scoped `runInDatabaseTransaction` routing fix), and PR #236 (docs reconciliation after #231). None of these introduce new overlap against any `PLANNED`/`BLOCKED` numbered sprint below.
 
 The prior 2026-08-12-era out-of-band list (PR #151, PR #128, PR #145/issue #144, PR #171, PR #169, PRs #130/#131, issue #153) is fully resolved: #151, #169, and #144's eventual replacement (#191) merged; #128, #145, and #171 closed unmerged and were superseded by equivalent merged work; and issue #153 closed completed. None remain live overlap risk.
 
@@ -427,5 +421,5 @@ Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after ch
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`. S006 and S013 now have merged completion evidence. S027's 2026-08-12 blockers (PR #128, PR #151) are resolved, but S027 remains `BLOCKED` pending its own dedicated live-verified readiness pass — not decided by this reconciliation. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Reverify live GitHub state. As of 2026-08-16, live overlap is repository-automation and bounded-fix PRs (#217, #225, #226, #227, #229, #230, #231) rather than numbered-sprint work; none conflict with a numbered sprint. Existing authorized PRs should be advanced instead of duplicated.
+Overlap check: Reverify live GitHub state — it changes quickly. As of the post-PR-#232 reconciliation, zero PRs are open repository-wide (see "Current out-of-band authorized work" above); there is no existing PR to advance instead of duplicating.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

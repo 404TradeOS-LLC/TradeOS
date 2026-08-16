@@ -49,7 +49,11 @@ unmerged and superseded by merged PR #183). S027 is still not promoted to
 `READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
 and PR #216), so a dedicated live-verified scope/overlap review is required
 before promotion, not just confirmation that the old blocking PRs are gone.
-Re-read live GitHub state before any later promotion.
+Re-read live GitHub state before any later promotion. Reconciled again in the
+post-PR-#232 pass: no additional Costbook-scope PR has opened since, and the
+repository-wide out-of-band PR queue this paragraph's promotion gate does not
+depend on is separately confirmed empty in `docs/SPRINT_BACKLOG.md`; the
+dedicated Costbook scope/overlap review requirement above is unchanged.
 
 ## Volume I — Vision
 
