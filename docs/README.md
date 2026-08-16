@@ -108,7 +108,7 @@ build signal.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
 
-Changes under `.github/workflows/**` and `.github/actions/**` are additionally checked by `workflow-security.yml`. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
+Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
 The enforcement flow is:
 
