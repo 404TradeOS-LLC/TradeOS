@@ -105,7 +105,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Auth and tenancy
 - CRM: customers, service addresses, customer equipment, service agreements, notes, company profile
 - Projects and project workspace
-- Site visit intake
+- Site visit intake: intake saves can capture notes, measurements, and project photos; if a later photo-metadata write fails after earlier metadata rows were persisted, the action compensates those persisted rows before storage cleanup. If metadata compensation itself fails, the corresponding storage object is preserved so surviving metadata never points at an object the action deleted, and cleanup failures do not mask the original intake error.
 - Cost book: divisions, categories, subcategories, cost items, labor, materials, equipment, assemblies
 - Costbook workspace foundation and materials catalog: unified `/api/v1/costbook/workspace` and `/api/v1/costbook/materials` boundaries, Costbook-specific permission keys, org-scoped workspace foundation tables, organization-scoped material reads/writes, and `/costbook` plus `/costbook/materials` web routes with live catalog data and honest loading/empty/error states
 - Costbook equipment catalog foundation (C004, merged via PR #183): organization-scoped equipment list/detail/create/update/delete under `/api/v1/costbook/equipment`, legacy equipment-route permission alignment, owner/admin-managed forced-RLS writes, cent-safe hourly-cost derivation, nullable daily-rate clearing, and `/costbook/equipment` with real-data loading/error/empty/read-only/mutation states. PR #203 adds a bounded 15-second equipment-page load timeout and locks editable form state/transitions while save or delete mutations are pending.

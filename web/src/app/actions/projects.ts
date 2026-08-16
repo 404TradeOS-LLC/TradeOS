@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError, Estimate } from "@/lib/api";
+import { apiFetch, ApiClientError, Estimate, ProjectFile } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
@@ -155,6 +155,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
 
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "project-files";
   const uploadedEntries: Array<{ path: string; fileName: string }> = [];
+  const persistedPhotoFiles: Array<{ id: string; path: string }> = [];
 
   try {
     await apiFetch(`/api/v1/projects/${projectId}/site-visits`, {
@@ -198,7 +199,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
 
     for (const entry of uploadedEntries) {
       const fileUrl = buildStorageObjectUrl(bucket, entry.path, isPublicStorageBucket());
-      await apiFetch(`/api/v1/projects/${projectId}/files`, {
+      const persistedFile = await apiFetch<ProjectFile>(`/api/v1/projects/${projectId}/files`, {
         method: "POST",
         token: token ?? undefined,
         body: JSON.stringify({
@@ -208,12 +209,33 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
           storagePath: entry.path,
         }),
       });
+      persistedPhotoFiles.push({ id: persistedFile.id, path: entry.path });
     }
   } catch (err) {
-    if (uploadedEntries.length > 0) {
-      const supabase = await createSupabaseClient();
-      await supabase.storage.from(bucket).remove(uploadedEntries.map((entry) => entry.path));
+    const storagePathsToRemove = new Set(uploadedEntries.map((entry) => entry.path));
+
+    for (const persistedFile of persistedPhotoFiles) {
+      try {
+        await apiFetch(`/api/v1/projects/${projectId}/files/${persistedFile.id}`, {
+          method: "DELETE",
+          token: token ?? undefined,
+        });
+      } catch {
+        // Preserve the storage object when metadata cleanup fails so the
+        // surviving metadata row never points at an object we just deleted.
+        storagePathsToRemove.delete(persistedFile.path);
+      }
     }
+
+    if (storagePathsToRemove.size > 0) {
+      try {
+        const supabase = await createSupabaseClient();
+        await supabase.storage.from(bucket).remove([...storagePathsToRemove]);
+      } catch {
+        // Cleanup is best-effort and must never mask the original intake error.
+      }
+    }
+
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
   }
 
