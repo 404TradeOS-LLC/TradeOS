@@ -16,6 +16,7 @@ import {
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getCurrentWeekPaymentLedger } from "@/lib/payment-ledger";
 import { getSession, getSessionToken } from "@/lib/session";
+import { loadDashboardWeather, selectDashboardWeatherAddress } from "@/lib/dashboard-weather";
 import { getWeatherForAddress } from "@/lib/weather";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import { buttonVariants } from "@/components/ui/button";
@@ -134,8 +135,11 @@ export default async function DashboardPage() {
       ])
     : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }, null];
 
-  const todaySiteAddress = todaySchedule.items.find((job) => job.project?.siteAddress)?.project?.siteAddress ?? null;
-  const weather = todaySiteAddress ? await getWeatherForAddress(todaySiteAddress).catch(() => null) : null;
+  const weatherAddress = selectDashboardWeatherAddress({
+    jobSiteAddresses: todaySchedule.items.map((job) => job.project?.siteAddress),
+    persistedOrganizationAddress: settingsResponse?.settings?.address,
+  });
+  const weather = await loadDashboardWeather(weatherAddress, getWeatherForAddress);
 
   const now = new Date();
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);

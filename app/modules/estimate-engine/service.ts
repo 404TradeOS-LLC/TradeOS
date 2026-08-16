@@ -111,6 +111,7 @@ export class EstimateEngineService {
   }
 
   async addLineItem(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
+    if (!input.orgId) throw new ApiError(400, "Organization context is required for estimate catalog mutations");
     await this.assertDraft(input.estimateId, input.orgId);
     if (!input.costItemId && !input.assemblyId) {
       throw new ApiError(400, "Either costItemId or assemblyId is required");

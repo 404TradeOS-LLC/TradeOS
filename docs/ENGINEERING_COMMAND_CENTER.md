@@ -15,6 +15,8 @@ related_code:
   - .github/CODEOWNERS
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
+  - .github/workflows/dependabot-patch-automerge.yml
+  - .github/workflows/pr-maintenance.yml
   - .github/workflows/dependency-review.yml
 ---
 
@@ -97,6 +99,8 @@ Production repair should use the health split first:
 - `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
 - both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
 
+The guarded `PR maintenance` workflow is manual-only (`workflow_dispatch`). Given an explicit open same-repository PR number targeting `main`, it may request GitHub to rebase that PR branch onto current `main`; it refuses forks, closed PRs, and non-`main` bases. It does not bypass review, required checks, branch protection, or conflict resolution requirements.
+
 ## Required verification
 
 Expected required CI jobs include:
@@ -109,6 +113,8 @@ Expected required CI jobs include:
 The dedicated `Dependency review` workflow runs on pull requests with read-only repository contents access and fails when a PR introduces a dependency with a known **high** or **critical** vulnerability. It complements, rather than replaces, the package-manager audits already exercised by the main verification workflow. If made a required check in the live GitHub ruleset, its exact check name and enforcement status must be verified from GitHub before being documented as active branch protection.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
+
+The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands.
 
 Documentation foundation/governance work should run:
 

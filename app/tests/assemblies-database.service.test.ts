@@ -25,6 +25,7 @@ describe("AssembliesDatabaseService", () => {
   });
 
   it("recursively rolls up nested assemblies", async () => {
+    mockPrisma.assembly.findFirst.mockImplementation(({ where }) => Promise.resolve({ id: where.id, orgId: where.orgId }));
     mockPrisma.assemblyItem.findMany.mockImplementation(({ where }) => {
       if (where.assemblyId === "assembly-parent") {
         return Promise.resolve([
@@ -59,11 +60,14 @@ describe("AssembliesDatabaseService", () => {
     const service = new AssembliesDatabaseService();
     const result = await service.getAssemblyUnitCost("assembly-parent", undefined, new Set(), "org-1");
 
+    expect(mockPrisma.assembly.findFirst).toHaveBeenCalledWith({ where: { id: "assembly-parent", orgId: "org-1" } });
+    expect(mockPrisma.assembly.findFirst).toHaveBeenCalledWith({ where: { id: "assembly-child", orgId: "org-1" } });
     expect(result.unitCost).toBeCloseTo(60, 2);
     expect(result.componentCount).toBe(1);
   });
 
   it("rejects circular assembly references", async () => {
+    mockPrisma.assembly.findFirst.mockImplementation(({ where }) => Promise.resolve({ id: where.id, orgId: where.orgId }));
     mockPrisma.assemblyItem.findMany.mockImplementation(({ where }) => {
       if (where.assemblyId === "assembly-parent") {
         return Promise.resolve([
@@ -182,13 +186,13 @@ describe("AssembliesDatabaseService", () => {
         isActive: true,
       });
 
-      await new AssembliesDatabaseService().update("assembly-1", { isTemplate: true }, "org-1");
+      const result = await new AssembliesDatabaseService().update("assembly-1", { isTemplate: true }, "org-1");
 
       expect(mockPrisma.assembly.update).toHaveBeenCalledWith({
         where: { id: "assembly-1" },
         data: expect.objectContaining({ isTemplate: true }),
       });
+      expect(result.isTemplate).toBe(true);
     });
   });
 });
-
