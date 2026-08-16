@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { voidContractAction } from "@/app/actions/contracts";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
+import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,13 +19,12 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`/projects/${projectId}`} className="text-sm text-muted-foreground underline">
-        ← Back to project
-      </Link>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Contract</h1>
-        <StatusBadge status={contract.status} />
-      </div>
+      <PageHeader
+        title="Contract"
+        backHref={`/projects/${projectId}`}
+        backLabel="Back to project"
+        action={<StatusBadge status={contract.status} />}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <Card className="border-border/70">
