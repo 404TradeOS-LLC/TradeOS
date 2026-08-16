@@ -26,15 +26,13 @@ jobs:
         shell: bash
         env:
           ACTIONLINT_VERSION: "1.7.7"
+          ACTIONLINT_SHA256: "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757"
         run: |
           set -euo pipefail
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          checksums="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
           release_base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
           curl --fail --silent --show-error --location "$release_base/$archive" --output "$RUNNER_TEMP/$archive"
-          curl --fail --silent --show-error --location "$release_base/$checksums" --output "$RUNNER_TEMP/$checksums"
-          grep -E "[[:space:]]${archive}$" "$RUNNER_TEMP/$checksums" > "$RUNNER_TEMP/actionlint-selected.sha256"
-          (cd "$RUNNER_TEMP" && sha256sum --check actionlint-selected.sha256)
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$RUNNER_TEMP/$archive" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -version
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
@@ -189,7 +187,7 @@ jobs:
             end
 
             failed = true if inspect_commands(data, file, event_expression)
-          rescue Psych::SyntaxError => error
+          rescue Psych::Exception => error
             puts "::error file=#{file}::Invalid YAML: #{error.message.lines.first.to_s.strip}"
             failed = true
           end
