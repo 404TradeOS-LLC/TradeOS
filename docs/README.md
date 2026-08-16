@@ -21,6 +21,7 @@ related_code:
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
   - .github/workflows/dependabot-patch-automerge.yml
+  - .github/workflows/pr-maintenance.yml
 ---
 
 # TradeOS Documentation
@@ -43,13 +44,15 @@ Use these files first:
 - `docs/RBAC_MATRIX.md` for canonical roles and permission expectations
 - `docs/WORKFLOW_LIFECYCLES.md` for status vocabulary and transition rules
 - `docs/ROADMAP.md` for future work only
-- `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, and label taxonomy
+- `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, and manual PR-maintenance controls
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 - `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)
 - `docs/athena/SECURITY_MODEL.md` for Athena trust boundaries, approval rules, and forbidden patterns
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
+
+The `PR maintenance` workflow is also manual-only. It accepts an explicit open same-repository PR number targeting `main` and requests GitHub to rebase that branch onto current `main`; it must not bypass branch protection, required checks, review requirements, fork restrictions, or merge-conflict handling.
 
 ## Current versus archived
 
