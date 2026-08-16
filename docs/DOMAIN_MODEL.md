@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -208,8 +208,9 @@ the same request-scoped session model as the rest of Athena's runtime tables.
 
 ## Athena action idempotency
 
-A6 action-execution reliability uses `athena_action_idempotency` as an internal
-control record for dedup-eligible production actions.
+**Unreleased (PR #214):** the durable A6 action-idempotency implementation described below exists on PR #214 and must not be treated as shipped on `main` or available in production until that PR is merged and deployed.
+
+PR #214 introduces `athena_action_idempotency` as an internal control record for dedup-eligible production actions:
 
 - each reservation is uniquely scoped by organization, tool id, tool version,
   and caller-supplied idempotency key;
@@ -279,6 +280,10 @@ C005 exposes the existing `Division`, `Category`, and `Subcategory` models throu
 - delete is soft-deactivate only (`isActive = false`); child `Category`/`Subcategory`/`CostItem` rows are never cascade-deleted through the Costbook API, even though the underlying Prisma relations define `onDelete: Cascade` for a true hard delete
 - C005 tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary to the Costbook-specific owner/admin boundary, matching C002/C003; legacy `estimator` loses direct database write access to these three tables
 - C005 does not add pricing calculations, estimate integration, or Athena advisor state
+
+## Costbook assemblies and historical pricing
+
+PR #216 does not add replacement catalog entities. It promotes the existing `Assembly` and `AssemblyItem` models under the canonical Costbook workflow and strengthens database checks so parent Assembly, referenced CostItem, and referenced child Assembly remain in the authenticated organization. Estimate lines continue to persist `costItemId` or `assemblyId` provenance together with `unitCost` and `lineCost`; those persisted values are historical pricing snapshots and are not rewritten when current Costbook prices later change. `MaterialPriceAudit` remains the catalog price-change record; Estimate snapshots are a separate read-model input rather than price-change events.
 
 ## Core relationships
 

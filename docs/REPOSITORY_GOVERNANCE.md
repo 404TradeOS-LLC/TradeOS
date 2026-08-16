@@ -9,6 +9,7 @@ related_code:
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
+  - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/pr-maintenance.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
@@ -107,6 +108,8 @@ Re-run live read-only inspection before changing these statements or editing rep
 - do not merge with unresolved review threads;
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
+
+Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply.
 
 ## Manual PR maintenance workflow
 

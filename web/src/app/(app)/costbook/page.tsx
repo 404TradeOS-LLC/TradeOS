@@ -9,7 +9,7 @@ import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Costbook | TradeOS",
-  description: "Costbook workspace foundation for tenant-scoped pricing intelligence, catalog visibility, permissions, and future governed pricing workflows.",
+  description: "Tenant-scoped Costbook catalogs, assemblies, pricing previews, and governed price-history workflows.",
 };
 
 const countCards: {
@@ -23,7 +23,7 @@ const countCards: {
   { key: "materials", label: "Materials", icon: Package, href: "/costbook/materials" },
   { key: "laborRates", label: "Labor Rates", icon: Hammer, href: "/costbook/labor-rates" },
   { key: "equipment", label: "Equipment", icon: Wrench, href: "/costbook/equipment" },
-  { key: "assemblies", label: "Assemblies", icon: ShieldCheck },
+  { key: "assemblies", label: "Assemblies", icon: ShieldCheck, href: "/costbook/assemblies" },
 ];
 
 const areaIcons = {
@@ -34,6 +34,15 @@ const areaIcons = {
   "pricing-rules": CircleDollarSign,
   "price-history": History,
 } satisfies Record<CostbookWorkspaceSummary["areas"][number]["id"], typeof Package>;
+
+const areaHrefs = {
+  materials: "/costbook/materials",
+  labor: "/costbook/labor-rates",
+  equipment: "/costbook/equipment",
+  assemblies: "/costbook/assemblies",
+  "pricing-rules": "/costbook/pricing",
+  "price-history": "/costbook/price-history",
+} satisfies Record<CostbookWorkspaceSummary["areas"][number]["id"], string>;
 
 function toErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) return error.message;
@@ -69,7 +78,7 @@ export default async function CostbookPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Costbook"
-        description="Pricing workspace foundation for tenant-scoped catalog visibility, Costbook permissions, and future commercial intelligence workflows."
+        description="Tenant-scoped estimating catalogs with first-class Cost Items and Assemblies, practical pricing previews, and governed pricing history."
       />
 
       {loadError ? (
@@ -126,11 +135,19 @@ export default async function CostbookPage() {
             {countCards.map((card) => {
               const Icon = card.icon;
               const content = (
-                <Card className="h-full border-border/70 transition-colors hover:border-border">
+                <Card
+                  className={
+                    card.href
+                      ? "h-full border-border/70 transition-colors hover:border-foreground/30"
+                      : "h-full border-dashed border-border/70 bg-muted/10"
+                  }
+                >
                   <CardHeader className="flex flex-row items-start justify-between gap-3">
                     <div>
                       <CardTitle>{card.label}</CardTitle>
-                      <CardDescription>Organization-scoped records</CardDescription>
+                      <CardDescription>
+                        {card.href ? "Open organization-scoped records" : "Summary only · no dedicated workspace yet"}
+                      </CardDescription>
                     </div>
                     <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
                   </CardHeader>
@@ -141,7 +158,11 @@ export default async function CostbookPage() {
               );
 
               return card.href ? (
-                <Link key={card.key} href={card.href} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                <Link
+                  key={card.key}
+                  href={card.href}
+                  className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
                   {content}
                 </Link>
               ) : (
@@ -154,22 +175,24 @@ export default async function CostbookPage() {
             {workspace.areas.map((area) => {
               const Icon = areaIcons[area.id];
               return (
-                <div key={area.id} className="rounded-lg border border-border/70 bg-surface p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="grid size-10 place-items-center rounded-md border border-border/70 bg-background">
-                        <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
-                      </span>
-                      <div>
-                        <h2 className="text-base font-semibold text-foreground">{area.label}</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">{area.description}</p>
+                <Link key={area.id} href={areaHrefs[area.id]} className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+                  <div className="h-full rounded-lg border border-border/70 bg-surface p-4 transition-colors hover:border-border">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="grid size-10 place-items-center rounded-md border border-border/70 bg-background">
+                          <Icon aria-hidden="true" className="size-5 text-muted-foreground" />
+                        </span>
+                        <div>
+                          <h2 className="text-base font-semibold text-foreground">{area.label}</h2>
+                          <p className="mt-1 text-sm text-muted-foreground">{area.description}</p>
+                        </div>
                       </div>
+                      <span className="rounded-full border border-border/70 bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        {getAreaStatusLabel(area.status)}
+                      </span>
                     </div>
-                    <span className="rounded-full border border-border/70 bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {getAreaStatusLabel(area.status)}
-                    </span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </section>

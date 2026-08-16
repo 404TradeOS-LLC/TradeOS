@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-11
+last_verified: 2026-08-15
 source_of_truth: false
 related_code:
   - app/modules/estimate-engine
@@ -9,6 +9,7 @@ related_code:
   - web/src/app/(app)/projects/[id]/estimates
   - web/src/lib/estimate-compare.ts
   - app/modules/athena-tools/estimator
+  - app/tests/estimate-costbook-snapshot.test.ts
 ---
 
 # Estimating
@@ -44,6 +45,18 @@ Current enforced rule:
 
 - estimate mutations are draft-only until the estimate is finalized to `ready`
 
+## Costbook provenance and pricing snapshots
+
+Estimate line items preserve the Costbook source and price that existed when the line was created. `costItemId` or `assemblyId` identifies the source, while persisted `unitCost` and `lineCost` are historical pricing snapshots rather than live pointers to current Costbook pricing.
+
+- recalculation of an existing Estimate uses persisted line costs and does not re-fetch current CostItem or Assembly unit cost
+- changing later Costbook pricing does not silently mutate an already-created Estimate line
+- a newly added CostItem or Assembly line resolves the current source cost at creation time and persists that value on the line
+- estimate duplication/versioning copies the persisted source IDs and pricing values, preserving historical pricing context
+- this verification does not add a second Estimate/Costbook integration path and does not introduce Athena Estimate writes
+
+Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.ts`.
+
 ## Frontend surfaces
 
 - `/projects/[id]/estimates/[estimateId]`
@@ -54,6 +67,7 @@ Current enforced rule:
 
 - `app/tests/estimate-engine.service.test.ts`
 - `app/tests/estimate-engine.formulas.test.ts`
+- `app/tests/estimate-costbook-snapshot.test.ts`
 - `app/tests/athena-tools.estimator.create-estimate.contracts.test.ts`
 - `app/tests/athena-tools.estimator.update-estimate.contracts.test.ts`
 - `app/tests/athena-tools.estimator.analyze-estimate.contracts.test.ts`
@@ -69,11 +83,13 @@ Current enforced rule:
 ## Known limitations
 
 - downstream commercial workflows still rely on compatibility status normalization in some paths
+- Costbook pricing preview remains calculation-only; it is not a saved organization pricing-policy system
 
 ## Deferred work
 
 - fuller estimate lifecycle normalization beyond the current finalize step
+- richer historical pricing comparison/reporting may build on the persisted snapshot semantics without repricing historical lines
 
 ## Last verified date
 
-2026-08-11
+2026-08-15

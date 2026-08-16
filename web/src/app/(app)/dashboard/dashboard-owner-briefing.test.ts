@@ -9,7 +9,7 @@ function readSource(relativePath: string): string {
   return fs.readFileSync(path.join(here, relativePath), "utf8");
 }
 
-test("owner briefing is backed by live read-only TradeOS signals", () => {
+test("owner briefing remains backed by live read-only TradeOS signals", () => {
   const source = readSource("../../../components/dashboard/owner-briefing-panel.tsx");
 
   assert.match(source, /getDispatchSummary\(token\)/);
@@ -28,10 +28,12 @@ test("owner briefing does not claim Athena business-tool execution", () => {
   assert.doesNotMatch(source, /method:\s*["']POST["']/);
 });
 
-test("legacy dashboard import resolves to the live briefing instead of placeholder copy", () => {
-  const source = readSource("../../../components/dashboard/ai-assistant-placeholder-panel.tsx");
+test("legacy primary-dashboard slot is suppressed while the briefing remains available for drill-in", () => {
+  const compatibilitySource = readSource("../../../components/dashboard/ai-assistant-placeholder-panel.tsx");
+  const briefingSource = readSource("../../../components/dashboard/owner-briefing-panel.tsx");
 
-  assert.match(source, /OwnerBriefingPanel as AIAssistantPlaceholderPanel/);
-  assert.doesNotMatch(source, /Not connected/);
-  assert.doesNotMatch(source, /disabled dashboard foundation slot/);
+  assert.match(compatibilitySource, /export function AIAssistantPlaceholderPanel/);
+  assert.match(compatibilitySource, /return null/);
+  assert.doesNotMatch(compatibilitySource, /OwnerBriefingPanel as AIAssistantPlaceholderPanel/);
+  assert.match(briefingSource, /export async function OwnerBriefingPanel/);
 });

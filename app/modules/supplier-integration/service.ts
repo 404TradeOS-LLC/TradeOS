@@ -2,6 +2,7 @@ import { prisma, basePrisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { AuthContext } from "../../backend/auth/context";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { fetchConfiguredSupplierFeed } from "./feed";
 import {
   EnqueuePriceUpdateInput,
   ListQueueFilters,
@@ -11,20 +12,12 @@ import {
   SyncFromFeedResult,
 } from "./types";
 
-// No live supplier feed exists yet (MVP scope) — this stub always reports
-// nothing to propose. A real implementation (REST pull, webhook consumer,
-// file drop parser) can be injected via the constructor without touching
-// the queue/review/worker plumbing below.
-async function stubFetchSupplierFeed(): Promise<never[]> {
-  return [];
-}
-
-// Supplier Integrations module: queued-review staging for supplier-fed price
-// proposals (see modules/material-database/service.ts's prior placeholder
-// comment). A sync job enqueues proposals here instead of writing straight
-// to materials; an admin/owner reviews and approves/rejects each one.
+// Supplier Integrations module: supplier-fed prices are proposals, never direct
+// autonomous writes. The default fetcher is operator-configured and remains a
+// no-op when no endpoint mapping is configured. Approval is still required
+// before a Material price changes.
 export class SupplierIntegrationService {
-  constructor(private readonly fetchFeed: SupplierFeedFetcher = stubFetchSupplierFeed) {}
+  constructor(private readonly fetchFeed: SupplierFeedFetcher = fetchConfiguredSupplierFeed) {}
 
   async listQueue(orgId: string, filters: ListQueueFilters = {}): Promise<SupplierPriceUpdateDTO[]> {
     const rows = await prisma.supplierPriceUpdate.findMany({
@@ -106,42 +99,72 @@ export class SupplierIntegrationService {
     });
   }
 
-  // Fetches quotes from the (currently stubbed) supplier feed and enqueues
-  // one proposal per material whose quoted price actually differs from the
-  // current price and isn't already awaiting review. Intended to run inside
-  // runWithBackgroundDatabaseSession, not as part of a normal HTTP request.
   async syncFromFeed(input: SyncFromFeedInput): Promise<SyncFromFeedResult> {
-    const quotes = await this.fetchFeed(input.supplierId);
-    let proposed = 0;
-    let skipped = 0;
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: input.supplierId, orgId: input.orgId },
+      select: { id: true },
+    });
+    if (!supplier) throw new ApiError(404, `Supplier ${input.supplierId} not found`);
 
-    for (const quote of quotes) {
-      const material = await prisma.material.findFirst({ where: { id: quote.materialId, orgId: input.orgId } });
-      if (!material || Number(material.unitCost) === quote.proposedUnitCost) {
-        skipped += 1;
-        continue;
+    const quotes = await this.fetchFeed(input.supplierId, input.orgId);
+    if (quotes.length === 0) return { proposed: 0, skipped: 0 };
+
+    return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      const uniqueQuotes = new Map<string, number>();
+      let skipped = 0;
+      for (const quote of quotes) {
+        if (uniqueQuotes.has(quote.materialId)) {
+          skipped += 1;
+          continue;
+        }
+        uniqueQuotes.set(quote.materialId, quote.proposedUnitCost);
       }
 
-      const alreadyPending = await prisma.supplierPriceUpdate.findFirst({
-        where: { orgId: input.orgId, materialId: quote.materialId, supplierId: input.supplierId, status: "pending" },
-      });
-      if (alreadyPending) {
-        skipped += 1;
-        continue;
+      const materialIds = [...uniqueQuotes.keys()];
+      const [materials, pending] = await Promise.all([
+        transaction.material.findMany({
+          where: { orgId: input.orgId, id: { in: materialIds } },
+          select: { id: true, unitCost: true },
+        }),
+        transaction.supplierPriceUpdate.findMany({
+          where: {
+            orgId: input.orgId,
+            supplierId: input.supplierId,
+            status: "pending",
+            materialId: { in: materialIds },
+          },
+          select: { materialId: true },
+        }),
+      ]);
+
+      const materialsById = new Map(materials.map((material) => [material.id, material]));
+      const pendingMaterialIds = new Set(pending.map((row) => row.materialId));
+      const proposals = [];
+
+      for (const [materialId, proposedUnitCost] of uniqueQuotes) {
+        const material = materialsById.get(materialId);
+        if (!material || Number(material.unitCost) === proposedUnitCost || pendingMaterialIds.has(materialId)) {
+          skipped += 1;
+          continue;
+        }
+
+        proposals.push({
+          orgId: input.orgId,
+          supplierId: input.supplierId,
+          materialId,
+          currentUnitCost: material.unitCost,
+          proposedUnitCost,
+          source: "supplier-feed",
+          requestedByJob: input.requestedByJob,
+        });
       }
 
-      await this.enqueue({
-        orgId: input.orgId,
-        supplierId: input.supplierId,
-        materialId: quote.materialId,
-        proposedUnitCost: quote.proposedUnitCost,
-        source: "supplier-feed",
-        requestedByJob: input.requestedByJob,
-      });
-      proposed += 1;
-    }
+      if (proposals.length > 0) {
+        await transaction.supplierPriceUpdate.createMany({ data: proposals });
+      }
 
-    return { proposed, skipped };
+      return { proposed: proposals.length, skipped };
+    });
   }
 }
 
