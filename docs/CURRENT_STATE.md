@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-16
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -43,6 +43,8 @@ related_code:
   - web/src/components/ui/select-field.tsx
   - web/src/lib/document-workflow.ts
   - web/src/lib/weather.ts
+  - web/src/lib/dashboard-weather.ts
+  - web/src/components/projects/project-header.tsx
   - web/src/app/actions/settings.ts
   - web/src/lib/storage.ts
   - web/src/lib/settingsAssetUpload.ts
@@ -92,7 +94,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `main` commit `5d3b3a22a5011e5cbdeab796dddf9230b322a93c` on 2026-08-14 after merged PR #191 (`57f4fe6d37538c755529b099ae79bc425e4d055d`), the landed C004/C005 Costbook work, and unrelated deployment-enablement PR #212. This branch adds first-class CostItem management by reusing the existing CostItem/CostDatabase implementation; it does not add schema, migrations, RLS policy definitions, pricing-engine infrastructure, Estimate mutation semantics, or Athena behavior. Runtime implementation claims remain grounded in the code paths and merged evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `main` commit `3f18caf62c81746fdf9ee7f0ff611bcc96e9ca85` on 2026-08-16 after merged PR #211 (`fix/dashboard-navigation-ux`, squash-merged by `BillyKShowalter`). This reconciliation pass corrects the prior in-flight description of PR #211 (below and in "Recent verified changes") to match its actual landed diff: it does not add schema, migrations, RLS policy definitions, backend routes, or Athena behavior. Runtime implementation claims remain grounded in the code paths and merged evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
@@ -209,6 +211,7 @@ See module docs in `docs/modules/`.
 
 - Web frontend deployment foundation: the separate `tradeos-costbook-web` Vercel project now has READY Preview and production deployments, including a production deployment from `main` commit `2d80214a` on 2026-08-04. `web/.env.example` documents the frontend's server-only and browser-visible configuration contract with placeholders only, while `web/src/lib/envSecurity.test.ts` guards against importing `SUPABASE_SERVICE_ROLE_KEY` into a `"use client"` dependency graph. `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and `web/scripts/preview-smoke-check.mjs` provide repeatable validation for existing Preview deployments. Repository state cannot prove that every Vercel environment value is present or correct, so environment configuration remains a deployment check. No CORS, cookie, proxy/middleware, or backend auth code changed.
 - `web/proxy.ts` was never actually running: `web/` uses a `src/` layout (`web/src/app`), and Next.js only auto-detects `proxy.ts`/`middleware.ts` at the project root **or** inside `src/` if the project has one — not both. It sat at the wrong location with no build error or warning, so `updateSession` (the Supabase session refresh that gates `/dashboard`, `/customers`, `/projects`, `/dispatch`) silently never ran. Fixed by moving it to `web/src/proxy.ts` (also renaming its `proxyConfig` export to the required `config` name — the same naming bug independently fixed in the sibling `404-tradeos` marketing site's own `proxy.ts`). `web/next.config.ts`'s `turbopack.root` is now pinned explicitly to the repo root rather than left to Next.js's auto-inference: Turbopack does not honor `experimental.externalDir` (that flag only affects the webpack build path), so `web/src/domain`'s cross-directory re-export of `app/domain` only resolves because `turbopack.root` literally includes both directories; auto-inference landed on the same directory but emitted a spurious "multiple lockfiles" warning because of the repo root's own docs-governance `package-lock.json`. Verified via build output (`ƒ Proxy (Middleware)` now present) and behaviorally (unauthenticated requests to `/dashboard` and `/customers` now invoke `updateSession`, while `/login` correctly does not). Separately, `app/backend/server.ts`'s previously-unrestricted `cors()` is now an explicit allowlist (`app/backend/middleware/productionHardening.ts`: `isAllowedCorsOrigin`/`buildCorsOriginHandler`) — the production frontend (`https://app.404tradeos.com`), any `tradeos-costbook-web` Vercel Preview deployment, and localhost, extensible via `CORS_ADDITIONAL_ORIGINS`. Auth is bearer-token-only (no cookies), so the prior wide-open policy was not a credential-hijack risk, but the allowlist is tighter without hardcoding a single origin that would break Preview deployments.
+- Dashboard navigation/UX repair merged as PR #211 (`fix/dashboard-navigation-ux`), squash-merged to `main` at `3f18caf62c81746fdf9ee7f0ff611bcc96e9ca85` on 2026-08-16. This supersedes the "Dashboard weather widget" entry above: standing dashboard weather is now fully removed rather than address-prioritized with an organization-address fallback — `selectDashboardWeatherAddress` (`web/src/lib/dashboard-weather.ts`) always returns `null`, so `/dashboard` never performs a Census/NWS lookup; weather is deferred to a future job-scoped exterior-work/adverse-forecast slice, not implemented here. It also supersedes the owner-dashboard-header shape described in the "Implemented modules" entry above: `OwnerDashboardHeader` (`web/src/components/dashboard/owner-dashboard-header.tsx`) is now a compact status band (company, date, project scope, a single `On track` / `Needs attention · N` badge, one `Review work` action) with the separate KPI review-queue panel and quick-link row removed; `OwnerQuickActions`' disabled-action `Soon` marker now renders through the shared `Badge` primitive instead of hand-rolled markup. The compatibility `AIAssistantPlaceholderPanel` (`web/src/components/dashboard/ai-assistant-placeholder-panel.tsx`) now renders `null` instead of re-exporting `OwnerBriefingPanel`, so the owner briefing no longer competes with Today's Schedule in the primary dashboard row; `OwnerBriefingPanel` itself is unchanged and still available for a future dedicated drill-in. `OwnerTodaySchedule` now spans the full desktop row. The dashboard `Create Estimate` quick action is relabeled `Choose Project for Estimate` (still routes to `/projects`, which owns estimate creation). Costbook's `/costbook` Assemblies card is now visibly dashed/muted and labeled "Summary only · no dedicated workspace yet" rather than sharing the same interactive hover treatment as the linked Cost Items card. Projects/New Project/New Customer use the shared `PageHeader` component with back-links; project detail (`web/src/components/projects/project-header.tsx`) gained a "Back to projects" link. Primary nav icons were normalized to destination-appropriate Lucide icons and the desktop/mobile secondary nav consistently reads `Tools & admin`. No backend route, auth/RLS, database schema, Costbook business rule, or Athena orchestration change was introduced.
 
 ## Known blockers and unresolved technical debt
 
@@ -272,7 +275,3 @@ Current CI workflows:
 - [modules/customer-portal.md](modules/customer-portal.md)
 - [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
 - [modules/settings-and-operations.md](modules/settings-and-operations.md)
-
-## In-flight frontend UX hardening
-
-- PR #211 (`fix/dashboard-navigation-ux`) is an in-flight, frontend-only RC1 hardening pass. It repairs dashboard weather address selection so today's first real job-site address takes priority, with a fallback only to a non-empty persisted organization address from the settings API (never the demo/default address); keeps upstream weather failures fail-soft; aligns responsive navigation controls with the collapsed-primary-nav breakpoint; retains mobile command-palette access and the shared `Tools & admin` hierarchy; uses shared `PageHeader` context on Projects/New Project/New Customer; normalizes primary navigation icon semantics; and replaces the dashboard quick-action `Soon` pill with the shared `Badge` primitive. The PR does not change backend APIs, auth/RLS, database schema, Costbook domain behavior, or Athena orchestration, and it remains draft until required CI plus authenticated rendered viewport verification are complete.
