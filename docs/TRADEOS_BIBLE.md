@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-16
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -42,10 +42,14 @@ sprints. Completion of S006 does not automatically promote any of those
 
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
-and #96 have merged, but S027 remains non-executable while current Costbook work
-owns overlapping runtime, migration, test, and UI surfaces—most notably PR #128
-(C004 equipment catalog foundation) and PR #151 (Costbook hierarchy RLS/parent
-activity hardening). Re-read live GitHub state before any later promotion.
+and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
+foundation) and PR #151 (Costbook hierarchy RLS/parent activity hardening), is
+also resolved as of the 2026-08-16 reconciliation (#151 merged, #128 closed
+unmerged and superseded by merged PR #183). S027 is still not promoted to
+`READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
+and PR #216), so a dedicated live-verified scope/overlap review is required
+before promotion, not just confirmation that the old blocking PRs are gone.
+Re-read live GitHub state before any later promotion.
 
 ## Volume I — Vision
 

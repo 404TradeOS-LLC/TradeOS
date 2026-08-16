@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-16
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -16,10 +16,6 @@ related_code:
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/dependabot-patch-automerge.yml
-  - .github/workflows/pr-maintenance.yml
-  - .github/workflows/dependency-review.yml
-  - .github/workflows/workflow-security.yml
-  - .github/workflows/nightly-repository-health.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -68,20 +64,19 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 - S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged, but current Costbook overlap exists in PR #128 and PR #151.
+- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged. Its 2026-08-12 blockers PR #128 and PR #151 are also resolved as of 2026-08-16 (#151 merged, #128 closed unmerged/superseded by merged PR #183), but S027 promotion still needs its own dedicated live-verified scope/overlap review against the further Costbook work merged since (PR #183, #210, #216) — see `docs/SPRINT_BACKLOG.md`.
 - No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope:
+Prioritize existing authorized work before inventing new scope. As of the 2026-08-16 reconciliation, the live out-of-band queue is:
 
-1. **PR #151 — Costbook hierarchy RLS/parent activity hardening.** High-value security/data-integrity work with a forward migration, so it remains protected PR-only/human-decision work. Its previous documentation blocker has been repaired. CodeRabbit then identified two substantive integrity/test-isolation findings that were implemented: parent deactivation is rejected while active descendants remain, and cross-organization RLS tests now isolate tenant-policy rejection from active-parent trigger rejection. Fresh required CI/review evidence is still required before merge.
-2. **PR #128 — C004 equipment catalog foundation.** Large Costbook feature/migration/UI PR. Rebase and reconcile deliberately against current `main` and C005-era hierarchy changes; do not treat it as maintenance auto-merge.
-3. **PR #145 / issue #144 — Athena transactional event persistence.** Draft and intentionally incomplete; production changes and rollback/failure tests remain before readiness.
+1. **PR #231 — dashboard hierarchy/navigation affordance hardening.** Phase 2 follow-up to merged #211; frontend-only, clean mergeable state.
+2. **PR #230 — docs reconciliation of `CURRENT_STATE.md`/`SESSION_HANDOFF.md`** after PR #211; docs-only.
+3. **PR #229 / #227 / #226 / #225 — CI/workflow governance additions** (nightly repository health, workflow security gate, dependency review gate, guarded PR maintenance workflow); no runtime behavior change.
+4. **PR #217 — Server Action partial-write compensation** for estimate-intake photo uploads; clean mergeable state.
 
-Athena production-readiness work on top of the kernel-foundation dependency now includes durable approvals, audit persistence, operator approval review, and real customer/estimate/costbook context providers. Because this scope includes new migration-backed tables and RLS policies, it remains PR-only/human-decision work even when the code diff itself is bounded.
-
-Open issue inventory verified during reconciliation includes issue #144 for Athena transactional event reliability and issue #153 for Costbook hierarchy activation permissions/migration sequencing.
+The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap. This resolved-history note intentionally covers only items that remained in that active overlap queue; broader resolved maintenance history such as PR #171, PR #169, and superseded PRs #130/#131 remains recorded in `docs/SPRINT_BACKLOG.md` and the hardening baseline above.
 
 ## Autonomous maintenance operating mode
 
@@ -101,8 +96,6 @@ Production repair should use the health split first:
 - `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
 - both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
 
-The guarded `PR maintenance` workflow is manual-only (`workflow_dispatch`). Given an explicit open same-repository PR number targeting `main`, it may request GitHub to rebase that PR branch onto current `main`; it refuses forks, closed PRs, and non-`main` bases. It does not bypass review, required checks, branch protection, or conflict resolution requirements.
-
 ## Required verification
 
 Expected required CI jobs include:
@@ -112,11 +105,7 @@ Expected required CI jobs include:
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
-The dedicated `Dependency review` workflow runs on pull requests with read-only repository contents access and fails when a PR introduces a dependency with a known **high** or **critical** vulnerability. It complements, rather than replaces, the package-manager audits already exercised by the main verification workflow. If made a required check in the live GitHub ruleset, its exact check name and enforcement status must be verified from GitHub before being documented as active branch protection.
-
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
-
-Workflow changes also receive a supplemental `Workflow security` check. It runs pinned `actionlint` directly on the runner and rejects default-prohibited workflow patterns such as `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event content into shell/script commands. It is supplemental CI unless the live GitHub ruleset is separately updated to require it.
 
 The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands.
 
@@ -129,10 +118,6 @@ git diff --check
 ```
 
 The exact required-check and ruleset configuration remains live GitHub state and must be verified before changing repository controls.
-
-## Nightly repository health signal
-
-The diagnostic `Nightly repository health` workflow re-runs drift-sensitive repository checks outside the pull-request path. It is scheduled and manually dispatchable, uses read-only repository contents permission, and does not deploy, mutate production data, or replace the required PR verification gates. A nightly failure is a maintenance signal that must be investigated through the normal reconciliation and reviewed repair process.
 
 ## Current risks and guarded areas
 
@@ -148,7 +133,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-There is no numbered `READY` sprint at this handoff. Advance or reconcile existing authorized work first—especially protected Costbook PR #151 and overlapping C004 PR #128—without bypassing migration, RLS, documentation, review, or current-base requirements. If existing PR work should not proceed, perform a governance-only readiness review and promote exactly one eligible `PLANNED` sprint before implementation.
+There is no numbered `READY` sprint at this handoff. Advance or reconcile existing live out-of-band work first (see the Active engineering queue above) without bypassing migration, RLS, documentation, review, or current-base requirements. If existing PR work should not proceed, perform a governance-only readiness review — S027 is the most likely candidate given its prior blockers are resolved — and promote exactly one eligible `PLANNED` sprint before implementation.
 
 ## Source-of-truth links
 
