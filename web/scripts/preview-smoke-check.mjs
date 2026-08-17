@@ -164,7 +164,7 @@ async function fetchNoRedirect(path) {
     headers: { "user-agent": "TradeOS-preview-smoke-check/1.0" },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  const body = await response.text().catch(() => "");
+  const body = await response.text();
   return { response, body };
 }
 
@@ -255,7 +255,14 @@ async function checkBackendJson(path, describe) {
   const status = response.status;
   const location = response.headers.get("location");
   const headersCombined = [...response.headers.entries()].map(([k, v]) => `${k}: ${v}`).join("\n");
-  const body = await response.text().catch(() => "");
+  let body;
+  try {
+    body = await response.text();
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === "TimeoutError";
+    logResult(false, `backend ${path} body readable`, isTimeout ? `timed out after ${FETCH_TIMEOUT_MS}ms` : err instanceof Error ? err.message : String(err));
+    return;
+  }
 
   // 4. Security scanning runs against the raw text regardless of whether it
   // turns out to be valid JSON — a non-JSON error body can leak a secret
