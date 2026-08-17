@@ -47,6 +47,19 @@ function containsForbiddenHost(value, hosts) {
   return hosts.some((host) => lower.includes(host.toLowerCase()));
 }
 
+function normalizedHostname(value) {
+  try {
+    return new URL(value).hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function targetsForbiddenHost(value, hosts) {
+  const hostname = normalizedHostname(value);
+  return hostname !== null && hosts.some((host) => hostname === host.toLowerCase().replace(/\.$/, ""));
+}
+
 const args = process.argv.slice(2);
 const positionalArg = args.find((arg) => !arg.startsWith("--"));
 const optionArgs = args.filter((arg) => arg.startsWith("--"));
@@ -74,7 +87,7 @@ if (unknownOptions.length > 0) {
 // be caught.
 for (const [label, value] of [["PREVIEW_URL", baseUrlArg], ["BACKEND_URL", backendUrlArg]]) {
   if (!value) continue;
-  if (containsForbiddenHost(value, ALWAYS_FORBIDDEN_HOSTS)) {
+  if (targetsForbiddenHost(value, ALWAYS_FORBIDDEN_HOSTS)) {
     console.error(`[FAIL] environment safety: ${label} contains a forbidden Production host`);
     console.error(`${label} must point at a staging deployment, never Production.`);
     process.exit(1);
