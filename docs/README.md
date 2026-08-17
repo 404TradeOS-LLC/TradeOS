@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-17
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -25,6 +25,7 @@ related_code:
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
+  - .github/workflows/preview-smoke-check.yml
 ---
 
 # TradeOS Documentation
@@ -117,6 +118,8 @@ The dedicated dependency-review workflow is a pull-request security gate with re
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
+
+The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
 The enforcement flow is:
 
