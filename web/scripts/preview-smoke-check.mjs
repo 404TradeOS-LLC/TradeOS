@@ -40,6 +40,12 @@
 // Exit code is non-zero if any check fails.
 
 const ALWAYS_FORBIDDEN_HOSTS = ["api.404tradeos.com", "kssaceuetdjwfqnbzhly.supabase.co"];
+const FETCH_TIMEOUT_MS = 10_000;
+
+function containsForbiddenHost(value, hosts) {
+  const lower = value.toLowerCase();
+  return hosts.some((host) => lower.includes(host.toLowerCase()));
+}
 
 const args = process.argv.slice(2);
 const positionalArg = args.find((arg) => !arg.startsWith("--"));
@@ -68,12 +74,10 @@ if (unknownOptions.length > 0) {
 // be caught.
 for (const [label, value] of [["PREVIEW_URL", baseUrlArg], ["BACKEND_URL", backendUrlArg]]) {
   if (!value) continue;
-  for (const forbidden of ALWAYS_FORBIDDEN_HOSTS) {
-    if (value.includes(forbidden)) {
-      console.error(`[FAIL] environment safety: ${label} contains forbidden Production host "${forbidden}"`);
-      console.error(`${label} must point at a staging deployment, never Production.`);
-      process.exit(1);
-    }
+  if (containsForbiddenHost(value, ALWAYS_FORBIDDEN_HOSTS)) {
+    console.error(`[FAIL] environment safety: ${label} contains a forbidden Production host`);
+    console.error(`${label} must point at a staging deployment, never Production.`);
+    process.exit(1);
   }
 }
 
@@ -158,6 +162,7 @@ async function fetchNoRedirect(path) {
   const response = await fetch(new URL(path.replace(/^\//, ""), baseUrl), {
     redirect: "manual",
     headers: { "user-agent": "TradeOS-preview-smoke-check/1.0" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   const body = await response.text().catch(() => "");
   return { response, body };
@@ -213,44 +218,76 @@ async function checkRoute({ path, expect }) {
       throw new Error(`unknown expectation: ${expect}`);
   }
 
-  scanForSecrets(body, path);
   const responseHeaders = [...response.headers.entries()].map(([name, value]) => `${name}: ${value}`).join("\n");
+  scanForSecrets(body, path);
   scanForSecrets(responseHeaders, `${path} response headers`);
 
   for (const forbidHost of forbidHosts) {
-    const combined = `${body}\n${[...response.headers.entries()].map(([k, v]) => `${k}: ${v}`).join("\n")}`;
-    logResult(!combined.includes(forbidHost), `${path} does not leak forbidden host "${forbidHost}"`);
+    logResult(!containsForbiddenHost(`${body}\n${responseHeaders}`, [forbidHost]), `${path} does not leak forbidden host "${forbidHost}"`);
   }
 
   return { status, location, body };
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 async function checkBackendJson(path, describe) {
   const url = `${backendBaseUrl}${path}`;
+
+  // 1. Fetch. Manual redirect handling — a backend health check must never
+  // silently follow a redirect (e.g. Vercel's own auth/protection layer
+  // intercepting the request) and mistake the redirect target's response
+  // for the backend's own.
   let response;
-  let body;
-  let json;
   try {
-    response = await fetch(url, { headers: { "user-agent": "TradeOS-preview-smoke-check/1.0" } });
-    body = await response.text();
+    response = await fetch(url, {
+      redirect: "manual",
+      headers: { "user-agent": "TradeOS-preview-smoke-check/1.0" },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
   } catch (err) {
-    logResult(false, `backend ${path} reachable`, err instanceof Error ? err.message : String(err));
+    const isTimeout = err instanceof Error && err.name === "TimeoutError";
+    logResult(false, `backend ${path} reachable`, isTimeout ? `timed out after ${FETCH_TIMEOUT_MS}ms` : err instanceof Error ? err.message : String(err));
     return;
   }
 
+  // 2/3. Capture status, headers, and raw text before any parsing.
+  const status = response.status;
+  const location = response.headers.get("location");
+  const headersCombined = [...response.headers.entries()].map(([k, v]) => `${k}: ${v}`).join("\n");
+  const body = await response.text().catch(() => "");
+
+  // 4. Security scanning runs against the raw text regardless of whether it
+  // turns out to be valid JSON — a non-JSON error body can leak a secret
+  // just as easily as a JSON one.
+  scanForSecrets(body, `backend ${path}`);
+  scanForSecrets(headersCombined, `backend ${path} response headers`);
+  for (const forbidHost of forbidHosts) {
+    logResult(!containsForbiddenHost(`${body}\n${headersCombined}`, [forbidHost]), `backend ${path} does not leak forbidden host "${forbidHost}"`);
+  }
+
+  // Explicit redirect handling: fail clearly rather than silently follow.
+  if (REDIRECT_STATUSES.has(status)) {
+    logResult(false, `backend ${path} did not redirect`, `got ${status}${location ? ` location=${location}` : " (no location header)"}`);
+    return;
+  }
+
+  // 5/6. Only attempt structured JSON checks once the body is confirmed
+  // parseable — a null, empty, or malformed body must fail cleanly, not throw.
+  let json;
   try {
     json = JSON.parse(body);
   } catch {
-    logResult(false, `backend ${path} returns valid JSON`, `got non-JSON body (status ${response.status})`);
+    logResult(false, `backend ${path} returns valid JSON`, `got non-JSON body (status ${status})`);
     return;
   }
 
-  describe(response.status, json);
-  scanForSecrets(body, `backend ${path}`);
-
-  for (const forbidHost of forbidHosts) {
-    logResult(!body.includes(forbidHost), `backend ${path} does not leak forbidden host "${forbidHost}"`);
+  if (json === null || typeof json !== "object" || Array.isArray(json)) {
+    logResult(false, `backend ${path} returns a JSON object`, `got ${Array.isArray(json) ? "an array" : typeof json}`);
+    return;
   }
+
+  describe(status, json);
 }
 
 async function checkBackend() {
