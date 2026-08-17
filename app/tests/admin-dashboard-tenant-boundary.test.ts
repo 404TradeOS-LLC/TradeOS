@@ -1,6 +1,7 @@
 const mockService = {
   getOrganization: jest.fn(),
   updateOrganization: jest.fn(),
+  getPricingUpdateSummary: jest.fn(),
 };
 
 const mockAuth = {
@@ -21,8 +22,7 @@ jest.mock("../modules/admin-dashboard/service", () => ({
 }));
 
 jest.mock("../backend/requestContext", () => ({
-  parsePositiveNumber: jest.fn(),
-  requireOrgId: jest.fn(() => mockAuth.orgId),
+  parsePositiveNumber: jest.fn((value: unknown, fallback: number) => value === undefined ? fallback : Number(value)),
   requireOrgAccess: mockRequireOrgAccess,
 }));
 
@@ -36,11 +36,11 @@ function response() {
   };
 }
 
-function request(orgId: string, body: unknown = {}) {
+function request(orgId: string, body: unknown = {}, query: Record<string, unknown> = {}) {
   return {
     body,
     params: { id: orgId },
-    query: {},
+    query,
     orgId: mockAuth.orgId,
     auth: mockAuth,
   } as never;
@@ -51,6 +51,7 @@ describe("Admin dashboard organization tenant boundary", () => {
     jest.clearAllMocks();
     mockService.getOrganization.mockResolvedValue({ id: mockAuth.orgId, name: "Org One", regionCode: null });
     mockService.updateOrganization.mockResolvedValue({ id: mockAuth.orgId, name: "Updated", regionCode: null });
+    mockService.getPricingUpdateSummary.mockResolvedValue({ staleMaterialsCount: 0, staleMaterials: [] });
   });
 
   it("rejects cross-organization reads before querying the service", async () => {
@@ -69,6 +70,28 @@ describe("Admin dashboard organization tenant boundary", () => {
 
     expect(mockRequireOrgAccess).toHaveBeenCalledWith(expect.anything(), "org-2");
     expect(mockService.updateOrganization).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-organization pricing summaries before querying the service", async () => {
+    await expect(
+      adminDashboardController.pricingUpdateSummary(request("org-2"), response() as never)
+    ).rejects.toThrow("Cross-organization access is not allowed");
+
+    expect(mockRequireOrgAccess).toHaveBeenCalledWith(expect.anything(), "org-2");
+    expect(mockService.getPricingUpdateSummary).not.toHaveBeenCalled();
+  });
+
+  it("uses the authorized path organization for pricing summaries", async () => {
+    const res = response();
+
+    await adminDashboardController.pricingUpdateSummary(
+      request(mockAuth.orgId, {}, { staleSinceDays: "45" }),
+      res as never
+    );
+
+    expect(mockRequireOrgAccess).toHaveBeenCalledWith(expect.anything(), mockAuth.orgId);
+    expect(mockService.getPricingUpdateSummary).toHaveBeenCalledWith(mockAuth.orgId, 45);
+    expect(res.json).toHaveBeenCalledWith({ staleMaterialsCount: 0, staleMaterials: [] });
   });
 
   it("allows same-organization reads and updates", async () => {
