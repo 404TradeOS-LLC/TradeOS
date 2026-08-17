@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { AdminDashboardService } from "../../modules/admin-dashboard/service";
-import { parsePositiveNumber, requireOrgAccess, requireOrgId } from "../requestContext";
+import { parsePositiveNumber, requireOrgAccess } from "../requestContext";
 import { organizationMemberRoles, organizationMemberStatuses } from "../../modules/admin-dashboard/types";
 
 const service = new AdminDashboardService();
@@ -17,8 +17,9 @@ export const adminDashboardController = {
     res.json(await service.updateOrganization(req.params.id, schema.parse(req.body)));
   },
   async pricingUpdateSummary(req: Request, res: Response) {
+    requireOrgAccess(req, req.params.id);
     const days = parsePositiveNumber(req.query.staleSinceDays, 30);
-    res.json(await service.getPricingUpdateSummary(requireOrgId(req), days));
+    res.json(await service.getPricingUpdateSummary(req.params.id, days));
   },
   async materialPriceHistory(req: Request, res: Response) {
     requireOrgAccess(req, req.params.id);
