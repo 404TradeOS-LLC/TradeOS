@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-17
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -43,6 +43,8 @@ Existing `app/` and `web/` deployable boundaries remain authoritative during RC1
 GitHub rulesets, branch protection, required checks, merge methods, and review requirements are external state. They must be verified directly in GitHub before being described as current.
 
 Do not preserve dated statements such as “no rulesets exist” or “one approval is required” as present truth after configuration may have changed.
+
+This repository's `main` protection is configured entirely through GitHub Rulesets (`GET /repos/{owner}/{repo}/rulesets`), not the legacy branch-protection API. The legacy `GET /repos/{owner}/{repo}/branches/main/protection` endpoint returns `404 Branch not protected` here regardless of the active ruleset — that 404 is expected and does not mean protection is missing. Always check `/rulesets` (and each ruleset's own detail endpoint) before concluding `main` is unprotected.
 
 ## Required protection target
 
@@ -87,7 +89,7 @@ Do not weaken CI, up-to-date requirements, deletion protection, force-push prote
 
 ## Verified default-branch controls
 
-On 2026-08-12, a read-only live GitHub verification was performed against repository `404TradeOS-LLC/TradeOS`. No repository setting or ruleset was changed by that verification.
+On 2026-08-12, and again on 2026-08-17, a read-only live GitHub verification was performed against repository `404TradeOS-LLC/TradeOS`. No repository setting or ruleset was changed by either verification. The 2026-08-17 pass corrected the Copilot-review misattribution noted below; every other bullet in this section was re-confirmed unchanged against the live ruleset.
 
 The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://github.com/404TradeOS-LLC/TradeOS/rules/18958081)) targets the default branch and currently contains:
 
@@ -98,11 +100,10 @@ The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://githu
 - the exact required checks `Docs consistency`, `App lint, unit tests, and build`, `App integration tests`, and `Web lint and build`;
 - linear-history enforcement;
 - allowed pull-request merge methods of **squash and rebase**;
-- Copilot review on pushes and draft pull requests;
 - no configured bypass actors; and
 - `current_user_can_bypass: never` for the connected user during verification.
 
-The separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)) still exists but is currently **disabled**. It must not be described as an active enforcement layer unless a later live verification shows it enabled again.
+Copilot review is not part of ruleset 18958081 at all — it lives entirely in the separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)), which is configured for `review_on_push`/`review_draft_pull_requests` but currently shows `enforcement: "disabled"`. Confirmed empirically too: no `Copilot` check run appears in recent PRs' status-check rollups. It must not be described as an active enforcement layer, nor listed alongside ruleset 18958081's controls, unless a later live verification shows it enabled again.
 
 Re-run live read-only inspection before changing these statements or editing repository controls. Documentation records observed state; GitHub remains authoritative.
 
