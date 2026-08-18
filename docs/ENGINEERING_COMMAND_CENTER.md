@@ -105,9 +105,11 @@ Expected required CI jobs include:
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
-Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged.
+Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
 
-The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands.
+The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands. Its metadata step is pinned to the immutable `dependabot/fetch-metadata` v3.1.0 commit and runs from the normal `pull_request` event rather than `pull_request_target`; the action's Node 24 runtime is limited to GitHub Actions and does not change TradeOS workload runtimes.
+
+The optional `preview-smoke-check.yml` workflow is not part of required CI either: it runs `web/scripts/preview-smoke-check.mjs` against a live Preview deployment (frontend reachability, backend `/health`/`/ready`, and a hard fail if either target points at Production) via manual `workflow_dispatch` or a best-effort `deployment_status` trigger — see `docs/REPOSITORY_GOVERNANCE.md` for its known auto-trigger limitation.
 
 Documentation foundation/governance work should run:
 
