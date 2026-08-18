@@ -1,8 +1,6 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
 
-export const PROMPT_REGISTRY = {
+export const PROMPT_REGISTRY = Object.assign(Object.create(null), {
   'startup': {
     id: 'startup',
     title: 'Session Startup & Autonomy Reconciliation',
@@ -294,7 +292,7 @@ Run verification commands to prove zero regressions.`
 3. Update \`docs/DOC_OWNERSHIP.yml\` if new files or modules were introduced.
 Ensure documentation reflects exact repository reality without forward-looking claims.`
   }
-};
+});
 
 /**
  * Returns git repository context if available.
@@ -333,7 +331,12 @@ export function renderPrompt(promptId, userVars = {}, repoRoot = process.cwd()) 
   let rendered = item.template;
   for (const [key, val] of Object.entries(vars)) {
     const regex = new RegExp(`{{${key}}}`, 'g');
-    rendered = rendered.replace(regex, val);
+    // Replacer is a function, not a string: String.prototype.replace treats
+    // $&/$$/$1.. as special patterns in a string replacement, which would
+    // silently mangle a variable value containing a literal '$' (e.g. a
+    // BUG_DESCRIPTION mentioning a dollar amount). A function replacer's
+    // return value is inserted literally.
+    rendered = rendered.replace(regex, () => val);
   }
 
   return {

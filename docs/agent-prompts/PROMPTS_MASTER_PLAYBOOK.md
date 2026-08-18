@@ -35,8 +35,9 @@ npm run prompt show <prompt-id>
 # Copy rendered prompt directly to macOS clipboard
 npm run prompt copy <prompt-id>
 
-# Customize parameters inline
-npm run prompt copy backend --FEATURE_NAME="Job Assignments" --PERMISSION_KEY="jobs.write"
+# Customize parameters inline (the -- separator is required so npm forwards
+# these flags to the script instead of swallowing them as npm's own config)
+npm run prompt -- copy backend --FEATURE_NAME="Job Assignments" --PERMISSION_KEY="jobs.write"
 ```
 
 ---
@@ -49,12 +50,12 @@ npm run prompt copy backend --FEATURE_NAME="Job Assignments" --PERMISSION_KEY="j
 | `backend` | Backend Engineering | Claude Code / ChatGPT | Express routes, services, RLS boundaries, and `runInDatabaseTransaction` |
 | `database-rls` | Database & Security | Gemini / Claude Code | Prisma migrations, Supabase forced RLS policies, cent-safety |
 | `frontend` | Frontend Engineering | Claude Code / ChatGPT | Next.js App Router, Tailwind, honest loading/empty/error states |
-| `auth-supabase` | Auth & Security | Gemini / Claude Code | Supabase JWT verification, session resolution, `/finish-setup` |
-| `vercel-cloudflare` | Infrastructure & Ops | Gemini / Claude Code | Vercel serverless packaging, proxy middleware, CORS, Cloudflare |
-| `athena-tool` | AI Subsystems | Claude Code / ChatGPT | First-party Athena business tools, idempotency, event outbox |
-| `bugfix` | Maintenance & QA | Claude Code / ChatGPT | Root-cause analysis, surgical minimal fix, automated regression tests |
-| `pr-gate` | CI & Review | All Agents | Pre-PR diff audit, full test matrix execution, RLS tenant audit |
-| `docs-handoff` | Documentation | All Agents | Atomic update to `CURRENT_STATE.md` and `SESSION_HANDOFF.md` |
+| `auth-supabase` | Authentication & Security | Gemini / Claude Code | Supabase JWT verification, session resolution, `/finish-setup` |
+| `vercel-cloudflare` | Infrastructure & Deployment | Gemini / Claude Code | Vercel serverless packaging, proxy middleware, CORS, Cloudflare |
+| `athena-tool` | AI & Athena Subsystems | Claude Code / ChatGPT | First-party Athena business tools, idempotency, event outbox |
+| `bugfix` | Maintenance & Debugging | Claude Code / ChatGPT | Root-cause analysis, surgical minimal fix, automated regression tests |
+| `pr-gate` | Quality Assurance & CI | All Agents | Pre-PR diff audit, full test matrix execution, RLS tenant audit |
+| `docs-handoff` | Documentation & State | All Agents | Atomic update to `CURRENT_STATE.md` and `SESSION_HANDOFF.md` |
 
 ---
 
@@ -149,7 +150,7 @@ Diagnose and repair the authentication / session issue with {{AUTH_SCENARIO}}:
 ### 6. `vercel-cloudflare` — Vercel & Cloudflare Production Diagnostics
 - **When to use**: Diagnosing deployment errors, proxy headers, CORS, or bundle packaging.
 - **Variables**: `ERROR_LOGS`
-```markdown
+````markdown
 Investigate this Vercel / Cloudflare runtime error:
 ```
 {{ERROR_LOGS}}
@@ -161,7 +162,7 @@ Check against known TradeOS deployment contracts:
 3. Serverless Packaging: Confirm sibling packages like `packages/knowledge-engine` are vendored via `app/scripts/vendor-knowledge-engine.js` if accessed by backend Lambdas.
 4. Turbopack Root: Ensure `turbopack.root` in `web/next.config.ts` correctly spans the repository root.
 Report the exact root cause, proposed minimal fix, and affected files.
-```
+````
 
 ---
 
@@ -185,7 +186,7 @@ Implement a new Athena business tool: `{{TOOL_NAME}}`
 ### 8. `bugfix` — Isolated Bug Fix & Root-Cause Analysis
 - **When to use**: Fixing a specific defect safely without breaking adjacent systems.
 - **Variables**: `MODULE_NAME`, `BUG_DESCRIPTION`
-```markdown
+````markdown
 We have a bug in {{MODULE_NAME}}:
 ```
 {{BUG_DESCRIPTION}}
@@ -196,7 +197,7 @@ Follow this three-step remediation protocol:
 2. Minimal Surgical Fix: Apply the fix without modifying unrelated files, refactoring existing contracts, or altering database schemas.
 3. Regression Test: Write a dedicated automated test in `app/tests/` or `web/src/` that reproduces the bug on unpatched code and passes on patched code.
 Run verification commands to prove zero regressions.
-```
+````
 
 ---
 

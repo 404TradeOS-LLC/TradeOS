@@ -6,8 +6,7 @@ import readline from 'node:readline';
 import {
   PROMPT_REGISTRY,
   renderPrompt,
-  copyToClipboard,
-  getGitContext
+  copyToClipboard
 } from './prompt-manager-lib.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,8 +26,13 @@ function printUsage() {
   console.log('Examples:');
   console.log('  npm run prompt list');
   console.log('  npm run prompt copy startup');
-  console.log('  npm run prompt copy backend --FEATURE_NAME="Job Assignments" --PERMISSION_KEY="jobs.write"');
-  console.log('  npm run prompt copy bugfix --MODULE_NAME="AuthService" --BUG_DESCRIPTION="409 on second login"');
+  // npm requires the -- separator before flags meant for the script, not
+  // npm itself: `npm run prompt copy backend --FEATURE_NAME=...` (no --)
+  // gets FEATURE_NAME swallowed by npm's own CLI arg parser and never
+  // reaches this script (verified: npm 11 logs "Unknown cli config" and
+  // drops it silently otherwise).
+  console.log('  npm run prompt -- copy backend --FEATURE_NAME="Job Assignments" --PERMISSION_KEY="jobs.write"');
+  console.log('  npm run prompt -- copy bugfix --MODULE_NAME="AuthService" --BUG_DESCRIPTION="409 on second login"');
   console.log('');
 }
 
