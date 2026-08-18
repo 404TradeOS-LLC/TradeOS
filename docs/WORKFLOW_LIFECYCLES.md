@@ -91,6 +91,13 @@ Implementation notes:
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
 - A12.1: `EstimateEngineService.create()` requires durable `EstimateStarted` persistence in the same database transaction as estimate creation, and `finalize()` requires durable `EstimateCompleted` persistence in the same transaction as `draft -> ready`. If either required event cannot be persisted, the enclosing estimate mutation/transition rolls back. This does not add an estimate state or alter the allowed transition graph; subscriber delivery remains outside the lifecycle transaction.
 
+Organization work-queue reads (`GET /api/v1/estimates`, see `docs/modules/estimating.md`):
+
+- the queue includes every non-deleted estimate; the current Estimate model has no soft-delete/archive flag, so this is unconditionally true today and no status is treated as an implicit default-view exclusion
+- a `status` filter (or comma-separated multiple statuses) is matched against the canonical value; matching also expands to any legacy raw stored value that normalizes to it (e.g. requesting `ready` also matches rows still stored as raw `sent`), so callers never have to know the compatibility mapping
+- the queue's `status` filter does not accept `sent` even though it is listed among `estimateStatuses`: `legacyEstimateStatusMap` maps raw `sent` to canonical `ready`, so no row ever normalizes back to `sent` — accepting it as a filter value would silently return the same rows as `ready` under a different, unreachable label. `sent` is excluded from the filter's accepted values (`400` if requested) rather than left ambiguous; this does not change `sent`'s meaning anywhere else in the estimate lifecycle
+- this is a read-only aggregate; it introduces no new estimate state or transition
+
 ## Costbook Workspace
 
 Foundation states:
@@ -139,6 +146,14 @@ Compatibility note:
 Athena event integration:
 
 - A12.1 makes the `draft -> sent` transition and required `ProposalSent` persistence atomic: both commit together or both roll back. No other proposal transition publishes a canonical event yet. Subscriber delivery remains pull-based/asynchronous and is not part of the proposal lifecycle transaction.
+
+Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/proposals.md`):
+
+- `sent` / `viewed` filter on `sentAt`/`viewedAt` being non-null
+- `unsigned` means no `Contract` row references the proposal yet — conversion is the Contract row's existence, independent of that contract's own `pending_signature`/`signed`/`voided` state
+- `stale` has no fixed age; the caller supplies `staleBefore` and the queue matches proposals whose `sentAt <= staleBefore`
+- the product spec for this queue calls for canceled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical canceled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
+- this is a read-only aggregate; it introduces no new proposal state or transition
 
 ## Contracts
 
@@ -226,6 +241,15 @@ Current enforced transitions:
 Compatibility persistence:
 
 - legacy values such as `void` and `cancelled` normalize to canonical `voided`
+
+Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
+
+- `paidAmount`/`balanceDue` are not stored columns; the queue derives them per invoice from the sum of that invoice's `Payment` rows with `status = "recorded"` (pending/failed payments do not count), then `balanceDue = amount - paidAmount`, computed in the database so filtering and pagination stay exact
+- `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is not voided
+- `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is not voided
+- `unpaid` = `balanceDue > 0` AND status is not voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
+- the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`), not the aspirational canonical spelling `voided`, which the constraint does not permit — see the compatibility note above. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either; no currently-reachable write path can produce it
+- this is a read-only aggregate; it introduces no new invoice state or transition
 
 ## Transactional canonical-event invariant (A12.1)
 

@@ -4,6 +4,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 export const invoicesRouter = Router();
 
+invoicesRouter.get("/", asyncHandler(ctrl.listOrganizationQueue));
 invoicesRouter.get("/by-project/:projectId", asyncHandler(ctrl.listByProject));
 invoicesRouter.post("/", asyncHandler(ctrl.create));
 invoicesRouter.get("/:id", asyncHandler(ctrl.getById));

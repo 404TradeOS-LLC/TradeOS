@@ -1,6 +1,27 @@
 import { PricingMode } from "./formulas";
 import type { EstimateStatus } from "../../domain";
 
+export interface EstimateQueueFilters {
+  orgId: string;
+  statuses?: EstimateStatus[];
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface EstimateQueueItemDTO {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: EstimateStatus;
+  amount: number;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreateEstimateInput {
   orgId?: string;
   projectId: string;

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
@@ -6,13 +7,17 @@ import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
 import { applyOverhead, sellPrice, round2 } from "./formulas";
-import { canTransitionEstimateStatus, normalizeEstimateStatus } from "../../domain";
+import { canTransitionEstimateStatus, legacyEstimateStatusMap, normalizeEstimateStatus } from "../../domain";
+import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
+import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import {
   AddLineItemInput,
   CreateEstimateInput,
   EstimateComparisonDTO,
   EstimateDTO,
   EstimateLineItemDTO,
+  EstimateQueueFilters,
+  EstimateQueueItemDTO,
   SetPricingModeInput,
 } from "./types";
 
@@ -71,6 +76,52 @@ export class EstimateEngineService {
   async listByProject(projectId: string, orgId?: string): Promise<EstimateDTO[]> {
     const rows = await prisma.estimate.findMany({ where: { projectId, orgId }, orderBy: { version: "desc" } });
     return rows.map(toEstimateDTO);
+  }
+
+  /**
+   * Organization-wide, newest-activity-first estimate queue. The canonical
+   * Estimate model has no soft-delete/archive flag, so "not deleted" is
+   * vacuously true for every row and no status is treated as an implicit
+   * default-view exclusion — callers filter by `statuses` explicitly.
+   */
+  async listOrganizationQueue(filters: EstimateQueueFilters): Promise<QueuePage<EstimateQueueItemDTO>> {
+    const limit = clampQueueLimit(filters.limit);
+    const conditions: Prisma.EstimateWhereInput[] = [{ orgId: filters.orgId }];
+
+    if (filters.statuses?.length) conditions.push({ status: { in: expandCanonicalStatusFilter(filters.statuses, legacyEstimateStatusMap) } });
+    const updatedAtRange = buildUpdatedAtRange(filters);
+    if (updatedAtRange) conditions.push({ updatedAt: updatedAtRange });
+
+    // filterWhere excludes the cursor predicate so count() reflects the
+    // exact total for the filter, not just rows remaining after the cursor
+    // position — pageWhere adds the cursor on top of it for findMany only.
+    const filterWhere: Prisma.EstimateWhereInput = { AND: conditions };
+    let pageWhere = filterWhere;
+    if (filters.cursor) {
+      const cursor = decodeUpdatedAtCursor(filters.cursor);
+      pageWhere = {
+        AND: [
+          ...conditions,
+          { OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }] },
+        ],
+      };
+    }
+
+    const [total, rows] = await Promise.all([
+      prisma.estimate.count({ where: filterWhere }),
+      prisma.estimate.findMany({
+        where: pageWhere,
+        include: { project: { include: { customer: { select: { name: true } } } } },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        take: limit,
+      }),
+    ]);
+
+    const items = rows.map(toEstimateQueueItemDTO);
+    const last = rows[rows.length - 1];
+    const nextCursor = rows.length === limit && last ? encodeUpdatedAtCursor({ updatedAt: last.updatedAt, id: last.id }) : null;
+
+    return { items, total, nextCursor };
   }
 
   async duplicateFromVersion(sourceEstimateId: string, orgId?: string): Promise<EstimateDTO & { lineItems: EstimateLineItemDTO[] }> {
@@ -300,6 +351,29 @@ export function toEstimateDTO(row: {
     targetMarginPct: row.targetMarginPct != null ? Number(row.targetMarginPct) : null,
     subtotalCost: Number(row.subtotalCost),
     totalPrice: Number(row.totalPrice),
+  };
+}
+
+function toEstimateQueueItemDTO(row: {
+  id: string;
+  projectId: string;
+  version: number;
+  status: string;
+  totalPrice: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  project: { name: string; customer: { name: string } | null };
+}): EstimateQueueItemDTO {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    projectName: row.project.name,
+    customerName: row.project.customer?.name ?? null,
+    status: normalizeEstimateStatus(row.status),
+    amount: Number(row.totalPrice),
+    revision: row.version,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 

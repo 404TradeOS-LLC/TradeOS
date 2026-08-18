@@ -1,3 +1,31 @@
+import type { ProposalStatus } from "../../domain";
+
+export interface ProposalQueueFilters {
+  orgId: string;
+  statuses?: ProposalStatus[];
+  sent?: boolean;
+  viewed?: boolean;
+  unsigned?: boolean;
+  staleBefore?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface ProposalQueueItemDTO {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: ProposalStatus;
+  amount: number | null;
+  contractId: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  updatedAt: string;
+}
+
 export interface ProposalDeliveryDTO {
   id: string;
   proposalId: string;
