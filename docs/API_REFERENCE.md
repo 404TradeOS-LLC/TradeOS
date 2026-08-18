@@ -106,6 +106,15 @@ Mounted route groups from `app/backend/server.ts`:
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
+Organization work-queue reads — `GET /api/v1/estimates`, `GET /api/v1/proposals`, `GET /api/v1/invoices` (each is the router root for its resource, distinct from the existing `/by-project/:projectId` and `/:id` routes on the same router): reusable, organization-scoped, paginated read endpoints intended for dashboard "needs attention" views, reporting surfaces, and future Athena tools that need a company-wide queue rather than a single project's documents. Full filter/response-shape/pagination contracts are documented per resource in [modules/estimating.md](modules/estimating.md), [modules/proposals.md](modules/proposals.md), and [modules/invoices-and-payments.md](modules/invoices-and-payments.md), and their lifecycle-adjacent filter semantics (unsigned, stale, overdue, partially paid, unpaid) in [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md). Shared shape across all three:
+
+- authorization: the existing per-resource read permission (`crm.read` for estimates, `billing.read` for proposals/invoices) — every canonical/legacy role holds it, so this is effectively "any authenticated organization member," routed through the existing `requirePermissions` boundary rather than a new permission key
+- organization scope: derived from the authenticated request context only, never a caller-supplied id, enforced in the query and by forced RLS
+- pagination: opaque cursor, default limit 25, maximum 50, `updatedAt desc, id desc` ordering with a stable id tie-breaker, and an invalid/malformed cursor returns `400` instead of silently restarting from page 1
+- response envelope: `{ items, total, nextCursor }` with an exact filtered `total` (not an estimate), and no `orgId` field on individual items
+- search is explicitly out of scope for this read; date filtering is limited to generic `updatedAfter`/`updatedBefore` plus each resource's own operational filters — this is not a general reporting API
+- no Athena implementation change and no dashboard UI change are part of this read — see the module docs' "Deferred work" for intended future consumers
+
 AI estimating routes under `/api/v1/estimates`:
 
 - `POST /api/v1/estimates/:id/ai-suggestions`

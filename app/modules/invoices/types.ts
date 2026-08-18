@@ -1,3 +1,32 @@
+import type { InvoiceStatus } from "../../domain";
+
+export interface InvoiceQueueFilters {
+  orgId: string;
+  statuses?: InvoiceStatus[];
+  sent?: boolean;
+  overdue?: boolean;
+  partiallyPaid?: boolean;
+  unpaid?: boolean;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface InvoiceQueueItemDTO {
+  id: string;
+  documentNumber: number;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: InvoiceStatus;
+  amount: number;
+  paidAmount: number;
+  balanceDue: number;
+  dueDate: string | null;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItemInput {
   description: string;
   quantity: number;

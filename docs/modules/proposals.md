@@ -32,6 +32,17 @@ Own proposal drafting, sending, viewing, acceptance or decline handling, PDF gen
 ## Routes
 
 - `/api/v1/proposals/*`
+- `GET /api/v1/proposals` — organization-scoped work-queue read (see below)
+
+## Organization work-queue read
+
+`GET /api/v1/proposals` (`ProposalsService.listOrganizationQueue`) returns every proposal in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's proposals.
+
+- **Scope:** organization-wide (scoped through the proposal's project, since `Proposal` has no direct `orgId` column); every authenticated organization member with `billing.read` may call it (every canonical/legacy role has that permission). Organization scope is derived from the authenticated request context, never a caller-supplied id, and is enforced both in the query and by forced RLS on the `proposals` table.
+- **Filters:** `status` (comma-separated, multiple statuses, legacy-synonym-aware), `sent` (`sentAt` non-null), `viewed` (`viewedAt` non-null), `unsigned` (no `Contract` row references the proposal yet — conversion is independent of that contract's own signature state), `staleBefore` (matches `sentAt <= staleBefore`; there is no hard-coded staleness age), `updatedAfter`, `updatedBefore`.
+- **Pagination:** opaque cursor, default 25 / max 50, `updatedAt desc, id desc` with a stable id tie-breaker, invalid cursor -> `400`. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
+- **Response fields:** `id`, `projectId`, `projectName`, `customerName`, `status`, `amount` (`finalPrice`, nullable — a proposal only has a single canonical amount once finalized; `priceLow`/`priceHigh` remain range fields, not folded into this figure), `contractId` (nullable, the most recently created linked `Contract`'s id), `sentAt`, `viewedAt`, `updatedAt`. No `orgId` on individual items.
+- The product spec's "canceled/voided proposals must not satisfy unsigned/stale" rule has no canonical status to apply to in the current domain (see Known limitations below and `docs/WORKFLOW_LIFECYCLES.md`).
 
 ## Permissions
 
@@ -59,10 +70,13 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 - `app/tests/proposalsInvoicesContractsMigration.test.ts`
 - `app/tests/proposal-delivery.migration.test.ts`
 - `app/tests/proposals.athena-events-integration.test.ts`
+- `app/tests/proposals.queue.test.ts`, `app/tests/proposals.controller.queue.test.ts` — organization work-queue filters (sent/viewed/unsigned/stale), pagination, and authorization
+- `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and unsigned/contractId resolution for the queue read
 
 ## Known limitations
 
 - canonical decline language still maps to stored `rejected` values in service logic
+- the organization work-queue read's product spec calls for excluding canceled/voided proposals from operational filters (`unsigned`, `stale`), but no canonical canceled/voided proposal status exists in this domain today — the rule has nothing to apply to and is not implemented as an invented status
 
 ## Deferred work
 

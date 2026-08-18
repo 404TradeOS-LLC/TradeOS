@@ -12,6 +12,7 @@ import { SupplierIntegrationService } from "../modules/supplier-integration/serv
 import { runSupplierPriceSyncJob } from "../modules/supplier-integration/worker";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
+import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
 import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
@@ -1373,6 +1374,221 @@ describe("live organization row-level security", () => {
     // as "assigned only" rather than presenting a role-narrowed 0 as if it
     // were a real organization-wide "zero active jobs" total.
     expect(viewerSummary.scope).toEqual({ source: "assigned_only", role: "viewer" });
+  });
+
+  describe("organization work-queue reads (estimates, proposals, invoices)", () => {
+    // Fresh fixtures scoped to this describe block only; orgA/orgB/projectA/
+    // projectB/customerA/customerB are the outer beforeAll's already-committed
+    // rows, reused here rather than re-seeding a parallel org pair.
+    const estimateQueueA1 = "10000000-0000-0000-0000-000000000201";
+    const estimateQueueA2 = "10000000-0000-0000-0000-000000000202";
+    const estimateQueueB1 = "20000000-0000-0000-0000-000000000203";
+    const proposalQueueA1 = "10000000-0000-0000-0000-000000000204";
+    const proposalQueueA2 = "10000000-0000-0000-0000-000000000205";
+    const contractQueueA1 = "10000000-0000-0000-0000-000000000206";
+    const proposalQueueB1 = "20000000-0000-0000-0000-000000000207";
+    const invoiceQueueA1 = "10000000-0000-0000-0000-000000000208";
+    const invoiceQueueA2 = "10000000-0000-0000-0000-000000000209";
+    const invoiceQueueA3 = "10000000-0000-0000-0000-000000000210";
+    const invoiceQueueA4 = "10000000-0000-0000-0000-000000000211";
+    const invoiceQueueB1 = "20000000-0000-0000-0000-000000000212";
+
+    beforeAll(async () => {
+      await adminClient.estimate.create({
+        data: { id: estimateQueueA1, orgId: orgA, projectId: projectA, version: 10, status: "draft", totalPrice: 500 },
+      });
+      // Raw legacy status value "sent" (never written by current app code,
+      // but must still be read correctly): legacyEstimateStatusMap normalizes
+      // it to canonical "ready".
+      await adminClient.estimate.create({
+        data: { id: estimateQueueA2, orgId: orgA, projectId: projectA, version: 11, status: "sent", totalPrice: 1000 },
+      });
+      await adminClient.estimate.create({
+        data: { id: estimateQueueB1, orgId: orgB, projectId: projectB, version: 1, status: "draft", totalPrice: 777 },
+      });
+
+      await adminClient.proposal.create({
+        data: {
+          id: proposalQueueA1,
+          projectId: projectA,
+          estimateId: estimateQueueA1,
+          status: "sent",
+          sentAt: new Date("2026-07-01T00:00:00.000Z"),
+          finalPrice: 750,
+        },
+      });
+      await adminClient.proposal.create({
+        data: {
+          id: proposalQueueA2,
+          projectId: projectA,
+          estimateId: estimateQueueA2,
+          status: "accepted",
+          sentAt: new Date("2026-07-05T00:00:00.000Z"),
+          viewedAt: new Date("2026-07-06T00:00:00.000Z"),
+          finalPrice: 1000,
+        },
+      });
+      await adminClient.contract.create({
+        data: { id: contractQueueA1, projectId: projectA, proposalId: proposalQueueA2, status: "pending_signature", termsText: "Net 30" },
+      });
+      await adminClient.proposal.create({
+        data: { id: proposalQueueB1, projectId: projectB, status: "sent", sentAt: new Date("2026-07-01T00:00:00.000Z") },
+      });
+
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA1, projectId: projectA, invoiceNumber: 201, status: "sent", amount: 1000, dueDate: yesterday },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA2, projectId: projectA, invoiceNumber: 202, status: "sent", amount: 1000, dueDate: yesterday },
+      });
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000213",
+          orgId: orgA,
+          invoiceId: invoiceQueueA2,
+          amount: 400,
+          paymentDate: new Date("2026-07-10T00:00:00.000Z"),
+          method: "card",
+          status: "recorded",
+        },
+      });
+      // A pending (not yet "recorded") payment must not count toward paidAmount.
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000214",
+          orgId: orgA,
+          invoiceId: invoiceQueueA2,
+          amount: 5000,
+          paymentDate: new Date("2026-07-11T00:00:00.000Z"),
+          method: "card",
+          status: "pending",
+        },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA3, projectId: projectA, invoiceNumber: 203, status: "sent", amount: 500, dueDate: yesterday },
+      });
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000215",
+          orgId: orgA,
+          invoiceId: invoiceQueueA3,
+          amount: 500,
+          paymentDate: new Date("2026-07-10T00:00:00.000Z"),
+          method: "card",
+          status: "recorded",
+        },
+      });
+      // Raw status "void" (the actual DB-allowed value; see invoices_status_check)
+      // — must be excluded from overdue/unpaid/partiallyPaid despite a positive balance.
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA4, projectId: projectA, invoiceNumber: 204, status: "void", amount: 1000, dueDate: yesterday },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueB1, projectId: projectB, invoiceNumber: 1, status: "sent", amount: 250, dueDate: yesterday },
+      });
+    });
+
+    it("estimates queue: scopes to the caller's organization and never returns another org's rows", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().listOrganizationQueue({ orgId: orgA }));
+      const ids = result.items.map((item) => item.id);
+      expect(ids).toEqual(expect.arrayContaining([estimateQueueA1, estimateQueueA2]));
+      expect(ids).not.toContain(estimateQueueB1);
+    });
+
+    it("estimates queue: forced RLS blocks Org B rows even if the service were called with a guessed/mismatched orgId while sessioned as Org A", async () => {
+      // The controller always derives orgId from the authenticated session
+      // (requireOrgId), never a caller-supplied value, so this scenario is
+      // not reachable through the real HTTP surface. This proves the
+      // deeper guarantee anyway: even a hypothetical broken/bypassed
+      // service-layer check could not leak Org B rows, because forced RLS
+      // scopes visibility to the session's own app.org_id, not to whatever
+      // orgId a query happens to ask for.
+      const result = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().listOrganizationQueue({ orgId: orgB }));
+      expect(result.items.map((item) => item.id)).not.toContain(estimateQueueB1);
+    });
+
+    it("estimates queue: a status filter matches rows stored under a legacy raw synonym, normalized in the response", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () =>
+        new EstimateEngineService().listOrganizationQueue({ orgId: orgA, statuses: ["ready"] })
+      );
+      expect(result.items.map((item) => item.id)).toEqual([estimateQueueA2]);
+      expect(result.items[0].status).toBe("ready");
+      expect(result.items[0].projectName).toBe("Org A Project");
+      expect(result.items[0].customerName).toBe("Org A Customer");
+    });
+
+    it("proposals queue: unsigned means no Contract row exists yet; contractId resolves once one does", async () => {
+      const unsigned = await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().listOrganizationQueue({ orgId: orgA, unsigned: true })
+      );
+      expect(unsigned.items.map((item) => item.id)).toEqual([proposalQueueA1]);
+      expect(unsigned.items[0].contractId).toBeNull();
+
+      const all = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
+      const converted = all.items.find((item) => item.id === proposalQueueA2);
+      expect(converted?.contractId).toBe(contractQueueA1);
+    });
+
+    it("proposals queue: never returns another organization's proposals", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
+      expect(result.items.map((item) => item.id)).not.toContain(proposalQueueB1);
+    });
+
+    it("invoices queue: computes paidAmount/balanceDue from real Payment rows (excluding non-recorded payments) with exact decimal amounts", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA }));
+      const invoiceA2 = result.items.find((item) => item.id === invoiceQueueA2);
+      expect(invoiceA2).toMatchObject({ amount: 1000, paidAmount: 400, balanceDue: 600 });
+
+      const invoiceA3 = result.items.find((item) => item.id === invoiceQueueA3);
+      expect(invoiceA3).toMatchObject({ amount: 500, paidAmount: 500, balanceDue: 0 });
+    });
+
+    it("invoices queue: overdue/partiallyPaid/unpaid predicates match the documented semantics, excluding voided invoices", async () => {
+      const overdue = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, overdue: true })
+      );
+      expect(overdue.items.map((i) => i.id).sort()).toEqual([invoiceQueueA1, invoiceQueueA2].sort());
+
+      const partiallyPaid = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, partiallyPaid: true })
+      );
+      expect(partiallyPaid.items.map((i) => i.id)).toEqual([invoiceQueueA2]);
+
+      const unpaid = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, unpaid: true })
+      );
+      const unpaidIds = unpaid.items.map((i) => i.id);
+      expect(unpaidIds).toEqual(expect.arrayContaining([invoiceQueueA1, invoiceQueueA2]));
+      expect(unpaidIds).not.toContain(invoiceQueueA3); // fully paid: balanceDue 0
+      expect(unpaidIds).not.toContain(invoiceQueueA4); // voided: excluded despite balance > 0
+    });
+
+    it("invoices queue: never returns another organization's invoices, even unfiltered", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA }));
+      expect(result.items.map((item) => item.id)).not.toContain(invoiceQueueB1);
+    });
+
+    it("invoices queue: paginates against real Postgres ordering without duplicating rows across pages", async () => {
+      const page1 = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, limit: 2 })
+      );
+      expect(page1.items).toHaveLength(2);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, limit: 2, cursor: page1.nextCursor! })
+      );
+      const page1Ids = page1.items.map((i) => i.id);
+      const page2Ids = page2.items.map((i) => i.id);
+      expect(page1Ids.filter((id) => page2Ids.includes(id))).toHaveLength(0);
+    });
+
+    it("invoices queue: an invalid cursor is rejected with a 400 ApiError before any query runs", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA, cursor: "not-a-real-cursor" }))
+      ).rejects.toMatchObject({ statusCode: 400 });
+    });
   });
 });
 
