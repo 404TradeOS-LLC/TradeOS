@@ -42,12 +42,24 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 ## Routes
 
 - `/api/v1/invoices/*`
+- `GET /api/v1/invoices` — organization-scoped work-queue read (see below)
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
 
+## Organization work-queue read
+
+`GET /api/v1/invoices` (`InvoicesService.listOrganizationQueue`) returns every invoice in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's invoices.
+
+- **Scope:** organization-wide (scoped through the invoice's project, since `Invoice` has no direct `orgId` column); every authenticated organization member with `billing.read` may call it. Organization scope is derived from the authenticated request context, never a caller-supplied id, and is enforced both in the query and by forced RLS on the `invoices`/`projects` tables.
+- **Filters:** `status` (comma-separated, multiple statuses, legacy-synonym-aware), `sent` (`sentAt` non-null), `overdue`, `partiallyPaid`, `unpaid` (see semantics below), `updatedAfter`, `updatedBefore`.
+- **paidAmount/balanceDue derivation:** `Invoice` has no stored balance column — it only carries its own `amount`; payments are recorded separately on `Payment` rows (the same rows the Revenue-This-Week ledger reads). The queue computes `paidAmount` as the sum of that invoice's `Payment` rows with `status = "recorded"` and `balanceDue = amount - paidAmount`, evaluated in the database (via `$queryRaw`, still routed through the same request-scoped RLS session every other service call uses) so `overdue`/`partiallyPaid`/`unpaid` can filter and paginate exactly instead of loading every invoice into memory to filter client-side.
+- **Semantics:** `overdue` = due date passed AND `balanceDue > 0` AND not voided. `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND not voided. `unpaid` = `balanceDue > 0` AND not voided (so partially-paid invoices are included, per the locked product decision). The voided exclusion checks the actual persisted raw values (`void`, `cancelled`), matching the live `invoices_status_check` database constraint.
+- **Pagination:** opaque cursor, default 25 / max 50, `updatedAt desc, id desc` with a stable id tie-breaker, invalid cursor -> `400`. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
+- **Response fields:** `id`, `documentNumber` (the existing `invoiceNumber`), `projectId`, `projectName`, `customerName`, `status`, `amount`, `paidAmount`, `balanceDue`, `dueDate`, `updatedAt`. No `orgId` on individual items.
+
 ## Permissions
 
-The organization payment-ledger read endpoint requires the canonical `billing.read` permission and still runs under the existing authenticated organization/database-session stack. See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
+The organization payment-ledger read endpoint and the organization invoice work-queue read both require the canonical `billing.read` permission and still run under the existing authenticated organization/database-session stack. See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Lifecycle and statuses
 
@@ -69,11 +81,14 @@ The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger 
 - `app/tests/invoices.service.test.ts`
 - `app/tests/payments.service.test.ts`
 - `app/tests/invoice-contract-history.migration.test.ts`
+- `app/tests/invoices.queue.test.ts`, `app/tests/invoices.controller.queue.test.ts` — organization work-queue filter/SQL wiring, DTO mapping, and authorization
+- `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and real Payment-aggregate balance computation (overdue/partiallyPaid/unpaid, voided exclusion) for the queue read
 
 ## Known limitations
 
 - payment recording exists, but public payment processing does not
 - payment statuses are not yet a canonical domain enum; the weekly revenue ledger intentionally includes only the existing `recorded` status
+- `InvoicesService.void()` writes `status: "voided"`, but the live `invoices` table's `invoices_status_check` constraint (from `prisma/migrations/20260624100000_add_proposals_invoices_contracts/migration.sql`, never altered since) only permits `('draft', 'sent', 'paid', 'overdue', 'void')` — `"voided"` is not an allowed value. This is a pre-existing defect, found while building the organization invoice work-queue read (which must recognize the DB's actual raw value, `void`, not the aspirational canonical spelling); it was not fixed here since it is outside this read-only feature's scope
 
 ## Deferred work
 

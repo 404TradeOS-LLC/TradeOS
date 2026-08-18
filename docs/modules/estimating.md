@@ -32,6 +32,17 @@ Own estimate creation, line-item pricing, pricing mode changes, duplication, com
 ## Routes
 
 - `/api/v1/estimates/*`
+- `GET /api/v1/estimates` — organization-scoped work-queue read (see below)
+
+## Organization work-queue read
+
+`GET /api/v1/estimates` (`EstimateEngineService.listOrganizationQueue`) returns every non-deleted estimate in the caller's organization, newest-activity-first, for dashboard/reporting/future-Athena-tool consumers that need a company-wide view rather than a single project's estimates.
+
+- **Scope:** organization-wide; every authenticated organization member with `crm.read` may call it (every canonical/legacy role has that permission — see [RBAC_MATRIX.md](../RBAC_MATRIX.md)). Organization scope is derived from the authenticated request context, never a caller-supplied id, and is enforced both in the query (`orgId` predicate) and by forced RLS on the `estimates` table.
+- **Filters:** `status` (comma-separated, accepts multiple canonical statuses in one request and transparently matches legacy raw synonyms — see `docs/WORKFLOW_LIFECYCLES.md`), `updatedAfter`, `updatedBefore`.
+- **Pagination:** opaque cursor, default page size 25, maximum 50, ordered by `updatedAt desc, id desc` with the id as a stable tie-breaker; an invalid cursor returns `400` rather than silently restarting from page 1. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
+- **Response fields:** `id`, `projectId`, `projectName`, `customerName`, `status`, `amount` (`totalPrice`), `revision` (the existing `version` field — Estimate has no separate document-number field), `createdAt`, `updatedAt`. No `orgId` on individual items.
+- Shares the cursor/limit helpers in `app/modules/shared/pagination.ts` and the legacy-status expansion helper in `app/modules/shared/statusFilter.ts` with the equivalent Proposals and Invoices queue reads, so all three resources use one consistent pagination/filter strategy.
 
 ## Permissions
 
@@ -72,6 +83,8 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 - `app/tests/athena-tools.estimator.update-estimate.contracts.test.ts`
 - `app/tests/athena-tools.estimator.analyze-estimate.contracts.test.ts`
 - `app/tests/athena-tools.estimator.compare-estimates.contracts.test.ts`
+- `app/tests/estimate-engine.queue.test.ts`, `app/tests/estimate-engine.controller.queue.test.ts` — organization work-queue filters, pagination, and authorization
+- `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation for the queue read
 
 ## Implementation notes
 
