@@ -328,16 +328,16 @@ export function renderPrompt(promptId, userVars = {}, repoRoot = process.cwd()) 
     }
   }
 
-  let rendered = item.template;
-  for (const [key, val] of Object.entries(vars)) {
-    const regex = new RegExp(`{{${key}}}`, 'g');
-    // Replacer is a function, not a string: String.prototype.replace treats
-    // $&/$$/$1.. as special patterns in a string replacement, which would
-    // silently mangle a variable value containing a literal '$' (e.g. a
-    // BUG_DESCRIPTION mentioning a dollar amount). A function replacer's
-    // return value is inserted literally.
-    rendered = rendered.replace(regex, () => val);
-  }
+  // A single pass over the immutable original template, not one
+  // replace-and-reassign per variable: looping per variable would re-scan
+  // the already-substituted `rendered` string on each later iteration, so a
+  // variable value that happens to contain a later placeholder's literal
+  // text (e.g. FEATURE_NAME: "{{PERMISSION_KEY}}") would get that text
+  // replaced too. The replacer is a function, not a string, so
+  // String.prototype.replace's special $&/$$/$1.. handling never applies to
+  // the literal variable value either (e.g. a BUG_DESCRIPTION mentioning a
+  // dollar amount).
+  const rendered = item.template.replace(/\{\{(\w+)\}\}/g, (match, key) => (key in vars ? vars[key] : match));
 
   return {
     meta: {

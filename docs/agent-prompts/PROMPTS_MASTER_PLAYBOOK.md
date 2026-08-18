@@ -150,6 +150,7 @@ Diagnose and repair the authentication / session issue with {{AUTH_SCENARIO}}:
 ### 6. `vercel-cloudflare` — Vercel & Cloudflare Production Diagnostics
 - **When to use**: Diagnosing deployment errors, proxy headers, CORS, or bundle packaging.
 - **Variables**: `ERROR_LOGS`
+
 ````markdown
 Investigate this Vercel / Cloudflare runtime error:
 ```
@@ -186,6 +187,7 @@ Implement a new Athena business tool: `{{TOOL_NAME}}`
 ### 8. `bugfix` — Isolated Bug Fix & Root-Cause Analysis
 - **When to use**: Fixing a specific defect safely without breaking adjacent systems.
 - **Variables**: `MODULE_NAME`, `BUG_DESCRIPTION`
+
 ````markdown
 We have a bug in {{MODULE_NAME}}:
 ```
