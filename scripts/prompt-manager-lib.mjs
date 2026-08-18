@@ -332,7 +332,7 @@ export function renderPrompt(promptId, userVars = {}, repoRoot = process.cwd()) 
 
   let rendered = item.template;
   for (const [key, val] of Object.entries(vars)) {
-    const regex = new RegExp(`\{\{${key}\}\}`, 'g');
+    const regex = new RegExp(`{{${key}}}`, 'g');
     rendered = rendered.replace(regex, val);
   }
 
