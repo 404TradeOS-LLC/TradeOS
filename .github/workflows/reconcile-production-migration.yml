@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: "Fetch PR #30 migration file for reconciliation only"
         working-directory: .
