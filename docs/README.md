@@ -113,7 +113,7 @@ tracked-source cleanliness check. These checks are intended to make a green PR
 a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
 
-The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow.
+The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. As of 2026-08-18, checkout call sites are maintained on the v7.0.1 patch release; this action-runtime maintenance does not change the explicit Node versions used for TradeOS workload testing or deployment.
 
