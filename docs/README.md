@@ -25,6 +25,7 @@ related_code:
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
+  - .github/workflows/preview-smoke-check.yml
 ---
 
 # TradeOS Documentation
@@ -112,11 +113,13 @@ tracked-source cleanliness check. These checks are intended to make a green PR
 a meaningful prerequisite for safe autonomous merging rather than a shallow
 build signal.
 
-The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow.
+The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. As of 2026-08-18, checkout call sites are maintained on the v7.0.1 patch release; this action-runtime maintenance does not change the explicit Node versions used for TradeOS workload testing or deployment.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
+
+The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
 The enforcement flow is:
 
@@ -193,6 +196,7 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 - [RBAC_MATRIX.md](RBAC_MATRIX.md)
 - [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md)
 - [ROADMAP.md](ROADMAP.md)
+- [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md)
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
