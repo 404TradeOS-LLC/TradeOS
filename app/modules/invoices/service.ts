@@ -123,7 +123,7 @@ export class InvoicesService {
     if (filters.updatedBefore) conditions.push(Prisma.sql`updated_at <= ${new Date(filters.updatedBefore)}`);
     if (filters.cursor) {
       const cursor = decodeUpdatedAtCursor(filters.cursor);
-      conditions.push(Prisma.sql`(updated_at < ${cursor.updatedAt} OR (updated_at = ${cursor.updatedAt} AND id < ${cursor.id}))`);
+      conditions.push(Prisma.sql`(updated_at < ${cursor.updatedAt} OR (updated_at = ${cursor.updatedAt} AND id < ${cursor.id}::uuid))`);
     }
 
     const where = Prisma.join(conditions, " AND ");
@@ -147,10 +147,10 @@ export class InvoicesService {
         left join (
           select invoice_id, sum(amount) as paid_amount
           from payments
-          where org_id = ${filters.orgId} and status = 'recorded'
+          where org_id = ${filters.orgId}::uuid and status = 'recorded'
           group by invoice_id
         ) pt on pt.invoice_id = i.id
-        where p.org_id = ${filters.orgId}
+        where p.org_id = ${filters.orgId}::uuid
       )
     `;
 
