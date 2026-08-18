@@ -31,7 +31,7 @@
     "seed": "ts-node db/seed/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.0",
@@ -52,7 +52,7 @@
     "jest": "^30.4.2",
     "nodemon": "^3.1.4",
     "playwright": "^1.62.1",
-    "prisma": "^5.20.0",
+    "prisma": "^6.19.3",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
