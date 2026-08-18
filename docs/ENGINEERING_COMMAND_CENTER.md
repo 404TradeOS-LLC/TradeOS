@@ -69,14 +69,9 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. As of the 2026-08-16 reconciliation, the live out-of-band queue is:
+Prioritize existing authorized work before inventing new scope. The 2026-08-18 live reconciliation found no remaining runtime, feature, dependency, CI, or bounded-fix pull requests. PR #250 is the final docs-only reconciliation vehicle for this pass and does not represent implementation overlap; after it lands, this pass leaves no open pull-request queue.
 
-1. **PR #231 — dashboard hierarchy/navigation affordance hardening.** Phase 2 follow-up to merged #211; frontend-only, clean mergeable state.
-2. **PR #230 — docs reconciliation of `CURRENT_STATE.md`/`SESSION_HANDOFF.md`** after PR #211; docs-only.
-3. **PR #229 / #227 / #226 / #225 — CI/workflow governance additions** (nightly repository health, workflow security gate, dependency review gate, guarded PR maintenance workflow); no runtime behavior change.
-4. **PR #217 — Server Action partial-write compensation** for estimate-intake photo uploads; clean mergeable state.
-
-The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap. This resolved-history note intentionally covers only items that remained in that active overlap queue; broader resolved maintenance history such as PR #171, PR #169, and superseded PRs #130/#131 remains recorded in `docs/SPRINT_BACKLOG.md` and the hardening baseline above.
+The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, and #249 before this final reconciliation. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of these items is live overlap for a numbered sprint.
 
 ## Autonomous maintenance operating mode
 
