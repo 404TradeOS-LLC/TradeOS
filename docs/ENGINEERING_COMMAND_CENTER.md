@@ -109,6 +109,8 @@ Repository workflows use supported action-runtime majors (`actions/checkout@v7` 
 
 The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands.
 
+The optional `preview-smoke-check.yml` workflow is not part of required CI either: it runs `web/scripts/preview-smoke-check.mjs` against a live Preview deployment (frontend reachability, backend `/health`/`/ready`, and a hard fail if either target points at Production) via manual `workflow_dispatch` or a best-effort `deployment_status` trigger — see `docs/REPOSITORY_GOVERNANCE.md` for its known auto-trigger limitation.
+
 Documentation foundation/governance work should run:
 
 ```bash

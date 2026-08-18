@@ -25,6 +25,7 @@ related_code:
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
+  - .github/workflows/preview-smoke-check.yml
 ---
 
 # TradeOS Documentation
@@ -118,6 +119,8 @@ The workflow implementation uses supported major versions of `actions/checkout` 
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
+The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
+
 The enforcement flow is:
 
 1. `scripts/__tests__/reconcile-task.test.mjs` verifies the autonomous-work classification and evidence-report contract.
@@ -193,6 +196,7 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 - [RBAC_MATRIX.md](RBAC_MATRIX.md)
 - [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md)
 - [ROADMAP.md](ROADMAP.md)
+- [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md)
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
