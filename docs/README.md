@@ -178,7 +178,7 @@ Rename handling:
 
 ## Dependabot patch auto-merge
 
-The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements.
+The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements. The workflow now runs from the normal `pull_request` event and uses the immutable `dependabot/fetch-metadata` v3.1.0 commit; the action's Node 24 runtime is confined to GitHub Actions and does not alter TradeOS application runtime policy.
 
 ### Nightly repository health
 

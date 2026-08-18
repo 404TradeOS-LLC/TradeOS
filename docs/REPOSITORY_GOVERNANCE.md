@@ -118,7 +118,7 @@ Re-run live read-only inspection before changing these statements or editing rep
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
 
-Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply.
+Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply. The workflow runs from the normal `pull_request` event and pins `dependabot/fetch-metadata` to the immutable v3.1.0 commit; its Node 24 action runtime is CI-only and does not change TradeOS application runtime policy.
 
 ## Manual PR maintenance workflow
 
