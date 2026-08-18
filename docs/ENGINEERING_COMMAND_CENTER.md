@@ -56,7 +56,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
 - **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
-- **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions.
+- **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
@@ -69,13 +69,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. As of the 2026-08-18 reconciliation, the live out-of-band queue is:
+Prioritize existing authorized work before inventing new scope. As of the 2026-08-16 reconciliation, the live out-of-band queue is:
 
-1. **PR #249 — `fix(tasks): enforce nested project and job scope`.** Backend project-task scoping fix.
-2. **PR #240 — `ci: add automated Preview smoke verification`** (adds `.github/workflows/preview-smoke-check.yml`).
-3. **PR #247 / #246 / #245 / #243 / #242 — Dependabot dependency bumps** (`actions/checkout`, `dependabot/fetch-metadata`, `actions/dependency-review-action`, web-runtime group, Prisma-stack group); no manual runtime change beyond the version bumps themselves.
+1. **PR #231 — dashboard hierarchy/navigation affordance hardening.** Phase 2 follow-up to merged #211; frontend-only, clean mergeable state.
+2. **PR #230 — docs reconciliation of `CURRENT_STATE.md`/`SESSION_HANDOFF.md`** after PR #211; docs-only.
+3. **PR #229 / #227 / #226 / #225 — CI/workflow governance additions** (nightly repository health, workflow security gate, dependency review gate, guarded PR maintenance workflow); no runtime behavior change.
+4. **PR #217 — Server Action partial-write compensation** for estimate-intake photo uploads; clean mergeable state.
 
-The 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution here, itself closed unmerged on 2026-08-16 without landing its diff; this reconciliation corrects the record directly against live GitHub state instead. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap. This resolved-history note intentionally covers only items that remained in that active overlap queue; broader resolved maintenance history such as PR #171, PR #169, and superseded PRs #130/#131 remains recorded in `docs/SPRINT_BACKLOG.md` and the hardening baseline above.
+The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) is fully resolved — #151 merged, #144 closed via merged PR #191, #128/#145 closed unmerged and superseded by equivalent merged work, and #153 closed completed. It is retained here only as resolved history, not as live overlap. This resolved-history note intentionally covers only items that remained in that active overlap queue; broader resolved maintenance history such as PR #171, PR #169, and superseded PRs #130/#131 remains recorded in `docs/SPRINT_BACKLOG.md` and the hardening baseline above.
 
 ## Autonomous maintenance operating mode
 
@@ -104,9 +105,11 @@ Expected required CI jobs include:
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
 
-Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. Action-runtime upgrades are CI maintenance; changes to the TradeOS Node workload matrix require separate compatibility evidence.
+Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
 
-The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands.
+The optional Dependabot patch auto-merge workflow is deliberately narrower than required CI: it can only enable GitHub auto-merge for same-repository Dependabot PRs targeting `main` whose metadata is `version-update:semver-patch`. Minor/major updates remain manual, and required checks, branch freshness, review threads, and branch protection still determine whether a patch PR actually lands. Its metadata step is pinned to the immutable `dependabot/fetch-metadata` v3.1.0 commit and runs from the normal `pull_request` event rather than `pull_request_target`; the action's Node 24 runtime is limited to GitHub Actions and does not change TradeOS workload runtimes.
+
+The optional `preview-smoke-check.yml` workflow is not part of required CI either: it runs `web/scripts/preview-smoke-check.mjs` against a live Preview deployment (frontend reachability, backend `/health`/`/ready`, and a hard fail if either target points at Production) via manual `workflow_dispatch` or a best-effort `deployment_status` trigger — see `docs/REPOSITORY_GOVERNANCE.md` for its known auto-trigger limitation.
 
 Documentation foundation/governance work should run:
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-17
+last_verified: 2026-08-18
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -14,6 +14,7 @@ related_code:
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
+  - .github/workflows/preview-smoke-check.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -64,13 +65,13 @@ Expected verification jobs are:
 - `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
 - `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
 
-The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
+The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. The workflow uses `actions/dependency-review-action@v5`, whose internal Node 24 runtime is isolated from the explicit Node versions used for TradeOS workload verification. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 
 A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
-Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. Any application-runtime version change remains a separate compatibility decision and must be validated as such.
+Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. As of 2026-08-18, workflow checkout call sites are maintained on `actions/checkout@v7.0.1`; this patch refresh does not change application runtime policy.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live ruleset verification confirms it has been added there.
 
@@ -117,7 +118,7 @@ Re-run live read-only inspection before changing these statements or editing rep
 - verify the expected head SHA immediately before merge;
 - only merged evidence may mark a sprint `DONE`.
 
-Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply.
+Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply. The workflow runs from the normal `pull_request` event and pins `dependabot/fetch-metadata` to the immutable v3.1.0 commit; its Node 24 action runtime is CI-only and does not change TradeOS application runtime policy.
 
 ## Manual PR maintenance workflow
 
@@ -228,6 +229,10 @@ The Bible does not replace:
 ## Nightly repository health workflow
 
 `.github/workflows/nightly-repository-health.yml` is a diagnostic maintenance workflow, not a merge-time authority. It may run on schedule or by manual dispatch to re-check drift-sensitive repository health with read-only repository permissions. It must not deploy, mutate production data, weaken required pull-request checks, or automatically convert a nightly failure into repository changes. Any repair prompted by the nightly signal follows the normal reconciliation, PR, verification, and merge controls in this document.
+
+## Preview smoke check workflow
+
+`.github/workflows/preview-smoke-check.yml` is a diagnostic, non-blocking workflow, not a merge-time authority — it is not part of the required-check set. It runs `web/scripts/preview-smoke-check.mjs` against a live Vercel Preview deployment (and, when a backend URL is supplied, the shared staging backend) to catch staging-isolation regressions early; see `docs/DEPLOYMENT_GUIDE.md`'s "Environment architecture" section for the full staging setup this checks against. It has two triggers: `workflow_dispatch` (always reliable, run manually against any known Preview URL) and `deployment_status` (best-effort automatic trigger, filtered to the frontend project's successful Preview deployments). The `deployment_status` filter has not been confirmed against a live event in this repository — if it does not fire as expected, use `workflow_dispatch` rather than loosening the filter blindly. The workflow has read-only repository contents access and only makes outbound HTTP requests to the URLs it is given; it does not deploy, mutate data, or touch Production.
 
 ## Production migration history reconciliation
 

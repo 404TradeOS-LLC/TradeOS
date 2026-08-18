@@ -4,6 +4,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 export const proposalsRouter = Router();
 
+proposalsRouter.get("/", asyncHandler(ctrl.listOrganizationQueue));
 proposalsRouter.get("/by-project/:projectId", asyncHandler(ctrl.listByProject));
 proposalsRouter.get("/project-draft/:projectId", asyncHandler(ctrl.previewProjectDraft));
 proposalsRouter.post("/", asyncHandler(ctrl.create));

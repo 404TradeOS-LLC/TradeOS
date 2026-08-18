@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-18
+last_verified: 2026-08-16
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -49,10 +49,7 @@ unmerged and superseded by merged PR #183). S027 is still not promoted to
 `READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
 and PR #216), so a dedicated live-verified scope/overlap review is required
 before promotion, not just confirmation that the old blocking PRs are gone.
-Re-read live GitHub state before any later promotion. As of the 2026-08-18
-out-of-band-queue reconciliation (see `docs/SPRINT_BACKLOG.md`), the live open
-PR set (#240, #242, #243, #245, #246, #247, #249) contains no Costbook-scope
-work, so it does not change this promotion gate.
+Re-read live GitHub state before any later promotion.
 
 ## Volume I — Vision
 

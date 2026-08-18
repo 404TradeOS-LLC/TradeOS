@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-17
 source_of_truth: false
 related_code:
   - app/backend/routes/projects.routes.ts
@@ -49,6 +49,7 @@ Task route details:
 
 - `GET /api/v1/projects/tasks` returns an org-scoped task list with project/customer/job context for dashboard and operational queue surfaces; it reuses `app/modules/project-tasks/service.ts` and the existing request auth + org/RLS middleware path rather than creating a dashboard-only task store
 - `GET /api/v1/projects/:id/tasks` remains the per-project task list for the project workspace
+- nested task update/delete routes require the task's persisted `projectId` to match the route `:id`; a replacement `jobId` on task update must resolve to an active job in the authenticated organization and that same project, otherwise the request returns 404 before mutation
 
 ## Permissions
 
@@ -84,4 +85,4 @@ Project workspace surfaces also expose the current job and field-coordination wo
 
 ## Last verified date
 
-2026-07-14
+2026-08-17
