@@ -63,19 +63,25 @@ export class ProposalsService {
     const updatedAtRange = buildUpdatedAtRange(filters);
     if (updatedAtRange) conditions.push({ updatedAt: updatedAtRange });
 
+    // filterWhere excludes the cursor predicate so count() reflects the
+    // exact total for the filter, not just rows remaining after the cursor
+    // position — pageWhere adds the cursor on top of it for findMany only.
+    const filterWhere: Prisma.ProposalWhereInput = { AND: conditions };
+    let pageWhere = filterWhere;
     if (filters.cursor) {
       const cursor = decodeUpdatedAtCursor(filters.cursor);
-      conditions.push({
-        OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }],
-      });
+      pageWhere = {
+        AND: [
+          ...conditions,
+          { OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }] },
+        ],
+      };
     }
 
-    const where: Prisma.ProposalWhereInput = { AND: conditions };
-
     const [total, rows] = await Promise.all([
-      prisma.proposal.count({ where }),
+      prisma.proposal.count({ where: filterWhere }),
       prisma.proposal.findMany({
-        where,
+        where: pageWhere,
         include: {
           project: { include: { customer: { select: { name: true } } } },
           contracts: { select: { id: true }, orderBy: { createdAt: "desc" }, take: 1 },

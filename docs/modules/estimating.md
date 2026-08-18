@@ -97,6 +97,7 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 - downstream commercial workflows still rely on compatibility status normalization in some paths
 - Costbook pricing preview remains calculation-only; it is not a saved organization pricing-policy system
+- pre-existing domain quirk, not introduced by the organization work-queue read: `estimateStatuses` lists `sent` as its own canonical value, but `legacyEstimateStatusMap` maps raw `sent` to canonical `ready`, so `normalizeEstimateStatus` can never actually return `sent` — a row genuinely stored with raw status `sent` is indistinguishable in the queue's `status` filter from one that means canonical `ready` (both satisfy `statuses: ["ready"]`, and either match also satisfies `statuses: ["sent"]` today, but always displays as `ready`). Resolving this would mean changing `app/domain/contracts.ts`'s canonical status vocabulary, which is out of scope for a read-only queue feature
 
 ## Deferred work
 

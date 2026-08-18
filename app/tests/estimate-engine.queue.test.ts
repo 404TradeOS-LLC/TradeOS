@@ -138,10 +138,14 @@ describe("EstimateEngineService.listOrganizationQueue", () => {
     const page2 = await service.listOrganizationQueue({ orgId: ORG_A, limit: 2, cursor: page1.nextCursor! });
     expect(page2.items.map((i) => i.id)).toEqual(["est-2", "est-3"]);
     expect(page2.nextCursor).not.toBeNull();
+    // Regression: total must reflect the whole filtered set, not just rows
+    // remaining after the cursor — count() must not reuse the cursor predicate.
+    expect(page2.total).toBe(5);
 
     const page3 = await service.listOrganizationQueue({ orgId: ORG_A, limit: 2, cursor: page2.nextCursor! });
     expect(page3.items.map((i) => i.id)).toEqual(["est-4"]);
     expect(page3.nextCursor).toBeNull();
+    expect(page3.total).toBe(5);
 
     const seen = [...page1.items, ...page2.items, ...page3.items].map((i) => i.id);
     expect(new Set(seen).size).toBe(seen.length);

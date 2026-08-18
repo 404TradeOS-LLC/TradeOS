@@ -247,7 +247,7 @@ Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoice
 - `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is not voided
 - `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is not voided
 - `unpaid` = `balanceDue > 0` AND status is not voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
-- the voided exclusion above checks the actual persisted raw value (`void`/`cancelled`, both of which normalize to canonical `voided`), matching the live `invoices_status_check` database constraint rather than assuming the canonical spelling is what is stored
+- the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`), not the aspirational canonical spelling `voided`, which the constraint does not permit — see the compatibility note above. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either; no currently-reachable write path can produce it
 - this is a read-only aggregate; it introduces no new invoice state or transition
 
 ## Transactional canonical-event invariant (A12.1)

@@ -134,10 +134,14 @@ describe("ProposalsService.listOrganizationQueue", () => {
     const page1 = await service.listOrganizationQueue({ orgId: ORG_A, limit: 3 });
     expect(page1.items.map((i) => i.id)).toEqual(["prop-0", "prop-1", "prop-2"]);
     expect(page1.nextCursor).not.toBeNull();
+    expect(page1.total).toBe(4);
 
     const page2 = await service.listOrganizationQueue({ orgId: ORG_A, limit: 3, cursor: page1.nextCursor! });
     expect(page2.items.map((i) => i.id)).toEqual(["prop-3"]);
     expect(page2.nextCursor).toBeNull();
+    // Regression: total must reflect the whole filtered set, not just rows
+    // remaining after the cursor — count() must not reuse the cursor predicate.
+    expect(page2.total).toBe(4);
   });
 
   it("rejects a malformed cursor with a 400 ApiError", async () => {

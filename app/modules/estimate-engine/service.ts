@@ -92,19 +92,25 @@ export class EstimateEngineService {
     const updatedAtRange = buildUpdatedAtRange(filters);
     if (updatedAtRange) conditions.push({ updatedAt: updatedAtRange });
 
+    // filterWhere excludes the cursor predicate so count() reflects the
+    // exact total for the filter, not just rows remaining after the cursor
+    // position — pageWhere adds the cursor on top of it for findMany only.
+    const filterWhere: Prisma.EstimateWhereInput = { AND: conditions };
+    let pageWhere = filterWhere;
     if (filters.cursor) {
       const cursor = decodeUpdatedAtCursor(filters.cursor);
-      conditions.push({
-        OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }],
-      });
+      pageWhere = {
+        AND: [
+          ...conditions,
+          { OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }] },
+        ],
+      };
     }
 
-    const where: Prisma.EstimateWhereInput = { AND: conditions };
-
     const [total, rows] = await Promise.all([
-      prisma.estimate.count({ where }),
+      prisma.estimate.count({ where: filterWhere }),
       prisma.estimate.findMany({
-        where,
+        where: pageWhere,
         include: { project: { include: { customer: { select: { name: true } } } } },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
         take: limit,

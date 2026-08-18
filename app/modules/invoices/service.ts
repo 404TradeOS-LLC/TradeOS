@@ -121,12 +121,21 @@ export class InvoicesService {
     }
     if (filters.updatedAfter) conditions.push(Prisma.sql`updated_at >= ${new Date(filters.updatedAfter)}`);
     if (filters.updatedBefore) conditions.push(Prisma.sql`updated_at <= ${new Date(filters.updatedBefore)}`);
+
+    // filterWhere excludes the cursor predicate so the count query reflects
+    // the exact total for the filter, not just rows remaining after the
+    // cursor position — pageWhere adds the cursor on top of it for the rows
+    // query only.
+    const filterWhere = Prisma.join(conditions, " AND ");
+    let pageWhere = filterWhere;
     if (filters.cursor) {
       const cursor = decodeUpdatedAtCursor(filters.cursor);
-      conditions.push(Prisma.sql`(updated_at < ${cursor.updatedAt} OR (updated_at = ${cursor.updatedAt} AND id < ${cursor.id}::uuid))`);
+      pageWhere = Prisma.join(
+        [...conditions, Prisma.sql`(updated_at < ${cursor.updatedAt} OR (updated_at = ${cursor.updatedAt} AND id < ${cursor.id}::uuid))`],
+        " AND "
+      );
     }
 
-    const where = Prisma.join(conditions, " AND ");
     const cte = Prisma.sql`
       with queue as (
         select
@@ -136,6 +145,7 @@ export class InvoicesService {
           i.status,
           i.amount,
           i.due_date,
+          i.sent_at,
           i.updated_at,
           p.name as project_name,
           c.name as customer_name,
@@ -158,14 +168,14 @@ export class InvoicesService {
       prisma.$queryRaw<InvoiceQueueRawRow[]>(Prisma.sql`
         ${cte}
         select * from queue
-        where ${where}
+        where ${pageWhere}
         order by updated_at desc, id desc
         limit ${limit}
       `),
       prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         ${cte}
         select count(*)::bigint as count from queue
-        where ${where}
+        where ${filterWhere}
       `),
     ]);
 

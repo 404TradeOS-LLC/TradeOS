@@ -165,4 +165,23 @@ describe("InvoicesService.listOrganizationQueue", () => {
     const values = valuesOf(queryRawMock.mock.calls[0][0]);
     expect(values[values.length - 1]).toBe(50);
   });
+
+  it("regression: the count query never includes the cursor predicate, only the rows query does", async () => {
+    queryRawMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: BigInt(0) }]);
+    const cursor = Buffer.from(JSON.stringify({ u: "2026-08-01T00:00:00.000Z", i: "row-1" }), "utf8").toString("base64url");
+    await service.listOrganizationQueue({ orgId: "org-a", cursor });
+
+    const rowsSql = sqlOf(queryRawMock.mock.calls[0][0]);
+    const countSql = sqlOf(queryRawMock.mock.calls[1][0]);
+    expect(rowsSql).toContain("id < ?::uuid");
+    expect(countSql).not.toContain("id < ?::uuid");
+  });
+
+  it("regression: the CTE projects sent_at so the sent filter can reference it in the outer query", async () => {
+    queryRawMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: BigInt(0) }]);
+    await service.listOrganizationQueue({ orgId: "org-a", sent: true });
+
+    const sql = sqlOf(queryRawMock.mock.calls[0][0]);
+    expect(sql).toMatch(/i\.sent_at/);
+  });
 });

@@ -1496,6 +1496,18 @@ describe("live organization row-level security", () => {
       expect(ids).not.toContain(estimateQueueB1);
     });
 
+    it("estimates queue: forced RLS blocks Org B rows even if the service were called with a guessed/mismatched orgId while sessioned as Org A", async () => {
+      // The controller always derives orgId from the authenticated session
+      // (requireOrgId), never a caller-supplied value, so this scenario is
+      // not reachable through the real HTTP surface. This proves the
+      // deeper guarantee anyway: even a hypothetical broken/bypassed
+      // service-layer check could not leak Org B rows, because forced RLS
+      // scopes visibility to the session's own app.org_id, not to whatever
+      // orgId a query happens to ask for.
+      const result = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().listOrganizationQueue({ orgId: orgB }));
+      expect(result.items.map((item) => item.id)).not.toContain(estimateQueueB1);
+    });
+
     it("estimates queue: a status filter matches rows stored under a legacy raw synonym, normalized in the response", async () => {
       const result = await inSession(adminUser, orgA, "admin", async () =>
         new EstimateEngineService().listOrganizationQueue({ orgId: orgA, statuses: ["ready"] })
