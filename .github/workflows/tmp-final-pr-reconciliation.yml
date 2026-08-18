@@ -1,0 +1,97 @@
+name: Temporary final PR reconciliation
+
+on:
+  push:
+    branches:
+      - docs/reconcile-live-pr-state
+    paths:
+      - .github/workflows/tmp-final-pr-reconciliation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile-docs:
+    name: Reconcile final open PR state
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reconcile source-of-truth docs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def update(path, transform):
+              p = Path(path)
+              text = p.read_text()
+              new = transform(text)
+              if new == text:
+                  raise SystemExit(f'No change produced for {path}')
+              p.write_text(new)
+
+          def command_center(text):
+              text = text.replace('last_verified: 2026-08-16', 'last_verified: 2026-08-18', 1)
+              replacement = '''## Active engineering queue
+
+Prioritize existing authorized work before inventing new scope. The 2026-08-18 live reconciliation found no remaining runtime, feature, dependency, CI, or bounded-fix pull requests. PR #250 is the final docs-only reconciliation vehicle for this pass and does not represent implementation overlap; after it lands, this pass leaves no open pull-request queue.
+
+The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, and #249 before this final reconciliation. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of these items is live overlap for a numbered sprint.
+
+'''
+              return re.sub(r'## Active engineering queue\n.*?(?=## Autonomous maintenance operating mode\n)', replacement, text, count=1, flags=re.S)
+
+          def session_handoff(text):
+              text = text.replace('last_verified: 2026-08-16', 'last_verified: 2026-08-18', 1)
+              text = re.sub(r'## Mission\n.*?(?=## Current branch\n)', '''## Mission
+
+No in-progress numbered sprint or bounded implementation mission is handed off from this session. This pass completed repository pull-request cleanup and final documentation reconciliation; no runtime code is being handed off from PR #250.
+
+''', text, count=1, flags=re.S)
+              text = re.sub(r'## Reconciliation performed this session\n.*?(?=## Known limitations\n)', '''## Reconciliation performed this session
+
+Live GitHub reconciliation on 2026-08-18 confirmed the prior out-of-band queues are resolved. This cleanup landed or otherwise resolved PR #240, #242, #243, #245, #246, #247, and #249 after the already-resolved 2026-08-16 set (#217, #225, #226, #227, #229, #230, #231). PR #237 remained closed unmerged. Immediately before this final docs reconciliation, PR #250 itself was the only open pull request; it is docs/governance-only and carries no runtime implementation overlap. After #250 lands, this pass leaves no open pull-request queue.
+
+''', text, count=1, flags=re.S)
+              text = re.sub(r'Overlap check:.*\n', 'Overlap check: Live GitHub was reverified on 2026-08-18; no runtime, feature, dependency, CI, or bounded-fix pull request remains open. PR #250 is only the final docs reconciliation vehicle for this pass.\n', text, count=1)
+              text = text.replace('Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, then either advance one of the live out-of-band PRs above or run a dedicated S027 readiness reverification before selecting numbered-sprint work.', 'Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, then run a dedicated S027 readiness reverification before selecting numbered-sprint work; do not infer a new implementation queue from this closed cleanup pass.')
+              return text
+
+          def sprint_backlog(text):
+              replacement = '''## Current out-of-band authorized work
+
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. The 2026-08-18 live reconciliation found no remaining runtime, feature, dependency, CI, or bounded-fix pull requests. PR #250 is the final docs-only reconciliation vehicle for this pass; after it lands, there is no live out-of-band pull-request queue from this cleanup.
+
+The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, and #249. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. The prior 2026-08-12-era list remains resolved as previously documented. None remain live overlap risk.
+
+Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
+
+'''
+              text = re.sub(r'## Current out-of-band authorized work\n.*?(?=## Next Eligible Sprint\n)', replacement, text, count=1, flags=re.S)
+              text = re.sub(r'Overlap check:.*\n', 'Overlap check: Reverified live GitHub on 2026-08-18. No runtime, feature, dependency, CI, or bounded-fix pull request remains open; PR #250 is only the final docs reconciliation vehicle and does not conflict with a numbered sprint.\n', text, count=1)
+              return text
+
+          def bible(text):
+              text = text.replace('last_verified: 2026-08-16', 'last_verified: 2026-08-18', 1)
+              old = 'Re-read live GitHub state before any later promotion.\n'
+              new = ('Re-read live GitHub state before any later promotion. The 2026-08-18 cleanup resolved the remaining out-of-band implementation and maintenance PRs (#240, #242, #243, #245, #246, #247, #249); PR #250 is the final docs-only reconciliation vehicle and does not change the S027 promotion gate.\n')
+              if old not in text:
+                  raise SystemExit('Expected S027 live-state sentence not found')
+              return text.replace(old, new, 1)
+
+          update('docs/ENGINEERING_COMMAND_CENTER.md', command_center)
+          update('docs/SESSION_HANDOFF.md', session_handoff)
+          update('docs/SPRINT_BACKLOG.md', sprint_backlog)
+          update('docs/TRADEOS_BIBLE.md', bible)
+          PY
+
+      - name: Commit reconciled docs
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/ENGINEERING_COMMAND_CENTER.md docs/SESSION_HANDOFF.md docs/SPRINT_BACKLOG.md docs/TRADEOS_BIBLE.md
+          git commit -m "docs: reconcile final live PR state"
+          git push origin HEAD:${GITHUB_REF_NAME}
