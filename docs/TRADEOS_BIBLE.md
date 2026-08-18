@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-18
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -49,7 +49,7 @@ unmerged and superseded by merged PR #183). S027 is still not promoted to
 `READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
 and PR #216), so a dedicated live-verified scope/overlap review is required
 before promotion, not just confirmation that the old blocking PRs are gone.
-Re-read live GitHub state before any later promotion.
+Re-read live GitHub state before any later promotion. The 2026-08-18 cleanup resolved the remaining out-of-band implementation and maintenance PRs (#240, #242, #243, #245, #246, #247, #249); PR #250 is the final docs-only reconciliation vehicle and does not change the S027 promotion gate.
 
 ## Volume I — Vision
 
