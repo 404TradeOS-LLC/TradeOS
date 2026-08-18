@@ -57,5 +57,8 @@
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.0"
   }
 }
