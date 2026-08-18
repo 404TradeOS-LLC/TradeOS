@@ -3,9 +3,19 @@ import { z } from "zod";
 import { TransactionalEstimateEngineService } from "../../modules/athena-events/transactionalPublishers";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { commaSeparatedEnum } from "../queryParams";
+import { estimateStatuses } from "../../domain";
 
 const service = new TransactionalEstimateEngineService();
 const activityService = new ActivityTimelineService();
+
+const listQueueQuerySchema = z.object({
+  status: commaSeparatedEnum(z.enum(estimateStatuses)),
+  updatedAfter: z.string().datetime().optional(),
+  updatedBefore: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  cursor: z.string().optional(),
+});
 
 export const estimateEngineController = {
   async create(req: Request, res: Response) {
@@ -32,6 +42,21 @@ export const estimateEngineController = {
   async listByProject(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
     res.json(await service.listByProject(req.params.projectId, requireOrgId(req)));
+  },
+
+  async listOrganizationQueue(req: Request, res: Response) {
+    requirePermissions(req, ["crm.read"]);
+    const query = listQueueQuerySchema.parse(req.query);
+    res.json(
+      await service.listOrganizationQueue({
+        orgId: requireOrgId(req),
+        statuses: query.status,
+        updatedAfter: query.updatedAfter,
+        updatedBefore: query.updatedBefore,
+        limit: query.limit,
+        cursor: query.cursor,
+      })
+    );
   },
 
   async addLineItem(req: Request, res: Response) {

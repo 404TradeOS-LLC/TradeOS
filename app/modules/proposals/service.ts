@@ -7,7 +7,10 @@ import { ProposalDocument } from "../proposal-generator/types";
 import { ProjectIntakeService } from "../project-intake/service";
 import { ActivityTimelineService } from "../intelligence/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
-import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO } from "./types";
+import { legacyProposalStatusMap, normalizeProposalStatus } from "../../domain";
+import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
+import { expandCanonicalStatusFilter } from "../shared/statusFilter";
+import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
 
 interface PaymentScheduleEntry {
   label: string;
@@ -34,6 +37,59 @@ export class ProposalsService {
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
+  }
+
+  /**
+   * Organization-wide, newest-activity-first proposal queue. "Unsigned"
+   * means no Contract row references this proposal yet (conversion is the
+   * Contract's existence, independent of that contract's own signature
+   * state). "Stale" is caller-defined via `staleBefore` against `sentAt` —
+   * this domain has no canonical canceled/voided proposal status, so that
+   * exclusion rule from the product spec has nothing to apply to today.
+   */
+  async listOrganizationQueue(filters: ProposalQueueFilters): Promise<QueuePage<ProposalQueueItemDTO>> {
+    const limit = clampQueueLimit(filters.limit);
+    const conditions: Prisma.ProposalWhereInput[] = [{ project: { orgId: filters.orgId } }];
+
+    if (filters.statuses?.length) conditions.push({ status: { in: expandCanonicalStatusFilter(filters.statuses, legacyProposalStatusMap) } });
+    if (filters.sent === true) conditions.push({ sentAt: { not: null } });
+    if (filters.sent === false) conditions.push({ sentAt: null });
+    if (filters.viewed === true) conditions.push({ viewedAt: { not: null } });
+    if (filters.viewed === false) conditions.push({ viewedAt: null });
+    if (filters.unsigned === true) conditions.push({ contracts: { none: {} } });
+    if (filters.unsigned === false) conditions.push({ contracts: { some: {} } });
+    if (filters.staleBefore) conditions.push({ sentAt: { lte: new Date(filters.staleBefore) } });
+
+    const updatedAtRange = buildUpdatedAtRange(filters);
+    if (updatedAtRange) conditions.push({ updatedAt: updatedAtRange });
+
+    if (filters.cursor) {
+      const cursor = decodeUpdatedAtCursor(filters.cursor);
+      conditions.push({
+        OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }],
+      });
+    }
+
+    const where: Prisma.ProposalWhereInput = { AND: conditions };
+
+    const [total, rows] = await Promise.all([
+      prisma.proposal.count({ where }),
+      prisma.proposal.findMany({
+        where,
+        include: {
+          project: { include: { customer: { select: { name: true } } } },
+          contracts: { select: { id: true }, orderBy: { createdAt: "desc" }, take: 1 },
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        take: limit,
+      }),
+    ]);
+
+    const items = rows.map(toQueueItemDTO);
+    const last = rows[rows.length - 1];
+    const nextCursor = rows.length === limit && last ? encodeUpdatedAtCursor({ updatedAt: last.updatedAt, id: last.id }) : null;
+
+    return { items, total, nextCursor };
   }
 
   async getById(id: string, orgId?: string): Promise<ProposalDTO> {
@@ -413,6 +469,31 @@ export class ProposalsService {
 
     return schedule;
   }
+}
+
+function toQueueItemDTO(row: {
+  id: string;
+  projectId: string;
+  status: string;
+  finalPrice: unknown;
+  sentAt: Date | null;
+  viewedAt: Date | null;
+  updatedAt: Date;
+  project: { name: string; customer: { name: string } | null };
+  contracts: Array<{ id: string }>;
+}): ProposalQueueItemDTO {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    projectName: row.project.name,
+    customerName: row.project.customer?.name ?? null,
+    status: normalizeProposalStatus(row.status),
+    amount: toNullableNumber(row.finalPrice),
+    contractId: row.contracts[0]?.id ?? null,
+    sentAt: row.sentAt ? row.sentAt.toISOString() : null,
+    viewedAt: row.viewedAt ? row.viewedAt.toISOString() : null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
 }
 
 function toDTO(row: {
