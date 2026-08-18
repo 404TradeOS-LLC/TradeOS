@@ -95,6 +95,7 @@ Organization work-queue reads (`GET /api/v1/estimates`, see `docs/modules/estima
 
 - the queue includes every non-deleted estimate; the current Estimate model has no soft-delete/archive flag, so this is unconditionally true today and no status is treated as an implicit default-view exclusion
 - a `status` filter (or comma-separated multiple statuses) is matched against the canonical value; matching also expands to any legacy raw stored value that normalizes to it (e.g. requesting `ready` also matches rows still stored as raw `sent`), so callers never have to know the compatibility mapping
+- the queue's `status` filter does not accept `sent` even though it is listed among `estimateStatuses`: `legacyEstimateStatusMap` maps raw `sent` to canonical `ready`, so no row ever normalizes back to `sent` — accepting it as a filter value would silently return the same rows as `ready` under a different, unreachable label. `sent` is excluded from the filter's accepted values (`400` if requested) rather than left ambiguous; this does not change `sent`'s meaning anywhere else in the estimate lifecycle
 - this is a read-only aggregate; it introduces no new estimate state or transition
 
 ## Costbook Workspace

@@ -84,4 +84,18 @@ describe("estimateEngineController.listOrganizationQueue", () => {
     const req = buildRequest("owner", { limit: "51" });
     await expect(estimateEngineController.listOrganizationQueue(req, buildResponse())).rejects.toThrow();
   });
+
+  it("rejects canonical status 'sent': legacyEstimateStatusMap normalizes raw 'sent' to canonical 'ready', so filtering by 'sent' would be indistinguishable from 'ready' and is excluded rather than left ambiguous", async () => {
+    const req = buildRequest("owner", { status: "sent" });
+    await expect(estimateEngineController.listOrganizationQueue(req, buildResponse())).rejects.toThrow();
+    expect(listOrganizationQueueMock).not.toHaveBeenCalled();
+  });
+
+  it("still accepts every other canonical estimate status", async () => {
+    const req = buildRequest("owner", { status: "draft,ready,viewed,approved,declined,expired,superseded" });
+    await estimateEngineController.listOrganizationQueue(req, buildResponse());
+    expect(listOrganizationQueueMock).toHaveBeenCalledWith(
+      expect.objectContaining({ statuses: ["draft", "ready", "viewed", "approved", "declined", "expired", "superseded"] })
+    );
+  });
 });
