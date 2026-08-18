@@ -119,7 +119,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - Invoices and payment recording
 - Change orders
 - Jobs and scheduling: job creation, assignment, scheduling, rescheduling, dispatcher coordination, and field-status workflows
-- Project tasks
+- Project tasks: nested `PATCH`/`DELETE /api/v1/projects/:projectId/tasks/:taskId` mutations require the resolved task to belong to the route project, and task reassignment to a `jobId` requires that active job to belong to the same organization and project; mismatches are rejected before task or activity writes.
 - Activity, notifications, recents, saved views, feature flags, and search-oriented intelligence primitives
 - Owner dashboard foundation: morning command-center shell, review-queue header, KPI scan, "Needs attention" decision queues, a Today schedule wired to live dispatch data, a live project-task queue with real task activity, deterministic live owner briefing, activity timeline, and quick actions across existing contractor workflows
 - Brand Studio
