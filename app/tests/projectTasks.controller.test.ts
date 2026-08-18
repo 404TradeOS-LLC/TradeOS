@@ -122,7 +122,7 @@ describe("projectTasksController.listByOrganization", () => {
 
     const req = {
       orgId: "org-1",
-      params: { taskId: "task-1" },
+      params: { id: "project-1", taskId: "task-1" },
       body: {
         status: "blocked",
         assignedTo: "Alex",

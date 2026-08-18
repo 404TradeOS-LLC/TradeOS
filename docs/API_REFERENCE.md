@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-18
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -105,15 +105,6 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/athena/observability`
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
-
-Organization work-queue reads — `GET /api/v1/estimates`, `GET /api/v1/proposals`, `GET /api/v1/invoices` (each is the router root for its resource, distinct from the existing `/by-project/:projectId` and `/:id` routes on the same router): reusable, organization-scoped, paginated read endpoints intended for dashboard "needs attention" views, reporting surfaces, and future Athena tools that need a company-wide queue rather than a single project's documents. Full filter/response-shape/pagination contracts are documented per resource in [modules/estimating.md](modules/estimating.md), [modules/proposals.md](modules/proposals.md), and [modules/invoices-and-payments.md](modules/invoices-and-payments.md), and their lifecycle-adjacent filter semantics (unsigned, stale, overdue, partially paid, unpaid) in [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md). Shared shape across all three:
-
-- authorization: the existing per-resource read permission (`crm.read` for estimates, `billing.read` for proposals/invoices) — every canonical/legacy role holds it, so this is effectively "any authenticated organization member," routed through the existing `requirePermissions` boundary rather than a new permission key
-- organization scope: derived from the authenticated request context only, never a caller-supplied id, enforced in the query and by forced RLS
-- pagination: opaque cursor, default limit 25, maximum 50, `updatedAt desc, id desc` ordering with a stable id tie-breaker, and an invalid/malformed cursor returns `400` instead of silently restarting from page 1
-- response envelope: `{ items, total, nextCursor }` with an exact filtered `total` (not an estimate), and no `orgId` field on individual items
-- search is explicitly out of scope for this read; date filtering is limited to generic `updatedAfter`/`updatedBefore` plus each resource's own operational filters — this is not a general reporting API
-- no Athena implementation change and no dashboard UI change are part of this read — see the module docs' "Deferred work" for intended future consumers
 
 AI estimating routes under `/api/v1/estimates`:
 
@@ -293,6 +284,8 @@ Project task routes under `/api/v1/projects`:
 
 - `limit` — optional integer, `1..50`, default service cap `24`
 - `includeCompleted` — optional boolean string (`true` or `false`); when omitted, completed tasks are excluded
+
+For nested task mutations, the route parent is authoritative: `PATCH` and `DELETE /api/v1/projects/:id/tasks/:taskId` reject a task whose stored `projectId` does not match `:id` before mutation or activity writes. When `PATCH` changes `jobId`, the replacement job must be active, belong to the authenticated organization, and belong to that same project; a cross-project job is rejected before the task update.
 
 `POST /api/v1/proposals/:id/send` retains its existing request/response shape. Under A12.1, the `ProposalSent` canonical event must persist in the same database transaction as the `draft -> sent` mutation; failure of required event persistence rolls that mutation back. Subscriber delivery remains asynchronous and is not part of the HTTP transaction contract. See [modules/proposals.md](modules/proposals.md) and [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 

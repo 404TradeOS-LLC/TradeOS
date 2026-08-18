@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { ApiError } from "../middleware/errorHandler";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ProjectTasksService } from "../../modules/project-tasks/service";
@@ -99,6 +100,9 @@ export const projectTasksController = {
       const taskService = new ProjectTasksService(transaction as typeof prisma);
       const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
       const before = await taskService.getById(req.params.taskId, orgId);
+      if (before.projectId !== req.params.id) {
+        throw new ApiError(404, `Project task ${req.params.taskId} not found`);
+      }
       const updatedTask = await taskService.update(req.params.taskId, {
         orgId,
         jobId: body.jobId,
@@ -148,6 +152,9 @@ export const projectTasksController = {
       const taskService = new ProjectTasksService(transaction as typeof prisma);
       const transactionActivityService = new ActivityTimelineService(transaction as typeof prisma);
       const task = await taskService.getById(req.params.taskId, orgId);
+      if (task.projectId !== req.params.id) {
+        throw new ApiError(404, `Project task ${req.params.taskId} not found`);
+      }
       await taskService.remove(req.params.taskId, orgId);
       await transactionActivityService.record({
         orgId,

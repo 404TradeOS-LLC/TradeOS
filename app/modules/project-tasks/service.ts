@@ -124,6 +124,18 @@ export class ProjectTasksService {
     });
     if (!existing) throw new ApiError(404, `Project task ${id} not found`);
 
+    if (input.jobId) {
+      const job = await this.db.job.findFirst({
+        where: {
+          id: input.jobId,
+          projectId: existing.projectId,
+          archivedAt: null,
+          ...(input.orgId ? { orgId: input.orgId } : {}),
+        },
+      });
+      if (!job) throw new ApiError(404, `Job ${input.jobId} not found`);
+    }
+
     const nextStatus = input.status ?? (existing.status as ProjectTaskStatus);
     const row = await this.db.projectTask.update({
       where: { id },
