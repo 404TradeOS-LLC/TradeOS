@@ -6,12 +6,18 @@ import {
   getOrganizationSettings,
   getProject,
   listActivityEvents,
+  listEstimateQueue,
+  listInvoiceQueue,
   listJobsForDispatch,
   listOrganizationProjectTasks,
   listProjects,
+  listProposalQueue,
   toInclusiveEndBoundary,
   type DispatchJob,
+  type EstimateQueueItem,
+  type InvoiceQueueItem,
   type JobSummary,
+  type ProposalQueueItem,
 } from "@/lib/api";
 import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getCurrentWeekPaymentLedger } from "@/lib/payment-ledger";
@@ -24,13 +30,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { isTerminalStatus, jobStatuses } from "@/domain";
-import {
-  NeedsAttentionCard,
-  type AttentionEstimateRow,
-  type AttentionInvoiceRow,
-  type AttentionProposalRow,
-  type AttentionStartRow,
-} from "@/components/dashboard/needs-attention-card";
+import { NeedsAttentionCard, type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
+import { buildAttentionEstimateRows, buildAttentionInvoiceRows, buildAttentionProposalRows, getStaleProposalCutoffIso } from "@/components/dashboard/needs-attention-model";
 import { AIAssistantPlaceholderPanel } from "@/components/dashboard/ai-assistant-placeholder-panel";
 import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
 import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
@@ -52,6 +53,20 @@ const DASHBOARD_TODAY_JOB_LIMIT = 5;
 const DASHBOARD_TASK_FEED_LIMIT = 24;
 const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
 
+// Bounded page sizes for the organization-wide "Needs attention" work
+// queues (PR #251) — enough to populate the dashboard without loading full
+// organization history. `total` (the exact filtered count) is used for KPI
+// tiles independent of how many rows were fetched.
+const ATTENTION_OVERDUE_INVOICE_LIMIT = 10;
+const ATTENTION_UNPAID_INVOICE_LIMIT = 15;
+const ATTENTION_STALE_PROPOSAL_LIMIT = 10;
+const ATTENTION_UNSIGNED_PROPOSAL_LIMIT = 15;
+const ATTENTION_ESTIMATE_LIMIT = 15;
+
+function emptyQueue<T>(): { items: T[]; total: number; nextCursor: string | null } {
+  return { items: [], total: 0, nextCursor: null };
+}
+
 async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
   try {
     const summary = await getDispatchSummary(token);
@@ -66,11 +81,49 @@ async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[];
   }
 }
 
-function toProposalAmount(proposal: { finalPrice: number | null; priceHigh: number | null; priceLow: number | null }): number | null {
-  const raw = proposal.finalPrice ?? proposal.priceHigh ?? proposal.priceLow;
-  if (raw == null) return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
+// Each of the three "Needs attention" work-queue resources is fetched (and
+// can fail) independently, so one resource going down doesn't blank the
+// other two sections — see AGENTS.md's "surface failure without crashing
+// the whole dashboard" requirement.
+async function loadInvoiceAttentionQueues(token: string) {
+  try {
+    const [overdue, unpaid] = await Promise.all([
+      listInvoiceQueue(token, { overdue: true, limit: ATTENTION_OVERDUE_INVOICE_LIMIT }),
+      listInvoiceQueue(token, { unpaid: true, limit: ATTENTION_UNPAID_INVOICE_LIMIT }),
+    ]);
+    return { overdue, unpaid, error: null as string | null };
+  } catch (error) {
+    return {
+      overdue: emptyQueue<InvoiceQueueItem>(),
+      unpaid: emptyQueue<InvoiceQueueItem>(),
+      error: error instanceof Error ? error.message : "Invoice queue request failed",
+    };
+  }
+}
+
+async function loadProposalAttentionQueues(token: string, staleBeforeIso: string) {
+  try {
+    const [stale, unsigned] = await Promise.all([
+      listProposalQueue(token, { unsigned: true, staleBefore: staleBeforeIso, limit: ATTENTION_STALE_PROPOSAL_LIMIT }),
+      listProposalQueue(token, { unsigned: true, limit: ATTENTION_UNSIGNED_PROPOSAL_LIMIT }),
+    ]);
+    return { stale, unsigned, error: null as string | null };
+  } catch (error) {
+    return {
+      stale: emptyQueue<ProposalQueueItem>(),
+      unsigned: emptyQueue<ProposalQueueItem>(),
+      error: error instanceof Error ? error.message : "Proposal queue request failed",
+    };
+  }
+}
+
+async function loadEstimateAttentionQueue(token: string) {
+  try {
+    const queue = await listEstimateQueue(token, { status: "draft,ready", limit: ATTENTION_ESTIMATE_LIMIT });
+    return { queue, error: null as string | null };
+  } catch (error) {
+    return { queue: emptyQueue<EstimateQueueItem>(), error: error instanceof Error ? error.message : "Estimate queue request failed" };
+  }
 }
 
 function toValidDate(value: string | null | undefined) {
@@ -125,15 +178,28 @@ function getProjectScopeLabel(projectCount: number) {
 
 export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
+  const now = new Date();
+  const staleProposalCutoffIso = getStaleProposalCutoffIso(now);
   const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
-  const [projectDetails, knowledgeStats, todaySchedule, paymentLedger] = token
+  const [projectDetails, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
         getKnowledgeStats(token).catch(() => null),
         loadTodaySchedule(token),
         getCurrentWeekPaymentLedger(token).catch(() => null),
+        loadInvoiceAttentionQueues(token),
+        loadProposalAttentionQueues(token, staleProposalCutoffIso),
+        loadEstimateAttentionQueue(token),
       ])
-    : [[], null, { items: [] as DispatchJob[], total: 0, timezone: "UTC" }, null];
+    : [
+        [],
+        null,
+        { items: [] as DispatchJob[], total: 0, timezone: "UTC" },
+        null,
+        { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), error: null as string | null },
+        { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
+        { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
+      ];
 
   const weatherAddress = selectDashboardWeatherAddress({
     jobSiteAddresses: todaySchedule.items.map((job) => job.project?.siteAddress),
@@ -141,7 +207,6 @@ export default async function DashboardPage() {
   });
   const weather = await loadDashboardWeather(weatherAddress, getWeatherForAddress);
 
-  const now = new Date();
   const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
   const companyName = settings.companyName;
   const timeZone = getSafeTimeZone(settings.timezone);
@@ -177,51 +242,21 @@ export default async function DashboardPage() {
     .flatMap((project) => project.tasks)
     .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now, timeZone)).length;
   const overdueTasks = dashboardTasksError ? fallbackOverdueTasks : dashboardTaskSnapshot.overdueCount;
-  const openEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
-  const invoicesWaiting = projectDetails
+  // Org-wide exact totals from the work-queue APIs (PR #251), not the
+  // DASHBOARD_PROJECT_DETAIL_LIMIT-bounded per-project fan-out those KPI
+  // tiles used to derive their counts from. Falls back to the old
+  // (incomplete, first-8-projects-only) count only if the queue request
+  // itself failed, matching the overdueTasks fallback pattern above.
+  const fallbackOpenEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
+  const openEstimates = estimateAttentionQueue.error ? fallbackOpenEstimates : estimateAttentionQueue.queue.total;
+  const fallbackInvoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
     .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
+  const invoicesWaiting = invoiceAttentionQueues.error ? fallbackInvoicesWaiting : invoiceAttentionQueues.unpaid.total;
 
-  const attentionEstimates: AttentionEstimateRow[] = projectDetails.flatMap((project) =>
-    project.estimates
-      .filter((estimate) => estimate.status === "draft" || estimate.status === "ready")
-      .map((estimate) => ({
-        projectId: project.id,
-        projectName: project.name,
-        customerName: project.customer?.name ?? "No customer linked",
-        estimateId: estimate.id,
-        version: estimate.version,
-        status: estimate.status,
-        totalPrice: estimate.totalPrice,
-      }))
-  );
-
-  const attentionProposals: AttentionProposalRow[] = projectDetails.flatMap((project) =>
-    project.proposals
-      .filter((proposal) => ["sent", "viewed"].includes(getProposalDisplayStatus(proposal)))
-      .map((proposal) => ({
-        projectId: project.id,
-        projectName: project.name,
-        customerName: project.customer?.name ?? "No customer linked",
-        proposalId: proposal.id,
-        status: getProposalDisplayStatus(proposal),
-        amount: toProposalAmount(proposal),
-      }))
-  );
-
-  const attentionInvoices: AttentionInvoiceRow[] = projectDetails.flatMap((project) =>
-    project.invoices
-      .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice)))
-      .map((invoice) => ({
-        projectId: project.id,
-        projectName: project.name,
-        customerName: project.customer?.name ?? "No customer linked",
-        invoiceId: invoice.id,
-        status: getInvoiceDisplayStatus(invoice),
-        amount: invoice.amount,
-        dueDate: invoice.dueDate,
-      }))
-  );
+  const attentionEstimates = buildAttentionEstimateRows(estimateAttentionQueue.queue.items);
+  const attentionProposals = buildAttentionProposalRows(proposalAttentionQueues.stale.items, proposalAttentionQueues.unsigned.items);
+  const attentionInvoices = buildAttentionInvoiceRows(invoiceAttentionQueues.overdue.items, invoiceAttentionQueues.unpaid.items);
 
   const attentionReadyToStart: AttentionStartRow[] = projectDetails
     .filter((project) => project.estimates.length === 0)
@@ -273,6 +308,9 @@ export default async function DashboardPage() {
         invoices={attentionInvoices}
         readyToStart={attentionReadyToStart}
         scopeLabel={projectScopeLabel}
+        estimatesError={estimateAttentionQueue.error}
+        proposalsError={proposalAttentionQueues.error}
+        invoicesError={invoiceAttentionQueues.error}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
