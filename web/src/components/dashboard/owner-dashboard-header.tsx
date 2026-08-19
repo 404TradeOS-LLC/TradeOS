@@ -2,6 +2,8 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { OwnerDashboardGreeting } from "@/components/dashboard/owner-dashboard-greeting";
+import { buildReviewQueueMetrics, type ReviewQueueCounts } from "@/components/dashboard/owner-dashboard-header-model";
 
 interface OwnerDashboardHeaderProps {
   companyName: string;
@@ -9,12 +11,16 @@ interface OwnerDashboardHeaderProps {
   notificationCount: number;
   weather?: unknown;
   projectScopeLabel: string;
-  reviewQueue?: {
-    estimates: number;
-    proposals: number;
-    invoices: number;
-    starts: number;
-  };
+  reviewQueue?: ReviewQueueCounts;
+}
+
+function MetricChip({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <span className="tabular-nums text-foreground">{value}</span>
+      {label}
+    </span>
+  );
 }
 
 export function OwnerDashboardHeader({
@@ -22,15 +28,19 @@ export function OwnerDashboardHeader({
   currentDateLabel,
   notificationCount,
   projectScopeLabel,
+  reviewQueue,
 }: OwnerDashboardHeaderProps) {
   const hasAttention = notificationCount > 0;
+  const metrics = buildReviewQueueMetrics(reviewQueue);
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-sm sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Owner dashboard</p>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              <OwnerDashboardGreeting />
+            </p>
             <Badge
               variant="outline"
               className={
@@ -50,6 +60,13 @@ export function OwnerDashboardHeader({
             </span>
             <span>{projectScopeLabel}</span>
           </div>
+          {metrics.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {metrics.map((metric) => (
+                <MetricChip key={metric.key} label={metric.label} value={metric.value} />
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <Link href="/projects" className={buttonVariants()}>
