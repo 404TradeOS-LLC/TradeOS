@@ -1,11 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { greetingForHour } from "@/components/dashboard/owner-dashboard-header-model";
-
-function subscribe() {
-  return () => {};
-}
+import { createGreetingSubscription, greetingForHour } from "@/components/dashboard/owner-dashboard-header-model";
 
 function getSnapshot() {
   return greetingForHour(new Date().getHours());
@@ -16,6 +12,6 @@ function getServerSnapshot() {
 }
 
 export function OwnerDashboardGreeting() {
-  const greeting = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const greeting = useSyncExternalStore(createGreetingSubscription, getSnapshot, getServerSnapshot);
   return <>{greeting}</>;
 }

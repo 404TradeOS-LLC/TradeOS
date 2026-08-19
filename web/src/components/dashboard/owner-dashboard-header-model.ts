@@ -37,3 +37,31 @@ export function greetingForHour(hour: number): string {
   if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
+
+/** The hours at which greetingForHour's return value changes. */
+const GREETING_BOUNDARY_HOURS = [0, 5, 12, 18];
+
+/** The next moment after `now` at which the greeting changes, so a mounted dashboard can refresh it live. */
+export function getNextGreetingBoundary(now: Date): Date {
+  for (const hour of GREETING_BOUNDARY_HOURS) {
+    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 0);
+    if (candidate.getTime() > now.getTime()) return candidate;
+  }
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+}
+
+/** useSyncExternalStore subscribe function: notifies `callback` at each greeting boundary so a mounted dashboard refreshes without a manual reload. */
+export function createGreetingSubscription(callback: () => void): () => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  function scheduleNext() {
+    const delay = getNextGreetingBoundary(new Date()).getTime() - Date.now();
+    timeoutId = setTimeout(() => {
+      callback();
+      scheduleNext();
+    }, delay);
+  }
+
+  scheduleNext();
+  return () => clearTimeout(timeoutId);
+}

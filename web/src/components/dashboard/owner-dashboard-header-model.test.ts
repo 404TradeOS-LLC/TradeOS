@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildReviewQueueMetrics, greetingForHour } from "./owner-dashboard-header-model.ts";
+import {
+  buildReviewQueueMetrics,
+  createGreetingSubscription,
+  getNextGreetingBoundary,
+  greetingForHour,
+} from "./owner-dashboard-header-model.ts";
 
 test("greetingForHour returns the right greeting for each part of the day", () => {
   assert.equal(greetingForHour(0), "Good night");
@@ -35,4 +40,36 @@ test("buildReviewQueueMetrics pluralizes counts above one and preserves queue or
     { key: "invoices", value: 2, label: "invoices" },
     { key: "starts", value: 5, label: "ready to start" },
   ]);
+});
+
+test("getNextGreetingBoundary finds the next same-day boundary when one remains", () => {
+  assert.deepEqual(getNextGreetingBoundary(new Date(2026, 7, 19, 6, 30, 0)), new Date(2026, 7, 19, 12, 0, 0));
+  assert.deepEqual(getNextGreetingBoundary(new Date(2026, 7, 19, 0, 0, 0)), new Date(2026, 7, 19, 5, 0, 0));
+  assert.deepEqual(getNextGreetingBoundary(new Date(2026, 7, 19, 13, 59, 59)), new Date(2026, 7, 19, 18, 0, 0));
+});
+
+test("getNextGreetingBoundary rolls over to midnight the next day once past the last same-day boundary", () => {
+  assert.deepEqual(getNextGreetingBoundary(new Date(2026, 7, 19, 18, 0, 0)), new Date(2026, 7, 20, 0, 0, 0));
+  assert.deepEqual(getNextGreetingBoundary(new Date(2026, 7, 19, 23, 59, 59)), new Date(2026, 7, 20, 0, 0, 0));
+});
+
+test("createGreetingSubscription notifies at each greeting boundary and stops after unsubscribe", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: new Date(2026, 7, 19, 11, 59, 0).getTime() });
+
+  let calls = 0;
+  const unsubscribe = createGreetingSubscription(() => {
+    calls++;
+  });
+
+  assert.equal(calls, 0, "no notification before the next boundary is reached");
+
+  t.mock.timers.tick(60_000);
+  assert.equal(calls, 1, "notifies exactly at the 12:00 morning->afternoon boundary");
+
+  t.mock.timers.tick(6 * 60 * 60 * 1000);
+  assert.equal(calls, 2, "reschedules and notifies again at the following 18:00 boundary");
+
+  unsubscribe();
+  t.mock.timers.tick(24 * 60 * 60 * 1000);
+  assert.equal(calls, 2, "no further notifications once unsubscribed");
 });
