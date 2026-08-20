@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-18
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -256,7 +256,7 @@ Frontend commands defined in `web/package.json`:
 
 - `npm run lint`
 - `npm run build`
-- `npm test` (framework-free `node --test` against `src/**/*.test.ts`; today this is `web/src/lib/envSecurity.test.ts`, which statically checks that `SUPABASE_SERVICE_ROLE_KEY` never leaks into a `NEXT_PUBLIC_`-prefixed name and never becomes reachable from a `"use client"` import graph)
+- `npm test` (framework-free `node --test` against `src/**/*.test.ts`; today this is `web/src/lib/envSecurity.test.ts`, `web/src/lib/work-queue-params.test.ts`, and `web/src/components/dashboard/needs-attention-model.test.ts` — the first statically checks that `SUPABASE_SERVICE_ROLE_KEY` never leaks into a `NEXT_PUBLIC_`-prefixed name and never becomes reachable from a `"use client"` import graph; the latter two validate the dashboard work-queue integration's query-string construction and priority-bucket deduplication logic)
 
 Current CI workflows:
 

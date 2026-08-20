@@ -86,35 +86,44 @@ async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[];
 // other two sections — see AGENTS.md's "surface failure without crashing
 // the whole dashboard" requirement.
 async function loadInvoiceAttentionQueues(token: string) {
-  try {
-    const [overdue, unpaid] = await Promise.all([
-      listInvoiceQueue(token, { overdue: true, limit: ATTENTION_OVERDUE_INVOICE_LIMIT }),
-      listInvoiceQueue(token, { unpaid: true, limit: ATTENTION_UNPAID_INVOICE_LIMIT }),
-    ]);
-    return { overdue, unpaid, error: null as string | null };
-  } catch (error) {
-    return {
-      overdue: emptyQueue<InvoiceQueueItem>(),
-      unpaid: emptyQueue<InvoiceQueueItem>(),
-      error: error instanceof Error ? error.message : "Invoice queue request failed",
-    };
-  }
+  const [overdueResult, unpaidResult] = await Promise.allSettled([
+    listInvoiceQueue(token, { overdue: true, limit: ATTENTION_OVERDUE_INVOICE_LIMIT }),
+    listInvoiceQueue(token, { unpaid: true, limit: ATTENTION_UNPAID_INVOICE_LIMIT }),
+  ]);
+
+  const overdue = overdueResult.status === "fulfilled" ? overdueResult.value : emptyQueue<InvoiceQueueItem>();
+  const unpaid = unpaidResult.status === "fulfilled" ? unpaidResult.value : emptyQueue<InvoiceQueueItem>();
+
+  // Only set error if the unpaid fetch specifically failed (the KPI fallback depends on unpaid.total being unavailable)
+  const unpaidError = unpaidResult.status === "rejected" ? (unpaidResult.reason instanceof Error ? unpaidResult.reason.message : "Unpaid invoice queue request failed") : null;
+
+  return { overdue, unpaid, error: unpaidError };
 }
 
 async function loadProposalAttentionQueues(token: string, staleBeforeIso: string) {
-  try {
-    const [stale, unsigned] = await Promise.all([
-      listProposalQueue(token, { unsigned: true, staleBefore: staleBeforeIso, limit: ATTENTION_STALE_PROPOSAL_LIMIT }),
-      listProposalQueue(token, { unsigned: true, limit: ATTENTION_UNSIGNED_PROPOSAL_LIMIT }),
-    ]);
-    return { stale, unsigned, error: null as string | null };
-  } catch (error) {
-    return {
-      stale: emptyQueue<ProposalQueueItem>(),
-      unsigned: emptyQueue<ProposalQueueItem>(),
-      error: error instanceof Error ? error.message : "Proposal queue request failed",
-    };
-  }
+  const [staleResult, unsignedResult] = await Promise.allSettled([
+    listProposalQueue(token, { unsigned: true, staleBefore: staleBeforeIso, limit: ATTENTION_STALE_PROPOSAL_LIMIT }),
+    listProposalQueue(token, { unsigned: true, limit: ATTENTION_UNSIGNED_PROPOSAL_LIMIT }),
+  ]);
+
+  const stale = staleResult.status === "fulfilled" ? staleResult.value : emptyQueue<ProposalQueueItem>();
+  const unsigned = unsignedResult.status === "fulfilled" ? unsignedResult.value : emptyQueue<ProposalQueueItem>();
+
+  // Report error if either fetch failed (both are used in the UI)
+  const error =
+    staleResult.status === "rejected" || unsignedResult.status === "rejected"
+      ? staleResult.status === "rejected"
+        ? staleResult.reason instanceof Error
+          ? staleResult.reason.message
+          : "Stale proposal queue request failed"
+        : unsignedResult.status === "rejected"
+          ? unsignedResult.reason instanceof Error
+            ? unsignedResult.reason.message
+            : "Unsigned proposal queue request failed"
+          : null
+      : null;
+
+  return { stale, unsigned, error };
 }
 
 async function loadEstimateAttentionQueue(token: string) {
