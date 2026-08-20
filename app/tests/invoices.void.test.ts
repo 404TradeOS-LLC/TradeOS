@@ -40,6 +40,7 @@ const baseInvoice = {
   sentAt: new Date("2026-08-01T00:00:00.000Z"),
   paidAt: null,
   createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  lineItems: [],
   deliveries: [],
   project: {
     orgId: "org-1",
