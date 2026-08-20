@@ -53,7 +53,7 @@ describe("InvoicesService.void", () => {
     jest.clearAllMocks();
   });
 
-  it("persists the database-compatible raw 'void' status while keeping canonical voided activity metadata", async () => {
+  it("persists raw 'void' while returning canonical voided status and activity metadata", async () => {
     invoiceFindFirstMock
       .mockResolvedValueOnce(baseInvoice)
       .mockResolvedValueOnce({ ...baseInvoice, status: "void", project: undefined });
@@ -75,6 +75,6 @@ describe("InvoicesService.void", () => {
         metadataJson: expect.objectContaining({ previousStatus: "sent", newStatus: "voided" }),
       }),
     });
-    expect(result.status).toBe("void");
+    expect(result.status).toBe("voided");
   });
 });
