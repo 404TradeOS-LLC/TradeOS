@@ -152,7 +152,7 @@ Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/propos
 - `sent` / `viewed` filter on `sentAt`/`viewedAt` being non-null
 - `unsigned` means no `Contract` row references the proposal yet — conversion is the Contract row's existence, independent of that contract's own `pending_signature`/`signed`/`voided` state
 - `stale` has no fixed age; the caller supplies `staleBefore` and the queue matches proposals whose `sentAt <= staleBefore`
-- the product spec for this queue calls for canceled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical canceled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
+- the product spec for this queue calls for cancelled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical cancelled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
 - this is a read-only aggregate; it introduces no new proposal state or transition
 
 ## Contracts
