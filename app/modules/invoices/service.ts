@@ -422,7 +422,7 @@ function toDTO(row: {
     proposalId: row.proposalId,
     invoiceNumber: row.invoiceNumber,
     type: row.type,
-    status: row.status,
+    status: normalizeInvoiceStatus(row.status),
     percentComplete: row.percentComplete != null ? Number(row.percentComplete) : null,
     amount: Number(row.amount),
     dueDate: row.dueDate,
