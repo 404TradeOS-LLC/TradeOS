@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-20
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -240,7 +240,9 @@ Current enforced transitions:
 
 Compatibility persistence:
 
-- legacy values such as `void` and `cancelled` normalize to canonical `voided`
+- raw `void` normalizes to canonical `voided`
+- `InvoicesService.void()` persists raw `void` so the transition satisfies the live `invoices_status_check` constraint; delivery/activity metadata still records canonical `invoice.voided` / `newStatus: "voided"`
+- `cancelled` remains a defensive legacy normalization synonym, although the live constraint has never permitted that value
 
 Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
 
@@ -248,7 +250,7 @@ Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoice
 - `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is not voided
 - `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is not voided
 - `unpaid` = `balanceDue > 0` AND status is not voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
-- the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`), not the aspirational canonical spelling `voided`, which the constraint does not permit — see the compatibility note above. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either; no currently-reachable write path can produce it
+- the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`); canonical display/activity semantics remain `voided`. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either
 - this is a read-only aggregate; it introduces no new invoice state or transition
 
 ## Transactional canonical-event invariant (A12.1)
