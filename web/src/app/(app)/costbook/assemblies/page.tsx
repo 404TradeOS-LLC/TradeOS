@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: "Assemblies | Costbook | TradeOS" };
 
 type AssemblyPageData = {
   assemblies: CostbookAssembly[];
+  childAssemblies: CostbookAssembly[];
   costItems: CostItemCatalogRecord[];
   canWrite: boolean;
   canManage: boolean;
@@ -20,6 +21,17 @@ type AssemblyPageData = {
 };
 
 type AssembliesQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; active?: string; isTemplate?: string };
+
+async function loadChildAssemblyChoices(token: string): Promise<CostbookAssembly[]> {
+  const items: CostbookAssembly[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await listCostbookAssemblies(token, { limit: 100, cursor, active: true, sort: "name", order: "asc" });
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return items;
+}
 
 export default async function CostbookAssembliesPage({ searchParams }: { searchParams: Promise<AssembliesQuery> }) {
   const token = await getSessionToken();
@@ -30,13 +42,17 @@ export default async function CostbookAssembliesPage({ searchParams }: { searchP
   let loadError: string | null = null;
 
   try {
-    const [workspace, assemblies, costItems] = await Promise.all([
+    const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
+    const isTemplate = query.isTemplate === "true" ? true : query.isTemplate === "false" ? false : undefined;
+    const [workspace, assemblies, childAssemblies, costItems] = await Promise.all([
       getCostbookWorkspace(token),
-      listCostbookAssemblies(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, active: query.active === undefined ? undefined : query.active === "true", isTemplate: query.isTemplate === undefined ? undefined : query.isTemplate === "true" }),
+      listCostbookAssemblies(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, active, isTemplate }),
+      loadChildAssemblyChoices(token),
       apiFetch<CatalogPage<CostItemCatalogRecord>>("/api/v1/costbook/cost-items?limit=100&active=true", { token }),
     ]);
     data = {
       assemblies: assemblies.items,
+      childAssemblies,
       costItems: costItems.items,
       canWrite: workspace.permissions.canWrite,
       canManage: workspace.permissions.canManage,
@@ -54,6 +70,6 @@ export default async function CostbookAssembliesPage({ searchParams }: { searchP
   return <div className="flex flex-col gap-6">
     <PageHeader title="Assemblies" description="Compose reusable CostItems and child Assemblies without duplicating pricing data." backHref="/costbook" backLabel="Costbook" />
     <CatalogQueryControls pathname="/costbook/assemblies" query={query} total={data.total} shown={data.assemblies.length} nextCursor={data.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }, { name: "isTemplate", label: "Template", value: query.isTemplate, options: [{ value: "true", label: "Templates" }, { value: "false", label: "Regular" }] }]} />
-    <AssemblyCatalog initialAssemblies={data.assemblies} costItems={data.costItems} canWrite={data.canWrite} canManage={data.canManage} />
+    <AssemblyCatalog initialAssemblies={data.assemblies} childAssemblies={data.childAssemblies} costItems={data.costItems} canWrite={data.canWrite} canManage={data.canManage} />
   </div>;
 }
