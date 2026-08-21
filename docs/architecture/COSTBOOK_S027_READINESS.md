@@ -35,8 +35,8 @@ and does not write Costbook records.
 | Review-first AI Estimate Assist | PASS | Accepted suggestions call `EstimateEngineService`; no autonomous Costbook writes. |
 | Search/filter/sort/pagination as a production catalog contract | PARTIAL | Search exists for CostItems/Assemblies and filters exist for history/queue, but most catalog list endpoints return unpaginated collections and several surfaces lack server-backed search/filter/sort. |
 | Authenticated rendered browser verification at 1440/1024/768/390 | ENVIRONMENT-BLOCKED | No authenticated browser/test session was available in this workspace; no viewport is claimed as passed. |
-| PostgreSQL/RLS integration execution | ENVIRONMENT-BLOCKED | No configured live PostgreSQL/Docker test database was available. Static migration/RLS coverage is present but is not live execution evidence. |
-| Full backend/frontend test, lint, and build execution | ENVIRONMENT-BLOCKED | Dependency installation could not complete because registry tarballs were repeatedly reported corrupted and npm failed while creating its cache/log path. |
+| PostgreSQL/RLS integration execution | PASS | GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. |
+| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository run `32449419590`: Web lint/build and App lint/unit/build jobs passed; app typecheck, unit tests, Athena contract/smoke tests, and both builds completed successfully. |
 
 ## Concrete repair in this pass
 
@@ -56,9 +56,9 @@ fail-closed behavior.
    at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
    decision.
-3. Live PostgreSQL/RLS evidence: run Costbook hierarchy, CostItem, equipment,
-   assembly, and workspace cross-tenant integration suites against PostgreSQL.
-   This requires database/test-environment access, not a founder decision.
+3. Authenticated database/browser separation: PostgreSQL/RLS execution is now
+   verified by CI, but authenticated rendered browser verification remains
+   outstanding and must not be inferred from the CI suite.
 
 S027 should remain `BLOCKED`/not promoted until those gates are closed. The
 remaining gaps do not require a founder decision, but they do require another
