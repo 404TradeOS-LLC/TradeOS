@@ -189,11 +189,6 @@ export class ProposalsService {
         idempotencyKey: `proposal:${row.id}:sent:v1`,
       });
     } catch (error) {
-      // Publishing a canonical event must never block or roll back the
-      // proposal-send mutation itself (docs/athena/10-events/README.md:
-      // "Failed subscribers do not roll back already-committed business
-      // state" — the same posture applies to publish failures for this
-      // already-committed mutation).
       console.error("[athena-events] failed to publish ProposalSent event", error);
     }
     await this.recordDeliveryEvent({
@@ -368,7 +363,7 @@ export class ProposalsService {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
-    return prisma.proposal.create({
+    const proposal = await prisma.proposal.create({
       data: {
         projectId: estimate.projectId,
         estimateId: input.estimateId,
@@ -385,6 +380,8 @@ export class ProposalsService {
         termsAndConditions: input.termsAndConditions,
       },
     });
+    await prisma.project.update({ where: { id: estimate.projectId }, data: { status: "estimating" } });
+    return proposal;
   }
 
   private async createFromProject(input: CreateProposalInput) {
