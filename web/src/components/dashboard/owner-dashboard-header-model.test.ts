@@ -73,3 +73,20 @@ test("createGreetingSubscription notifies at each greeting boundary and stops af
   t.mock.timers.tick(24 * 60 * 60 * 1000);
   assert.equal(calls, 2, "no further notifications once unsubscribed");
 });
+
+test("createGreetingSubscription does not re-arm when unsubscribe happens during a boundary callback", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: new Date(2026, 7, 19, 11, 59, 0).getTime() });
+
+  let calls = 0;
+  let unsubscribe = () => {};
+  unsubscribe = createGreetingSubscription(() => {
+    calls++;
+    unsubscribe();
+  });
+
+  t.mock.timers.tick(60_000);
+  assert.equal(calls, 1, "the boundary callback runs once before unsubscribing itself");
+
+  t.mock.timers.tick(24 * 60 * 60 * 1000);
+  assert.equal(calls, 1, "cleanup during the callback prevents any replacement timer from being scheduled");
+});
