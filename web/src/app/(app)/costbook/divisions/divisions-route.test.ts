@@ -9,14 +9,15 @@ function readSource(relativePath: string): string {
   return fs.readFileSync(path.join(here, relativePath), "utf8");
 }
 
-test("divisions page loads the authenticated Costbook workspace and hierarchy catalog", () => {
+test("divisions page loads the authenticated Costbook workspace and coherent paginated hierarchy", () => {
   const source = readSource("page.tsx");
 
   assert.match(source, /title:\s*"Divisions \| TradeOS"/);
   assert.match(source, /getCostbookWorkspace\(token\)/);
-  assert.match(source, /listCostbookDivisions\(token[,)]/);
-  assert.match(source, /listCostbookCategories\(token[,)]/);
-  assert.match(source, /listCostbookSubcategories\(token[,)]/);
+  assert.match(source, /loadAllPages\(\(cursor\) => listCostbookDivisions\(token, \{ \.\.\.common, cursor \}\)\)/);
+  assert.match(source, /loadAllPages\(\(cursor\) => listCostbookCategories\(token, \{ \.\.\.common, cursor \}\)\)/);
+  assert.match(source, /loadAllPages\(\(cursor\) => listCostbookSubcategories\(token, \{ \.\.\.common, cursor \}\)\)/);
+  assert.match(source, /query\.active === "true" \? true : query\.active === "false" \? false : undefined/);
   assert.match(source, /Couldn't load the Costbook hierarchy/);
 });
 
