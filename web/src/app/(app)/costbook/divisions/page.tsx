@@ -10,7 +10,6 @@ import {
   listCostbookCategories,
   listCostbookDivisions,
   listCostbookSubcategories,
-  type CatalogPage,
   type CostbookCategory,
   type CostbookDivision,
   type CostbookSubcategory,
@@ -26,21 +25,6 @@ export const metadata: Metadata = {
 function toErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) return error.message;
   return "Unable to load the Costbook hierarchy from the backend.";
-}
-
-async function loadAllPages<T>(loadPage: (cursor?: string) => Promise<CatalogPage<T>>): Promise<CatalogPage<T>> {
-  const items: T[] = [];
-  let cursor: string | undefined;
-  let total = 0;
-
-  do {
-    const page = await loadPage(cursor);
-    items.push(...page.items);
-    total = page.total;
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-
-  return { items, total, nextCursor: null };
 }
 
 type HierarchyQuery = { q?: string; sort?: string; order?: "asc" | "desc"; active?: string; divisionCursor?: string; categoryCursor?: string; subcategoryCursor?: string };
@@ -65,9 +49,9 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
       const common = { limit: 100, q: query.q, sort: query.sort, order: query.order, active };
       const [loadedWorkspace, loadedDivisions, loadedCategories, loadedSubcategories] = await Promise.all([
         getCostbookWorkspace(token),
-        loadAllPages((cursor) => listCostbookDivisions(token, { ...common, cursor })),
-        loadAllPages((cursor) => listCostbookCategories(token, { ...common, cursor })),
-        loadAllPages((cursor) => listCostbookSubcategories(token, { ...common, cursor })),
+        listCostbookDivisions(token, { ...common, cursor: query.divisionCursor }),
+        listCostbookCategories(token, { ...common, cursor: query.categoryCursor }),
+        listCostbookSubcategories(token, { ...common, cursor: query.subcategoryCursor }),
       ]);
       workspace = loadedWorkspace;
       divisions = loadedDivisions.items;
@@ -82,6 +66,8 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
   }
 
   const statusFilter = [{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }];
+  const sharedQuery = { q: query.q, sort: query.sort, order: query.order, active: query.active };
+  const hierarchyKey = [query.divisionCursor, query.categoryCursor, query.subcategoryCursor, query.q, query.sort, query.order, query.active].map((value) => value ?? "").join("|");
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,11 +103,12 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
           </section>
 
           <div className="grid gap-3">
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={divisionPage.total} shown={divisions.length} nextCursor={divisionPage.nextCursor} cursorParam="divisionCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={categoryPage.total} shown={categories.length} nextCursor={categoryPage.nextCursor} cursorParam="categoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={subcategoryPage.total} shown={subcategories.length} nextCursor={subcategoryPage.nextCursor} cursorParam="subcategoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, categoryCursor: query.categoryCursor, subcategoryCursor: query.subcategoryCursor }} total={divisionPage.total} shown={divisions.length} nextCursor={divisionPage.nextCursor} cursorParam="divisionCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, divisionCursor: query.divisionCursor, subcategoryCursor: query.subcategoryCursor }} total={categoryPage.total} shown={categories.length} nextCursor={categoryPage.nextCursor} cursorParam="categoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, divisionCursor: query.divisionCursor, categoryCursor: query.categoryCursor }} total={subcategoryPage.total} shown={subcategories.length} nextCursor={subcategoryPage.nextCursor} cursorParam="subcategoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
           </div>
           <HierarchyCatalog
+            key={hierarchyKey}
             initialDivisions={divisions}
             initialCategories={categories}
             initialSubcategories={subcategories}
