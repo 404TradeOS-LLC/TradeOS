@@ -31,15 +31,31 @@ function extractSection(body, title) {
   return (next ? rest.slice(0, next.index) : rest).trim();
 }
 
-function stripComments(value) {
-  return value.replace(/<!--[\s\S]*?-->/g, "").trim();
+function removeHtmlComments(value) {
+  let cursor = 0;
+  let visible = "";
+
+  while (cursor < value.length) {
+    const commentStart = value.indexOf("<!--", cursor);
+    if (commentStart === -1) {
+      visible += value.slice(cursor);
+      break;
+    }
+
+    visible += value.slice(cursor, commentStart);
+    const commentEnd = value.indexOf("-->", commentStart + 4);
+    if (commentEnd === -1) break;
+    cursor = commentEnd + 3;
+  }
+
+  return visible.trim();
 }
 
 export function validatePrBody(body) {
   const text = typeof body === "string" ? body : "";
   const missingSections = REQUIRED_PR_SECTIONS.filter((title) => !sectionPattern(title).test(text));
   const summary = extractSection(text, "Summary");
-  const summaryMissing = summary == null || stripComments(summary) === "";
+  const summaryMissing = summary == null || removeHtmlComments(summary) === "";
 
   return {
     ok: missingSections.length === 0 && !summaryMissing,
