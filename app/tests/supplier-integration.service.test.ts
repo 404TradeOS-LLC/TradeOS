@@ -167,6 +167,25 @@ describe("SupplierIntegrationService", () => {
         data: expect.objectContaining({ status: "rejected", reviewedByUserId: "admin-1" }),
       });
     });
+
+    it("fails closed when another reviewer claims the proposal before rejection", async () => {
+      transaction.supplierPriceUpdate.findFirst.mockResolvedValue({
+        id: "queue-1",
+        orgId: "org-1",
+        status: "pending",
+      });
+      transaction.supplierPriceUpdate.updateMany.mockReturnValue({ count: 0 });
+
+      await expect(
+        new SupplierIntegrationService().reject("queue-1", "org-1", {
+          userId: "admin-1",
+          orgId: "org-1",
+          role: "admin",
+        })
+      ).rejects.toThrow("no longer pending");
+      expect(transaction.material.update).not.toHaveBeenCalled();
+      expect(transaction.materialPriceAudit.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("syncFromFeed", () => {
