@@ -99,8 +99,8 @@ export class CostbookService {
     return rows.map(toMaterialDTO);
   }
 
-  async listMaterialsPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookMaterialDTO>> {
-    const page = await this.repository.listMaterialsPage(auth.orgId, query);
+  async listMaterialsPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookMaterialDTO>> {
+    const page = await this.repository.listMaterialsPage(orgId, query);
     return { ...page, items: page.items.map(toMaterialDTO) };
   }
 
@@ -109,8 +109,8 @@ export class CostbookService {
     return rows.map(toEquipmentDTO);
   }
 
-  async listEquipmentPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookEquipmentDTO>> {
-    const page = await this.equipmentRepository.listPage(auth.orgId, query);
+  async listEquipmentPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookEquipmentDTO>> {
+    const page = await this.equipmentRepository.listPage(orgId, query);
     return { ...page, items: page.items.map(toEquipmentDTO) };
   }
 
@@ -140,8 +140,8 @@ export class CostbookService {
     return rows.map(toLaborRateDTO);
   }
 
-  async listLaborRatesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookLaborRateDTO>> {
-    const page = await this.repository.listLaborRatesPage(auth.orgId, query);
+  async listLaborRatesPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookLaborRateDTO>> {
+    const page = await this.repository.listLaborRatesPage(orgId, query);
     return { ...page, items: page.items.map(toLaborRateDTO) };
   }
 
@@ -192,8 +192,8 @@ export class CostbookService {
     return rows.map(toDivisionDTO);
   }
 
-  async listDivisionsPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookDivisionDTO>> {
-    const page = await this.repository.listDivisionsPage(auth.orgId, query);
+  async listDivisionsPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookDivisionDTO>> {
+    const page = await this.repository.listDivisionsPage(orgId, query);
     return { ...page, items: page.items.map(toDivisionDTO) };
   }
 
@@ -223,8 +223,8 @@ export class CostbookService {
     return rows.map(toCategoryDTO);
   }
 
-  async listCategoriesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookCategoryDTO>> {
-    const page = await this.repository.listCategoriesPage(auth.orgId, query);
+  async listCategoriesPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookCategoryDTO>> {
+    const page = await this.repository.listCategoriesPage(orgId, query);
     return { ...page, items: page.items.map(toCategoryDTO) };
   }
 
@@ -254,8 +254,8 @@ export class CostbookService {
     return rows.map(toSubcategoryDTO);
   }
 
-  async listSubcategoriesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookSubcategoryDTO>> {
-    const page = await this.repository.listSubcategoriesPage(auth.orgId, query);
+  async listSubcategoriesPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<CostbookSubcategoryDTO>> {
+    const page = await this.repository.listSubcategoriesPage(orgId, query);
     return { ...page, items: page.items.map(toSubcategoryDTO) };
   }
 
