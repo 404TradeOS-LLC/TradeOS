@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- Describe the user-visible or operator-visible outcome in 2-4 sentences. -->
+<!-- Describe the user-visible or operator-visible outcome in 2-4 sentences. Do not leave this section template-only; CI validates it. -->
 
 ## Scope
 
@@ -30,7 +30,7 @@
 - [ ] Changes stayed inside the stated scope.
 - [ ] No unrelated cleanup, refactor, dependency upgrade, merge, or rebase was included.
 - [ ] No secrets, local-only files, generated caches, or `.codex/` artifacts were committed.
-- [ ] Runtime behavior changes include relevant tests.
+- [ ] Runtime behavior changes include relevant behavioral regression tests.
 - [ ] Tenant isolation, authorization, validation, and service-layer write paths were reviewed when backend behavior changed.
 - [ ] RLS, migration, Prisma, or database changes include live integration coverage or a documented blocker.
 - [ ] UI changes preserve existing design-system patterns and do not duplicate shared components.
@@ -38,9 +38,10 @@
 
 ## Documentation Impact
 
+- [ ] `npm run pr:preflight -- --base origin/main` was run after the final scope was known.
 - [ ] `docs/DOC_OWNERSHIP.yml` requirements were checked.
-- [ ] Required source-of-truth docs changed in this branch.
-- [ ] `docs/SESSION_HANDOFF.md` was refreshed for this substantive or PR-ready session.
+- [ ] Required source-of-truth docs changed meaningfully in this branch.
+- [ ] `docs/SESSION_HANDOFF.md` was refreshed when the session contract requires it.
 - [ ] `docs/ENGINEERING_COMMAND_CENTER.md` changed only because mission, priorities, blockers, CI requirements, or operating protocol changed.
 - [ ] No documentation update required.
 
@@ -48,15 +49,22 @@ If no documentation update was required, explain why:
 
 ## Verification
 
-- [ ] `npm run docs:check`
+<!-- `npm run pr:preflight` reports the minimum relevant local lanes. Mark irrelevant checks N/A with a reason instead of running unrelated app/web suites solely for ceremony. Required GitHub checks still remain authoritative. -->
+
+Preflight output / relevant lanes:
+
+- [ ] `npm run pr:test`
+- [ ] `npm run docs:check -- --base origin/main`
 - [ ] `npm run docs:test`
 - [ ] `cd app && npm test`
 - [ ] `cd app && npm run lint`
 - [ ] `cd app && npm run build`
 - [ ] `cd app && npm run test:integration`
+- [ ] `cd web && npm test`
 - [ ] `cd web && npm run lint`
 - [ ] `cd web && npm run build`
-- [ ] Other:
+- [ ] `git diff --check`
+- [ ] Other / N/A with reason:
 
 Exact final `git status --short --branch`:
 
@@ -68,6 +76,9 @@ Exact final `git status --short --branch`:
 
 - [ ] Branch is current with `origin/main`, or drift is documented.
 - [ ] Required checks match the branch protection target in `docs/REPOSITORY_GOVERNANCE.md`.
+- [ ] Automated review findings were classified; deterministic scoped findings were repaired, and protected/ambiguous decisions were not auto-applied.
+- [ ] Resolved review threads correspond to verified fixes on the current head.
+- [ ] Auto-merge is enabled only when the PR is otherwise safe and branch protection remains the final gate.
 - [ ] Known limitations and deferred work are documented below.
 
 ## Known Limitations
