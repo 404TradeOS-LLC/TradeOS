@@ -40,6 +40,8 @@ authoritative compatibility inventory for the later S007-S012 normalization
 sprints. Completion of S006 does not automatically promote any of those
 `PLANNED` sprints to `READY`.
 
+S007 — Project lifecycle normalization is the next governance-selected numbered sprint. PR #262 is the governance-only readiness promotion: it verifies S006 is `DONE`, the compatibility matrix already defines the Project-specific drift, no founder decision or blocked infrastructure is required, and no open overlapping S007 implementation PR exists during promotion. The previously opened implementation PR #261 is preserved but temporarily closed without merge until #262 lands; after readiness is merged, the same PR may be reopened and refreshed rather than creating duplicate work. This preserves the rule that an implementation branch may not authorize its own sprint.
+
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
 and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
@@ -49,7 +51,7 @@ Substantial further Costbook work has also merged through PR #183, PR #210, and
 PR #216. PR #257 is the bounded dedicated readiness pass that reconciles that
 current scope; it does not itself promote S027 to `READY`.
 
-The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. Stacked PR #260 implements the remaining server-side catalog pagination/search/filter/sort contract, but it is not yet landed on `main`. S027 remains `PARTIAL/BLOCKED` until that implementation is merged and authenticated rendered browser evidence is captured. Re-read live GitHub state before any later promotion.
+The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 has now merged the standardized server-side catalog pagination/search/filter/sort contract. S027 remains `PARTIAL/BLOCKED` only until authenticated rendered Costbook browser evidence is captured. Re-read live GitHub state before any later promotion.
 
 ## Volume I — Vision
 

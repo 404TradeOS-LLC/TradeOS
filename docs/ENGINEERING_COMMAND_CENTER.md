@@ -68,16 +68,15 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 ## Current numbered-sprint state
 
 - S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
+- S007 is being promoted to `READY` through governance-only PR #262. Its only dependency, S006, is `DONE`; the compatibility matrix already scopes the Project-specific drift; no founder decision, schema migration, or blocked infrastructure is required. The previously opened implementation PR #261 is temporarily closed without merge while this readiness promotion is pending, satisfying the no-open-overlap requirement.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED/PARTIAL`. PR #257 adds only a bounded supplier-review concurrency repair: approval/rejection atomically claims a pending, organization-scoped proposal inside the existing transaction before Material/audit work; losing reviewers fail closed and downstream failures roll the claim back. Supplier feeds remain review-first and do not auto-apply pricing. The dedicated readiness pass is complete, and PostgreSQL-backed integration evidence closes the former RLS execution gate. Promotion still requires only standardized server-side catalog pagination/search/filter/sort and authenticated rendered browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
-- The stacked S027 continuation PR #260 implements the catalog gate with one bounded server-side query contract: opaque keyset cursors, complete filtered totals, resource-specific search/filters, and safe deterministic sort allowlists. It remains unmerged and does not promote S027; authenticated rendered Costbook browser evidence is still required.
-- No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
+- S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. The 2026-08-21 live reconciliation identifies PR #257 as the active bounded S027 readiness/audit pull request. It should be advanced and landed before overlapping S027 implementation work begins.
+Prioritize existing authorized work before inventing new scope. The current bounded sequence is: land governance-only PR #262, then reopen and refresh the existing S007 implementation PR #261 on the new `main`, run exact-head CI/review reconciliation, and merge #261 only if repository governance is satisfied. Do not create another S007 branch and do not start S008 from this sequence.
 
-The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for a numbered sprint.
+The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for S007.
 
 ## Autonomous maintenance operating mode
 
@@ -165,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-There is no numbered `READY` sprint at this handoff. Advance PR #257 first. After it lands, continue S027 only through the two remaining blockers: catalog query standardization, then authenticated rendered browser evidence. Do not infer S007 readiness from the completed S027 audit.
+Land governance-only PR #262 first. Once it merges, S007 is the numbered `READY` sprint. Reopen and refresh the preserved PR #261 rather than creating duplicate work, verify its exact final head and review state, and merge it only if all required repository rules pass. Do not infer S008 readiness from S007 work.
 
 ## Source-of-truth links
 
