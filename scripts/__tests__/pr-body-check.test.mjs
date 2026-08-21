@@ -30,3 +30,14 @@ test("rejects a template-only summary", () => {
   assert.equal(result.ok, false);
   assert.equal(result.summaryMissing, true);
 });
+
+test("rejects required headings that exist only inside HTML comments", () => {
+  const hiddenSections = REQUIRED_PR_SECTIONS.filter((title) => title !== "Summary")
+    .map((title) => `## ${title}\n\n- [ ] Hidden`)
+    .join("\n\n");
+  const body = `## Summary\n\nVisible summary\n\n<!--\n${hiddenSections}\n-->`;
+
+  const result = validatePrBody(body);
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.missingSections, REQUIRED_PR_SECTIONS.filter((title) => title !== "Summary"));
+});
