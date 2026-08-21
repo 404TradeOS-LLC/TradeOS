@@ -97,7 +97,9 @@ There is no supplier-SKU matching layer in this slice; feed rows must already id
 
 - supplier feeds require explicit trusted server configuration per supplier; the adapter does not imply every Supplier is synchronized
 - supplier-SKU discovery/matching is not implemented
-- supplier pricing is review/proposal based and never auto-applied
+- supplier pricing is review/proposal based and never auto-applied; approval
+  and rejection atomically claim a pending proposal so concurrent reviewers
+  cannot apply or audit the same proposal twice
 - internal admin surfaces are operational tooling, not contractor-facing product routes
 - Settings Console's brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, persisted via `organization.logoUrl` and `organizationSettings.settingsJson`) are not currently rendered into any generated document or customer portal page. The live PDF generators (`app/modules/invoices/pdf.ts`, `app/modules/contracts/pdf.ts`, `app/modules/proposal-generator/service.ts`) are pdfkit-based and draw only a `companyName` text header — none of them call `.image()` or reference a logo/brand field, and the portal pages under `web/src/app/(app)/portal/**` don't render one either. The one place in the codebase that does treat a logo as a real `<img>` (`app/modules/documents/frame.ts` / `templates.ts`) has no live caller outside `app/tests/document-frame.test.ts`. A prior commit fixing this module's asset-upload persistence bug described the affected fields as driving "customer-facing PDF and portal branding" — that description is not accurate as of this writing; persisting these fields correctly is still a real, worthwhile fix (the previous blob-URL behavior broke on reload), it just has no visible customer-facing effect yet because nothing consumes the fields downstream.
 
