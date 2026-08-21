@@ -31,6 +31,7 @@ export function buildReviewQueueMetrics(reviewQueue: ReviewQueueCounts | undefin
     .filter((metric) => metric.value > 0);
 }
 
+/** Returns the owner-dashboard greeting for the supplied local hour. */
 export function greetingForHour(hour: number): string {
   if (hour < 5) return "Good night";
   if (hour < 12) return "Good morning";
@@ -54,6 +55,7 @@ export function getNextGreetingBoundary(now: Date): Date {
 export function createGreetingSubscription(callback: () => void): () => void {
   let timeoutId: ReturnType<typeof setTimeout>;
 
+  /** Schedules the next callback and then re-arms itself for the following greeting boundary. */
   function scheduleNext() {
     const delay = getNextGreetingBoundary(new Date()).getTime() - Date.now();
     timeoutId = setTimeout(() => {
