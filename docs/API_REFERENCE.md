@@ -316,6 +316,12 @@ Project task routes under `/api/v1/projects`:
 
 For nested task mutations, the route parent is authoritative: `PATCH` and `DELETE /api/v1/projects/:id/tasks/:taskId` reject a task whose stored `projectId` does not match `:id` before mutation or activity writes. When `PATCH` changes `jobId`, the replacement job must be active, belong to the authenticated organization, and belong to that same project; a cross-project job is rejected before the task update.
 
+Project lifecycle behavior:
+
+- `GET /api/v1/projects`, `GET /api/v1/projects/:id`, and `PATCH /api/v1/projects/:id/status` return canonical project statuses: `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, or `archived`.
+- Historical persisted aliases remain normalized on read for compatibility. Proposal-driven Project side effects persist canonical values only: draft creation/duplication/decline, send, and resend use `estimating`; acceptance uses `awarded`.
+- `PATCH /api/v1/projects/:id/status` accepts only canonical values and enforces the shared Project transition contract; organization scope comes from authenticated request context.
+
 `POST /api/v1/proposals/:id/send` retains its existing request/response shape. Under A12.1, the `ProposalSent` canonical event must persist in the same database transaction as the `draft -> sent` mutation; failure of required event persistence rolls that mutation back. Subscriber delivery remains asynchronous and is not part of the HTTP transaction contract. See [modules/proposals.md](modules/proposals.md) and [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
 ## Costbook continuation API additions
