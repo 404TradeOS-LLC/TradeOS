@@ -31,7 +31,9 @@ export function parsePreflightArgs(argv) {
 }
 
 export function buildVerificationPlan(changedFiles) {
-  const appChanged = changedFiles.some((file) => file.startsWith("app/"));
+  const appChanged = changedFiles.some(
+    (file) => file.startsWith("app/") || file.startsWith("packages/knowledge-engine/")
+  );
   const webChanged = changedFiles.some((file) => file.startsWith("web/"));
   const integrationSensitive = changedFiles.some((file) =>
     [
@@ -39,6 +41,8 @@ export function buildVerificationPlan(changedFiles) {
       "app/prisma/migrations/",
       "app/db/",
       "app/backend/middleware/databaseSession.ts",
+      "app/backend/middleware/auth.ts",
+      "app/backend/middleware/platformProvisioningAuth.ts",
       "app/modules/auth/",
       "app/tests/rls.integration.ts",
     ].some((prefix) => file === prefix || file.startsWith(prefix))
