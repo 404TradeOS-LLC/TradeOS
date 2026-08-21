@@ -97,7 +97,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `main` commit `d266afdbfc32e430267d7b586ce92f2f5c04bf93` on 2026-08-15 after PR #221, including Athena durable idempotency merged via PR #214 and the Costbook continuation merged via PR #216. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `main` commit `550fff8de0b058cb0fc7517a08bb3565d8119307` on 2026-08-20 after PR #255. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
