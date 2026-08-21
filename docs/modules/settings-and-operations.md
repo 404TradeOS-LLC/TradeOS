@@ -97,7 +97,7 @@ There is no supplier-SKU matching layer in this slice; feed rows must already id
 
 - supplier feeds require explicit trusted server configuration per supplier; the adapter does not imply every Supplier is synchronized
 - supplier-SKU discovery/matching is not implemented
-- supplier pricing is review/proposal based and never auto-applied; approval
+- **Unreleased (PR `#257`):** supplier pricing is review/proposal based and never auto-applied; approval
   and rejection atomically claim a pending proposal so concurrent reviewers
   cannot apply or audit the same proposal twice
 - internal admin surfaces are operational tooling, not contractor-facing product routes
