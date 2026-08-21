@@ -8,6 +8,8 @@
     "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:test": "node --test scripts/__tests__/docs-check.test.mjs",
+    "pr:preflight": "node scripts/pr-preflight.mjs",
+    "pr:preflight:run": "node scripts/pr-preflight.mjs --run",
     "prompt": "node scripts/prompt-manager.mjs",
     "prompts": "node scripts/prompt-manager.mjs",
     "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs"
