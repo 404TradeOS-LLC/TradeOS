@@ -6,6 +6,7 @@ import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-cata
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApiClientError, apiFetch, type CatalogPage, type CostbookWorkspaceSummary } from "@/lib/api";
+import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
 import { getSessionToken } from "@/lib/session";
 
 type Subcategory = { id: string; code: string; name: string; isActive: boolean };
@@ -21,6 +22,19 @@ export const metadata: Metadata = {
 function toErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) return error.message;
   return "Unable to load Costbook cost items from the backend.";
+}
+
+async function loadAllCatalogPages<T>(path: string, token: string, params: CostbookListParams = {}): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await apiFetch<CatalogPage<T>>(`${path}${buildCostbookQuery({ ...params, limit: 100, cursor })}`, { token });
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+
+  return items;
 }
 
 type CostItemsQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; active?: string; subcategoryId?: string; componentType?: "labor" | "material" | "equipment" | "subcontractor" | "none" };
@@ -41,20 +55,31 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
     loadError = "You need to be signed in to view Costbook cost items.";
   } else {
     try {
+      const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
+      const costItemQuery: CostbookListParams = {
+        limit: query.limit ? Number(query.limit) : 100,
+        cursor: query.cursor,
+        q: query.q,
+        sort: query.sort,
+        order: query.order,
+        active,
+        subcategoryId: query.subcategoryId,
+        componentType: query.componentType,
+      };
       const [loadedWorkspace, loadedCostItems, loadedSubcategories, loadedLaborRates, loadedMaterials, loadedEquipment] = await Promise.all([
         apiFetch<CostbookWorkspaceSummary>("/api/v1/costbook/workspace", { token }),
-        apiFetch<CatalogPage<CostItemCatalogRecord>>(`/api/v1/costbook/cost-items?limit=${query.limit ?? 100}${query.cursor ? `&cursor=${encodeURIComponent(query.cursor)}` : ""}${query.q ? `&q=${encodeURIComponent(query.q)}` : ""}${query.sort ? `&sort=${encodeURIComponent(query.sort)}` : ""}${query.order ? `&order=${query.order}` : ""}${query.active ? `&active=${query.active}` : ""}${query.subcategoryId ? `&subcategoryId=${query.subcategoryId}` : ""}${query.componentType ? `&componentType=${query.componentType}` : ""}`, { token }),
-        apiFetch<CatalogPage<Subcategory>>("/api/v1/costbook/subcategories?limit=100", { token }),
-        apiFetch<CatalogPage<LaborRate>>("/api/v1/costbook/labor-rates?limit=100&active=true", { token }),
-        apiFetch<CatalogPage<Material>>("/api/v1/costbook/materials?limit=100", { token }),
-        apiFetch<CatalogPage<Equipment>>("/api/v1/costbook/equipment?limit=100", { token }),
+        apiFetch<CatalogPage<CostItemCatalogRecord>>(`/api/v1/costbook/cost-items${buildCostbookQuery(costItemQuery)}`, { token }),
+        loadAllCatalogPages<Subcategory>("/api/v1/costbook/subcategories", token, { active: true }),
+        loadAllCatalogPages<LaborRate>("/api/v1/costbook/labor-rates", token, { active: true }),
+        loadAllCatalogPages<Material>("/api/v1/costbook/materials", token),
+        loadAllCatalogPages<Equipment>("/api/v1/costbook/equipment", token),
       ]);
       workspace = loadedWorkspace;
       costItems = loadedCostItems.items;
-      subcategories = loadedSubcategories.items;
-      laborRates = loadedLaborRates.items;
-      materials = loadedMaterials.items;
-      equipment = loadedEquipment.items;
+      subcategories = loadedSubcategories;
+      laborRates = loadedLaborRates;
+      materials = loadedMaterials;
+      equipment = loadedEquipment;
       costItemPage = { total: loadedCostItems.total, nextCursor: loadedCostItems.nextCursor };
     } catch (error) {
       loadError = toErrorMessage(error);
@@ -78,7 +103,7 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
             <div className="rounded-lg border border-border/70 bg-surface p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Active Cost Items</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Cost Items in result</p>
                   <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{costItemPage.total}</p>
                 </div>
                 <Boxes className="size-5 text-muted-foreground" aria-hidden="true" />
