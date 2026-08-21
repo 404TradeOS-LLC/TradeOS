@@ -67,10 +67,11 @@ Evidence: PR #95 merged 2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`
 
 ### S007 — Project lifecycle normalization
 
-Status: PLANNED
+Status: READY
 Dependencies: S006
 Objective: Normalize project lifecycle values across persistence, APIs, contracts, UI, and compatibility shims.
 Acceptance: one canonical project lifecycle with tested compatibility behavior.
+Readiness evidence: S006 is `DONE`; the S006 compatibility matrix identifies the bounded Project-specific legacy-write drift and assigns it to S007; no founder decision, schema migration, infrastructure dependency, or unresolved product choice is required for this normalization. Existing PR #261 is the paused implementation vehicle and may proceed only after this governance-only readiness promotion lands.
 
 ### S008 — Estimate lifecycle normalization
 
@@ -416,8 +417,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S006 and S013 have merged completion evidence. The S027 catalog-query implementation blocker is closed by the active bounded continuation, but S027 remains `BLOCKED` on authenticated rendered browser evidence. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
-Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Reverified live GitHub on 2026-08-21. PR #257 is the active bounded S027 readiness/audit pull request and should land before overlapping S027 work begins.
+Sprint ID: S007
+Eligibility: S007 is the lowest-numbered `READY` sprint. Its only dependency, S006, is `DONE`; the lifecycle compatibility matrix already scopes the Project-specific drift; no founder decision or blocked infrastructure is required. PR #261 is the existing paused implementation vehicle and is authorized to resume after this governance-only promotion merges.
+Dependencies: S006 (`DONE`).
+Overlap check: Reverified live GitHub on 2026-08-21. PR #261 is the single implementation vehicle for S007; no duplicate S007 implementation should be created.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.
