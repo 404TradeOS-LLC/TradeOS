@@ -55,14 +55,13 @@ fail-closed behavior.
 2. Authenticated browser evidence: render and exercise the nine Costbook routes
    at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
-   decision.
-3. Authenticated database/browser separation: PostgreSQL/RLS execution is now
-   verified by CI, but authenticated rendered browser verification remains
-   outstanding and must not be inferred from the CI suite.
+   decision. PostgreSQL/RLS execution is independently verified by CI; that
+   database evidence must not be treated as a substitute for rendered browser
+   verification.
 
-S027 should remain `BLOCKED`/not promoted until those gates are closed. The
+S027 should remain `BLOCKED`/not promoted until those two gates are closed. The
 remaining gaps do not require a founder decision, but they do require another
-bounded implementation/verification slice and an authenticated database/browser
+bounded implementation/verification slice and an authenticated browser
 environment.
 
 ## Next five TODOs after S027
