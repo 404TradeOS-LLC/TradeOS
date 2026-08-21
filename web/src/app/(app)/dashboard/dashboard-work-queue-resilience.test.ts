@@ -36,8 +36,94 @@ test("partial paired-request failures remain visible to the Needs Attention UI",
   assert.match(source, /proposalsError=\{proposalAttentionQueues\.error\}/);
 });
 
-test("organization settings failure does not crash the dashboard", async () => {
-  const source = await readDashboardSource();
+test("organization settings failure does not crash the dashboard", async (t) => {
+  // Mock getOrganizationSettings to reject
+  const mockGetOrganizationSettings = t.mock.fn(async () => {
+    throw new Error("Organization settings request failed");
+  });
 
-  assert.match(source, /getOrganizationSettings\(token\)\.catch\(\(\) => null\)/);
+  // Mock other API dependencies to return minimal valid data
+  const mockGetSession = t.mock.fn(async () => ({ email: "test@example.com" }));
+  const mockGetSessionToken = t.mock.fn(async () => "mock-token");
+  const mockListProjects = t.mock.fn(async () => [{ id: "project-1", name: "Test Project" }]);
+  const mockGetProject = t.mock.fn(async () => ({
+    id: "project-1",
+    name: "Test Project",
+    jobs: [],
+    tasks: [],
+    estimates: [],
+    invoices: [],
+    proposals: [],
+    contracts: [],
+    changeOrders: [],
+  }));
+  const mockListInvoiceQueue = t.mock.fn(async () => ({ items: [], total: 0, nextCursor: null }));
+  const mockListProposalQueue = t.mock.fn(async () => ({ items: [], total: 0, nextCursor: null }));
+  const mockListEstimateQueue = t.mock.fn(async () => ({ items: [], total: 0, nextCursor: null }));
+  const mockGetDispatchSummary = t.mock.fn(async () => ({
+    todayRangeUtc: { start: new Date().toISOString(), end: new Date().toISOString() },
+    timezone: { value: "UTC" },
+  }));
+  const mockListJobsForDispatch = t.mock.fn(async () => ({ items: [], total: 0 }));
+  const mockGetKnowledgeStats = t.mock.fn(async () => null);
+  const mockGetCurrentWeekPaymentLedger = t.mock.fn(async () => null);
+  const mockListOrganizationProjectTasks = t.mock.fn(async () => []);
+  const mockListActivityEvents = t.mock.fn(async () => []);
+  const mockLoadDashboardWeather = t.mock.fn(async () => null);
+
+  // Mock the API module
+  await t.mock.module("@/lib/api", {
+    namedExports: {
+      getOrganizationSettings: mockGetOrganizationSettings,
+      listProjects: mockListProjects,
+      getProject: mockGetProject,
+      listInvoiceQueue: mockListInvoiceQueue,
+      listProposalQueue: mockListProposalQueue,
+      listEstimateQueue: mockListEstimateQueue,
+      getDispatchSummary: mockGetDispatchSummary,
+      listJobsForDispatch: mockListJobsForDispatch,
+      getKnowledgeStats: mockGetKnowledgeStats,
+      listOrganizationProjectTasks: mockListOrganizationProjectTasks,
+      listActivityEvents: mockListActivityEvents,
+      toInclusiveEndBoundary: (date: string) => date,
+    },
+  });
+
+  await t.mock.module("@/lib/session", {
+    namedExports: {
+      getSession: mockGetSession,
+      getSessionToken: mockGetSessionToken,
+    },
+  });
+
+  await t.mock.module("@/lib/payment-ledger", {
+    namedExports: {
+      getCurrentWeekPaymentLedger: mockGetCurrentWeekPaymentLedger,
+    },
+  });
+
+  await t.mock.module("@/lib/dashboard-weather", {
+    namedExports: {
+      loadDashboardWeather: mockLoadDashboardWeather,
+      selectDashboardWeatherAddress: () => null,
+    },
+  });
+
+  await t.mock.module("@/lib/weather", {
+    namedExports: {
+      getWeatherForAddress: async () => null,
+    },
+  });
+
+  // Dynamically import DashboardPage after mocks are set up
+  const { default: DashboardPage } = await import("./page.tsx");
+
+  // Invoke the DashboardPage component
+  const result = await DashboardPage();
+
+  // Assert that the page still resolves successfully despite settings failure
+  assert.ok(result, "DashboardPage should return a valid React element");
+  assert.equal(mockGetOrganizationSettings.mock.callCount(), 1, "getOrganizationSettings should have been called");
+  assert.equal(mockListProjects.mock.callCount(), 1, "listProjects should have been called");
+  assert.equal(mockGetProject.mock.callCount(), 1, "getProject should have been called (project data loaded)");
 });
