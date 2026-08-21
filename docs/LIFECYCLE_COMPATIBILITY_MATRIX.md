@@ -41,7 +41,7 @@ The six lifecycle families in scope are projects, estimates, proposals, contract
 
 | Domain | Canonical values | Observed persisted/runtime values and aliases | Compatibility behavior | Unsafe drift | Follow-up |
 |---|---|---|---|---|---|
-| Project | `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, `archived` | Current/legacy values include `opportunity`, `estimate`, `site_visit`, `proposal`, `proposal_draft`, `proposal_sent`, `proposed`, `accepted`, `contract`, `won`, `active_job`, `field_execution`, `in_production`, `change_orders`, `closeout`, `complete`, `warranty`, `lost` | `legacyProjectStatusMap` folds aliases into the seven canonical project states | Proposal service still writes `proposal_draft`, `proposal_sent`, and `accepted` into Project.status, so persistence remains intentionally non-canonical. Generic fallback maps unknown project strings to `lead`, which can hide invalid data. | S007 |
+| Project | `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, `archived` | Current/legacy values include `opportunity`, `estimate`, `site_visit`, `proposal`, `proposal_draft`, `proposal_sent`, `proposed`, `accepted`, `contract`, `won`, `active_job`, `field_execution`, `in_production`, `change_orders`, `closeout`, `complete`, `warranty`, `lost` | `legacyProjectStatusMap` folds aliases into the seven canonical project states; new proposal-driven project writes use canonical `estimating` or `awarded` | Existing stored aliases remain readable through DTO normalization. S007 removes the active proposal-service writes of `proposal_draft`, `proposal_sent`, and `accepted`; generic fallback still maps unknown project strings to `lead` for compatibility. | S007 |
 | Estimate | `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, `superseded` | Current lifecycle docs confirm draft-only mutation and `draft -> ready`; `rejected` is retained as a legacy synonym for `declined` | `legacyEstimateStatusMap` maps `rejected -> declined` | **Critical contract inconsistency:** `sent` is itself canonical but `legacyEstimateStatusMap` maps `sent -> ready`. Therefore `normalizeEstimateStatus("sent")` returns `ready`, contradicting the canonical enum and transition table. | S008 |
 | Proposal | `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, `expired` | Service writes `draft`, `sent`, `viewed`, `accepted`, `rejected`; project side effects write `proposal_draft`, `proposal_sent`, `accepted` to the related Project | Proposal `rejected -> declined`; project aliases normalize separately | Storage/service uses `rejected` while canonical vocabulary uses `declined`; `generated` and `expired` are canonical but not part of the currently documented persisted service path. Related Project state is advanced with legacy values rather than project canonical values. | S009 plus project side-effect cleanup coordinated with S007 |
 | Contract | `draft`, `sent`, `viewed`, `signed`, `voided` | Current persistence/service compatibility uses `pending_signature` for the pre-signature phase; schema/docs identify `pending_signature` as an active stored value/default | `pending_signature -> sent` for canonical display | Stored contract state and canonical state differ by design. The compatibility layer must remain until persistence is deliberately migrated. `draft`/`viewed` are canonical contract states but current service documentation centers the `pending_signature -> signed|voided` path. | S010 |
@@ -92,13 +92,19 @@ The current shared frontend `StatusBadge` does **not** call `normalizeDisplaySta
 
 ### Confirmed runtime writes outside canonical vocabulary
 
-`app/modules/proposals/service.ts` writes:
+Before S007, `app/modules/proposals/service.ts` wrote:
 
 - proposal creation/duplication/rejection side effect -> Project `proposal_draft`
 - proposal send/resend side effect -> Project `proposal_sent`
 - proposal acceptance side effect -> Project `accepted`
 
-These are deliberate compatibility writes today, but they are the central S007 normalization target.
+S007 changes these side effects to canonical project writes:
+
+- proposal creation/duplication/rejection -> `estimating`
+- proposal send/resend -> `estimating`
+- proposal acceptance -> `awarded`
+
+Existing persisted aliases remain readable through `legacyProjectStatusMap`; this slice does not perform a destructive data migration.
 
 ## Estimate inventory — S008 input
 

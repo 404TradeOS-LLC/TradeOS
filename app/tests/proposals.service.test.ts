@@ -148,7 +148,7 @@ describe("ProposalsService", () => {
     expect(proposal.sentAt).not.toBeNull();
     expect(proposal.deliveries[0]?.eventType).toBe("proposal.sent");
     expect(mockPrisma.proposalDelivery.create).toHaveBeenCalled();
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_sent" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
   });
 
   it("rejects sending a proposal that has already been sent", async () => {
@@ -217,7 +217,7 @@ describe("ProposalsService", () => {
         }),
       })
     );
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "accepted" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "awarded" } });
   });
 
   it("rejects accepting a proposal still in draft", async () => {
@@ -286,7 +286,7 @@ describe("ProposalsService", () => {
         }),
       })
     );
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_sent" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
   });
 
   it("duplicates an existing proposal back into draft status", async () => {
@@ -441,7 +441,7 @@ describe("ProposalsService", () => {
     expect(proposal.projectId).toBe("project-1");
     expect(proposal.estimateId).toBeNull();
     expect(mockPrisma.project.findFirst).toHaveBeenCalled();
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_draft" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
     expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

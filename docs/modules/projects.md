@@ -57,7 +57,9 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Lifecycle and statuses
 
-See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
+See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Project responses are normalized to the canonical seven-state vocabulary. Existing legacy values remain accepted on reads through `legacyProjectStatusMap`, while new project status mutations and proposal-driven project side effects persist canonical values only.
+
+Proposal workflow side effects are deliberately mapped to the project lifecycle: draft creation, duplication, decline, send, and resend use `estimating`; acceptance uses `awarded`. This preserves the existing lifecycle meaning without continuing to create new `proposal_*` or `accepted` project-status rows.
 
 ## Frontend surfaces
 
@@ -77,7 +79,7 @@ Project workspace surfaces also expose the current job and field-coordination wo
 
 ## Known limitations
 
-- project lifecycle persistence still includes compatibility values that normalize into canonical display states
+- project lifecycle persistence still includes historical compatibility values that normalize into canonical display states; S007 prevents new proposal workflow writes from adding those aliases
 
 ## Deferred work
 

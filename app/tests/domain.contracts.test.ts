@@ -1,4 +1,20 @@
-import { hasAnyPermission, hasPermission } from "../domain";
+import { canTransitionProjectStatus, hasAnyPermission, hasPermission, normalizeProjectStatus } from "../domain";
+
+describe("Project lifecycle compatibility", () => {
+  it("normalizes historical project aliases without changing the canonical vocabulary", () => {
+    expect(normalizeProjectStatus("proposal_draft")).toBe("estimating");
+    expect(normalizeProjectStatus("proposal_sent")).toBe("estimating");
+    expect(normalizeProjectStatus("accepted")).toBe("awarded");
+    expect(normalizeProjectStatus("in_production")).toBe("active");
+  });
+
+  it("keeps proposal-driven canonical project progression valid", () => {
+    expect(canTransitionProjectStatus("lead", "estimating")).toBe(true);
+    expect(canTransitionProjectStatus("estimating", "awarded")).toBe(true);
+    expect(canTransitionProjectStatus("awarded", "active")).toBe(true);
+    expect(canTransitionProjectStatus("lead", "awarded")).toBe(false);
+  });
+});
 
 // This exact permission triple is what backend/requestContext.ts's
 // requireOrgAdmin() checks (team.manage / company.manage / settings.manage),

@@ -45,12 +45,14 @@ Canonical display states:
 Compatibility persistence:
 
 - older project values such as `proposal_sent`, `accepted`, `proposal_draft`, `site_visit`, and `in_production` are normalized through `legacyProjectStatusMap`
+- new project writes use canonical values only; proposal draft creation/duplication/decline and send/resend side effects persist `estimating`, while proposal acceptance persists `awarded`
 
 Current transition posture:
 
 - project status is partly direct and partly side-effect-driven from proposal and job workflows
-- proposal send currently pushes persisted project status toward `proposal_sent`
-- proposal accept currently pushes persisted project status toward `accepted`
+- proposal send/resend currently pushes persisted project status toward canonical `estimating`
+- proposal accept currently pushes persisted project status toward canonical `awarded`
+- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating`
 - full canonical project transition enforcement remains a compatibility layer, not a single dedicated state machine
 
 ## Estimates

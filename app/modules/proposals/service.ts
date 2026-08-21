@@ -205,7 +205,7 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "sent" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_sent" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
   }
 
@@ -239,7 +239,7 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "accepted" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "accepted" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "awarded" } });
     return this.getById(updated.id, orgId);
   }
 
@@ -256,7 +256,7 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "rejected" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_draft" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
   }
 
@@ -282,7 +282,7 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "sent" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_sent" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
   }
 
@@ -305,7 +305,7 @@ export class ProposalsService {
         termsAndConditions: row.termsAndConditions,
       },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_draft" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return toDTO(duplicated);
   }
 
@@ -422,7 +422,7 @@ export class ProposalsService {
         termsAndConditions: input.termsAndConditions,
       },
     });
-    await prisma.project.update({ where: { id: project.id }, data: { status: "proposal_draft" } });
+    await prisma.project.update({ where: { id: project.id }, data: { status: "estimating" } });
     return proposal;
   }
 
