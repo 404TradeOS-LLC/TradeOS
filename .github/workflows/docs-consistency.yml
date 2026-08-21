@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: docs-consistency-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docs-consistency:
     name: Docs consistency
@@ -21,11 +25,19 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Validate PR description
+        run: npm run pr:body-check
+
       - name: Install docs checker dependencies
         run: npm ci
+
+      - name: Run PR preflight tests
+        run: npm run pr:test
 
       - name: Run autonomy reconciliation tests
         run: npm run autonomy:test
 
       - name: Run docs consistency check
-        run: npm run docs:check -- --base "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: npm run docs:check -- --base "$BASE_REF"
