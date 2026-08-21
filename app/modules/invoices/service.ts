@@ -271,7 +271,7 @@ export class InvoicesService {
     assertInvoiceWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
     if (row.status === "paid") throw new ApiError(409, `Invoice ${id} has already been paid and cannot be voided`);
-    const updated = await prisma.invoice.update({ where: { id }, data: { status: "voided" } });
+    const updated = await prisma.invoice.update({ where: { id }, data: { status: "void" } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       invoiceId: row.id,
@@ -422,7 +422,7 @@ function toDTO(row: {
     proposalId: row.proposalId,
     invoiceNumber: row.invoiceNumber,
     type: row.type,
-    status: row.status,
+    status: normalizeInvoiceStatus(row.status),
     percentComplete: row.percentComplete != null ? Number(row.percentComplete) : null,
     amount: Number(row.amount),
     dueDate: row.dueDate,
