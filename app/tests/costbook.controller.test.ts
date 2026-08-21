@@ -95,12 +95,33 @@ describe("costbookController materials endpoints", () => {
     mockService.deactivateSubcategory.mockResolvedValue(undefined);
   });
 
-  it("allows read-only Costbook roles to list materials", async () => {
+  it("allows read-only Costbook roles to list materials and forwards the complete catalog query", async () => {
     const res = response();
+    const supplierId = "40000000-0000-0000-0000-000000000001";
 
-    await costbookController.listMaterials(authedRequest({ role: "technician" }), res as never);
+    await costbookController.listMaterials(
+      authedRequest({
+        role: "technician",
+        query: {
+          limit: "40",
+          cursor: "cursor-token",
+          q: " concrete ",
+          sort: "updatedAt",
+          order: "desc",
+          supplierId,
+        },
+      }),
+      res as never
+    );
 
-    expect(mockService.listMaterialsPage).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }), expect.objectContaining({ limit: 25 }));
+    expect(mockService.listMaterialsPage).toHaveBeenCalledWith("org-from-auth", {
+      limit: 40,
+      cursor: "cursor-token",
+      q: "concrete",
+      sort: "updatedAt",
+      order: "desc",
+      filters: { supplierId },
+    });
     expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
@@ -249,7 +270,7 @@ describe("costbookController materials endpoints", () => {
 
     await costbookController.listLaborRates(authedRequest({ role: "technician" }), res as never);
 
-    expect(mockService.listLaborRatesPage).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }), expect.objectContaining({ limit: 25 }));
+    expect(mockService.listLaborRatesPage).toHaveBeenCalledWith("org-from-auth", expect.objectContaining({ limit: 25 }));
     expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
@@ -405,7 +426,7 @@ describe("costbookController materials endpoints", () => {
 
     await costbookController.listDivisions(authedRequest({ role: "technician" }), res as never);
 
-    expect(mockService.listDivisionsPage).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }), expect.objectContaining({ limit: 25 }));
+    expect(mockService.listDivisionsPage).toHaveBeenCalledWith("org-from-auth", expect.objectContaining({ limit: 25 }));
     expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
@@ -467,7 +488,7 @@ describe("costbookController materials endpoints", () => {
     );
 
     expect(mockService.listCategoriesPage).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
+      "org-from-auth",
       expect.objectContaining({ filters: expect.objectContaining({ divisionId }) })
     );
   });
@@ -507,7 +528,7 @@ describe("costbookController materials endpoints", () => {
     );
 
     expect(mockService.listSubcategoriesPage).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
+      "org-from-auth",
       expect.objectContaining({ filters: expect.objectContaining({ categoryId }) })
     );
   });
