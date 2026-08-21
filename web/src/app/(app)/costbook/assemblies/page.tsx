@@ -81,10 +81,12 @@ export default async function CostbookAssembliesPage({ searchParams }: { searchP
   }
 
   const catalogKey = [query.cursor, query.q, query.sort, query.order, query.active, query.isTemplate].map((value) => value ?? "").join("|");
+  const showingInactive = query.active === "false";
+  const displayAssemblies = showingInactive ? data.assemblies.map((assembly) => ({ ...assembly, isActive: true })) : data.assemblies;
 
   return <div className="flex flex-col gap-6">
     <PageHeader title="Assemblies" description="Compose reusable CostItems and child Assemblies without duplicating pricing data." backHref="/costbook" backLabel="Costbook" />
     <CatalogQueryControls pathname="/costbook/assemblies" query={query} total={data.total} shown={data.assemblies.length} nextCursor={data.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }, { name: "isTemplate", label: "Template", value: query.isTemplate, options: [{ value: "true", label: "Templates" }, { value: "false", label: "Regular" }] }]} />
-    <AssemblyCatalog key={catalogKey} initialAssemblies={data.assemblies} childAssemblies={data.childAssemblies} costItems={data.costItems} canWrite={data.canWrite} canManage={data.canManage} />
+    <AssemblyCatalog key={catalogKey} initialAssemblies={displayAssemblies} childAssemblies={data.childAssemblies} costItems={data.costItems} canWrite={showingInactive ? false : data.canWrite} canManage={showingInactive ? false : data.canManage} />
   </div>;
 }
