@@ -134,7 +134,10 @@ describe("SupplierIntegrationService", () => {
           orgId: "org-1",
           role: "admin",
         })
-      ).rejects.toThrow("no longer pending");
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("no longer pending"),
+      });
       expect(transaction.material.update).not.toHaveBeenCalled();
       expect(transaction.materialPriceAudit.create).not.toHaveBeenCalled();
     });
