@@ -19,6 +19,7 @@ const queueA = "31000000-0000-0000-0000-000000000071";
 
 describe("supplier queue review RLS", () => {
   beforeAll(async () => {
+    await resetFixtures();
     await adminClient.organization.createMany({
       data: [
         { id: orgA, name: "Supplier Review Org A" },
@@ -66,7 +67,11 @@ describe("supplier queue review RLS", () => {
   });
 
   afterAll(async () => {
-    await Promise.all([appClient.$disconnect(), adminClient.$disconnect()]);
+    try {
+      await resetFixtures();
+    } finally {
+      await Promise.all([appClient.$disconnect(), adminClient.$disconnect()]);
+    }
   });
 
   it.each(["approve", "reject"] as const)(
@@ -105,6 +110,16 @@ describe("supplier queue review RLS", () => {
     }
   );
 });
+
+async function resetFixtures(): Promise<void> {
+  await adminClient.materialPriceAudit.deleteMany({ where: { materialId: materialA } });
+  await adminClient.supplierPriceUpdate.deleteMany({ where: { id: queueA } });
+  await adminClient.material.deleteMany({ where: { id: materialA } });
+  await adminClient.supplier.deleteMany({ where: { id: supplierA } });
+  await adminClient.organizationMembership.deleteMany({ where: { id: { in: [orgAMembership, orgBMembership] } } });
+  await adminClient.appUser.deleteMany({ where: { id: { in: [orgAUser, orgBReviewer] } } });
+  await adminClient.organization.deleteMany({ where: { id: { in: [orgA, orgB] } } });
+}
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
