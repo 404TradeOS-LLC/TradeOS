@@ -13,6 +13,11 @@ related_code:
   - docs/SESSION_HANDOFF.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
+  - .coderabbit.yaml
+  - scripts/pr-preflight.mjs
+  - scripts/pr-body-check.mjs
+  - .github/pull_request_template.md
+  - .github/workflows/docs-consistency.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/dependabot-patch-automerge.yml
@@ -86,6 +91,30 @@ For a validated low-risk maintenance defect, the expected loop is:
 
 Agents should advance an existing overlapping PR instead of creating duplicate work. Green CI is required technical evidence, not authority to merge protected changes.
 
+### PR throughput discipline
+
+Before expensive local verification or PR creation/update, run:
+
+```bash
+npm run pr:preflight -- --base origin/main
+```
+
+The preflight reports the exact changed paths, required owner docs, missing docs, and minimum relevant app/web verification lanes. `npm run pr:preflight:run -- --base origin/main` may execute those scoped checks after required documentation is present. This prevents predictable docs failures and unrelated local suites from becoming extra review cycles.
+
+Once a PR exists, use one continuous repair loop rather than waiting for serial feedback rounds:
+
+1. inspect required CI and every unresolved review thread on the current head;
+2. treat deterministic, scoped automated-review findings as auto-fix candidates;
+3. for CodeRabbit findings with structured fix instructions, prefer `@coderabbitai autofix` on the current PR branch, then inspect the resulting diff and verification evidence;
+4. repair objective docs drift, formatting, lint/type errors, missing behavioral regression coverage, and other low-risk deterministic findings without a separate product-decision pause;
+5. do **not** auto-apply findings that would change migrations/schema/data, authentication/authorization/RLS, billing/money semantics, major architecture, production trust boundaries, destructive operations, or other protected decisions;
+6. resolve a review thread only after the fix is present and verified on the current head;
+7. rerun only failed/relevant checks when GitHub supports it, while new commits naturally cancel superseded runs;
+8. enable GitHub auto-merge when the PR is otherwise safe so the required ruleset remains the final gate instead of requiring another manual merge round trip;
+9. finish the oldest/highest-value viable PR before opening competing work unless explicit priority says otherwise.
+
+Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; `.coderabbit.yaml` now tells automated review to flag source-text substitutes for behavioral coverage.
+
 Production repair should use the health split first:
 
 - `/health` failing → investigate process/deployment/routing/platform availability;
@@ -96,10 +125,12 @@ Production repair should use the health split first:
 
 Expected required CI jobs include:
 
-- `Docs consistency` — autonomy-reconciliation regressions plus documentation ownership validation;
-- `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness;
-- `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification;
-- `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness.
+- `Docs consistency` — validates PR-description structure first, then PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation;
+- `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
+- `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
+- `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness when the pull request changes `web/**`; the required job still reports success without expensive setup for unrelated pull-request diffs.
+
+Pushes to `main` run all app, integration, and web verification lanes. Pull-request path scoping reduces unrelated CI work without changing required check names, branch-protection requirements, or the meaning of a green check for the code actually changed.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
 
@@ -110,6 +141,8 @@ The optional `preview-smoke-check.yml` workflow is not part of required CI eithe
 Documentation foundation/governance work should run:
 
 ```bash
+npm run pr:preflight -- --base origin/main
+npm run pr:test
 npm run docs:test
 npm run docs:check -- --base origin/main
 git diff --check

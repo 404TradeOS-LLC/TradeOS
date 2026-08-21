@@ -1,10 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-18
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - AGENTS.md
+  - .coderabbit.yaml
+  - scripts/pr-preflight.mjs
+  - scripts/pr-body-check.mjs
+  - scripts/__tests__/pr-preflight.test.mjs
+  - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
@@ -60,20 +65,22 @@ Protect `main` with a branch ruleset that:
 
 Expected verification jobs are:
 
-- `Docs consistency` (runs the autonomy-reconciliation regression suite before documentation ownership validation);
-- `App lint, unit tests, and build` (runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check);
-- `App integration tests` (rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests);
-- `Web lint and build` (runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check).
+- `Docs consistency` (validates required PR-description structure first, then runs PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation);
+- `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
+- `App integration tests` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests; for unrelated pull-request diffs the same required job reports success without expensive setup and no longer waits for the ordinary app lane before starting);
+- `Web lint and build` (for pull requests that change `web/**`, runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup).
+
+Pushes to `main` run every app, integration, and web lane in full. Pull-request path scoping is an execution optimization, not a branch-protection bypass: the required check names remain unchanged, each required job still reports, and the changed product lane receives its full verification surface.
 
 The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. The workflow uses `actions/dependency-review-action@v5`, whose internal Node 24 runtime is isolated from the explicit Node versions used for TradeOS workload verification. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 
-A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
+A green required-check set is the minimum evidence for autonomous merge eligibility. Agents must not weaken, skip, mark non-blocking, or remove a gate merely to make a PR mergeable. A failing security audit, schema validation, migration rehearsal, test, typecheck, lint, build, or clean-tree check in a relevant lane is a real blocker until root-caused and either repaired or explicitly approved through a governance change.
 
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
 Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. As of 2026-08-18, workflow checkout call sites are maintained on `actions/checkout@v7.0.1`; this patch refresh does not change application runtime policy.
 
-Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live ruleset verification confirms it has been added there.
+Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
 ## Solo-maintainer review posture
 
@@ -106,6 +113,8 @@ The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://githu
 
 Copilot review is not part of ruleset 18958081 at all — it lives entirely in the separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)), which is configured for `review_on_push`/`review_draft_pull_requests` but currently shows `enforcement: "disabled"`. Confirmed empirically too: no `Copilot` check run appears in recent PRs' status-check rollups. It must not be described as an active enforcement layer, nor listed alongside ruleset 18958081's controls, unless a later live verification shows it enabled again.
 
+Repository settings were read again on 2026-08-21 and confirmed that GitHub auto-merge is enabled for this repository, squash and rebase merging remain allowed, merge commits remain disabled, and server-side branch updating is available. This settings read does not replace the ruleset-specific verification requirement above.
+
 Re-run live read-only inspection before changing these statements or editing repository controls. Documentation records observed state; GitHub remains authoritative.
 
 ## Merge posture
@@ -116,6 +125,7 @@ Re-run live read-only inspection before changing these statements or editing rep
 - do not merge with failing required checks;
 - do not merge with unresolved review threads;
 - verify the expected head SHA immediately before merge;
+- enable GitHub auto-merge for an otherwise-safe low-risk PR when doing so removes a manual wait without weakening any required check, branch-freshness, or conversation-resolution rule;
 - only merged evidence may mark a sprint `DONE`.
 
 Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply. The workflow runs from the normal `pull_request` event and pins `dependabot/fetch-metadata` to the immutable v3.1.0 commit; its Node 24 action runtime is CI-only and does not change TradeOS application runtime policy.
@@ -139,6 +149,30 @@ The following remain human-decision or PR-only boundaries unless a narrower appr
 Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR and may not be autonomously merged.
 
 This governance model intentionally separates **technical merge evidence** from **product or operational authority**: green CI is necessary for autonomous merge, but it is not sufficient when the change falls inside a protected human-decision category.
+
+### Pull-request throughput and deterministic repair
+
+PR speed must come from removing avoidable serial work, not weakening verification. Before expensive local checks or PR creation/update, run:
+
+```bash
+npm run pr:preflight -- --base origin/main
+```
+
+The preflight reuses the documentation-ownership evaluator to report changed paths, exact required owner docs, any missing docs, and the minimum relevant local app/web verification lanes. `npm run pr:preflight:run -- --base origin/main` fails before expensive verification if required docs are still missing, then runs the scoped local plan. Required GitHub checks remain authoritative regardless of the local plan.
+
+Once a PR exists, use one continuous repair loop:
+
+1. inspect current-head CI plus every unresolved review thread;
+2. automatically repair deterministic, scoped findings such as objective documentation drift, formatting, lint/type failures, missing behavioral regression coverage, and low-risk localized correctness issues;
+3. for CodeRabbit findings with structured fix instructions, `@coderabbitai autofix` may commit the proposed repair directly to the current PR branch, after which the resulting diff and tests must still be inspected;
+4. do not auto-apply findings that would change migrations/schema/data, authentication or authorization policy, RLS, billing/money semantics, destructive operations, major architecture/repository boundaries, production trust boundaries, or other protected decisions;
+5. prefer tests that execute the real behavior or mocked failure path; source-text assertions are appropriate only when source shape itself is the deliberate repository contract;
+6. resolve a review thread only after its fix is present and verified on the current head;
+7. rerun failed/relevant checks rather than restarting unrelated successful work when the platform supports it;
+8. enable auto-merge when the PR is otherwise safe and leave the protected-branch ruleset as the final merge gate;
+9. finish the oldest/highest-value viable PR before opening competing work unless an explicit priority requires otherwise.
+
+PRs should remain surgical. A nearby defect discovered during review should become separate follow-up work when repairing it would materially broaden product semantics, migration scope, authorization, billing behavior, or architecture.
 
 ## Reconciliation and duplicate-PR gate
 
@@ -188,11 +222,11 @@ Standard flow:
 6. state allowed paths, forbidden paths, validation, and stop conditions;
 7. perform only the approved mission;
 8. update required source-of-truth documents in the same branch;
-9. run required local checks;
+9. run `npm run pr:preflight -- --base origin/main` after the final scope is known, then run the relevant local checks it reports;
 10. inspect the complete diff against the correct base;
-11. repeat reconciliation, then push normally and open or update one PR;
-12. wait for required checks;
-13. merge only after review readiness is established;
+11. repeat reconciliation, then push normally and open or update one PR with every required default-template section completed;
+12. inspect required checks and review threads on the current head, repairing deterministic scoped findings in one continuous loop;
+13. enable auto-merge for an otherwise-safe low-risk PR or merge only after review readiness is established;
 14. sync `main` and verify the landed content;
 15. remove linked worktrees with `git worktree remove`;
 16. delete merged or superseded branches when safe;
@@ -255,27 +289,33 @@ Every contributor uses the [Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PR
 A PR is ready for human review only when:
 
 - work stayed within its approved scope;
-- required owner documents are present;
+- `npm run pr:preflight -- --base origin/main` has been run after the final scope is known;
+- required owner documents are present and meaningful;
 - the final diff contains no unrelated changes;
-- local validation has passed or an external blocker is explicitly documented;
+- relevant local validation has passed or an external blocker is explicitly documented;
+- the PR body contains every required default-template section and a real non-placeholder Summary;
 - GitHub required checks are green;
 - the branch is up to date;
-- review threads are resolved;
+- deterministic automated-review findings are either repaired or explicitly classified as inapplicable/protected;
+- review threads are resolved only after corresponding fixes are verified on the current head;
 - the PR description accurately states current scope, validation, limitations, and remaining risks.
+
+For an otherwise-safe low-risk PR, enabling auto-merge is preferred to waiting for a second manual merge action after the ruleset becomes satisfied. Auto-merge does not waive any required status, freshness, or conversation-resolution condition.
 
 Branch-specific changed-file counts, temporary PR blockers, and validation notes belong in `docs/SESSION_HANDOFF.md` or the pull request body. Do not preserve them as durable governance policy after the branch lands.
 
 ## Pull request templates
 
-The default PR template is the required baseline for every pull request.
+The default PR template is the required baseline for every pull request. `scripts/pr-body-check.mjs` enforces the presence of its required section headings and a non-template Summary inside the existing `Docs consistency` job so incomplete PR metadata fails early.
 
 It must capture:
 
 - summary, scope, branch, worktree, and linked issue
 - startup verification against the Command Center and source-of-truth docs
 - allowed-path and forbidden-path compliance
-- documentation impact and `DOC_OWNERSHIP.yml` review
-- exact verification commands and blocked checks
+- PR preflight output, documentation impact, and `DOC_OWNERSHIP.yml` review
+- exact relevant verification commands, N/A reasons for irrelevant lanes, and blocked checks
+- classification of automated-review findings, review-thread resolution status, and auto-merge posture
 - final `git status --short --branch`
 - known limitations and follow-up work
 
