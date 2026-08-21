@@ -53,17 +53,24 @@ export function getNextGreetingBoundary(now: Date): Date {
 
 /** useSyncExternalStore subscribe function: notifies `callback` at each greeting boundary so a mounted dashboard refreshes without a manual reload. */
 export function createGreetingSubscription(callback: () => void): () => void {
-  let timeoutId: ReturnType<typeof setTimeout>;
+  let active = true;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-  /** Schedules the next callback and then re-arms itself for the following greeting boundary. */
+  /** Schedules the next callback and re-arms only while the subscription remains active. */
   function scheduleNext() {
+    if (!active) return;
+
     const delay = getNextGreetingBoundary(new Date()).getTime() - Date.now();
     timeoutId = setTimeout(() => {
+      if (!active) return;
       callback();
-      scheduleNext();
+      if (active) scheduleNext();
     }, delay);
   }
 
   scheduleNext();
-  return () => clearTimeout(timeoutId);
+  return () => {
+    active = false;
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  };
 }
