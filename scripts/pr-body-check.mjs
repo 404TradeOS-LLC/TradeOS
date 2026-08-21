@@ -53,9 +53,10 @@ function removeHtmlComments(value) {
 
 export function validatePrBody(body) {
   const text = typeof body === "string" ? body : "";
-  const missingSections = REQUIRED_PR_SECTIONS.filter((title) => !sectionPattern(title).test(text));
-  const summary = extractSection(text, "Summary");
-  const summaryMissing = summary == null || removeHtmlComments(summary) === "";
+  const visibleText = removeHtmlComments(text);
+  const missingSections = REQUIRED_PR_SECTIONS.filter((title) => !sectionPattern(title).test(visibleText));
+  const summary = extractSection(visibleText, "Summary");
+  const summaryMissing = summary == null || summary === "";
 
   return {
     ok: missingSections.length === 0 && !summaryMissing,
