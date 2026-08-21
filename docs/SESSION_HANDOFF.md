@@ -22,7 +22,7 @@ This session is recording governance-only completion evidence for S007 — Proje
 
 - S006 is `DONE` with merged evidence in PR #95.
 - S007 implementation PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
-- S007 now has merge evidence and must be recorded `DONE` in the canonical Sprint Backlog.
+- S007 is recorded `DONE` in the canonical Sprint Backlog on this completion-evidence branch.
 - The landed S007 behavior normalizes proposal-driven Project writes to canonical lifecycle values while preserving historical alias reads; no destructive historical rewrite was introduced.
 - S008 remains `PLANNED`. Completion of S007 does not implicitly promote S008 to `READY`.
 - S027 remains separately `BLOCKED` only on authenticated rendered Costbook browser evidence and does not alter numbered lifecycle-sprint selection.
