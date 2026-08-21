@@ -51,6 +51,8 @@ and PR #216), so a dedicated live-verified scope/overlap review is required
 before promotion, not just confirmation that the old blocking PRs are gone.
 Re-read live GitHub state before any later promotion. The 2026-08-18 cleanup resolved the remaining out-of-band implementation and maintenance PRs (#240, #242, #243, #245, #246, #247, #249); PR #250 is the final docs-only reconciliation vehicle and does not change the S027 promotion gate.
 
+The S027 pass recorded in PR #257 does not promote the sprint. Supplier price-proposal approval and rejection now use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and this repair changes neither Costbook architecture nor permissions. S027 remains `PARTIAL/BLOCKED` pending standardized server-side catalog pagination/search/filter/sort, authenticated browser evidence, and applicable live PostgreSQL/RLS evidence.
+
 ## Volume I — Vision
 
 Canonical doctrine: `docs/bible/VOLUME_1_VISION.md`

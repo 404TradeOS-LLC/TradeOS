@@ -295,6 +295,9 @@ For nested task mutations, the route parent is authoritative: `PATCH` and `DELET
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
 
+
+Supplier price-proposal approval and rejection use an atomic pending-status claim inside the existing transaction: only the reviewer that successfully claims the organization-scoped pending row may continue, and a competing reviewer receives conflict/fail-closed behavior. A downstream Material or audit failure rolls the claim back to `pending`; feeds remain review-first and never auto-apply Material pricing. This is a concurrency repair only: it changes neither the Costbook architecture nor its permission model.
+
 `POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
 
 ## Detailed module links

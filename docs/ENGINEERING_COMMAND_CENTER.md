@@ -64,7 +64,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 - S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged. Its 2026-08-12 blockers PR #128 and PR #151 are also resolved as of 2026-08-16 (#151 merged, #128 closed unmerged/superseded by merged PR #183), but S027 promotion still needs its own dedicated live-verified scope/overlap review against the further Costbook work merged since (PR #183, #210, #216) — see `docs/SPRINT_BACKLOG.md`.
+- S027 remains `BLOCKED/PARTIAL`. PR #257 adds only a bounded supplier-review concurrency repair: approval/rejection atomically claims a pending, organization-scoped proposal inside the existing transaction before Material/audit work; losing reviewers fail closed and downstream failures roll the claim back. Supplier feeds remain review-first and do not auto-apply pricing. Promotion still requires standardized server-side catalog pagination/search/filter/sort, authenticated browser evidence, and applicable live PostgreSQL/RLS evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 - No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
 
 ## Active engineering queue
@@ -122,6 +122,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - `packages/knowledge-engine/knowledge-engine/**` is a confirmed self-nested duplicate tree, not a second canonical package. Do not normalize it through dependency maintenance or delete it without the approved cleanup decision/process.
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
+- PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. Requiring code-owner approval in live branch rules needs separate solo-maintainer compatibility review to avoid deadlocking self-authored PRs.
 
 ## Session execution

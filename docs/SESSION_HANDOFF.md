@@ -23,9 +23,15 @@ Live GitHub reconciliation on 2026-08-19 found `docs/SESSION_HANDOFF.md`'s prior
 
 Also confirmed still true from the prior 2026-08-18 pass: PR #251 is merged (`5a812e0`, 2026-08-18). `docs/CURRENT_STATE.md` now records that work as merged repository state rather than deferring the correction to PR #253.
 
+## S027 reconciliation handoff
+
+PR #257 (`audit/s027-costbook-production-readiness`) records the current bounded supplier-review runtime truth: approval and rejection atomically claim the organization-scoped pending proposal inside the existing transaction before Material/audit work. Only the successful claimant proceeds; a losing concurrent reviewer fails closed; and a downstream failure rolls the claim back to `pending`. Supplier feeds remain review-first and never auto-apply Material pricing. No Costbook architecture or permission model changed.
+
+S027 remains `PARTIAL/BLOCKED`, not production-ready. Remaining gates are standardized server-side catalog pagination/search/filter/sort, authenticated rendered browser verification, and applicable live PostgreSQL/RLS verification. Do not begin S007 from this handoff; after PR #257, the next S027 implementation slice is catalog query standardization.
+
 ## Known limitations
 
-- S027 ("Intelligent Costbook production readiness") promotion to `READY` remains undecided — unchanged from the prior pass; still needs its own dedicated live-verified scope/overlap review.
+- S027 ("Intelligent Costbook production readiness") remains `PARTIAL/BLOCKED` after the dedicated pass; see `docs/architecture/COSTBOOK_S027_READINESS.md` for the exact evidence and remaining gates.
 - No numbered sprint is `READY`. Every unfinished numbered sprint remains `PLANNED` or `BLOCKED`.
 - This session's own change could not be verified via authenticated live-data browser rendering (no Supabase test session / Docker Postgres available in this environment) — see `docs/CURRENT_STATE.md` for exactly what was and wasn't verified.
 
