@@ -93,11 +93,18 @@ async function loadInvoiceAttentionQueues(token: string) {
 
   const overdue = overdueResult.status === "fulfilled" ? overdueResult.value : emptyQueue<InvoiceQueueItem>();
   const unpaid = unpaidResult.status === "fulfilled" ? unpaidResult.value : emptyQueue<InvoiceQueueItem>();
+  const overdueFailed = overdueResult.status === "rejected";
+  const unpaidFailed = unpaidResult.status === "rejected";
+  const error =
+    overdueFailed || unpaidFailed
+      ? overdueFailed && unpaidFailed
+        ? "Invoice attention queues are temporarily unavailable"
+        : overdueFailed
+          ? "Overdue invoice queue is temporarily unavailable"
+          : "Unpaid invoice queue is temporarily unavailable"
+      : null;
 
-  // Only set error if the unpaid fetch specifically failed (the KPI fallback depends on unpaid.total being unavailable)
-  const unpaidError = unpaidResult.status === "rejected" ? (unpaidResult.reason instanceof Error ? unpaidResult.reason.message : "Unpaid invoice queue request failed") : null;
-
-  return { overdue, unpaid, error: unpaidError };
+  return { overdue, unpaid, unpaidFailed, error };
 }
 
 async function loadProposalAttentionQueues(token: string, staleBeforeIso: string) {
@@ -109,18 +116,13 @@ async function loadProposalAttentionQueues(token: string, staleBeforeIso: string
   const stale = staleResult.status === "fulfilled" ? staleResult.value : emptyQueue<ProposalQueueItem>();
   const unsigned = unsignedResult.status === "fulfilled" ? unsignedResult.value : emptyQueue<ProposalQueueItem>();
 
-  // Report error if either fetch failed (both are used in the UI)
   const error =
     staleResult.status === "rejected" || unsignedResult.status === "rejected"
-      ? staleResult.status === "rejected"
-        ? staleResult.reason instanceof Error
-          ? staleResult.reason.message
-          : "Stale proposal queue request failed"
-        : unsignedResult.status === "rejected"
-          ? unsignedResult.reason instanceof Error
-            ? unsignedResult.reason.message
-            : "Unsigned proposal queue request failed"
-          : null
+      ? staleResult.status === "rejected" && unsignedResult.status === "rejected"
+        ? "Proposal attention queues are temporarily unavailable"
+        : staleResult.status === "rejected"
+          ? "Stale proposal queue is temporarily unavailable"
+          : "Unsigned proposal queue is temporarily unavailable"
       : null;
 
   return { stale, unsigned, error };
@@ -205,7 +207,7 @@ export default async function DashboardPage() {
         null,
         { items: [] as DispatchJob[], total: 0, timezone: "UTC" },
         null,
-        { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), error: null as string | null },
+        { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), unpaidFailed: false, error: null as string | null },
         { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
       ];
@@ -261,7 +263,7 @@ export default async function DashboardPage() {
   const fallbackInvoicesWaiting = projectDetails
     .flatMap((project) => project.invoices)
     .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
-  const invoicesWaiting = invoiceAttentionQueues.error ? fallbackInvoicesWaiting : invoiceAttentionQueues.unpaid.total;
+  const invoicesWaiting = invoiceAttentionQueues.unpaidFailed ? fallbackInvoicesWaiting : invoiceAttentionQueues.unpaid.total;
 
   const attentionEstimates = buildAttentionEstimateRows(estimateAttentionQueue.queue.items);
   const attentionProposals = buildAttentionProposalRows(proposalAttentionQueues.stale.items, proposalAttentionQueues.unsigned.items);
