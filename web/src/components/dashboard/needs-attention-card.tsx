@@ -28,14 +28,36 @@ function RowHeader({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
+/**
+ * Renders an uppercase heading for a dashboard section.
+ *
+ * @param children - The section heading content
+ */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <h2 className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{children}</h2>;
 }
 
+/**
+ * Displays an error message with guidance to refresh or open the underlying workspace.
+ *
+ * @param message - The error message to display
+ */
 function SectionError({ message }: { message: string }) {
   return <p className="text-sm text-rose-700 dark:text-rose-300">{message} Try refreshing, or open the underlying workspace directly.</p>;
 }
 
+/**
+ * Displays organization-wide financial items and scope-specific projects that require attention.
+ *
+ * @param estimates - Estimates currently in progress
+ * @param proposals - Proposals awaiting a response
+ * @param invoices - Invoices requiring follow-up
+ * @param readyToStart - Projects ready for an estimate
+ * @param scopeLabel - Label identifying the project scope
+ * @param estimatesError - Error message for the estimates section
+ * @param proposalsError - Error message for the proposals section
+ * @param invoicesError - Error message for the invoices section
+ */
 export function NeedsAttentionCard({
   estimates,
   proposals,

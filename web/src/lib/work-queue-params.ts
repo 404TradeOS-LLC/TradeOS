@@ -7,7 +7,12 @@ import type { EstimateQueueParams, InvoiceQueueParams, ProposalQueueParams } fro
 // bundling condition) and `ApiClientError`'s parameter-property constructor
 // isn't valid in Node's test-runner-native TypeScript type-stripping mode.
 // This module has neither problem and imports nothing from api.ts at
-// runtime (only `import type`, which is fully erased).
+/**
+ * Builds query parameters for filtering and paginating the estimate queue.
+ *
+ * @param params - Estimate queue filters and pagination values
+ * @returns Query parameters containing the provided estimate queue values
+ */
 
 export function buildEstimateQueueSearchParams(params: EstimateQueueParams): URLSearchParams {
   const query = new URLSearchParams();
@@ -19,6 +24,12 @@ export function buildEstimateQueueSearchParams(params: EstimateQueueParams): URL
   return query;
 }
 
+/**
+ * Builds search parameters for filtering and paginating the proposal queue.
+ *
+ * @param params - Proposal queue filters and pagination values
+ * @returns The serialized proposal queue search parameters
+ */
 export function buildProposalQueueSearchParams(params: ProposalQueueParams): URLSearchParams {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
@@ -33,6 +44,12 @@ export function buildProposalQueueSearchParams(params: ProposalQueueParams): URL
   return query;
 }
 
+/**
+ * Builds query parameters for filtering and paginating the invoice work queue.
+ *
+ * @param params - Invoice status, payment flags, update-date bounds, and pagination values
+ * @returns The populated invoice queue query parameters
+ */
 export function buildInvoiceQueueSearchParams(params: InvoiceQueueParams): URLSearchParams {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);

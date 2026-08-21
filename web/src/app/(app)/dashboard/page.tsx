@@ -63,10 +63,21 @@ const ATTENTION_STALE_PROPOSAL_LIMIT = 10;
 const ATTENTION_UNSIGNED_PROPOSAL_LIMIT = 15;
 const ATTENTION_ESTIMATE_LIMIT = 15;
 
+/**
+ * Creates an empty paginated queue result.
+ *
+ * @returns An empty item list with a total of zero and no next-page cursor.
+ */
 function emptyQueue<T>(): { items: T[]; total: number; nextCursor: string | null } {
   return { items: [], total: 0, nextCursor: null };
 }
 
+/**
+ * Loads the organization's scheduled jobs for the current day.
+ *
+ * @param token - Authentication token for the organization
+ * @returns The day's scheduled jobs, total count, and timezone; empty results with UTC when loading fails
+ */
 async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
   try {
     const summary = await getDispatchSummary(token);
@@ -84,7 +95,13 @@ async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[];
 // Each of the three "Needs attention" work-queue resources is fetched (and
 // can fail) independently, so one resource going down doesn't blank the
 // other two sections — see AGENTS.md's "surface failure without crashing
-// the whole dashboard" requirement.
+/**
+ * Loads overdue and unpaid invoice attention queues independently.
+ *
+ * Failed queue requests produce empty queues while preserving results from successful requests.
+ *
+ * @returns The overdue and unpaid invoice queues, a flag indicating whether the unpaid queue failed, and an error message when one or both requests fail.
+ */
 async function loadInvoiceAttentionQueues(token: string) {
   const [overdueResult, unpaidResult] = await Promise.allSettled([
     listInvoiceQueue(token, { overdue: true, limit: ATTENTION_OVERDUE_INVOICE_LIMIT }),
@@ -107,6 +124,12 @@ async function loadInvoiceAttentionQueues(token: string) {
   return { overdue, unpaid, unpaidFailed, error };
 }
 
+/**
+ * Loads stale and unsigned proposal attention queues.
+ *
+ * @param staleBeforeIso - ISO timestamp used to identify stale proposals
+ * @returns The stale queue, unsigned queue, and an error message when either queue cannot be loaded
+ */
 async function loadProposalAttentionQueues(token: string, staleBeforeIso: string) {
   const [staleResult, unsignedResult] = await Promise.allSettled([
     listProposalQueue(token, { unsigned: true, staleBefore: staleBeforeIso, limit: ATTENTION_STALE_PROPOSAL_LIMIT }),
@@ -128,6 +151,12 @@ async function loadProposalAttentionQueues(token: string, staleBeforeIso: string
   return { stale, unsigned, error };
 }
 
+/**
+ * Loads draft and ready estimates for the attention queue.
+ *
+ * @param token - The authentication token used to request estimate data
+ * @returns The estimate queue and a request error message, if loading fails
+ */
 async function loadEstimateAttentionQueue(token: string) {
   try {
     const queue = await listEstimateQueue(token, { status: "draft,ready", limit: ATTENTION_ESTIMATE_LIMIT });
@@ -137,6 +166,12 @@ async function loadEstimateAttentionQueue(token: string) {
   }
 }
 
+/**
+ * Parses a date string into a valid `Date` object.
+ *
+ * @param value - The date string to parse
+ * @returns The parsed date, or `null` when the value is missing or invalid
+ */
 function toValidDate(value: string | null | undefined) {
   if (!value) return null;
   const date = new Date(value);
@@ -187,6 +222,11 @@ function getProjectScopeLabel(projectCount: number) {
   return `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
 }
 
+/**
+ * Renders the authenticated owner's dashboard with project, schedule, task, payment, and attention-queue summaries.
+ *
+ * @returns The owner dashboard page content.
+ */
 export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
   const now = new Date();

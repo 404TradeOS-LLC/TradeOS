@@ -437,6 +437,12 @@ export function listEstimatesByProject(token: string, projectId: string) {
   );
 }
 
+/**
+ * Retrieves an estimate by ID with its status normalized to a canonical value.
+ *
+ * @param id - The estimate ID
+ * @returns The estimate details with a canonical status
+ */
 export function getEstimate(token: string, id: string) {
   return apiFetch<EstimateDetail>(`/api/v1/estimates/${id}`, { token }).then((estimate) => ({
     ...estimate,
@@ -482,6 +488,12 @@ export interface EstimateQueueParams {
   cursor?: string;
 }
 
+/**
+ * Lists organization-wide estimates in a paginated work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns The paginated estimate queue with canonical estimate statuses
+ */
 export function listEstimateQueue(token: string, params: EstimateQueueParams = {}) {
   const qs = buildEstimateQueueSearchParams(params).toString();
 
@@ -829,6 +841,12 @@ export function getProposal(token: string, id: string) {
   }));
 }
 
+/**
+ * Retrieves the proposal draft preview for a project.
+ *
+ * @param projectId - The identifier of the project
+ * @returns The project's proposal draft preview
+ */
 export function getProjectProposalDraft(token: string, projectId: string) {
   return apiFetch<ProposalDraftPreview>(`/api/v1/proposals/project-draft/${projectId}`, { token });
 }
@@ -858,6 +876,12 @@ export interface ProposalQueueParams {
   cursor?: string;
 }
 
+/**
+ * Lists organization-wide proposals matching the specified queue filters.
+ *
+ * @param params - Optional filters and pagination settings for the proposal queue
+ * @returns A paginated proposal queue with canonical proposal statuses
+ */
 export function listProposalQueue(token: string, params: ProposalQueueParams = {}) {
   const qs = buildProposalQueueSearchParams(params).toString();
 
@@ -904,6 +928,12 @@ export interface Invoice {
   deliveries: InvoiceDelivery[];
 }
 
+/**
+ * Retrieves an invoice and its line items.
+ *
+ * @param id - The invoice identifier
+ * @returns The invoice with its status normalized to a canonical value
+ */
 export function getInvoice(token: string, id: string) {
   return apiFetch<Invoice & { lineItems: InvoiceLineItem[] }>(`/api/v1/invoices/${id}`, { token }).then((invoice) => ({
     ...invoice,
@@ -937,6 +967,12 @@ export interface InvoiceQueueParams {
   cursor?: string;
 }
 
+/**
+ * Lists invoices in the organization work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns A paginated invoice queue with canonical invoice statuses
+ */
 export function listInvoiceQueue(token: string, params: InvoiceQueueParams = {}) {
   const qs = buildInvoiceQueueSearchParams(params).toString();
 
