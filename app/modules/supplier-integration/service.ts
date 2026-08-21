@@ -58,6 +58,19 @@ export class SupplierIntegrationService {
       if (!queued) throw new ApiError(404, `Supplier price update ${id} not found`);
       if (queued.status !== "pending") throw new ApiError(409, `Supplier price update ${id} is already ${queued.status}`);
 
+      // Claim the proposal before touching the Material. The status predicate
+      // makes approval/rejection mutually exclusive under concurrent review;
+      // the surrounding transaction rolls the claim back if the price update
+      // or audit write fails.
+      const reviewedAt = new Date();
+      const claimed = await transaction.supplierPriceUpdate.updateMany({
+        where: { id, orgId, status: "pending" },
+        data: { status: "approved", reviewedByUserId: actor.userId, reviewedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(409, `Supplier price update ${id} is no longer pending`);
+      }
+
       const material = await transaction.material.findFirst({ where: { id: queued.materialId, orgId } });
       if (!material) throw new ApiError(404, `Material ${queued.materialId} not found`);
 
@@ -77,11 +90,12 @@ export class SupplierIntegrationService {
           actorRole: actor.role,
         },
       });
-      const reviewed = await transaction.supplierPriceUpdate.update({
-        where: { id },
-        data: { status: "approved", reviewedByUserId: actor.userId, reviewedAt: new Date() },
+      return toDTO({
+        ...queued,
+        status: "approved",
+        reviewedByUserId: actor.userId,
+        reviewedAt,
       });
-      return toDTO(reviewed);
     });
   }
 
@@ -91,11 +105,16 @@ export class SupplierIntegrationService {
       if (!queued) throw new ApiError(404, `Supplier price update ${id} not found`);
       if (queued.status !== "pending") throw new ApiError(409, `Supplier price update ${id} is already ${queued.status}`);
 
-      const reviewed = await transaction.supplierPriceUpdate.update({
-        where: { id },
-        data: { status: "rejected", reviewedByUserId: actor.userId, reviewedAt: new Date() },
+      const reviewedAt = new Date();
+      const claimed = await transaction.supplierPriceUpdate.updateMany({
+        where: { id, orgId, status: "pending" },
+        data: { status: "rejected", reviewedByUserId: actor.userId, reviewedAt },
       });
-      return toDTO(reviewed);
+      if (claimed.count !== 1) {
+        throw new ApiError(409, `Supplier price update ${id} is no longer pending`);
+      }
+
+      return toDTO({ ...queued, status: "rejected", reviewedByUserId: actor.userId, reviewedAt });
     });
   }
 

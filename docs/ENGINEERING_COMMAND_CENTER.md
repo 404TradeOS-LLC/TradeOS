@@ -69,14 +69,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 - S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED`. Its old blockers #94/#95/#96 are merged. Its 2026-08-12 blockers PR #128 and PR #151 are also resolved as of 2026-08-16 (#151 merged, #128 closed unmerged/superseded by merged PR #183), but S027 promotion still needs its own dedicated live-verified scope/overlap review against the further Costbook work merged since (PR #183, #210, #216) — see `docs/SPRINT_BACKLOG.md`.
+- S027 remains `BLOCKED/PARTIAL`. PR #257 adds only a bounded supplier-review concurrency repair: approval/rejection atomically claims a pending, organization-scoped proposal inside the existing transaction before Material/audit work; losing reviewers fail closed and downstream failures roll the claim back. Supplier feeds remain review-first and do not auto-apply pricing. The dedicated readiness pass is complete, and PostgreSQL-backed integration evidence closes the former RLS execution gate. Promotion still requires only standardized server-side catalog pagination/search/filter/sort and authenticated rendered browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 - No numbered sprint is currently `READY`. The correct computed state is `Sprint ID: NONE` until a separate governance-only readiness promotion proves a planned sprint is eligible.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. The 2026-08-18 live reconciliation found no remaining runtime, feature, dependency, CI, or bounded-fix pull requests. PR #250 is the final docs-only reconciliation vehicle for this pass and does not represent implementation overlap; after it lands, this pass leaves no open pull-request queue.
+Prioritize existing authorized work before inventing new scope. The 2026-08-21 live reconciliation identifies PR #257 as the active bounded S027 readiness/audit pull request. It should be advanced and landed before overlapping S027 implementation work begins.
 
-The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, and #249 before this final reconciliation. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of these items is live overlap for a numbered sprint.
+The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for a numbered sprint.
 
 ## Autonomous maintenance operating mode
 
@@ -155,6 +155,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - `packages/knowledge-engine/knowledge-engine/**` is a confirmed self-nested duplicate tree, not a second canonical package. Do not normalize it through dependency maintenance or delete it without the approved cleanup decision/process.
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
+- PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. Requiring code-owner approval in live branch rules needs separate solo-maintainer compatibility review to avoid deadlocking self-authored PRs.
 
 ## Session execution
@@ -163,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-There is no numbered `READY` sprint at this handoff. Advance or reconcile existing live out-of-band work first (see the Active engineering queue above) without bypassing migration, RLS, documentation, review, or current-base requirements. If existing PR work should not proceed, perform a governance-only readiness review — S027 is the most likely candidate given its prior blockers are resolved — and promote exactly one eligible `PLANNED` sprint before implementation.
+There is no numbered `READY` sprint at this handoff. Advance PR #257 first. After it lands, continue S027 only through the two remaining blockers: catalog query standardization, then authenticated rendered browser evidence. Do not infer S007 readiness from the completed S027 audit.
 
 ## Source-of-truth links
 

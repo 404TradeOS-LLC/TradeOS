@@ -1,38 +1,48 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-19
+last_verified: 2026-08-21
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
+  - docs/architecture/COSTBOOK_S027_READINESS.md
 ---
 
 # Session Handoff
 
 ## Mission
 
-This session reconciled live GitHub/repository state against `docs/SESSION_HANDOFF.md`'s prior "no open PR queue" claim (stale as of 2026-08-19 — see below), then implemented an isolated Owner Dashboard command-hero slice: wiring the already-passed-but-unused `reviewQueue` prop into a real per-category metrics row, adding a time-of-day greeting, and fixing a mislabeled "Create new estimate" command-palette action that only ever navigated to `/projects`. Branch: `feature/owner-dashboard-command-center`, based on `origin/main` at `b3aba60`.
+This session completed the bounded S027 Intelligent Costbook production-readiness pass on PR #257. It reconciled current Costbook scope against merged `main`, hardened supplier proposal approve/reject concurrency with an atomic organization-scoped pending-row claim, added focused race and cross-organization RLS regression coverage, and reconciled canonical S027 documentation without promoting S027 to `READY`.
 
 ## Current branch
 
-`feature/owner-dashboard-command-center` — see the "Owner dashboard command hero" entry in `docs/CURRENT_STATE.md#recent-verified-changes` for the full implementation and verification record.
+`audit/s027-costbook-production-readiness` — PR #257 (`audit(costbook): S027 production readiness pass`).
 
 ## Reconciliation performed this session
 
-Live GitHub reconciliation on 2026-08-19 found `docs/SESSION_HANDOFF.md`'s prior claim of "no open PR queue" objectively stale: PR #253 (`feat: integrate dashboard with organization work queues`, branch `feature/dashboard-work-queue-integration`) is open, targets the same dashboard surface (`dashboard/page.tsx`, `needs-attention-card.tsx`, `needs-attention-model.ts`, `work-queue-params.ts`, `api.ts`), and carries a CodeRabbit `CHANGES_REQUESTED` review (two actionable comments: a stale-docs date/commit correction and a `Promise.allSettled` robustness suggestion for partial queue-fetch failures — neither is a blocking defect, and both are #253's to resolve, not this session's). Because of that direct file overlap, this session deliberately scoped its own work to files #253 does not touch (`owner-dashboard-header.tsx` and its new model/greeting siblings, `intelligence.ts`) rather than duplicate or conflict with #253's in-flight integration.
+The dedicated S027 readiness pass is complete. Supplier price-proposal approval and rejection now claim the organization-scoped `pending` proposal inside the existing transaction before downstream Material or audit work. Only the successful claimant proceeds; competing review attempts fail closed; and downstream failure rolls the transaction back so the proposal returns to `pending`. Supplier feeds remain review-first and never auto-apply Material pricing. No Costbook architecture, permission-model, billing, auth-policy, or Athena write behavior changed.
 
-Also confirmed still true from the prior 2026-08-18 pass: PR #251 is merged (`5a812e0`, 2026-08-18). `docs/CURRENT_STATE.md` now records that work as merged repository state rather than deferring the correction to PR #253.
+GitHub Actions and PostgreSQL-backed verification closed the prior dependency/database execution gate. S027 remains `PARTIAL/BLOCKED`, not production-ready, for exactly two remaining promotion blockers:
+
+1. standardized server-side catalog pagination/search/filter/sort;
+2. authenticated rendered browser evidence for the Costbook routes at representative desktop/tablet/mobile viewports.
+
+Do not begin S007 from this handoff. After PR #257 lands, the next S027 implementation slice is catalog query standardization, followed by authenticated rendered browser verification.
 
 ## Known limitations
 
-- S027 ("Intelligent Costbook production readiness") promotion to `READY` remains undecided — unchanged from the prior pass; still needs its own dedicated live-verified scope/overlap review.
-- No numbered sprint is `READY`. Every unfinished numbered sprint remains `PLANNED` or `BLOCKED`.
-- This session's own change could not be verified via authenticated live-data browser rendering (no Supabase test session / Docker Postgres available in this environment) — see `docs/CURRENT_STATE.md` for exactly what was and wasn't verified.
+- S027 remains `PARTIAL/BLOCKED` after the completed dedicated readiness pass; see `docs/architecture/COSTBOOK_S027_READINESS.md` for the evidence matrix and remaining gates.
+- Authenticated rendered Costbook verification at 1440/1024/768/390px remains unavailable and is not claimed.
+- No numbered sprint is currently `READY`; every unfinished numbered sprint remains `PLANNED` or `BLOCKED` until explicitly promoted through repository governance.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S027's prior blockers are resolved but its promotion needs a dedicated readiness pass, and every other unfinished sprint remains `PLANNED` or `BLOCKED`.
+
+Eligibility: No numbered sprint is currently `READY`. The dedicated S027 readiness pass is complete, but S027 remains `BLOCKED` on catalog query standardization and authenticated rendered browser evidence. Every other unfinished numbered sprint remains `PLANNED` or `BLOCKED`.
+
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Live GitHub was reverified on 2026-08-19. PR #253 (dashboard work-queue integration) is the one open pull request; it is CI-active with a CodeRabbit `CHANGES_REQUESTED` review and should be advanced/merged before any further dashboard work is started, rather than duplicated.
-Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, then run a dedicated S027 readiness reverification before selecting numbered-sprint work; do not infer a new implementation queue from this closed cleanup pass.
+
+Overlap check: PR #257 is the active S027 reconciliation vehicle. Do not create overlapping S027 or S007 work while it remains open.
+
+Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, verify live GitHub state, then continue the remaining S027 blockers in order: catalog query standardization first, authenticated rendered browser evidence second.

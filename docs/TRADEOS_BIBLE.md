@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-18
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -44,12 +44,12 @@ S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
 and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
 foundation) and PR #151 (Costbook hierarchy RLS/parent activity hardening), is
-also resolved as of the 2026-08-16 reconciliation (#151 merged, #128 closed
-unmerged and superseded by merged PR #183). S027 is still not promoted to
-`READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
-and PR #216), so a dedicated live-verified scope/overlap review is required
-before promotion, not just confirmation that the old blocking PRs are gone.
-Re-read live GitHub state before any later promotion. The 2026-08-18 cleanup resolved the remaining out-of-band implementation and maintenance PRs (#240, #242, #243, #245, #246, #247, #249); PR #250 is the final docs-only reconciliation vehicle and does not change the S027 promotion gate.
+also resolved (#151 merged, #128 closed unmerged and superseded by merged PR #183).
+Substantial further Costbook work has also merged through PR #183, PR #210, and
+PR #216. PR #257 is the bounded dedicated readiness pass that reconciles that
+current scope; it does not itself promote S027 to `READY`.
+
+The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. S027 remains `PARTIAL/BLOCKED` on exactly two promotion blockers: standardized server-side catalog pagination/search/filter/sort and authenticated rendered browser evidence. Re-read live GitHub state before any later promotion.
 
 ## Volume I — Vision
 

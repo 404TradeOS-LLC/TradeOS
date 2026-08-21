@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -103,7 +103,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `main` commit `de3ffa9da6d518b5a40671137b96dc039dfe53d0` on 2026-08-20 after PR #254. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `origin/main` commit `06c48933a7ad17322bb36bdcbf10f4471a5d891f` on 2026-08-21 for PR #257's S027 readiness audit. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
@@ -123,6 +123,8 @@ The repository is no longer organized around MVP planning documents. The active 
 - Costbook hierarchy management (C005): full Division/Category/Subcategory CRUD under `/api/v1/costbook/{divisions,categories,subcategories}` and `/costbook/divisions`, with owner/admin-only hierarchy writes, explicit parent-derived tenant predicates for Category/Subcategory RLS, cross-organization parent rejection, active-child guards beneath inactive ancestors, and parent-deactivation guards that prevent active descendants from being stranded beneath an inactive Division or Category
 - Costbook CostItem management: canonical `/api/v1/costbook/cost-items` routes and `/costbook/cost-items` reuse the existing `CostItem` model, `CostDatabaseService`, legacy compatibility routes, and relationship-derived unit-cost formulas. Reads require `costbook.read`, ordinary writes require `costbook.write`, lifecycle activation/deactivation requires `costbook.manage`, strict request validation rejects caller-controlled organization IDs, and service-level checks reject cross-organization Subcategory/LaborRate/Material/Equipment/Subcontractor references before writes. CostItem delete remains soft-deactivate so existing Estimate references are preserved.
 - Costbook continuation on PR #216: canonical Assembly management reuses `Assembly`/`AssemblyItem`; Estimate lines preserve CostItem/Assembly provenance and captured `unitCost`/`lineCost` snapshots; pricing preview reuses shared Estimate formulas without saved pricing-policy state; price history separates `MaterialPriceAudit` changes from Estimate snapshots; and trusted supplier feeds enqueue review proposals only, with no automatic Material mutation.
+- **Unreleased (PR `#257`):** Supplier review concurrency repair: approval and rejection now atomically claim an organization-scoped pending proposal inside the existing transaction before any Material or audit work. Only the successful claimant can proceed; a losing concurrent reviewer fails closed, and downstream failure rolls the claim back to `pending`. Feeds remain review-first, with no automatic Material pricing mutation, architecture change, or permission-model change. S027 remains `PARTIAL/BLOCKED` pending authenticated browser evidence plus standardized server-side catalog pagination/search/filter/sort.
+- **Unreleased (PR `#257`):** S027 CI evidence: GitHub Actions Verify repository run `32449419590` passed frontend lint/unit/build, app typecheck/unit/build, and the PostgreSQL-backed integration rehearsal (14 suites, 122 tests, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS coverage). This closes the prior dependency/database environment blocks; authenticated rendered browser verification remains unclaimed, and catalog pagination/search/filter/sort remains the implementation blocker.
 - Estimating: estimate creation, line items, duplication, comparison, AI estimate assist, and structured contractor-language draft generation
 - Proposals
 - Contracts
