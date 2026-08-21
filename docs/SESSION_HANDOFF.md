@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
@@ -11,25 +11,28 @@ related_code:
 
 ## Mission
 
-No in-progress numbered sprint or bounded implementation mission is handed off from this session. This pass completed repository pull-request cleanup and final documentation reconciliation; no runtime code is being handed off from PR #250.
+This session reconciled live GitHub/repository state against `docs/SESSION_HANDOFF.md`'s prior "no open PR queue" claim (stale as of 2026-08-19 — see below), then implemented an isolated Owner Dashboard command-hero slice: wiring the already-passed-but-unused `reviewQueue` prop into a real per-category metrics row, adding a time-of-day greeting, and fixing a mislabeled "Create new estimate" command-palette action that only ever navigated to `/projects`. Branch: `feature/owner-dashboard-command-center`, based on `origin/main` at `b3aba60`.
 
 ## Current branch
 
-None in progress. Reverify live `origin/main` and open PRs before starting new work.
+`feature/owner-dashboard-command-center` — see the "Owner dashboard command hero" entry in `docs/CURRENT_STATE.md#recent-verified-changes` for the full implementation and verification record.
 
 ## Reconciliation performed this session
 
-Live GitHub reconciliation on 2026-08-18 confirmed the prior out-of-band queues are resolved. This cleanup landed or otherwise resolved PR #240, #242, #243, #245, #246, #247, and #249 after the already-resolved 2026-08-16 set (#217, #225, #226, #227, #229, #230, #231). PR #237 remained closed unmerged. Immediately before this final docs reconciliation, PR #250 itself was the only open pull request; it is docs/governance-only and carries no runtime implementation overlap. After #250 lands, this pass leaves no open pull-request queue.
+Live GitHub reconciliation on 2026-08-19 found `docs/SESSION_HANDOFF.md`'s prior claim of "no open PR queue" objectively stale: PR #253 (`feat: integrate dashboard with organization work queues`, branch `feature/dashboard-work-queue-integration`) is open, targets the same dashboard surface (`dashboard/page.tsx`, `needs-attention-card.tsx`, `needs-attention-model.ts`, `work-queue-params.ts`, `api.ts`), and carries a CodeRabbit `CHANGES_REQUESTED` review (two actionable comments: a stale-docs date/commit correction and a `Promise.allSettled` robustness suggestion for partial queue-fetch failures — neither is a blocking defect, and both are #253's to resolve, not this session's). Because of that direct file overlap, this session deliberately scoped its own work to files #253 does not touch (`owner-dashboard-header.tsx` and its new model/greeting siblings, `intelligence.ts`) rather than duplicate or conflict with #253's in-flight integration.
+
+Also confirmed still true from the prior 2026-08-18 pass: PR #251 is merged (`5a812e0`, 2026-08-18). `docs/CURRENT_STATE.md` now records that work as merged repository state rather than deferring the correction to PR #253.
 
 ## Known limitations
 
-- S027 ("Intelligent Costbook production readiness") had its 2026-08-12 blockers (PR #128, PR #151) resolved, but promotion to `READY` was deliberately **not** decided in this pass — it needs its own dedicated live-verified scope/overlap review against the substantial Costbook work merged since (PR #183, #210, #216), not just confirmation that the old blocking PRs are gone.
+- S027 ("Intelligent Costbook production readiness") promotion to `READY` remains undecided — unchanged from the prior pass; still needs its own dedicated live-verified scope/overlap review.
 - No numbered sprint is `READY`. Every unfinished numbered sprint remains `PLANNED` or `BLOCKED`.
+- This session's own change could not be verified via authenticated live-data browser rendering (no Supabase test session / Docker Postgres available in this environment) — see `docs/CURRENT_STATE.md` for exactly what was and wasn't verified.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S027's prior blockers are resolved but its promotion needs a dedicated readiness pass, and every other unfinished sprint remains `PLANNED` or `BLOCKED`.
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Live GitHub was reverified on 2026-08-18; no runtime, feature, dependency, CI, or bounded-fix pull request remains open. PR #250 is only the final docs reconciliation vehicle for this pass.
+Overlap check: Live GitHub was reverified on 2026-08-19. PR #253 (dashboard work-queue integration) is the one open pull request; it is CI-active with a CodeRabbit `CHANGES_REQUESTED` review and should be advanced/merged before any further dashboard work is started, rather than duplicated.
 Startup prompt: Run the Canonical Startup Flow in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`, then run a dedicated S027 readiness reverification before selecting numbered-sprint work; do not infer a new implementation queue from this closed cleanup pass.

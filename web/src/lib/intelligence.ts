@@ -61,8 +61,8 @@ export interface CommandAction {
 export const commandPaletteActions: CommandAction[] = [
   {
     id: "create-estimate",
-    title: "Create new estimate",
-    subtitle: "Start a fresh estimate from a project workspace",
+    title: "Choose project for estimate",
+    subtitle: "Open the project that should own the estimate",
     href: "/projects",
     kind: "action",
     keywords: ["estimate", "new", "create"],
