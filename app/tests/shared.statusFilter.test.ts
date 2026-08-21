@@ -6,10 +6,10 @@ describe("expandCanonicalStatusFilter", () => {
     expect(expandCanonicalStatusFilter(["draft"], legacyEstimateStatusMap)).toEqual(expect.arrayContaining(["draft"]));
   });
 
-  it("includes legacy raw values that normalize to the requested canonical estimate status", () => {
-    // legacyEstimateStatusMap maps raw "sent" -> canonical "ready"
+  it("does not collapse the canonical estimate statuses", () => {
     const raw = expandCanonicalStatusFilter(["ready"], legacyEstimateStatusMap);
-    expect(raw).toEqual(expect.arrayContaining(["ready", "sent"]));
+    expect(raw).toEqual(["ready"]);
+    expect(expandCanonicalStatusFilter(["sent"], legacyEstimateStatusMap)).toEqual(["sent"]);
   });
 
   it("includes legacy raw 'rejected' when the requested canonical proposal status is 'declined'", () => {

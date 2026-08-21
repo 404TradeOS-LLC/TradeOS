@@ -55,6 +55,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 Current enforced rule:
 
 - estimate mutations are draft-only until the estimate is finalized to `ready`
+- `ready` is the internally finalized state; this slice does not add customer delivery, viewing, or approval endpoints
 
 ## Costbook provenance and pricing snapshots
 
@@ -97,13 +98,13 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 - downstream commercial workflows still rely on compatibility status normalization in some paths
 - Costbook pricing preview remains calculation-only; it is not a saved organization pricing-policy system
-- pre-existing domain quirk, not introduced by the organization work-queue read: `estimateStatuses` lists `sent` as its own canonical value, but `legacyEstimateStatusMap` maps raw `sent` to canonical `ready`, so `normalizeEstimateStatus` can never actually return `sent` — a row genuinely stored with raw status `sent` always displays as `ready`. Changing that vocabulary itself is out of scope for a read-only queue feature (it lives in `app/domain/contracts.ts` and is shared by every estimate surface), so the queue's own `status` filter instead excludes `sent` from its accepted values — requesting it returns `400` rather than silently returning the same rows as `ready` under a different, unreachable label. Every other canonical estimate status is unaffected.
+- S008 closes the prior `sent -> ready` normalization defect. `sent` now remains `sent` in API/DTO/UI normalization and is independently accepted by the organization queue filter. Historical `rejected -> declined` compatibility remains. Customer delivery, viewing, approval, expiration, and supersession workflows remain outside this bounded normalization slice.
 
 ## Deferred work
 
-- fuller estimate lifecycle normalization beyond the current finalize step
+- customer-facing estimate delivery and review transitions beyond the current finalize step
 - richer historical pricing comparison/reporting may build on the persisted snapshot semantics without repricing historical lines
 
 ## Last verified date
 
-2026-08-15
+2026-08-21

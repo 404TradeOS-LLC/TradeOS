@@ -85,17 +85,17 @@ describe("estimateEngineController.listOrganizationQueue", () => {
     await expect(estimateEngineController.listOrganizationQueue(req, buildResponse())).rejects.toThrow();
   });
 
-  it("rejects canonical status 'sent': legacyEstimateStatusMap normalizes raw 'sent' to canonical 'ready', so filtering by 'sent' would be indistinguishable from 'ready' and is excluded rather than left ambiguous", async () => {
+  it("accepts canonical status 'sent' and forwards it to the queue service", async () => {
     const req = buildRequest("owner", { status: "sent" });
-    await expect(estimateEngineController.listOrganizationQueue(req, buildResponse())).rejects.toThrow();
-    expect(listOrganizationQueueMock).not.toHaveBeenCalled();
+    await estimateEngineController.listOrganizationQueue(req, buildResponse());
+    expect(listOrganizationQueueMock).toHaveBeenCalledWith(expect.objectContaining({ statuses: ["sent"] }));
   });
 
   it("still accepts every other canonical estimate status", async () => {
-    const req = buildRequest("owner", { status: "draft,ready,viewed,approved,declined,expired,superseded" });
+    const req = buildRequest("owner", { status: "draft,ready,sent,viewed,approved,declined,expired,superseded" });
     await estimateEngineController.listOrganizationQueue(req, buildResponse());
     expect(listOrganizationQueueMock).toHaveBeenCalledWith(
-      expect.objectContaining({ statuses: ["draft", "ready", "viewed", "approved", "declined", "expired", "superseded"] })
+      expect.objectContaining({ statuses: ["draft", "ready", "sent", "viewed", "approved", "declined", "expired", "superseded"] })
     );
   });
 });

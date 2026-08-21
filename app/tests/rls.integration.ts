@@ -1397,9 +1397,8 @@ describe("live organization row-level security", () => {
       await adminClient.estimate.create({
         data: { id: estimateQueueA1, orgId: orgA, projectId: projectA, version: 10, status: "draft", totalPrice: 500 },
       });
-      // Raw legacy status value "sent" (never written by current app code,
-      // but must still be read correctly): legacyEstimateStatusMap normalizes
-      // it to canonical "ready".
+      // Canonical status value "sent" remains distinct from "ready" in queue
+      // reads; historical rows are still returned without cross-org leakage.
       await adminClient.estimate.create({
         data: { id: estimateQueueA2, orgId: orgA, projectId: projectA, version: 11, status: "sent", totalPrice: 1000 },
       });
@@ -1508,12 +1507,12 @@ describe("live organization row-level security", () => {
       expect(result.items.map((item) => item.id)).not.toContain(estimateQueueB1);
     });
 
-    it("estimates queue: a status filter matches rows stored under a legacy raw synonym, normalized in the response", async () => {
+    it("estimates queue: a sent status filter returns sent rows with the canonical response status", async () => {
       const result = await inSession(adminUser, orgA, "admin", async () =>
-        new EstimateEngineService().listOrganizationQueue({ orgId: orgA, statuses: ["ready"] })
+        new EstimateEngineService().listOrganizationQueue({ orgId: orgA, statuses: ["sent"] })
       );
       expect(result.items.map((item) => item.id)).toEqual([estimateQueueA2]);
-      expect(result.items[0].status).toBe("ready");
+      expect(result.items[0].status).toBe("sent");
       expect(result.items[0].projectName).toBe("Org A Project");
       expect(result.items[0].customerName).toBe("Org A Customer");
     });

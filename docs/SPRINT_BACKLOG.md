@@ -418,7 +418,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: NONE
-Eligibility: S007 is `DONE` with merged evidence. No numbered sprint is currently `READY`; S008 remains `PLANNED` and requires a separate governance-only readiness assessment/promotion before implementation.
-Dependencies: N/A for sprint selection. S008 depends on S006 (`DONE`), but dependency completion alone does not authorize readiness.
-Overlap check: Reverify live GitHub state before any S008 readiness promotion; do not create or begin S008 implementation while it remains `PLANNED`.
+Eligibility: S007 is `DONE` with merged evidence. S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its canonical backlog status remains `PLANNED` until the implementation PR is reviewed and merged.
+Dependencies: S008 depends on S006 and S007, both `DONE`.
+Overlap check: The S008 branch was created after live GitHub reconciliation; reverify the branch and open PR state before finalizing the implementation.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

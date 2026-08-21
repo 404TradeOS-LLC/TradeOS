@@ -42,7 +42,7 @@ The six lifecycle families in scope are projects, estimates, proposals, contract
 | Domain | Canonical values | Observed persisted/runtime values and aliases | Compatibility behavior | Unsafe drift | Follow-up |
 |---|---|---|---|---|---|
 | Project | `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, `archived` | Current/legacy values include `opportunity`, `estimate`, `site_visit`, `proposal`, `proposal_draft`, `proposal_sent`, `proposed`, `accepted`, `contract`, `won`, `active_job`, `field_execution`, `in_production`, `change_orders`, `closeout`, `complete`, `warranty`, `lost` | `legacyProjectStatusMap` folds aliases into the seven canonical project states; new proposal-driven project writes use canonical `estimating` or `awarded` | Existing stored aliases remain readable through DTO normalization. S007 removes the active proposal-service writes of `proposal_draft`, `proposal_sent`, and `accepted`; generic fallback still maps unknown project strings to `lead` for compatibility. | S007 |
-| Estimate | `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, `superseded` | Current lifecycle docs confirm draft-only mutation and `draft -> ready`; `rejected` is retained as a legacy synonym for `declined` | `legacyEstimateStatusMap` maps `rejected -> declined` | **Critical contract inconsistency:** `sent` is itself canonical but `legacyEstimateStatusMap` maps `sent -> ready`. Therefore `normalizeEstimateStatus("sent")` returns `ready`, contradicting the canonical enum and transition table. | S008 |
+| Estimate | `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, `superseded` | Current lifecycle docs confirm draft-only mutation and `draft -> ready`; `rejected` is retained as a legacy synonym for `declined` | `legacyEstimateStatusMap` maps `rejected -> declined`; canonical `sent` remains `sent` | S008 closes the prior `sent -> ready` normalization contradiction. Customer delivery/review transitions beyond `draft -> ready` remain outside this bounded slice. | S008 |
 | Proposal | `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, `expired` | Proposal persistence writes `draft`, `sent`, `viewed`, `accepted`, and legacy `rejected`; related Project side effects now write canonical `estimating` or `awarded` | Proposal `rejected -> declined`; historical Project aliases normalize separately through `legacyProjectStatusMap` | Proposal storage/service still uses `rejected` while canonical vocabulary uses `declined`; `generated` and `expired` are canonical but not part of the currently documented persisted proposal-service path. The former Project-side-effect legacy writes are resolved by S007. | S009 |
 | Contract | `draft`, `sent`, `viewed`, `signed`, `voided` | Current persistence/service compatibility uses `pending_signature` for the pre-signature phase; schema/docs identify `pending_signature` as an active stored value/default | `pending_signature -> sent` for canonical display | Stored contract state and canonical state differ by design. The compatibility layer must remain until persistence is deliberately migrated. `draft`/`viewed` are canonical contract states but current service documentation centers the `pending_signature -> signed|voided` path. | S010 |
 | Invoice | `draft`, `sent`, `viewed`, `partially_paid`, `paid`, `overdue`, `voided` | Legacy values include `void` and `cancelled`; current enforced service transitions documented as `draft -> sent`, `sent|overdue -> paid`, and non-paid -> voided | `void -> voided`, `cancelled -> voided` | Canonical contract contains richer `viewed` and `partially_paid` states than the currently documented enforced transition path. Compatibility aliases remain accepted/displayable. Unknown invoice values fall back to `draft`. | S011 |
@@ -64,7 +64,7 @@ That ordering is unsafe for status strings shared by multiple domains.
 
 | Input | Intended domain examples | Current generic result | Why |
 |---|---|---|---|
-| `sent` | estimate, proposal, contract, invoice | `ready` | Project has no `sent`; estimate map matches first and currently maps `sent -> ready`, so proposal/contract/invoice `sent` can also be mislabeled if routed through the generic helper. |
+| `sent` | estimate, proposal, contract, invoice | `sent` | Shared raw labels remain context-sensitive; domain-specific normalizers are authoritative. |
 | `accepted` | proposal | `awarded` | Project compatibility map matches `accepted` before proposal compatibility map. |
 | `draft` | estimate, proposal, contract, invoice | `draft` | Result text is coincidentally correct, but the estimate map claims ownership first; domain meaning is lost. |
 | `viewed` | estimate, proposal, contract, invoice | `viewed` | Result text is coincidentally shared; context is still absent. |
@@ -120,7 +120,7 @@ Existing persisted aliases remain readable through `legacyProjectStatusMap`; thi
 
 ### Unsafe drift
 
-`sent` appears in `estimateStatuses` and in `estimateTransitions`, but `legacyEstimateStatusMap.sent` is `ready`. This is internally contradictory and must be resolved explicitly in S008 rather than silently preserved.
+S008 resolves the prior contradiction: `sent` appears in `estimateStatuses` and `estimateTransitions`, and `legacyEstimateStatusMap.sent` now remains `sent`. The estimate queue accepts `sent` independently from `ready`.
 
 ## Proposal inventory — S009 input
 
@@ -191,7 +191,7 @@ Current documented transitions:
 
 ## Risk ranking for normalization work
 
-1. **S008 / Estimate — high:** canonical `sent` currently normalizes to `ready`.
+1. **S008 / Estimate — high:** canonical vocabulary and compatibility handling must keep `sent` distinct from internal `ready`; customer-facing delivery/review transitions remain a separate workflow scope.
 2. **S009 / Proposal — high:** `rejected` storage differs from canonical `declined`; Project-side effects are normalized by S007 and must stay canonical.
 3. **S010 / Contract — medium-high:** `pending_signature` is an active persisted compatibility state rather than a cosmetic alias.
 4. **S011 / Invoice — medium:** aliases plus documented transition coverage differ from the richer shared contract.
