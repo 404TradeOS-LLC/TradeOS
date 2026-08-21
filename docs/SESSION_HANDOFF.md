@@ -37,4 +37,4 @@ Dependencies: S006 and S007 are complete. No overlapping open implementation PR 
 
 Overlap check: Live GitHub state was refreshed before branch creation; reverify before opening/finalizing the PR.
 
-Next action: Complete focused and repository verification, inspect the final diff for compatibility, then open the bounded S008 PR. Do not start S009 from this handoff.
+Next action: PR #264 (`fix(estimating): normalize canonical sent status`) contains this bounded implementation at the current branch head; complete focused and repository verification, inspect the final diff for compatibility, then merge only after required checks and review pass. Do not start S009 from this handoff.
