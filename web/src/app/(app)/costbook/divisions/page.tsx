@@ -10,6 +10,7 @@ import {
   listCostbookCategories,
   listCostbookDivisions,
   listCostbookSubcategories,
+  type CatalogPage,
   type CostbookCategory,
   type CostbookDivision,
   type CostbookSubcategory,
@@ -25,6 +26,21 @@ export const metadata: Metadata = {
 function toErrorMessage(error: unknown) {
   if (error instanceof ApiClientError) return error.message;
   return "Unable to load the Costbook hierarchy from the backend.";
+}
+
+async function loadAllPages<T>(loadPage: (cursor?: string) => Promise<CatalogPage<T>>): Promise<CatalogPage<T>> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  let total = 0;
+
+  do {
+    const page = await loadPage(cursor);
+    items.push(...page.items);
+    total = page.total;
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+
+  return { items, total, nextCursor: null };
 }
 
 type HierarchyQuery = { q?: string; sort?: string; order?: "asc" | "desc"; active?: string; divisionCursor?: string; categoryCursor?: string; subcategoryCursor?: string };
@@ -45,11 +61,13 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
     loadError = "You need to be signed in to view the Costbook hierarchy.";
   } else {
     try {
+      const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
+      const common = { limit: 100, q: query.q, sort: query.sort, order: query.order, active };
       const [loadedWorkspace, loadedDivisions, loadedCategories, loadedSubcategories] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookDivisions(token, { limit: 100, cursor: query.divisionCursor, q: query.q, sort: query.sort, order: query.order, active: query.active === undefined ? undefined : query.active === "true" }),
-        listCostbookCategories(token, { limit: 100, cursor: query.categoryCursor, q: query.q, sort: query.sort, order: query.order, active: query.active === undefined ? undefined : query.active === "true" }),
-        listCostbookSubcategories(token, { limit: 100, cursor: query.subcategoryCursor, q: query.q, sort: query.sort, order: query.order, active: query.active === undefined ? undefined : query.active === "true" }),
+        loadAllPages((cursor) => listCostbookDivisions(token, { ...common, cursor })),
+        loadAllPages((cursor) => listCostbookCategories(token, { ...common, cursor })),
+        loadAllPages((cursor) => listCostbookSubcategories(token, { ...common, cursor })),
       ]);
       workspace = loadedWorkspace;
       divisions = loadedDivisions.items;
@@ -62,6 +80,8 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
       loadError = toErrorMessage(error);
     }
   }
+
+  const statusFilter = [{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }];
 
   return (
     <div className="flex flex-col gap-6">
@@ -97,9 +117,9 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
           </section>
 
           <div className="grid gap-3">
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={divisionPage.total} shown={divisions.length} nextCursor={divisionPage.nextCursor} cursorParam="divisionCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }]} />
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={categoryPage.total} shown={categories.length} nextCursor={categoryPage.nextCursor} cursorParam="categoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} />
-            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={subcategoryPage.total} shown={subcategories.length} nextCursor={subcategoryPage.nextCursor} cursorParam="subcategoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={divisionPage.total} shown={divisions.length} nextCursor={divisionPage.nextCursor} cursorParam="divisionCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={categoryPage.total} shown={categories.length} nextCursor={categoryPage.nextCursor} cursorParam="categoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ q: query.q, sort: query.sort, order: query.order, active: query.active }} total={subcategoryPage.total} shown={subcategories.length} nextCursor={subcategoryPage.nextCursor} cursorParam="subcategoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
           </div>
           <HierarchyCatalog
             initialDivisions={divisions}
