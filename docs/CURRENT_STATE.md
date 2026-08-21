@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -103,7 +103,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `main` commit `de3ffa9da6d518b5a40671137b96dc039dfe53d0` on 2026-08-20 after PR #254. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `origin/main` commit `06c48933a7ad17322bb36bdcbf10f4471a5d891f` on 2026-08-21 for PR #257's S027 readiness audit. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
