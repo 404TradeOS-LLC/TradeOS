@@ -69,9 +69,15 @@ Evidence: PR #95 merged 2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`
 
 Status: READY
 Dependencies: S006
-Objective: Normalize project lifecycle values across persistence, APIs, contracts, UI, and compatibility shims.
-Acceptance: one canonical project lifecycle with tested compatibility behavior.
-Readiness evidence: S006 is `DONE`; the S006 compatibility matrix identifies the bounded Project-specific legacy-write drift and assigns it to S007; no founder decision, schema migration, infrastructure dependency, or unresolved product choice is required for this normalization. Existing PR #261 is the paused implementation vehicle and may proceed only after this governance-only readiness promotion lands.
+Objective: Normalize Project lifecycle values across persistence, APIs, shared contracts, proposal-driven Project side effects, and compatibility shims without rewriting historical rows.
+Allowed paths: existing Project lifecycle contracts and controllers; `app/modules/proposals/**` only where proposal actions mutate related Project status; focused lifecycle/proposal tests; Project/Proposal lifecycle documentation and documentation files required by ownership governance.
+Forbidden paths: S008-S012 lifecycle implementation; schema or migration changes; destructive historical status rewrites; auth, membership, permission, or RLS redesign; billing/payment semantics; Costbook/Athena behavior; broad frontend redesign; unrelated deployment/environment work.
+Required verification: focused Project lifecycle/normalization and proposal-service regression coverage; backend typecheck/unit/build; required integration/RLS lane as selected by repository CI; documentation ownership/consistency; dependency review; exact-head review-thread reconciliation before merge.
+Worktree/branch state: no open S007 implementation PR overlaps this governance promotion. The preserved branch `feature/s007-project-lifecycle-normalization` exists, but PR #261 is temporarily closed without merge and may be reopened only after this readiness promotion lands; do not create a duplicate S007 branch.
+Infrastructure state: no production-environment access or external infrastructure is required for this bounded normalization; GitHub Actions provides the authoritative verification environment.
+Founder decision required: NO.
+Readiness evidence: S006 is `DONE`; the S006 compatibility matrix identifies the bounded Project-specific legacy-write drift and assigns it to S007; the canonical seven-state Project lifecycle and compatibility aliases already exist; no unresolved product/architecture decision or destructive data migration is required.
+Acceptance: one canonical Project lifecycle for new writes with tested compatibility reads for historical aliases and no unauthorized cross-domain lifecycle expansion.
 
 ### S008 — Estimate lifecycle normalization
 
@@ -226,7 +232,7 @@ Required verification: backend unit/type/build/integration/RLS coverage; fronten
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
 Reconciled continuation: the server-side catalog pagination/search/filter/sort blocker is closed in the stacked S027 catalog-query continuation. Canonical Costbook collection routes now use the shared bounded `{items,total,nextCursor}` contract with opaque organization/query-bound cursors, deterministic ordering, allowlisted sorting, and server-side query execution; legacy typeahead search routes remain explicitly compatibility-scoped. The remaining S027 gate is authenticated rendered browser evidence at 1440/1024/768/390px, which is an environment/evidence gate, not a founder decision.
-Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 remains `BLOCKED` until the two gates above are closed.
+Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 remains `BLOCKED` until the remaining browser-evidence gate is closed.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -407,7 +413,7 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, PR #257 is the active bounded S027 readiness/audit vehicle and the stacked catalog-query continuation is its follow-up implementation slice. Neither silently promotes S027; the continuation must land and authenticated browser evidence must be captured before S027 promotion.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, the S027 server-side catalog continuation has landed through PR #260 and S027 remains blocked only on authenticated rendered browser evidence. That evidence work does not occupy S007 lifecycle scope.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
@@ -418,7 +424,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: S007
-Eligibility: S007 is the lowest-numbered `READY` sprint. Its only dependency, S006, is `DONE`; the lifecycle compatibility matrix already scopes the Project-specific drift; no founder decision or blocked infrastructure is required. PR #261 is the existing paused implementation vehicle and is authorized to resume after this governance-only promotion merges.
+Eligibility: S007 is the lowest-numbered `READY` sprint. Its only dependency, S006, is `DONE`; its allowed/forbidden scope, named verification, infrastructure state, founder-decision state, and preserved implementation branch are recorded above. No open overlapping S007 implementation PR exists during this promotion.
 Dependencies: S006 (`DONE`).
-Overlap check: Reverified live GitHub on 2026-08-21. PR #261 is the single implementation vehicle for S007; no duplicate S007 implementation should be created.
+Overlap check: Reverified live GitHub on 2026-08-21. PR #261 is closed without merge while PR #262 promotes readiness; after #262 lands, reopen and refresh that same implementation PR rather than creating duplicate S007 work.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.
