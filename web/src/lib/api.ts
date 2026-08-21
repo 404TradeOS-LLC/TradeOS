@@ -1,6 +1,7 @@
 import "server-only";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
 import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPreview } from "@/lib/brand-studio";
+import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
 import {
   contractStatuses,
   estimateStatuses,
@@ -436,10 +437,69 @@ export function listEstimatesByProject(token: string, projectId: string) {
   );
 }
 
+/**
+ * Retrieves an estimate by ID with its status normalized to a canonical value.
+ *
+ * @param id - The estimate ID
+ * @returns The estimate details with a canonical status
+ */
 export function getEstimate(token: string, id: string) {
   return apiFetch<EstimateDetail>(`/api/v1/estimates/${id}`, { token }).then((estimate) => ({
     ...estimate,
     status: normalizeStatus(estimate.status, legacyEstimateStatusMap, estimateStatuses, "draft"),
+  }));
+}
+
+// --- Organization work-queue reads (PR #251) ---
+//
+// Reusable, organization-scoped, paginated read endpoints — the router root
+// for each resource, distinct from the existing `/by-project/:projectId` and
+// `/:id` routes on the same router. Intended for dashboard "needs attention"
+// views, reporting surfaces, and future Athena tools that need a
+// company-wide queue rather than a single project's documents. Shared
+// envelope/pagination contract across all three: opaque cursor, default
+// limit 25, max 50, `updatedAt desc, id desc` ordering, exact filtered
+// `total`. See docs/API_REFERENCE.md and docs/modules/{estimating,proposals,
+// invoices-and-payments}.md for the full per-resource contract.
+
+export interface WorkQueueResponse<T> {
+  items: T[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export interface EstimateQueueItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: EstimateStatus;
+  amount: number;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EstimateQueueParams {
+  status?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists organization-wide estimates in a paginated work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns The paginated estimate queue with canonical estimate statuses
+ */
+export function listEstimateQueue(token: string, params: EstimateQueueParams = {}) {
+  const qs = buildEstimateQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<EstimateQueueItem>>(`/api/v1/estimates${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyEstimateStatusMap, estimateStatuses, "draft") })),
   }));
 }
 
@@ -781,8 +841,54 @@ export function getProposal(token: string, id: string) {
   }));
 }
 
+/**
+ * Retrieves the proposal draft preview for a project.
+ *
+ * @param projectId - The identifier of the project
+ * @returns The project's proposal draft preview
+ */
 export function getProjectProposalDraft(token: string, projectId: string) {
   return apiFetch<ProposalDraftPreview>(`/api/v1/proposals/project-draft/${projectId}`, { token });
+}
+
+export interface ProposalQueueItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: ProposalStatus;
+  amount: number | null;
+  contractId: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  updatedAt: string;
+}
+
+export interface ProposalQueueParams {
+  status?: string;
+  sent?: boolean;
+  viewed?: boolean;
+  unsigned?: boolean;
+  staleBefore?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists organization-wide proposals matching the specified queue filters.
+ *
+ * @param params - Optional filters and pagination settings for the proposal queue
+ * @returns A paginated proposal queue with canonical proposal statuses
+ */
+export function listProposalQueue(token: string, params: ProposalQueueParams = {}) {
+  const qs = buildProposalQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<ProposalQueueItem>>(`/api/v1/proposals${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyProposalStatusMap, proposalStatuses, "draft") })),
+  }));
 }
 
 export interface InvoiceLineItem {
@@ -822,10 +928,57 @@ export interface Invoice {
   deliveries: InvoiceDelivery[];
 }
 
+/**
+ * Retrieves an invoice and its line items.
+ *
+ * @param id - The invoice identifier
+ * @returns The invoice with its status normalized to a canonical value
+ */
 export function getInvoice(token: string, id: string) {
   return apiFetch<Invoice & { lineItems: InvoiceLineItem[] }>(`/api/v1/invoices/${id}`, { token }).then((invoice) => ({
     ...invoice,
     status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft"),
+  }));
+}
+
+export interface InvoiceQueueItem {
+  id: string;
+  documentNumber: number;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: InvoiceStatus;
+  amount: number;
+  paidAmount: number;
+  balanceDue: number;
+  dueDate: string | null;
+  updatedAt: string;
+}
+
+export interface InvoiceQueueParams {
+  status?: string;
+  sent?: boolean;
+  overdue?: boolean;
+  partiallyPaid?: boolean;
+  unpaid?: boolean;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists invoices in the organization work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns A paginated invoice queue with canonical invoice statuses
+ */
+export function listInvoiceQueue(token: string, params: InvoiceQueueParams = {}) {
+  const qs = buildInvoiceQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<InvoiceQueueItem>>(`/api/v1/invoices${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyInvoiceStatusMap, invoiceStatuses, "draft") })),
   }));
 }
 
