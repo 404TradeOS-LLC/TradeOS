@@ -231,7 +231,7 @@ export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
   const now = new Date();
   const staleProposalCutoffIso = getStaleProposalCutoffIso(now);
-  const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
+  const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token).catch(() => null)]) : [[], null];
   const [projectDetails, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
