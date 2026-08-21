@@ -35,12 +35,25 @@ test("ordinary app changes omit local integration by default", () => {
   );
 });
 
+test("knowledge engine changes receive app verification", () => {
+  const plan = buildVerificationPlan(["packages/knowledge-engine/README.md"]);
+
+  assert.equal(plan.appChanged, true);
+  assert.equal(plan.integrationSensitive, false);
+  assert.deepEqual(
+    plan.commands.map((step) => step.label),
+    ["Diff whitespace", "App unit tests", "App lint/typecheck", "App build"]
+  );
+});
+
 test("schema, database-session, auth, and RLS-sensitive changes include integration", () => {
   for (const path of [
     "app/prisma/schema.prisma",
     "app/prisma/migrations/20260821000000_example/migration.sql",
     "app/db/requestSession.ts",
     "app/backend/middleware/databaseSession.ts",
+    "app/backend/middleware/auth.ts",
+    "app/backend/middleware/platformProvisioningAuth.ts",
     "app/modules/auth/service.ts",
     "app/tests/rls.integration.ts",
   ]) {
