@@ -40,7 +40,7 @@ authoritative compatibility inventory for the later S007-S012 normalization
 sprints. Completion of S006 does not automatically promote any of those
 `PLANNED` sprints to `READY`.
 
-S007 — Project lifecycle normalization is the next governance-selected numbered sprint. PR #262 is the governance-only readiness promotion: it verifies S006 is `DONE`, the compatibility matrix already defines the Project-specific drift, no founder decision or blocked infrastructure is required, and no open overlapping S007 implementation PR exists during promotion. The previously opened implementation PR #261 is preserved but temporarily closed without merge until #262 lands; after readiness is merged, the same PR may be reopened and refreshed rather than creating duplicate work. This preserves the rule that an implementation branch may not authorize its own sprint.
+S007 — Project lifecycle normalization is complete. PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, normalizing proposal-driven Project writes to the canonical lifecycle while retaining compatibility reads for historical aliases and avoiding destructive historical rewrites. S008 remains `PLANNED`; S007 completion does not implicitly promote the next lifecycle sprint. Until a separate readiness promotion lands, the computed numbered-sprint state is `Sprint ID: NONE`.
 
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,

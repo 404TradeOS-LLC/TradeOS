@@ -12,30 +12,29 @@ related_code:
 
 ## Mission
 
-This session is performing the governance-only readiness promotion required before S007 — Project lifecycle normalization may proceed. The implementation branch is preserved, but PR #261 is temporarily closed so no open overlapping implementation PR blocks `READY` status while PR #262 establishes the canonical sprint state.
+This session is recording governance-only completion evidence for S007 — Project lifecycle normalization after implementation PR #261 merged into `main`.
 
 ## Current branch
 
-`docs/s007-readiness-promotion` — PR #262 (`docs(governance): promote S007 project lifecycle normalization`).
-
-The preserved implementation branch is `feature/s007-project-lifecycle-normalization`. PR #261 is closed without merge during this governance step and must not resume until PR #262 is merged.
+`docs/s007-completion-evidence` — governance-only completion branch created from the verified S007 merge commit `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
 
 ## Current truth
 
 - S006 is `DONE` with merged evidence in PR #95.
-- The S006 lifecycle compatibility matrix already identifies the bounded Project-specific legacy-write drift assigned to S007.
-- S007 requires no founder decision, schema migration, production-environment access, or architecture change for the scoped normalization.
-- PR #260 has merged; S027 remains separately blocked only on authenticated rendered Costbook browser evidence and does not occupy S007 scope.
-- PR #261 contains the existing S007 implementation and is intentionally paused/closed while governance is repaired. No duplicate S007 implementation branch should be created.
+- S007 implementation PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
+- S007 is recorded `DONE` in the canonical Sprint Backlog on this completion-evidence branch.
+- The landed S007 behavior normalizes proposal-driven Project writes to canonical lifecycle values while preserving historical alias reads; no destructive historical rewrite was introduced.
+- S008 remains `PLANNED`. Completion of S007 does not implicitly promote S008 to `READY`.
+- S027 remains separately `BLOCKED` only on authenticated rendered Costbook browser evidence and does not alter numbered lifecycle-sprint selection.
 
 ## Next Eligible Sprint
 
-Sprint ID: S007
+Sprint ID: NONE
 
-Eligibility: PR #262 promotes S007 to `READY` after verifying S006 is `DONE`, scope is already defined by the compatibility matrix, no founder or infrastructure blocker exists, and the overlapping implementation PR is not open during promotion.
+Eligibility: After S007 is recorded `DONE`, no numbered sprint is currently `READY`. S008 is still `PLANNED` and requires a separate governance-only readiness assessment/promotion before implementation may begin.
 
-Dependencies: S006 (`DONE`).
+Dependencies: N/A for sprint selection; S008 depends on S006, which is `DONE`, but dependency completion alone does not authorize readiness.
 
-Overlap check: No open S007 implementation PR is permitted while readiness promotion is pending. PR #261 is preserved but temporarily closed; after PR #262 merges, reopen that same PR rather than creating duplicate work.
+Overlap check: Reverify live GitHub state before any S008 readiness promotion. Do not create or begin S008 implementation while it remains `PLANNED`.
 
-Startup prompt: After PR #262 merges, refresh `main`, reopen and rebase PR #261 onto the readiness merge, run exact-head CI/review reconciliation, and merge S007 only if repository governance is satisfied. Do not start S008 from this handoff.
+Startup prompt: Reconcile live repository/PR state, assess S008 — Estimate lifecycle normalization against the S006 compatibility matrix, and if its scope, validation, founder-decision, infrastructure, and overlap state are complete, prepare a governance-only readiness promotion. Do not implement S008 from this handoff.
