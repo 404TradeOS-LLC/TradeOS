@@ -33,7 +33,7 @@ export default async function CostbookLaborRatesPage({ searchParams }: { searchP
     try {
       const [loadedWorkspace, loadedPage] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookLaborRates(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, active: query.active === undefined ? undefined : query.active === "true", trade: query.trade }),
+        listCostbookLaborRates(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, active: query.active === "true" ? true : query.active === "false" ? false : undefined, trade: query.trade }),
       ]);
       workspace = loadedWorkspace;
       laborRates = loadedPage.items;
