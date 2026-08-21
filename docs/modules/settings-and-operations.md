@@ -69,6 +69,7 @@ The existing SupplierIntegrationService queue/review/worker/scheduler remains ca
 - feed ingestion only creates pending `SupplierPriceUpdate` proposals; it never changes `Material.unitCost` directly
 - approved proposals continue through the existing transactional material update plus `MaterialPriceAudit` path
 - duplicate pending-proposal suppression remains in the existing service
+- the review queue collection read uses the shared Costbook catalog contract: organization-scoped server-side search/filter/sort, bounded keyset pages, full filtered totals, and opaque cursors; approval/rejection claim semantics remain unchanged
 
 There is no supplier-SKU matching layer in this slice; feed rows must already identify a TradeOS Material by `materialId`.
 

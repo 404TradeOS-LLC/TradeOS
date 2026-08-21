@@ -14,7 +14,7 @@ test("labor-rates page loads the authenticated Costbook workspace and labor-rate
 
   assert.match(source, /title:\s*"Labor Rates \| TradeOS"/);
   assert.match(source, /getCostbookWorkspace\(token\)/);
-  assert.match(source, /listCostbookLaborRates\(token\)/);
+  assert.match(source, /listCostbookLaborRates\(token[,)]/);
   assert.match(source, /Couldn't load labor rates/);
   assert.match(source, /Organization-scoped labor-rate records for Costbook/);
 });

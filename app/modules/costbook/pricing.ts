@@ -1,5 +1,6 @@
 import { prisma } from "../../db/client";
 import { applyOverhead, marginFromMarkup, markupFromMargin, round2, sellPrice } from "../estimate-engine/formulas";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 
 export interface CostbookPricingPreviewInput {
   jobCost: number;
@@ -30,6 +31,11 @@ export interface CostbookPriceHistoryFilter {
   to?: Date;
 }
 
+export interface CostbookPriceHistoryPageFilter extends CostbookPriceHistoryFilter {
+  materialCursor?: string;
+  estimateCursor?: string;
+}
+
 export interface CostbookPriceHistory {
   materialChanges: Array<{
     id: string;
@@ -56,6 +62,11 @@ export interface CostbookPriceHistory {
   }>;
 }
 
+export interface CostbookPriceHistoryPage {
+  materialChanges: CatalogPage<CostbookPriceHistory["materialChanges"][number]>;
+  estimateSnapshots: CatalogPage<CostbookPriceHistory["estimateSnapshots"][number]>;
+}
+
 export class CostbookPricingService {
   preview(input: CostbookPricingPreviewInput): CostbookPricingPreview {
     const directOverhead = input.directOverhead ?? 0;
@@ -80,6 +91,90 @@ export class CostbookPricingService {
       markupPct,
       marginPct,
     };
+  }
+
+  async listHistoryPage(orgId: string, filter: CostbookPriceHistoryPageFilter = {}): Promise<CostbookPriceHistoryPage> {
+    const createdAt = filter.from || filter.to
+      ? { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) }
+      : undefined;
+    const materialQuery: CatalogQuery = {
+      limit: Math.min(Math.max(filter.limit ?? 50, 1), 100),
+      cursor: filter.materialCursor,
+      sort: "createdAt",
+      order: "desc",
+      filters: { materialId: filter.materialId, from: filter.from?.toISOString(), to: filter.to?.toISOString() },
+      scope: orgId,
+    };
+    const estimateQuery: CatalogQuery = {
+      limit: Math.min(Math.max(filter.limit ?? 50, 1), 100),
+      cursor: filter.estimateCursor,
+      sort: "createdAt",
+      order: "desc",
+      filters: { estimateId: filter.estimateId, sourceType: filter.sourceType, from: filter.from?.toISOString(), to: filter.to?.toISOString() },
+      scope: orgId,
+    };
+    const snapshotSourceFilter = filter.sourceType === "cost_item"
+      ? [{ costItemId: { not: null } }]
+      : filter.sourceType === "assembly"
+        ? [{ assemblyId: { not: null } }]
+        : [{ costItemId: { not: null } }, { assemblyId: { not: null } }];
+
+    const [materialChanges, estimateSnapshots] = await Promise.all([
+      pageCatalogRows<any>({
+        query: materialQuery,
+        where: { orgId, ...(filter.materialId ? { materialId: filter.materialId } : {}), ...(createdAt ? { createdAt } : {}) },
+        cursorField: "createdAt",
+        cursorValueType: "date",
+        findMany: (args) => prisma.materialPriceAudit.findMany(args as any) as any,
+        count: (args) => prisma.materialPriceAudit.count(args as any),
+        getCursorValue: (row) => row.createdAt,
+        getId: (row) => row.id,
+        map: (row) => ({
+          id: row.id,
+          materialId: row.materialId,
+          materialName: row.materialName,
+          oldUnitCost: Number(row.oldUnitCost),
+          newUnitCost: Number(row.newUnitCost),
+          source: row.source,
+          actorUserId: row.actorUserId,
+          actorRole: row.actorRole,
+          createdAt: row.createdAt.toISOString(),
+        }),
+      }),
+      pageCatalogRows<any>({
+        query: estimateQuery,
+        where: {
+          estimate: { orgId },
+          ...(filter.estimateId ? { estimateId: filter.estimateId } : {}),
+          ...(createdAt ? { createdAt } : {}),
+          OR: snapshotSourceFilter,
+        },
+        cursorField: "createdAt",
+        cursorValueType: "date",
+        findMany: (args) => prisma.estimateLineItem.findMany(args as any) as any,
+        count: (args) => prisma.estimateLineItem.count(args as any),
+        getCursorValue: (row) => row.createdAt,
+        getId: (row) => row.id,
+        map: (row) => {
+          const sourceId = row.costItemId ?? row.assemblyId;
+          if (!sourceId) throw new Error("Estimate snapshot is missing a Costbook source");
+          return {
+            id: row.id,
+            estimateId: row.estimateId,
+            sourceType: row.costItemId ? "cost_item" as const : "assembly" as const,
+            sourceId,
+            description: row.description,
+            quantity: Number(row.quantity),
+            unitOfMeasure: row.unitOfMeasure,
+            unitCost: Number(row.unitCost),
+            lineCost: Number(row.lineCost),
+            createdAt: row.createdAt.toISOString(),
+          };
+        },
+      }),
+    ]);
+
+    return { materialChanges, estimateSnapshots };
   }
 
   async listHistory(orgId: string, filter: CostbookPriceHistoryFilter = {}): Promise<CostbookPriceHistory> {

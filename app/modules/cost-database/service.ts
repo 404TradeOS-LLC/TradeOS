@@ -1,5 +1,6 @@
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { laborCost, adjustedMaterialCost, equipmentCost, round2 } from "../estimate-engine/formulas";
 import {
   BulkImportCostItemRow,
@@ -74,6 +75,36 @@ export class CostDatabaseService {
       take: 50,
     });
     return rows.map(toDTO);
+  }
+
+  async listPage(query: CatalogQuery, orgId: string): Promise<CatalogPage<CostItemDTO>> {
+    query = { ...query, scope: orgId };
+    const componentType = query.filters.componentType;
+    const componentFilter = componentType === "labor" ? { laborRateId: { not: null } }
+      : componentType === "material" ? { materialId: { not: null } }
+        : componentType === "equipment" ? { equipmentId: { not: null } }
+          : componentType === "subcontractor" ? { subcontractorId: { not: null } }
+            : componentType === "none" ? { laborRateId: null, materialId: null, equipmentId: null, subcontractorId: null }
+              : {};
+    const where = {
+      orgId,
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { code: { contains: query.q, mode: "insensitive" } }, { notes: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
+      ...(query.filters.subcategoryId ? { subcategoryId: query.filters.subcategoryId } : {}),
+      ...componentFilter,
+    };
+    const field = catalogField(query.sort, { code: "code", name: "name", createdAt: "createdAt", updatedAt: "updatedAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" || field === "updatedAt" ? "date" : "string",
+      findMany: (args) => prisma.costItem.findMany(args as any) as any,
+      count: (args) => prisma.costItem.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toDTO(row),
+    }) as Promise<CatalogPage<CostItemDTO>>;
   }
 
   async create(input: CreateCostItemInput): Promise<CostItemDTO> {
@@ -266,4 +297,10 @@ function toDTO(row: {
     subcontractorId: row.subcontractorId,
     isActive: row.isActive,
   };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }

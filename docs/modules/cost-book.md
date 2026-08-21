@@ -106,6 +106,16 @@ Unified Costbook routes include:
 
 `GET /api/v1/costbook/workspace` is a read-only workspace summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records.
 
+All canonical Costbook collection reads use `{ items, total, nextCursor }`.
+`limit` defaults to 25 and is capped at 100; `cursor`, `q`, an allowlisted
+`sort`, and `order` are shared query fields. Cursors are opaque, deterministic
+keyset tokens bound to organization, filters, search, and ordering. Totals are
+computed before the cursor predicate. Resource-specific filters are validated
+by each controller and remain organization-scoped; caller-supplied `orgId` is
+never accepted. Typeahead compatibility routes under CostItem and Assembly
+`/search` intentionally retain bounded plain arrays for existing AI/estimate
+consumers.
+
 ### Materials
 
 - `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`.
@@ -143,7 +153,7 @@ The unified labor-rate shape uses `role`, optional `description`, `hourlyCost`, 
 
 The first-class Costbook CostItem surface reuses `CostDatabaseService` and the existing `CostItem` model; the legacy `/api/v1/cost-database/cost-items/*` endpoints remain compatibility aliases over the same implementation.
 
-- `GET /api/v1/costbook/cost-items` requires `costbook.read` and returns active organization-scoped CostItems; optional `q` uses the existing name-or-code search behavior.
+- `GET /api/v1/costbook/cost-items` requires `costbook.read` and returns a paginated organization-scoped CostItem catalog; `q`, `active`, `subcategoryId`, and supported component-type filters execute server-side, with safe `code`, `name`, `createdAt`, and `updatedAt` sorting.
 - `GET /api/v1/costbook/cost-items/search` requires `costbook.read` and uses the same active organization-scoped search.
 - `GET /api/v1/costbook/cost-items/:id` requires `costbook.read` and returns 404 for missing/cross-organization IDs.
 - `GET /api/v1/costbook/cost-items/:id/unit-cost` requires `costbook.read`; optional `quantity` and same-organization `regionId` feed the existing relationship-derived labor/material/equipment calculation.
@@ -159,7 +169,7 @@ Cost remains derived rather than stored as a flat CostItem price. `UnitCostBreak
 
 The unified Assembly surface reuses `AssembliesDatabaseService` and the existing `Assembly`/`AssemblyItem` models. Reads require `costbook.read`; ordinary Assembly/component edits require `costbook.write`; lifecycle deactivation requires `costbook.manage`. New components must be active and belong to the authenticated organization, cycle prevention remains enforced, and the database independently validates the parent Assembly plus referenced CostItem/child Assembly tenant scope.
 
-`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns true `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`.
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
 
 ## Permissions
 

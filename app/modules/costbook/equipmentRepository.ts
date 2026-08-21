@@ -1,5 +1,6 @@
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { prisma } from "../../db/client";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import type { CostbookEquipmentInput, CostbookEquipmentRecord, CostbookEquipmentUpdateInput } from "./types";
 
 export class CostbookEquipmentRepository {
@@ -9,6 +10,26 @@ export class CostbookEquipmentRepository {
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
     });
     return rows.map(toEquipmentRecord);
+  }
+
+  async listPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookEquipmentRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      orgId: organizationId,
+      ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
+    };
+    const field = catalogField(query.sort, { name: "name", createdAt: "createdAt", updatedAt: "updatedAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" || field === "updatedAt" ? "date" : "string",
+      findMany: (args) => prisma.equipment.findMany(args as any) as any,
+      count: (args) => prisma.equipment.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toEquipmentRecord(row),
+    }) as Promise<CatalogPage<CostbookEquipmentRecord>>;
   }
 
   async getById(organizationId: string, id: string): Promise<CostbookEquipmentRecord | null> {
@@ -85,4 +106,10 @@ function toEquipmentRecord(row: {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }

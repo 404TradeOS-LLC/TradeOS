@@ -2,6 +2,7 @@ import "server-only";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
 import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPreview } from "@/lib/brand-studio";
 import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
+import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
 import {
   contractStatuses,
   estimateStatuses,
@@ -203,8 +204,14 @@ export interface CostbookMaterialInput {
   supplierId?: string | null;
 }
 
-export function listCostbookMaterials(token: string) {
-  return apiFetch<CostbookMaterial[]>("/api/v1/costbook/materials", { token });
+export interface CatalogPage<T> {
+  items: T[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export function listCostbookMaterials(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookMaterial>>(`/api/v1/costbook/materials${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookLaborRate {
@@ -227,8 +234,8 @@ export interface CostbookLaborRateInput {
   active?: boolean;
 }
 
-export function listCostbookLaborRates(token: string) {
-  return apiFetch<CostbookLaborRate[]>("/api/v1/costbook/labor-rates", { token });
+export function listCostbookLaborRates(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookLaborRate>>(`/api/v1/costbook/labor-rates${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookDivision {
@@ -247,8 +254,8 @@ export interface CostbookDivisionInput {
   sortOrder?: number;
 }
 
-export function listCostbookDivisions(token: string) {
-  return apiFetch<CostbookDivision[]>("/api/v1/costbook/divisions", { token });
+export function listCostbookDivisions(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookDivision>>(`/api/v1/costbook/divisions${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookCategory {
@@ -269,8 +276,8 @@ export interface CostbookCategoryInput {
   sortOrder?: number;
 }
 
-export function listCostbookCategories(token: string) {
-  return apiFetch<CostbookCategory[]>("/api/v1/costbook/categories", { token });
+export function listCostbookCategories(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookCategory>>(`/api/v1/costbook/categories${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookSubcategory {
@@ -291,8 +298,8 @@ export interface CostbookSubcategoryInput {
   sortOrder?: number;
 }
 
-export function listCostbookSubcategories(token: string) {
-  return apiFetch<CostbookSubcategory[]>("/api/v1/costbook/subcategories", { token });
+export function listCostbookSubcategories(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookSubcategory>>(`/api/v1/costbook/subcategories${buildCostbookQuery(params)}`, { token });
 }
 
 export interface Customer {

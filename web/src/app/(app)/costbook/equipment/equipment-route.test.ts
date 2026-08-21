@@ -18,7 +18,7 @@ test("equipment page loads the authenticated Costbook workspace and equipment ca
 
   assert.match(source, /title:\s*"Equipment \| TradeOS"/);
   assert.match(source, /getWorkspace:\s*getEquipmentWorkspace/);
-  assert.match(source, /listEquipment:\s*listCostbookEquipment/);
+  assert.match(source, /listEquipment:\s*(?:\([^)]*\)\s*=>\s*)?listCostbookEquipment/);
   assert.match(source, /Couldn't load equipment/);
   assert.match(source, /Organization-scoped equipment catalog records for Costbook/);
 });
@@ -35,7 +35,7 @@ test("equipment load contract shares one bounded signal across both backend read
     listEquipment: async (token, signal) => {
       assert.equal(token, "token");
       seenSignals.push(signal);
-      return [{ id: "equipment-1" }];
+      return { items: [{ id: "equipment-1" }], total: 1, nextCursor: null };
     },
   });
 
@@ -44,7 +44,7 @@ test("equipment load contract shares one bounded signal across both backend read
   assert.equal(seenSignals[0], seenSignals[1], "workspace and equipment reads must share one timeout signal");
   assert.equal(seenSignals[0]?.aborted, false);
   assert.deepEqual(workspace, { organizationId: "org-1" });
-  assert.deepEqual(equipment, [{ id: "equipment-1" }]);
+  assert.deepEqual(equipment, { items: [{ id: "equipment-1" }], total: 1, nextCursor: null });
 });
 
 test("equipment page reports timeout failures", () => {

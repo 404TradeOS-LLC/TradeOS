@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Layers } from "lucide-react";
 import { HierarchyCatalog } from "@/components/costbook/hierarchy-catalog";
+import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -26,28 +27,47 @@ function toErrorMessage(error: unknown) {
   return "Unable to load the Costbook hierarchy from the backend.";
 }
 
-export default async function CostbookDivisionsPage() {
+type HierarchyQuery = { q?: string; sort?: string; order?: "asc" | "desc"; active?: string; divisionCursor?: string; categoryCursor?: string; subcategoryCursor?: string };
+
+export default async function CostbookDivisionsPage({ searchParams }: { searchParams: Promise<HierarchyQuery> }) {
   const token = await getSessionToken();
+  const query = await searchParams;
   let workspace: CostbookWorkspaceSummary | null = null;
   let divisions: CostbookDivision[] = [];
   let categories: CostbookCategory[] = [];
   let subcategories: CostbookSubcategory[] = [];
+  let divisionPage = { total: 0, nextCursor: null as string | null };
+  let categoryPage = { total: 0, nextCursor: null as string | null };
+  let subcategoryPage = { total: 0, nextCursor: null as string | null };
   let loadError: string | null = null;
 
   if (!token) {
     loadError = "You need to be signed in to view the Costbook hierarchy.";
   } else {
     try {
-      [workspace, divisions, categories, subcategories] = await Promise.all([
+      const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
+      const common = { limit: 100, q: query.q, sort: query.sort, order: query.order, active };
+      const [loadedWorkspace, loadedDivisions, loadedCategories, loadedSubcategories] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookDivisions(token),
-        listCostbookCategories(token),
-        listCostbookSubcategories(token),
+        listCostbookDivisions(token, { ...common, cursor: query.divisionCursor }),
+        listCostbookCategories(token, { ...common, cursor: query.categoryCursor }),
+        listCostbookSubcategories(token, { ...common, cursor: query.subcategoryCursor }),
       ]);
+      workspace = loadedWorkspace;
+      divisions = loadedDivisions.items;
+      categories = loadedCategories.items;
+      subcategories = loadedSubcategories.items;
+      divisionPage = { total: loadedDivisions.total, nextCursor: loadedDivisions.nextCursor };
+      categoryPage = { total: loadedCategories.total, nextCursor: loadedCategories.nextCursor };
+      subcategoryPage = { total: loadedSubcategories.total, nextCursor: loadedSubcategories.nextCursor };
     } catch (error) {
       loadError = toErrorMessage(error);
     }
   }
+
+  const statusFilter = [{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }];
+  const sharedQuery = { q: query.q, sort: query.sort, order: query.order, active: query.active };
+  const hierarchyKey = [query.divisionCursor, query.categoryCursor, query.subcategoryCursor, query.q, query.sort, query.order, query.active].map((value) => value ?? "").join("|");
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,8 +86,8 @@ export default async function CostbookDivisionsPage() {
             <div className="rounded-lg border border-border/70 bg-surface p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Divisions</p>
-                  <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{divisions.filter((division) => division.isActive).length}</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Divisions in result</p>
+                  <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{divisionPage.total}</p>
                 </div>
                 <Layers className="size-5 text-muted-foreground" aria-hidden="true" />
               </div>
@@ -82,7 +102,13 @@ export default async function CostbookDivisionsPage() {
             </div>
           </section>
 
+          <div className="grid gap-3">
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, categoryCursor: query.categoryCursor, subcategoryCursor: query.subcategoryCursor }} total={divisionPage.total} shown={divisions.length} nextCursor={divisionPage.nextCursor} cursorParam="divisionCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, divisionCursor: query.divisionCursor, subcategoryCursor: query.subcategoryCursor }} total={categoryPage.total} shown={categories.length} nextCursor={categoryPage.nextCursor} cursorParam="categoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+            <CatalogQueryControls pathname="/costbook/divisions" query={{ ...sharedQuery, divisionCursor: query.divisionCursor, categoryCursor: query.categoryCursor }} total={subcategoryPage.total} shown={subcategories.length} nextCursor={subcategoryPage.nextCursor} cursorParam="subcategoryCursor" sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "sortOrder", label: "Display order" }]} filters={statusFilter} />
+          </div>
           <HierarchyCatalog
+            key={hierarchyKey}
             initialDivisions={divisions}
             initialCategories={categories}
             initialSubcategories={subcategories}

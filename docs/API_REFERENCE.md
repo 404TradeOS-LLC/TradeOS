@@ -158,17 +158,44 @@ current source-of-truth behavior is documented in
 
 Costbook workspace routes under `/api/v1/costbook`:
 
+### Costbook catalog query contract
+
+Collection reads use the bounded response envelope below unless a route is an
+explicit scalar, detail, nested-composition, or typeahead compatibility route:
+
+```json
+{ "items": [], "total": 0, "nextCursor": null }
+```
+
+Catalog list parameters are `limit` (default `25`, maximum `100`), opaque
+`cursor`, optional server-side `q`, an endpoint-specific allowlisted `sort`,
+and `order` (`asc` or `desc`). Invalid cursors, unsupported sort fields, and
+limits above the maximum return `400`. Ordering always includes `id` as a
+deterministic tie-breaker; totals include all active filters but never the
+cursor predicate. Cursor tokens are versioned, opaque, and bound to the
+organization, search/filter state, sort field, and direction. Resource-specific
+filters are `active`, `divisionId`, `categoryId`, `subcategoryId`,
+`componentType`, `isTemplate`, `supplierId`, and `trade` only where the model
+supports them. No query parameter supplies an organization id.
+
+`/costbook/cost-items/search` and assembly search remain bounded plain-array
+typeahead compatibility routes for Estimate Builder and AI Estimate Assist;
+they are not complete catalog reads. Price history exposes independent
+`materialChanges` and `estimateSnapshots` catalog pages, each with its own
+cursor and total, so unrelated history streams cannot share an ambiguous
+cursor.
+
 - `GET /api/v1/costbook/workspace` — requires `costbook.read`; returns the authenticated organization's Costbook workspace foundation status, role-derived Costbook permission flags, and organization-scoped counts for existing divisions, active cost items, labor rates, materials, equipment, and active assemblies. This C001 endpoint is read-only and does not create materials, labor rates, assemblies, pricing calculations, estimate line items, price-history records, or Athena actions.
-- `GET /api/v1/costbook/materials` — requires `costbook.read`; returns organization-scoped material DTOs sorted by name and SKU.
+- `GET /api/v1/costbook/materials` — requires `costbook.read`; returns the catalog page for organization-scoped materials. Search covers name/SKU and `supplierId` is supported as a filter; safe sorts are `name`, `createdAt`, and `updatedAt`.
 - `GET /api/v1/costbook/materials/:id` — requires `costbook.read`; returns one material in the authenticated organization or 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/materials` — requires `costbook.write`; creates one material for the authenticated organization. Accepted strict body fields: `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, and optional same-organization `supplierId`.
 - `PATCH /api/v1/costbook/materials/:id` — requires `costbook.write`; updates the same strict field set and records a material price-audit row when `unitCost` changes.
-- `GET /api/v1/costbook/labor-rates` — requires `costbook.read`; returns organization-scoped labor-rate DTOs sorted with active rows first.
+- `GET /api/v1/costbook/labor-rates` — requires `costbook.read`; returns a catalog page with server-side role/description/trade search, `active` and `trade` filters, and safe `role`, `createdAt`, or `updatedAt` sorting.
 - `GET /api/v1/costbook/labor-rates/:id` — requires `costbook.read`; returns one labor rate in the authenticated organization or 404 for missing/cross-organization IDs.
 - `POST /api/v1/costbook/labor-rates` — requires `costbook.write`; creates one labor rate for the authenticated organization. Accepted strict body fields: `role`, optional `description`, `hourlyCost`, `billRate`, and optional `active`.
 - `PATCH /api/v1/costbook/labor-rates/:id` — requires `costbook.write`; updates the same strict field set for the authenticated organization only.
 - `DELETE /api/v1/costbook/labor-rates/:id` — requires `costbook.manage`; soft-deactivates the labor-rate row by setting `active` to `false`.
-- `GET /api/v1/costbook/cost-items` — requires `costbook.read`; returns active CostItems scoped to the authenticated organization. Optional `q` performs the existing case-insensitive name-or-code search.
+- `GET /api/v1/costbook/cost-items` — requires `costbook.read`; returns a catalog page for all organization-scoped CostItems. Search covers code/name/notes; `active`, `subcategoryId`, and supported component-type filters are server-side. Safe sorts are `code`, `name`, `createdAt`, and `updatedAt`.
 - `GET /api/v1/costbook/cost-items/search` — requires `costbook.read`; compatibility search alias under the unified namespace.
 - `GET /api/v1/costbook/cost-items/:id` — requires `costbook.read`; returns one CostItem in the authenticated organization or 404.
 - `GET /api/v1/costbook/cost-items/:id/unit-cost` — requires `costbook.read`; accepts optional positive `quantity` and optional same-organization `regionId` and returns the existing relationship-derived labor/material/equipment unit-cost breakdown.
@@ -294,6 +321,14 @@ For nested task mutations, the route parent is authoritative: `PATCH` and `DELET
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
+
+The S027 catalog continuation applies the same page envelope and opaque
+keyset-cursor contract to materials, labor rates, equipment, hierarchy,
+CostItems, assemblies, assembly templates, supplier review queues, and the two
+price-history streams. Search and useful filters execute inside the
+organization-scoped database query; the web catalog screens submit those
+criteria to the server and expose next-page navigation rather than treating a
+bounded response as a complete catalog.
 
 
 **Unreleased (PR `#257`):** Supplier price-proposal approval and rejection use an atomic pending-status claim inside the existing transaction: only the reviewer that successfully claims the organization-scoped pending row may continue, and a competing reviewer receives conflict/fail-closed behavior. A downstream Material or audit failure rolls the claim back to `pending`; feeds remain review-first and never auto-apply Material pricing. Approve/reject routes require `costbook.manage`. This is a concurrency repair only: it changes neither the Costbook architecture nor its permission model.

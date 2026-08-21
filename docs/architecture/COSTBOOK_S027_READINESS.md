@@ -33,10 +33,11 @@ and does not write Costbook records.
 | Pricing preview and estimate snapshots | PASS | Shared formulas, assembly roll-up, persisted `unitCost`/`lineCost`, and snapshot tests exist. |
 | Supplier review-first pricing | PASS | Feed proposals require human approval; this pass also made approve/reject claims atomic. |
 | Review-first AI Estimate Assist | PASS | Accepted suggestions call `EstimateEngineService`; no autonomous Costbook writes. |
-| Search/filter/sort/pagination as a production catalog contract | PARTIAL | Search exists for CostItems/Assemblies and filters exist for history/queue, but most catalog list endpoints return unpaginated collections and several surfaces lack server-backed search/filter/sort. |
+| Search/filter/sort/pagination as a production catalog contract | PASS (implementation) | Canonical Costbook catalog reads now use `{items,total,nextCursor}`, bounded opaque keyset cursors, deterministic `id` tie-breakers, server-side search/filtering, and allowlisted sorting. Legacy CostItem/Assembly search routes remain explicitly bounded typeahead compatibility adapters. |
+| Current continuation exact-head automated verification | PR GATE | The authoritative evidence is the final-head GitHub Actions checks attached to PR `#260` (Docs consistency, Dependency review, full Verify repository, and PostgreSQL-backed integration rehearsal). This document intentionally does not pin a pre-final continuation SHA/run because changing this file creates a new head. |
 | Authenticated rendered browser verification at 1440/1024/768/390 | ENVIRONMENT-BLOCKED | No authenticated browser/test session was available in this workspace; no viewport is claimed as passed. |
-| PostgreSQL/RLS integration execution | PASS | GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. |
-| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository run `32449419590`: Web lint/build and App lint/unit/build jobs passed; app typecheck, unit tests, Athena contract/smoke tests, and both builds completed successfully. |
+| PostgreSQL/RLS integration execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PR `#260` must independently pass its final-head integration rehearsal before merge. |
+| Full backend/frontend test, lint, and build execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590` passed Web lint/build and App lint/unit/build. PR `#260` must independently pass its final-head full verification before merge. |
 
 ## Concrete repair in this pass
 
@@ -47,11 +48,20 @@ or audit record. The transaction still rolls the claim back if the subsequent
 Material update or audit insert fails. Regression coverage pins the claim and
 fail-closed behavior.
 
+The catalog continuation adds a shared query/cursor abstraction and migrates
+the canonical material, labor, equipment, hierarchy, CostItem, assembly,
+supplier-review, and price-history collection reads. Cursor tokens are bound to
+organization, filters/search, sort, and direction; totals are calculated from
+the complete filtered tenant query rather than the page predicate. Costbook
+pages now submit server-side query criteria and expose bounded next-page
+navigation.
+
 ## Smallest remaining S027 blockers
 
-1. Catalog list completeness: add a consistent server-side pagination contract,
-   and then add the required search/filter/sort parameters to each catalog
-   surface. This is an implementation slice, not a founder decision.
+1. Merge/verification gate: PR `#260` must land only after its final exact head
+   passes Docs consistency, Dependency review, full repository verification,
+   and the PostgreSQL-backed integration rehearsal. GitHub checks are the
+   authoritative evidence for that self-referential final-head gate.
 2. Authenticated browser evidence: render and exercise the nine Costbook routes
    at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
@@ -60,9 +70,8 @@ fail-closed behavior.
    verification.
 
 S027 should remain `BLOCKED`/not promoted until those two gates are closed. The
-remaining gaps do not require a founder decision, but they do require another
-bounded implementation/verification slice and an authenticated browser
-environment.
+remaining gaps do not require a founder decision; the post-merge browser gate
+requires an authenticated rendered environment.
 
 ## Next five TODOs after S027
 

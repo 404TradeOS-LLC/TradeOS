@@ -2,7 +2,7 @@ export const EQUIPMENT_LOAD_TIMEOUT_MS = 15_000;
 
 type EquipmentLoaders<TWorkspace, TEquipment> = {
   getWorkspace: (token: string, signal: AbortSignal) => Promise<TWorkspace>;
-  listEquipment: (token: string, signal: AbortSignal) => Promise<TEquipment[]>;
+  listEquipment: (token: string, signal: AbortSignal) => Promise<{ items: TEquipment[]; total: number; nextCursor: string | null }>;
 };
 
 /** Creates the bounded AbortSignal shared by both equipment-page backend reads. */
@@ -14,7 +14,7 @@ export function createEquipmentLoadSignal(): AbortSignal {
 export async function loadEquipmentPageData<TWorkspace, TEquipment>(
   token: string,
   loaders: EquipmentLoaders<TWorkspace, TEquipment>,
-): Promise<[TWorkspace, TEquipment[]]> {
+): Promise<[TWorkspace, { items: TEquipment[]; total: number; nextCursor: string | null }]> {
   const signal = createEquipmentLoadSignal();
   return Promise.all([
     loaders.getWorkspace(token, signal),

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { AssembliesDatabaseService } from "../../modules/assemblies-database/service";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new AssembliesDatabaseService();
 const idSchema = z.string().uuid();
@@ -28,13 +29,21 @@ const addItemSchema = z.object({
   message: "Provide exactly one of costItemId or childAssemblyId",
 });
 
+const listSchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), isTemplate: catalogBooleanQuery.optional() }).strict();
+const templateListSchema = catalogQuerySchema.strict();
+const itemsListSchema = catalogQuerySchema.omit({ q: true }).strict();
 const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).strict();
 const unitCostQuerySchema = z.object({ regionId: z.string().uuid().optional() }).strict();
 
 export const assembliesDatabaseController = {
   async list(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    res.json(await service.list(requireOrgId(req)));
+    const parsed = listSchema.parse(req.query);
+    const query = parseCatalogQuery(
+      { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order },
+      { defaultSort: "name", allowedSorts: ["name", "code", "createdAt", "updatedAt"], filters: { active: parsed.active, isTemplate: parsed.isTemplate } }
+    );
+    res.json(await service.listPage(requireOrgId(req), query));
   },
   async search(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
@@ -43,7 +52,12 @@ export const assembliesDatabaseController = {
   },
   async templates(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listTemplates(requireOrgId(req)));
+    const parsed = templateListSchema.parse(req.query);
+    const query = parseCatalogQuery(
+      { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order },
+      { defaultSort: "name", allowedSorts: ["name", "code", "createdAt", "updatedAt"] }
+    );
+    res.json(await service.listTemplatesPage(requireOrgId(req), query));
   },
   async getById(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
@@ -51,7 +65,12 @@ export const assembliesDatabaseController = {
   },
   async listItems(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listAssemblyItems(idSchema.parse(req.params.id), requireOrgId(req)));
+    const parsed = itemsListSchema.parse(req.query);
+    const query = parseCatalogQuery(
+      { limit: parsed.limit, cursor: parsed.cursor, sort: parsed.sort, order: parsed.order },
+      { defaultSort: "sortOrder", allowedSorts: ["sortOrder"] }
+    );
+    res.json(await service.listAssemblyItemsPage(idSchema.parse(req.params.id), requireOrgId(req), query));
   },
   async create(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);

@@ -1,5 +1,7 @@
 import "server-only";
 import { apiFetch } from "@/lib/api";
+import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
+import type { CatalogPage } from "@/lib/api";
 
 export interface CostbookAssembly {
   id: string;
@@ -38,10 +40,19 @@ export interface CostbookPriceHistory {
   }>;
 }
 
-export function listCostbookAssemblies(token: string) {
-  return apiFetch<CostbookAssembly[]>("/api/v1/costbook/assemblies", { token });
+export function listCostbookAssemblies(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookAssembly>>(`/api/v1/costbook/assemblies${buildCostbookQuery(params)}`, { token });
 }
 
-export function getCostbookPriceHistory(token: string, limit = 50) {
-  return apiFetch<CostbookPriceHistory>(`/api/v1/costbook/price-history?limit=${limit}`, { token });
+export interface CostbookPriceHistoryPage {
+  materialChanges: CatalogPage<CostbookPriceHistory["materialChanges"][number]>;
+  estimateSnapshots: CatalogPage<CostbookPriceHistory["estimateSnapshots"][number]>;
+}
+
+export function getCostbookPriceHistory(token: string, params: { limit?: number; materialCursor?: string; estimateCursor?: string } = {}) {
+  const query = new URLSearchParams();
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.materialCursor) query.set("materialCursor", params.materialCursor);
+  if (params.estimateCursor) query.set("estimateCursor", params.estimateCursor);
+  return apiFetch<CostbookPriceHistoryPage>(`/api/v1/costbook/price-history?${query.toString()}`, { token });
 }
