@@ -15,6 +15,7 @@ export interface AttentionStartRow {
   customerName: string;
 }
 
+/** Renders the shared bordered shell for one dashboard attention row. */
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="rounded-xl border border-border/60 bg-muted/20 p-4">{children}</div>;
 }
