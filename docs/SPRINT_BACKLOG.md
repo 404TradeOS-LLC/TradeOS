@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -224,8 +224,8 @@ Forbidden paths: broad application redesign; autonomous AI database writes; dire
 Required verification: backend unit/type/build/integration/RLS coverage; frontend unit/lint/build coverage; docs tests/ownership; focused Costbook search/browse/pricing/supplier/Knowledge Runtime/AI behavior tests; and E2E coverage for representative contractor Costbook workflows before production-readiness claims.
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
-Blocked by: pending a dedicated live-verified readiness pass. The specific 2026-08-12 blockers named below are resolved, but promotion has not been separately reverified against current Costbook scope, so `READY` is not asserted here.
-Reconciled evidence: the original 2026-08-09 blockers are no longer active—PR #94 merged as `ab89268fdcfe3da665a640372f6196dca12e9d81`, PR #95 merged as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and PR #96 merged as `7b80ec63432bcf941219b4a3d83b75980ab01d92`. The subsequent 2026-08-12 blockers are also resolved as of the 2026-08-16 reconciliation: PR #151 (hierarchy RLS/active-parent hardening) merged into `main` as `1b64687...` ancestry via merge commit `c948998c1`; PR #128 (C004 equipment catalog foundation) closed unmerged, superseded by the equivalent equipment-catalog work that landed via merged PR #183; and issue #153 (activation-permission/migration-sequencing follow-up) closed completed 2026-08-14. Costbook has since gained substantial further merged scope (C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216), so a fresh dedicated overlap/scope review is required before any `READY` promotion — the old blockers clearing does not by itself make S027 ready.
+Blocked by: the completed dedicated pass found two exact remaining gates: (1) most catalog list endpoints still lack a consistent server-side pagination/search/filter/sort contract; and (2) authenticated rendered browser evidence at 1440/1024/768/390px remains unavailable. These are implementation/evidence gates, not founder decisions.
+Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 remains `BLOCKED` until the two gates above are closed.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -406,9 +406,9 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. The 2026-08-18 live reconciliation found no remaining runtime, feature, dependency, CI, or bounded-fix pull requests. PR #250 is the final docs-only reconciliation vehicle for this pass; after it lands, there is no live out-of-band pull-request queue from this cleanup.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, PR #257 is the active bounded S027 readiness/audit vehicle. It does not silently promote S027 and must land before overlapping S027 work is started.
 
-The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, and #249. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. The prior 2026-08-12-era list remains resolved as previously documented. None remain live overlap risk.
+The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
@@ -417,7 +417,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S006 and S013 now have merged completion evidence. S027's 2026-08-12 blockers (PR #128, PR #151) are resolved, but S027 remains `BLOCKED` pending its own dedicated live-verified readiness pass — not decided by this reconciliation. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
+Eligibility: No numbered sprint is currently `READY`. S006 and S013 have merged completion evidence. The dedicated S027 readiness pass is complete, but S027 remains `BLOCKED` on catalog query standardization and authenticated rendered browser evidence. Every other unfinished numbered sprint is `PLANNED` or `BLOCKED` and requires an explicit governance-only readiness promotion before implementation.
 Dependencies: N/A until one planned sprint is selected and verified for promotion.
-Overlap check: Reverified live GitHub on 2026-08-18. No runtime, feature, dependency, CI, or bounded-fix pull request remains open; PR #250 is only the final docs reconciliation vehicle and does not conflict with a numbered sprint.
+Overlap check: Reverified live GitHub on 2026-08-21. PR #257 is the active bounded S027 readiness/audit pull request and should land before overlapping S027 work begins.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

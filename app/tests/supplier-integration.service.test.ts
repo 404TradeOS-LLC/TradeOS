@@ -9,7 +9,7 @@ const transaction = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
     createMany: jest.fn(),
-    update: jest.fn(),
+    updateMany: jest.fn(),
   },
   material: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
   materialPriceAudit: { create: jest.fn() },
@@ -89,20 +89,7 @@ describe("SupplierIntegrationService", () => {
         name: "Ready Mix Concrete",
         unitCost: 150,
       });
-      transaction.supplierPriceUpdate.update.mockResolvedValue({
-        id: "queue-1",
-        orgId: "org-1",
-        supplierId: "supplier-1",
-        materialId: "material-1",
-        currentUnitCost: 150,
-        proposedUnitCost: 165,
-        status: "approved",
-        source: "supplier-feed",
-        requestedByJob: null,
-        reviewedByUserId: "admin-1",
-        reviewedAt: new Date("2026-01-02T00:00:00.000Z"),
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      });
+      transaction.supplierPriceUpdate.updateMany.mockReturnValue({ count: 1 });
 
       const result = await new SupplierIntegrationService().approve("queue-1", "org-1", {
         userId: "admin-1",
@@ -125,11 +112,34 @@ describe("SupplierIntegrationService", () => {
           actorRole: "admin",
         }),
       });
-      expect(transaction.supplierPriceUpdate.update).toHaveBeenCalledWith({
-        where: { id: "queue-1" },
+      expect(transaction.supplierPriceUpdate.updateMany).toHaveBeenCalledWith({
+        where: { id: "queue-1", orgId: "org-1", status: "pending" },
         data: expect.objectContaining({ status: "approved", reviewedByUserId: "admin-1" }),
       });
       expect(result.status).toBe("approved");
+    });
+
+    it("fails closed when another reviewer claims the proposal first", async () => {
+      transaction.supplierPriceUpdate.findFirst.mockResolvedValue({
+        id: "queue-1",
+        orgId: "org-1",
+        materialId: "material-1",
+        status: "pending",
+      });
+      transaction.supplierPriceUpdate.updateMany.mockReturnValue({ count: 0 });
+
+      await expect(
+        new SupplierIntegrationService().approve("queue-1", "org-1", {
+          userId: "admin-1",
+          orgId: "org-1",
+          role: "admin",
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("no longer pending"),
+      });
+      expect(transaction.material.update).not.toHaveBeenCalled();
+      expect(transaction.materialPriceAudit.create).not.toHaveBeenCalled();
     });
 
     it("rejects approving a queue row that is no longer pending", async () => {
@@ -145,20 +155,7 @@ describe("SupplierIntegrationService", () => {
   describe("reject", () => {
     it("marks a pending queue row rejected without touching the material", async () => {
       transaction.supplierPriceUpdate.findFirst.mockResolvedValue({ id: "queue-1", orgId: "org-1", status: "pending" });
-      transaction.supplierPriceUpdate.update.mockResolvedValue({
-        id: "queue-1",
-        orgId: "org-1",
-        supplierId: "supplier-1",
-        materialId: "material-1",
-        currentUnitCost: 150,
-        proposedUnitCost: 165,
-        status: "rejected",
-        source: "supplier-feed",
-        requestedByJob: null,
-        reviewedByUserId: "admin-1",
-        reviewedAt: new Date("2026-01-02T00:00:00.000Z"),
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      });
+      transaction.supplierPriceUpdate.updateMany.mockReturnValue({ count: 1 });
 
       const result = await new SupplierIntegrationService().reject("queue-1", "org-1", {
         userId: "admin-1",
@@ -168,6 +165,32 @@ describe("SupplierIntegrationService", () => {
 
       expect(transaction.material.update).not.toHaveBeenCalled();
       expect(result.status).toBe("rejected");
+      expect(transaction.supplierPriceUpdate.updateMany).toHaveBeenCalledWith({
+        where: { id: "queue-1", orgId: "org-1", status: "pending" },
+        data: expect.objectContaining({ status: "rejected", reviewedByUserId: "admin-1" }),
+      });
+    });
+
+    it("fails closed when another reviewer claims the proposal before rejection", async () => {
+      transaction.supplierPriceUpdate.findFirst.mockResolvedValue({
+        id: "queue-1",
+        orgId: "org-1",
+        status: "pending",
+      });
+      transaction.supplierPriceUpdate.updateMany.mockReturnValue({ count: 0 });
+
+      await expect(
+        new SupplierIntegrationService().reject("queue-1", "org-1", {
+          userId: "admin-1",
+          orgId: "org-1",
+          role: "admin",
+        })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("no longer pending"),
+      });
+      expect(transaction.material.update).not.toHaveBeenCalled();
+      expect(transaction.materialPriceAudit.create).not.toHaveBeenCalled();
     });
   });
 
