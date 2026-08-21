@@ -38,8 +38,61 @@ function authedRequest(options: { role?: string; body?: unknown; params?: Record
 describe("supplierIntegrationController Costbook review boundary", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockService.listQueuePage.mockResolvedValue({ items: [{ id: queueId }], total: 1, nextCursor: "next-token" });
     mockService.approve.mockResolvedValue({ id: queueId, status: "approved" });
     mockService.reject.mockResolvedValue({ id: queueId, status: "rejected" });
+  });
+
+  it("forwards the complete paginated supplier review query and response envelope", async () => {
+    const res = response();
+    const supplierId = "11111111-1111-4111-8111-111111111111";
+    const materialId = "22222222-2222-4222-8222-222222222222";
+
+    await supplierIntegrationController.listQueue(
+      authedRequest({
+        role: "technician",
+        query: {
+          limit: "50",
+          cursor: "cursor-token",
+          q: " wire ",
+          sort: "status",
+          order: "asc",
+          status: "pending",
+          supplierId,
+          materialId,
+        },
+      }),
+      res as never
+    );
+
+    expect(mockService.listQueuePage).toHaveBeenCalledWith("org-from-auth", {
+      limit: 50,
+      cursor: "cursor-token",
+      q: "wire",
+      sort: "status",
+      order: "asc",
+      filters: { status: "pending", supplierId, materialId },
+    });
+    expect(res.json).toHaveBeenCalledWith({ items: [{ id: queueId }], total: 1, nextCursor: "next-token" });
+  });
+
+  it("rejects malformed supplier review catalog queries before calling the service", async () => {
+    await expect(
+      supplierIntegrationController.listQueue(
+        authedRequest({ role: "technician", query: { order: "sideways" } }),
+        response() as never
+      )
+    ).rejects.toThrow();
+
+    expect(mockService.listQueuePage).not.toHaveBeenCalled();
+  });
+
+  it("propagates supplier review service errors to the shared error-handler boundary", async () => {
+    mockService.listQueuePage.mockRejectedValueOnce(new Error("queue unavailable"));
+
+    await expect(
+      supplierIntegrationController.listQueue(authedRequest({ role: "technician" }), response() as never)
+    ).rejects.toThrow("queue unavailable");
   });
 
   it("denies supplier price approval and rejection to dispatcher/read-only Costbook roles", async () => {
