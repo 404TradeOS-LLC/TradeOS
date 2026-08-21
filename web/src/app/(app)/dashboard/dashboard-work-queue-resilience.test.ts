@@ -35,3 +35,9 @@ test("partial paired-request failures remain visible to the Needs Attention UI",
   assert.match(source, /invoicesError=\{invoiceAttentionQueues\.error\}/);
   assert.match(source, /proposalsError=\{proposalAttentionQueues\.error\}/);
 });
+
+test("organization settings failure does not crash the dashboard", async () => {
+  const source = await readDashboardSource();
+
+  assert.match(source, /getOrganizationSettings\(token\)\.catch\(\(\) => null\)/);
+});
