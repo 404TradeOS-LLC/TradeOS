@@ -67,17 +67,11 @@ Evidence: PR #95 merged 2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`
 
 ### S007 — Project lifecycle normalization
 
-Status: READY
+Status: DONE
 Dependencies: S006
 Objective: Normalize Project lifecycle values across persistence, APIs, shared contracts, proposal-driven Project side effects, and compatibility shims without rewriting historical rows.
-Allowed paths: existing Project lifecycle contracts and controllers; `app/modules/proposals/**` only where proposal actions mutate related Project status; focused lifecycle/proposal tests; Project/Proposal lifecycle documentation and documentation files required by ownership governance.
-Forbidden paths: S008-S012 lifecycle implementation; schema or migration changes; destructive historical status rewrites; auth, membership, permission, or RLS redesign; billing/payment semantics; Costbook/Athena behavior; broad frontend redesign; unrelated deployment/environment work.
-Required verification: focused Project lifecycle/normalization and proposal-service regression coverage; backend typecheck/unit/build; required integration/RLS lane as selected by repository CI; documentation ownership/consistency; dependency review; exact-head review-thread reconciliation before merge.
-Worktree/branch state: no open S007 implementation PR overlaps this governance promotion. The preserved branch `feature/s007-project-lifecycle-normalization` exists, but PR #261 is temporarily closed without merge and may be reopened only after this readiness promotion lands; do not create a duplicate S007 branch.
-Infrastructure state: no production-environment access or external infrastructure is required for this bounded normalization; GitHub Actions provides the authoritative verification environment.
-Founder decision required: NO.
-Readiness evidence: S006 is `DONE`; the S006 compatibility matrix identifies the bounded Project-specific legacy-write drift and assigns it to S007; the canonical seven-state Project lifecycle and compatibility aliases already exist; no unresolved product/architecture decision or destructive data migration is required.
 Acceptance: one canonical Project lifecycle for new writes with tested compatibility reads for historical aliases and no unauthorized cross-domain lifecycle expansion.
+Evidence: PR #261 merged 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
 
 ### S008 — Estimate lifecycle normalization
 
@@ -413,7 +407,7 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, the S027 server-side catalog continuation has landed through PR #260 and S027 remains blocked only on authenticated rendered browser evidence. That evidence work does not occupy S007 lifecycle scope.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, the S027 server-side catalog continuation has landed through PR #260 and S027 remains blocked only on authenticated rendered browser evidence. That evidence work does not occupy lifecycle-normalization scope.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
@@ -423,8 +417,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: S007
-Eligibility: S007 is the lowest-numbered `READY` sprint. Its only dependency, S006, is `DONE`; its allowed/forbidden scope, named verification, infrastructure state, founder-decision state, and preserved implementation branch are recorded above. No open overlapping S007 implementation PR exists during this promotion.
-Dependencies: S006 (`DONE`).
-Overlap check: Reverified live GitHub on 2026-08-21. PR #261 is closed without merge while PR #262 promotes readiness; after #262 lands, reopen and refresh that same implementation PR rather than creating duplicate S007 work.
+Sprint ID: NONE
+Eligibility: S007 is `DONE` with merged evidence. No numbered sprint is currently `READY`; S008 remains `PLANNED` and requires a separate governance-only readiness assessment/promotion before implementation.
+Dependencies: N/A for sprint selection. S008 depends on S006 (`DONE`), but dependency completion alone does not authorize readiness.
+Overlap check: Reverify live GitHub state before any S008 readiness promotion; do not create or begin S008 implementation while it remains `PLANNED`.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.
