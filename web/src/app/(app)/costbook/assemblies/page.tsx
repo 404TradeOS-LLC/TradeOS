@@ -33,6 +33,19 @@ async function loadChildAssemblyChoices(token: string): Promise<CostbookAssembly
   return items;
 }
 
+async function loadCostItemChoices(token: string): Promise<CostItemCatalogRecord[]> {
+  const items: CostItemCatalogRecord[] = [];
+  let cursor: string | undefined;
+  do {
+    const params = new URLSearchParams({ limit: "100", active: "true" });
+    if (cursor) params.set("cursor", cursor);
+    const page = await apiFetch<CatalogPage<CostItemCatalogRecord>>(`/api/v1/costbook/cost-items?${params.toString()}`, { token });
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return items;
+}
+
 export default async function CostbookAssembliesPage({ searchParams }: { searchParams: Promise<AssembliesQuery> }) {
   const token = await getSessionToken();
   const query = await searchParams;
@@ -48,12 +61,12 @@ export default async function CostbookAssembliesPage({ searchParams }: { searchP
       getCostbookWorkspace(token),
       listCostbookAssemblies(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, active, isTemplate }),
       loadChildAssemblyChoices(token),
-      apiFetch<CatalogPage<CostItemCatalogRecord>>("/api/v1/costbook/cost-items?limit=100&active=true", { token }),
+      loadCostItemChoices(token),
     ]);
     data = {
       assemblies: assemblies.items,
       childAssemblies,
-      costItems: costItems.items,
+      costItems,
       canWrite: workspace.permissions.canWrite,
       canManage: workspace.permissions.canManage,
       total: assemblies.total,
@@ -67,9 +80,11 @@ export default async function CostbookAssembliesPage({ searchParams }: { searchP
     return <EmptyState title="Couldn't load assemblies" description={loadError ?? "Assembly data is unavailable."} />;
   }
 
+  const catalogKey = [query.cursor, query.q, query.sort, query.order, query.active, query.isTemplate].map((value) => value ?? "").join("|");
+
   return <div className="flex flex-col gap-6">
     <PageHeader title="Assemblies" description="Compose reusable CostItems and child Assemblies without duplicating pricing data." backHref="/costbook" backLabel="Costbook" />
     <CatalogQueryControls pathname="/costbook/assemblies" query={query} total={data.total} shown={data.assemblies.length} nextCursor={data.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "code", label: "Code" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }, { name: "isTemplate", label: "Template", value: query.isTemplate, options: [{ value: "true", label: "Templates" }, { value: "false", label: "Regular" }] }]} />
-    <AssemblyCatalog initialAssemblies={data.assemblies} childAssemblies={data.childAssemblies} costItems={data.costItems} canWrite={data.canWrite} canManage={data.canManage} />
+    <AssemblyCatalog key={catalogKey} initialAssemblies={data.assemblies} childAssemblies={data.childAssemblies} costItems={data.costItems} canWrite={data.canWrite} canManage={data.canManage} />
   </div>;
 }
