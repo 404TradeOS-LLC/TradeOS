@@ -31,7 +31,7 @@ const addItemSchema = z.object({
 
 const listSchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), isTemplate: catalogBooleanQuery.optional() }).strict();
 const templateListSchema = catalogQuerySchema.strict();
-const itemsListSchema = catalogQuerySchema.strict();
+const itemsListSchema = catalogQuerySchema.omit({ q: true }).strict();
 const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).strict();
 const unitCostQuerySchema = z.object({ regionId: z.string().uuid().optional() }).strict();
 
@@ -67,7 +67,7 @@ export const assembliesDatabaseController = {
     requirePermissions(req, ["costbook.read"]);
     const parsed = itemsListSchema.parse(req.query);
     const query = parseCatalogQuery(
-      { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order },
+      { limit: parsed.limit, cursor: parsed.cursor, sort: parsed.sort, order: parsed.order },
       { defaultSort: "sortOrder", allowedSorts: ["sortOrder"] }
     );
     res.json(await service.listAssemblyItemsPage(idSchema.parse(req.params.id), requireOrgId(req), query));
