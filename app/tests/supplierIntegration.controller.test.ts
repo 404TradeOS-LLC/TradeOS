@@ -1,5 +1,6 @@
 const mockService = {
   listQueue: jest.fn(),
+  listQueuePage: jest.fn(),
   enqueue: jest.fn(),
   approve: jest.fn(),
   reject: jest.fn(),

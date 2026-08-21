@@ -2,6 +2,7 @@ import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { round2 } from "../estimate-engine/formulas";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import {
   AddAssemblyItemInput,
   AssemblyDTO,
@@ -21,6 +22,11 @@ export class AssembliesDatabaseService {
   async list(orgId: string): Promise<AssemblyDTO[]> {
     const rows = await prisma.assembly.findMany({ where: { orgId }, orderBy: { name: "asc" } });
     return rows.map(toDTO);
+  }
+
+  async listPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<AssemblyDTO>> {
+    query = { ...query, scope: orgId };
+    return this.pageAssemblies(query, { orgId });
   }
 
   async search(query: string, orgId: string): Promise<AssemblyDTO[]> {
@@ -43,6 +49,35 @@ export class AssembliesDatabaseService {
       orderBy: { name: "asc" },
     });
     return rows.map(toDTO);
+  }
+
+  async listTemplatesPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<AssemblyDTO>> {
+    query = { ...query, scope: orgId };
+    return this.pageAssemblies(query, { orgId, isTemplate: true, isActive: true });
+  }
+
+  private async pageAssemblies(
+    query: CatalogQuery,
+    baseWhere: Record<string, unknown>
+  ): Promise<CatalogPage<AssemblyDTO>> {
+    const where = {
+      ...baseWhere,
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { code: { contains: query.q, mode: "insensitive" } }, { description: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
+      ...(query.filters.isTemplate !== undefined ? { isTemplate: query.filters.isTemplate } : {}),
+    };
+    const field = catalogField(query.sort, { code: "code", name: "name", createdAt: "createdAt", updatedAt: "updatedAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" || field === "updatedAt" ? "date" : "string",
+      findMany: (args) => prisma.assembly.findMany(args as any) as any,
+      count: (args) => prisma.assembly.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toDTO(row),
+    }) as Promise<CatalogPage<AssemblyDTO>>;
   }
 
   async getById(id: string, orgId: string): Promise<AssemblyDTO> {
@@ -78,6 +113,29 @@ export class AssembliesDatabaseService {
         componentUnitOfMeasure: component.unitOfMeasure,
       };
     });
+  }
+
+  async listAssemblyItemsPage(assemblyId: string, orgId: string, query: CatalogQuery): Promise<CatalogPage<AssemblyItemDTO>> {
+    query = { ...query, scope: orgId };
+    await this.assertExists(assemblyId, orgId);
+    const where = { assemblyId, assembly: { orgId } };
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: "sortOrder",
+      cursorValueType: "number",
+      findMany: (args) => prisma.assemblyItem.findMany(args as any) as any,
+      count: (args) => prisma.assemblyItem.count(args as any),
+      getCursorValue: (row) => row.sortOrder,
+      getId: (row) => row.id,
+      map: (row) => toAssemblyItemDTO(row),
+      include: {
+        include: {
+          costItem: { select: { code: true, name: true, unitOfMeasure: true } },
+          childAssembly: { select: { code: true, name: true, unitOfMeasure: true } },
+        },
+      },
+    }) as Promise<CatalogPage<AssemblyItemDTO>>;
   }
 
   async create(input: CreateAssemblyInput): Promise<AssemblyDTO> {
@@ -227,4 +285,36 @@ function toDTO(row: {
   isActive: boolean;
 }): AssemblyDTO {
   return row;
+}
+
+function toAssemblyItemDTO(row: {
+  id: string;
+  assemblyId: string;
+  costItemId: string | null;
+  childAssemblyId: string | null;
+  quantityPerUnit: unknown;
+  sortOrder: number;
+  costItem?: { code: string; name: string; unitOfMeasure: string } | null;
+  childAssembly?: { code: string; name: string; unitOfMeasure: string } | null;
+}): AssemblyItemDTO {
+  const component = row.costItem ?? row.childAssembly;
+  if (!component) throw new ApiError(409, `AssemblyItem ${row.id} has no resolvable component`);
+  return {
+    id: row.id,
+    assemblyId: row.assemblyId,
+    costItemId: row.costItemId,
+    childAssemblyId: row.childAssemblyId,
+    quantityPerUnit: Number(row.quantityPerUnit),
+    sortOrder: row.sortOrder,
+    componentType: row.costItemId ? "cost_item" : "assembly",
+    componentCode: component.code,
+    componentName: component.name,
+    componentUnitOfMeasure: component.unitOfMeasure,
+  };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }

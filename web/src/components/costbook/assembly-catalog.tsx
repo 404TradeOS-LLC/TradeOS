@@ -24,6 +24,7 @@ type AssemblyItem = {
 };
 
 type AssemblyCost = { unitCost: number; componentCount: number };
+type AssemblyItemsPage = { items: AssemblyItem[]; total: number; nextCursor: string | null };
 type AssemblyForm = { code: string; name: string; unitOfMeasure: string; description: string; isTemplate: boolean };
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
@@ -37,6 +38,8 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
   const [assemblies, setAssemblies] = useState(initialAssemblies.filter((item) => item.isActive));
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [items, setItems] = useState<AssemblyItem[]>([]);
+  const [itemsNextCursor, setItemsNextCursor] = useState<string | null>(null);
+  const [itemsTotal, setItemsTotal] = useState(0);
   const [unitCost, setUnitCost] = useState<number | null>(null);
   const [form, setForm] = useState<AssemblyForm>(emptyAssembly);
   const [componentType, setComponentType] = useState<"cost_item" | "assembly">("cost_item");
@@ -52,12 +55,14 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
     if (!selectedId) return;
     let active = true;
     Promise.all([
-      clientFetch<AssemblyItem[]>(`/costbook/assemblies/${selectedId}/items`),
+      clientFetch<AssemblyItemsPage>(`/costbook/assemblies/${selectedId}/items?limit=100`),
       clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`),
     ])
       .then(([rows, cost]) => {
         if (!active) return;
-        setItems(rows);
+        setItems(rows.items);
+        setItemsNextCursor(rows.nextCursor);
+        setItemsTotal(rows.total);
         setUnitCost(cost.unitCost);
       })
       .catch((err) => {
@@ -72,9 +77,26 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
   function selectAssembly(id: string) {
     setSelectedId(id);
     setItems([]);
+    setItemsNextCursor(null);
+    setItemsTotal(0);
     setUnitCost(null);
     setLoadingItems(true);
     setError(null);
+  }
+
+  async function loadMoreComponents() {
+    if (!selectedId || !itemsNextCursor) return;
+    setLoadingItems(true);
+    setError(null);
+    try {
+      const next = await clientFetch<AssemblyItemsPage>(`/costbook/assemblies/${selectedId}/items?limit=100&cursor=${encodeURIComponent(itemsNextCursor)}`);
+      setItems((current) => [...current, ...next.items.filter((item) => !current.some((existing) => existing.id === item.id))]);
+      setItemsNextCursor(next.nextCursor);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "More assembly components could not be loaded.");
+    } finally {
+      setLoadingItems(false);
+    }
   }
 
   async function createAssembly(event: FormEvent<HTMLFormElement>) {
@@ -111,6 +133,8 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
       const nextId = remaining[0]?.id ?? "";
       setSelectedId(nextId);
       setItems([]);
+      setItemsNextCursor(null);
+      setItemsTotal(0);
       setUnitCost(null);
       setLoadingItems(Boolean(nextId));
     } catch (err) {
@@ -134,6 +158,7 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
         }),
       });
       setItems((current) => [...current, created].sort((a, b) => a.sortOrder - b.sortOrder || a.componentName.localeCompare(b.componentName)));
+      setItemsTotal((current) => current + 1);
       setComponentId("");
       setQuantity("1");
       try {
@@ -157,6 +182,7 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
     try {
       await clientFetch<void>(`/costbook/assemblies/${selectedId}/items/${id}`, { method: "DELETE" });
       setItems((current) => current.filter((item) => item.id !== id));
+      setItemsTotal((current) => Math.max(0, current - 1));
       try {
         const cost = await clientFetch<AssemblyCost>(`/costbook/assemblies/${selectedId}/unit-cost`);
         setUnitCost(cost.unitCost);
@@ -207,7 +233,7 @@ export function AssemblyCatalog({ initialAssemblies, costItems, canWrite, canMan
           <Button type="submit" disabled={saving || !componentId}><Plus className="size-4" aria-hidden="true" />Add</Button>
         </form> : null}
 
-        {loadingItems ? <div className="rounded-lg border border-border/70 bg-surface p-6 text-sm text-muted-foreground">Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-surface"><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div></div>}
+        {loadingItems && items.length === 0 ? <div className="rounded-lg border border-border/70 bg-surface p-6 text-sm text-muted-foreground">Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-surface"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingItems}>{loadingItems ? "Loading" : "Load more components"}</Button></div> : null}</div>}
       </>}
     </section>
   </div>;

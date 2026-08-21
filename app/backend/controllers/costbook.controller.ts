@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { CostbookService } from "../../modules/costbook";
 import { requireAuthContext, requirePermissions } from "../requestContext";
+import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new CostbookService();
 
@@ -86,7 +87,12 @@ const equipmentUpdateSchema = z.object({
   message: "At least one equipment field is required",
 });
 
-const listQuerySchema = z.object({ divisionId: z.string().uuid().optional(), categoryId: z.string().uuid().optional() });
+const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.string().uuid().optional() }).strict();
+const laborListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), trade: z.string().trim().max(120).optional() }).strict();
+const equipmentListQuerySchema = catalogQuerySchema.strict();
+const divisionsListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional() }).strict();
+const categoriesListQuerySchema = catalogQuerySchema.extend({ divisionId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
+const subcategoriesListQuerySchema = catalogQuerySchema.extend({ categoryId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
 
 const divisionSchema = z.object({
   code: z.string().trim().min(1).max(40),
@@ -130,7 +136,8 @@ export const costbookController = {
   },
   async listMaterials(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listMaterials(auth));
+    const parsed = materialsListQuerySchema.parse(req.query);
+    res.json(await service.listMaterialsPage(auth, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], { supplierId: parsed.supplierId })));
   },
   async getMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -143,7 +150,8 @@ export const costbookController = {
   },
   async listEquipment(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listEquipment(auth));
+    const parsed = equipmentListQuerySchema.parse(req.query);
+    res.json(await service.listEquipmentPage(auth, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"] , {})));
   },
   async getEquipment(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -167,7 +175,8 @@ export const costbookController = {
   },
   async listLaborRates(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listLaborRates(auth));
+    const parsed = laborListQuerySchema.parse(req.query);
+    res.json(await service.listLaborRatesPage(auth, toCatalogQuery(parsed, "role", ["role", "createdAt", "updatedAt"], { active: parsed.active, trade: parsed.trade })));
   },
   async getLaborRate(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -196,7 +205,8 @@ export const costbookController = {
   },
   async listDivisions(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listDivisions(auth));
+    const parsed = divisionsListQuerySchema.parse(req.query);
+    res.json(await service.listDivisionsPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { active: parsed.active })));
   },
   async getDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -222,8 +232,8 @@ export const costbookController = {
   },
   async listCategories(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    const { divisionId } = listQuerySchema.parse(req.query);
-    res.json(await service.listCategories(auth, divisionId));
+    const parsed = categoriesListQuerySchema.parse(req.query);
+    res.json(await service.listCategoriesPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { divisionId: parsed.divisionId, active: parsed.active })));
   },
   async getCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -249,8 +259,8 @@ export const costbookController = {
   },
   async listSubcategories(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
-    const { categoryId } = listQuerySchema.parse(req.query);
-    res.json(await service.listSubcategories(auth, categoryId));
+    const parsed = subcategoriesListQuerySchema.parse(req.query);
+    res.json(await service.listSubcategoriesPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { categoryId: parsed.categoryId, active: parsed.active })));
   },
   async getSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -275,6 +285,18 @@ export const costbookController = {
     res.status(204).send();
   },
 };
+
+function toCatalogQuery(
+  parsed: z.infer<typeof catalogQuerySchema>,
+  defaultSort: string,
+  allowedSorts: readonly string[],
+  filters: Record<string, string | boolean | undefined>
+) {
+  return parseCatalogQuery(
+    { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order },
+    { defaultSort, allowedSorts, filters }
+  );
+}
 
 function rejectBlankNumericInput(value: unknown) {
   if (value === null) return undefined;

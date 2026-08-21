@@ -11,7 +11,7 @@ costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 
-costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.search));
+costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
 costbookRouter.get("/cost-items/search", asyncHandler(costItemCtrl.search));
 costbookRouter.get("/cost-items/:id/unit-cost", asyncHandler(costItemCtrl.getUnitCost));
 costbookRouter.get("/cost-items/:id", asyncHandler(costItemCtrl.getById));

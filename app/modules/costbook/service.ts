@@ -3,6 +3,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostbookEquipmentRepository } from "./equipmentRepository";
 import { CostbookRepository } from "./repository";
 import { getCostbookPermissionSummary } from "./permissions";
+import type { CatalogPage, CatalogQuery } from "../shared/catalog-query";
 import type {
   CostbookCategoryDTO,
   CostbookCategoryInput,
@@ -98,9 +99,19 @@ export class CostbookService {
     return rows.map(toMaterialDTO);
   }
 
+  async listMaterialsPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookMaterialDTO>> {
+    const page = await this.repository.listMaterialsPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toMaterialDTO) };
+  }
+
   async listEquipment(auth: AuthContext): Promise<CostbookEquipmentDTO[]> {
     const rows = await this.equipmentRepository.list(auth.orgId);
     return rows.map(toEquipmentDTO);
+  }
+
+  async listEquipmentPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookEquipmentDTO>> {
+    const page = await this.equipmentRepository.listPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toEquipmentDTO) };
   }
 
   async getEquipment(auth: AuthContext, id: string): Promise<CostbookEquipmentDTO> {
@@ -127,6 +138,11 @@ export class CostbookService {
   async listLaborRates(auth: AuthContext): Promise<CostbookLaborRateDTO[]> {
     const rows = await this.repository.listLaborRates(auth.orgId);
     return rows.map(toLaborRateDTO);
+  }
+
+  async listLaborRatesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookLaborRateDTO>> {
+    const page = await this.repository.listLaborRatesPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toLaborRateDTO) };
   }
 
   async getLaborRate(auth: AuthContext, id: string): Promise<CostbookLaborRateDTO> {
@@ -176,6 +192,11 @@ export class CostbookService {
     return rows.map(toDivisionDTO);
   }
 
+  async listDivisionsPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookDivisionDTO>> {
+    const page = await this.repository.listDivisionsPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toDivisionDTO) };
+  }
+
   async getDivision(auth: AuthContext, id: string): Promise<CostbookDivisionDTO> {
     const row = await this.repository.getDivisionById(auth.orgId, id);
     if (!row) throw new ApiError(404, `Division ${id} not found`);
@@ -202,6 +223,11 @@ export class CostbookService {
     return rows.map(toCategoryDTO);
   }
 
+  async listCategoriesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookCategoryDTO>> {
+    const page = await this.repository.listCategoriesPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toCategoryDTO) };
+  }
+
   async getCategory(auth: AuthContext, id: string): Promise<CostbookCategoryDTO> {
     const row = await this.repository.getCategoryById(auth.orgId, id);
     if (!row) throw new ApiError(404, `Category ${id} not found`);
@@ -226,6 +252,11 @@ export class CostbookService {
   async listSubcategories(auth: AuthContext, categoryId?: string): Promise<CostbookSubcategoryDTO[]> {
     const rows = await this.repository.listSubcategories(auth.orgId, categoryId);
     return rows.map(toSubcategoryDTO);
+  }
+
+  async listSubcategoriesPage(auth: AuthContext, query: CatalogQuery): Promise<CatalogPage<CostbookSubcategoryDTO>> {
+    const page = await this.repository.listSubcategoriesPage(auth.orgId, query);
+    return { ...page, items: page.items.map(toSubcategoryDTO) };
   }
 
   async getSubcategory(auth: AuthContext, id: string): Promise<CostbookSubcategoryDTO> {

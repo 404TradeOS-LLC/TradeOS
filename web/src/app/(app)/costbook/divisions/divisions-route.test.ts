@@ -14,9 +14,9 @@ test("divisions page loads the authenticated Costbook workspace and hierarchy ca
 
   assert.match(source, /title:\s*"Divisions \| TradeOS"/);
   assert.match(source, /getCostbookWorkspace\(token\)/);
-  assert.match(source, /listCostbookDivisions\(token\)/);
-  assert.match(source, /listCostbookCategories\(token\)/);
-  assert.match(source, /listCostbookSubcategories\(token\)/);
+  assert.match(source, /listCostbookDivisions\(token[,)]/);
+  assert.match(source, /listCostbookCategories\(token[,)]/);
+  assert.match(source, /listCostbookSubcategories\(token[,)]/);
   assert.match(source, /Couldn't load the Costbook hierarchy/);
 });
 

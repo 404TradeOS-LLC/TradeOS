@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { CostDatabaseService } from "../../modules/cost-database/service";
 import { parsePositiveNumber, requireOrgId, requirePermissions } from "../requestContext";
+import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new CostDatabaseService();
 
@@ -33,7 +34,27 @@ const updateCostItemSchema = z.object({
   message: "At least one cost-item field is required",
 });
 
+const listQuerySchema = catalogQuerySchema.extend({
+  active: catalogBooleanQuery.optional(),
+  subcategoryId: z.string().uuid().optional(),
+  componentType: z.enum(["labor", "material", "equipment", "subcontractor", "none"]).optional(),
+}).strict();
+
 export const costDatabaseController = {
+  async list(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    const parsed = listQuerySchema.parse(req.query);
+    const query = parseCatalogQuery(
+      { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order },
+      {
+        defaultSort: "code",
+        allowedSorts: ["code", "name", "createdAt", "updatedAt"],
+        filters: { active: parsed.active, subcategoryId: parsed.subcategoryId, componentType: parsed.componentType },
+      }
+    );
+    res.json(await service.listPage(query, requireOrgId(req)));
+  },
+
   async listDivisions(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const divisions = await service.listDivisions(requireOrgId(req));

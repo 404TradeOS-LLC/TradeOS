@@ -2,6 +2,7 @@ import { prisma, basePrisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { AuthContext } from "../../backend/auth/context";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { fetchConfiguredSupplierFeed } from "./feed";
 import {
   EnqueuePriceUpdateInput,
@@ -30,6 +31,29 @@ export class SupplierIntegrationService {
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
+  }
+
+  async listQueuePage(orgId: string, query: CatalogQuery): Promise<CatalogPage<SupplierPriceUpdateDTO>> {
+    query = { ...query, scope: orgId };
+    const where = {
+      orgId,
+      status: query.filters.status,
+      supplierId: query.filters.supplierId,
+      materialId: query.filters.materialId,
+      ...(query.q ? { source: { contains: query.q, mode: "insensitive" } } : {}),
+    };
+    const field = catalogField(query.sort, { createdAt: "createdAt", status: "status" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" ? "date" : "string",
+      findMany: (args) => prisma.supplierPriceUpdate.findMany(args as any) as any,
+      count: (args) => prisma.supplierPriceUpdate.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toDTO(row),
+    }) as Promise<CatalogPage<SupplierPriceUpdateDTO>>;
   }
 
   async enqueue(input: EnqueuePriceUpdateInput): Promise<SupplierPriceUpdateDTO> {
@@ -215,4 +239,10 @@ function toDTO(row: {
     reviewedAt: row.reviewedAt,
     createdAt: row.createdAt,
   };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }

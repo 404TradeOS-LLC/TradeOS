@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { SupplierIntegrationService } from "../../modules/supplier-integration/service";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new SupplierIntegrationService();
 const idSchema = z.string().uuid();
 
-const listQuerySchema = z.object({
+const listQuerySchema = catalogQuerySchema.extend({
   status: z.enum(["pending", "approved", "rejected"]).optional(),
   supplierId: z.string().uuid().optional(),
   materialId: z.string().uuid().optional(),
@@ -22,7 +23,12 @@ const enqueueSchema = z.object({
 export const supplierIntegrationController = {
   async listQueue(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    res.json(await service.listQueue(requireOrgId(req), listQuerySchema.parse(req.query)));
+    const parsed = listQuerySchema.parse(req.query);
+    const query = parseCatalogQuery(
+      { limit: parsed.limit, cursor: parsed.cursor, q: parsed.q, sort: parsed.sort, order: parsed.order ?? "desc" },
+      { defaultSort: "createdAt", allowedSorts: ["createdAt", "status"], filters: { status: parsed.status, supplierId: parsed.supplierId, materialId: parsed.materialId } }
+    );
+    res.json(await service.listQueuePage(requireOrgId(req), query));
   },
   async enqueue(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);

@@ -33,7 +33,7 @@ and does not write Costbook records.
 | Pricing preview and estimate snapshots | PASS | Shared formulas, assembly roll-up, persisted `unitCost`/`lineCost`, and snapshot tests exist. |
 | Supplier review-first pricing | PASS | Feed proposals require human approval; this pass also made approve/reject claims atomic. |
 | Review-first AI Estimate Assist | PASS | Accepted suggestions call `EstimateEngineService`; no autonomous Costbook writes. |
-| Search/filter/sort/pagination as a production catalog contract | PARTIAL | Search exists for CostItems/Assemblies and filters exist for history/queue, but most catalog list endpoints return unpaginated collections and several surfaces lack server-backed search/filter/sort. |
+| Search/filter/sort/pagination as a production catalog contract | PASS (implementation) | Canonical Costbook catalog reads now use `{items,total,nextCursor}`, bounded opaque keyset cursors, deterministic `id` tie-breakers, server-side search/filtering, and allowlisted sorting. Legacy CostItem/Assembly search routes remain explicitly bounded typeahead compatibility adapters. Focused and CI verification is recorded with this continuation PR as it completes. |
 | Authenticated rendered browser verification at 1440/1024/768/390 | ENVIRONMENT-BLOCKED | No authenticated browser/test session was available in this workspace; no viewport is claimed as passed. |
 | PostgreSQL/RLS integration execution | PASS | GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. |
 | Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository run `32449419590`: Web lint/build and App lint/unit/build jobs passed; app typecheck, unit tests, Athena contract/smoke tests, and both builds completed successfully. |
@@ -47,12 +47,17 @@ or audit record. The transaction still rolls the claim back if the subsequent
 Material update or audit insert fails. Regression coverage pins the claim and
 fail-closed behavior.
 
+The catalog continuation adds a shared query/cursor abstraction and migrates
+the canonical material, labor, equipment, hierarchy, CostItem, assembly,
+supplier-review, and price-history collection reads. Cursor tokens are bound to
+organization, filters/search, sort, and direction; totals are calculated from
+the complete filtered tenant query rather than the page predicate. Costbook
+pages now submit server-side query criteria and expose bounded next-page
+navigation.
+
 ## Smallest remaining S027 blockers
 
-1. Catalog list completeness: add a consistent server-side pagination contract,
-   and then add the required search/filter/sort parameters to each catalog
-   surface. This is an implementation slice, not a founder decision.
-2. Authenticated browser evidence: render and exercise the nine Costbook routes
+1. Authenticated browser evidence: render and exercise the nine Costbook routes
    at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
    decision. PostgreSQL/RLS execution is independently verified by CI; that

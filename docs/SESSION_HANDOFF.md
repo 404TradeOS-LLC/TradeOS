@@ -18,13 +18,15 @@ This session completed the bounded S027 Intelligent Costbook production-readines
 
 `audit/s027-costbook-production-readiness` — PR #257 (`audit(costbook): S027 production readiness pass`).
 
+The current stacked continuation is `feature/s027-costbook-catalog-query-standardization` — PR #260. It implements the remaining server-side Costbook catalog pagination/search/filter/sort slice and targets PR #257 until that base PR merges. Do not treat the continuation as landed on `main` yet.
+
 ## Reconciliation performed this session
 
 The dedicated S027 readiness pass is complete. Supplier price-proposal approval and rejection now claim the organization-scoped `pending` proposal inside the existing transaction before downstream Material or audit work. Only the successful claimant proceeds; competing review attempts fail closed; and downstream failure rolls the transaction back so the proposal returns to `pending`. Supplier feeds remain review-first and never auto-apply Material pricing. No Costbook architecture, permission-model, billing, auth-policy, or Athena write behavior changed.
 
-GitHub Actions and PostgreSQL-backed verification closed the prior dependency/database execution gate. S027 remains `PARTIAL/BLOCKED`, not production-ready, for exactly two remaining promotion blockers:
+GitHub Actions and PostgreSQL-backed verification closed the prior dependency/database execution gate. The stacked continuation closes the catalog-query implementation blocker when merged, but S027 remains `PARTIAL/BLOCKED`, not production-ready, until the implementation is landed and the final rendered browser gate is completed:
 
-1. standardized server-side catalog pagination/search/filter/sort;
+1. land and verify the standardized server-side catalog pagination/search/filter/sort implementation;
 2. authenticated rendered browser evidence for the Costbook routes at representative desktop/tablet/mobile viewports.
 
 Do not begin S007 from this handoff. After PR #257 lands, the next S027 implementation slice is catalog query standardization, followed by authenticated rendered browser verification.

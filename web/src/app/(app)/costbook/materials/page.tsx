@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Package } from "lucide-react";
 import { MaterialsCatalog } from "@/components/costbook/materials-catalog";
+import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApiClientError, getCostbookWorkspace, listCostbookMaterials, type CostbookMaterial, type CostbookWorkspaceSummary } from "@/lib/api";
@@ -16,20 +17,27 @@ function toErrorMessage(error: unknown) {
   return "Unable to load Costbook materials from the backend.";
 }
 
-export default async function CostbookMaterialsPage() {
+type MaterialsQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; supplierId?: string };
+
+export default async function CostbookMaterialsPage({ searchParams }: { searchParams: Promise<MaterialsQuery> }) {
   const token = await getSessionToken();
+  const query = await searchParams;
   let workspace: CostbookWorkspaceSummary | null = null;
   let materials: CostbookMaterial[] = [];
+  let page = { total: 0, nextCursor: null as string | null };
   let loadError: string | null = null;
 
   if (!token) {
     loadError = "You need to be signed in to view Costbook materials.";
   } else {
     try {
-      [workspace, materials] = await Promise.all([
+      const [loadedWorkspace, loadedPage] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookMaterials(token),
+        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order }),
       ]);
+      workspace = loadedWorkspace;
+      materials = loadedPage.items;
+      page = { total: loadedPage.total, nextCursor: loadedPage.nextCursor };
     } catch (error) {
       loadError = toErrorMessage(error);
     }
@@ -52,8 +60,8 @@ export default async function CostbookMaterialsPage() {
             <div className="rounded-lg border border-border/70 bg-surface p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Materials</p>
-                  <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{materials.length}</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Materials in result</p>
+              <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{page.total}</p>
                 </div>
                 <Package className="size-5 text-muted-foreground" aria-hidden="true" />
               </div>
@@ -68,6 +76,7 @@ export default async function CostbookMaterialsPage() {
             </div>
           </section>
 
+          <CatalogQueryControls pathname="/costbook/materials" query={query} total={page.total} shown={materials.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} />
           <MaterialsCatalog initialMaterials={materials} canWrite={workspace.permissions.canWrite} />
         </>
       ) : null}

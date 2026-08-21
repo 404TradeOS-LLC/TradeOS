@@ -1,6 +1,7 @@
 import { basePrisma, prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import type {
   CostbookCategoryInput,
   CostbookCategoryRecord,
@@ -59,6 +60,28 @@ export class CostbookRepository {
     });
 
     return rows.map(toLaborRateRecord);
+  }
+
+  async listLaborRatesPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookLaborRateRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      orgId: organizationId,
+      ...(query.q ? { OR: [{ role: { contains: query.q, mode: "insensitive" } }, { description: { contains: query.q, mode: "insensitive" } }, { trade: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { active: query.filters.active } : {}),
+      ...(query.filters.trade ? { trade: query.filters.trade } : {}),
+    };
+    const field = catalogField(query.sort, { role: "role", createdAt: "createdAt", updatedAt: "updatedAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" || field === "updatedAt" ? "date" : "string",
+      findMany: (args) => prisma.laborRate.findMany(args as any) as any,
+      count: (args) => prisma.laborRate.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toLaborRateRecord(row),
+    }) as Promise<CatalogPage<CostbookLaborRateRecord>>;
   }
 
   async getLaborRateById(organizationId: string, id: string): Promise<CostbookLaborRateRecord | null> {
@@ -134,6 +157,28 @@ export class CostbookRepository {
     });
 
     return rows.map(toMaterialRecord);
+  }
+
+  async listMaterialsPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookMaterialRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      orgId: organizationId,
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { sku: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.supplierId ? { supplierId: query.filters.supplierId } : {}),
+    };
+    const field = catalogField(query.sort, { name: "name", createdAt: "createdAt", updatedAt: "updatedAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" || field === "updatedAt" ? "date" : "string",
+      findMany: (args) => prisma.material.findMany(args as any) as any,
+      count: (args) => prisma.material.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toMaterialRecord(row),
+      include: { include: { supplier: { select: { id: true, name: true } } } },
+    }) as Promise<CatalogPage<CostbookMaterialRecord>>;
   }
 
   async getMaterialById(organizationId: string, id: string): Promise<CostbookMaterialRecord | null> {
@@ -236,6 +281,27 @@ export class CostbookRepository {
     return rows.map(toDivisionRecord);
   }
 
+  async listDivisionsPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookDivisionRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      orgId: organizationId,
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { code: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
+    };
+    const field = catalogField(query.sort, { name: "name", code: "code", sortOrder: "sortOrder", createdAt: "createdAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "sortOrder" ? "number" : field === "createdAt" ? "date" : "string",
+      findMany: (args) => prisma.division.findMany(args as any) as any,
+      count: (args) => prisma.division.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toDivisionRecord(row),
+    }) as Promise<CatalogPage<CostbookDivisionRecord>>;
+  }
+
   async getDivisionById(organizationId: string, id: string): Promise<CostbookDivisionRecord | null> {
     const row = await prisma.division.findFirst({ where: { id, orgId: organizationId } });
     return row ? toDivisionRecord(row) : null;
@@ -283,6 +349,29 @@ export class CostbookRepository {
     });
 
     return rows.map(toCategoryRecord);
+  }
+
+  async listCategoriesPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookCategoryRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      division: { orgId: organizationId },
+      ...(query.filters.divisionId ? { divisionId: query.filters.divisionId } : {}),
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { code: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
+    };
+    const field = catalogField(query.sort, { name: "name", code: "code", sortOrder: "sortOrder", createdAt: "createdAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "sortOrder" ? "number" : field === "createdAt" ? "date" : "string",
+      findMany: (args) => prisma.category.findMany(args as any) as any,
+      count: (args) => prisma.category.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toCategoryRecord(row),
+      include: { include: { division: { select: { orgId: true } } } },
+    }) as Promise<CatalogPage<CostbookCategoryRecord>>;
   }
 
   async getCategoryById(organizationId: string, id: string): Promise<CostbookCategoryRecord | null> {
@@ -347,6 +436,29 @@ export class CostbookRepository {
     });
 
     return rows.map(toSubcategoryRecord);
+  }
+
+  async listSubcategoriesPage(organizationId: string, query: CatalogQuery): Promise<CatalogPage<CostbookSubcategoryRecord>> {
+    query = { ...query, scope: organizationId };
+    const where = {
+      category: { division: { orgId: organizationId } },
+      ...(query.filters.categoryId ? { categoryId: query.filters.categoryId } : {}),
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { code: { contains: query.q, mode: "insensitive" } }] } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
+    };
+    const field = catalogField(query.sort, { name: "name", code: "code", sortOrder: "sortOrder", createdAt: "createdAt" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "sortOrder" ? "number" : field === "createdAt" ? "date" : "string",
+      findMany: (args) => prisma.subcategory.findMany(args as any) as any,
+      count: (args) => prisma.subcategory.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toSubcategoryRecord(row),
+      include: { include: { category: { include: { division: { select: { orgId: true } } } } } },
+    }) as Promise<CatalogPage<CostbookSubcategoryRecord>>;
   }
 
   async getSubcategoryById(organizationId: string, id: string): Promise<CostbookSubcategoryRecord | null> {
@@ -552,4 +664,10 @@ function toSubcategoryRecord(row: {
     isActive: row.isActive,
     createdAt: row.createdAt,
   };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }
