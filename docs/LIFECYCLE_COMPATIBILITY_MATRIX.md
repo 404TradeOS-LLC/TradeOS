@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-08
+last_verified: 2026-08-21
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -41,9 +41,9 @@ The six lifecycle families in scope are projects, estimates, proposals, contract
 
 | Domain | Canonical values | Observed persisted/runtime values and aliases | Compatibility behavior | Unsafe drift | Follow-up |
 |---|---|---|---|---|---|
-| Project | `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, `archived` | Current/legacy values include `opportunity`, `estimate`, `site_visit`, `proposal`, `proposal_draft`, `proposal_sent`, `proposed`, `accepted`, `contract`, `won`, `active_job`, `field_execution`, `in_production`, `change_orders`, `closeout`, `complete`, `warranty`, `lost` | `legacyProjectStatusMap` folds aliases into the seven canonical project states | Proposal service still writes `proposal_draft`, `proposal_sent`, and `accepted` into Project.status, so persistence remains intentionally non-canonical. Generic fallback maps unknown project strings to `lead`, which can hide invalid data. | S007 |
+| Project | `lead`, `estimating`, `awarded`, `active`, `on_hold`, `completed`, `archived` | Current/legacy values include `opportunity`, `estimate`, `site_visit`, `proposal`, `proposal_draft`, `proposal_sent`, `proposed`, `accepted`, `contract`, `won`, `active_job`, `field_execution`, `in_production`, `change_orders`, `closeout`, `complete`, `warranty`, `lost` | `legacyProjectStatusMap` folds aliases into the seven canonical project states; new proposal-driven project writes use canonical `estimating` or `awarded` | Existing stored aliases remain readable through DTO normalization. S007 removes the active proposal-service writes of `proposal_draft`, `proposal_sent`, and `accepted`; generic fallback still maps unknown project strings to `lead` for compatibility. | S007 |
 | Estimate | `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, `superseded` | Current lifecycle docs confirm draft-only mutation and `draft -> ready`; `rejected` is retained as a legacy synonym for `declined` | `legacyEstimateStatusMap` maps `rejected -> declined` | **Critical contract inconsistency:** `sent` is itself canonical but `legacyEstimateStatusMap` maps `sent -> ready`. Therefore `normalizeEstimateStatus("sent")` returns `ready`, contradicting the canonical enum and transition table. | S008 |
-| Proposal | `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, `expired` | Service writes `draft`, `sent`, `viewed`, `accepted`, `rejected`; project side effects write `proposal_draft`, `proposal_sent`, `accepted` to the related Project | Proposal `rejected -> declined`; project aliases normalize separately | Storage/service uses `rejected` while canonical vocabulary uses `declined`; `generated` and `expired` are canonical but not part of the currently documented persisted service path. Related Project state is advanced with legacy values rather than project canonical values. | S009 plus project side-effect cleanup coordinated with S007 |
+| Proposal | `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, `expired` | Proposal persistence writes `draft`, `sent`, `viewed`, `accepted`, and legacy `rejected`; related Project side effects now write canonical `estimating` or `awarded` | Proposal `rejected -> declined`; historical Project aliases normalize separately through `legacyProjectStatusMap` | Proposal storage/service still uses `rejected` while canonical vocabulary uses `declined`; `generated` and `expired` are canonical but not part of the currently documented persisted proposal-service path. The former Project-side-effect legacy writes are resolved by S007. | S009 |
 | Contract | `draft`, `sent`, `viewed`, `signed`, `voided` | Current persistence/service compatibility uses `pending_signature` for the pre-signature phase; schema/docs identify `pending_signature` as an active stored value/default | `pending_signature -> sent` for canonical display | Stored contract state and canonical state differ by design. The compatibility layer must remain until persistence is deliberately migrated. `draft`/`viewed` are canonical contract states but current service documentation centers the `pending_signature -> signed|voided` path. | S010 |
 | Invoice | `draft`, `sent`, `viewed`, `partially_paid`, `paid`, `overdue`, `voided` | Legacy values include `void` and `cancelled`; current enforced service transitions documented as `draft -> sent`, `sent|overdue -> paid`, and non-paid -> voided | `void -> voided`, `cancelled -> voided` | Canonical contract contains richer `viewed` and `partially_paid` states than the currently documented enforced transition path. Compatibility aliases remain accepted/displayable. Unknown invoice values fall back to `draft`. | S011 |
 | Job | `unscheduled`, `scheduled`, `dispatched`, `traveling`, `on_site`, `paused`, `completed`, `cancelled` | Current job service/docs use the canonical vocabulary directly for scheduling/dispatch/field work. Reopen allows completed back to `unscheduled|scheduled`. | No job legacy map is currently defined in `app/domain/contracts.ts` | Job lifecycle is the least alias-heavy of the six, but its transition semantics are not represented by the same generic compatibility-map pattern as the commercial documents. `cancelled` is globally terminal while privileged reopen applies only to `completed`. | S012 |
@@ -90,15 +90,21 @@ The current shared frontend `StatusBadge` does **not** call `normalizeDisplaySta
 - `completed`: `completed`, `complete`, `warranty`
 - `archived`: `archived`, `lost`
 
-### Confirmed runtime writes outside canonical vocabulary
+### Historical non-canonical writes resolved by S007
 
-`app/modules/proposals/service.ts` writes:
+Before S007, `app/modules/proposals/service.ts` wrote:
 
 - proposal creation/duplication/rejection side effect -> Project `proposal_draft`
 - proposal send/resend side effect -> Project `proposal_sent`
 - proposal acceptance side effect -> Project `accepted`
 
-These are deliberate compatibility writes today, but they are the central S007 normalization target.
+S007 changes these side effects to canonical project writes:
+
+- proposal creation/duplication/rejection -> `estimating`
+- proposal send/resend -> `estimating`
+- proposal acceptance -> `awarded`
+
+Existing persisted aliases remain readable through `legacyProjectStatusMap`; this slice does not perform a destructive data migration.
 
 ## Estimate inventory — S008 input
 
@@ -136,7 +142,7 @@ These are deliberate compatibility writes today, but they are the central S007 n
 
 ### Project coupling
 
-Proposal actions also mutate Project.status using `proposal_draft`, `proposal_sent`, or `accepted`. S009 must not normalize those side effects independently of S007's project contract.
+Proposal actions still advance the related Project, but S007 normalizes those side effects to the Project contract: draft creation/duplication/decline, send, and resend write `estimating`; acceptance writes `awarded`. Historical Project aliases remain readable through `legacyProjectStatusMap`. S009 therefore owns the remaining Proposal-specific drift (`rejected` storage versus canonical `declined`, plus any future `generated`/`expired` transition work) and must not reintroduce Project compatibility writes.
 
 ## Contract inventory — S010 input
 
@@ -186,19 +192,19 @@ Current documented transitions:
 ## Risk ranking for normalization work
 
 1. **S008 / Estimate — high:** canonical `sent` currently normalizes to `ready`.
-2. **S007 / Project — high:** active service code writes multiple legacy project statuses and downstream workflows depend on them.
-3. **S009 / Proposal — high:** `rejected` storage differs from canonical `declined`, and proposal actions directly write project compatibility states.
-4. **S010 / Contract — medium-high:** `pending_signature` is an active persisted compatibility state rather than a cosmetic alias.
-5. **S011 / Invoice — medium:** aliases plus documented transition coverage differ from the richer shared contract.
-6. **S012 / Job — medium-low vocabulary drift, high workflow importance:** canonical values are comparatively aligned, but scheduling/dispatch transition enforcement is operationally sensitive.
+2. **S009 / Proposal — high:** `rejected` storage differs from canonical `declined`; Project-side effects are normalized by S007 and must stay canonical.
+3. **S010 / Contract — medium-high:** `pending_signature` is an active persisted compatibility state rather than a cosmetic alias.
+4. **S011 / Invoice — medium:** aliases plus documented transition coverage differ from the richer shared contract.
+5. **S012 / Job — medium-low vocabulary drift, high workflow importance:** canonical values are comparatively aligned, but scheduling/dispatch transition enforcement is operationally sensitive.
+6. **S007 / Project — resolved in this slice for new proposal-driven writes:** historical aliases remain read-compatible; no destructive migration is performed.
 
 ## S006 conclusions
 
 - A single canonical vocabulary already exists in shared contracts, but persistence and service behavior are not uniformly canonical.
-- Project, proposal, and contract compatibility values are still actively written; they cannot be removed as dead aliases.
+- Historical Project aliases remain readable, while S007 stops proposal workflows from writing new Project compatibility aliases. Proposal `rejected` and Contract `pending_signature` remain active compatibility persistence concerns for their own follow-up sprints.
 - Estimate normalization contains a direct internal contradiction for `sent`.
 - Context-free generic normalization is unsafe for overlapping commercial lifecycle strings.
 - Job vocabulary is comparatively aligned, making S012 primarily a transition/enforcement normalization exercise rather than an alias cleanup.
 - S007-S012 must preserve backwards compatibility deliberately and should not combine all six domains into one migration.
 
-S006 records these facts only. No lifecycle behavior, persistence, API response, schema, transition, or UI behavior is changed by this inventory.
+This matrix began as S006 inventory evidence and is kept current as the follow-up normalization sprints land. S007 changes Project write behavior only; it does not authorize S008-S012 behavior, schema, or migration changes.

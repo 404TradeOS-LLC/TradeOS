@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-08-21
 source_of_truth: false
 related_code:
   - app/modules/proposals
@@ -50,7 +50,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Lifecycle and statuses
 
-See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
+See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update the related Project with canonical project lifecycle values: draft creation/duplication/decline, send, and resend use `estimating`; acceptance uses `awarded`. Historical project values such as `proposal_draft`, `proposal_sent`, and `accepted` remain readable through project compatibility normalization but are no longer written by this service.
 
 ## Emitted activity events
 
@@ -84,4 +84,4 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 ## Last verified date
 
-2026-07-14
+2026-08-21
