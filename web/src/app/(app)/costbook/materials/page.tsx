@@ -33,7 +33,7 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
     try {
       const [loadedWorkspace, loadedPage] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order }),
+        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, supplierId: query.supplierId }),
       ]);
       workspace = loadedWorkspace;
       materials = loadedPage.items;
