@@ -67,16 +67,16 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Current numbered-sprint state
 
-- S001-S006 are complete where the backlog records merged evidence; specifically, S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`.
-- S007 is being promoted to `READY` through governance-only PR #262. Its only dependency, S006, is `DONE`; the compatibility matrix already scopes the Project-specific drift; no founder decision, schema migration, or blocked infrastructure is required. The previously opened implementation PR #261 is temporarily closed without merge while this readiness promotion is pending, satisfying the no-open-overlap requirement.
+- S001-S007 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
+- No numbered sprint is currently `READY`. S008 remains `PLANNED`; completing S007 does not implicitly promote S008.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. The current bounded sequence is: land governance-only PR #262, then reopen and refresh the existing S007 implementation PR #261 on the new `main`, run exact-head CI/review reconciliation, and merge #261 only if repository governance is satisfied. Do not create another S007 branch and do not start S008 from this sequence.
+Prioritize existing authorized work before inventing new scope. S007 is complete. The next numbered lifecycle step is not implementation: S008 requires a separate governance-only readiness assessment/promotion against the S006 compatibility matrix before any S008 branch or implementation work may begin. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
-The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for S007.
+The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
 ## Autonomous maintenance operating mode
 
@@ -164,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-Land governance-only PR #262 first. Once it merges, S007 is the numbered `READY` sprint. Reopen and refresh the preserved PR #261 rather than creating duplicate work, verify its exact final head and review state, and merge it only if all required repository rules pass. Do not infer S008 readiness from S007 work.
+No numbered sprint is currently `READY`. S007 is complete through PR #261. Reconcile live GitHub state and the S006 compatibility matrix before preparing any governance-only S008 readiness promotion; do not begin S008 implementation while it remains `PLANNED`.
 
 ## Source-of-truth links
 
