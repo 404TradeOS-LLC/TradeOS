@@ -137,7 +137,7 @@ export const costbookController = {
   async listMaterials(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = materialsListQuerySchema.parse(req.query);
-    res.json(await service.listMaterialsPage(auth, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], { supplierId: parsed.supplierId })));
+    res.json(await service.listMaterialsPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], { supplierId: parsed.supplierId })));
   },
   async getMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -151,7 +151,7 @@ export const costbookController = {
   async listEquipment(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = equipmentListQuerySchema.parse(req.query);
-    res.json(await service.listEquipmentPage(auth, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"] , {})));
+    res.json(await service.listEquipmentPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], {})));
   },
   async getEquipment(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -176,7 +176,7 @@ export const costbookController = {
   async listLaborRates(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = laborListQuerySchema.parse(req.query);
-    res.json(await service.listLaborRatesPage(auth, toCatalogQuery(parsed, "role", ["role", "createdAt", "updatedAt"], { active: parsed.active, trade: parsed.trade })));
+    res.json(await service.listLaborRatesPage(auth.orgId, toCatalogQuery(parsed, "role", ["role", "createdAt", "updatedAt"], { active: parsed.active, trade: parsed.trade })));
   },
   async getLaborRate(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -206,7 +206,7 @@ export const costbookController = {
   async listDivisions(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = divisionsListQuerySchema.parse(req.query);
-    res.json(await service.listDivisionsPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { active: parsed.active })));
+    res.json(await service.listDivisionsPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { active: parsed.active })));
   },
   async getDivision(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -233,7 +233,7 @@ export const costbookController = {
   async listCategories(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = categoriesListQuerySchema.parse(req.query);
-    res.json(await service.listCategoriesPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { divisionId: parsed.divisionId, active: parsed.active })));
+    res.json(await service.listCategoriesPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { divisionId: parsed.divisionId, active: parsed.active })));
   },
   async getCategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -260,7 +260,7 @@ export const costbookController = {
   async listSubcategories(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = subcategoriesListQuerySchema.parse(req.query);
-    res.json(await service.listSubcategoriesPage(auth, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { categoryId: parsed.categoryId, active: parsed.active })));
+    res.json(await service.listSubcategoriesPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "code", "sortOrder", "createdAt"], { categoryId: parsed.categoryId, active: parsed.active })));
   },
   async getSubcategory(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
