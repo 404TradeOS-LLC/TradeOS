@@ -31,7 +31,7 @@ Authenticate users, resolve organization membership, and establish the RLS-backe
 
 Protected API requests must derive tenant context from a verified authenticated identity plus an active membership. Request headers are not a tenant-selection mechanism.
 
-Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary.
+Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary. Request transactions have a 60-second execution timeout and a separately bounded 15-second acquisition wait by default. The acquisition wait prevents parallel authenticated loaders from failing at Prisma's two-second default while a serverless instance's intentionally single-connection pool is busy; `RLS_TRANSACTION_TIMEOUT_MS` and `RLS_TRANSACTION_MAX_WAIT_MS` may override the positive millisecond values.
 
 ## Source code locations
 

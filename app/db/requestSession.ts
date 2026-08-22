@@ -23,6 +23,7 @@ export async function runWithDatabaseSession<T>(
   operation: () => Promise<T>,
   sessionSource = "http"
 ): Promise<T> {
+  const maxWait = parseTransactionDuration(process.env.RLS_TRANSACTION_MAX_WAIT_MS, 15_000);
   const timeout = parseTransactionTimeout(process.env.RLS_TRANSACTION_TIMEOUT_MS);
 
   return client.$transaction(
@@ -37,7 +38,7 @@ export async function runWithDatabaseSession<T>(
 
       return requestDatabase.run(transaction, operation);
     },
-    { timeout }
+    { maxWait, timeout }
   );
 }
 
@@ -88,7 +89,11 @@ export async function runWithBackgroundDatabaseSession<T>(
 }
 
 function parseTransactionTimeout(value: string | undefined): number {
-  if (!value) return 60_000;
+  return parseTransactionDuration(value, 60_000);
+}
+
+function parseTransactionDuration(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
