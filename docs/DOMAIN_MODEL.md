@@ -105,6 +105,7 @@ A customer-facing commercial document stored in `Proposal`.
 - may reference one estimate
 - owns proposal delivery history
 - can produce contracts and support invoices
+- uses canonical lifecycle states `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, and `expired`; historical stored `rejected` rows remain read-compatible and normalize to `declined`, while new decline mutations persist canonical `declined`
 
 ## Contract
 

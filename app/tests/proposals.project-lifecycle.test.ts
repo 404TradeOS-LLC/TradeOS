@@ -70,11 +70,11 @@ describe("proposal-driven Project lifecycle behavior", () => {
     });
   });
 
-  it("moves rejected proposals back to canonical estimating", async () => {
+  it("moves declined proposals back to canonical estimating", async () => {
     mockPrisma.proposal.findFirst
       .mockResolvedValueOnce(proposalRow("sent"))
-      .mockResolvedValueOnce(proposalRow("rejected"));
-    mockPrisma.proposal.update.mockResolvedValue(proposalRow("rejected"));
+      .mockResolvedValueOnce(proposalRow("declined"));
+    mockPrisma.proposal.update.mockResolvedValue(proposalRow("declined"));
     mockPrisma.proposalDelivery.create.mockResolvedValue({});
 
     const service = new ProposalsService();

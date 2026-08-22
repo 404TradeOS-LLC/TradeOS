@@ -206,8 +206,9 @@ export class ProposalsService {
 
   async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (row.status === "draft") throw new ApiError(409, `Proposal ${id} has not been sent yet`);
-    if (row.status === "viewed" || row.status === "accepted" || row.status === "rejected") return toDTO(row);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (currentStatus === "draft") throw new ApiError(409, `Proposal ${id} has not been sent yet`);
+    if (currentStatus === "viewed" || currentStatus === "accepted" || currentStatus === "declined") return toDTO(row);
     const updated = await prisma.proposal.update({ where: { id }, data: { status: "viewed", viewedAt: new Date() } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
@@ -223,7 +224,8 @@ export class ProposalsService {
 
   async accept(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${row.status}`);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
     const updated = await prisma.proposal.update({ where: { id }, data: { status: "accepted", respondedAt: new Date() } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
@@ -240,16 +242,17 @@ export class ProposalsService {
 
   async reject(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) throw new ApiError(409, `Proposal ${id} cannot be rejected from status ${row.status}`);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "rejected", respondedAt: new Date() } });
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
+    const updated = await prisma.proposal.update({ where: { id }, data: { status: "declined", respondedAt: new Date() } });
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
       projectId: row.projectId,
       actorUserId,
-      eventType: "proposal.rejected",
+      eventType: "proposal.declined",
       recipientEmail: row.project.customer?.email ?? null,
-      metadata: { previousStatus: row.status, newStatus: "rejected" },
+      metadata: { previousStatus: currentStatus, newStatus: "declined" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
@@ -257,8 +260,9 @@ export class ProposalsService {
 
   async resend(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) {
-      throw new ApiError(409, `Proposal ${id} cannot be resent from status ${row.status}`);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be resent from status ${currentStatus}`);
     }
 
     const updated = await prisma.proposal.update({
@@ -275,7 +279,7 @@ export class ProposalsService {
       actorUserId,
       eventType: "proposal.resent",
       recipientEmail: row.project.customer?.email ?? null,
-      metadata: { previousStatus: row.status, newStatus: "sent" },
+      metadata: { previousStatus: currentStatus, newStatus: "sent" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
@@ -536,7 +540,7 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     estimateId: row.estimateId,
-    status: row.status,
+    status: normalizeProposalStatus(row.status),
     companyName: row.companyName,
     showLineItemDetail: row.showLineItemDetail,
     scopeOfWork: row.scopeOfWork,
