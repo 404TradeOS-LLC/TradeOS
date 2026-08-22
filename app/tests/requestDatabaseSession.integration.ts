@@ -17,15 +17,19 @@ const auth = {
 
 describe("request database session transaction acquisition", () => {
   const originalMaxWait = process.env.RLS_TRANSACTION_MAX_WAIT_MS;
+  const originalTimeout = process.env.RLS_TRANSACTION_TIMEOUT_MS;
 
   afterAll(async () => {
     if (originalMaxWait === undefined) delete process.env.RLS_TRANSACTION_MAX_WAIT_MS;
     else process.env.RLS_TRANSACTION_MAX_WAIT_MS = originalMaxWait;
+    if (originalTimeout === undefined) delete process.env.RLS_TRANSACTION_TIMEOUT_MS;
+    else process.env.RLS_TRANSACTION_TIMEOUT_MS = originalTimeout;
     await appClient.$disconnect();
   });
 
   it("waits beyond Prisma's default acquisition window for a busy single-connection pool", async () => {
     process.env.RLS_TRANSACTION_MAX_WAIT_MS = "5000";
+    process.env.RLS_TRANSACTION_TIMEOUT_MS = "5000";
 
     let releaseFirst!: () => void;
     const holdFirst = new Promise<void>((resolve) => {

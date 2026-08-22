@@ -77,10 +77,11 @@ Authenticated production evidence on 2026-08-22 covered `/costbook`,
 1363x936 viewport. All routes reached their real API-backed empty or preview
 state without horizontal overflow after full initialization. Vercel runtime
 logs from the initial parallel pass nevertheless recorded transaction-
-acquisition `500`s on workspace, labor-rate, and settings reads; the bounded
-acquisition-wait repair must merge, deploy, and be re-exercised before that
-production reliability defect is closed. Exact required viewports remain the
-separate final promotion gate.
+acquisition `500`s on workspace, labor-rate, and settings reads. The merged
+acquisition-wait repair must deploy and be re-exercised, and its focused
+PostgreSQL contention follow-up must pass, before that production reliability
+defect is closed. Exact required viewports remain the separate final promotion
+gate.
 
 S027 should remain `BLOCKED`/not promoted until those two gates are closed. The
 remaining gaps do not require a founder decision; the post-merge browser gate
