@@ -171,7 +171,7 @@ Canonical display states:
 
 Current persisted values:
 
-- the database currently defaults to `pending_signature`
+- the database currently defaults to `pending_signature`; the `contracts.status` check constraint accepts only `pending_signature`, `signed`, `voided` — canonical `draft`/`sent`/`viewed` are not DB-legal
 - `pending_signature` is the compatibility storage value for the pre-signature contract phase
 
 Current enforced transitions:
@@ -183,7 +183,7 @@ Current enforced transitions:
 
 Compatibility note:
 
-- the repository has event history for contracts, but the canonical display state names are ahead of the stored default name
+- S010 normalizes the API surface: `ContractsService.toDTO()` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
 
 ## Jobs
 

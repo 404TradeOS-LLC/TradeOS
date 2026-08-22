@@ -340,6 +340,8 @@ Project lifecycle behavior:
 
 Proposal lifecycle responses use canonical `declined`. `POST /api/v1/proposals/:id/reject` remains the compatibility route name, but a successful transition from `sent` or `viewed` persists `declined`, records `proposal.declined`, and moves the related Project to canonical `estimating`. Historical stored `rejected` values remain readable and normalize to `declined`; no organization or permission boundary changes.
 
+Contract lifecycle responses under `/api/v1/contracts/*` use canonical `sent` in place of stored `pending_signature` (S010). The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
+
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
