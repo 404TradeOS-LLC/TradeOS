@@ -35,10 +35,10 @@ and does not write Costbook records.
 | Review-first AI Estimate Assist | PASS | Accepted suggestions call `EstimateEngineService`; no autonomous Costbook writes. |
 | Search/filter/sort/pagination as a production catalog contract | PASS (implementation) | Canonical Costbook catalog reads now use `{items,total,nextCursor}`, bounded opaque keyset cursors, deterministic `id` tie-breakers, server-side search/filtering, and allowlisted sorting. Legacy CostItem/Assembly search routes remain explicitly bounded typeahead compatibility adapters. |
 | Catalog-query continuation verification | PASS | PR `#260` merged as `cb4ebed`; its required GitHub checks and PostgreSQL-backed integration rehearsal were green before merge. |
-| Current production-repair exact-head verification | PR GATE | The request-transaction acquisition-wait repair must pass Docs consistency, Dependency review, full Verify repository, and PostgreSQL-backed integration rehearsal on its final PR head. |
+| Current production-repair exact-head verification | FOLLOW-UP GATE | PR `#273` merged as `3de3f98` after Docs consistency, Dependency review, full Verify repository, and the existing PostgreSQL rehearsal passed. A post-review follow-up must add the focused PostgreSQL transaction-contention regression before this repair is considered fully evidenced. |
 | Authenticated rendered browser verification at 1440/1024/768/390 | PARTIAL | An authenticated production session rendered all nine Costbook routes at the cloud browser's actual 1363x936 viewport with no horizontal overflow and truthful tenant-scoped empty states after full loading. The first parallel startup pass also reproduced intermittent request-transaction acquisition `500`s, so this evidence correctly triggered a bounded runtime repair rather than promotion. Exact 1440/1024/768/390 renders remain unclaimed. |
-| PostgreSQL/RLS integration execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PR `#260` must independently pass its final-head integration rehearsal before merge. |
-| Full backend/frontend test, lint, and build execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590` passed Web lint/build and App lint/unit/build. PR `#260` must independently pass its final-head full verification before merge. |
+| PostgreSQL/RLS integration execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PRs `#260` and `#273` independently passed their final-head integration rehearsals; the focused single-connection contention regression remains a follow-up gate. |
+| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository runs `32449419590` and `32586823430` passed the applicable backend/frontend lint, unit, build, and integration lanes for PRs `#260` and `#273`. |
 
 ## Concrete repair in this pass
 
@@ -59,13 +59,12 @@ navigation.
 
 ## Smallest remaining S027 blockers
 
-1. Production reliability gate: merge and deploy the bounded request-
-   transaction acquisition-wait repair only after its exact PR head passes
-   Docs consistency, Dependency review, full repository verification, and the
-   PostgreSQL-backed integration rehearsal; then repeat the authenticated
-   parallel Costbook route load and confirm no acquisition-timeout `500`s.
+1. Production reliability gate: land the post-review PostgreSQL contention
+   regression for the merged request-transaction acquisition-wait repair, then
+   confirm its exact head passes required CI and repeat the authenticated
+   parallel Costbook route load without acquisition-timeout `500`s.
 2. Authenticated browser evidence: render and exercise the nine Costbook routes
-   at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
+   at 1440px, 1024px, 768px, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
    decision. PostgreSQL/RLS execution is independently verified by CI; that
    database evidence must not be treated as a substitute for rendered browser
