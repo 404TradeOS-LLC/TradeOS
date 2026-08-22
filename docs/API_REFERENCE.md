@@ -68,8 +68,9 @@ Known Prisma mappings include:
 
 Every authenticated request already runs inside a request-scoped `Prisma.TransactionClient` (`databaseSession` middleware, `app/db/requestSession.ts`), so service/controller code that needs its own nested transaction must call the existing `runInDatabaseTransaction()` helper rather than the shared `prisma` client's `.$transaction()` directly — the request-scoped transaction client has no `$transaction` method of its own, so calling it directly throws a `500`. This previously broke `PATCH /api/v1/settings` in production and was fixed alongside the same unexercised pattern in `crm`, `brand-studio`, and the project-tasks controller; see [modules/settings-and-operations.md](modules/settings-and-operations.md). `app/tests/requestScopedTransaction.convention.test.ts` guards against reintroducing this pattern.
 
-Acquiring that outer request transaction uses a bounded 15-second wait by
-default (`RLS_TRANSACTION_MAX_WAIT_MS`) in addition to the existing 60-second
+Acquiring the pre-RLS membership-resolution transaction and the outer request
+transaction uses a shared bounded 15-second wait by default
+(`RLS_TRANSACTION_MAX_WAIT_MS`) in addition to the request transaction's 60-second
 execution timeout (`RLS_TRANSACTION_TIMEOUT_MS`). This preserves the same API,
 permission, and RLS contract while allowing parallel authenticated page-loader
 requests to queue behind the intentionally one-connection serverless Prisma
