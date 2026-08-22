@@ -41,7 +41,7 @@ import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
 import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
 import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
 import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
-import { mergeTradeOsSettingsDraft } from "@/lib/settings";
+import { loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
 
 export const metadata: Metadata = {
   title: "Owner Dashboard | TradeOS",
@@ -192,15 +192,6 @@ function getZonedDayOrdinal(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / 86_400_000;
 }
 
-function getSafeTimeZone(timeZone: string) {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-    return timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
 function isSameDay(value: string | null | undefined, comparison: Date, timeZone: string) {
   const date = toValidDate(value);
   return date ? getZonedDayOrdinal(date, timeZone) === getZonedDayOrdinal(comparison, timeZone) : false;
@@ -231,7 +222,9 @@ export default async function DashboardPage() {
   const [session, token] = await Promise.all([getSession(), getSessionToken()]);
   const now = new Date();
   const staleProposalCutoffIso = getStaleProposalCutoffIso(now);
-  const [projects, settingsResponse] = token ? await Promise.all([listProjects(token), getOrganizationSettings(token)]) : [[], null];
+  const { projects, settingsResponse } = token
+    ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
+    : { projects: [], settingsResponse: null };
   const [projectDetails, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
     ? await Promise.all([
         Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
@@ -258,9 +251,7 @@ export default async function DashboardPage() {
   });
   const weather = await loadDashboardWeather(weatherAddress, getWeatherForAddress);
 
-  const settings = mergeTradeOsSettingsDraft(settingsResponse?.settings);
-  const companyName = settings.companyName;
-  const timeZone = getSafeTimeZone(settings.timezone);
+  const { companyName, timeZone } = resolveDashboardOrganizationContext(settingsResponse?.settings, todaySchedule.timezone);
   let dashboardTasksError: string | null = null;
   let taskActivityError: string | null = null;
   const dashboardTasks = token
