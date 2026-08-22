@@ -4,6 +4,7 @@ import { AuthContext } from "./context";
 import { AuthClaims } from "./jwt";
 import { ApiError } from "../middleware/errorHandler";
 import { getRolePermissions, normalizeRole, SupportedRole } from "../../domain";
+import { getDatabaseTransactionMaxWait } from "../../db/requestSession";
 
 export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContext> {
   return basePrisma.$transaction(async (transaction) => {
@@ -53,5 +54,5 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
       permissions: getRolePermissions(membership.role),
       email: user.email,
     };
-  });
+  }, { maxWait: getDatabaseTransactionMaxWait() });
 }

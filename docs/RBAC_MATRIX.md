@@ -72,6 +72,9 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
 - request headers cannot select or impersonate a tenant
+- waiting longer to acquire the request-scoped transaction changes only
+  contention handling; the authenticated organization, role permissions, and
+  forced-RLS session are still established inside the acquired transaction
 
 ## Assigned-technician restrictions
 
