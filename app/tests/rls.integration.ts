@@ -1197,7 +1197,7 @@ describe("live organization row-level security", () => {
     const contract = await inSession(adminUser, orgA, "admin", async () =>
       new ContractsService().create({ orgId: orgA, actorUserId: adminUser, actorRole: "admin", proposalId: proposal.id })
     );
-    expect(contract.status).toBe("pending_signature");
+    expect(contract.status).toBe("sent");
     expect(contract.events.map((event) => event.eventType)).toEqual(["contract.created"]);
 
     const signed = await inSession(adminUser, orgA, "admin", async () =>
