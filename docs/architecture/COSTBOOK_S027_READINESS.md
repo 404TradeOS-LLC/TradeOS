@@ -4,7 +4,7 @@ Status: `PARTIAL` — dedicated readiness pass completed; promotion is not asser
 
 Baseline: `06c48933a7ad17322bb36bdcbf10f4471a5d891f` (`origin/main` and the audit branch at task start).
 
-Current reconciliation head: `98000693360b8b1256d047cbafca88a70a76f700` (`main`, merged PR `#274`).
+Current reconciliation head: `98000693360b8b1256d047cbafca88a70a76f700` (`main`, merged PR `#274`). Repository verification evidence in this document is not a production-deployment attestation.
 
 ## Current implementation inventory
 
