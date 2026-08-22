@@ -83,10 +83,11 @@ Evidence: PR #264 merged 2026-08-22 as `dee5f98f0b46e98782b887fca80a63e55800cd65
 
 ### S009 — Proposal lifecycle normalization
 
-Status: PLANNED
+Status: READY
 Dependencies: S006
 Objective: Normalize proposal lifecycle values and customer-facing labels.
 Acceptance: proposal workflow and portal display use the same canonical contract.
+Readiness: S006's compatibility matrix identifies the bounded `rejected` storage versus canonical `declined` drift and the remaining proposal transition/label work. S007's merged Project-side-effect normalization is preserved as a dependency boundary; no founder decision, schema migration, or infrastructure dependency is required. Live reconciliation on 2026-08-22 found no overlapping open S009/proposal-lifecycle implementation PR or branch.
 
 ### S010 — Contract lifecycle normalization
 
@@ -418,8 +419,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: NONE
-Eligibility: S007 and S008 are `DONE` with merged evidence. S009 remains `PLANNED` and requires a separate governance-only readiness promotion before implementation.
-Dependencies: S006, S007, and S008 are `DONE`. No numbered sprint is currently `READY`.
-Overlap check: PR #264 is merged; reverify live GitHub state before any S009 readiness promotion.
+Sprint ID: S009 — Proposal lifecycle normalization
+Eligibility: S009 is `READY`; S006, S007, and S008 are `DONE` with merged evidence. No other numbered sprint is eligible ahead of S009.
+Dependencies: S006, S007, and S008 are `DONE`.
+Overlap check: Live reconciliation found no overlapping open or draft S009/proposal-lifecycle PR; reverify before implementation branch creation.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.
