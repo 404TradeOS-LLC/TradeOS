@@ -67,14 +67,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Current numbered-sprint state
 
-- S001-S007 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
-- S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its canonical backlog status remains `PLANNED` until review and merge.
+- S001-S008 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, and S008 Estimate lifecycle normalization merged in PR #264 as `dee5f98f0b46e98782b887fca80a63e55800cd65`.
+- S009 is the next numbered lifecycle item but remains `PLANNED` pending a separate governance-only readiness promotion.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007 is complete. The active S008 slice is limited to estimate lifecycle normalization against the S006 compatibility matrix; it does not add customer-facing estimate delivery workflows. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S007 and S008 are complete. The next numbered lifecycle item is S009, which requires readiness promotion before implementation; do not begin it from this completion-evidence branch. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -164,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261. S008 implementation is active on its dedicated branch and remains unpromoted until focused verification, review, and merge are complete.
+S007 is complete through PR #261 and S008 is complete through PR #264. S009 remains `PLANNED` and must receive its own governance-only readiness promotion before implementation.
 
 ## Source-of-truth links
 
