@@ -29,6 +29,6 @@ export function resolveRuntimeDatabaseUrl(
   url.searchParams.set("pgbouncer", "true");
   url.searchParams.set("connection_limit", "1");
   url.searchParams.set("sslmode", "require");
-  url.searchParams.set("sslaccept", "strict");
+  url.searchParams.delete("sslaccept");
   return url.toString();
 }
