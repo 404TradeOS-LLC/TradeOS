@@ -2,7 +2,7 @@ import { resolveRuntimeDatabaseUrl } from "../db/runtimeDatabaseUrl";
 
 describe("resolveRuntimeDatabaseUrl", () => {
   const sessionUrl =
-    "postgresql://tradeos_app:p%40ss@aws-0-us-west-2.pooler.supabase.com:5432/postgres?schema=public&sslmode=require";
+    "postgresql://tradeos_app:p%40ss@aws-0-us-west-2.pooler.supabase.com:5432/postgres?schema=public&sslmode=require&sslaccept=strict";
 
   it("moves a Vercel Supabase session-pool URL to bounded transaction mode", () => {
     const resolved = resolveRuntimeDatabaseUrl(sessionUrl, true);
@@ -17,12 +17,12 @@ describe("resolveRuntimeDatabaseUrl", () => {
     expect(parsed.searchParams.get("pgbouncer")).toBe("true");
     expect(parsed.searchParams.get("connection_limit")).toBe("1");
     expect(parsed.searchParams.get("sslmode")).toBe("require");
-    expect(parsed.searchParams.get("sslaccept")).toBe("strict");
+    expect(parsed.searchParams.has("sslaccept")).toBe(false);
   });
 
   it("bounds an already-transaction-mode Supabase URL", () => {
     const resolved = resolveRuntimeDatabaseUrl(
-      "postgresql://user:pass@aws-0-us-west-2.pooler.supabase.com:6543/postgres?connection_limit=8",
+      "postgresql://user:pass@aws-0-us-west-2.pooler.supabase.com:6543/postgres?connection_limit=8&sslaccept=strict",
       true,
     );
     const parsed = new URL(resolved!);
@@ -31,7 +31,7 @@ describe("resolveRuntimeDatabaseUrl", () => {
     expect(parsed.searchParams.get("pgbouncer")).toBe("true");
     expect(parsed.searchParams.get("connection_limit")).toBe("1");
     expect(parsed.searchParams.get("sslmode")).toBe("require");
-    expect(parsed.searchParams.get("sslaccept")).toBe("strict");
+    expect(parsed.searchParams.has("sslaccept")).toBe(false);
   });
 
   it("does not alter non-Vercel database URLs", () => {
