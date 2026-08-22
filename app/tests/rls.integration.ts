@@ -76,6 +76,9 @@ const inviteA = "10000000-0000-0000-0000-000000000115";
 const refreshTokenA = "10000000-0000-0000-0000-000000000116";
 const passwordResetTokenA = "10000000-0000-0000-0000-000000000117";
 const replacementRefreshTokenA = "10000000-0000-0000-0000-000000000118";
+const proposalDeclinedStatusA = "10000000-0000-0000-0000-000000000119";
+const proposalRejectedStatusA = "10000000-0000-0000-0000-000000000120";
+const proposalInvalidStatusA = "10000000-0000-0000-0000-000000000121";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -1227,6 +1230,18 @@ describe("live organization row-level security", () => {
       currentTransaction().contractEvent.findMany({ where: { contractId: contract.id } })
     );
     expect(hiddenContractEvents).toEqual([]);
+  });
+
+  it("enforces canonical and legacy proposal statuses at the PostgreSQL boundary", async () => {
+    await adminClient.proposal.create({ data: { id: proposalDeclinedStatusA, projectId: projectA, status: "declined" } });
+    await adminClient.proposal.create({ data: { id: proposalRejectedStatusA, projectId: projectA, status: "rejected" } });
+
+    await expect(
+      adminClient.proposal.create({ data: { id: proposalInvalidStatusA, projectId: projectA, status: "unsupported" } })
+    ).rejects.toThrow();
+
+    await expect(adminClient.proposal.findUnique({ where: { id: proposalDeclinedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "declined" });
+    await expect(adminClient.proposal.findUnique({ where: { id: proposalRejectedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "rejected" });
   });
 
   it("scopes the dispatch summary to the requesting org and does not require an elevated role to read", async () => {

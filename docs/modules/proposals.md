@@ -86,4 +86,6 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update
 
 ## Last verified date
 
-2026-08-21
+2026-08-22
+
+Exact-head GitHub verification for PR #267 passed on 2026-08-22; production rollout remains pending merge and the protected migration approval.

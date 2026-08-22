@@ -192,7 +192,7 @@ Current documented transitions:
 ## Risk ranking for normalization work
 
 1. **S008 / Estimate — high:** canonical vocabulary and compatibility handling must keep `sent` distinct from internal `ready`; customer-facing delivery/review transitions remain a separate workflow scope.
-2. **S009 / Proposal — resolved for canonical decline writes:** new rejects persist `declined`, historical `rejected` rows remain read-compatible, and Project-side effects stay canonical under S007. Generated/expired transition work remains outside the implemented path.
+2. **S009 / Proposal — implemented in PR #267, pending merge and migration verification:** new rejects persist `declined`, historical `rejected` rows remain read-compatible, and Project-side effects stay canonical under S007. Generated/expired transition work remains outside the implemented path.
 3. **S010 / Contract — medium-high:** `pending_signature` is an active persisted compatibility state rather than a cosmetic alias.
 4. **S011 / Invoice — medium:** aliases plus documented transition coverage differ from the richer shared contract.
 5. **S012 / Job — medium-low vocabulary drift, high workflow importance:** canonical values are comparatively aligned, but scheduling/dispatch transition enforcement is operationally sensitive.
@@ -201,7 +201,7 @@ Current documented transitions:
 ## S006 conclusions
 
 - A single canonical vocabulary already exists in shared contracts, but persistence and service behavior are not uniformly canonical.
-- Historical Project aliases remain readable, while S007 stops proposal workflows from writing new Project compatibility aliases. Proposal historical `rejected` rows and Contract `pending_signature` remain compatibility values; new proposal declines no longer create additional `rejected` rows.
+- Historical Project aliases remain readable, while S007 stops proposal workflows from writing new Project compatibility aliases. Proposal historical `rejected` rows and Contract `pending_signature` remain compatibility values; PR #267 implements the change so new proposal declines no longer create additional `rejected` rows, pending merge and migration verification.
 - Estimate normalization contains a direct internal contradiction for `sent`.
 - Context-free generic normalization is unsafe for overlapping commercial lifecycle strings.
 - Job vocabulary is comparatively aligned, making S012 primarily a transition/enforcement normalization exercise rather than an alias cleanup.
