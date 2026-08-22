@@ -94,6 +94,8 @@ A priced commercial draft stored in `Estimate`.
 - owns estimate line items
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
+- lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
+- Estimate Engine currently enforces draft-only mutations and `draft -> ready` finalization; customer-facing later transitions are separate workflow scope
 
 ## Proposal
 

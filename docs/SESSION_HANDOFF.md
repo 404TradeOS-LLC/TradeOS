@@ -12,29 +12,29 @@ related_code:
 
 ## Mission
 
-This session is recording governance-only completion evidence for S007 — Project lifecycle normalization after implementation PR #261 merged into `main`.
+This session records implementation handoff for S008 — Estimate lifecycle normalization.
 
 ## Current branch
 
-`docs/s007-completion-evidence` — governance-only completion branch created from the verified S007 merge commit `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
+`feature/s008-estimate-lifecycle-normalization` — implementation branch created from the verified S007 merge on `main` (`a4703e5ae1a26e00cf28b46d1a0c31fdd72c1edf`).
 
 ## Current truth
 
 - S006 is `DONE` with merged evidence in PR #95.
-- S007 implementation PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
-- S007 is recorded `DONE` in the canonical Sprint Backlog on this completion-evidence branch.
-- The landed S007 behavior normalizes proposal-driven Project writes to canonical lifecycle values while preserving historical alias reads; no destructive historical rewrite was introduced.
-- S008 remains `PLANNED`. Completion of S007 does not implicitly promote S008 to `READY`.
+- S007 implementation PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`; `origin/main` now includes that work.
+- S008 implementation is bounded to estimate lifecycle normalization: canonical `sent` remains distinct from `ready` across contracts, queue filters, DTOs, and frontend normalization; `rejected` remains compatible with canonical `declined`.
+- Estimate Engine still enforces the implemented `draft -> ready` finalize path and draft-only mutations. Customer-facing send/view/approve/expire/supersede routes are not added by S008.
+- No estimate schema migration, permission-model change, or destructive historical rewrite is introduced.
 - S027 remains separately `BLOCKED` only on authenticated rendered Costbook browser evidence and does not alter numbered lifecycle-sprint selection.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
+Sprint ID: S008 — Estimate lifecycle normalization
 
-Eligibility: After S007 is recorded `DONE`, no numbered sprint is currently `READY`. S008 is still `PLANNED` and requires a separate governance-only readiness assessment/promotion before implementation may begin.
+Eligibility: Implementation is in progress on the dedicated S008 branch after S007 merged. Final status remains subject to focused tests, repository verification, review, and merge.
 
-Dependencies: N/A for sprint selection; S008 depends on S006, which is `DONE`, but dependency completion alone does not authorize readiness.
+Dependencies: S006 and S007 are complete. No overlapping open implementation PR was found at branch startup.
 
-Overlap check: Reverify live GitHub state before any S008 readiness promotion. Do not create or begin S008 implementation while it remains `PLANNED`.
+Overlap check: Live GitHub state was refreshed before branch creation; reverify before opening/finalizing the PR.
 
-Startup prompt: Reconcile live repository/PR state, assess S008 — Estimate lifecycle normalization against the S006 compatibility matrix, and if its scope, validation, founder-decision, infrastructure, and overlap state are complete, prepare a governance-only readiness promotion. Do not implement S008 from this handoff.
+Next action: PR #264 (`fix(estimating): normalize canonical sent status`) contains this bounded implementation at the current branch head; complete focused and repository verification, inspect the final diff for compatibility, then merge only after required checks and review pass. Do not start S009 from this handoff.

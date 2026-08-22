@@ -80,16 +80,27 @@ describe("EstimateEngineService.listOrganizationQueue", () => {
     expect(result.items[0].customerName).toBeNull();
   });
 
-  it("filters by a single canonical status, including its legacy raw synonym", async () => {
-    // legacyEstimateStatusMap maps raw "sent" -> canonical "ready"
-    seed({ id: "est-legacy", orgId: ORG_A, status: "sent", updatedAt: new Date("2026-08-01T00:00:00.000Z") });
+  it("filters by a single canonical status without collapsing sent into ready", async () => {
+    seed({ id: "est-sent", orgId: ORG_A, status: "sent", updatedAt: new Date("2026-08-01T00:00:00.000Z") });
     seed({ id: "est-canonical", orgId: ORG_A, status: "ready", updatedAt: new Date("2026-08-02T00:00:00.000Z") });
     seed({ id: "est-draft", orgId: ORG_A, status: "draft", updatedAt: new Date("2026-08-03T00:00:00.000Z") });
 
     const result = await service.listOrganizationQueue({ orgId: ORG_A, statuses: ["ready"] });
 
-    expect(result.items.map((i) => i.id).sort()).toEqual(["est-canonical", "est-legacy"]);
-    expect(result.total).toBe(2);
+    expect(result.items.map((i) => i.id)).toEqual(["est-canonical"]);
+    expect(result.items[0].status).toBe("ready");
+    expect(result.total).toBe(1);
+  });
+
+  it("returns stored sent estimates as sent and filters them independently", async () => {
+    seed({ id: "est-sent", orgId: ORG_A, status: "sent", updatedAt: new Date("2026-08-01T00:00:00.000Z") });
+    seed({ id: "est-ready", orgId: ORG_A, status: "ready", updatedAt: new Date("2026-08-02T00:00:00.000Z") });
+
+    const result = await service.listOrganizationQueue({ orgId: ORG_A, statuses: ["sent"] });
+
+    expect(result.items.map((i) => i.id)).toEqual(["est-sent"]);
+    expect(result.items[0].status).toBe("sent");
+    expect(result.total).toBe(1);
   });
 
   it("supports multiple statuses in one request", async () => {

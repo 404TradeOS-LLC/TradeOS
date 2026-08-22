@@ -149,7 +149,7 @@ export type EstimateStatus = (typeof estimateStatuses)[number];
 export const legacyEstimateStatusMap: Record<string, EstimateStatus> = {
   draft: "draft",
   ready: "ready",
-  sent: "ready",
+  sent: "sent",
   viewed: "viewed",
   approved: "approved",
   rejected: "declined",

@@ -1,4 +1,4 @@
-import { canTransitionProjectStatus, hasAnyPermission, hasPermission, normalizeProjectStatus } from "../domain";
+import { canTransitionProjectStatus, hasAnyPermission, hasPermission, normalizeEstimateStatus, normalizeProjectStatus } from "../domain";
 
 describe("Project lifecycle compatibility", () => {
   it("normalizes historical project aliases without changing the canonical vocabulary", () => {
@@ -13,6 +13,13 @@ describe("Project lifecycle compatibility", () => {
     expect(canTransitionProjectStatus("estimating", "awarded")).toBe(true);
     expect(canTransitionProjectStatus("awarded", "active")).toBe(true);
     expect(canTransitionProjectStatus("lead", "awarded")).toBe(false);
+  });
+});
+
+describe("Estimate lifecycle compatibility", () => {
+  it("keeps sent canonical instead of collapsing it into ready", () => {
+    expect(normalizeEstimateStatus("sent")).toBe("sent");
+    expect(normalizeEstimateStatus("rejected")).toBe("declined");
   });
 });
 
