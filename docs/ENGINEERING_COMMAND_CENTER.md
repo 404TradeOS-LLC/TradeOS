@@ -68,7 +68,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 ## Current numbered-sprint state
 
 - S001-S007 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, and S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
-- S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its canonical backlog status is `IN_REVIEW` while PR #264 is open.
+- S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its canonical backlog status remains `PLANNED` until review and merge.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
@@ -164,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261. S008 implementation is active on its dedicated branch and remains `IN_REVIEW` until focused verification, review, and merge are complete.
+S007 is complete through PR #261. S008 implementation is active on its dedicated branch and remains unpromoted until focused verification, review, and merge are complete.
 
 ## Source-of-truth links
 

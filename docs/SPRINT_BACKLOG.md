@@ -68,7 +68,7 @@ Evidence: PR #95 merged 2026-08-10 as `5e59880aba24acbe943b03d1a34aa787cb7db801`
 ### S007 — Project lifecycle normalization
 
 Status: DONE
-Dependencies: S006
+Dependencies: S006, S007
 Objective: Normalize Project lifecycle values across persistence, APIs, shared contracts, proposal-driven Project side effects, and compatibility shims without rewriting historical rows.
 Acceptance: one canonical Project lifecycle for new writes with tested compatibility reads for historical aliases and no unauthorized cross-domain lifecycle expansion.
 Evidence: PR #261 merged 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`.
@@ -76,7 +76,7 @@ Evidence: PR #261 merged 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be
 ### S008 — Estimate lifecycle normalization
 
 Status: IN_REVIEW
-Dependencies: S006
+Dependencies: S006, S007
 Objective: Normalize estimate lifecycle values and transition rules.
 Acceptance: consistent stored, API, and displayed estimate states.
 
@@ -417,8 +417,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: S008
+Sprint ID: NONE
 Eligibility: S007 is `DONE` with merged evidence. S008 is `IN_REVIEW` because implementation PR #264 is open; it is not eligible for a second implementation slice until review and merge are complete.
-Dependencies: S008 depends on S006 and S007, both `DONE`.
+Dependencies: S006 and S007 are `DONE`; S008 itself is `IN_REVIEW` and is not a new eligible sprint.
 Overlap check: The S008 branch was created after live GitHub reconciliation; reverify the branch and open PR state before finalizing the implementation.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

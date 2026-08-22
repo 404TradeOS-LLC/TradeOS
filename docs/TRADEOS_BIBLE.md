@@ -40,7 +40,7 @@ authoritative compatibility inventory for the later S007-S012 normalization
 sprints. Completion of S006 does not automatically promote any of those
 `PLANNED` sprints to `READY`.
 
-S007 — Project lifecycle normalization is complete. PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, normalizing proposal-driven Project writes to the canonical lifecycle while retaining compatibility reads for historical aliases and avoiding destructive historical rewrites. S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its backlog status is `IN_REVIEW` while PR #264 is open.
+S007 — Project lifecycle normalization is complete. PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, normalizing proposal-driven Project writes to the canonical lifecycle while retaining compatibility reads for historical aliases and avoiding destructive historical rewrites. S008 implementation is active on `feature/s008-estimate-lifecycle-normalization`; its backlog status remains `PLANNED` until review and merge.
 
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
