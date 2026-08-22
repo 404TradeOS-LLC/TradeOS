@@ -17,7 +17,7 @@ describe("resolveRuntimeDatabaseUrl", () => {
     expect(parsed.searchParams.get("pgbouncer")).toBe("true");
     expect(parsed.searchParams.get("connection_limit")).toBe("1");
     expect(parsed.searchParams.get("sslmode")).toBe("require");
-    expect(parsed.searchParams.get("sslaccept")).toBe("strict");
+    expect(parsed.searchParams.has("sslaccept")).toBe(false);
   });
 
   it("bounds an already-transaction-mode Supabase URL", () => {
@@ -31,7 +31,7 @@ describe("resolveRuntimeDatabaseUrl", () => {
     expect(parsed.searchParams.get("pgbouncer")).toBe("true");
     expect(parsed.searchParams.get("connection_limit")).toBe("1");
     expect(parsed.searchParams.get("sslmode")).toBe("require");
-    expect(parsed.searchParams.get("sslaccept")).toBe("strict");
+    expect(parsed.searchParams.has("sslaccept")).toBe(false);
   });
 
   it("does not alter non-Vercel database URLs", () => {
