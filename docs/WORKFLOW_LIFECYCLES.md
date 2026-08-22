@@ -183,7 +183,7 @@ Current enforced transitions:
 
 Compatibility note:
 
-- S010 normalizes the API surface: `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
+- PR #276 (S010, `IN_REVIEW`) normalizes the API surface: `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
 
 ## Jobs
 
