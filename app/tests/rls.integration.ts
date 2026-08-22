@@ -1233,11 +1233,11 @@ describe("live organization row-level security", () => {
   });
 
   it("enforces canonical and legacy proposal statuses at the PostgreSQL boundary", async () => {
-    await adminClient.proposal.create({ data: { id: proposalDeclinedStatusA, projectId: projectA, status: "declined" } });
-    await adminClient.proposal.create({ data: { id: proposalRejectedStatusA, projectId: projectA, status: "rejected" } });
+    await adminClient.proposal.create({ data: { id: proposalDeclinedStatusA, projectId: projectB, status: "declined" } });
+    await adminClient.proposal.create({ data: { id: proposalRejectedStatusA, projectId: projectB, status: "rejected" } });
 
     await expect(
-      adminClient.proposal.create({ data: { id: proposalInvalidStatusA, projectId: projectA, status: "unsupported" } })
+      adminClient.proposal.create({ data: { id: proposalInvalidStatusA, projectId: projectB, status: "unsupported" } })
     ).rejects.toThrow();
 
     await expect(adminClient.proposal.findUnique({ where: { id: proposalDeclinedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "declined" });
