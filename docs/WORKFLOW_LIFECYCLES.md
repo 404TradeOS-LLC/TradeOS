@@ -131,8 +131,8 @@ Canonical display states:
 
 Current persisted values:
 
-- the service persists `draft`, `sent`, `viewed`, `accepted`, and `rejected`
-- `rejected` is displayed canonically as `declined`
+- new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+- historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
 
@@ -144,7 +144,8 @@ Current enforced transitions:
 
 Compatibility note:
 
-- canonical documentation uses `declined`, but storage and service internals still use `rejected` in some paths
+- the `/reject` route and service method remain for API compatibility, but the mutation writes canonical `declined` and records `proposal.declined`; historical `rejected` values remain read-compatible
+- `generated` and `expired` are canonical states without a current proposal-service mutation path
 
 Athena event integration:
 

@@ -26,6 +26,33 @@ const mockAthenaEventService = {
   publish: jest.fn(),
 };
 
+function proposalRow(status: string) {
+  return {
+    id: "proposal-1",
+    projectId: "project-1",
+    estimateId: "estimate-1",
+    status,
+    companyName: null,
+    showLineItemDetail: false,
+    scopeOfWork: null,
+    assumptions: null,
+    exclusions: null,
+    timeline: null,
+    priceLow: null,
+    priceHigh: null,
+    finalPrice: null,
+    paymentScheduleJson: null,
+    pdfUrl: null,
+    termsAndConditions: null,
+    sentAt: new Date(),
+    viewedAt: null,
+    respondedAt: null,
+    createdAt: new Date(),
+    deliveries: [],
+    project: { orgId: "org-1", customer: { id: "customer-1", email: "customer@example.com" } },
+  };
+}
+
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/proposal-generator/service", () => ({
   ProposalGeneratorService: jest.fn().mockImplementation(() => mockProposalGenerator),
@@ -225,6 +252,41 @@ describe("ProposalsService", () => {
 
     const service = new ProposalsService();
     await expect(service.accept("proposal-1", "org-1")).rejects.toThrow("cannot be accepted");
+  });
+
+  it("persists a canonical declined status and emits a canonical decline event", async () => {
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("sent"))
+      .mockResolvedValueOnce(proposalRow("declined"));
+    mockPrisma.proposal.update.mockResolvedValue(proposalRow("declined"));
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const service = new ProposalsService();
+    const proposal = await service.reject("proposal-1", "org-1", "owner-1");
+
+    expect(proposal.status).toBe("declined");
+    expect(mockPrisma.proposal.update).toHaveBeenCalledWith({
+      where: { id: "proposal-1" },
+      data: expect.objectContaining({ status: "declined", respondedAt: expect.any(Date) }),
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "proposal.declined",
+          metadataJson: { previousStatus: "sent", newStatus: "declined" },
+        }),
+      })
+    );
+  });
+
+  it("keeps historical rejected rows terminal while returning canonical declined", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("rejected"));
+
+    const service = new ProposalsService();
+    const proposal = await service.markViewed("proposal-1", "org-1");
+
+    expect(proposal.status).toBe("declined");
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
   });
 
   it("resends a viewed proposal and stamps a fresh sentAt timestamp", async () => {

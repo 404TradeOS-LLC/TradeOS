@@ -59,7 +59,7 @@ export interface ProposalDTO {
   id: string;
   projectId: string;
   estimateId: string | null;
-  status: string;
+  status: ProposalStatus;
   companyName: string | null;
   showLineItemDetail: boolean;
   scopeOfWork: string | null;

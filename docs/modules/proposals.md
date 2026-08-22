@@ -54,7 +54,8 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update
 
 ## Emitted activity events
 
-- proposal send, view, accept, reject, and resend actions write delivery history and activity-oriented metadata
+- proposal send, view, accept, decline, and resend actions write delivery history and activity-oriented metadata
+- the compatibility route remains `/reject`, but new proposal declines persist canonical `declined` and emit `proposal.declined`; historical `rejected` rows remain readable and normalize to `declined`
 - `ProposalsService.send()` additionally publishes a canonical Athena `ProposalSent` event (C008, Project Athena A8 — see [athena/10-events/README.md](../athena/10-events/README.md)) after the status mutation commits, via `app/modules/athena-events`. Dark infrastructure: publish failures are caught and logged, never block or roll back the send, and no subscriber consumes the event in this milestone. No other proposal transition publishes an event yet.
 
 ## Frontend surfaces
@@ -75,7 +76,8 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update
 
 ## Known limitations
 
-- canonical decline language still maps to stored `rejected` values in service logic
+- historical proposal rows may still contain `rejected`; reads and status filters normalize that legacy value to canonical `declined`, and no destructive historical rewrite is performed
+- `generated` and `expired` remain canonical contract states without a currently implemented proposal-service mutation path
 - the organization work-queue read's product spec calls for excluding canceled/voided proposals from operational filters (`unsigned`, `stale`), but no canonical canceled/voided proposal status exists in this domain today — the rule has nothing to apply to and is not implemented as an invented status
 
 ## Deferred work
