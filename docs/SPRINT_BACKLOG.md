@@ -83,11 +83,11 @@ Evidence: PR #264 merged 2026-08-22 as `dee5f98f0b46e98782b887fca80a63e55800cd65
 
 ### S009 — Proposal lifecycle normalization
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S006
 Objective: Normalize proposal lifecycle values and customer-facing labels.
 Acceptance: proposal workflow and portal display use the same canonical contract.
-Readiness: PR #267 implements the bounded canonical-decline slice: new declines persist `declined`, historical `rejected` rows remain read-compatible, and the compatibility `/reject` route emits `proposal.declined`. S007's merged Project-side-effect normalization is preserved as a dependency boundary. The additive Proposal status-constraint migration requires normal PR/human migration review; no destructive historical rewrite, permission change, or infrastructure dependency is introduced. `generated`/`expired` mutation paths remain outside this slice.
+Evidence: PR #267 merged 2026-08-22 as `de266975a1c6eca742331530f4a53281fe9a6652`. New declines persist `declined`, historical `rejected` rows remain read-compatible, and the compatibility `/reject` route emits `proposal.declined`. S007's merged Project-side-effect normalization is preserved as a dependency boundary. The additive Proposal status-constraint migration preserves historical rows; no destructive rewrite, permission change, or infrastructure dependency was introduced. `generated`/`expired` mutation paths remain outside this slice.
 
 ### S010 — Contract lifecycle normalization
 
