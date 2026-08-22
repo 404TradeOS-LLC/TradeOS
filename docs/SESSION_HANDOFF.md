@@ -16,7 +16,7 @@ This session records implementation handoff for S008 — Estimate lifecycle norm
 
 ## Current branch
 
-`feature/s008-estimate-lifecycle-normalization` — implementation branch created from current `main` after verified S007 merge commit `e736bb6b92ce00441f2e0863ef3c4d34174571be` and base documentation commit `a4703e5ae1a26e00cf28b46d1a0c31fdd72c1edf`.
+`feature/s008-estimate-lifecycle-normalization` — implementation branch created from the verified S007 merge on `main` (`a4703e5ae1a26e00cf28b46d1a0c31fdd72c1edf`).
 
 ## Current truth
 
@@ -29,7 +29,7 @@ This session records implementation handoff for S008 — Estimate lifecycle norm
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
+Sprint ID: S008 — Estimate lifecycle normalization
 
 Eligibility: Implementation is in progress on the dedicated S008 branch after S007 merged. Final status remains subject to focused tests, repository verification, review, and merge.
 
