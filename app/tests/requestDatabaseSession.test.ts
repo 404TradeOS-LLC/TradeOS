@@ -3,10 +3,18 @@ import { getRequestDatabaseClient, runWithDatabaseSession } from "../db/requestS
 
 describe("request database session", () => {
   const originalMaxWait = process.env.RLS_TRANSACTION_MAX_WAIT_MS;
+  const originalTimeout = process.env.RLS_TRANSACTION_TIMEOUT_MS;
+
+  beforeEach(() => {
+    delete process.env.RLS_TRANSACTION_MAX_WAIT_MS;
+    delete process.env.RLS_TRANSACTION_TIMEOUT_MS;
+  });
 
   afterEach(() => {
     if (originalMaxWait === undefined) delete process.env.RLS_TRANSACTION_MAX_WAIT_MS;
     else process.env.RLS_TRANSACTION_MAX_WAIT_MS = originalMaxWait;
+    if (originalTimeout === undefined) delete process.env.RLS_TRANSACTION_TIMEOUT_MS;
+    else process.env.RLS_TRANSACTION_TIMEOUT_MS = originalTimeout;
   });
 
   it("sets transaction-local auth values and exposes the transaction client", async () => {

@@ -73,8 +73,9 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - cross-organization reads and writes are denied by session-scoped RLS
 - request headers cannot select or impersonate a tenant
 - waiting longer to acquire the request-scoped transaction changes only
-  contention handling; the authenticated organization, role permissions, and
-  forced-RLS session are still established inside the acquired transaction
+  contention handling; verified JWT and organization-membership authorization
+  remain enforced upstream, and the transaction-local `app.*` RLS settings
+  are still established inside the acquired transaction
 
 ## Assigned-technician restrictions
 
