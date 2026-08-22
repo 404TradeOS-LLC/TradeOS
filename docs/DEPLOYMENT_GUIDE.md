@@ -216,6 +216,12 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 - `AUTH_ISSUER`
 - `AUTH_AUDIENCE`
 - `RLS_TRANSACTION_TIMEOUT_MS`
+- `RLS_TRANSACTION_MAX_WAIT_MS`
+  Defaults to `15000`. This bounds how long an authenticated request waits to
+  acquire the request-scoped Prisma transaction. Keep it above Prisma's
+  two-second default when `connection_limit=1` is used so parallel page-loader
+  requests queue briefly instead of failing before the active request releases
+  the single per-instance connection.
 - `PLATFORM_PROVISIONING_ALLOWED_IPS`
 - `PLATFORM_PROVISIONING_RATE_LIMIT_WINDOW_MS`
 - `PLATFORM_PROVISIONING_RATE_LIMIT_MAX`

@@ -28,6 +28,7 @@ function buildClaims(overrides: Partial<AuthClaims> = {}): AuthClaims {
 }
 
 describe("resolveAuthContext (production schema compatibility)", () => {
+  const originalMaxWait = process.env.RLS_TRANSACTION_MAX_WAIT_MS;
   let queryRaw: QueryRawMock;
 
   beforeEach(() => {
@@ -38,6 +39,11 @@ describe("resolveAuthContext (production schema compatibility)", () => {
     );
   });
 
+  afterEach(() => {
+    if (originalMaxWait === undefined) delete process.env.RLS_TRANSACTION_MAX_WAIT_MS;
+    else process.env.RLS_TRANSACTION_MAX_WAIT_MS = originalMaxWait;
+  });
+
   // Migration-3 production reality: the `users` table has no password_hash
   // column (added by a later migration). These mock resolutions deliberately
   // never include passwordHash, matching what a real migration-3 database
@@ -45,6 +51,16 @@ describe("resolveAuthContext (production schema compatibility)", () => {
   // findUnique, which would attempt to select it and fail.
   const migrationThreeUser = { id: "user-1", isActive: true, email: "owner@example.com" };
   const activeMembership = { orgId: "org-1", role: "admin" };
+
+  it("uses the bounded acquisition wait before resolving membership", async () => {
+    process.env.RLS_TRANSACTION_MAX_WAIT_MS = "9000";
+    mockPrisma.appUser.findUnique.mockResolvedValue(migrationThreeUser);
+    mockPrisma.organizationMembership.findFirst.mockResolvedValue(activeMembership);
+
+    await resolveAuthContext(buildClaims({ orgId: "org-1" }));
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 9_000 });
+  });
 
   it("requests only the explicit minimal user fields, not a bare findUnique", async () => {
     mockPrisma.appUser.findUnique.mockResolvedValue(migrationThreeUser);

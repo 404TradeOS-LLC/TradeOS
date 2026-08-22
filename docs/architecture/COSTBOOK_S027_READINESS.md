@@ -34,10 +34,11 @@ and does not write Costbook records.
 | Supplier review-first pricing | PASS | Feed proposals require human approval; this pass also made approve/reject claims atomic. |
 | Review-first AI Estimate Assist | PASS | Accepted suggestions call `EstimateEngineService`; no autonomous Costbook writes. |
 | Search/filter/sort/pagination as a production catalog contract | PASS (implementation) | Canonical Costbook catalog reads now use `{items,total,nextCursor}`, bounded opaque keyset cursors, deterministic `id` tie-breakers, server-side search/filtering, and allowlisted sorting. Legacy CostItem/Assembly search routes remain explicitly bounded typeahead compatibility adapters. |
-| Current continuation exact-head automated verification | PR GATE | The authoritative evidence is the final-head GitHub Actions checks attached to PR `#260` (Docs consistency, Dependency review, full Verify repository, and PostgreSQL-backed integration rehearsal). This document intentionally does not pin a pre-final continuation SHA/run because changing this file creates a new head. |
-| Authenticated rendered browser verification at 1440/1024/768/390 | ENVIRONMENT-BLOCKED | No authenticated browser/test session was available in this workspace; no viewport is claimed as passed. |
-| PostgreSQL/RLS integration execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PR `#260` must independently pass its final-head integration rehearsal before merge. |
-| Full backend/frontend test, lint, and build execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590` passed Web lint/build and App lint/unit/build. PR `#260` must independently pass its final-head full verification before merge. |
+| Catalog-query continuation verification | PASS | PR `#260` merged as `cb4ebed`; its required GitHub checks and PostgreSQL-backed integration rehearsal were green before merge. |
+| Current production-repair exact-head verification | FOLLOW-UP GATE | PR `#273` merged as `3de3f98` after Docs consistency, Dependency review, full Verify repository, and the existing PostgreSQL rehearsal passed. The focused PostgreSQL transaction-contention regression is now added; its exact-head CI result plus authenticated parallel route replay remain required before this repair is fully evidenced. |
+| Authenticated rendered browser verification at 1440/1024/768/390 | PARTIAL | An authenticated production session rendered all nine Costbook routes at the cloud browser's actual 1363x936 viewport with no horizontal overflow and truthful tenant-scoped empty states after full loading. The first parallel startup pass also reproduced intermittent request-transaction acquisition `500`s, so this evidence correctly triggered a bounded runtime repair rather than promotion. Exact 1440/1024/768/390 renders remain unclaimed. |
+| PostgreSQL/RLS integration execution | PRIOR PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PRs `#260` and `#273` independently passed their final-head integration rehearsals; the focused single-connection contention regression remains a follow-up gate. |
+| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository runs `32449419590` and `32586823430` passed the applicable backend/frontend lint, unit, build, and integration lanes for PRs `#260` and `#273`. |
 
 ## Concrete repair in this pass
 
@@ -58,16 +59,29 @@ navigation.
 
 ## Smallest remaining S027 blockers
 
-1. Merge/verification gate: PR `#260` must land only after its final exact head
-   passes Docs consistency, Dependency review, full repository verification,
-   and the PostgreSQL-backed integration rehearsal. GitHub checks are the
-   authoritative evidence for that self-referential final-head gate.
+1. Production reliability gate: land the post-review PostgreSQL contention
+   regression for the merged request-transaction acquisition-wait repair, then
+   confirm its exact head passes required CI and repeat the authenticated
+   parallel Costbook route load without acquisition-timeout `500`s.
 2. Authenticated browser evidence: render and exercise the nine Costbook routes
-   at 1440, 1024, 768, and 390px, including keyboard focus and mutation/error
+   at 1440px, 1024px, 768px, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
    decision. PostgreSQL/RLS execution is independently verified by CI; that
    database evidence must not be treated as a substitute for rendered browser
    verification.
+
+Authenticated production evidence on 2026-08-22 covered `/costbook`,
+`/costbook/materials`, `/costbook/labor-rates`, `/costbook/equipment`,
+`/costbook/divisions`, `/costbook/cost-items`, `/costbook/assemblies`,
+`/costbook/pricing`, and `/costbook/price-history` at the cloud browser's actual
+1363x936 viewport. All routes reached their real API-backed empty or preview
+state without horizontal overflow after full initialization. Vercel runtime
+logs from the initial parallel pass nevertheless recorded transaction-
+acquisition `500`s on workspace, labor-rate, and settings reads. The merged
+acquisition-wait repair must deploy and be re-exercised, and its focused
+PostgreSQL contention follow-up must pass, before that production reliability
+defect is closed. Exact required viewports remain the separate final promotion
+gate.
 
 S027 should remain `BLOCKED`/not promoted until those two gates are closed. The
 remaining gaps do not require a founder decision; the post-merge browser gate
