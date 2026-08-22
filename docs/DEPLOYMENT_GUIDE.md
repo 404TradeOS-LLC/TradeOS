@@ -74,7 +74,11 @@ PRODUCTION
   from `main`; the stable staging backend URL above deploys from the
   dedicated `staging` branch, which intentionally carries no application
   changes of its own (see `app/vercel.json`'s `ignoreCommand`, which is
-  path-scoped to `app/**` and `packages/knowledge-engine/**`).
+  path-scoped to `app/**` and `packages/knowledge-engine/**` for Preview
+  deployments). Production deployments from `main` always build: Vercel's
+  `VERCEL_GIT_PREVIOUS_SHA` identifies the last successful project deployment,
+  which may be an equivalent Preview and therefore cannot safely suppress the
+  later Production deployment.
 - `tradeos-costbook-web` — the Next.js frontend (`web/`). Production
   deploys from `main`; every other branch (any PR) gets its own Preview
   deployment, all sharing the same staging-scoped Preview environment
