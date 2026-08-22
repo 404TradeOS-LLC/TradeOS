@@ -56,7 +56,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 ## Known limitations
 
-- the database still stores `pending_signature` as the pre-signature status; the check constraint has never accepted canonical `draft`/`sent`/`viewed`. S010 normalizes the API surface (`ContractsService.toDTO()` returns canonical `sent`) without a schema migration — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
+- the database still stores `pending_signature` as the pre-signature status; the check constraint has never accepted canonical `draft`/`sent`/`viewed`. S010 normalizes the API surface (`toDTO()` returns canonical `sent`) without a schema migration — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - `void()` is not idempotent, neither `sign()` nor `void()` wraps its status update and event write in a transaction, and neither guards its update with the expected prior status (no optimistic-concurrency check). Found during the S010 audit; explicitly out of scope for S010.
 
 ## Deferred work

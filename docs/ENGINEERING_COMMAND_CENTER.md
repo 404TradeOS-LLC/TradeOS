@@ -68,7 +68,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 ## Current numbered-sprint state
 
 - S001-S009 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, S008 Estimate lifecycle normalization merged in PR #264 as `dee5f98f0b46e98782b887fca80a63e55800cd65`, and S009 Proposal lifecycle normalization merged in PR #267.
-- S010 is `IN_REVIEW` in PR #276. The implementation normalizes `ContractsService.toDTO()` to return canonical `sent` for stored `pending_signature`, confined to `app/modules/contracts/service.ts`. No Contract schema migration, default change, or `sign()`/`void()` guard change is made — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
+- S010 is `IN_REVIEW` in PR #276. The implementation normalizes `toDTO()` to return canonical `sent` for stored `pending_signature`, confined to `app/modules/contracts/service.ts`. No Contract schema migration, default change, or `sign()`/`void()` guard change is made — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 

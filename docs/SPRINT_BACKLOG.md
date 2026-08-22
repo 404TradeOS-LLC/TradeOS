@@ -95,7 +95,7 @@ Status: IN_REVIEW
 Dependencies: S006
 Objective: Normalize contract lifecycle and signing-state compatibility.
 Acceptance: contract state transitions are consistent and auditable.
-Readiness: PR #276 implements the bounded Option A slice from `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`: `ContractsService.toDTO()` normalizes stored `pending_signature` to canonical `sent`. No schema migration, default change, or `sign()`/`void()` guard change is made. Three pre-existing runtime defects found during the audit (`void()` non-idempotency, missing transaction boundaries, missing optimistic-concurrency guards) are explicitly out of scope and tracked as separate follow-up.
+Readiness: PR #276 implements the bounded Option A slice from `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`: `toDTO()` in `app/modules/contracts/service.ts` normalizes stored `pending_signature` to canonical `sent`. No schema migration, default change, or `sign()`/`void()` guard change is made. Three pre-existing runtime defects found during the audit (`void()` non-idempotency, missing transaction boundaries, missing optimistic-concurrency guards) are explicitly out of scope and tracked as separate follow-up.
 
 ### S011 — Invoice lifecycle normalization
 
