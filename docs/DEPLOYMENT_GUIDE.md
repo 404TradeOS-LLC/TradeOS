@@ -100,11 +100,17 @@ PRODUCTION
 The staging project runs the same tracked Prisma migration history and the
 same `tradeos_app` role-provisioning script as Production (`npm run
 db:deploy`, `scripts/provision-app-role.sh`) — there is no separate staging
-schema or a hand-maintained copy. Its `DATABASE_URL` uses the Supavisor
-transaction-mode pooler (`aws-0-us-east-2.pooler.supabase.com:6543`,
-`?pgbouncer=true`), not the direct-connection host — the direct host is
-IPv6-only on this project tier and unreachable from Vercel's serverless
-runtime.
+schema or a hand-maintained copy. Staging's confirmed `DATABASE_URL` uses the
+Supavisor transaction-mode pooler. Production is required to use the same
+contract, pending post-deployment verification: port `6543`, with
+`pgbouncer=true&connection_limit=1&sslmode=require&sslaccept=strict`, rather
+than session mode on port `5432` or the direct-connection host. Transaction
+mode bounds each Vercel function instance to one Prisma connection;
+session-mode pool exhaustion can otherwise fail unrelated API routes once the
+shared pool reaches its client limit. As defense in depth, the backend
+normalizes Supabase pooler URLs to these pooling and authenticated-TLS settings
+when running on Vercel. Direct/admin URLs remain unchanged and must stay
+limited to trusted migration and provisioning tooling.
 
 ### Where environment variables are managed
 
@@ -180,7 +186,9 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 ### Backend required
 
 - `DATABASE_URL`
-  Use the restricted application role, not the admin database user.
+  Use the restricted application role, not the admin database user. On
+  Vercel with Supabase, use the transaction pooler on port `6543` with
+  `pgbouncer=true&connection_limit=1&sslmode=require&sslaccept=strict`.
 - `DATABASE_ADMIN_URL`
   Required for migration rollout and role provisioning.
 - `APP_DB_ROLE_PASSWORD`
@@ -454,6 +462,10 @@ The job exits non-zero if any configured target fails, which is better for alert
 ## Security checklist
 
 - `DATABASE_URL` uses the restricted role, not the admin role.
+- Vercel's `DATABASE_URL` must use Supabase transaction pooling on port `6543`
+  with `pgbouncer=true&connection_limit=1&sslmode=require&sslaccept=strict`;
+  session pooling on port `5432` must not be used by serverless runtime
+  instances. Confirm the active Production deployment after rollout.
 - `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.
 - `PLATFORM_PROVISIONING_SECRET` is high entropy and rotated when needed.
 - provisioning routes are also protected by network controls.
