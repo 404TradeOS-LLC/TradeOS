@@ -67,14 +67,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Current numbered-sprint state
 
-- S001-S008 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, and S008 Estimate lifecycle normalization merged in PR #264 as `dee5f98f0b46e98782b887fca80a63e55800cd65`.
-- S009 is `IN_REVIEW` in PR #267. The implementation persists new proposal declines as canonical `declined`, retains historical `rejected` read compatibility, and preserves S007's canonical Project side effects; the additive status-constraint migration requires normal PR/human migration review.
+- S001-S009 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, S008 Estimate lifecycle normalization merged in PR #264 as `dee5f98f0b46e98782b887fca80a63e55800cd65`, and S009 Proposal lifecycle normalization merged in PR #267.
+- S010 is now `READY` after a separate governance-only readiness promotion. Its bounded implementation target is a zero-migration DTO-boundary normalization: raw persisted `pending_signature` returns as canonical `sent` from Contract DTO/API surfaces, confined to `app/modules/contracts/service.ts`. No Contract schema migration, default change, or `sign()`/`void()` guard change is authorized in this slice — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007 and S008 are complete, and S009 is the active `IN_REVIEW` numbered lifecycle item in PR #267. Complete its focused verification and migration review before selecting S010; do not start S010 from this implementation branch. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S007, S008, and S009 are complete, and S010 is the active `READY` numbered lifecycle item. Start S010 only from a fresh implementation branch after live reconciliation; do not implement it from this governance branch. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -164,7 +164,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261, S008 is complete through PR #264, and S009 is `IN_REVIEW` through PR #267. The next engineer should complete PR #267's review, CI, and migration decision before selecting S010.
+S007 is complete through PR #261, S008 is complete through PR #264, S009 is complete through PR #267, and S010 is `READY` through this governance-only promotion. The next engineer should create a fresh S010 implementation branch after repeating live overlap checks.
 
 ## Source-of-truth links
 
