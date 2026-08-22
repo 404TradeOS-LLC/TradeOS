@@ -1238,7 +1238,10 @@ describe("live organization row-level security", () => {
 
     await expect(
       adminClient.proposal.create({ data: { id: proposalInvalidStatusA, projectId: projectB, status: "unsupported" } })
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      code: "P2004",
+      meta: { database_error: expect.stringContaining("proposals_status_check") },
+    });
 
     await expect(adminClient.proposal.findUnique({ where: { id: proposalDeclinedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "declined" });
     await expect(adminClient.proposal.findUnique({ where: { id: proposalRejectedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "rejected" });
