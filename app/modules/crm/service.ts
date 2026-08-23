@@ -3,6 +3,7 @@ import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getCompanyLogoStorageAdapter } from "../company/storage";
+import { InvoicesService } from "../invoices/service";
 import {
   CompanyProfileInput,
   CreateCustomerInput,
@@ -432,19 +433,52 @@ export class CrmService {
     });
   }
 
-  async createPayment(orgId: string, invoiceId: string, input: PaymentInput) {
-    await this.assertInvoice(orgId, invoiceId);
-    return prisma.payment.create({
-      data: {
-        orgId,
-        invoiceId,
-        amount: input.amount,
-        paymentDate: new Date(input.paymentDate),
-        method: input.method,
-        status: input.status ?? "recorded",
-        reference: emptyToNull(input.reference),
-        notes: emptyToNull(input.notes),
-      },
+  async createPayment(orgId: string, invoiceId: string, input: PaymentInput, actorUserId?: string) {
+    assertPositiveFinitePaymentAmount(input.amount);
+
+    return runInDatabaseTransaction(prisma, async (transaction) => {
+      const invoice = await lockInvoiceForPaymentReconciliation(transaction, orgId, invoiceId);
+      if (!invoice) throw new ApiError(404, `Invoice ${invoiceId} not found`);
+
+      const payment = await transaction.payment.create({
+        data: {
+          orgId,
+          invoiceId,
+          amount: input.amount,
+          paymentDate: new Date(input.paymentDate),
+          method: input.method,
+          status: input.status ?? "recorded",
+          reference: emptyToNull(input.reference),
+          notes: emptyToNull(input.notes),
+        },
+      });
+
+      const aggregate = await transaction.payment.aggregate({
+        where: { orgId, invoiceId, status: "recorded" },
+        _sum: { amount: true },
+      });
+      const recordedPaymentTotal = toDecimal(aggregate._sum.amount);
+      const invoiceAmount = toDecimal(invoice.amount);
+
+      if (invoice.status === "sent" && recordedPaymentTotal.gte(invoiceAmount)) {
+        await transaction.invoice.update({
+          where: { id: invoice.id },
+          data: { status: "paid", paidAt: new Date() },
+        });
+        await new InvoicesService().recordPaidEvent({
+          orgId,
+          invoiceId: invoice.id,
+          projectId: invoice.project_id,
+          actorUserId,
+          recipientEmail: invoice.recipient_email,
+          previousStatus: invoice.status,
+          invoiceNumber: invoice.invoice_number,
+          paymentId: payment.id,
+          recordedPaymentTotal: recordedPaymentTotal.toFixed(2),
+        });
+      }
+
+      return payment;
     });
   }
 
@@ -476,6 +510,48 @@ export class CrmService {
     const row = await prisma.invoice.findFirst({ where: { id: invoiceId, project: { orgId } } });
     if (!row) throw new ApiError(404, `Invoice ${invoiceId} not found`);
   }
+}
+
+interface LockedInvoiceForPayment {
+  id: string;
+  project_id: string;
+  invoice_number: number;
+  status: string;
+  amount: unknown;
+  recipient_email: string | null;
+}
+
+async function lockInvoiceForPaymentReconciliation(
+  transaction: Prisma.TransactionClient,
+  orgId: string,
+  invoiceId: string
+): Promise<LockedInvoiceForPayment | undefined> {
+  const rows = await transaction.$queryRaw<LockedInvoiceForPayment[]>(Prisma.sql`
+    select
+      i.id,
+      i.project_id,
+      i.invoice_number,
+      i.status,
+      i.amount,
+      c.email as recipient_email
+    from invoices i
+    join projects p on p.id = i.project_id
+    left join customers c on c.id = p.customer_id
+    where i.id = ${invoiceId}::uuid
+      and p.org_id = ${orgId}::uuid
+    for update of i
+  `);
+  return rows[0];
+}
+
+function assertPositiveFinitePaymentAmount(amount: number): void {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new ApiError(400, "Payment amount must be a positive finite number");
+  }
+}
+
+function toDecimal(value: unknown): Prisma.Decimal {
+  return new Prisma.Decimal(value == null ? 0 : (value as Prisma.Decimal | number | string));
 }
 
 function emptyToNull(value?: string | null): string | null {
