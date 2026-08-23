@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-22
+last_verified: 2026-08-23
 source_of_truth: true
 related_code:
   - app/backend/server.ts
