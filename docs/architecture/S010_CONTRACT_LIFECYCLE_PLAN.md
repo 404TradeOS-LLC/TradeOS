@@ -21,7 +21,7 @@ related_docs:
 
 # S010 — Contract Lifecycle Normalization: Implementation-Ready Plan
 
-**This is a planning artifact only.** No runtime code was modified to produce it. S010 remains `Status: PLANNED` in `docs/SPRINT_BACKLOG.md`; this document does not promote it and does not implement it.
+**Implementation status: DONE.** This document originated as a planning artifact only; no runtime code was modified to produce it, and at the time it was written S010 remained `Status: PLANNED` in `docs/SPRINT_BACKLOG.md`. The Option A slice recommended below (Section 12) was subsequently implemented and merged as PR #276 (`fcbf1fff342053d854ad73667c54a5e44c1bbfb6`); `docs/SPRINT_BACKLOG.md` now records S010 as `DONE`. The remainder of this document is preserved as the original planning/audit evidence and is not updated line-by-line to past tense.
 
 ## 1. Executive verdict
 

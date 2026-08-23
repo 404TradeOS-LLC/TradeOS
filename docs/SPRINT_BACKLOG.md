@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-21
+last_verified: 2026-08-23
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -91,11 +91,11 @@ Evidence: PR #267 merged 2026-08-22 as `de266975a1c6eca742331530f4a53281fe9a6652
 
 ### S010 — Contract lifecycle normalization
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S006
 Objective: Normalize contract lifecycle and signing-state compatibility.
 Acceptance: contract state transitions are consistent and auditable.
-Readiness: PR #276 implements the bounded Option A slice from `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`: `toDTO()` in `app/modules/contracts/service.ts` normalizes stored `pending_signature` to canonical `sent`. No schema migration, default change, or `sign()`/`void()` guard change is made. Three pre-existing runtime defects found during the audit (`void()` non-idempotency, missing transaction boundaries, missing optimistic-concurrency guards) are explicitly out of scope and tracked as separate follow-up.
+Evidence: PR #276 merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`. Implements the bounded Option A slice from `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`: `toDTO()` in `app/modules/contracts/service.ts` normalizes stored `pending_signature` to canonical `sent` using the existing `normalizeContractStatus` helper. No schema migration, default change, or `sign()`/`void()` guard change was made; persisted status remains `pending_signature`. Option B (canonical database persistence) remains a separate founder decision and migration, not attempted here. Three pre-existing runtime defects found during the audit (`void()` non-idempotency, missing transaction boundaries around status+event writes, missing optimistic-concurrency guards) are explicitly out of scope and remain unfixed as separate follow-up.
 
 ### S011 — Invoice lifecycle normalization
 
@@ -421,7 +421,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S010 is `IN_REVIEW` through PR #276, while S006, S007, S008, and S009 are `DONE` with merged evidence.
-Dependencies: S010 review and verification remain active; S011 is not eligible until S010 is complete.
-Overlap check: PR #276 is the sole active S010/Contract-lifecycle implementation PR.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Complete PR #276 review before selecting S011.
+Eligibility: No numbered sprint is currently `READY`. S006, S007, S008, S009, and S010 are `DONE` with merged evidence. S011 remains `PLANNED`; it has not been promoted through a separate governance-only readiness PR.
+Dependencies: S011 depends on S006 (`DONE`). Promotion to `READY` requires a dedicated readiness/planning reconciliation, not this evidence PR.
+Overlap check: no open PR currently implements S011.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Perform a bounded S011 readiness/planning reconciliation before any implementation branch.
