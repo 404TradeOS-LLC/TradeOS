@@ -30,6 +30,10 @@ function fixture() {
   writeFileSync(join(cwd, "README.md"), "initial\n");
   mkdirSync(join(cwd, "app"));
   writeFileSync(join(cwd, "app", "index.ts"), "export {};\n");
+  writeFileSync(
+    join(cwd, "app", "vercel-ignore-build.sh"),
+    readFileSync(new URL("app/vercel-ignore-build.sh", repositoryRoot), "utf8"),
+  );
   git(cwd, "add", ".");
   git(cwd, "commit", "--quiet", "-m", "initial");
   const previousSha = git(cwd, "rev-parse", "HEAD");
@@ -43,7 +47,7 @@ function fixture() {
 
 function runIgnoredBuildStep(fixtureState, overrides = {}) {
   return spawnSync("sh", ["-c", vercelConfig.ignoreCommand], {
-    cwd: fixtureState.cwd,
+    cwd: join(fixtureState.cwd, "app"),
     env: {
       ...process.env,
       VERCEL_ENV: "preview",
@@ -54,6 +58,10 @@ function runIgnoredBuildStep(fixtureState, overrides = {}) {
     },
   }).status;
 }
+
+test("backend ignore command satisfies Vercel's schema length limit", () => {
+  assert.ok(Buffer.byteLength(vercelConfig.ignoreCommand, "utf8") <= 256);
+});
 
 test("backend previews still skip when backend inputs are unchanged", () => {
   const state = fixture();
