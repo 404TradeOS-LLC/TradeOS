@@ -240,6 +240,7 @@ Current enforced transitions:
 
 - `draft -> sent`
 - `sent|overdue -> paid`
+- a recorded-payment reconciliation may transition an eligible `sent` invoice to persisted `paid` when recorded payments fully cover the invoice
 - non-paid invoices may be voided
 
 Compatibility persistence:
@@ -247,15 +248,24 @@ Compatibility persistence:
 - raw `void` normalizes to canonical `voided`
 - `InvoicesService.void()` persists raw `void` so the transition satisfies the live `invoices_status_check` constraint; delivery/activity metadata still records canonical `invoice.voided` / `newStatus: "voided"`
 - `cancelled` remains a defensive legacy normalization synonym, although the live constraint has never permitted that value
+- `partially_paid` and `overdue` remain derived read/reporting states; they are not persisted by the current Invoice payment path
+- `viewed` remains canonical vocabulary without a current Invoice persistence or tracking path
 
 Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
 
 - `paidAmount`/`balanceDue` are not stored columns; the queue derives them per invoice from the sum of that invoice's `Payment` rows with `status = "recorded"` (pending/failed payments do not count), then `balanceDue = amount - paidAmount`, computed in the database so filtering and pagination stay exact
-- `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is not voided
-- `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is not voided
-- `unpaid` = `balanceDue > 0` AND status is not voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
+- `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
+- `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
+- `unpaid` = `balanceDue > 0` AND status is neither persisted `paid` nor voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
 - the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`); canonical display/activity semantics remain `voided`. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either
 - this is a read-only aggregate; it introduces no new invoice state or transition
+
+Payment reconciliation:
+
+- `POST /api/v1/invoices/:id/payments` serializes reconciliation on the target Invoice row inside the existing request-scoped transaction, inserts the Payment, and recomputes the recorded-payment total from the database
+- only an eligible persisted `sent` Invoice transitions automatically to `paid`; partial payments remain derived and non-recorded payments do not count
+- the payment, persisted status change, and `invoice.paid` delivery/activity event commit together; a concurrent final payment observes the serialized status and does not emit a duplicate transition event
+- the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Transactional canonical-event invariant (A12.1)
 
