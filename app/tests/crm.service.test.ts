@@ -14,6 +14,7 @@ type MockPrisma = {
   };
   invoice: {
     findFirst: jest.Mock;
+    update: jest.Mock;
   };
   serviceAddress: {
     findFirst: jest.Mock;
@@ -39,7 +40,9 @@ type MockPrisma = {
   payment: {
     findMany: jest.Mock;
     create: jest.Mock;
+    aggregate: jest.Mock;
   };
+  $queryRaw: jest.Mock;
   $transaction: jest.Mock;
 };
 
@@ -59,6 +62,7 @@ const mockPrisma: MockPrisma = {
   },
   invoice: {
     findFirst: jest.fn(),
+    update: jest.fn(),
   },
   serviceAddress: {
     findFirst: jest.fn(),
@@ -84,11 +88,17 @@ const mockPrisma: MockPrisma = {
   payment: {
     findMany: jest.fn(),
     create: jest.fn(),
+    aggregate: jest.fn(),
   },
+  $queryRaw: jest.fn(),
   $transaction: jest.fn(async (callback: (tx: MockPrisma) => unknown) => callback(mockPrisma)),
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+const recordPaidEventMock = jest.fn().mockResolvedValue(undefined);
+jest.mock("../modules/invoices/service", () => ({
+  InvoicesService: jest.fn().mockImplementation(() => ({ recordPaidEvent: recordPaidEventMock })),
+}));
 
 import { CrmService } from "../modules/crm/service";
 
@@ -177,8 +187,18 @@ describe("CrmService", () => {
   });
 
   it("creates payments only for invoices inside the current org", async () => {
-    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-1", projectId: "project-1", project: { orgId: "org-1" } });
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: "invoice-1",
+        project_id: "project-1",
+        invoice_number: 1,
+        status: "sent",
+        amount: "500.00",
+        recipient_email: null,
+      },
+    ]);
     mockPrisma.payment.create.mockResolvedValue({ id: "payment-1", amount: 150 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "150.00" } });
 
     const result = await new CrmService().createPayment("org-1", "invoice-1", {
       amount: 150,
@@ -192,5 +212,88 @@ describe("CrmService", () => {
         data: expect.objectContaining({ orgId: "org-1", invoiceId: "invoice-1", amount: 150, method: "card" }),
       })
     );
+  });
+
+  it("leaves a partially paid invoice persisted as sent while deriving the partial state from recorded payments", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "sent", amount: "500.00", recipient_email: null },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-1", amount: 200 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "200.00" } });
+
+    await new CrmService().createPayment("org-1", "invoice-1", {
+      amount: 200,
+      paymentDate: "2026-07-01T00:00:00.000Z",
+      method: "card",
+    });
+
+    expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+    expect(recordPaidEventMock).not.toHaveBeenCalled();
+  });
+
+  it("persists paid and records one audit event when recorded payments fully cover a sent invoice", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      {
+        id: "invoice-1",
+        project_id: "project-1",
+        invoice_number: 1,
+        status: "sent",
+        amount: "500.00",
+        recipient_email: "billing@example.com",
+      },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-2", amount: 300 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "500.00" } });
+
+    await new CrmService().createPayment(
+      "org-1",
+      "invoice-1",
+      { amount: 300, paymentDate: "2026-07-02T00:00:00.000Z", method: "card" },
+      "user-1"
+    );
+
+    expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
+      where: { id: "invoice-1" },
+      data: { status: "paid", paidAt: expect.any(Date) },
+    });
+    expect(recordPaidEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org-1",
+        invoiceId: "invoice-1",
+        actorUserId: "user-1",
+        paymentId: "payment-2",
+        recordedPaymentTotal: "500.00",
+      })
+    );
+  });
+
+  it("does not count a non-recorded payment toward reconciliation", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "sent", amount: "500.00", recipient_email: null },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-pending", amount: 500 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: null } });
+
+    await new CrmService().createPayment("org-1", "invoice-1", {
+      amount: 500,
+      paymentDate: "2026-07-03T00:00:00.000Z",
+      method: "card",
+      status: "pending",
+    });
+
+    expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects zero, negative, and non-finite payment amounts before opening a transaction", async () => {
+    for (const amount of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(
+        new CrmService().createPayment("org-1", "invoice-1", {
+          amount,
+          paymentDate: "2026-07-03T00:00:00.000Z",
+          method: "card",
+        })
+      ).rejects.toMatchObject({ statusCode: 400 });
+    }
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });
