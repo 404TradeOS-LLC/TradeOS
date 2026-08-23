@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-20
+last_verified: 2026-08-22
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -340,7 +340,7 @@ Project lifecycle behavior:
 
 Proposal lifecycle responses use canonical `declined`. `POST /api/v1/proposals/:id/reject` remains the compatibility route name, but a successful transition from `sent` or `viewed` persists `declined`, records `proposal.declined`, and moves the related Project to canonical `estimating`. Historical stored `rejected` values remain readable and normalize to `declined`; no organization or permission boundary changes.
 
-PR #276 (S010, `IN_REVIEW`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
+PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
 
 ## Costbook continuation API additions
 
