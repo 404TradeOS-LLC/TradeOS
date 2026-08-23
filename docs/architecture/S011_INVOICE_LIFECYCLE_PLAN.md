@@ -281,7 +281,7 @@ The two confirmed defects are orthogonal to S011's lifecycle reconciliation. Bun
 4. **S011 owns backend payment reconciliation correctness.** The implementation is limited to serialized payment reconciliation, persisted `paid` advancement for eligible fully covered invoices, transaction/event coherence, and follow-up queue correctness.
 5. The two confirmed status-mutation defects in Section 17 remain separate follow-up work and are not blockers for this bounded slice.
 
-## 20. Recommended S011 acceptance criteria (for a future promotion PR)
+## 20. Approved S011 implementation acceptance criteria
 
 - `CrmService.createPayment()` transitions an eligible `sent` invoice to canonical `paid` (reusing the existing `markPaid()` event/audit shape) when valid recorded payments bring its balance to exactly zero or below; a partial payment leaves status unchanged, non-recorded payments do not count, and concurrent payments cannot leave a fully covered invoice in `sent`.
 - `InvoicesService.listOrganizationQueue()` never returns a persisted `paid` invoice from unpaid, partially-paid, or overdue follow-up filters merely because the manual `markPaid()` path has no Payment ledger row.
@@ -291,3 +291,5 @@ The two confirmed defects are orthogonal to S011's lifecycle reconciliation. Bun
 - `docs/WORKFLOW_LIFECYCLES.md`'s Invoice section and `docs/modules/invoices-and-payments.md` are updated to describe the new payment-triggered transition, paid follow-up exclusion, and the still-open items from Section 19.
 - The two confirmed pre-existing defects in Section 17 remain explicitly out of scope and unfixed, tracked separately.
 - Persisting `overdue`, persisting `partially_paid`, building `viewed` tracking, and expanding payment-entry UI are explicitly out of scope under the approved decisions in Section 19.
+
+Required implementation validation is: focused Invoice/payment and follow-up queue tests; PostgreSQL-backed concurrent-payment and RLS integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `cd app && npm test`; `cd app && npm run lint`; `cd app && npm run build`; and `cd app && npm run test:integration`. If web files change, the relevant web test/lint/build lanes are also required. Exact-head GitHub Actions remain authoritative.
