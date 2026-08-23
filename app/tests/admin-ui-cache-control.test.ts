@@ -10,6 +10,7 @@ describe("legacy admin UI cache policy", () => {
     preventAdminResponseCaching({} as never, res as never, next);
 
     expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.set).toHaveBeenCalledTimes(1);
     expect(next).toHaveBeenCalledTimes(1);
   });
 });
