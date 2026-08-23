@@ -99,10 +99,13 @@ Evidence: PR #276 merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6
 
 ### S011 — Invoice lifecycle normalization
 
-Status: PLANNED
+Status: READY
 Dependencies: S006
-Objective: Normalize invoice/payment states including partial payment and overdue behavior.
-Acceptance: API, UI, and reporting agree on invoice state.
+Objective: Normalize backend payment reconciliation and invoice follow-up classification while keeping partial-payment and overdue presentation derived.
+Acceptance: eligible sent invoices reconcile to persisted `paid` when recorded payments fully cover the total; concurrent final payments are serialized; payment/status/audit writes remain transactionally coherent; persisted `paid` and `voided` invoices are excluded from unpaid, partially-paid, and overdue follow-up queues; partial and overdue remain derived; no payment-entry UI expansion is included.
+Readiness contract: Founder-approved decisions record that overdue remains derived, partially-paid remains derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. The authorized implementation is limited to per-invoice concurrent-payment serialization, cent-safe aggregation of valid recorded payments, the eligible `sent -> paid` transition, existing request-scoped transaction/event behavior, and paid/terminal follow-up exclusions.
+Forbidden in S011: persisted `partially_paid`, a new persisted-overdue writer, `viewed` tracking, payment-entry UI, billing/payment-processor or portal redesign, unrelated Invoice idempotency/optimistic-concurrency repairs, schema migration unless separately re-approved as unavoidable, and S012 work.
+Required implementation validation: focused Invoice/payment and queue tests; concurrent PostgreSQL/RLS integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `cd app && npm test`; `cd app && npm run lint`; `cd app && npm run build`; and `cd app && npm run test:integration`.
 
 ### S012 — Job lifecycle normalization
 
@@ -420,8 +423,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S006, S007, S008, S009, and S010 are `DONE` with merged evidence. S011 remains `PLANNED`; it has not been promoted through a separate governance-only readiness PR.
-Dependencies: S011 depends on S006 (`DONE`). Promotion to `READY` requires a dedicated readiness/planning reconciliation, not this evidence PR.
+Sprint ID: S011
+Eligibility: S011 is `READY` through the separate governance-only readiness promotion. S006, S007, S008, S009, and S010 are `DONE` with merged evidence.
+Dependencies: S011 depends on S006 (`DONE`); the readiness contract and named validation are recorded above. The implementation branch must start from refreshed `origin/main` after the promotion merges.
 Overlap check: no open PR currently implements S011.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Perform a bounded S011 readiness/planning reconciliation before any implementation branch.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Refresh `origin/main`, create `feature/s011-invoice-lifecycle-normalization`, revalidate runtime drift, and implement only the approved bounded S011 slice.

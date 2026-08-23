@@ -1,5 +1,5 @@
 ---
-status: draft
+status: ready
 owner: platform
 last_verified: 2026-08-23
 source_of_truth: false
@@ -28,7 +28,7 @@ related_docs:
 
 # S011 — Invoice Lifecycle Normalization: Readiness/Planning Audit
 
-**This is a planning artifact only.** No runtime code was modified to produce it. S011 remains `Status: PLANNED` in `docs/SPRINT_BACKLOG.md`; this document does not promote it and does not implement it. It corresponds to the "Perform a bounded S011 readiness/planning reconciliation" step recorded as follow-up work after the merged S010 completion-evidence PR (#279), and mirrors the audit methodology and document shape of `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md` (commit `5e0e67e`).
+**This is a planning artifact only.** No runtime code was modified to produce it. S011 is promoted to `Status: READY` in `docs/SPRINT_BACKLOG.md` by a separate governance-only readiness promotion; this document does not implement it. The founder-approved decisions are now explicit: overdue remains derived, partially-paid remains derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. The approved implementation is the bounded slice in Section 12 and must begin only from refreshed `origin/main` after the promotion merges.
 
 ## 1. Executive verdict
 
@@ -43,7 +43,7 @@ What remains is a different, two-part problem:
 1. **Vocabulary reachability, not vocabulary translation.** Two canonical Invoice states (`viewed`, `partially_paid`) are **not legal in the database at all** — the `invoices.status` check constraint has never accepted them, exactly like S010's `draft`/`viewed` finding for Contracts. A third (`overdue`) **is** DB-legal but is **never written by any code path** — it is computed only at query time, never persisted. All three are present in `app/domain/contracts.ts`'s shared `invoiceStatuses`/`invoiceTransitions` as if they were live, enforced transitions; they are not.
 2. **A real state-reconciliation gap, with no Contract analogue.** Recording a payment (`POST /api/v1/invoices/:id/payments`, `CrmService.createPayment`) never reads or writes `Invoice.status`, so a fully covered invoice stays `sent` until the separate `POST /api/v1/invoices/:id/mark-paid` action runs. Conversely, the manual `markPaid()` path sets `Invoice.status = paid` without creating a `Payment` row, while the organization queue derives `balance_due` only from recorded payments and its unpaid/overdue predicates currently exclude voided states but not `paid`. A manually-paid invoice can therefore still appear in follow-up queues with a positive derived balance. There is also no UI caller of the payment-recording API anywhere in `web/src` — it is backend-only today.
 
-Section 12 recommends the smallest safe S011 implementation slice for a future implementation PR: no schema migration; make recorded payments drive the existing `sent -> paid` transition safely, and make the queue's derived follow-up predicates respect an already-persisted `paid` status so the existing manual path and the payment-derived path agree. `partially_paid`/`overdue`/`viewed` persistence remains an explicitly deferred founder-decision item (Section 19), matching how S010 deferred `viewed`.
+Section 12 defines the approved smallest safe S011 implementation slice: no schema migration; make recorded payments drive the existing `sent -> paid` transition safely, and make the queue's derived follow-up predicates respect an already-persisted `paid` status so the existing manual path and the payment-derived path agree. The founder has approved that `partially_paid` and `overdue` remain derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. `viewed` persistence remains outside this sprint.
 
 This audit also confirms two status-mutation defect classes S010 found for Contracts — void non-idempotency and missing optimistic-concurrency guards — independently in Invoices. The production HTTP routes themselves already run inside the repository's request-scoped database transaction, so the earlier claim that `send()`/`markPaid()`/`void()` have no transaction boundary was incorrect; Section 17 now records the narrower direct-service-invocation caveat instead of treating that as a production HTTP defect.
 
@@ -273,20 +273,25 @@ The two confirmed defects are orthogonal to S011's lifecycle reconciliation. Bun
 - **Documentation risk:** resolved in this planning PR. `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` now states the audited Invoice truth directly: `viewed`/`partially_paid` are canonical but DB-illegal, `overdue` is DB-legal but has no repository write path, and the concrete reconciliation gap is around `paid` across payment recording and follow-up queues. Future implementation docs still must describe the behavior that actually ships.
 - **Functional risk of the proposed Option A slice itself:** bounded but concurrency-sensitive — it reuses the existing `sent -> paid` transition, repairs the existing paid/follow-up queue contradiction, and requires per-invoice serialization plus live concurrent regression coverage. It does not add a status, schema change, or new billing ledger semantics.
 
-## 19. Open questions requiring a founder/product decision
+## 19. Resolved founder decisions and deferred defects
 
-1. **Should `overdue` ever be a persisted `Invoice.status` value, or is compute-at-read-time (the current design) actually correct?** Persisting it requires a new scheduled-job mechanism (nothing in this repository currently sweeps rows on a time-only trigger for lifecycle transitions) and raises staleness questions the current derived-at-read design avoids for free. This plan does not recommend persisting it without an explicit decision that the derived design is insufficient.
-2. **Should `partially_paid` become a real persisted status**, requiring a constraint migration (`ALTER TABLE invoices DROP CONSTRAINT ... ADD CONSTRAINT ... CHECK (status IN ('draft','sent','viewed','partially_paid','paid','overdue','voided'))` or similar, matching the additive pattern S010's Section 13 recommended for Contracts if Option B were ever chosen there), or is the current dashboard-only derived badge (Section 8) sufficient for "API, UI, and reporting agree on invoice state"? If a migration is chosen, it should also resolve the `void`/`voided` raw-spelling mismatch (Section 2) as part of the same widening, rather than leaving that asymmetry in place indefinitely.
-3. **Should a payment-recording UI be built**, and if so, in which surface (the internal invoice detail page, a new dedicated flow, or folded into a future S021 portal-invoice-payment-presentation slice)? Section 9's API already exists; only the UI and Section 12's status-transition wiring are missing. This is product-surface scope, not lifecycle-vocabulary scope, and should not be silently absorbed into S011.
-4. **Should the two confirmed status-mutation defects in Section 17 become their own ticket now, potentially shared with the analogous Contract findings**, or wait? Not blocking S011, but worth an explicit decision so the idempotency/concurrency findings are not silently dropped.
+1. **Overdue remains derived.** S011 must not introduce a persisted-overdue writer or scheduler. Existing balance/due-date-derived presentation remains authoritative where correct.
+2. **Partially-paid remains derived.** S011 must not add `partially_paid` to the database status constraint. Derive it from valid recorded payments and remaining balance.
+3. **Payment-entry UI expansion is deferred.** Existing payment-recording entry points remain the input boundary; S011 does not build or redesign payment-entry UI. Any later UI ownership/expansion belongs to a later sprint.
+4. **S011 owns backend payment reconciliation correctness.** The implementation is limited to serialized payment reconciliation, persisted `paid` advancement for eligible fully covered invoices, transaction/event coherence, and follow-up queue correctness.
+5. The two confirmed status-mutation defects in Section 17 remain separate follow-up work and are not blockers for this bounded slice.
 
-## 20. Recommended S011 acceptance criteria (for a future promotion PR)
+## 20. Approved S011 implementation acceptance criteria
 
-- `CrmService.createPayment()` transitions a `sent` invoice to canonical `paid` (reusing the existing `markPaid()` event/audit shape) when recorded payments bring its balance to exactly zero or below; a partial payment leaves status unchanged, non-recorded payments do not count, and concurrent payments cannot leave a fully covered invoice in `sent`.
+- `CrmService.createPayment()` transitions an eligible `sent` invoice to canonical `paid` (reusing the existing `markPaid()` event/audit shape) when valid recorded payments bring its balance to exactly zero or below; a partial payment leaves status unchanged, non-recorded payments do not count, and concurrent payments cannot leave a fully covered invoice in `sent`.
 - `InvoicesService.listOrganizationQueue()` never returns a persisted `paid` invoice from unpaid, partially-paid, or overdue follow-up filters merely because the manual `markPaid()` path has no Payment ledger row.
 - The payment/status/audit path stays inside the existing request-scoped transaction; no nested transaction is added to the request-scoped Prisma proxy. Any intentionally supported direct service invocation uses the repository transaction helper safely.
 - No schema, migration, RLS, permission, or `send()`/`markPaid()`/`void()` transition-guard change.
 - `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` already records the audited pre-implementation truth in this planning PR and must remain consistent with whatever runtime behavior the later implementation ships.
 - `docs/WORKFLOW_LIFECYCLES.md`'s Invoice section and `docs/modules/invoices-and-payments.md` are updated to describe the new payment-triggered transition, paid follow-up exclusion, and the still-open items from Section 19.
 - The two confirmed pre-existing defects in Section 17 remain explicitly out of scope and unfixed, tracked separately.
-- Persisting `overdue`, persisting `partially_paid`, and building `viewed` tracking or a payment-recording UI remain explicitly out of scope pending the founder/product decisions in Section 19.
+- Persisting `overdue`, persisting `partially_paid`, building `viewed` tracking, and expanding payment-entry UI are explicitly out of scope under the approved decisions in Section 19.
+
+Required implementation validation is: focused Invoice/payment and follow-up queue tests; PostgreSQL-backed concurrent-payment and RLS integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `cd app && npm test`; `cd app && npm run lint`; `cd app && npm run build`; and `cd app && npm run test:integration`. If web files change, the relevant web test/lint/build lanes are also required. Exact-head GitHub Actions remain authoritative.
+
+Payment compatibility boundary: S011 reuses the existing PaymentInput/controller validation and current payment-status conventions. Only payments the current domain considers valid and `recorded` count toward reconciliation; cent-safe existing Decimal(14,2) money semantics remain authoritative. S011 does not invent refund, reversal, or new payment-status semantics. If runtime revalidation finds an existing validation gap that blocks this contract, report it as a bounded dependency before broadening scope.
