@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
-import { hasPermission } from "../../domain/contracts";
+import { hasPermission, normalizeContractStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
 import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, SignContractInput } from "./types";
 
@@ -195,7 +195,7 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     proposalId: row.proposalId,
-    status: row.status,
+    status: normalizeContractStatus(row.status),
     termsText: row.termsText,
     signerName: row.signerName,
     signerEmail: row.signerEmail,

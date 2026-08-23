@@ -69,9 +69,32 @@ describe("ContractsService", () => {
     const service = new ContractsService();
     const contract = await service.create({ orgId: "org-1", actorUserId: "user-1", actorRole: "admin", proposalId: "proposal-1" });
 
-    expect(contract.status).toBe("pending_signature");
+    expect(contract.status).toBe("sent");
     expect(contract.termsText).toBe("Custom terms");
     expect(contract.events[0]?.eventType).toBe("contract.created");
+  });
+
+  it("normalizes a historical pending_signature row to canonical sent on read", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      status: "pending_signature",
+      termsText: "Custom terms",
+      signerName: null,
+      signerEmail: null,
+      signatureDataUrl: null,
+      signatureIp: null,
+      signedAt: null,
+      createdAt: new Date(),
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+
+    const service = new ContractsService();
+    const contract = await service.getById("contract-1", "org-1");
+
+    expect(contract.status).toBe("sent");
   });
 
   it("rejects creating a contract from a proposal that hasn't been accepted", async () => {
