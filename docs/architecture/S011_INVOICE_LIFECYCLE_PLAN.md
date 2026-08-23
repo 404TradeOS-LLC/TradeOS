@@ -197,11 +197,12 @@ This is the one concrete item in Section 12's recommended smallest-safe slice, b
 
 ## 12. Proposed S011 implementation (recommended smallest safe slice)
 
-No database migration. Change `CrmService.createPayment()` (or a thin wrapper it calls) to, within the same request-scoped transaction as the `Payment` insert:
+No database migration. Change `CrmService.createPayment()` (or a thin wrapper it calls) to, within one `$transaction`:
 
-1. Recompute the invoice's total recorded-payment sum including the new payment.
-2. If that sum is `>=` the invoice's `amount` **and** the invoice's current status is `sent` (the only status from which the existing `markPaid()` allows a `paid` transition that is actually reachable per Section 8), transition `Invoice.status` to `paid` and set `paidAt`, reusing the existing `invoice.paid` delivery/activity event shape `markPaid()` already writes.
-3. If the sum is greater than zero but less than `amount`, do **not** attempt to persist `partially_paid` — it is not DB-legal (Section 2) and making it legal is a schema decision, not an implementation detail, deferred to Section 19.
+1. Lock the target invoice row within that transaction (e.g. a `SELECT ... FOR UPDATE`-equivalent read, or Prisma's serializable-transaction guard) before aggregating payments, so two concurrent payments against the same invoice serialize instead of both reading the same stale balance and racing on the transition below. This closes the same class of gap Section 17 documents for the existing status-mutating methods, rather than reintroducing it in new code.
+2. Insert the `Payment` row, then recompute the invoice's total recorded-payment sum including it, inside that same locked transaction.
+3. If that sum is `>=` the invoice's `amount` **and** the invoice's current status is `sent` (the only status from which the existing `markPaid()` allows a `paid` transition that is actually reachable per Section 8), transition `Invoice.status` to `paid` and set `paidAt`, **and write the `invoice.paid` delivery/activity audit event in that same transaction** — reusing `markPaid()`'s existing event shape, but not its separate unwrapped-`await` pattern (Section 17, finding 2); the audit trail must not be able to diverge from the status change here even though it still can in the pre-existing `send()`/`markPaid()`/`void()` methods this slice does not touch.
+4. If the sum is greater than zero but less than `amount`, do **not** attempt to persist `partially_paid` — it is not DB-legal (Section 2) and making it legal is a schema decision, not an implementation detail, deferred to Section 19.
 
 This closes the concrete functional gap from Section 9 (a fully-paid invoice actually becomes `paid`) using only the transition that is already DB-legal, already used, and already has passing regression tests (`app/tests/invoices.service.test.ts:167`, `"marks a sent invoice paid"`) — extend that same test file with a payment-triggered-paid case rather than inventing a new mechanism.
 
@@ -218,8 +219,9 @@ Matrix/workflow-lifecycle/module-doc corrections (Sections 2-9 of this audit) sh
 
 ## 14. Exact files expected to change (future Option A implementation PR)
 
-- `app/modules/crm/service.ts` — `createPayment()` gains the balance-check + conditional `paid` transition, in a transaction with the `Payment` insert.
-- `app/tests/invoices.service.test.ts` and/or `app/tests/payments.service.test.ts` — new coverage for the payment-triggered `paid` transition (full payment closes the invoice; partial payment leaves status unchanged; payment on an already-voided or already-paid invoice is rejected or no-ops safely — needs an explicit decision at implementation time, not invented here).
+- `app/modules/crm/service.ts` — `createPayment()` gains the row-locked balance check, conditional `paid` transition, and same-transaction audit event, per Section 12.
+- `app/tests/invoices.service.test.ts` and/or `app/tests/payments.service.test.ts` — new coverage for the payment-triggered `paid` transition (full payment closes the invoice; cumulative partial-then-final payments; non-`recorded` payment status excluded; partial payment leaves status unchanged; payment on an already-voided or already-paid invoice is rejected or no-ops safely — needs an explicit decision at implementation time, not invented here).
+- `app/tests/rls.integration.ts` — live PostgreSQL coverage for the concurrent-payment row-locking behavior in Section 12, since that class of race is not provable against a mocked Prisma client.
 - `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` — correct the Invoice row and the S011-input section: `viewed`/`partially_paid` are canonical-but-currently-DB-illegal (not "documented transitions differ" as currently phrased); `overdue` is DB-legal but dead configuration, derived and displayed independently of `Invoice.status`.
 - `docs/WORKFLOW_LIFECYCLES.md` — correct the Invoice section's "Current enforced transitions" list to state plainly that `overdue`/`partially_paid`/`viewed` are never persisted, and that `overdue`/`partiallyPaid` are read-time-derived queue/dashboard labels, not lifecycle transitions.
 - `docs/modules/invoices-and-payments.md` — document the new payment-triggered `paid` transition alongside the existing manual `mark-paid` action, and note the still-missing payment-recording UI as a known limitation if not also closed in the same PR.
@@ -239,8 +241,12 @@ Matrix/workflow-lifecycle/module-doc corrections (Sections 2-9 of this audit) sh
 | Behavior | Test file | Assertion |
 |---|---|---|
 | Payment fully covering balance transitions invoice to `paid` | `app/tests/invoices.service.test.ts` or `app/tests/payments.service.test.ts` | after `createPayment()` with `amount === invoice.amount`, `getById(...).status === "paid"` and `paidAt` is set |
+| Cumulative payments reach `paid` only once the running total covers the balance | same | record a partial payment (status stays `sent`), then a second payment that brings the cumulative total to `>= amount`; only the second call transitions status to `paid` with `paidAt` set |
+| A non-`recorded` payment status does not count toward the balance or trigger a transition | same | a payment created with `status` other than `recorded` leaves `Invoice.status` unchanged and is excluded from the balance sum, matching the existing `listOrganizationQueue`/ledger convention of only counting `status = "recorded"` rows |
 | Partial payment does not change status | same | after `createPayment()` with `amount < invoice.amount`, `status` remains `"sent"` |
 | Payment on a non-`sent` invoice does not silently transition it | same | payment recorded against a `draft`, `voided`, or already-`paid` invoice leaves status unchanged (or the exact rejection behavior decided at implementation time) |
+| Concurrent payments on the same invoice serialize and only one transition fires | `app/tests/rls.integration.ts` (live PostgreSQL) | two concurrent `createPayment()` calls that together cover the balance each see the locked, up-to-date sum; exactly one resulting transition to `paid`, no lost update |
+| The `invoice.paid` audit event and the status write commit or roll back together | same | a forced failure after the status write but before the event write (or an equivalent transaction-boundary test) leaves neither persisted, unlike the pre-existing gap documented for `send()`/`markPaid()`/`void()` in Section 17 |
 | Existing manual `mark-paid` path is unaffected | `app/tests/invoices.service.test.ts:167` | unchanged, still passes |
 | Existing `void()` raw-value regression is unaffected | `app/tests/invoices.void.test.ts` | unchanged, still passes |
 
