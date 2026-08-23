@@ -1,37 +1,30 @@
-import { preventAdminResponseCaching } from "../backend/routes/adminUi.routes";
+import express from "express";
+import request from "supertest";
+import { adminUiRouter } from "../backend/routes/adminUi.routes";
 
 describe("legacy admin UI cache policy", () => {
-  it("marks admin responses as no-store and injects bearer-token scrubbing into HTML", () => {
-    const send = jest.fn().mockReturnValue(undefined);
-    const res = {
-      set: jest.fn().mockReturnThis(),
-      getHeader: jest.fn().mockReturnValue("text/html; charset=utf-8"),
-      send,
-    };
-    const next = jest.fn();
+  function createApp() {
+    const app = express();
+    app.use("/admin", adminUiRouter);
+    return app;
+  }
 
-    preventAdminResponseCaching({} as never, res as never, next);
-    res.send('<html><body><input type="hidden" name="bearerToken" value="secret" /></body></html>');
+  it("hardens a mounted HTML admin route against HTTP and back-forward caching", async () => {
+    const response = await request(createApp()).get("/admin");
 
-    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
-    expect(res.set).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith(expect.stringContaining('window.addEventListener("pagehide"'));
-    expect(send).toHaveBeenCalledWith(expect.stringContaining("field.removeAttribute(\"value\")"));
-    expect(send).toHaveBeenCalledWith(expect.stringContaining('field.textContent = ""'));
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.text).toContain('window.addEventListener("pagehide"');
+    expect(response.text).toContain('document.querySelectorAll(\'[name="bearerToken"]\')');
+    expect(response.text).toContain('field.removeAttribute("value")');
+    expect(response.text).toContain('field.textContent = ""');
   });
 
-  it("does not inject the credential scrubber into non-HTML admin assets", () => {
-    const send = jest.fn().mockReturnValue(undefined);
-    const res = {
-      set: jest.fn().mockReturnThis(),
-      getHeader: jest.fn().mockReturnValue("text/css; charset=utf-8"),
-      send,
-    };
+  it("sets no-store on the mounted CSS asset without injecting the credential scrubber", async () => {
+    const response = await request(createApp()).get("/admin/assets/admin.css");
 
-    preventAdminResponseCaching({} as never, res as never, jest.fn());
-    res.send("body{color:black}");
-
-    expect(send).toHaveBeenCalledWith("body{color:black}");
+    expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.text).not.toContain('window.addEventListener("pagehide"');
   });
 });
