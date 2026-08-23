@@ -73,9 +73,11 @@ PRODUCTION
 - `tradeos-costbook` — the Express backend (`app/`). Production deploys
   from `main`; the stable staging backend URL above deploys from the
   dedicated `staging` branch, which intentionally carries no application
-  changes of its own (see `app/vercel.json`'s `ignoreCommand`, which is
-  path-scoped to `app/**` and `packages/knowledge-engine/**` for Preview
-  deployments). Production deployments from `main` always build: Vercel's
+  changes of its own (see `app/vercel.json`'s short `ignoreCommand` and its
+  bounded `app/vercel-ignore-build.sh` implementation, which is path-scoped to
+  `app/**` and `packages/knowledge-engine/**` for Preview deployments). The
+  command stays within Vercel's configuration-schema length limit. Production
+  deployments from `main` always build: Vercel's
   `VERCEL_GIT_PREVIOUS_SHA` identifies the last successful project deployment,
   which may be an equivalent Preview and therefore cannot safely suppress the
   later Production deployment.
