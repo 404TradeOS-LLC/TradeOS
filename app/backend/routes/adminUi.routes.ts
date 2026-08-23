@@ -5,8 +5,31 @@ import { adminPricingUiController } from "../controllers/adminPricingUi.controll
 
 export const adminUiRouter = Router();
 
+const adminCredentialScrubber = `<script>
+window.addEventListener("pagehide", function () {
+  document.querySelectorAll('[name="bearerToken"]').forEach(function (field) {
+    if (field instanceof HTMLInputElement) {
+      field.value = "";
+      field.removeAttribute("value");
+    } else if (field instanceof HTMLTextAreaElement) {
+      field.value = "";
+      field.textContent = "";
+    }
+  });
+});
+</script>`;
+
 export function preventAdminResponseCaching(_req: Request, res: Response, next: NextFunction) {
   res.set("Cache-Control", "no-store");
+  const send = res.send.bind(res);
+  res.send = ((body?: unknown) => {
+    const contentType = res.getHeader("Content-Type");
+    const hardenedBody =
+      typeof body === "string" && typeof contentType === "string" && contentType.toLowerCase().includes("text/html")
+        ? body.replace("</body>", `${adminCredentialScrubber}\n</body>`)
+        : body;
+    return send(hardenedBody as never);
+  }) as typeof res.send;
   next();
 }
 
