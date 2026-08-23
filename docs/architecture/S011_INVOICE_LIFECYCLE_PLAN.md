@@ -209,7 +209,7 @@ No database migration. Keep the production HTTP path inside the repository's exi
 
 This closes both concrete reconciliation gaps: recorded payments can make a fully-covered `sent` invoice become `paid`, and an invoice already marked `paid` cannot simultaneously appear in a follow-up queue as owing money. It uses only the existing DB-legal `paid` transition and existing queue surface, without adding a status or changing the payment ledger contract.
 
-Matrix/workflow-lifecycle/module-doc corrections (Sections 2-9 of this audit) ship with that future S011 implementation PR, not during this planning task — the same sequencing S010 used (see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md` Section 14).
+The source-of-truth `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` correction identified by this audit ships in this planning PR so repository truth is not left contradictory. `docs/WORKFLOW_LIFECYCLES.md`, `docs/modules/invoices-and-payments.md`, and sprint-status updates remain deferred to the future S011 implementation/promotion sequence because those documents describe shipped behavior rather than audit evidence.
 
 ## 13. What Option A deliberately does not do
 
@@ -227,7 +227,6 @@ Matrix/workflow-lifecycle/module-doc corrections (Sections 2-9 of this audit) sh
 - `app/modules/invoices/service.ts` — organization queue unpaid/partially-paid/overdue predicates exclude persisted `paid` invoices while retaining existing recorded-payment balance math for active non-paid invoices; `send()`, `markPaid()`, and `void()` behavior remain otherwise unchanged.
 - `app/tests/invoices.service.test.ts` and/or `app/tests/payments.service.test.ts` — new coverage for the payment-triggered `paid` transition and paid-queue exclusion (full payment closes the invoice; cumulative partial-then-final payments; non-`recorded` payment status excluded; partial payment leaves status unchanged; manually `markPaid()` invoice is absent from follow-up queues; payment on an already-voided or already-paid invoice is rejected or no-ops safely — needs an explicit decision at implementation time, not invented here).
 - `app/tests/rls.integration.ts` — live PostgreSQL coverage for the concurrent-payment serialization behavior in Section 12, since that class of race is not provable against a mocked Prisma client.
-- `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` — correct the Invoice row and the S011-input section: `viewed`/`partially_paid` are canonical-but-currently-DB-illegal (not "documented transitions differ" as currently phrased); `overdue` is DB-legal but dead configuration, derived and displayed independently of `Invoice.status`.
 - `docs/WORKFLOW_LIFECYCLES.md` — correct the Invoice section's "Current enforced transitions" list to state plainly that `overdue`/`partially_paid`/`viewed` are never persisted, that `overdue`/`partiallyPaid` are read-time-derived queue/dashboard labels, and that persisted `paid` is terminal for follow-up queue purposes.
 - `docs/modules/invoices-and-payments.md` — document the new payment-triggered `paid` transition, the queue exclusion for persisted paid invoices, the existing manual `mark-paid` action, and the still-missing payment-recording UI as a known limitation if not also closed in the same PR.
 - `docs/SPRINT_BACKLOG.md` — status/acceptance update for S011 at implementation time (not part of this planning artifact).
@@ -271,7 +270,7 @@ The two confirmed defects are orthogonal to S011's lifecycle reconciliation. Bun
 ## 18. Risk assessment
 
 - **Vocabulary risk:** low. Section 6 shows the highest-risk half of a typical lifecycle-normalization slice (raw/canonical DTO mismatch) is already resolved on `main`. No schema migration is proposed.
-- **Documentation risk:** `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` is marked `source_of_truth: true` and currently describes the Invoice drift as "documented transitions differ from the richer shared contract" (a wording that reads as under-documentation), when the actual finding is that `viewed`/`partially_paid` are DB-illegal and `overdue` is dead configuration — the same class of correction S010 made for its own matrix row. Not corrected now (deferred to the implementation PR per Section 14, matching S010's own precedent), but flagged here as required work.
+- **Documentation risk:** resolved in this planning PR. `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` now states the audited Invoice truth directly: `viewed`/`partially_paid` are canonical but DB-illegal, `overdue` is DB-legal but has no repository write path, and the concrete reconciliation gap is around `paid` across payment recording and follow-up queues. Future implementation docs still must describe the behavior that actually ships.
 - **Functional risk of the proposed Option A slice itself:** bounded but concurrency-sensitive — it reuses the existing `sent -> paid` transition, repairs the existing paid/follow-up queue contradiction, and requires per-invoice serialization plus live concurrent regression coverage. It does not add a status, schema change, or new billing ledger semantics.
 
 ## 19. Open questions requiring a founder/product decision
@@ -287,7 +286,7 @@ The two confirmed defects are orthogonal to S011's lifecycle reconciliation. Bun
 - `InvoicesService.listOrganizationQueue()` never returns a persisted `paid` invoice from unpaid, partially-paid, or overdue follow-up filters merely because the manual `markPaid()` path has no Payment ledger row.
 - The payment/status/audit path stays inside the existing request-scoped transaction; no nested transaction is added to the request-scoped Prisma proxy. Any intentionally supported direct service invocation uses the repository transaction helper safely.
 - No schema, migration, RLS, permission, or `send()`/`markPaid()`/`void()` transition-guard change.
-- `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md`'s Invoice row and S011-input section are corrected to state that `viewed`/`partially_paid` are canonical-but-currently-DB-illegal and `overdue` is DB-legal-but-dead-configuration, derived and displayed independently of `Invoice.status`, as part of the same implementation PR.
+- `docs/LIFECYCLE_COMPATIBILITY_MATRIX.md` already records the audited pre-implementation truth in this planning PR and must remain consistent with whatever runtime behavior the later implementation ships.
 - `docs/WORKFLOW_LIFECYCLES.md`'s Invoice section and `docs/modules/invoices-and-payments.md` are updated to describe the new payment-triggered transition, paid follow-up exclusion, and the still-open items from Section 19.
 - The two confirmed pre-existing defects in Section 17 remain explicitly out of scope and unfixed, tracked separately.
 - Persisting `overdue`, persisting `partially_paid`, and building `viewed` tracking or a payment-recording UI remain explicitly out of scope pending the founder/product decisions in Section 19.
