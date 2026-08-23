@@ -99,10 +99,12 @@ Evidence: PR #276 merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6
 
 ### S011 — Invoice lifecycle normalization
 
-Status: PLANNED
+Status: READY
 Dependencies: S006
-Objective: Normalize invoice/payment states including partial payment and overdue behavior.
-Acceptance: API, UI, and reporting agree on invoice state.
+Objective: Normalize backend payment reconciliation and invoice follow-up classification while keeping partial-payment and overdue presentation derived.
+Acceptance: eligible sent invoices reconcile to persisted `paid` when recorded payments fully cover the total; concurrent final payments are serialized; payment/status/audit writes remain transactionally coherent; persisted `paid` and `voided` invoices are excluded from unpaid, partially-paid, and overdue follow-up queues; partial and overdue remain derived; no payment-entry UI expansion is included.
+Readiness contract: Founder-approved decisions record that overdue remains derived, partially-paid remains derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. The authorized implementation is limited to per-invoice concurrent-payment serialization, cent-safe aggregation of valid recorded payments, the eligible `sent -> paid` transition, existing request-scoped transaction/event behavior, and paid/terminal follow-up exclusions.
+Forbidden in S011: persisted `partially_paid`, a new persisted-overdue writer, `viewed` tracking, payment-entry UI, billing/payment-processor or portal redesign, unrelated Invoice idempotency/optimistic-concurrency repairs, schema migration unless separately re-approved as unavoidable, and S012 work.
 
 ### S012 — Job lifecycle normalization
 
