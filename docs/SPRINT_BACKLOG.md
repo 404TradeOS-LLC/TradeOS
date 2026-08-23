@@ -83,18 +83,19 @@ Evidence: PR #264 merged 2026-08-22 as `dee5f98f0b46e98782b887fca80a63e55800cd65
 
 ### S009 — Proposal lifecycle normalization
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S006
 Objective: Normalize proposal lifecycle values and customer-facing labels.
 Acceptance: proposal workflow and portal display use the same canonical contract.
-Readiness: PR #267 implements the bounded canonical-decline slice: new declines persist `declined`, historical `rejected` rows remain read-compatible, and the compatibility `/reject` route emits `proposal.declined`. S007's merged Project-side-effect normalization is preserved as a dependency boundary. The additive Proposal status-constraint migration requires normal PR/human migration review; no destructive historical rewrite, permission change, or infrastructure dependency is introduced. `generated`/`expired` mutation paths remain outside this slice.
+Evidence: PR #267 merged 2026-08-22 as `de266975a1c6eca742331530f4a53281fe9a6652`. New declines persist `declined`, historical `rejected` rows remain read-compatible, and the compatibility `/reject` route emits `proposal.declined`. S007's merged Project-side-effect normalization is preserved as a dependency boundary. The additive Proposal status-constraint migration preserves historical rows; no destructive rewrite, permission change, or infrastructure dependency was introduced. `generated`/`expired` mutation paths remain outside this slice.
 
 ### S010 — Contract lifecycle normalization
 
-Status: PLANNED
+Status: READY
 Dependencies: S006
 Objective: Normalize contract lifecycle and signing-state compatibility.
 Acceptance: contract state transitions are consistent and auditable.
+Readiness: `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md` (audit branch `audit/s010-contract-lifecycle-plan`, commit `5e0e67e`) proves the `contracts.status` check constraint accepts only `pending_signature`, `signed`, `voided` and has never been altered; canonical `draft`/`sent`/`viewed` are not currently persistable. The bounded target is a zero-migration DTO-boundary normalization (raw `pending_signature` -> canonical `sent`) in `app/modules/contracts/service.ts`; no schema migration, default change, or `sign()`/`void()` guard change is required. Live reconciliation on 2026-08-22 found no overlapping open S010/Contract-lifecycle PR or branch.
 
 ### S011 — Invoice lifecycle normalization
 
@@ -419,8 +420,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S009 is `IN_REVIEW` through PR #267, while S006, S007, and S008 are `DONE` with merged evidence.
-Dependencies: S009 review and migration verification remain active; S010 is not eligible until S009 is complete.
-Overlap check: PR #267 is the sole active S009/proposal-lifecycle implementation PR.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Complete PR #267 review and migration verification before selecting S010.
+Sprint ID: S010 — Contract lifecycle normalization
+Eligibility: S010 is `READY`; S006 is `DONE` with merged evidence. No other numbered sprint is eligible ahead of S010.
+Dependencies: S006 is `DONE`.
+Overlap check: Live reconciliation on 2026-08-22 found no overlapping open or draft S010/Contract-lifecycle PR or branch; reverify before implementation branch creation.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`.

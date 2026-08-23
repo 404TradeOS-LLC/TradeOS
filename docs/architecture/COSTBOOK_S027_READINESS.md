@@ -4,7 +4,7 @@ Status: `PARTIAL` — dedicated readiness pass completed; promotion is not asser
 
 Baseline: `06c48933a7ad17322bb36bdcbf10f4471a5d891f` (`origin/main` and the audit branch at task start).
 
-Current reconciliation head: `98000693360b8b1256d047cbafca88a70a76f700` (`main`, merged PR `#274`). Repository verification evidence in this document is not a production-deployment attestation.
+Current reconciliation head: `9d227a4345914dc4247629738e06ca631d2704ca` (`main`, merged PR `#278`). Production evidence below is tied to that exact deployed commit.
 
 ## Current implementation inventory
 
@@ -38,9 +38,10 @@ and does not write Costbook records.
 | Search/filter/sort/pagination as a production catalog contract | PASS (implementation) | Canonical Costbook catalog reads now use `{items,total,nextCursor}`, bounded opaque keyset cursors, deterministic `id` tie-breakers, server-side search/filtering, and allowlisted sorting. Legacy CostItem/Assembly search routes remain explicitly bounded typeahead compatibility adapters. |
 | Catalog-query continuation verification | PASS | PR `#260` merged as `cb4ebed`; its required GitHub checks and PostgreSQL-backed integration rehearsal were green before merge. |
 | Request-transaction acquisition regression evidence | PASS | PR `#273` merged the bounded acquisition-wait repair as `3de3f98`. PR `#274` then added a real PostgreSQL single-connection contention regression and hermetic timeout tests; exact-head `63e0031d23d3137f2c677c80761bd9a15fc10bb1` passed Docs consistency, Dependency review, and Verify repository before merge as `9800069`. Production replay remains a separate deployment evidence gate. |
-| Authenticated rendered browser verification at 1440/1024/768/390 | PARTIAL | An authenticated production session rendered all nine Costbook routes at the cloud browser's actual 1363x936 viewport with no horizontal overflow and truthful tenant-scoped empty states after full loading. The first parallel startup pass also reproduced intermittent request-transaction acquisition `500`s, so this evidence correctly triggered a bounded runtime repair rather than promotion. Exact 1440/1024/768/390 renders remain unclaimed. |
+| Production deployment and authenticated route replay | PASS | Vercel Production deployment `BQnTC3VzUij5TktsebTPYAda5Qrr` reached Ready on exact `main` commit `9d227a4`; `/health` reported that full SHA and `/ready` reported database status `ok`. An authenticated replay reached all nine Costbook routes, their API requests returned `200`, and exact-deployment logs showed zero warning, error, or fatal entries during the replay. |
+| Authenticated rendered browser verification at 1440/1024/768/390 | PARTIAL | After exact deployment, an authenticated production session rendered all nine Costbook routes at the cloud browser's actual viewport with truthful tenant-scoped empty or preview states. The cloud browser does not expose exact viewport emulation, so 1440/1024/768/390 rendering, keyboard focus, and mutation/error-state evidence remain unclaimed. |
 | PostgreSQL/RLS integration execution | PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PRs `#260`, `#273`, and `#274` independently passed their final-head PostgreSQL-backed verification; `#274` specifically exercises transaction acquisition under `connection_limit=1`. |
-| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository runs `32449419590`, `32586823430`, and PR `#274` run `32587490086` passed the applicable backend/frontend lint, unit, build, and integration lanes. |
+| Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository runs `32449419590`, `32586823430`, and PR `#274` run `32587490086` passed the applicable backend/frontend lint, unit, build, and integration lanes. PR `#278` exact-head run `32611298220` also passed app typecheck, unit, build, and PostgreSQL integration/RLS lanes before the production deployment repair merged. |
 
 ## Concrete repair in this pass
 
@@ -59,42 +60,40 @@ the complete filtered tenant query rather than the page predicate. Costbook
 pages now submit server-side query criteria and expose bounded next-page
 navigation.
 
-The production database repair now has both implementation and regression
-evidence on `main`: request-scoped database sessions use the bounded acquisition
-wait from PR `#273`, and PR `#274` proves a competing transaction can wait past
-Prisma's former two-second acquisition window on a real PostgreSQL
-single-connection pool. This closes the repository-side contention-test gap; it
-does not substitute for post-deployment production replay.
+The production database repair now has implementation, regression, deployment,
+and replay evidence. Request-scoped database sessions use the bounded
+acquisition wait from PR `#273`; PR `#274` proves a competing transaction can
+wait past Prisma's former two-second acquisition window on a real PostgreSQL
+single-connection pool; and exact `main` commit `9d227a4` completed an
+authenticated production replay without transaction-acquisition `500`s.
 
 ## Smallest remaining S027 blockers
 
-1. Production reliability gate: confirm the merged `#273` repair is active in
-   the target production deployment, repeat the authenticated parallel Costbook
-   route load, and verify exact-deployment runtime logs contain no transaction-
-   acquisition timeout `500`s.
-2. Authenticated browser evidence: render and exercise the nine Costbook routes
+1. Authenticated browser evidence: render and exercise the nine Costbook routes
    at 1440px, 1024px, 768px, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product
    decision. PostgreSQL/RLS execution is independently verified by CI; that
    database evidence must not be treated as a substitute for rendered browser
    verification.
 
-Authenticated production evidence on 2026-08-22 covered `/costbook`,
+Authenticated production replay on 2026-08-23 covered `/costbook`,
 `/costbook/materials`, `/costbook/labor-rates`, `/costbook/equipment`,
 `/costbook/divisions`, `/costbook/cost-items`, `/costbook/assemblies`,
-`/costbook/pricing`, and `/costbook/price-history` at the cloud browser's actual
-1363x936 viewport. All routes reached their real API-backed empty or preview
-state without horizontal overflow after full initialization. Vercel runtime
-logs from the initial parallel pass nevertheless recorded transaction-
-acquisition `500`s on workspace, labor-rate, and settings reads. The merged
-acquisition-wait repair and its PostgreSQL contention regression are now on
-`main`; the remaining reliability evidence is to confirm that repair on the
-actual production deployment and inspect the exact-deployment logs. Exact
-required viewports remain the separate final promotion gate.
+`/costbook/pricing`, and `/costbook/price-history` against Vercel Production
+deployment `BQnTC3VzUij5TktsebTPYAda5Qrr`. All routes reached their real
+API-backed empty or preview state after full initialization. Their Costbook API
+requests returned `200`, and exact-deployment logs recorded no warning, error,
+or fatal entries during the replay. This closes the production reliability
+gate that the initial 2026-08-22 pass opened. Cold/concurrent requests were
+still slow in this evidence window, with observed Costbook API latency up to
+approximately 12.6 seconds; treat that as a performance follow-up rather than
+evidence of a failed or incomplete response. Exact required viewports remain
+the final promotion gate.
 
-S027 should remain `BLOCKED`/not promoted until those two gates are closed. The
-remaining gaps do not require a founder decision; the post-merge production and
-browser gates require an authenticated rendered environment.
+S027 should remain `PARTIAL`; promotion remains blocked until the exact
+authenticated viewport gate is closed. The remaining gap does not require a
+founder decision, but it does require an authenticated rendered environment
+that supports exact viewport emulation.
 
 ## Numbered-sprint sequencing
 
