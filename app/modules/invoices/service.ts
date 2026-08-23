@@ -111,13 +111,13 @@ export class InvoicesService {
     if (filters.sent === true) conditions.push(Prisma.sql`sent_at IS NOT NULL`);
     if (filters.sent === false) conditions.push(Prisma.sql`sent_at IS NULL`);
     if (filters.overdue === true) {
-      conditions.push(Prisma.sql`due_date IS NOT NULL AND due_date < now() AND balance_due > 0 AND status NOT IN (${Prisma.join(voidedRawStatuses)})`);
+      conditions.push(Prisma.sql`due_date IS NOT NULL AND due_date < now() AND balance_due > 0 AND status NOT IN (${Prisma.join(followUpExcludedRawStatuses(voidedRawStatuses))})`);
     }
     if (filters.partiallyPaid === true) {
-      conditions.push(Prisma.sql`paid_amount > 0 AND balance_due > 0 AND status NOT IN (${Prisma.join(voidedRawStatuses)})`);
+      conditions.push(Prisma.sql`paid_amount > 0 AND balance_due > 0 AND status NOT IN (${Prisma.join(followUpExcludedRawStatuses(voidedRawStatuses))})`);
     }
     if (filters.unpaid === true) {
-      conditions.push(Prisma.sql`balance_due > 0 AND status NOT IN (${Prisma.join(voidedRawStatuses)})`);
+      conditions.push(Prisma.sql`balance_due > 0 AND status NOT IN (${Prisma.join(followUpExcludedRawStatuses(voidedRawStatuses))})`);
     }
     if (filters.updatedAfter) conditions.push(Prisma.sql`updated_at >= ${new Date(filters.updatedAfter)}`);
     if (filters.updatedBefore) conditions.push(Prisma.sql`updated_at <= ${new Date(filters.updatedBefore)}`);
@@ -265,6 +265,35 @@ export class InvoicesService {
       metadata: { previousStatus: row.status, newStatus: "paid", invoiceNumber: row.invoiceNumber },
     });
     return this.getById(updated.id, orgId);
+  }
+
+  async recordPaidEvent(input: {
+    orgId: string;
+    invoiceId: string;
+    projectId: string;
+    actorUserId?: string;
+    recipientEmail?: string | null;
+    previousStatus: string;
+    invoiceNumber: number;
+    paymentId: string;
+    recordedPaymentTotal: string;
+  }): Promise<void> {
+    await this.recordDeliveryEvent({
+      orgId: input.orgId,
+      invoiceId: input.invoiceId,
+      projectId: input.projectId,
+      actorUserId: input.actorUserId,
+      eventType: "invoice.paid",
+      recipientEmail: input.recipientEmail,
+      metadata: {
+        previousStatus: input.previousStatus,
+        newStatus: "paid",
+        invoiceNumber: input.invoiceNumber,
+        paymentId: input.paymentId,
+        reconciliation: "recorded_payment",
+        recordedPaymentTotal: input.recordedPaymentTotal,
+      },
+    });
   }
 
   async void(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<InvoiceDTO> {
@@ -484,4 +513,8 @@ function assertInvoiceWriteAccess(role?: string) {
   if (!role || !hasPermission(role, "billing.write")) {
     throw new ApiError(403, "You do not have permission to manage invoices");
   }
+}
+
+function followUpExcludedRawStatuses(voidedRawStatuses: string[]): string[] {
+  return [...new Set([...voidedRawStatuses, "paid"])];
 }
