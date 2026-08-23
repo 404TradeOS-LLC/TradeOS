@@ -17,8 +17,11 @@ describe("legacy admin UI cache policy", () => {
     expect(response.status).toBe(200);
     expect(response.headers["cache-control"]).toBe("no-store");
 
-    const script = response.text.match(/<script>([\s\S]*?)<\/script>/)?.[1];
-    expect(script).toBeDefined();
+    const scriptOpen = response.text.indexOf("<script>");
+    const scriptClose = response.text.indexOf("</script>", scriptOpen + "<script>".length);
+    expect(scriptOpen).toBeGreaterThanOrEqual(0);
+    expect(scriptClose).toBeGreaterThan(scriptOpen);
+    const script = response.text.slice(scriptOpen + "<script>".length, scriptClose);
 
     class FakeInputElement {
       value = "secret-input-token";
@@ -37,7 +40,7 @@ describe("legacy admin UI cache policy", () => {
     const textarea = new FakeTextAreaElement();
     let pagehideHandler: (() => void) | undefined;
 
-    vm.runInNewContext(script!, {
+    vm.runInNewContext(script, {
       window: {
         addEventListener(event: string, handler: () => void) {
           if (event === "pagehide") pagehideHandler = handler;
