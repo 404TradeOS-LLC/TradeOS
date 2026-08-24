@@ -1,0 +1,66 @@
+name: S027 authenticated browser evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Authenticated TradeOS web base URL
+        required: true
+        type: string
+      target_path:
+        description: Costbook route to verify
+        required: true
+        default: /costbook
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s027-browser-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Costbook evidence 1440/1024/768/390
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      S027_BASE_URL: ${{ inputs.base_url }}
+      S027_TARGET_PATH: ${{ inputs.target_path }}
+      S027_STORAGE_STATE_B64: ${{ secrets.S027_E2E_STORAGE_STATE_B64 }}
+      S027_STORAGE_STATE_PATH: ${{ runner.temp }}/s027-storage-state.json
+      S027_EVIDENCE_DIR: ../artifacts/s027-browser-evidence
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Require authenticated storage state
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$S027_STORAGE_STATE_B64" ]; then
+            echo "::error::Repository secret S027_E2E_STORAGE_STATE_B64 is required."
+            exit 1
+          fi
+          printf '%s' "$S027_STORAGE_STATE_B64" | base64 --decode > "$S027_STORAGE_STATE_PATH"
+          chmod 600 "$S027_STORAGE_STATE_PATH"
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture authenticated responsive evidence
+        run: node scripts/s027-browser-evidence.mjs
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: s027-browser-evidence
+          path: artifacts/s027-browser-evidence
+          if-no-files-found: error
+          retention-days: 30
