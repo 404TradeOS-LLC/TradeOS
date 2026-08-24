@@ -43,11 +43,12 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Tests
 
-- currently validated through the broader web build and workflow surfaces
+- backend authentication and tenant-boundary behavior is covered by `app/tests/auth.middleware.test.ts`, `app/tests/jwt.local.test.ts`, and the live PostgreSQL assertions in `app/tests/rls.integration.ts`
+- portal pages and document proxies continue to use server-side session token propagation; no client-selected organization or public-link path is introduced
 
 ## Known limitations
 
-- portal authentication hardening remains an RC1 follow-through area and is now `READY` as S018; no runtime implementation has shipped from that readiness promotion
+- S018 hardens the existing boundary only: local access tokens expire and reject malformed claims, inactive users cannot refresh or bootstrap a session, and the PostgreSQL/RLS test suite asserts same-organization access plus cross-organization denial for portal resources; exact-head CI is authoritative for live execution. There is still no separate customer identity, portal token, or immediate bearer-revocation model.
 
 ## Deferred work
 
@@ -55,4 +56,4 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Last verified date
 
-2026-07-14
+2026-08-24 (implementation assertions; exact-head CI remains authoritative)

@@ -31,6 +31,8 @@ Authenticate users, resolve organization membership, and establish the RLS-backe
 
 Protected API requests must derive tenant context from a verified authenticated identity plus an active membership. Request headers are not a tenant-selection mechanism.
 
+Locally issued HS256 access tokens carry a finite expiration (one hour by default, configurable through the positive `AUTH_JWT_TTL_SECONDS` value) and the verifier requires valid `sub`, `iat`, `exp`, and registered claim types. Expiration is fail-closed at the current JWT second. Refresh and Supabase bootstrap flows also reject inactive application users before issuing or returning an authenticated session. Existing Supabase bearer verification remains signature/issuer/audience/expiry-based; this sprint does not add token persistence or provider introspection for immediate bearer revocation.
+
 Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary. Pre-RLS membership resolution and request transactions share a separately bounded 15-second acquisition wait by default; request transactions retain their 60-second execution timeout. The acquisition wait prevents parallel authenticated loaders from failing at Prisma's two-second default while a serverless instance's intentionally single-connection pool is busy; `RLS_TRANSACTION_TIMEOUT_MS` and `RLS_TRANSACTION_MAX_WAIT_MS` may override the positive millisecond values.
 
 ## Source code locations
@@ -113,6 +115,7 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 - `app/tests/auth.service.test.ts`
 - `app/tests/auth.middleware.test.ts`
+- `app/tests/jwt.local.test.ts` — finite local-token expiry, expiration boundary, and malformed-claim rejection
 - `app/tests/auth.controller.bootstrap.test.ts` — supertest-level trust-boundary coverage: a bootstrap request body carrying `role`/`userId`/`authSubject`/`organizationId` is rejected (`400`, Zod `.strict()`) before it ever reaches provisioning logic
 - `app/tests/trustProxy.test.ts` — proves `TRUST_PROXY=1` resolves `req.ip` from the single innermost `X-Forwarded-For` entry Vercel's edge appends (silencing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`) without trusting an attacker-prefixed chain
 - `app/tests/platformProvisioningAuth.test.ts`
@@ -125,6 +128,7 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 - legacy roles still normalize at session time
 - TOTP exists as stored credential scaffolding but is not the primary documented login path
+- local access-token revocation is bounded by the finite JWT lifetime; immediate invalidation of already-issued local or Supabase bearer tokens would require new token state or provider introspection and remains outside S018
 - a truly transient bootstrap failure (e.g. a momentary backend blip) on an *already-provisioned* returning user now surfaces a "please try again" message on `/login` instead of letting them through to `/dashboard` on that one attempt — a deliberate tradeoff versus the previous best-effort behavior, made because the old behavior's failure mode (silently continuing to a dashboard that then itself crashes for an *unprovisioned* user) was the exact production incident this recovery flow fixes, and `loginAction` cannot yet distinguish "already provisioned, just had a hiccup" from "not provisioned at all" without a second network round trip
 - `app/backend/auth/jwt.ts` verifies Supabase-issued JWTs by dynamically importing `jose` (`await import("jose")`); this project's CommonJS TypeScript build downlevels that into `require("jose")`, so `jose` must stay pinned to a version that ships a CommonJS build (currently `^4.15.9` — `jose` v5+ is ESM-only and throws `ERR_REQUIRE_ESM` at runtime, which is exactly what happened in production before this was caught; see `docs/CURRENT_STATE.md`). `app/tests/jwt.supabase.test.ts` exercises the real `jose` import path end-to-end and will fail the suite if this regresses.
 - `TRUST_PROXY` must be set to `"1"` in Vercel Production and Preview for the backend project (`tradeos-costbook`) — the code has correctly supported this since the repository's initial scaffolding, but the env var itself was never set in Vercel, so production logged `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` on every request (harmless — a warning, not a request failure — but see `app/.env.example` for why the value must be `"1"`, never `"true"`).

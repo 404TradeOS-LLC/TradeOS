@@ -221,6 +221,7 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 - `SUPABASE_JWT_AUDIENCE`
 - `AUTH_ISSUER`
 - `AUTH_AUDIENCE`
+- `AUTH_JWT_TTL_SECONDS` (optional; positive lifetime in seconds for locally issued access JWTs, default `3600`)
 - `RLS_TRANSACTION_TIMEOUT_MS`
 - `RLS_TRANSACTION_MAX_WAIT_MS`
   Defaults to `15000`. This bounds how long an authenticated request waits to

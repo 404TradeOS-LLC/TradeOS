@@ -67,6 +67,8 @@ Every authenticated API request depends on three layers:
 
 The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers.
 
+The S018 hardening keeps this three-layer boundary intact: locally issued access JWTs now expire after a finite default lifetime and reject malformed registered claims, while inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path; adding persistent bearer revocation or a separate customer identity would be a protected architecture decision.
+
 The request-scoped database session sets:
 
 - `app.user_id`

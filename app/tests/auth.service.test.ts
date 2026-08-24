@@ -157,6 +157,39 @@ describe("AuthService", () => {
     expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects refresh for an inactive application user", async () => {
+    mockTransactionClient.authRefreshToken.findUnique.mockResolvedValue({
+      id: "rt-1",
+      orgId: "org-1",
+      userId: "user-1",
+      membershipId: "membership-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+    });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({
+      id: "membership-1",
+      orgId: "org-1",
+      userId: "user-1",
+      role: "dispatcher",
+      status: "active",
+    });
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "dispatch@example.com",
+      fullName: "Dispatch",
+      isActive: false,
+    });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+
+    await expect(new AuthService().refresh({ refreshToken: "refresh-token" })).rejects.toMatchObject({
+      statusCode: 401,
+      message: "Invalid refresh token",
+    });
+    expect(mockTransactionClient.authRefreshToken.update).not.toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
   it("creates password reset tokens without leaking unknown-email status", async () => {
     mockTransactionClient.appUser.findUnique.mockResolvedValue({
       id: "user-1",
@@ -174,7 +207,7 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -190,7 +223,7 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity ignores a supplied organizationName for an already-bootstrapped user (idempotent, no duplicate org)", async () => {
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -213,7 +246,7 @@ describe("AuthService", () => {
     // identity's second-and-later bootstrap call falsely report "no active
     // organization membership" (a mocked Prisma client can't catch an RLS
     // gap — this test pins the actual set_config call sequence instead).
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -234,6 +267,24 @@ describe("AuthService", () => {
       expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) })
     );
     expect(mockTransactionClient.organization.findUnique).toHaveBeenCalledWith({ where: { id: "org-1" } });
+  });
+
+  it("rejects bootstrap for an inactive existing application user", async () => {
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      fullName: "Owner Person",
+      isActive: false,
+    });
+
+    await expect(
+      new AuthService().bootstrapSupabaseIdentity({ authSubject: "supabase:abc", email: "owner@example.com" })
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Authenticated user is not provisioned in this organization",
+    });
+    expect(mockTransactionClient.organizationMembership.findFirst).not.toHaveBeenCalled();
+    expect(mockProvision).not.toHaveBeenCalled();
   });
 
   it("bootstrapSupabaseIdentity rejects provisioning a new organization without a name", async () => {

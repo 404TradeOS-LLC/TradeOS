@@ -73,7 +73,7 @@ describe("POST /api/v1/auth/bootstrap request-body trust boundary", () => {
   });
 
   it("accepts a bootstrap body with only organizationName/regionCode/fullName", async () => {
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 

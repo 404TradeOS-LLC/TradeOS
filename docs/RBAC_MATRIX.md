@@ -72,6 +72,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
 - request headers cannot select or impersonate a tenant
+- S018 authentication hardening preserves these role boundaries: local access JWTs expire and reject malformed claims, while refresh/bootstrap reject inactive application users; no new role, permission, organization selector, or customer identity is introduced
 - waiting longer to acquire the request-scoped transaction changes only
   contention handling; verified JWT and organization-membership authorization
   remain enforced upstream, and the transaction-local `app.*` RLS settings
