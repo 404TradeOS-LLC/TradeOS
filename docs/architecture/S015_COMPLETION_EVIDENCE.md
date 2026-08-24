@@ -73,3 +73,4 @@ tenant boundary.
 
 The implementation is merged, the required behavioral and PostgreSQL/RLS
 evidence is recorded, and no protected boundary was crossed. S015 is `DONE`.
+This record is delivered through completion-evidence PR #312.
