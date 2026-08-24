@@ -4,13 +4,45 @@ import { prisma } from "../../db/client";
 import { redactSecrets } from "../athena-security/secretProtection";
 import type { AthenaGenerationRecord, AthenaGenerationReviewOutcome, AthenaGenerationReviewRecord, AthenaGenerationStatus } from "./types";
 
-const RAW_CONTENT_KEYS = new Set(["prompt", "rawprompt", "rawoutput", "completion", "toolarguments", "toolresults"]);
+const RAW_CONTENT_KEYS = new Set([
+  "prompt",
+  "rawprompt",
+  "rawoutput",
+  "completion",
+  "toolarguments",
+  "toolresults",
+  "message",
+  "text",
+  "content",
+  "input",
+  "output",
+  "response",
+  "result",
+  "arguments",
+  "toolcall",
+  "toolargs",
+  "toolresult",
+]);
 
-function sanitizeMetadata(value: Record<string, unknown>): Record<string, unknown> {
+function normalizedMetadataKey(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function sanitizeMetadataValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeMetadataValue);
+  if (!value || typeof value !== "object") return value;
+
   const safe: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    if (!RAW_CONTENT_KEYS.has(key.toLowerCase())) safe[key] = entry;
+    if (!RAW_CONTENT_KEYS.has(normalizedMetadataKey(key))) {
+      safe[key] = sanitizeMetadataValue(entry);
+    }
   }
+  return safe;
+}
+
+function sanitizeMetadata(value: Record<string, unknown>): Record<string, unknown> {
+  const safe = sanitizeMetadataValue(value) as Record<string, unknown>;
   return redactSecrets(safe).data;
 }
 
