@@ -5,6 +5,7 @@ import { prisma } from "../../db/client";
 import { ApiError } from "../middleware/errorHandler";
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
 import { toEstimateDTO } from "../../modules/estimate-engine/service";
+import { calculateInvoiceFinancials, toInvoicePaymentDTO } from "../../modules/invoices/presentation";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { buildProjectIntake } from "../../modules/project-intake/service";
 import { canTransitionProjectStatus, normalizeProjectStatus, projectStatuses, siteVisitVoiceNoteStatuses } from "../../domain";
@@ -185,6 +186,7 @@ export const projectsController = {
           orderBy: { createdAt: "desc" },
           include: {
             lineItems: { orderBy: { sortOrder: "asc" } },
+            payments: { where: { status: "recorded" }, orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }] },
             deliveries: { orderBy: { occurredAt: "desc" } },
           },
         },
@@ -217,6 +219,8 @@ export const projectsController = {
       invoices: (row.invoices ?? []).map((invoice) => ({
         ...invoice,
         amount: toNullableNumber(invoice.amount) ?? 0,
+        ...calculateInvoiceFinancials(invoice.amount, invoice.status, invoice.payments ?? []),
+        payments: (invoice.payments ?? []).map(toInvoicePaymentDTO),
         percentComplete: toNullableNumber(invoice.percentComplete),
         lineItems: (invoice.lineItems ?? []).map((lineItem) => ({
           ...lineItem,

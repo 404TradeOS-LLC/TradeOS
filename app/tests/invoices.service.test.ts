@@ -257,4 +257,51 @@ describe("InvoicesService", () => {
     expect(invoice.lineItems[0]).toMatchObject({ description: "Concrete pour", quantity: 10, lineCost: 500 });
     expect(invoice.deliveries[0]?.eventType).toBe("invoice.created");
   });
+
+  it("returns recorded payment history and server-derived financials on getById", async () => {
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: null,
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "sent",
+      percentComplete: null,
+      amount: 1000,
+      dueDate: new Date("2026-09-01T00:00:00.000Z"),
+      sentAt: new Date("2026-08-01T00:00:00.000Z"),
+      paidAt: null,
+      createdAt: new Date("2026-07-01T00:00:00.000Z"),
+      lineItems: [],
+      payments: [
+        {
+          id: "payment-1",
+          amount: 400,
+          paymentDate: new Date("2026-08-10T00:00:00.000Z"),
+          method: "card",
+          createdAt: new Date("2026-08-10T00:01:00.000Z"),
+        },
+      ],
+      deliveries: [],
+    });
+
+    const invoice = await new InvoicesService().getById("invoice-1", "org-1");
+
+    expect(invoice).toMatchObject({ paidAmount: 400, balanceDue: 600 });
+    expect(invoice.payments).toEqual([
+      expect.objectContaining({ id: "payment-1", amount: 400, method: "card" }),
+    ]);
+    expect(mockPrisma.invoice.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invoice-1", project: { orgId: "org-1" } },
+        include: expect.objectContaining({
+          payments: {
+            where: { status: "recorded" },
+            orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }],
+          },
+        }),
+      })
+    );
+  });
 });

@@ -43,6 +43,7 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 
 - `/api/v1/invoices/*`
 - `GET /api/v1/invoices` — organization-scoped work-queue read (see below)
+- `GET /api/v1/invoices/:id` — organization-scoped invoice detail with recorded payment history and server-derived `paidAmount`/`balanceDue`
 - `POST /api/v1/invoices/:id/void` — voids a non-paid invoice; persistence uses the database-compatible raw status `void`, while normalized UI/activity semantics remain canonical `voided`
 - `/api/v1/invoices/:id/payments`
 - `GET /api/v1/payments/current-week` — read-only organization-scoped ledger of `recorded` Payment rows in the current organization week, with invoice/project/customer context and organization-timezone-aware boundaries
@@ -78,6 +79,12 @@ Payment reconciliation records the Payment, then recomputes the total recorded p
 - `/projects/[id]/invoices/[invoiceId]`
 - `/dashboard/revenue-this-week` — transaction-level weekly payment ledger; each row links back to its invoice
 - `/portal/invoices/[invoiceId]`
+
+The portal project summary lists every invoice for the selected organization
+project. The portal invoice detail reads `paidAmount`, `balanceDue`, and a
+sanitized history of only `recorded` payments from the server response; it does
+not calculate balances in the browser or expose payment-entry actions. A
+persisted `paid` invoice remains authoritative even when it has no Payment row.
 
 The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger response as the drill-down. If that read fails, the KPI reports `Unavailable` instead of substituting paid-invoice totals.
 

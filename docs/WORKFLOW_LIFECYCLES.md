@@ -268,6 +268,12 @@ Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoice
 - the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`); canonical display/activity semantics remain `voided`. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either
 - this is a read-only aggregate; it introduces no new invoice state or transition
 
+Invoice detail and project invoice reads use the same source-of-truth rules:
+the API returns only `recorded` payment rows, derives `paidAmount` and
+`balanceDue` on the server, and leaves partial-payment and overdue status as
+display/reporting derivations. Persisted `paid` remains authoritative for the
+displayed zero balance even when manual `mark-paid` created no Payment row.
+
 Payment reconciliation:
 
 - `POST /api/v1/invoices/:id/payments` serializes reconciliation on the target Invoice row inside the existing request-scoped transaction, inserts the Payment, and recomputes the recorded-payment total from the database

@@ -1665,6 +1665,23 @@ describe("live organization row-level security", () => {
       expect(result.items.map((item) => item.id)).not.toContain(invoiceQueueB1);
     });
 
+    it("invoice detail: returns recorded payment history for the same org and fails closed across orgs", async () => {
+      const invoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueA2, orgA));
+
+      expect(invoice).toMatchObject({ paidAmount: 400, balanceDue: 600 });
+      expect(invoice.payments).toHaveLength(1);
+      expect(invoice.payments[0]).toMatchObject({ amount: 400, method: "card" });
+
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueB1, orgA))
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      // A guessed org argument cannot widen the request-scoped RLS session.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueB1, orgB))
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
     it("invoices queue: paginates against real Postgres ordering without duplicating rows across pages", async () => {
       const page1 = await inSession(adminUser, orgA, "admin", async () =>
         new InvoicesService().listOrganizationQueue({ orgId: orgA, limit: 2 })
@@ -1806,4 +1823,3 @@ function requiredEnvironment(name: string): string {
   if (!value) throw new Error(`${name} is required for RLS integration tests`);
   return value;
 }
-

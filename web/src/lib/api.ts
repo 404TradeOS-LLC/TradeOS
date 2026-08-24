@@ -918,6 +918,14 @@ export interface InvoiceDelivery {
   createdAt: string;
 }
 
+export interface InvoicePayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  method: string;
+  createdAt: string;
+}
+
 export interface Invoice {
   id: string;
   projectId: string;
@@ -932,6 +940,9 @@ export interface Invoice {
   sentAt: string | null;
   paidAt: string | null;
   createdAt: string;
+  paidAmount: number;
+  balanceDue: number;
+  payments: InvoicePayment[];
   deliveries: InvoiceDelivery[];
 }
 

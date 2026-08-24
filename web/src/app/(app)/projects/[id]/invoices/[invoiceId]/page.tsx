@@ -7,7 +7,7 @@ import { LineItemRow } from "@/components/shared/line-item-row";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInvoice, getProject } from "@/lib/api";
-import { buildInvoiceTimeline, formatCurrency, formatDate, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
+import { buildInvoiceTimeline, formatDate, formatInvoiceCurrency, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string; invoiceId: string }> }) {
@@ -45,7 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Running balance</div>
-              <div className="mt-2 text-2xl font-semibold">{formatCurrency(runningBalance)}</div>
+              <div className="mt-2 text-2xl font-semibold">{formatInvoiceCurrency(runningBalance)}</div>
               <div className="mt-1 text-sm text-muted-foreground">Use this balance to confirm what is still outstanding on the job and whether the invoice is ready to close.</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
@@ -67,11 +67,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {invoice.lineItems.map((li) => (
-            <LineItemRow key={li.id} description={li.description} amount={formatCurrency(li.lineCost)} className="border-none p-0" />
+            <LineItemRow key={li.id} description={li.description} amount={formatInvoiceCurrency(li.lineCost)} className="border-none p-0" />
           ))}
           <div className="flex items-center justify-between gap-3 border-t pt-2 text-base font-semibold">
             <span className="min-w-0 truncate">Total</span>
-            <span className="shrink-0">{formatCurrency(invoice.amount)}</span>
+            <span className="shrink-0">{formatInvoiceCurrency(invoice.amount)}</span>
           </div>
         </CardContent>
       </Card>
@@ -91,7 +91,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Payment history</div>
-            <div className="mt-2 text-muted-foreground">{invoice.paidAt ? "Paid in full" : "No payments recorded yet"}</div>
+            <div className="mt-2 text-muted-foreground">
+              {invoice.payments.length > 0
+                ? `${formatInvoiceCurrency(invoice.paidAmount)} across ${invoice.payments.length} recorded payment${invoice.payments.length === 1 ? "" : "s"}`
+                : invoice.status === "paid"
+                  ? "Marked paid without a recorded payment"
+                  : "No payments recorded yet"}
+            </div>
           </div>
         </CardContent>
       </Card>
