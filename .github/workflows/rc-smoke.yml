@@ -31,7 +31,7 @@ jobs:
       RC_BASE_URL: ${{ inputs.base_url }}
       RC_ROUTES: ${{ inputs.routes }}
       RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
-      RC_STORAGE_STATE_PATH: ${{ runner.temp }}/rc-storage-state.json
+      RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
