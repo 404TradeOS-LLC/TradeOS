@@ -54,6 +54,11 @@ session, forced PostgreSQL RLS, and existing route/API shapes.
   `documents.manage` for proposal mutations. S019 must revalidate this
   boundary against the authenticated portal actor; it must not silently widen
   privileges.
+- The current `markViewed()`, `accept()`, and `reject()` service paths read a
+  proposal status before an unconditional update. This is a concrete
+  concurrency-risk baseline: competing transitions may both pass the guard or
+  allow a later view update to overwrite an accepted result. S019 must
+  reproduce and resolve this within the existing transaction boundary.
 - S018 has completed the authentication and forced-RLS boundary hardening that
   S019 depends on. No S019 implementation PR, branch, or worktree overlap was
   found during live reconciliation.
@@ -75,7 +80,10 @@ S019 may:
    events, project side effects, request-scoped transactions, and route/API
    shapes.
 5. Make the smallest bounded runtime repair only when a reproduced defect is
-   inside this existing proposal boundary.
+   inside this existing proposal boundary. The known competing-transition race
+   may be repaired with an atomic conditional transition or equivalent
+   serialization using the existing request-scoped transaction architecture;
+   no schema or policy redesign is authorized.
 
 ## Explicitly not authorized
 
@@ -109,6 +117,8 @@ The implementation PR must include behavioral evidence for:
 - same-organization proposal reads and permitted mutations succeeding;
 - cross-organization proposal reads and mutations failing closed;
 - proposal-state guards for viewed, accepted, and declined transitions;
+- competing view/accept/decline requests proving one valid transition wins and
+  cannot leave status, project side effects, or delivery events inconsistent;
 - correct actor/org attribution and proposal delivery-event persistence;
 - forced PostgreSQL RLS independently denying cross-organization access;
 - server-side session token propagation for the rendered portal page and
