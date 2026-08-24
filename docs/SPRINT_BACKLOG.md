@@ -267,10 +267,13 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 
 
 ### S025 — AI generation persistence
 
-Status: PLANNED
+Status: READY
 Dependencies: S024
 Objective: Persist approved AI generation metadata and review provenance.
 Acceptance: every generation is addressable, auditable, and tenant-scoped.
+Readiness evidence: S024 is `DONE` through ADR-008; the existing `AthenaExecution`, redacted `AthenaTelemetryRecordRow`, provider usage contract, bounded Athena retention job, and review-first AI Estimate Assist path are the verified baseline. No competing S025 branch, worktree, implementation PR, or readiness PR existed at the readiness snapshot.
+Readiness contract: S025 is bounded to metadata-first generation records and review provenance with organization/actor isolation, forced RLS, allowlisted redaction, 90-day default expiry, bounded idempotent cleanup, and existing application-service review-first writes. Raw prompt/output/tool content, new providers, autonomous writes, billing changes, public links, and new secrets architecture are forbidden. See [S025_AI_GENERATION_PERSISTENCE_PLAN.md](architecture/S025_AI_GENERATION_PERSISTENCE_PLAN.md).
+Founder-decision boundary: NO. ADR-008 resolves metadata-first retention/privacy/cost policy; stop only if implementation requires a materially different customer-facing retention policy, content persistence, provider, billing, identity, or irreversible deletion behavior.
 
 ### S026 — Estimate line-item ordering concurrency
 

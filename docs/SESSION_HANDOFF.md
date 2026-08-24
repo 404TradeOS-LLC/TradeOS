@@ -13,7 +13,7 @@ related_code:
 
 ## Mission
 
-S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and this completion-evidence reconciliation. No numbered implementation lane is active. S025 is the next planned candidate; do not begin S027 implementation concurrently.
+S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and completion-evidence PR #329. S025 is the sole READY implementation candidate; do not begin S027 implementation concurrently.
 
 ## Current truth
 
@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Reconcile live state, analyze S025 readiness and founder-decision boundaries, and promote S025 only through its required governance-only readiness lane. Do not begin S027 implementation concurrently.
+Create/reconcile the isolated S025 implementation worktree and implement only the READY S025 metadata-first generation persistence contract. Do not begin S027 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S025 is the next planned candidate pending readiness analysis.
-Dependencies: S024 is DONE; no S025 implementation or readiness PR is open.
-Overlap check: S022 implementation, focused coverage, and completion evidence are merged; no numbered implementation lane is active.
-Startup prompt: Analyze and promote S025 through the required governance-only readiness lane before implementation; do not implement S027 concurrently.
+Sprint ID: S025
+Eligibility: READY; S024 is DONE and the S025 readiness contract is recorded in `docs/architecture/S025_AI_GENERATION_PERSISTENCE_PLAN.md`.
+Dependencies: S024 is DONE; S022 implementation and completion evidence are merged.
+Overlap check: S025 is the sole numbered implementation lane; no S025 implementation PR is open and S027 remains blocked.
+Startup prompt: Implement S025 from its readiness contract, preserving metadata-first retention, review-first writes, organization/actor isolation, forced RLS, and bounded cleanup; do not implement S027 concurrently.
