@@ -430,12 +430,12 @@ The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
-## Next Eligible Sprint
+## Active Sprint and Next Eligibility
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: S018
-Eligibility: S018 is `READY`; its dependencies S007, S009, S010, and S011 are all `DONE` with merged evidence. S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and separate completion evidence.
+Eligibility: S018 is `IN_REVIEW` in implementation PR #290; its dependencies S007, S009, S010, and S011 are all `DONE` with merged evidence. S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and separate completion evidence.
 Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with merged evidence.
-Overlap check: no open S018 implementation/readiness PR, remote S018 branch, or active S018 worktree was found during the readiness reconciliation. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow` and `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. Create the isolated S018 implementation branch from refreshed `origin/main`; do not implement S019, S020, S021, S022, S027, or a new customer-auth model.
+Overlap check: the authoritative S018 implementation lane is PR #290 on `feature/s018-customer-portal-auth-hardening`; do not create another S018 branch or worktree. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Startup/resume flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow` and `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. Resume and reconcile PR #290, complete the separate S018 completion-evidence step after merge, and do not implement S019, S020, S021, S022, S027, or a new customer-auth model before that evidence is recorded.

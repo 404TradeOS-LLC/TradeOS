@@ -139,7 +139,9 @@ describe("requireAuth middleware", () => {
       { sub: "auth-sub-1", iss: "tradeos-costbook", aud: "tradeos-costbook-api" },
       secret
     );
-    const tampered = `${token.slice(0, -1)}${token.endsWith("A") ? "B" : "A"}`;
+    const [header, payload, signature] = token.split(".");
+    const tamperedSignature = `${signature[0] === "A" ? "B" : "A"}${signature.slice(1)}`;
+    const tampered = `${header}.${payload}.${tamperedSignature}`;
 
     const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${tampered}`);
 
