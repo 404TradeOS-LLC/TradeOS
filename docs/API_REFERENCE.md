@@ -97,7 +97,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/admin`
 - `/api/v1/customers`
 - `/api/v1/projects`
-- `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate)
+- `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate). Job mutations use named lifecycle routes backed by the centralized transition contract in `app/modules/jobs/lifecycle.ts`: schedule/reschedule, dispatch, travel, arrival, pause/resume, completion, cancellation, reopen, and ready-for-invoice. Completion remains `on_site -> completed`; the route surface does not expose generic arbitrary status mutation.
 - `/api/v1/schedule`
 - `/api/v1/notes`
 - `/api/v1/change-orders`

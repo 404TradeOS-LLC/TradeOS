@@ -718,6 +718,20 @@ describe("live organization row-level security", () => {
     expect(hiddenUnassignedJob).toBeNull();
   });
 
+  it("denies a cross-organization Job transition before any status or activity write", async () => {
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        new JobsService().dispatch(jobA, {
+          orgId: orgB,
+          actor: { userId: otherUser, orgId: orgB, role: "owner" },
+        })
+      )
+    ).rejects.toMatchObject({ statusCode: 404, message: `Job ${jobA} not found` });
+
+    const unchanged = await adminClient.job.findUnique({ where: { id: jobA }, select: { status: true } });
+    expect(unchanged?.status).toBe("scheduled");
+  });
+
   it("lets technicians read their assigned team and update only their own assignment rows", async () => {
     const visibleAssignments = await inSession(technicianUser, orgA, "technician", async () =>
       currentTransaction().jobAssignment.findMany({ where: { jobId: jobA }, orderBy: { createdAt: "asc" } })

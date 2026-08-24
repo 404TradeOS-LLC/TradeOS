@@ -293,6 +293,72 @@ describe("JobsService", () => {
     );
   });
 
+  it.each(["traveling", "paused"] as const)("does not allow %s jobs to be completed before returning on site", async (status) => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status,
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.complete("job-1", {
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: `Job job-1 cannot transition from ${status} to completed`,
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("requires an existing schedule when reopening a completed job to scheduled", async () => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status: "completed",
+      scheduledStart: null,
+      scheduledEnd: null,
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.reopen("job-1", {
+        orgId: "org-1",
+        actor: { userId: "admin-1", orgId: "org-1", role: "admin" },
+        status: "scheduled",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Job job-1 cannot reopen to scheduled without an existing schedule",
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("only allows completed jobs to be marked ready for invoice", async () => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status: "on_site",
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.readyForInvoice("job-1", {
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Job job-1 must be completed before it is ready for invoice",
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
   describe("list", () => {
     // buildJobWhere composes optional predicates as separate entries in a
     // shared `AND` array (rather than spreading each one directly onto the

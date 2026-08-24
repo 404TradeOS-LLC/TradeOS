@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -10,6 +10,7 @@ related_code:
   - app/modules/contracts/service.ts
   - app/modules/invoices/service.ts
   - app/modules/jobs/service.ts
+  - app/modules/jobs/lifecycle.ts
   - app/modules/athena-events/transactionalContext.ts
   - app/modules/athena-events/transactionalPublishers.ts
   - app/tests/estimate-costbook-snapshot.test.ts
@@ -208,7 +209,7 @@ Current enforced transitions:
 - `traveling -> on_site`
 - `on_site -> paused`
 - `paused -> on_site`
-- `traveling|on_site|paused -> completed`
+- `on_site -> completed`; `traveling` and `paused` must return to `on_site` before completion
 - `scheduled|dispatched|paused -> cancelled`
 - `completed -> unscheduled|scheduled` through owner/admin reopen
 
@@ -223,6 +224,7 @@ Operational role note:
 - dispatchers coordinate assignment, schedule changes, and permitted job-state progression within the current RBAC model, but current docs do not claim automated routing or optimization behavior
 - the Dispatcher Workspace (`/dispatch`) is a read-mostly overview surface built on the existing job list/status model above — it introduces no new canonical status, no new transition, and no new privileged action; "needs attention" is a derived, non-persisted view computed from existing status/schedule/assignment fields (see `app/modules/jobs/dispatchRules.ts`), not a new lifecycle state
 - A12.1: `JobsService.schedule()` + `JobScheduled`, `addAssignment()` + `TechnicianAssigned`, and `complete()` + `WorkCompleted` each commit atomically. Required canonical event-persistence failure rolls back the corresponding schedule/assignment/completion mutation, leaving the prior lifecycle state intact. `reschedule()` and every other transition above remain unchanged. Subscriber delivery is not part of the transaction.
+- S012: `app/modules/jobs/lifecycle.ts` is the backend transition source of truth for the existing Job actions. It preserves the eight persisted statuses, current role/assignment checks, schedule/conflict validation, activity events, completion/readiness metadata, request-scoped transactions, and tenant/RLS boundaries. Dispatch attention remains derived and no schema migration is introduced.
 
 ## Invoices
 
