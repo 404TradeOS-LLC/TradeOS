@@ -48,6 +48,13 @@ The shared document frame defines safe fallback CSS custom properties for its pa
 
 ## Implementation notes
 
+S015 owns the compatibility boundary between this canonical Brand Studio
+source and the legacy Settings surface. The implementation contract is
+documented in [S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md](../architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md):
+canonical BrandProfile/BrandDocumentSettings values win, legacy Settings values
+are adopted lazily and non-destructively, and existing organization scoping,
+permissions, fallbacks, and route shapes remain intact.
+
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `updateProfile`, `createAsset`, and `updateDocumentSettings` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. All three now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
 
 ## Tests
@@ -66,4 +73,4 @@ The shared document frame defines safe fallback CSS custom properties for its pa
 
 ## Last verified date
 
-2026-08-16
+2026-08-24 (S015 readiness documentation only; implementation behavior is not yet shipped)
