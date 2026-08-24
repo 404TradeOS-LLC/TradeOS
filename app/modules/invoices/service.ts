@@ -154,7 +154,7 @@ export class InvoicesService {
           p.name as project_name,
           c.name as customer_name,
           coalesce(pt.paid_amount, 0) as paid_amount,
-          (i.amount - coalesce(pt.paid_amount, 0)) as balance_due
+          greatest(i.amount - coalesce(pt.paid_amount, 0), 0) as balance_due
         from invoices i
         join projects p on p.id = i.project_id
         left join customers c on c.id = p.customer_id

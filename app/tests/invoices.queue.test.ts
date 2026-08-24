@@ -115,6 +115,13 @@ describe("InvoicesService.listOrganizationQueue", () => {
     expect(sql).not.toContain("paid_amount = 0");
   });
 
+  it("keeps the SQL balance projection non-negative for overpayments", async () => {
+    queryRawMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: BigInt(0) }]);
+    await service.listOrganizationQueue({ orgId: "org-a" });
+
+    expect(sqlOf(queryRawMock.mock.calls[0][0])).toContain("greatest(i.amount - coalesce(pt.paid_amount, 0), 0) as balance_due");
+  });
+
   it("expands a requested canonical status to include its legacy raw synonyms", async () => {
     queryRawMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: BigInt(0) }]);
     await service.listOrganizationQueue({ orgId: "org-a", statuses: ["voided"] });
