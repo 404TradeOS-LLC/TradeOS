@@ -10,6 +10,10 @@ const mockPrisma = {
     findMany: jest.fn(),
     deleteMany: jest.fn(),
   },
+  athenaGenerationRun: {
+    findMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
 };
 
 const runWithBackgroundDatabaseSession = jest.fn((_client: unknown, _input: unknown, operation: () => unknown) => operation());
@@ -29,6 +33,8 @@ beforeEach(() => {
   mockPrisma.athenaTelemetryRecordRow.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.athenaExecution.findMany.mockResolvedValue([]);
   mockPrisma.athenaExecution.deleteMany.mockResolvedValue({ count: 0 });
+  mockPrisma.athenaGenerationRun.findMany.mockResolvedValue([]);
+  mockPrisma.athenaGenerationRun.deleteMany.mockResolvedValue({ count: 0 });
 });
 
 describe("runAthenaObservabilityRetention", () => {

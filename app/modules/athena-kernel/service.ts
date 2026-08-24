@@ -727,6 +727,7 @@ export class AthenaKernelService {
         abort,
         getCancellationReason: () => cancellationReason,
         emitSpan,
+        persistGeneration: async (generation) => executionStore.persistGenerationRecord({ ...generation, orgId: actor.orgId, actorUserId: actor.userId, executionId, requestId: input.requestId, traceId }),
       });
 
       await applyTransition("succeeded", "draft_response_completed");
@@ -853,6 +854,19 @@ export class AthenaKernelService {
     abort: (reason: AthenaCancellationReason) => void;
     getCancellationReason: () => AthenaCancellationReason | undefined;
     emitSpan: (spanType: "model", status: "ok" | "error", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => Promise<void>;
+    persistGeneration: (generation: {
+      provider: string;
+      model: string;
+      providerVersion?: string;
+      status: "succeeded";
+      inputTokens?: number;
+      outputTokens?: number;
+      estimatedUsd?: number;
+      latencyMs: number;
+      provenance?: Record<string, unknown>;
+      retentionExpiresAt: Date;
+      completedAt: Date;
+    }) => Promise<void>;
   }): Promise<{ summary: string; message: string | null; warnings: { code: string; message: string }[] }> {
     if (!input.flags.draftResponsesEnabled) {
       return {
@@ -890,6 +904,19 @@ export class AthenaKernelService {
         ? { provider: result.provider, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, estimatedUsd: result.estimatedUsd }
         : undefined;
       await input.emitSpan("model", "ok", Date.now() - modelStart, { provider: result.provider, model: result.model }, cost);
+      await input.persistGeneration({
+        provider: result.provider,
+        model: result.model,
+        providerVersion: result.providerVersion,
+        status: "succeeded",
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        estimatedUsd: result.estimatedUsd,
+        latencyMs: Date.now() - modelStart,
+        provenance: { source: "athena_kernel", executionState: "succeeded" },
+        retentionExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        completedAt: new Date(),
+      });
       return { summary: "Athena prepared a draft response.", message: result.text, warnings: [] };
     } catch (error) {
       const errorCode = error instanceof AthenaAbortedError ? `athena_${error.reason}` : error instanceof AthenaKernelError ? error.code : "unknown";

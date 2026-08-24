@@ -1,6 +1,7 @@
 import { basePrisma, prisma } from "../../db/client";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
 import { AthenaRetentionResult } from "./types";
+import { deleteExpiredAthenaGenerationRecords } from "../athena-generation/store";
 
 // A10 retention (docs/athena/roadmap/A10-observability-implementation-plan.md
 // "Exporters and retention"). Deletes old C011 telemetry spans and old A1
@@ -18,6 +19,7 @@ function envInt(name: string, fallback: number): number {
 
 const DEFAULT_TELEMETRY_RETENTION_DAYS = envInt("ATHENA_TELEMETRY_RETENTION_DAYS", 90);
 const DEFAULT_EXECUTION_RETENTION_DAYS = envInt("ATHENA_EXECUTION_RETENTION_DAYS", 400);
+const DEFAULT_GENERATION_RETENTION_DAYS = envInt("ATHENA_GENERATION_RETENTION_DAYS", 90);
 const DEFAULT_BATCH_SIZE = 500;
 
 export interface RunAthenaObservabilityRetentionParams {
@@ -25,6 +27,7 @@ export interface RunAthenaObservabilityRetentionParams {
   userId: string;
   telemetryRetentionDays?: number;
   executionRetentionDays?: number;
+  generationRetentionDays?: number;
   batchSize?: number;
   now?: Date;
 }
@@ -99,6 +102,7 @@ async function deleteOldExecutions(orgId: string, cutoff: Date, batchSize: numbe
 export async function runAthenaObservabilityRetention(params: RunAthenaObservabilityRetentionParams): Promise<AthenaRetentionResult[]> {
   const telemetryRetentionDays = params.telemetryRetentionDays ?? DEFAULT_TELEMETRY_RETENTION_DAYS;
   const executionRetentionDays = params.executionRetentionDays ?? DEFAULT_EXECUTION_RETENTION_DAYS;
+  const generationRetentionDays = params.generationRetentionDays ?? DEFAULT_GENERATION_RETENTION_DAYS;
   const batchSize = params.batchSize ?? DEFAULT_BATCH_SIZE;
   const now = params.now ?? new Date();
 
@@ -107,6 +111,9 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   }
   if (!Number.isFinite(executionRetentionDays) || executionRetentionDays <= 0) {
     throw new Error(`executionRetentionDays must be a positive number, got ${executionRetentionDays}`);
+  }
+  if (!Number.isFinite(generationRetentionDays) || generationRetentionDays <= 0) {
+    throw new Error(`generationRetentionDays must be a positive number, got ${generationRetentionDays}`);
   }
   if (!Number.isFinite(batchSize) || batchSize <= 0) {
     throw new Error(`batchSize must be a positive number, got ${batchSize}`);
@@ -124,6 +131,14 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   return runWithBackgroundDatabaseSession(basePrisma, { jobName: "athena-observability-retention", orgId: params.orgId, userId: params.userId }, async () => {
     const results: AthenaRetentionResult[] = [];
     results.push(await deleteOldTelemetryRecords(params.orgId, daysToCutoff(now, telemetryRetentionDays), batchSize));
+    const generationCutoff = daysToCutoff(now, generationRetentionDays);
+    const generationResult = await deleteExpiredAthenaGenerationRecords(params.orgId, generationCutoff, batchSize);
+    results.push({
+      table: "athena_generation_runs",
+      scannedBatches: generationResult.scannedBatches,
+      deletedCount: generationResult.deletedCount,
+      cutoff: generationCutoff.toISOString(),
+    });
     results.push(await deleteOldExecutions(params.orgId, daysToCutoff(now, executionRetentionDays), batchSize));
     return results;
   });
