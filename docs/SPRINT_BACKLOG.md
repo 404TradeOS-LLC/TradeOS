@@ -169,7 +169,7 @@ Evidence: Implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2
 ### S017 — Brand asset lifecycle and cleanup
 
 Status: READY
-Dependencies: S015
+Dependencies: S015, S016
 Objective: Prevent or clean orphaned uploads and safely replace obsolete assets.
 Acceptance: abandoned/replaced assets have documented and tested cleanup behavior.
 Readiness evidence: S015 and S016 are DONE with merged implementation and completion evidence; no S017 implementation PR, branch, worktree, or overlapping storage/Brand Studio change exists in live GitHub state; S017 is the lowest-numbered planned candidate after S016.
