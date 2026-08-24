@@ -18,6 +18,7 @@ import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
+import { OrganizationSettingsService } from "../modules/settings/service";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -634,6 +635,21 @@ describe("live organization row-level security", () => {
       })
     );
     expect(updatedSettings.orgId).toBe(orgA);
+  });
+
+  it("keeps the Settings adapter canonical read and tenant boundary inside request-scoped RLS", async () => {
+    const service = new OrganizationSettingsService();
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      service.getSettings(orgA, { userId: adminUser, orgId: orgA, role: "admin" })
+    );
+
+    expect(visible.settings.companyName).toBe("Org A Brand");
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        service.getSettings(orgA, { userId: otherUser, orgId: orgB, role: "owner" })
+      )
+    ).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it("enforces brand studio visibility and admin-only writes", async () => {

@@ -90,13 +90,16 @@ There is no supplier-SKU matching layer in this slice; feed rows must already id
 
 ## Implementation notes
 
-The S015 readiness contract makes Brand Studio the canonical owner of branding
+The S015 implementation makes Brand Studio the canonical owner of branding
 fields while this Settings module remains the compatibility and administration
-surface. See [S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md](../architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md)
-for the bounded field map, lazy non-destructive legacy adoption, explicit
-clear semantics, and required authorization/RLS evidence. Operational Settings
-fields remain in `OrganizationSettings.settingsJson` and are outside that
-adapter.
+surface. The implementation preserves the existing Settings route shape,
+resolves canonical values before legacy fallbacks, lazily adopts non-empty
+legacy values, preserves unknown operational JSON keys, and maps explicit
+Settings clears without repopulating stale shell values. See
+[S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md](../architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md)
+for the bounded field map and required authorization/RLS evidence. Operational
+Settings fields remain in `OrganizationSettings.settingsJson` and are outside
+that adapter.
 
 - Fixed a production bug where every `PATCH /api/v1/settings` call failed with `TypeError: ...prisma.$transaction is not a function`, confirmed against live Vercel runtime logs. Root cause: `OrganizationSettingsService.updateSettings` called `prisma.$transaction(...)` on the shared, request-scoped `prisma` proxy (`app/db/client.ts`); `databaseSession` middleware already wraps every authenticated request in a `Prisma.TransactionClient` via `AsyncLocalStorage` (`app/db/requestSession.ts`), and that proxy resolves `prisma` to the active transaction client whenever one is set. `Prisma.TransactionClient` has no `$transaction` method, so the call threw on every real request; the existing unit test suite never caught this because it mocks `db/client` entirely, bypassing the proxy's request-scoped resolution. Fixed by routing through the existing `runInDatabaseTransaction()` helper, which reuses the active request transaction instead of nesting a new one. The same broken pattern (unexercised in production traffic) was also found and fixed in `app/modules/crm/service.ts`, `app/modules/brand-studio/service.ts`, and `app/backend/controllers/projectTasks.controller.ts` — see those modules' docs. `app/tests/requestScopedTransaction.convention.test.ts` is new static regression coverage that fails if any module reintroduces a direct `prisma.$transaction(...)` call.
 - `admin-dashboard`'s `CreateOrganizationInput` and `supplier-integration`'s `SupplierPriceUpdateStatus`/`SupplierFeedQuote` are file-local types; their `export` keyword was removed after confirming no other module imports them by name
@@ -119,4 +122,4 @@ adapter.
 
 ## Last verified date
 
-2026-08-24 (S015 readiness documentation only; implementation behavior is not yet shipped)
+2026-08-24 (S015 implementation branch; not merged or shipped yet)

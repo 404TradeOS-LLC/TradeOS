@@ -328,6 +328,17 @@ Settings asset storage metadata routes under `/api/v1/settings`:
 
 These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
 
+S015's Settings compatibility adapter preserves the existing `GET`/`PATCH
+/api/v1/settings` shape while resolving mapped branding fields from the
+organization's canonical `BrandProfile` first. Legacy Settings JSON and
+organization-shell values are used only for missing canonical fields, and
+legacy-only values are adopted lazily inside the existing request-scoped
+transaction. PATCH preserves unrelated Settings JSON keys and synchronizes the
+mapped canonical profile fields without changing the existing permission,
+organization-context, or forced-RLS boundary. This behavior is on the S015
+implementation branch until its implementation and completion-evidence PRs
+merge.
+
 Project task routes under `/api/v1/projects`:
 
 - `GET /api/v1/projects/tasks`

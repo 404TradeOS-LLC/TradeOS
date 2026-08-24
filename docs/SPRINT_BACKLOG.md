@@ -141,7 +141,7 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-006 
 
 ### S015 — Brand profile/settings adapter
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
@@ -149,6 +149,7 @@ Readiness contract: Brand Studio is the canonical organization-brand source. Set
 Founder-decision boundary: S014's ADR-006 is accepted. Stop if implementation requires a new source of truth, new identity or authorization policy, destructive migration, new storage model, or public branding policy.
 Required evidence: canonical-over-legacy precedence, lazy legacy adoption, explicit clear behavior, mapped Settings round trips, existing organization-shell compatibility, repeated-save safety, same-org/cross-org authorization, forced PostgreSQL RLS, and focused app/web regression coverage.
 Readiness evidence: S014 is DONE through founder-decision record #301 and ADR-006; the S015 contract is explicit on the readiness branch/PR; no competing S015 implementation PR, branch, or worktree was found at readiness creation.
+Implementation evidence: PR #310 is open for review from `feature/s015-implementation`; S015 is `IN_REVIEW` only after that PR was created, as required by the Next Sprint Protocol.
 
 ### S016 — Document-brand rendering integration
 
@@ -465,8 +466,8 @@ Protected boundary: Exactly one numbered implementation lane may exist, and it i
 
 ## Next Eligible Sprint
 
-Sprint ID: S015
-Eligibility: S015 is the lowest-numbered READY sprint and its dependency S014 is DONE; no founder-decision, infrastructure, or competing-lane blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006.
-Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed when readiness was created; the only numbered implementation lane authorized next is S015.
-Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only the S015 adapter contract described in `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S015 is `IN_REVIEW` through implementation PR #310 and remains the sole numbered implementation lane.
+Dependencies: S015 depends on S014 DONE through PR #301 and ADR-006; S017 remains dependent on S015.
+Overlap check: PR #310 and `feature/s015-implementation` are the only S015 implementation lane; no other numbered sprint may receive implementation writes.
+Startup prompt: Reconcile PR #310 at exact head, repair only deterministic scoped findings on the same branch, merge when objectively green, then create separate S015 completion evidence before promoting the next candidate.
