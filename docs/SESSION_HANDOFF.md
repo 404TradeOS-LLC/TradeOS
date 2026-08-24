@@ -13,10 +13,7 @@ related_code:
 
 ## Mission
 
-S016 completion evidence is the current bounded governance task. Implementation
-PR #314 is merged, and no numbered-sprint implementation lane is active while
-this evidence branch records the shipped result. S017 is the next
-dependency-safe planned candidate; S020 and S022 remain read-only future work.
+S017 readiness promotion is the current bounded governance task. S016 implementation PR #314 and its completion evidence are merged. S017 is the sole READY candidate through this governance-only branch; no implementation lane is active here. S020 and S022 remain read-only future work.
 
 ## Current truth
 
@@ -56,15 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Publish and merge this separate S016 completion-evidence PR, then refresh
-`origin/main`, re-run the canonical selector and live overlap checks, and
-promote S017 only if its readiness contract is satisfied. Do not begin S017,
-S020, or S022 implementation from this evidence branch.
+Publish and merge this separate S017 readiness PR, then refresh origin/main, re-run the canonical selector and live overlap checks, and create only the isolated feature/s017-implementation lane if S017 remains READY. Do not begin S020 or S022 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S017 is the next dependency-safe planned candidate and requires separate readiness promotion before implementation.
-Dependencies: S015 and S016 are DONE; S017 remains planned pending its readiness contract.
-Overlap check: S016 implementation PR #314 is merged; this branch is governance-only and no numbered sprint receives implementation writes.
-Startup prompt: Refresh `origin/main`, run the canonical selector and live overlap checks, prepare or promote S017 only when objectively READY, then create one isolated S017 implementation lane; keep S020 and S022 read-only.
+Sprint ID: S017
+Eligibility: S017 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
+Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker identified by the readiness audit.
+Overlap check: No S017 implementation PR or branch exists; this branch changes governance/readiness documentation only and S020/S022 remain read-only.
+Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
