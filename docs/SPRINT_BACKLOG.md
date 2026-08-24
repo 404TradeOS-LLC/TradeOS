@@ -168,7 +168,7 @@ Evidence: Implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2
 
 ### S017 — Brand asset lifecycle and cleanup
 
-Status: READY
+Status: DONE
 Dependencies: S015, S016
 Objective: Prevent or clean orphaned uploads and safely replace obsolete assets.
 Acceptance: abandoned/replaced assets have documented and tested cleanup behavior.
@@ -177,7 +177,7 @@ Readiness contract: S017 owns the existing organization-scoped Settings brand-up
 Founder-decision boundary: Stop if implementation requires a new retention policy with customer-facing consequences, schema/history migration, new scheduler/background-job architecture, third-party storage change, production credential/configuration change, public bucket, arbitrary URL deletion, or irreversible deletion without a recoverable dry-run/review boundary.
 Required evidence: replacement and remove failure paths are tested; stale generated objects are dry-run/reconciled without touching current or recent objects; malformed paths, unsupported keys, cross-org access, unauthorized roles, and secret leakage fail closed; existing private asset proxy, Settings/Brand Studio behavior, forced RLS, and document-rendering consumers remain intact.
 Allowed implementation surface: existing Settings asset action/helpers, a small server-only cleanup/reconciliation helper, focused Web tests, existing API helpers, and required owner documentation. No product implementation is included in this readiness branch.
-Evidence: This governance-only branch supplies the S017 readiness promotion; S017 implementation must use one separate feature/s017-implementation lane after this promotion merges and live eligibility is reconfirmed.
+Evidence: Implementation PR #317 merged as `4b02c8257d7934a4e18d304ce9bdd8ba51878645`; corrective PR #319 merged as `8ebb1a84302eafcab529f3db2f93c63000a76ffe`; separate completion evidence is recorded in [S017_COMPLETION_EVIDENCE.md](architecture/S017_COMPLETION_EVIDENCE.md).
 
 ## Phase 4 — Customer Portal and Document Workflow Hardening
 
@@ -472,15 +472,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S017
-Completion status: S017 is `READY` through this governance-only readiness promotion; implementation is not started and no numbered implementation lane is active. S016 is `DONE` after implementation PR #314 merged at `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; S014, S015, S019, S021, and S024 remain reconciled as DONE.
-Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker. S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. This branch is governance-only; create only the separate S017 implementation lane after this promotion merges and live eligibility is reconfirmed. S020 and S022 remain read-only.
+Active Sprint: NONE
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; completion evidence is recorded in [S017_COMPLETION_EVIDENCE.md](architecture/S017_COMPLETION_EVIDENCE.md). No numbered implementation lane is active.
+Dependencies: S015, S016, and S017 are DONE. S020's legal-signature decision is resolved but implementation remains planned; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. No numbered implementation lane is active; S020 and S022 remain read-only until their own readiness gates are satisfied.
 
 ## Next Eligible Sprint
 
-Sprint ID: S017
-Eligibility: S017 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
-Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker identified by the readiness audit.
-Overlap check: No S017 implementation PR or branch exists; this branch changes governance/readiness documentation only and S020/S022 remain read-only.
-Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
+Sprint ID: NONE
+Eligibility: S017 is DONE after implementation PR #317, corrective PR #319, and this completion-evidence reconciliation. No numbered sprint is currently `READY`.
+Dependencies: S015, S016, and S017 are DONE. S020 ADR-007 is resolved but S020 remains planned; S022 depends on S020.
+Overlap check: S017 implementation and corrective PRs are merged; this branch is governance-only; no implementation lane is active.
+Startup prompt: After this completion-evidence PR merges, refresh origin/main, verify S017 DONE, recompute the selector, and promote only an objectively READY sprint; keep S020/S022 read-only until their gates are satisfied.
