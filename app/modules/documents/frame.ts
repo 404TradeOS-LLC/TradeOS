@@ -210,7 +210,7 @@ function defaultFooterNote(brand: DocumentFrameBrand) {
   return [
     brand.showLicenseNumber !== false ? brand.licenseNumber : "",
     brand.showInsuranceSummary !== false ? brand.insuranceSummary : "",
-    brand.showInsuranceSummary !== false ? brand.bondingSummary : "",
+    brand.bondingSummary,
   ]
     .filter(Boolean)
     .join(" • ");

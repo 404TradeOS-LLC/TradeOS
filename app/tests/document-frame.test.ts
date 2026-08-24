@@ -162,6 +162,6 @@ describe("document frame templates", () => {
 
     expect(html).not.toContain("LIC-44");
     expect(html).not.toContain("2M aggregate");
-    expect(html).not.toContain("Available");
+    expect(html).toContain("Available");
   });
 });

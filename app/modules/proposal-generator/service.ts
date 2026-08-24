@@ -314,7 +314,7 @@ function drawTrustFooter(doc: any, brand: DocumentFrameBrand) {
   const trustSignals = [
     brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
     brand.showInsuranceSummary !== false && brand.insuranceSummary ? brand.insuranceSummary : "",
-    brand.showInsuranceSummary !== false && brand.bondingSummary ? brand.bondingSummary : "",
+    brand.bondingSummary,
     brand.showPoweredByTradeOS ? "Powered by TradeOS" : "",
   ].filter(Boolean);
   if (trustSignals.length === 0) return;

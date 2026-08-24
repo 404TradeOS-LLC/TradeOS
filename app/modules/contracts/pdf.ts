@@ -25,7 +25,8 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     doc.save();
     doc.roundedRect(50, 38, doc.page.width - 100, 74, 14).fill(brand.colors.primary);
     doc.restore();
-    doc.fillColor("white").fontSize(20).text(brand.companyName, 66, 54, { width: 300 });
+    const headerForeground = getHeaderForeground(brand.colors.primary);
+    doc.fillColor(headerForeground).fontSize(20).text(brand.companyName, 66, 54, { width: 300 });
     if (brand.tagline) doc.fontSize(9).text(brand.tagline, 66, 80, { width: 300 });
     if (contact) doc.fontSize(8).text(contact, 66, 96, { width: doc.page.width - 132 });
     doc.moveDown(0.5);
@@ -59,7 +60,7 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     const trustSignals = [
       brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
       brand.showInsuranceSummary !== false && brand.insuranceSummary ? brand.insuranceSummary : "",
-      brand.showInsuranceSummary !== false && brand.bondingSummary ? brand.bondingSummary : "",
+      brand.bondingSummary,
     ].filter(Boolean);
     if (trustSignals.length || brand.showPoweredByTradeOS) {
       doc.moveDown(2);
@@ -71,4 +72,13 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
 
     doc.end();
   });
+}
+
+function getHeaderForeground(color: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!match) return "white";
+  const red = Number.parseInt(match[1].slice(0, 2), 16);
+  const green = Number.parseInt(match[1].slice(2, 4), 16);
+  const blue = Number.parseInt(match[1].slice(4, 6), 16);
+  return (red * 299 + green * 587 + blue * 114) / 1000 >= 150 ? DOCUMENT_INK : "white";
 }
