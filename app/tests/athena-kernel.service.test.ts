@@ -9,10 +9,36 @@ interface FakeExecutionRow {
   roundTrips?: number;
 }
 
+interface FakeGenerationRow {
+  id: string;
+  orgId: string;
+  actorUserId: string;
+  executionId?: string;
+  requestId: string;
+  traceId: string;
+  provider: string;
+  model: string;
+  providerVersion?: string;
+  status: string;
+  failureCode?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  estimatedUsd?: { toNumber(): number } | null;
+  latencyMs: number;
+  toolNamesJson: unknown;
+  provenanceJson: unknown;
+  retentionExpiresAt: Date;
+  createdAt: Date;
+  completedAt?: Date | null;
+}
+
+type FakeGenerationCreateData = Partial<FakeGenerationRow> & Record<string, unknown>;
+
+
 const executions = new Map<string, FakeExecutionRow>();
 const transitions: Array<{ executionId: string; fromState: string; toState: string; reasonCode: string }> = [];
 const telemetryRows: Array<{ orgId: string; executionId: string; spanType: string; status: string; redaction: string; metadataJson: unknown; costJson: unknown }> = [];
-const generationRows: unknown[] = [];
+const generationRows: FakeGenerationRow[] = [];
 
 const athenaExecutionCreate = jest.fn(async ({ data }: { data: FakeExecutionRow }) => {
   executions.set(data.id, { ...data });
@@ -28,8 +54,8 @@ const athenaExecutionTransitionCreate = jest.fn(async ({ data }: { data: { execu
 const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
 });
-const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: unknown }) => {
-  const row = { ...(data as Record<string, unknown>), createdAt: new Date() };
+const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGenerationCreateData }) => {
+  const row = { ...(data as Record<string, unknown>), createdAt: new Date() } as FakeGenerationRow;
   generationRows.push(row);
   return row;
 });
