@@ -168,18 +168,13 @@ Evidence: Implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2
 
 ### S017 — Brand asset lifecycle and cleanup
 
-Status: READY
+Status: DONE
 Dependencies: S015, S016
 Objective: Prevent or clean orphaned uploads and safely replace obsolete assets.
 Acceptance: abandoned/replaced assets have documented and tested cleanup behavior.
-Readiness evidence: S015 and S016 are DONE with merged implementation and completion evidence; no S017 implementation PR, branch, worktree, or overlapping storage/Brand Studio change exists in live GitHub state; S017 is the lowest-numbered planned candidate after S016.
-Readiness contract: S017 owns the existing organization-scoped Settings brand-upload lifecycle. It preserves upload-new-then-record-current semantics, cleans failed-upload orphans conservatively, makes explicit removal idempotent, and adds a dry-run-capable reconciliation path for stale generated objects under exact private organization/key prefixes. Current metadata remains the source of truth; arbitrary BrandAsset URLs are not deletable storage ownership evidence. See docs/architecture/S017_BRAND_ASSET_LIFECYCLE_PLAN.md.
-Founder-decision boundary: Stop if implementation requires a new retention policy with customer-facing consequences, schema/history migration, new scheduler/background-job architecture, third-party storage change, production credential/configuration change, public bucket, arbitrary URL deletion, or irreversible deletion without a recoverable dry-run/review boundary.
-Required evidence: replacement and remove failure paths are tested; stale generated objects are dry-run/reconciled without touching current or recent objects; malformed paths, unsupported keys, cross-org access, unauthorized roles, and secret leakage fail closed; existing private asset proxy, Settings/Brand Studio behavior, forced RLS, and document-rendering consumers remain intact.
-Allowed implementation surface: existing Settings asset action/helpers, a small server-only cleanup/reconciliation helper, focused Web tests, existing API helpers, and required owner documentation. No product implementation is included in this readiness branch.
-Evidence: This governance-only branch supplies the S017 readiness promotion; S017 implementation must use one separate feature/s017-implementation lane after this promotion merges and live eligibility is reconfirmed.
-
-## Phase 4 — Customer Portal and Document Workflow Hardening
+Readiness evidence: S015 and S016 are DONE with merged implementation and completion evidence; the separate readiness promotion merged as PR #316 at 3051a29a3678492004866c4cb0ec5cd6855f5e91.
+Implementation: Server-only, admin-equivalent, dry-run-by-default reconciliation protects current metadata, exact organization prefixes, generated object names, and a 24-hour grace period; no schema, migration, new source of truth, public bucket, remote fetch, scheduler, provider, credential, auth policy, permission, or RLS redesign.
+Evidence: Implementation PR #317 merged as 4b02c8257d7934a4e18d304ce9bdd8ba51878645; this separate governance-only reconciliation records the implementation and verification evidence in docs/architecture/S017_COMPLETION_EVIDENCE.md.
 
 ### S018 — Customer portal authentication hardening
 
