@@ -33,7 +33,7 @@ describe("local auth JWT hardening", () => {
   });
 
   it("adds a finite expiration to locally signed access tokens", () => {
-    const now = Math.floor(Date.now() / 1000);
+    const before = Math.floor(Date.now() / 1000);
     const claims = verifyAuthToken(
       signAuthToken(
         { sub: "auth-sub-1", iss: "tradeos-costbook", aud: "tradeos-costbook-api" },
@@ -42,9 +42,10 @@ describe("local auth JWT hardening", () => {
       secret
     );
 
-    expect(claims.exp).toBeGreaterThan(now);
-    expect(claims.exp).toBeLessThanOrEqual(now + 3600);
-    expect(claims.iat).toBeLessThanOrEqual(now);
+    const after = Math.floor(Date.now() / 1000);
+    expect(claims.exp).toBe(claims.iat! + 3600);
+    expect(claims.iat).toBeGreaterThanOrEqual(before);
+    expect(claims.iat).toBeLessThanOrEqual(after);
   });
 
   it.each([

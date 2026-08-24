@@ -365,7 +365,9 @@ export class AuthService {
         where: { OR: [{ authSubject: input.authSubject }, { email: normalizedEmail }] },
       });
       if (!user) return null;
-      if (!user.isActive) return { user, membership: null, organization: null };
+      if (!user.isActive) {
+        throw new ApiError(403, "Authenticated user is not provisioned in this organization");
+      }
 
       await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
 
@@ -383,9 +385,6 @@ export class AuthService {
     });
 
     if (existing) {
-      if (!existing.user.isActive) {
-        throw new ApiError(403, "Authenticated user is not provisioned in this organization");
-      }
       if (!existing.membership || !existing.organization) {
         throw new ApiError(409, "User exists but has no active organization membership");
       }
