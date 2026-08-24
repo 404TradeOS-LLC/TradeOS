@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - app/modules/invoices
@@ -105,4 +105,4 @@ The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger 
 
 ## Last verified date
 
-2026-08-20
+2026-08-24
