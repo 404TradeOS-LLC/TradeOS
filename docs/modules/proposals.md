@@ -52,6 +52,13 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update the related Project with canonical project lifecycle values: draft creation/duplication/decline, send, and resend use `estimating`; acceptance uses `awarded`. Historical project values such as `proposal_draft`, `proposal_sent`, and `accepted` remain readable through project compatibility normalization but are no longer written by this service.
 
+Viewed, accepted, and declined transitions use organization-scoped conditional
+writes within the existing request-scoped transaction. If a competing request
+changes the proposal first, the stale mutation fails closed and does not record
+duplicate delivery/activity history or overwrite the winning project side
+effect. The current `billing.read` read boundary and `documents.manage`
+mutation boundary remain unchanged.
+
 ## Emitted activity events
 
 - proposal send, view, accept, decline, and resend actions write delivery history and activity-oriented metadata
@@ -73,6 +80,7 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). Proposal actions update
 - `app/tests/proposals.athena-events-integration.test.ts`
 - `app/tests/proposals.queue.test.ts`, `app/tests/proposals.controller.queue.test.ts` — organization work-queue filters (sent/viewed/unsigned/stale), pagination, and authorization
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and unsigned/contractId resolution for the queue read
+- `app/tests/rls.integration.ts` — live same-org/cross-org proposal mutation and competing accept/decline transition coverage
 
 ## Known limitations
 

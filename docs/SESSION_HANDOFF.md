@@ -13,15 +13,15 @@ related_code:
 
 ## Mission
 
-S018 — Customer portal authentication hardening is complete. This governance-only
-branch promotes S019 — Portal proposal acceptance flow to `READY`; no
-product/runtime code is being implemented.
+S018 — Customer portal authentication hardening is complete. S019 — Portal
+proposal acceptance flow is now `IN_REVIEW` in implementation PR #296; this
+handoff records the active implementation lane and its bounded contract.
 
 ## Current branch
 
-`docs/s019-readiness-promotion`, based on refreshed `origin/main` at
-`15a9abfc1ad71643b6aa6eecec8e63c64c249ff2`, which includes S018 implementation
-PR #290, completion-evidence PR #292, and post-merge handoff PR #294.
+`feature/s019-customer-proposal-approval`, based on refreshed `origin/main` at
+`93088cc6881bb095376e68238fbc0678daf5ab9b`, with implementation head
+`243be37972be7ae99a012ba85f387d74429b5f06` published to PR #296.
 
 ## Current truth
 
@@ -41,21 +41,19 @@ PR #290, completion-evidence PR #292, and post-merge handoff PR #294.
 - No new customer identity, portal token persistence, public link, auth-provider
   replacement, RBAC/RLS redesign, schema migration, billing behavior, route/API
   shape change, or portal redesign shipped.
-- S019 readiness is bounded to the existing authenticated proposal review,
-  viewed, acceptance, decline, and audit/event boundary. The readiness plan
-  requires current permission, session, organization, RLS, actor/org, event,
-  and project-side-effect behavior to remain unchanged unless a separate
-  founder decision authorizes otherwise. It also requires reproducing and
-  repairing the known competing-transition race with atomic conditional
-  transitions or equivalent serialization inside the existing transaction
-  architecture.
+- S019 implementation is bounded to the existing authenticated proposal
+  review, viewed, acceptance, decline, and audit/event boundary. PR #296 adds
+  organization-scoped conditional transitions, fail-closed competing mutation
+  behavior, preserved event/project side effects, and bounded portal action
+  feedback. Current permission, session, organization, RLS, actor/org, event,
+  and project-side-effect behavior remains unchanged.
 - S027 remains separately blocked on authenticated rendered Costbook browser
   evidence. Do not begin S020 or any later sprint from this branch.
 
-## Next Eligible Sprint
+## Active Sprint
 
 Sprint ID: S019
-Eligibility: S019 is `READY` through this governance-only readiness promotion; implementation may begin only after this PR merges and the live selector still selects S019.
+Eligibility: S019 was `READY` through governance-only PR #295 and is now `IN_REVIEW` through implementation PR #296; it is not `DONE` until merge and separate completion evidence.
 Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290, completion-evidence PR #292, and post-merge handoff PR #294 are merged.
-Overlap check: no S019 implementation branch or PR exists; this is the sole S019 readiness lane.
-Startup prompt: After this PR merges, refresh `origin/main`, rerun the canonical selector, and create `feature/s019-portal-proposal-acceptance` for the bounded implementation contract. Stop for a founder decision if a new customer identity, authorization policy, RBAC/RLS policy, schema, token model, or legal-signature policy is required.
+Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; no competing implementation branch or worktree exists.
+Startup/resume prompt: Finish exact-head validation and review repair on PR #296. If it merges, create a fresh `docs/s019-completion-evidence` governance-only lane. Stop for a founder decision if a new customer identity, authorization policy, RBAC/RLS policy, schema, token model, or legal-signature policy is required. Do not begin S020.
