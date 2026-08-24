@@ -83,6 +83,7 @@ const replacementRefreshTokenA = "10000000-0000-0000-0000-000000000118";
 const proposalDeclinedStatusA = "10000000-0000-0000-0000-000000000119";
 const proposalRejectedStatusA = "10000000-0000-0000-0000-000000000120";
 const proposalInvalidStatusA = "10000000-0000-0000-0000-000000000121";
+const proposalConcurrencyA = "10000000-0000-0000-0000-000000000122";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -1185,6 +1186,13 @@ describe("live organization row-level security", () => {
     expect(accepted.status).toBe("accepted");
     expect(accepted.deliveries.map((delivery) => delivery.eventType)).toEqual(["proposal.accepted", "proposal.sent"]);
 
+    await expect(
+      inSession(otherUser, orgB, "owner", async () => new ProposalsService().accept(proposal.id, orgB, otherUser))
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposal.id, orgA, adminUser))
+    ).rejects.toMatchObject({ statusCode: 409 });
+
     const visibleDeliveries = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().proposalDelivery.findMany({
         where: { proposalId: proposal.id },
@@ -1199,6 +1207,28 @@ describe("live organization row-level security", () => {
       })
     );
     expect(hiddenDeliveries).toEqual([]);
+
+    await adminClient.proposal.create({
+      data: { id: proposalConcurrencyA, projectId: projectA, status: "sent", sentAt: new Date() },
+    });
+    const transitionResults = await Promise.allSettled([
+      inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposalConcurrencyA, orgA, adminUser)),
+      inSession(adminUser, orgA, "admin", async () => new ProposalsService().reject(proposalConcurrencyA, orgA, adminUser)),
+    ]);
+    expect(transitionResults.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(transitionResults.filter((result) => result.status === "rejected")).toHaveLength(1);
+    const transitionFailure = transitionResults.find((result) => result.status === "rejected");
+    expect(transitionFailure).toMatchObject({ reason: { statusCode: 409 } });
+    const finalConcurrencyRow = await adminClient.proposal.findUnique({
+      where: { id: proposalConcurrencyA },
+      select: { status: true },
+    });
+    expect(["accepted", "declined"]).toContain(finalConcurrencyRow?.status);
+    const concurrencyDeliveries = await adminClient.proposalDelivery.findMany({
+      where: { proposalId: proposalConcurrencyA },
+      select: { eventType: true },
+    });
+    expect(concurrencyDeliveries).toHaveLength(1);
 
     await expect(
       inSession(viewerUser, orgA, "viewer", async () =>
