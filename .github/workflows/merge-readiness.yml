@@ -35,16 +35,15 @@ jobs:
         id: pr
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_PR: ${{ inputs.pr_number }}
-          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             pr="$DISPATCH_PR"
           else
-            pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --search "$RUN_HEAD_SHA" --json number,headRefOid --jq '.[] | select(.headRefOid == env.RUN_HEAD_SHA) | .number' | head -n1)"
+            pr="$RUN_PR"
           fi
           if [ -z "${pr:-}" ]; then
             echo "No open PR maps to this workflow run; nothing to summarize."
