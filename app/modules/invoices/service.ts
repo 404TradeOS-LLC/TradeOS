@@ -126,10 +126,6 @@ export class InvoicesService {
     if (filters.updatedAfter) conditions.push(Prisma.sql`updated_at >= ${new Date(filters.updatedAfter)}`);
     if (filters.updatedBefore) conditions.push(Prisma.sql`updated_at <= ${new Date(filters.updatedBefore)}`);
 
-    // filterWhere excludes the cursor predicate so the count query reflects
-    // the exact total for the filter, not just rows remaining after the
-    // cursor position — pageWhere adds the cursor on top of it for the rows
-    // query only.
     const filterWhere = Prisma.join(conditions, " AND ");
     let pageWhere = filterWhere;
     if (filters.cursor) {
@@ -154,7 +150,10 @@ export class InvoicesService {
           p.name as project_name,
           c.name as customer_name,
           coalesce(pt.paid_amount, 0) as paid_amount,
-          greatest(i.amount - coalesce(pt.paid_amount, 0), 0) as balance_due
+          case
+            when i.status = 'paid' then 0
+            else greatest(i.amount - coalesce(pt.paid_amount, 0), 0)
+          end as balance_due
         from invoices i
         join projects p on p.id = i.project_id
         left join customers c on c.id = p.customer_id
