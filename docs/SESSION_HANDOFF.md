@@ -24,7 +24,7 @@ reconciliation is complete.
 `origin/main` `dd9aef806a285abf884bcf5f9046217d106ee360`.
 
 Remote implementation head:
-`fb65384fad47f40ef2b3e47041ea2c2a9ce314aa`.
+`c2bf03e69670d903af8e0e03673bb5cc3931f98b`.
 
 Implementation PR: #299
 https://github.com/404TradeOS-LLC/TradeOS/pull/299
@@ -48,19 +48,6 @@ https://github.com/404TradeOS-LLC/TradeOS/pull/299
   blocked. S027 remains BLOCKED/PARTIAL pending authenticated rendered Costbook
   browser evidence and its storage-state secret.
 
-## Next Eligible Sprint
-
-Sprint ID: NONE
-Eligibility: S021 is `IN_REVIEW`; the canonical selector must be rerun only
-after its implementation merge and separate completion-evidence merge.
-Dependencies: S021 depends on S011 and S018, both DONE.
-Overlap check: PR #299 is the sole numbered-sprint implementation lane. Do not
-create S020/S022/S024/S027 implementation branches.
-Startup prompt: Verify exact-head CI and review state for PR #299, repair only
-deterministic scoped findings on the same branch, merge when governed checks are
-green, then create `docs/s021-completion-evidence` for the separate governance-
-only completion flow.
-
 ## Active Sprint and Next Eligibility
 
 Active Sprint: S021
@@ -70,3 +57,10 @@ is next after implementation merge.
 Protected boundary: Do not introduce new money semantics, payment processing,
 customer auth, RBAC/RLS policy changes, schema changes, or another numbered
 sprint implementation lane.
+
+## Next Eligible Sprint
+Sprint ID: NONE
+Eligibility: S021 is `IN_REVIEW`; the canonical selector must be rerun only after its implementation merge and separate completion-evidence merge.
+Dependencies: S021 depends on S011 and S018, both DONE.
+Overlap check: PR #299 is the sole numbered-sprint implementation lane; do not create S020/S022/S024/S027 implementation branches.
+Startup prompt: Verify exact-head CI and review state for PR #299, repair only deterministic scoped findings on the same branch, merge when governed checks are green, then create `docs/s021-completion-evidence` for the separate governance-only completion flow. Do not begin another numbered sprint from the implementation branch.

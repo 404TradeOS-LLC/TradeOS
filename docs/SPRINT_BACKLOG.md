@@ -457,6 +457,7 @@ Protected boundary: Only one numbered-sprint implementation lane may open; if S0
 ## Next Eligible Sprint
 
 Sprint ID: NONE
+No numbered sprint is currently `READY`.
 Eligibility: S021 is `IN_REVIEW` through implementation PR #299; no other numbered sprint may enter an implementation lane until S021 completion evidence is merged and the canonical selector is rerun.
 Dependencies: S021 depends on S011 and S018, both DONE with merged implementation and completion evidence.
 Overlap check: S021 implementation PR #299 is the sole numbered-sprint implementation lane; no S020, S022, S024, or S027 implementation lane is authorized.
