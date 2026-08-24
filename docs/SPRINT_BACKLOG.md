@@ -439,3 +439,11 @@ Eligibility: S018 is `IN_REVIEW` in implementation PR #290; its dependencies S00
 Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with merged evidence.
 Overlap check: the authoritative S018 implementation lane is PR #290 on `feature/s018-customer-portal-auth-hardening`; do not create another S018 branch or worktree. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 Startup/resume flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow` and `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. Resume and reconcile PR #290, complete the separate S018 completion-evidence step after merge, and do not implement S019, S020, S021, S022, S027, or a new customer-auth model before that evidence is recorded.
+
+## Next Eligible Sprint
+
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S018 remains `IN_REVIEW` in implementation PR #290 and must complete its merge and separate completion-evidence reconciliation first.
+Dependencies: N/A until the canonical selector is rerun after S018 is `DONE`.
+Overlap check: PR #290 is the sole S018 implementation lane; do not create S019 or another numbered-sprint implementation lane before completion evidence is merged.
+Startup prompt: Resume PR #290, verify exact-head CI and review state, merge only when governed, then create the separate S018 completion-evidence PR and rerun the canonical selector.
