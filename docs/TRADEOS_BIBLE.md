@@ -48,6 +48,8 @@ S012 Job lifecycle normalization is `DONE`: readiness PR #285 merged as `5264ad8
 
 S018 — Customer portal authentication hardening is `DONE` after implementation PR #290 merged on 2026-08-24 as `6f2dd254c121855fa629d19da6bc0452cc9e6de7`; completion-evidence PR #292 records the exact-head verification. The current portal retains the existing authenticated Supabase session and protected bearer-authenticated API/RLS boundary; there is no separate customer token or identity model. The shipped bounded implementation adds finite local access-token expiry/claim validation, inactive-user session denial, and focused same-organization/cross-organization/RLS evidence while preserving the current route/API and request-session architecture. A new customer-auth product, public tokenized links, auth-provider replacement, RBAC/RLS redesign, or portal redesign requires a separate founder decision and was not shipped in S018. See `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`.
 
+The post-merge S018 handoff is reconciled in `docs/SESSION_HANDOFF.md`: no numbered sprint is currently `READY`, S019 is the lowest planned dependency-complete candidate, and its next authorized action is a separate governance-only readiness promotion. No S019 implementation lane may start before that promotion is merged.
+
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
 and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
