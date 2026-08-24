@@ -23,3 +23,16 @@ test("persisted paid remains authoritative even when no payment row is present",
   assert.equal(getInvoiceDisplayStatus(invoice, now), "paid");
   assert.equal(getInvoiceRunningBalance(invoice), 0);
 });
+
+test("zero-dollar draft does not become paid from a zero balance", () => {
+  const invoice = { status: "draft", paidAmount: 0, balanceDue: 0, dueDate: null };
+
+  assert.equal(getInvoiceDisplayStatus(invoice, now), "draft");
+});
+
+test("overpayment remains paid only when recorded payment exists and displays zero due", () => {
+  const invoice = { status: "voided", paidAmount: 125, balanceDue: 0, dueDate: null };
+
+  assert.equal(getInvoiceDisplayStatus(invoice, now), "voided");
+  assert.equal(getInvoiceRunningBalance(invoice), 0);
+});

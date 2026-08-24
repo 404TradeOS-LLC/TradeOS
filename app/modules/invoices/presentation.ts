@@ -28,9 +28,12 @@ export function calculateInvoiceFinancials(amount: unknown, status: string, paym
   return {
     paidAmount,
     // Persisted paid is authoritative even when the internal mark-paid path
-    // has no corresponding Payment row. Other balances remain derived from
-    // recorded payments and never go below zero.
-    balanceDue: normalizedStatus === "paid" ? 0 : Number(balanceDue.toFixed(2)),
+    // has no corresponding Payment row. A non-zero recorded payment can also
+    // fully cover a zero-dollar invoice; otherwise zero-dollar draft/sent
+    // invoices retain their persisted state. Presentation never exposes a
+    // negative balance, while the underlying payment/accounting rows remain
+    // unchanged.
+    balanceDue: normalizedStatus === "paid" ? 0 : Math.max(0, Number(balanceDue.toFixed(2))),
   };
 }
 
