@@ -147,6 +147,14 @@ test("generated asset path ownership rejects traversal, other orgs, and unrelate
   );
 });
 
+test("cleanup fails closed when a later storage-list page fails", () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const source = fs.readFileSync(path.join(here, "settingsAssetCleanup.ts"), "utf8");
+  assert.match(source, /const keyCandidates: SettingsAssetCleanupCandidate\[\] = \[\]/);
+  assert.match(source, /listingComplete = false/);
+  assert.match(source, /if \(listingComplete\) candidates\.push\(\.\.\.keyCandidates\)/);
+});
+
 test("no regression to existing project document storage behavior", () => {
   // actions/projects.ts is out of scope for this fix and must keep resolving
   // its object URL from the bucket's actual public/private state via the

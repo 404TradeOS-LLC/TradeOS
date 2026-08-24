@@ -49,6 +49,8 @@ export async function reconcileSettingsAssetsAction({
     for (const assetKey of ALLOWED_SETTINGS_ASSET_KEYS) {
       const current = await getSettingsAssetUpload(token, assetKey);
       const prefix = buildSettingsAssetStoragePrefix(orgId, assetKey).replace(/[^/]+$/, "");
+      const keyCandidates: SettingsAssetCleanupCandidate[] = [];
+      let listingComplete = true;
       let offset = 0;
 
       while (true) {
@@ -59,6 +61,7 @@ export async function reconcileSettingsAssetsAction({
         });
         if (error) {
           failures.push(`${assetKey}:list`);
+          listingComplete = false;
           break;
         }
 
@@ -68,12 +71,14 @@ export async function reconcileSettingsAssetsAction({
           entries: data ?? [],
           currentStoragePath: current?.storagePath ?? null,
         });
-        candidates.push(...selection.candidates);
+        keyCandidates.push(...selection.candidates);
         skipped += selection.skipped;
 
         if (!data || data.length < 100) break;
         offset += data.length;
       }
+
+      if (listingComplete) candidates.push(...keyCandidates);
     }
 
     if (!dryRun) {
