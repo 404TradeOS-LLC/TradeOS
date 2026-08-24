@@ -236,7 +236,7 @@ export class ProposalsService {
     const currentStatus = normalizeProposalStatus(row.status);
     if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
     const updated = await prisma.proposal.updateMany({
-      where: { id, status: { in: ["sent", "viewed"] }, project: orgId ? { orgId } : undefined },
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
       data: { status: "accepted", respondedAt: new Date() },
     });
     if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be accepted`);
@@ -258,7 +258,7 @@ export class ProposalsService {
     const currentStatus = normalizeProposalStatus(row.status);
     if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
     const updated = await prisma.proposal.updateMany({
-      where: { id, status: { in: ["sent", "viewed"] }, project: orgId ? { orgId } : undefined },
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
       data: { status: "declined", respondedAt: new Date() },
     });
     if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
@@ -623,3 +623,4 @@ function toStringArray(value: unknown): string[] {
 function roundPercent(value: number) {
   return Math.round(value * 100) / 100;
 }
+

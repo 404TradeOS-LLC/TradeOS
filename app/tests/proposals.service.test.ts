@@ -257,6 +257,30 @@ describe("ProposalsService", () => {
     );
   });
 
+  it("uses the observed status as the compare-and-swap value for acceptance", async () => {
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("viewed"))
+      .mockResolvedValueOnce(proposalRow("accepted"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const service = new ProposalsService();
+    await service.accept("proposal-1", "org-1", "owner-1");
+
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "viewed", project: { orgId: "org-1" } },
+      data: expect.objectContaining({ status: "accepted", respondedAt: expect.any(Date) }),
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "proposal.accepted",
+          metadataJson: { previousStatus: "viewed", newStatus: "accepted" },
+        }),
+      })
+    );
+  });
+
   it("rejects accepting a proposal still in draft", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue({ id: "proposal-1", status: "draft" });
 
@@ -276,7 +300,7 @@ describe("ProposalsService", () => {
 
     expect(proposal.status).toBe("declined");
     expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
-      where: { id: "proposal-1", status: { in: ["sent", "viewed"] }, project: { orgId: "org-1" } },
+      where: { id: "proposal-1", status: "sent", project: { orgId: "org-1" } },
       data: expect.objectContaining({ status: "declined", respondedAt: expect.any(Date) }),
     });
     expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
@@ -639,3 +663,4 @@ describe("ProposalsService", () => {
     );
   });
 });
+
