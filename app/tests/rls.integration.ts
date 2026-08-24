@@ -571,7 +571,7 @@ describe("live organization row-level security", () => {
         currentTransaction().athenaGenerationRun.create({
           data: {
             orgId: orgA,
-            actorUserId: viewerUser,
+            actorUserId: adminUser,
             requestId: "rls-generation-viewer",
             traceId: "rls-trace-viewer",
             provider: "fake",
