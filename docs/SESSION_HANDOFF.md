@@ -6,6 +6,7 @@ source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
   - docs/architecture/S012_JOB_LIFECYCLE_PLAN.md
+  - docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -13,11 +14,11 @@ related_code:
 
 ## Mission
 
-This session records the S012 — Job lifecycle normalization completion evidence. Readiness PR #285 and implementation PR #286 have merged; this branch records the shipped behavior, exact-head verification, and the transition to the next readiness candidate.
+This session records the S018 — Customer portal authentication hardening readiness promotion. S012 readiness PR #285, implementation PR #286, and separate completion evidence have merged; S018 is now the next eligible `READY` sprint.
 
 ## Current branch
 
-`docs/s012-completion-evidence`, based on refreshed `origin/main` `403d84cb6187b59cf468802977a19fbc847ce314` after S012 implementation PR #286 merged. This branch is documentation-only.
+`docs/s018-readiness-promotion`, based on refreshed `origin/main` `33ba32446886e9b45e4471168f095a9a7993fc91` after S012 completion evidence merged. This branch is documentation-only.
 
 ## Current truth
 
@@ -30,15 +31,16 @@ This session records the S012 — Job lifecycle normalization completion evidenc
 - S011 (Invoice lifecycle normalization) is `DONE`. PR #283 merged 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`; separate completion evidence PR #284 merged as `0c693a8e29884d29305160498c46e2af38b7e14b`. Its bounded backend payment-reconciliation contract is complete.
 - S012 (Job lifecycle normalization) is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged as `403d84cb6187b59cf468802977a19fbc847ce314`, and this separate evidence branch records the outcome. Runtime revalidation confirmed the canonical eight statuses and named service actions. The implementation centralizes the existing transition table, preserves `JobsService.complete()` as `on_site -> completed`, adds focused transition/service/PostgreSQL-RLS coverage, and corrects stale lifecycle/API/RBAC documentation. No schema, status-vocabulary, RBAC/RLS policy, automatic-invoice, or broader architecture change shipped. See `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`.
 - S027 remains separately `BLOCKED/PARTIAL` only on authenticated rendered Costbook browser evidence at 1440/1024/768/390 and does not alter numbered lifecycle-sprint selection. No S027 evidence was touched by this session.
+- S018 is `READY` with its bounded plan in `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. The live portal uses the existing authenticated Supabase session and protected bearer-authenticated API/RLS boundary; no separate customer token or identity model exists. Implement only the scoped hardening/evidence contract, and stop for a founder decision if a new customer-auth policy is required.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
+Sprint ID: S018
 
-Eligibility: No numbered sprint is `READY`. S012 is `DONE`; S014 is `BLOCKED` by its founder architecture decision; S018 remains `PLANNED` and is the next readiness candidate after fresh live reconciliation.
+Eligibility: S018 is `READY`; S012 is `DONE`; S014 is `BLOCKED` by its founder architecture decision. S018 dependencies S007, S009, S010, and S011 are `DONE`.
 
-Dependencies: S012 depends on S006 (`DONE`) and its implementation and completion evidence are merged. S018's recorded dependencies S007, S009, S010, and S011 are `DONE`, but S018 has not been promoted to `READY`.
+Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with merged evidence.
 
-Overlap check: no open S012 implementation or completion-evidence PR remains. Existing Job/Dispatch runtime work is shipped baseline evidence, not a competing implementation.
+Overlap check: no open or draft S018 implementation/readiness PR, remote S018 branch, or active S018 worktree was found. Existing portal/auth runtime work is shipped baseline evidence, not a competing implementation.
 
-Startup prompt: Run the canonical startup/reconciliation flow for S018, verify its live dependencies, overlap, founder-decision, infrastructure, ownership, and evidence gates, and create only the governance-only readiness promotion if eligible. Do not implement S018 until its readiness promotion merges. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
+Startup prompt: Create the isolated S018 implementation branch from refreshed `origin/main` and follow the bounded plan. Do not create a new customer-auth model or begin S019, S020, S021, S022, or S027. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
