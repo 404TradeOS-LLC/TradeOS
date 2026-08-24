@@ -6,7 +6,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
-import { applyOverhead, sellPrice, round2 } from "./formulas";
+import { applyOverhead, estimateTaxAmount, sellPrice, round2 } from "./formulas";
 import { canTransitionEstimateStatus, legacyEstimateStatusMap, normalizeEstimateStatus } from "../../domain";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
@@ -18,6 +18,9 @@ import {
   EstimateLineItemDTO,
   EstimateQueueFilters,
   EstimateQueueItemDTO,
+  EstimateCostType,
+  UpdateEstimateInput,
+  UpdateLineItemInput,
   SetPricingModeInput,
 } from "./types";
 
@@ -143,6 +146,8 @@ export class EstimateEngineService {
         targetMarginPct: source.targetMarginPct,
         subtotalCost: source.subtotalCost,
         totalPrice: source.totalPrice,
+        taxPct: source.taxPct ?? 0,
+        taxAmount: source.taxAmount ?? 0,
         lineItems: {
           create: source.lineItems.map((lineItem) => ({
             costItemId: lineItem.costItemId,
@@ -153,6 +158,9 @@ export class EstimateEngineService {
             unitCost: lineItem.unitCost,
             lineCost: lineItem.lineCost,
             sortOrder: lineItem.sortOrder,
+            section: lineItem.section ?? "General",
+            costType: lineItem.costType ?? "other",
+            taxable: lineItem.taxable ?? false,
           })),
         },
       },
@@ -162,18 +170,16 @@ export class EstimateEngineService {
   }
 
   async addLineItem(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
-    if (!input.orgId) throw new ApiError(400, "Organization context is required for estimate catalog mutations");
+    if (!input.orgId) throw new ApiError(400, "Organization context is required for estimate line-item mutations");
     await this.assertDraft(input.estimateId, input.orgId);
-    if (!input.costItemId && !input.assemblyId) {
-      throw new ApiError(400, "Either costItemId or assemblyId is required");
-    }
     if (input.costItemId && input.assemblyId) {
       throw new ApiError(400, "Provide exactly one of costItemId or assemblyId, not both");
     }
 
-    let unitOfMeasure: string;
-    let unitCost: number;
+    let unitOfMeasure: string = input.unitOfMeasure ?? "EA";
+    let unitCost: number = input.unitCost ?? 0;
     let description = input.description ?? "";
+    let costType: EstimateCostType = input.costType ?? "other";
 
     if (input.costItemId) {
       const item = await prisma.costItem.findFirst({ where: { id: input.costItemId, orgId: input.orgId } });
@@ -182,13 +188,18 @@ export class EstimateEngineService {
       unitOfMeasure = item.unitOfMeasure;
       unitCost = breakdown.totalUnitCost;
       description = description || item.name;
+      costType = input.costType ?? inferCostType(item);
     } else {
-      const assembly = await prisma.assembly.findFirst({ where: { id: input.assemblyId, orgId: input.orgId } });
-      if (!assembly) throw new ApiError(404, `Assembly ${input.assemblyId} not found`);
-      const result = await this.assembliesDatabase.getAssemblyUnitCost(input.assemblyId as string, undefined, new Set(), input.orgId);
-      unitOfMeasure = assembly.unitOfMeasure;
-      unitCost = result.unitCost;
-      description = description || assembly.name;
+      if (input.assemblyId) {
+        const assembly = await prisma.assembly.findFirst({ where: { id: input.assemblyId, orgId: input.orgId } });
+        if (!assembly) throw new ApiError(404, `Assembly ${input.assemblyId} not found`);
+        const result = await this.assembliesDatabase.getAssemblyUnitCost(input.assemblyId, undefined, new Set(), input.orgId);
+        unitOfMeasure = assembly.unitOfMeasure;
+        unitCost = result.unitCost;
+        description = description || assembly.name;
+      } else if (!description.trim() || input.unitCost == null || !input.unitOfMeasure?.trim()) {
+        throw new ApiError(400, "Custom estimate lines require description, unit of measure, and unit cost");
+      }
     }
 
     const lineCost = round2(unitCost * input.quantity);
@@ -207,6 +218,9 @@ export class EstimateEngineService {
       unitCost,
       lineCost,
       sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 1,
+      section: input.section?.trim() || "General",
+      costType,
+      taxable: input.taxable ?? false,
       sourceKey: input.sourceKey,
     };
 
@@ -245,14 +259,53 @@ export class EstimateEngineService {
     });
   }
 
-  async removeLineItem(lineItemId: string, orgId?: string): Promise<{ estimateId: string }> {
+  async removeLineItem(lineItemId: string, orgId?: string, estimateId?: string): Promise<{ estimateId: string }> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
     if (orgId && lineItem.estimate.orgId !== orgId) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
+    if (estimateId && lineItem.estimateId !== estimateId) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
     await this.assertDraft(lineItem.estimateId, orgId);
     await prisma.estimateLineItem.delete({ where: { id: lineItemId } });
     await this.recalculate(lineItem.estimateId, orgId);
     return { estimateId: lineItem.estimateId };
+  }
+
+  async updateLineItem(input: UpdateLineItemInput): Promise<EstimateLineItemDTO> {
+    const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: input.lineItemId }, include: { estimate: true } });
+    if (!lineItem) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
+    if (input.orgId && lineItem.estimate.orgId !== input.orgId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
+    if (lineItem.estimateId !== input.estimateId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
+    await this.assertDraft(lineItem.estimateId, input.orgId);
+
+    const quantity = input.quantity ?? Number(lineItem.quantity);
+    const unitCost = input.unitCost ?? Number(lineItem.unitCost);
+    const row = await prisma.estimateLineItem.update({
+      where: { id: input.lineItemId },
+      data: {
+        description: input.description?.trim() || undefined,
+        section: input.section?.trim() || undefined,
+        costType: input.costType,
+        unitOfMeasure: input.unitOfMeasure?.trim() || undefined,
+        quantity,
+        unitCost,
+        lineCost: round2(quantity * unitCost),
+        taxable: input.taxable,
+      },
+    });
+    await this.recalculate(lineItem.estimateId, input.orgId);
+    return toLineItemDTO(row);
+  }
+
+  async updateEstimate(input: UpdateEstimateInput): Promise<EstimateDTO> {
+    await this.assertDraft(input.estimateId, input.orgId);
+    await prisma.estimate.update({
+      where: { id: input.estimateId },
+      data: {
+        overheadPct: input.overheadPct,
+        taxPct: input.taxPct,
+      },
+    });
+    return this.recalculate(input.estimateId, input.orgId);
   }
 
   async setPricingMode(input: SetPricingModeInput): Promise<EstimateDTO> {
@@ -274,14 +327,17 @@ export class EstimateEngineService {
     const jobCost = estimate.lineItems.reduce((sum, li) => sum + Number(li.lineCost), 0);
     const totalCost = applyOverhead(jobCost, 0, Number(estimate.overheadPct));
 
-    const totalPrice =
+    const preTaxTotalPrice =
       estimate.targetMarginPct != null
         ? sellPrice({ totalCost, mode: "targetMargin", targetMarginPct: Number(estimate.targetMarginPct) })
         : sellPrice({ totalCost, mode: "markup", markupPct: Number(estimate.profitPct) });
+    const taxableCost = estimate.lineItems.reduce((sum, li) => sum + (li.taxable ? Number(li.lineCost) : 0), 0);
+    const taxAmount = estimateTaxAmount({ preTaxTotalPrice, jobCost, taxableJobCost: taxableCost, taxPct: Number(estimate.taxPct ?? 0) });
+    const totalPrice = round2(preTaxTotalPrice + taxAmount);
 
     const row = await prisma.estimate.update({
       where: { id: estimateId },
-      data: { subtotalCost: round2(jobCost), totalPrice },
+      data: { subtotalCost: round2(jobCost), totalPrice, taxAmount },
     });
     return toEstimateDTO(row);
   }
@@ -311,8 +367,7 @@ export class EstimateEngineService {
   async compareEstimates(baseEstimateId: string, candidateEstimateId: string, orgId?: string): Promise<EstimateComparisonDTO> {
     const [base, candidate] = await Promise.all([this.getById(baseEstimateId, orgId), this.getById(candidateEstimateId, orgId)]);
     const marginPct = (estimate: EstimateDTO): number => {
-      const totalCost = applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct);
-      return estimate.totalPrice > 0 ? round2(((estimate.totalPrice - totalCost) / estimate.totalPrice) * 100) : 0;
+      return estimate.preTaxTotalPrice > 0 ? round2(((estimate.preTaxTotalPrice - estimate.costAfterOverhead) / estimate.preTaxTotalPrice) * 100) : 0;
     };
 
     return {
@@ -339,18 +394,28 @@ export function toEstimateDTO(row: {
   targetMarginPct: unknown;
   subtotalCost: unknown;
   totalPrice: unknown;
+  taxPct?: unknown;
+  taxAmount?: unknown;
 }): EstimateDTO {
+  const subtotalCost = Number(row.subtotalCost);
+  const costAfterOverhead = applyOverhead(subtotalCost, 0, Number(row.overheadPct ?? 0));
+  const taxAmount = Number(row.taxAmount ?? 0);
+  const totalPrice = Number(row.totalPrice);
   return {
     id: row.id,
     orgId: row.orgId,
     projectId: row.projectId,
     version: row.version,
     status: normalizeEstimateStatus(row.status),
-    overheadPct: Number(row.overheadPct),
-    profitPct: Number(row.profitPct),
+    overheadPct: Number(row.overheadPct ?? 0),
+    profitPct: Number(row.profitPct ?? 0),
     targetMarginPct: row.targetMarginPct != null ? Number(row.targetMarginPct) : null,
-    subtotalCost: Number(row.subtotalCost),
-    totalPrice: Number(row.totalPrice),
+    subtotalCost,
+    totalPrice,
+    taxPct: Number(row.taxPct ?? 0),
+    taxAmount,
+    costAfterOverhead,
+    preTaxTotalPrice: round2(totalPrice - taxAmount),
   };
 }
 
@@ -389,6 +454,9 @@ function toLineItemDTO(row: {
   lineCost: unknown;
   sortOrder: number;
   sourceKey?: string | null;
+  section?: string | null;
+  costType?: string | null;
+  taxable?: boolean | null;
 }): EstimateLineItemDTO {
   return {
     id: row.id,
@@ -402,5 +470,16 @@ function toLineItemDTO(row: {
     lineCost: Number(row.lineCost),
     sortOrder: row.sortOrder,
     sourceKey: row.sourceKey ?? null,
+    section: row.section ?? "General",
+    costType: (row.costType ?? "other") as EstimateCostType,
+    taxable: row.taxable ?? false,
   };
+}
+
+function inferCostType(item: { laborRateId?: string | null; materialId?: string | null; equipmentId?: string | null; subcontractorId?: string | null }): EstimateCostType {
+  if (item.laborRateId) return "labor";
+  if (item.materialId) return "material";
+  if (item.equipmentId) return "equipment";
+  if (item.subcontractorId) return "subcontractor";
+  return "other";
 }

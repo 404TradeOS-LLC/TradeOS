@@ -14,7 +14,7 @@ export default async function ProposalPreviewPage({
   const { id: projectId, proposalId } = await params;
   const token = await getSessionToken();
   const [project, proposal] = await Promise.all([getProject(token ?? "", projectId), getProposal(token ?? "", proposalId)]);
-  const pdfUrl = `/api/documents/proposals/${proposal.id}/pdf`;
+  const pdfUrl = `/api/documents/proposals/${proposal.id}/pdf?disposition=inline`;
 
   return (
     <div className="flex flex-col gap-6">

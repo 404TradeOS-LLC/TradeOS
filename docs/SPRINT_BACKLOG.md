@@ -18,6 +18,10 @@ Status vocabulary: `DONE`, `IN_REVIEW`, `READY`, `BLOCKED`, `PLANNED`, `DEFERRED
 
 This document owns current sprint status and merge evidence. Governance doctrine belongs in `docs/TRADEOS_BIBLE.md`; the sole executable startup and completion flows belong in `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 
+## Estimate deliverability override — active
+
+The 2026-08-24 audit identified estimate-deliverability P1 blockers independent of the numbered S025 implementation lane. They are tracked in `docs/ESTIMATE_DELIVERABILITY_AUDIT.md` on `fix/estimate-deliverability-gate`. Numbered sprint sequencing remains intact; unrelated feature expansion is paused until the canonical contractor workflow passes its authenticated browser and ten-run reliability gates.
+
 ## Phase 1 — Governance and Execution System
 
 ### S001 — TradeOS Bible foundation

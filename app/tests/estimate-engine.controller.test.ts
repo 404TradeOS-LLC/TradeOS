@@ -4,6 +4,8 @@ const createMock = jest.fn();
 const getByIdMock = jest.fn();
 const listByProjectMock = jest.fn();
 const addLineItemMock = jest.fn();
+const updateLineItemMock = jest.fn();
+const updateEstimateMock = jest.fn();
 const removeLineItemMock = jest.fn();
 const setPricingModeMock = jest.fn();
 const finalizeMock = jest.fn();
@@ -16,6 +18,8 @@ jest.mock("../modules/estimate-engine/service", () => ({
     getById: getByIdMock,
     listByProject: listByProjectMock,
     addLineItem: addLineItemMock,
+    updateLineItem: updateLineItemMock,
+    updateEstimate: updateEstimateMock,
     removeLineItem: removeLineItemMock,
     setPricingMode: setPricingModeMock,
     finalize: finalizeMock,
@@ -127,10 +131,8 @@ describe("estimateEngineController", () => {
     expect(res.json).toHaveBeenCalledWith(estimate);
   });
 
-  it("records the line item's actual estimate id, not the URL's, when the two differ", async () => {
-    // Regression test: the service resolves the line item's real estimate independently of
-    // the route param, so a mismatched/stale URL id must not produce a misleading audit entry.
-    removeLineItemMock.mockResolvedValue({ estimateId: "estimate-2" });
+  it("passes the nested estimate id so the service can reject mismatched line-item URLs", async () => {
+    removeLineItemMock.mockResolvedValue({ estimateId: "estimate-1" });
     recordMock.mockResolvedValue({});
 
     const req = buildRequest("dispatcher");
@@ -138,14 +140,45 @@ describe("estimateEngineController", () => {
 
     await estimateEngineController.removeLineItem(req, res);
 
-    expect(removeLineItemMock).toHaveBeenCalledWith("line-1", "org-1");
+    expect(removeLineItemMock).toHaveBeenCalledWith("line-1", "org-1", "estimate-1");
     expect(recordMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        entityId: "estimate-2",
+        entityId: "estimate-1",
         eventType: "estimate.line_item_removed",
         metadata: { lineItemId: "line-1" },
       })
     );
     expect(res.status).toHaveBeenCalledWith(204);
+  });
+
+  it("accepts a custom contractor line without a Costbook id", async () => {
+    addLineItemMock.mockResolvedValue({ id: "line-1" });
+    recordMock.mockResolvedValue({});
+    const req = buildRequest("dispatcher", {
+      description: "Debris handling",
+      quantity: 2,
+      unitOfMeasure: "load",
+      unitCost: 175,
+      section: "Demolition",
+      costType: "disposal",
+      taxable: false,
+    });
+    const res = buildResponse();
+
+    await estimateEngineController.addLineItem(req, res);
+
+    expect(addLineItemMock).toHaveBeenCalledWith(expect.objectContaining({
+      estimateId: "estimate-1",
+      description: "Debris handling",
+      unitCost: 175,
+      costType: "disposal",
+    }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("rejects a pricing mode without its matching percentage", async () => {
+    const req = buildRequest("dispatcher", { mode: "markup" });
+    await expect(estimateEngineController.setPricingMode(req, buildResponse())).rejects.toThrow(/markupPct is required/);
+    expect(setPricingModeMock).not.toHaveBeenCalled();
   });
 });

@@ -18,6 +18,9 @@ function makeLineItem(overrides: Partial<EstimateLineItemDTO> = {}): EstimateLin
     lineCost: 50,
     sortOrder: 1,
     sourceKey: null,
+    section: "General",
+    costType: "other",
+    taxable: false,
     ...overrides,
   };
 }
@@ -34,6 +37,10 @@ function makeEstimate(overrides: Partial<EstimateDTO> = {}, lineItems: EstimateL
     targetMarginPct: null,
     subtotalCost: 50,
     totalPrice: 100,
+    taxPct: 0,
+    taxAmount: 0,
+    costAfterOverhead: 50,
+    preTaxTotalPrice: 100,
     lineItems,
     ...overrides,
   };

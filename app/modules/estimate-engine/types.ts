@@ -35,7 +35,35 @@ export interface AddLineItemInput {
   assemblyId?: string;
   quantity: number;
   description?: string;
+  section?: string;
+  costType?: EstimateCostType;
+  unitOfMeasure?: string;
+  unitCost?: number;
+  taxable?: boolean;
   sourceKey?: string;
+}
+
+export const estimateCostTypes = ["labor", "material", "equipment", "disposal", "subcontractor", "other"] as const;
+export type EstimateCostType = (typeof estimateCostTypes)[number];
+
+export interface UpdateEstimateInput {
+  estimateId: string;
+  orgId?: string;
+  overheadPct?: number;
+  taxPct?: number;
+}
+
+export interface UpdateLineItemInput {
+  lineItemId: string;
+  estimateId: string;
+  orgId?: string;
+  description?: string;
+  section?: string;
+  costType?: EstimateCostType;
+  unitOfMeasure?: string;
+  quantity?: number;
+  unitCost?: number;
+  taxable?: boolean;
 }
 
 export interface SetPricingModeInput {
@@ -57,12 +85,16 @@ export interface EstimateDTO {
   targetMarginPct: number | null;
   subtotalCost: number;
   totalPrice: number;
+  taxPct: number;
+  taxAmount: number;
+  costAfterOverhead: number;
+  preTaxTotalPrice: number;
 }
 
 export interface EstimateLineItemDTO {
   id: string;
   estimateId: string;
-  /** Costbook provenance. Exactly one of costItemId/assemblyId is set for catalog-backed lines. */
+  /** Costbook provenance. Both are null for a custom contractor line. */
   costItemId: string | null;
   assemblyId: string | null;
   description: string;
@@ -74,6 +106,9 @@ export interface EstimateLineItemDTO {
   lineCost: number;
   sortOrder: number;
   sourceKey: string | null;
+  section: string;
+  costType: EstimateCostType;
+  taxable: boolean;
 }
 
 export interface EstimateComparisonSideDTO {

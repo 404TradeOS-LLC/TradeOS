@@ -717,6 +717,8 @@ model Estimate {
   overheadPct      Decimal  @default(0) @map("overhead_pct") @db.Decimal(5, 2)
   profitPct        Decimal  @default(0) @map("profit_pct") @db.Decimal(5, 2)
   targetMarginPct  Decimal? @map("target_margin_pct") @db.Decimal(5, 2)
+  taxPct           Decimal  @default(0) @map("tax_pct") @db.Decimal(5, 2)
+  taxAmount        Decimal  @default(0) @map("tax_amount") @db.Decimal(14, 2)
   subtotalCost     Decimal  @default(0) @map("subtotal_cost") @db.Decimal(14, 2)
   totalPrice       Decimal  @default(0) @map("total_price") @db.Decimal(14, 2)
   createdAt        DateTime @default(now()) @map("created_at")
@@ -745,6 +747,9 @@ model EstimateLineItem {
   lineCost      Decimal  @map("line_cost") @db.Decimal(14, 2)
   sortOrder     Int      @default(0) @map("sort_order")
   sourceKey     String?  @map("source_key")
+  section       String   @default("General")
+  costType      String   @default("other") @map("cost_type")
+  taxable       Boolean  @default(false)
   createdAt     DateTime @default(now()) @map("created_at")
 
   estimate Estimate  @relation(fields: [estimateId], references: [id], onDelete: Cascade)
