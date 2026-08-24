@@ -433,7 +433,7 @@ export class CrmService {
     });
   }
 
-  async createPayment(orgId: string, invoiceId: string, input: PaymentInput, actorUserId?: string) {
+  async createPayment(orgId: string, invoiceId: string, input: PaymentInput, actorUserId?: string, actorRole?: string) {
     assertPositiveFinitePaymentAmount(input.amount);
 
     return runInDatabaseTransaction(prisma, async (transaction) => {
@@ -460,7 +460,8 @@ export class CrmService {
       const recordedPaymentTotal = toDecimal(aggregate._sum.amount);
       const invoiceAmount = toDecimal(invoice.amount);
 
-      if (invoice.status === "sent" && recordedPaymentTotal.gte(invoiceAmount)) {
+      if (["sent", "overdue"].includes(invoice.status) && recordedPaymentTotal.gte(invoiceAmount)) {
+        assertInvoiceWriteAccess(actorRole);
         await transaction.invoice.update({
           where: { id: invoice.id },
           data: { status: "paid", paidAt: new Date() },
@@ -470,6 +471,7 @@ export class CrmService {
           invoiceId: invoice.id,
           projectId: invoice.project_id,
           actorUserId,
+          actorRole,
           recipientEmail: invoice.recipient_email,
           previousStatus: invoice.status,
           invoiceNumber: invoice.invoice_number,

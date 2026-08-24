@@ -35,7 +35,7 @@ Sprint ID: NONE
 
 Eligibility: No numbered sprint is currently `READY`; S011 is `IN_REVIEW` after the governance-only readiness promotion and its implementation PR is the active work. S006, S007, S008, S009, and S010 are `DONE` with merged evidence.
 
-Dependencies: S011 depends on S006 (`DONE`); the approved readiness contract is complete and the implementation branch must start from refreshed `origin/main` after this promotion merges.
+Dependencies: S011 depends on S006 (`DONE`); the approved readiness contract is complete and the active implementation branch is based on refreshed `origin/main`.
 
 Overlap check: the active S011 implementation PR is the only S011 runtime work; do not open a duplicate.
 

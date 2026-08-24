@@ -56,7 +56,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - customer records support soft delete through `deleted_at`
 - equipment assets use a free-form `status` field
 - service agreements default to `draft`
-- payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent` Invoice is advanced to persisted `paid`, while persisted `paid` remains authoritative for follow-up exclusion
+- payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent` or existing `overdue` Invoice is advanced to persisted `paid`, while persisted `paid` remains authoritative for follow-up exclusion
 
 ## Emitted activity events
 

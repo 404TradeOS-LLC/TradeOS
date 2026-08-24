@@ -1625,7 +1625,8 @@ describe("live organization row-level security", () => {
             orgA,
             invoiceConcurrency,
             { amount: 50, paymentDate: "2026-07-12T00:00:00.000Z", method: "card" },
-            adminUser
+            adminUser,
+            "admin"
           )
         ),
         inSession(adminUser, orgA, "admin", async () =>
@@ -1633,7 +1634,8 @@ describe("live organization row-level security", () => {
             orgA,
             invoiceConcurrency,
             { amount: 50, paymentDate: "2026-07-13T00:00:00.000Z", method: "cash" },
-            adminUser
+            adminUser,
+            "admin"
           )
         ),
       ]);

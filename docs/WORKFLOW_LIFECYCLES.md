@@ -240,7 +240,7 @@ Current enforced transitions:
 
 - `draft -> sent`
 - `sent|overdue -> paid`
-- a recorded-payment reconciliation may transition an eligible `sent` invoice to persisted `paid` when recorded payments fully cover the invoice
+- a recorded-payment reconciliation may transition an eligible `sent` invoice, or an existing raw `overdue` invoice for historical compatibility, to persisted `paid` when recorded payments fully cover the invoice
 - non-paid invoices may be voided
 
 Compatibility persistence:
@@ -263,7 +263,7 @@ Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoice
 Payment reconciliation:
 
 - `POST /api/v1/invoices/:id/payments` serializes reconciliation on the target Invoice row inside the existing request-scoped transaction, inserts the Payment, and recomputes the recorded-payment total from the database
-- only an eligible persisted `sent` Invoice transitions automatically to `paid`; partial payments remain derived and non-recorded payments do not count
+- only an eligible persisted `sent` Invoice, or an existing raw `overdue` Invoice for historical compatibility, transitions automatically to `paid`; partial payments remain derived and non-recorded payments do not count
 - the payment, persisted status change, and `invoice.paid` delivery/activity event commit together; a concurrent final payment observes the serialized status and does not emit a duplicate transition event
 - the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for follow-up exclusion
 

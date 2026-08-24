@@ -246,6 +246,8 @@ export const paymentsController = {
   },
   async create(req: Request, res: Response) {
     const auth = requireRoles(req, ["owner", "dispatcher"]);
-    res.status(201).json(await service.createPayment(requireOrgId(req), req.params.id, paymentSchema.parse(req.body), auth.userId));
+    res
+      .status(201)
+      .json(await service.createPayment(requireOrgId(req), req.params.id, paymentSchema.parse(req.body), auth.userId, auth.role));
   },
 };

@@ -70,7 +70,7 @@ The current ledger counts only Payment rows whose status is `recorded`, matching
 
 Invoice voiding intentionally distinguishes storage from canonical semantics: `InvoicesService.void()` persists raw `void` because that is the value permitted by the live `invoices_status_check` constraint, while normalization, delivery history, and activity metadata continue to expose the canonical `voided` concept. This avoids changing the schema or lifecycle vocabulary while keeping the write path constraint-compatible.
 
-Payment reconciliation records the Payment, then recomputes the total recorded payments while holding a PostgreSQL row lock on that Invoice. An eligible persisted `sent` Invoice becomes `paid` when the recorded total is at least the Invoice amount; the payment, status update, and `invoice.paid` delivery/activity event share the existing request-scoped database transaction. `partially_paid` and `overdue` remain derived, and no payment-entry UI is owned by this module slice.
+Payment reconciliation records the Payment, then recomputes the total recorded payments while holding a PostgreSQL row lock on that Invoice. An eligible persisted `sent` or existing `overdue` Invoice becomes `paid` when the recorded total is at least the Invoice amount; the payment, status update, and `invoice.paid` delivery/activity event share the existing request-scoped database transaction. `partially_paid` and new overdue persistence remain derived, and no payment-entry UI is owned by this module slice.
 
 ## Frontend surfaces
 

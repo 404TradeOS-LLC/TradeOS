@@ -272,12 +272,14 @@ export class InvoicesService {
     invoiceId: string;
     projectId: string;
     actorUserId?: string;
+    actorRole?: string;
     recipientEmail?: string | null;
     previousStatus: string;
     invoiceNumber: number;
     paymentId: string;
     recordedPaymentTotal: string;
   }): Promise<void> {
+    assertInvoiceWriteAccess(input.actorRole);
     await this.recordDeliveryEvent({
       orgId: input.orgId,
       invoiceId: input.invoiceId,

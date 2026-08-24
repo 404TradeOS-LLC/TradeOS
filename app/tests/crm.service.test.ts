@@ -249,7 +249,8 @@ describe("CrmService", () => {
       "org-1",
       "invoice-1",
       { amount: 300, paymentDate: "2026-07-02T00:00:00.000Z", method: "card" },
-      "user-1"
+      "user-1",
+      "owner"
     );
 
     expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
@@ -282,6 +283,48 @@ describe("CrmService", () => {
     });
 
     expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it("reconciles a fully covered overdue invoice without adding a persisted overdue state", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "overdue", amount: "500.00", recipient_email: null },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-overdue", amount: 500 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "500.00" } });
+
+    await new CrmService().createPayment(
+      "org-1",
+      "invoice-1",
+      { amount: 500, paymentDate: "2026-07-03T00:00:00.000Z", method: "card" },
+      "user-1",
+      "owner"
+    );
+
+    expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
+      where: { id: "invoice-1" },
+      data: { status: "paid", paidAt: expect.any(Date) },
+    });
+    expect(recordPaidEventMock).toHaveBeenCalledWith(expect.objectContaining({ previousStatus: "overdue" }));
+  });
+
+  it("does not allow a non-billing actor to trigger the paid transition", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "sent", amount: "500.00", recipient_email: null },
+    ]);
+    mockPrisma.payment.create.mockResolvedValue({ id: "payment-technician", amount: 500 });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: "500.00" } });
+
+    await expect(
+      new CrmService().createPayment(
+        "org-1",
+        "invoice-1",
+        { amount: 500, paymentDate: "2026-07-04T00:00:00.000Z", method: "card" },
+        "user-1",
+        "technician"
+      )
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+    expect(recordPaidEventMock).not.toHaveBeenCalled();
   });
 
   it("rejects zero, negative, and non-finite payment amounts before opening a transaction", async () => {
