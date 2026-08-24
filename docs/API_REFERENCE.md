@@ -36,6 +36,8 @@ Protected API routes require:
 
 Tenant impersonation through request-controlled organization headers is not supported.
 
+Locally issued HS256 access tokens carry a finite expiration (one hour by default; configure the positive `AUTH_JWT_TTL_SECONDS` value when needed) and the verifier rejects missing or malformed `sub`, `iat`, `exp`, issuer, audience, and related registered claims. Expired, malformed, or invalid-signature bearer requests fail before membership resolution. Refresh and Supabase bootstrap also reject inactive application users. Immediate revocation of an already-issued bearer JWT is not represented by a new token store or provider-introspection call in the current architecture.
+
 Public routes are limited to:
 
 - `/api/v1/auth/*`
