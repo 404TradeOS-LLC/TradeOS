@@ -365,6 +365,7 @@ export class AuthService {
         where: { OR: [{ authSubject: input.authSubject }, { email: normalizedEmail }] },
       });
       if (!user) return null;
+      if (!user.isActive) return { user, membership: null, organization: null };
 
       await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
 
