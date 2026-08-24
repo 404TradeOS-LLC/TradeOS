@@ -89,7 +89,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007-S012 and S018 are complete with merged implementation and completion evidence. S018's completion-evidence reconciliation is the current governance lane; do not begin S019 or another numbered sprint until the canonical selector and a separate readiness-promotion PR authorize it. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S007-S012 and S018 are complete with merged implementation and completion evidence. The next action is a fresh canonical selector run and, if eligible, one separate S019 readiness-promotion PR; do not implement S019 or another numbered sprint before that promotion. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -185,7 +185,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261, S008 is complete through PR #264, S009 is complete through PR #267, and S010 is complete through PR #276 (`fcbf1fff342053d854ad73667c54a5e44c1bbfb6`). S011 is `DONE`: PR #283 merged on 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, and its separate completion-evidence reconciliation merged as PR #284 (`0c693a8e29884d29305160498c46e2af38b7e14b`). S012 is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged as `403d84cb6187b59cf468802977a19fbc847ce314`, and separate completion-evidence PR #288 records the shipped result. S018 implementation PR #290 merged as `6f2dd254c121855fa629d19da6bc0452cc9e6de7`; completion-evidence PR #292 is the current governance lane, and no S019 readiness promotion or implementation may begin until it merges.
+S007 is complete through PR #261, S008 is complete through PR #264, S009 is complete through PR #267, and S010 is complete through PR #276 (`fcbf1fff342053d854ad73667c54a5e44c1bbfb6`). S011 is `DONE`: PR #283 merged on 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, and its separate completion-evidence reconciliation merged as PR #284 (`0c693a8e29884d29305160498c46e2af38b7e14b`). S012 is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged as `403d84cb6187b59cf468802977a19fbc847ce314`, and separate completion-evidence PR #288 records the shipped result. S018 implementation PR #290 merged as `6f2dd254c121855fa629d19da6bc0452cc9e6de7` and completion-evidence PR #292 merged as `8def755e2109222d9a5fd357d8fbc93585bb8cbe`. Refresh the selector and prepare the next bounded readiness promotion; do not implement S019 yet.
 
 ## Source-of-truth links
 

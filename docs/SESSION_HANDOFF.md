@@ -13,15 +13,16 @@ related_code:
 
 ## Mission
 
-This governance-only branch records the separate S018 — Customer portal
-authentication hardening completion evidence required after implementation
-merge. No product/runtime code is changed here.
+S018 — Customer portal authentication hardening is complete. Implementation PR
+#290 and the required separate completion-evidence PR #292 are merged. This
+handoff records the landed truth and the next authorized governance action; no
+product/runtime code is being implemented.
 
 ## Current branch
 
-`docs/s018-completion-evidence`, based on refreshed `origin/main` at
-`6f2dd254c121855fa629d19da6bc0452cc9e6de7`, the verified merge SHA for
-implementation PR #290.
+`docs/s018-post-merge-handoff`, based on refreshed `origin/main` at
+`8def755e2109222d9a5fd357d8fbc93585bb8cbe`, the verified completion-evidence
+merge SHA for S018.
 
 ## Current truth
 
@@ -32,7 +33,8 @@ implementation PR #290.
   checks, and the aggregate Web lane.
 - Exact-head Docs consistency #1229, Dependency review #296, PR branch
   currency #15, Live documentation reconciliation #14, and Sprint governance
-  #14 passed; all review threads were resolved before merge.
+  #14 passed for the implementation head; completion-evidence PR #292 also
+  passed its exact-head docs, governance, Verify, and dependency checks.
 - S018 shipped finite local HS256 token expiry and strict claim validation,
   fail-closed malformed/expired/invalid bearer handling, inactive-user denial
   in refresh/bootstrap, focused HTTP regressions, and PostgreSQL/RLS assertions
@@ -43,17 +45,10 @@ implementation PR #290.
 - S027 remains separately blocked on authenticated rendered Costbook browser
   evidence. Do not begin S019 implementation from this branch.
 
-## Completion-evidence status
-
-Sprint ID: S018
-Eligibility: S018 is `DONE` once this separate completion-evidence PR merges; implementation PR #290 is already merged.
-Dependencies: S007, S009, S010, and S011 are `DONE` with merged evidence.
-Overlap check: this is the sole S018 governance-only completion-evidence lane; no S019 implementation branch or PR exists.
-
 ## Next Eligible Sprint
 
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S019 is the lowest planned dependency-complete candidate and requires a governance-only readiness promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; rerun the canonical selector after this evidence PR merges.
+Dependencies: S019 depends on DONE sprints S009 and S018; the completion evidence is merged.
 Overlap check: no S019 implementation lane exists; do not start one from this branch.
-Startup prompt: Merge this evidence PR, refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
+Startup prompt: Refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
