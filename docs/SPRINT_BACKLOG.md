@@ -445,6 +445,6 @@ Startup/resume flow: Refresh `origin/main`, rerun the canonical selector, and pr
 
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S019 is the lowest planned dependency-complete candidate and requires a governance-only readiness promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; S018 implementation PR #290 is merged and this completion-evidence PR must merge before promotion.
-Overlap check: no S019 implementation branch or PR exists; the current write lane is governance-only S018 completion evidence.
+Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290 and completion-evidence PR #292 are merged.
+Overlap check: no S019 implementation branch or PR exists; the S018 completion-evidence lane has ended.
 Startup prompt: Refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
