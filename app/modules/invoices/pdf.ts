@@ -1,4 +1,7 @@
 import PDFDocument from "pdfkit";
+import type { DocumentFrameBrand } from "../documents/frame";
+
+const DOCUMENT_INK = "#0f172a";
 
 interface InvoiceForPdf {
   invoiceNumber: number;
@@ -12,7 +15,7 @@ interface InvoiceForPdf {
   lineItems: { description: string; quantity: number; unitOfMeasure: string; unitCost: number; lineCost: number }[];
 }
 
-export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { companyName: string }): Promise<Buffer> {
+export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: DocumentFrameBrand }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
@@ -20,10 +23,19 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { companyName: st
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(20).text(opts.companyName, { align: "left" });
+    const brand = opts.brand;
+    const contact = [brand.phone, brand.email, brand.websiteUrl].filter(Boolean).join("   •   ");
+    doc.save();
+    doc.roundedRect(50, 38, doc.page.width - 100, 74, 14).fill(brand.colors.primary);
+    doc.restore();
+    const headerForeground = getHeaderForeground(brand.colors.primary);
+    doc.fillColor(headerForeground).fontSize(20).text(brand.companyName, 66, 54, { width: 300 });
+    if (brand.tagline) doc.fontSize(9).text(brand.tagline, 66, 80, { width: 300 });
+    if (contact) doc.fontSize(8).text(contact, 66, 96, { width: doc.page.width - 132 });
     doc.moveDown(0.5);
-    doc.fontSize(14).fillColor("#2E75B6").text(`Invoice #${invoice.invoiceNumber}`, { align: "left" });
-    doc.fillColor("black");
+    doc.fontSize(14).fillColor(brand.colors.accent).text(`Invoice #${invoice.invoiceNumber}`, 50, 132, { align: "left" });
+    doc.fillColor(DOCUMENT_INK);
+    doc.y = 158;
     doc.moveDown(1);
 
     doc.fontSize(10).text(`Project: ${invoice.project.name}`);
@@ -39,18 +51,40 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { companyName: st
     }
     doc.moveDown(1);
 
-    doc.fontSize(12).text("Line Items", { underline: true });
+    doc.fontSize(12).fillColor(brand.colors.accent).text("Line Items", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10);
+    doc.fontSize(10).fillColor(DOCUMENT_INK);
     for (const li of invoice.lineItems) {
       doc.text(`${li.description}  —  ${li.quantity} ${li.unitOfMeasure}  —  $${li.lineCost.toFixed(2)}`);
     }
     doc.moveDown(1.5);
 
-    doc.fontSize(12).text("Amount Due", { underline: true });
+    doc.fontSize(12).fillColor(brand.colors.accent).text("Amount Due", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(11).text(`$${invoice.amount.toFixed(2)}`, { align: "right" });
+    doc.fontSize(11).fillColor(DOCUMENT_INK).text(`$${invoice.amount.toFixed(2)}`, { align: "right" });
+
+    const trustSignals = [
+      brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
+      brand.showInsuranceSummary !== false && brand.insuranceSummary ? brand.insuranceSummary : "",
+      brand.bondingSummary,
+    ].filter(Boolean);
+    if (trustSignals.length || brand.showPoweredByTradeOS) {
+      doc.moveDown(2);
+      doc.fontSize(8).fillColor("#475569").text(
+        [...trustSignals, brand.showPoweredByTradeOS ? "Powered by TradeOS" : ""].filter(Boolean).join("   •   "),
+        { align: "center" }
+      );
+    }
 
     doc.end();
   });
+}
+
+function getHeaderForeground(color: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!match) return "white";
+  const red = Number.parseInt(match[1].slice(0, 2), 16);
+  const green = Number.parseInt(match[1].slice(2, 4), 16);
+  const blue = Number.parseInt(match[1].slice(4, 6), 16);
+  return (red * 299 + green * 587 + blue * 114) / 1000 >= 150 ? DOCUMENT_INK : "white";
 }

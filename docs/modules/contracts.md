@@ -49,10 +49,19 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 - `/projects/[id]/contracts/[contractId]`
 - `/portal/contracts/[contractId]`
 
+## Branded document generation
+
+Contract PDFs resolve company identity, contact details, accent colors, and
+optional license/insurance/bonding footer signals from the authenticated
+organization's canonical Brand Studio data. Missing optional profile values
+use deterministic defaults. Contract route shape, signature semantics,
+permissions, organization scoping, and forced RLS remain unchanged.
+
 ## Tests
 
 - `app/tests/contracts.service.test.ts`
 - `app/tests/invoice-contract-history.migration.test.ts`
+- `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
 
 ## Known limitations
 
@@ -65,4 +74,4 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 ## Last verified date
 
-2026-08-22
+2026-08-24

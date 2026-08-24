@@ -30,6 +30,8 @@ export interface DocumentFrameBrand {
   serviceAreas: string[];
   certifications: string[];
   showPoweredByTradeOS: boolean;
+  showLicenseNumber?: boolean;
+  showInsuranceSummary?: boolean;
 }
 
 export interface DocumentFrameContext {
@@ -60,6 +62,17 @@ export interface DocumentFrameContext {
 let cachedFrameCss: string | null = null;
 
 export function renderDocumentFrameHtml(brand: DocumentFrameBrand, context: DocumentFrameContext): string {
+  const colors = {
+    primary: safeHex(brand.colors.primary, "#0f172a"),
+    secondary: safeHex(brand.colors.secondary, "#f8fafc"),
+    accent: safeHex(brand.colors.accent, "#f97316"),
+  };
+  const typography = {
+    heading: safeFontFamily(brand.typography.headingFontFamily, "Arial, sans-serif"),
+    body: safeFontFamily(brand.typography.bodyFontFamily, "Arial, sans-serif"),
+    accent: safeFontFamily(brand.typography.accentFontFamily, "Arial, sans-serif"),
+  };
+  const logoUrl = safeAssetUrl(brand.logoUrl);
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -69,14 +82,14 @@ export function renderDocumentFrameHtml(brand: DocumentFrameBrand, context: Docu
     <style>${getFrameCss()}</style>
     <style>
       :root {
-        --frame-primary: ${brand.colors.primary};
-        --frame-secondary: ${brand.colors.secondary};
-        --frame-accent: ${brand.colors.accent};
+        --frame-primary: ${colors.primary};
+        --frame-secondary: ${colors.secondary};
+        --frame-accent: ${colors.accent};
         --frame-ink: #0f172a;
         --frame-muted: #475569;
-        --frame-heading-font: ${brand.typography.headingFontFamily};
-        --frame-body-font: ${brand.typography.bodyFontFamily};
-        --frame-accent-font: ${brand.typography.accentFontFamily};
+        --frame-heading-font: ${typography.heading};
+        --frame-body-font: ${typography.body};
+        --frame-accent-font: ${typography.accent};
       }
     </style>
   </head>
@@ -91,7 +104,7 @@ export function renderDocumentFrameHtml(brand: DocumentFrameBrand, context: Docu
             ${context.badges.length ? `<div class="frame-badge-cluster">${context.badges.map((badge) => `<span class="frame-badge">${escapeHtml(badge)}</span>`).join("")}</div>` : ""}
           </div>
           <div class="frame-brand">
-            ${brand.logoUrl ? `<img class="frame-logo" src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.companyName)} logo" />` : ""}
+            ${logoUrl ? `<img class="frame-logo" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(brand.companyName)} logo" />` : ""}
             <div class="frame-company">
               <p class="frame-company-name">${escapeHtml(brand.companyName)}</p>
               <p class="frame-company-meta">${escapeHtml(joinBrandMeta(brand))}</p>
@@ -194,7 +207,13 @@ function formatContactLine(brand: DocumentFrameBrand) {
 }
 
 function defaultFooterNote(brand: DocumentFrameBrand) {
-  return [brand.licenseNumber, brand.insuranceSummary, brand.bondingSummary].filter(Boolean).join(" • ");
+  return [
+    brand.showLicenseNumber !== false ? brand.licenseNumber : "",
+    brand.showInsuranceSummary !== false ? brand.insuranceSummary : "",
+    brand.bondingSummary,
+  ]
+    .filter(Boolean)
+    .join(" • ");
 }
 
 function getFrameCss() {
@@ -211,4 +230,23 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function safeHex(value: string, fallback: string) {
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+function safeFontFamily(value: string, fallback: string) {
+  return /^[a-z0-9 ,"'_-]+$/i.test(value) ? value : fallback;
+}
+
+function safeAssetUrl(value: string | null) {
+  if (!value) return null;
+  if (value.startsWith("/")) return value;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
 }

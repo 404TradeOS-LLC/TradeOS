@@ -50,6 +50,12 @@ sanitized history of recorded payments. Pending or failed payment rows are not
 counted or displayed, and the portal does not expose the internal payment-
 recording mutation or invent a pay-now action.
 
+Portal proposal, contract, and invoice PDF links continue to use the existing
+authenticated document proxy and route shapes. The server-side document
+generators resolve canonical organization branding before producing the binary
+response; no public link, client-selected organization, or portal identity
+model is introduced.
+
 ## Proposal review actions
 
 `/portal/proposals/[proposalId]` uses the existing server-side session-token
