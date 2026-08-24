@@ -439,12 +439,12 @@ Sprint ID: NONE
 Eligibility: S018 is `DONE` after implementation PR #290 merged and this completion-evidence reconciliation is merged; no numbered sprint is currently `READY`.
 Dependencies: S019 is the lowest planned dependency-complete candidate after S018, but it requires a separate governance-only readiness promotion before implementation.
 Overlap check: no S019 implementation branch or PR exists; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup/resume flow: Complete and merge this governance-only S018 evidence PR, refresh `origin/main`, rerun the canonical selector, and prepare at most one S019 readiness-promotion PR. Do not implement S019 or another numbered sprint from this branch.
+Startup/resume flow: Refresh `origin/main`, rerun the canonical selector, and prepare at most one S019 readiness-promotion PR. Do not implement S019 or another numbered sprint from this branch.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S019 is the lowest planned dependency-complete candidate and requires a governance-only readiness promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; S018 implementation PR #290 is merged and this completion-evidence PR must merge before promotion.
-Overlap check: no S019 implementation branch or PR exists; the current write lane is governance-only S018 completion evidence.
-Startup prompt: Merge this S018 completion-evidence PR, refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
+Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290 and completion-evidence PR #292 are merged.
+Overlap check: no S019 implementation branch or PR exists; the S018 completion-evidence lane has ended.
+Startup prompt: Refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
