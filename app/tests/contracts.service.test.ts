@@ -217,4 +217,23 @@ describe("ContractsService", () => {
     const service = new ContractsService();
     await expect(service.void("contract-1", "org-1", "user-1", "admin")).rejects.toThrow("already been voided");
   });
+
+  it("fails closed when a competing void changes the contract after the read", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      status: "pending_signature",
+      signerEmail: null,
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new ContractsService();
+    await expect(service.void("contract-1", "org-1", "user-1", "admin")).rejects.toThrow(
+      "changed before it could be voided"
+    );
+    expect(mockPrisma.contractEvent.create).not.toHaveBeenCalled();
+  });
 });
