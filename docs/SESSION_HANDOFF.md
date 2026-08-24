@@ -13,7 +13,7 @@ related_code:
 
 ## Mission
 
-S017 completion evidence is the current bounded governance task. S016 implementation PR #314 and its completion evidence are merged; S017 implementation PR #317 and corrective PR #319 are merged. No numbered implementation lane is active here. S020 and S022 remain read-only future work.
+S022 is the current sole numbered implementation lane. Readiness PR #324 and implementation PR #325 are merged; completion evidence and the remaining S022 verification contract are still pending. Do not begin S027 implementation concurrently.
 
 ## Current truth
 
@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Publish and merge this separate S022 readiness PR, then refresh origin/main, re-run the canonical selector and live overlap checks, and create only the isolated S022 implementation lane if S022 remains READY. Do not begin S027 implementation concurrently.
+Continue S022 verification and bounded repairs from the isolated implementation lane, then record completion evidence only after the acceptance, security, repository, and production/browser requirements are reconciled. Do not begin S027 implementation concurrently.
 
 ## Next Eligible Sprint
 
 Sprint ID: S022
-Eligibility: S022 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
-Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present.
-Overlap check: No S022 implementation PR or branch exists; this branch changes governance/readiness documentation only and S027 remains separately blocked.
-Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s022-implementation lane; do not implement S027 concurrently.
+Eligibility: S022 remains the promoted sprint; implementation PR #325 is merged and completion evidence is pending.
+Dependencies: S016, S019, S020, and S021 are DONE.
+Overlap check: S022 implementation PR #325 is merged; this follow-up lane is the sole remaining S022 implementation/evidence lane and S027 remains separately blocked.
+Startup prompt: Continue S022 route, rendering, security, and browser verification; do not implement S027 concurrently.

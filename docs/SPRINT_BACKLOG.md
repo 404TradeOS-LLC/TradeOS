@@ -480,14 +480,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: S022
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is promoted `READY` through this governance-only contract; no implementation lane is active.
-Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present. S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. This branch is governance-only; create only one isolated S022 implementation lane after this promotion merges and live eligibility is reconfirmed.
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 readiness PR #324 and implementation PR #325 are merged; S022 completion evidence remains pending.
+Dependencies: S016, S019, S020, and S021 are DONE. S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. S022 owns the sole active implementation/evidence lane; no S027 implementation may begin concurrently.
 
 ## Next Eligible Sprint
 
 Sprint ID: S022
-Eligibility: S022 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
-Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present.
-Overlap check: No S022 implementation PR or branch exists; this branch changes governance/readiness documentation only and S027 remains separately blocked.
-Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s022-implementation lane; do not implement S027 concurrently.
+Eligibility: S022 remains promoted; implementation PR #325 is merged and completion evidence is pending.
+Dependencies: S016, S019, S020, and S021 are DONE.
+Overlap check: Implementation PR #325 is merged; the S022 follow-up lane owns remaining verification/evidence work and S027 remains separately blocked.
+Startup prompt: Continue S022 verification and bounded repairs, then record completion evidence; do not implement S027 concurrently.
