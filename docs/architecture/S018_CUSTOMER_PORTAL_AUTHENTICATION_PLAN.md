@@ -24,8 +24,8 @@ related_code:
 ## Shipped outcome
 
 S018 is complete. Implementation PR #290 merged on 2026-08-24 as
-`6f2dd254c121855fa629d19da6bc0452cc9e6de7`; this separate completion-evidence
-reconciliation records the exact-head verification. The shipped slice preserves
+`6f2dd254c121855fa629d19da6bc0452cc9e6de7`; completion-evidence PR #292
+records the exact-head verification. The shipped slice preserves
 the existing authenticated Supabase session, bearer-authenticated API,
 membership resolution, request-scoped database session, forced PostgreSQL RLS,
 route/API shapes, and existing permissions.
