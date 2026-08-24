@@ -1,5 +1,5 @@
 ---
-status: readiness-promotion
+status: current
 owner: platform
 last_verified: 2026-08-24
 source_of_truth: true
@@ -22,10 +22,9 @@ related_docs:
 
 # S012 — Job lifecycle normalization plan
 
-**This is a planning and readiness artifact only.** It does not implement Job
-runtime behavior. S012 may begin only after the separate governance-only
-readiness promotion merges and the implementation branch is created from the
-refreshed `origin/main`.
+This document recorded the S012 planning and readiness contract. The bounded
+implementation has now shipped in PR #286; this artifact remains the
+authoritative contract and evidence boundary for the completed sprint.
 
 ## Mission
 
@@ -34,6 +33,24 @@ dispatch, field work, completion, and invoice readiness. The goal is one
 documented and enforced transition contract at the existing service boundary,
 with current permissions, tenant isolation, activity history, and request
 transaction behavior preserved.
+
+## Shipped implementation outcome
+
+PR #286 merged on 2026-08-24 as
+`403d84cb6187b59cf468802977a19fbc847ce314`. The implementation centralizes the
+existing Job status/action contract in `app/modules/jobs/lifecycle.ts`, keeps
+completion restricted to `on_site -> completed`, adds focused service and
+contract coverage, adds a PostgreSQL/RLS cross-organization transition denial,
+and corrects the stale workflow/matrix completion wording. No schema
+migration, new status or alias, generic status patch, UI, billing, RBAC/RLS
+policy, or later-sprint change shipped.
+
+Exact-head verification for PR #286 passed: Verify repository run #1304,
+including application typecheck, unit tests, Athena contracts/smoke, build,
+and PostgreSQL-backed integration; Docs consistency run #1196; Dependency
+review run #272; and unchanged web lint/build in Verify repository. The only
+deterministic review repair was adding the ownership-required API and RBAC
+documentation references, which passed the subsequent exact-head checks.
 
 ## Current runtime inventory
 
