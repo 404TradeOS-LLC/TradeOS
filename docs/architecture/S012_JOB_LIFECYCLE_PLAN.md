@@ -61,6 +61,16 @@ The implementation phase must revalidate this inventory against live runtime
 code and tests. This plan does not assume that documentation and method-local
 guards have remained identical since the S006 inventory.
 
+### Confirmed documentation drift
+
+`docs/WORKFLOW_LIFECYCLES.md` and the S006 matrix currently describe
+`traveling|on_site|paused -> completed`, while the live
+`JobsService.complete()` guard permits only `on_site -> completed`. S012 must
+preserve the live service contract unless a separate founder decision expands
+it. The implementation PR must make the authoritative documentation and tests
+match the chosen, evidenced behavior; it must not silently broaden completion
+from `traveling` or `paused`.
+
 ## Authorized implementation contract
 
 S012 is authorized to:
@@ -71,7 +81,7 @@ S012 is authorized to:
 2. Preserve the documented scheduling and field-work graph:
    `unscheduled|scheduled|dispatched -> scheduled` for schedule/reschedule,
    `scheduled -> dispatched -> traveling -> on_site`,
-   `on_site <-> paused`, `traveling|on_site|paused -> completed`,
+   `on_site <-> paused`, `on_site -> completed`,
    `scheduled|dispatched|paused -> cancelled`, and owner/admin-only
    `completed -> unscheduled|scheduled` reopen.
 3. Preserve the existing invariants for schedule ranges, conflict overrides,
