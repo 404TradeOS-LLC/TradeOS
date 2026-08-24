@@ -12,6 +12,7 @@ interface FakeExecutionRow {
 const executions = new Map<string, FakeExecutionRow>();
 const transitions: Array<{ executionId: string; fromState: string; toState: string; reasonCode: string }> = [];
 const telemetryRows: Array<{ orgId: string; executionId: string; spanType: string; status: string; redaction: string; metadataJson: unknown; costJson: unknown }> = [];
+const generationRows: unknown[] = [];
 
 const athenaExecutionCreate = jest.fn(async ({ data }: { data: FakeExecutionRow }) => {
   executions.set(data.id, { ...data });
@@ -27,12 +28,18 @@ const athenaExecutionTransitionCreate = jest.fn(async ({ data }: { data: { execu
 const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
 });
+const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: unknown }) => {
+  const row = { ...(data as Record<string, unknown>), createdAt: new Date() };
+  generationRows.push(row);
+  return row;
+});
 
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaGenerationRun: { create: athenaGenerationRunCreate },
   },
 }));
 
@@ -76,6 +83,7 @@ describe("AthenaKernelService", () => {
     executions.clear();
     transitions.length = 0;
     telemetryRows.length = 0;
+    generationRows.length = 0;
     jest.clearAllMocks();
   });
 
