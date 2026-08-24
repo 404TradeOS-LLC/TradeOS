@@ -15,11 +15,11 @@ related_code:
 
 S015 was the sole numbered sprint implementation lane authorized after the
 governance-only readiness promotion. S014 is DONE through founder-decision
-record 301 and ADR-006. S015 implementation PR #310 merged at
-`b6ec078b7bf5e5e45537ed113990c2f2d317c126`; this handoff records its separate
-completion-evidence lane. No other numbered sprint may receive implementation
-writes until the completion-evidence merge and selector recomputation. The
-implementation follows the S015 contract in
+record 301 and ADR-006. S015 implementation PR #310 and completion-evidence PR
+#312 are merged. S016 is now in a separate governance-only readiness promotion;
+no S016 implementation writes are authorized in this branch. The next
+implementation lane may be created only after this readiness promotion merges
+and live eligibility is reconfirmed. S015 follows the contract in
 `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
 
 ## Current truth
@@ -32,14 +32,15 @@ implementation follows the S015 contract in
 - Existing BrandProfile/BrandDocumentSettings schema, migrations, forced RLS,
   and adjacent service tests are present. The Settings and Brand Studio stores
   are still independent; S015 owns their bounded compatibility adapter.
-- S015 implementation PR #310 is merged; completion evidence is being prepared
-  from fresh `origin/main` in `/workspace/TradeOS-s015-evidence`.
+- S015 implementation PR #310 and completion evidence #312 are merged; S016
+  readiness is being prepared from fresh `origin/main` in this worktree.
 - Exact-head implementation head `4fa0e40333210cdacd30a34972a252badfe9f988`
   merged as `b6ec078b7bf5e5e45537ed113990c2f2d317c126` after all required checks
   passed, including PostgreSQL/RLS integration.
-- S016 is the next lower-numbered planned candidate after S015; S017 depends
-  on S015; S020 is planned with its decision blocker resolved. Those candidates
-  are pre-audit work only and must not receive implementation writes.
+- S016 is READY through this governance-only promotion and is the next legal
+  candidate; S017 remains planned and depends on S015; S020 is planned with
+  its decision blocker resolved. No candidate receives implementation writes in
+  this readiness branch.
 
 ## Readiness contract
 
@@ -54,8 +55,8 @@ identity, or broad UI redesign is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S015 is DONE with merged implementation and completion evidence pending, while S016 remains PLANNED and requires a separate readiness promotion.
-Dependencies: S016 depends on S014 DONE through PR #301 and ADR-006; S017 depends on S015; S020 depends on S010 and S018, both DONE.
-Overlap check: No numbered implementation lane is active; the only active branch is the governance-only S015 completion-evidence branch.
-Startup prompt: Finish and merge the S015 completion-evidence PR, refresh `origin/main`, run the canonical selector, and create only the separate `docs/s016-readiness` promotion branch if S016 remains objectively eligible.
+Sprint ID: S016
+Eligibility: S016 is READY through this governance-only promotion; S014 and S015 are DONE and no founder, infrastructure, overlap, or competing implementation blocker remains.
+Dependencies: S014 DONE through PR #301 and ADR-006; S015 DONE through implementation PR #310 and completion evidence #312.
+Overlap check: No numbered implementation lane is active; this branch is governance-only and S016 implementation must wait for its merge and a fresh selector check.
+Startup prompt: After this readiness PR merges, refresh `origin/main`, rerun the selector and live overlap checks, then create only `feature/s016-implementation` in a fresh isolated worktree if S016 remains READY.

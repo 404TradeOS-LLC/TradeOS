@@ -155,11 +155,15 @@ Evidence: Implementation PR #310 merged 2026-08-24 as `b6ec078b7bf5e5e45537ed113
 
 ### S016 — Document-brand rendering integration
 
-Status: PLANNED
+Status: READY
 Dependencies: S014
 Objective: Wire approved branding into proposal, invoice, contract, and portal document rendering.
 Acceptance: generated documents use persisted organization branding consistently.
-Readiness note: S014 is DONE through governance PR #301 and ADR-006. S016 may consume the approved Brand Studio-owned branding boundary after the canonical selector and dependency/readiness checks authorize it.
+Readiness contract: S014 is DONE through governance record #301 and ADR-006; S015 is DONE through implementation record #310 and completion evidence #312. S016 consumes canonical BrandProfile/BrandDocumentSettings through the existing document frame and PDF generator seams, preserving route shapes, lifecycle semantics, authenticated organization context, safe escaping, binary responses, and deterministic fallbacks. No new source of truth, public branding policy, schema/migration, storage model, asset lifecycle, RBAC/RLS redesign, billing/payment semantic change, document identity/legal claim, or broad UI redesign is authorized. See `docs/architecture/S016_DOCUMENT_BRAND_RENDERING_PLAN.md`.
+Founder-decision boundary: Stop if implementation requires a new document renderer, public/unauthenticated branding policy, new identity/legal signature claim, destructive migration, new storage architecture, or changed authorization policy.
+Required evidence: canonical branding reaches supported proposal/invoice/contract/portal documents; missing-brand fallback is deterministic; HTML/assets remain safe; same-org and cross-org access evidence passes where applicable; existing route/content-type/lifecycle contracts remain unchanged; focused App/Web/document and PostgreSQL/RLS evidence passes.
+Readiness evidence: S014 and S015 are DONE with merged implementation/evidence; no open/draft S016 PR, branch, worktree, founder blocker, or infrastructure blocker was found; S016 is the lowest-numbered planned candidate after S015.
+Evidence: Readiness promotion is supplied by this governance-only branch.
 
 ### S017 — Brand asset lifecycle and cleanup
 
@@ -462,14 +466,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `DONE` through founder-decision PR #301.
-Dependencies: S015 is unblocked by S014's accepted Brand Studio decision; S016 is also unblocked but remains planned; S017 depends on S015; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist, and it is reserved for S015. Do not implement S016, S017, S020, or S024 concurrently.
+Completion status: S015 is `DONE` after implementation PR #310 merged at `b6ec078b7bf5e5e45537ed113990c2f2d317c126`; completion-evidence PR #312 merged at `57f47d133f050b273d79bd9a6c8a0152c3e087cf`. S014 and S024 are `DONE` through founder-decision PR #301.
+Dependencies: S016 is READY after this governance-only promotion; S017 depends on S015; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. S016 is READY for a future implementation mission but receives no implementation writes in this readiness branch; do not implement S017, S020, or S024 concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S015 is `IN_REVIEW` through implementation PR #310 and remains the sole numbered implementation lane.
-Dependencies: S015 depends on S014 DONE through PR #301 and ADR-006; S017 remains dependent on S015.
-Overlap check: PR #310 and `feature/s015-implementation` are the only S015 implementation lane; no other numbered sprint may receive implementation writes.
-Startup prompt: Reconcile PR #310 at exact head, repair only deterministic scoped findings on the same branch, merge when objectively green, then create separate S015 completion evidence before promoting the next candidate.
+Sprint ID: S016
+Eligibility: S016 is the lowest-numbered `READY` sprint; S014 and S015 are DONE, and no founder, infrastructure, overlap, or competing implementation blocker remains.
+Dependencies: S014 DONE through PR #301 and ADR-006; S015 DONE through implementation PR #310 and completion evidence #312.
+Overlap check: No numbered implementation lane is active; this PR is governance-only and must merge before any isolated S016 implementation branch is created.
+Startup prompt: After this readiness PR merges, refresh `origin/main`, re-run the selector and live overlap checks, then create one isolated `feature/s016-implementation` lane only if S016 remains READY; do not implement S016 in this branch.
