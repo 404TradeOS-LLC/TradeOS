@@ -31,7 +31,7 @@ jobs:
       S027_BASE_URL: ${{ inputs.base_url }}
       S027_TARGET_PATH: ${{ inputs.target_path }}
       S027_STORAGE_STATE_B64: ${{ secrets.S027_E2E_STORAGE_STATE_B64 }}
-      S027_STORAGE_STATE_PATH: ${{ runner.temp }}/s027-storage-state.json
+      S027_STORAGE_STATE_PATH: /tmp/s027-storage-state.json
       S027_EVIDENCE_DIR: ../artifacts/s027-browser-evidence
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
