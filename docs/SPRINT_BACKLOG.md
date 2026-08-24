@@ -475,7 +475,7 @@ Protected boundary: Exactly one numbered implementation lane may exist. This bra
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S017 is DONE after implementation PR #317 and this completion-evidence reconciliation; no numbered sprint is currently READY.
+Eligibility: S017 is DONE after implementation PR #317 and this completion-evidence reconciliation; no numbered sprint is currently `READY`.
 Dependencies: S015, S016, and S017 are DONE. S020's ADR-007 decision is resolved but S020 remains planned and requires its own readiness promotion before implementation.
 Overlap check: S017 implementation PR #317 is merged; this branch is governance-only completion evidence and no numbered implementation lane is active.
 Startup prompt: After this completion-evidence PR merges, refresh origin/main, verify S017 is DONE, and recompute the canonical selector; promote only the next objectively READY sprint and keep S020/S022 read-only until their gates are satisfied.
