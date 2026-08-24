@@ -13,11 +13,11 @@ related_code:
 
 ## Mission
 
-S015 is the sole numbered sprint implementation lane authorized after this
+S015 is the sole numbered sprint implementation lane authorized after the
 governance-only readiness promotion. S014 is DONE through founder-decision
-record 301 and ADR-006. S015 is READY; no product implementation belongs in this
-readiness branch. The implementation must use a separate isolated branch and
-must follow the S015 contract in
+record 301 and ADR-006. The S015 implementation is now in review through PR
+#310 on `feature/s015-implementation`; no other numbered sprint may receive
+implementation writes. The implementation follows the S015 contract in
 `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
 
 ## Current truth
@@ -30,9 +30,9 @@ must follow the S015 contract in
 - Existing BrandProfile/BrandDocumentSettings schema, migrations, forced RLS,
   and adjacent service tests are present. The Settings and Brand Studio stores
   are still independent; S015 owns their bounded compatibility adapter.
-- No S015 implementation PR, remote branch, or worktree was found when this
-  readiness branch was created. The only open PRs observed were unrelated
-  Dependabot updates #305 and #306.
+- S015 implementation PR #310 is open at the active implementation head recorded
+  in that PR, with its isolated worktree at `/workspace/TradeOS-s015-impl`.
+  Exact-head CI, review, and deterministic repair remain part of the active lane.
 - S016 is the next lower-numbered planned candidate after S015; S017 depends
   on S015; S020 is planned with its decision blocker resolved. Those candidates
   are pre-audit work only and must not receive implementation writes.
@@ -50,8 +50,8 @@ identity, or broad UI redesign is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: S015
-Eligibility: S015 is READY; S014 is DONE; no founder, infrastructure, overlap, or competing-lane blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006.
-Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed at readiness creation; keep S015 as the only numbered implementation lane.
-Startup prompt: Refresh origin/main after this readiness PR merges, create or reuse `feature/s015-implementation` in an isolated worktree, and implement only the S015 readiness contract.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S015 is `IN_REVIEW` through implementation PR #310 and remains the sole numbered implementation lane.
+Dependencies: S015 depends on S014 DONE through PR #301 and ADR-006; S017 remains dependent on S015.
+Overlap check: PR #310 and its remote branch/worktree are the only S015 implementation lane; keep S015 as the only numbered implementation lane.
+Startup prompt: Reconcile PR #310 at exact head, repair only deterministic scoped findings on the same branch, merge when objectively green, then create separate S015 completion evidence before promoting the next candidate.
