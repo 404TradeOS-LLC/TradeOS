@@ -25,10 +25,11 @@ portal, invoice, payment, organization-membership, and forced-RLS architecture.
 No new payment processor, payment-entry architecture, ledger, money semantic,
 customer identity, or schema migration is authorized by this promotion.
 
-S020 remains a separate lower-numbered planned sprint because its customer/legal
-signature meaning requires a founder decision. That does not block this
-presentation-only readiness contract: S021 depends on S011 and S018, both of
-which are DONE with merged implementation and completion evidence.
+S020 remains a separate lower-numbered planned sprint. Its customer/legal
+signature boundary is now resolved by ADR-007 as authenticated in-app contract
+acceptance/signature evidence without formal e-signature claims. That does not
+block this presentation-only readiness contract: S021 depends on S011 and S018,
+both of which are DONE with merged implementation and completion evidence.
 
 ## Existing source of truth
 

@@ -197,7 +197,7 @@ Status: PLANNED
 Dependencies: S010, S018
 Objective: Harden contract viewing, signing, decline, and signature audit history.
 Acceptance: signatures and state transitions are durable and auditable.
-Readiness blocker: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, immutable signed-document evidence, or a founder-approved legal meaning for "signed". Prepare a founder decision before promoting S020; do not invent legal-signature semantics or a new auth model.
+Readiness boundary: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, or immutable signed-document evidence. ADR-007 resolves the founder-approved meaning for S020 as bounded authenticated in-app contract acceptance/signature evidence; do not invent stronger legal-signature semantics or a new auth model.
 Founder decision: Accepted through ADR-007 — S020 remains authenticated in-app contract acceptance/signature evidence and must not claim certificate-backed, identity-verified, notarized, or standalone legal e-signature semantics. S020 readiness may now be prepared, subject to the canonical selector.
 
 ### S021 — Portal invoice and payment presentation
