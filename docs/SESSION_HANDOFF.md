@@ -13,11 +13,10 @@ related_code:
 
 ## Mission
 
-S016 is the sole numbered sprint implementation lane on
-`feature/s016-implementation`, based on `origin/main` `240e977`. It consumes
-canonical Brand Studio branding through the existing proposal, invoice,
-contract, and authenticated portal document-rendering seams. S014 and S015 are
-DONE; S017, S020, and S022 remain read-only future work.
+S016 completion evidence is the current bounded governance task. Implementation
+PR #314 is merged, and no numbered-sprint implementation lane is active while
+this evidence branch records the shipped result. S017 is the next
+dependency-safe planned candidate; S020 and S022 remain read-only future work.
 
 ## Current truth
 
@@ -25,12 +24,14 @@ DONE; S017, S020, and S022 remain read-only future work.
   DONE through founder-decision PR #301; S020's legal boundary is resolved by
   ADR-007.
 - S015 implementation PR #310 and completion evidence PR #312 are merged.
-- S016 is READY through governance-only PR #313 and is the only implementation
-  lane authorized by the canonical selector.
-- The implementation currently adds server-derived brand resolution, safe
-  fallback/color and asset handling, PDF header/contact/trust-signal wiring,
-  and focused resolver coverage without schema, migration, auth, RLS-policy,
-  payment, signature, or portal-identity changes.
+- S016 implementation PR #314 merged on 2026-08-24 with squash SHA
+  `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b` from exact head
+  `26304048985020ea8f49f701550112b2f6932d0f`.
+- The shipped implementation adds server-derived brand resolution, safe
+  fallback/color/asset handling, contrast-safe PDF header/body text,
+  contact/trust-signal wiring, legacy contact compatibility, and focused
+  resolver/PDF evidence without schema, migration, auth, RLS-policy, payment,
+  signature, or portal-identity changes.
 
 ## Readiness contract
 
@@ -43,25 +44,27 @@ architecture is authorized.
 
 ## Verification and blockers
 
-- Focused App typecheck and document/proposal/invoice/contract test suites pass
-  in the current worktree.
-- PostgreSQL/RLS integration, complete repository gates, remote CI/review, and
-  authenticated production/browser PDF evidence remain pending.
+- Local App verification: 216/216 suites and 1,870/1,870 tests; focused S016
+  suites 6/6 and 44/44; typecheck and diff checks passed.
+- Exact-head Verify repository #1408, Docs consistency #1335, Dependency review
+  #354, branch currency #82, Live documentation reconciliation #64, and Sprint
+  governance #63 passed.
+- Authenticated production/browser PDF evidence remains unavailable because no
+  authorized browser session or deployed authenticated state is available.
 - No production credential or authenticated browser state is stored or
   required for the repository-side implementation.
 
 ## Next action
 
-Finish S016 focused service/PDF and route/RLS evidence, run the required local
-gates, inspect the final diff, then publish one reviewable S016 PR. Do not
-begin S017, S020, or S022 implementation from this branch; after verified
-merge, record separate S016 completion evidence before selecting the next
-numbered sprint.
+Publish and merge this separate S016 completion-evidence PR, then refresh
+`origin/main`, re-run the canonical selector and live overlap checks, and
+promote S017 only if its readiness contract is satisfied. Do not begin S017,
+S020, or S022 implementation from this evidence branch.
 
 ## Next Eligible Sprint
 
-Sprint ID: S016
-Eligibility: S016 remains the lowest-numbered READY sprint and is the sole implementation lane on `feature/s016-implementation`.
-Dependencies: S014 and S015 are DONE; S016 readiness is supplied by PR #313.
-Overlap check: No other numbered sprint receives implementation writes; S017, S020, and S022 remain read-only.
-Startup prompt: Finish and publish S016, merge only after required checks/reviews/evidence pass, then create separate completion evidence before selecting the next sprint.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S017 is the next dependency-safe planned candidate and requires separate readiness promotion before implementation.
+Dependencies: S015 and S016 are DONE; S017 remains planned pending its readiness contract.
+Overlap check: S016 implementation PR #314 is merged; this branch is governance-only and no numbered sprint receives implementation writes.
+Startup prompt: Refresh `origin/main`, run the canonical selector and live overlap checks, prepare or promote S017 only when objectively READY, then create one isolated S017 implementation lane; keep S020 and S022 read-only.
