@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
@@ -16,7 +16,7 @@ This session records S011 — Invoice lifecycle normalization completion after i
 
 ## Current branch
 
-`feature/s011-invoice-lifecycle-normalization`, based on merged readiness `origin/main` `34674ce6f791f9ef67759121a2606e36b216eede`.
+`docs/s011-completion-evidence`, based on refreshed `origin/main` `6ca838d39d170fe520e16141e6e5213188f6d5f8`; this branch records the separate post-merge S011 evidence and must not be reused for S012 runtime work.
 
 ## Current truth
 
@@ -35,7 +35,7 @@ Sprint ID: NONE
 
 Eligibility: No numbered sprint is currently `READY`; S011 is `DONE` with merged implementation and completion evidence. S012 remains `PLANNED` and is the next promotion target; S006-S011 are `DONE` with merged evidence.
 
-Dependencies: S011 depends on S006 (`DONE`); the approved readiness contract is complete and the active implementation branch is based on refreshed `origin/main`.
+Dependencies: S011 dependencies are satisfied: S006 is `DONE`, PR #283 is merged, and this completion-evidence reconciliation is based on refreshed `origin/main`.
 
 Overlap check: no S011 implementation or completion-evidence work remains active; do not reopen or duplicate S011.
 
