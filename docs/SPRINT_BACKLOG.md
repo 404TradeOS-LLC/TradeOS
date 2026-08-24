@@ -469,4 +469,4 @@ Sprint ID: S015
 Eligibility: S015 is the lowest-numbered READY sprint and its dependency S014 is DONE; no founder-decision, infrastructure, or competing-lane blocker remains.
 Dependencies: S014 DONE through PR #301 and ADR-006.
 Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed when readiness was created; the only numbered implementation lane authorized next is S015.
-Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only the S015 adapter contract described in `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.

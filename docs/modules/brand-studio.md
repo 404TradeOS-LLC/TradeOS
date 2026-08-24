@@ -73,4 +73,4 @@ permissions, fallbacks, and route shapes remain intact.
 
 ## Last verified date
 
-2026-08-16
+2026-08-24 (S015 readiness documentation only; implementation behavior is not yet shipped)

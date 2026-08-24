@@ -79,7 +79,17 @@ empty values where the current full-snapshot Settings form requires it.
 | `phone` | `BrandProfile.phone` and organization `phone` | empty |
 | `licenseNumber` | `BrandProfile.licenseNumber` | empty |
 | `insuranceProvider` + `insurancePolicy` | `BrandProfile.insuranceSummary` | deterministic combined legacy text |
-| `address` | `BrandProfile.addressLine1` compatibility representation and organization `address` | empty |
+| `address` | scalar compatibility alias for `BrandProfile.addressLine1` and organization `address` | empty |
+
+Address compatibility is intentionally preservation-based rather than a lossy
+flattening/parser contract. The legacy Settings `address` string reads and
+writes only the canonical `addressLine1` component; `addressLine2`, `city`,
+`state`, and `postalCode` remain unchanged by that scalar route and are exposed
+through the structured Brand Studio surface. An empty Settings `address`
+clears only `addressLine1`. Legacy organization-address adoption follows the
+same rule and occurs only when the canonical line is empty. This fixed
+projection is deterministic, preserves partial canonical addresses, and makes
+full structured-address clearing an explicit Brand Studio operation.
 
 S015 must not invent mappings for AI, Costbook, notification, security,
 membership, labor, markup, tax, or other operational Settings fields. The

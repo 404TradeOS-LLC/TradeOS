@@ -14,8 +14,8 @@ related_code:
 ## Mission
 
 S015 is the sole numbered sprint implementation lane authorized after this
-governance-only readiness promotion. S014 is DONE through founder-decision PR
-#301 and ADR-006. S015 is READY; no product implementation belongs in this
+governance-only readiness promotion. S014 is DONE through founder-decision
+record 301 and ADR-006. S015 is READY; no product implementation belongs in this
 readiness branch. The implementation must use a separate isolated branch and
 must follow the S015 contract in
 `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
