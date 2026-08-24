@@ -3,7 +3,7 @@ import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getCompanyLogoStorageAdapter } from "../company/storage";
-import { InvoicesService } from "../invoices/service";
+import { assertInvoiceWriteAccess, InvoicesService } from "../invoices/service";
 import {
   CompanyProfileInput,
   CreateCustomerInput,

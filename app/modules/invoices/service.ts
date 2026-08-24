@@ -511,7 +511,7 @@ function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> | nul
   return value as Record<string, unknown>;
 }
 
-function assertInvoiceWriteAccess(role?: string) {
+export function assertInvoiceWriteAccess(role?: string) {
   if (!role || !hasPermission(role, "billing.write")) {
     throw new ApiError(403, "You do not have permission to manage invoices");
   }
