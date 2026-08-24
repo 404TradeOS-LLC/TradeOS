@@ -60,6 +60,21 @@ create policy athena_generation_runs_insert_policy on athena_generation_runs
 for insert with check (
   org_id = (select current_app_org_id())
   and actor_user_id = (select current_app_user_id())
+  and (
+    execution_id is null
+    or exists (
+      select 1
+      from athena_executions
+      where athena_executions.id = execution_id
+        and athena_executions.org_id = (select current_app_org_id())
+    )
+  )
+);
+
+create policy athena_generation_runs_delete_policy on athena_generation_runs
+for delete using (
+  org_id = (select current_app_org_id())
+  and current_app_can_administer()
 );
 
 alter table athena_generation_reviews enable row level security;
