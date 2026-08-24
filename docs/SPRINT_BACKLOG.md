@@ -141,7 +141,7 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-006 
 
 ### S015 — Brand profile/settings adapter
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
@@ -149,6 +149,7 @@ Readiness contract: Brand Studio is the canonical organization-brand source. Set
 Founder-decision boundary: S014's ADR-006 is accepted. Stop if implementation requires a new source of truth, new identity or authorization policy, destructive migration, new storage model, or public branding policy.
 Required evidence: canonical-over-legacy precedence, lazy legacy adoption, explicit clear behavior, mapped Settings round trips, existing organization-shell compatibility, repeated-save safety, same-org/cross-org authorization, forced PostgreSQL RLS, and focused app/web regression coverage.
 Readiness evidence: S014 is DONE through founder-decision record #301 and ADR-006; the S015 contract is explicit on the readiness branch/PR; no competing S015 implementation PR, branch, or worktree was found at readiness creation.
+Implementation evidence: PR #310 is open for review from `feature/s015-implementation`; S015 is `IN_REVIEW` only after that PR was created, as required by the Next Sprint Protocol.
 
 ### S016 — Document-brand rendering integration
 
