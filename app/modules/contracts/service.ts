@@ -108,11 +108,11 @@ export class ContractsService {
   async getPdf(id: string, orgId?: string): Promise<ContractDocument> {
     const row = await prisma.contract.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
-      include: { project: { include: { customer: true } } },
+      include: { project: { include: { customer: true, organization: true } } },
     });
     if (!row) throw new ApiError(404, `Contract ${id} not found`);
 
-    const brand = await getDocumentBrand(orgId, "Your Company Name");
+    const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
     const buffer = await renderContractPdf(row, { brand });
     return {
       buffer,

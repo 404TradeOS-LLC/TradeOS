@@ -1,6 +1,10 @@
 const getProfileMock = jest.fn();
 const getDocumentSettingsMock = jest.fn();
 const getPreviewMock = jest.fn();
+const mockPrisma = {
+  organization: { findUnique: jest.fn() },
+  organizationSettings: { findUnique: jest.fn() },
+};
 
 jest.mock("../modules/brand-studio/service", () => ({
   BrandStudioService: jest.fn().mockImplementation(() => ({
@@ -10,11 +14,15 @@ jest.mock("../modules/brand-studio/service", () => ({
   })),
 }));
 
+jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+
 import { getDocumentBrand } from "../modules/documents/branding";
 
 describe("document branding resolution", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.organization.findUnique.mockResolvedValue(null);
+    mockPrisma.organizationSettings.findUnique.mockResolvedValue(null);
   });
 
   it("uses authenticated canonical Brand Studio values and document visibility settings", async () => {
@@ -112,6 +120,49 @@ describe("document branding resolution", () => {
 
     await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
       colors: { primary: "#0f172a", secondary: "#f8fafc", accent: "#123456" },
+    });
+  });
+
+  it("preserves legacy organization contact fallbacks when canonical fields are empty", async () => {
+    mockPrisma.organization.findUnique.mockResolvedValue({
+      name: "Legacy Builders",
+      phone: "317-555-0199",
+      email: "legacy@example.com",
+      address: "9 Old Mill Road",
+      logoUrl: "",
+    });
+    mockPrisma.organizationSettings.findUnique.mockResolvedValue({
+      settingsJson: { phone: "317-555-0101", website: "https://legacy.example.com", address: "10 Settings Lane" },
+    });
+    getProfileMock.mockResolvedValue({
+      companyDisplayName: "Legacy Builders",
+      tagline: "",
+      logoUrl: "",
+      websiteUrl: "",
+      phone: "",
+      email: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      postalCode: "",
+      licenseNumber: "",
+      insuranceSummary: "",
+      bondingSummary: "",
+    });
+    getDocumentSettingsMock.mockResolvedValue({ showPoweredByTradeOS: false, showLicenseNumber: true, showInsuranceSummary: true });
+    getPreviewMock.mockResolvedValue({
+      resolvedLogoUrls: { logoUrl: null },
+      validatedColors: { primary: "#123456", secondary: "#abcdef", accent: "#fedcba" },
+      typography: { style: "Professional", headingFontFamily: "sans-serif", bodyFontFamily: "sans-serif", accentFontFamily: "monospace" },
+    });
+
+    await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
+      companyName: "Legacy Builders",
+      websiteUrl: "https://legacy.example.com",
+      phone: "317-555-0101",
+      email: "legacy@example.com",
+      addressLine1: "10 Settings Lane",
     });
   });
 });

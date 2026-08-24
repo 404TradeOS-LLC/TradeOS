@@ -1,4 +1,5 @@
 import { BrandStudioService } from "../brand-studio/service";
+import { prisma } from "../../db/client";
 import type { DocumentFrameBrand } from "./frame";
 
 const DEFAULT_BRAND = {
@@ -23,22 +24,29 @@ export async function getDocumentBrand(orgId?: string, fallbackCompanyName = "Yo
   if (!orgId) return fromFallback(fallbackCompanyName);
 
   const service = new BrandStudioService();
-  const [profile, settings, preview] = await Promise.all([service.getProfile(orgId), service.getDocumentSettings(orgId), service.getPreview(orgId)]);
+  const [profile, settings, preview, organization, legacySettings] = await Promise.all([
+    service.getProfile(orgId),
+    service.getDocumentSettings(orgId),
+    service.getPreview(orgId),
+    prisma.organization.findUnique({ where: { id: orgId }, select: { name: true, phone: true, email: true, address: true, logoUrl: true } }),
+    prisma.organizationSettings.findUnique({ where: { orgId }, select: { settingsJson: true } }),
+  ]);
+  const legacy = asStringRecord(legacySettings?.settingsJson);
 
   return {
-    companyName: profile.companyDisplayName || fallbackCompanyName,
+    companyName: firstNonEmpty(profile.companyDisplayName, legacy.companyName, organization?.name, fallbackCompanyName) || "Your Company Name",
     tagline: profile.tagline,
-    logoUrl: safeAssetUrl(preview.resolvedLogoUrls.logoUrl),
+    logoUrl: safeAssetUrl(preview.resolvedLogoUrls.logoUrl || legacy.logoUrl || organization?.logoUrl || null),
     colors: {
       primary: safeHex(preview.validatedColors.primary, DEFAULT_BRAND.primary),
       secondary: safeHex(preview.validatedColors.secondary, DEFAULT_BRAND.secondary),
       accent: safeHex(preview.validatedColors.accent, DEFAULT_BRAND.accent),
     },
     typography: preview.typography,
-    websiteUrl: safeText(profile.websiteUrl),
-    phone: safeText(profile.phone),
-    email: safeText(profile.email),
-    addressLine1: safeText(profile.addressLine1),
+    websiteUrl: firstNonEmpty(profile.websiteUrl, legacy.website),
+    phone: firstNonEmpty(profile.phone, legacy.phone, organization?.phone),
+    email: firstNonEmpty(profile.email, organization?.email),
+    addressLine1: firstNonEmpty(profile.addressLine1, legacy.address, organization?.address),
     addressLine2: safeText(profile.addressLine2),
     city: safeText(profile.city),
     state: safeText(profile.state),
@@ -97,4 +105,15 @@ function safeAssetUrl(value: string | null): string | null {
 
 function safeText(value: string): string {
   return value.trim();
+}
+
+function firstNonEmpty(...values: Array<string | null | undefined>): string {
+  return values.map((value) => (typeof value === "string" ? value.trim() : "")).find(Boolean) ?? "";
+}
+
+function asStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
 }

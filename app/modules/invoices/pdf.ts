@@ -1,6 +1,8 @@
 import PDFDocument from "pdfkit";
 import type { DocumentFrameBrand } from "../documents/frame";
 
+const DOCUMENT_INK = "#0f172a";
+
 interface InvoiceForPdf {
   invoiceNumber: number;
   type: string;
@@ -31,7 +33,7 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
     if (contact) doc.fontSize(8).text(contact, 66, 96, { width: doc.page.width - 132 });
     doc.moveDown(0.5);
     doc.fontSize(14).fillColor(brand.colors.accent).text(`Invoice #${invoice.invoiceNumber}`, 50, 132, { align: "left" });
-    doc.fillColor(brand.colors.primary);
+    doc.fillColor(DOCUMENT_INK);
     doc.y = 158;
     doc.moveDown(1);
 
@@ -50,7 +52,7 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Line Items", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10);
+    doc.fontSize(10).fillColor(DOCUMENT_INK);
     for (const li of invoice.lineItems) {
       doc.text(`${li.description}  —  ${li.quantity} ${li.unitOfMeasure}  —  $${li.lineCost.toFixed(2)}`);
     }
@@ -58,7 +60,7 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Amount Due", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(11).fillColor(brand.colors.primary).text(`$${invoice.amount.toFixed(2)}`, { align: "right" });
+    doc.fontSize(11).fillColor(DOCUMENT_INK).text(`$${invoice.amount.toFixed(2)}`, { align: "right" });
 
     const trustSignals = [
       brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",

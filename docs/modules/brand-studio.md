@@ -52,10 +52,11 @@ S016 consumes the canonical `BrandProfile` and `BrandDocumentSettings` through
 the existing server-derived organization context for proposal, invoice, and
 contract PDF generation. The shared resolver applies canonical company
 identity, safe validated colors, contact details, and configured trust-signal
-visibility; missing optional branding falls back deterministically. A caller
-cannot replace persisted organization branding by supplying a company name
-when authenticated `orgId` context is available. No schema, asset lifecycle,
-storage, authorization, or public-branding behavior changes.
+visibility; missing optional branding falls back deterministically, including
+compatibility contact values from the organization shell or legacy settings
+snapshot. A caller cannot replace persisted organization branding by supplying
+a company name when authenticated `orgId` context is available. No schema,
+asset lifecycle, storage, authorization, or public-branding behavior changes.
 
 ## Implementation notes
 

@@ -1,6 +1,8 @@
 import PDFDocument from "pdfkit";
 import type { DocumentFrameBrand } from "../documents/frame";
 
+const DOCUMENT_INK = "#0f172a";
+
 interface ContractForPdf {
   status: string;
   termsText: string;
@@ -28,11 +30,11 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     if (contact) doc.fontSize(8).text(contact, 66, 96, { width: doc.page.width - 132 });
     doc.moveDown(0.5);
     doc.fontSize(14).fillColor(brand.colors.accent).text("Contract", 50, 132, { align: "left" });
-    doc.fillColor(brand.colors.primary);
+    doc.fillColor(DOCUMENT_INK);
     doc.y = 158;
     doc.moveDown(1);
 
-    doc.fontSize(10).text(`Project: ${contract.project.name}`);
+    doc.fontSize(10).fillColor(DOCUMENT_INK).text(`Project: ${contract.project.name}`);
     if (contract.project.siteAddress) doc.text(`Site Address: ${contract.project.siteAddress}`);
     if (contract.project.customer) doc.text(`Customer: ${contract.project.customer.name}`);
     doc.text(`Contract Date: ${contract.createdAt.toLocaleDateString()}`);
@@ -40,12 +42,12 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Terms", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10).text(contract.termsText);
+    doc.fontSize(10).fillColor(DOCUMENT_INK).text(contract.termsText);
     doc.moveDown(1.5);
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Signature", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10).fillColor(brand.colors.primary);
+    doc.fontSize(10).fillColor(DOCUMENT_INK);
     if (contract.status === "signed" && contract.signerName && contract.signedAt) {
       doc.text(`Signed by: ${contract.signerName}`);
       doc.text(`Signed on: ${contract.signedAt.toLocaleDateString()}`);
