@@ -4,6 +4,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, normalizeContractStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
+import { getDocumentBrand } from "../documents/branding";
 import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, SignContractInput } from "./types";
 
 const DEFAULT_TERMS =
@@ -111,7 +112,8 @@ export class ContractsService {
     });
     if (!row) throw new ApiError(404, `Contract ${id} not found`);
 
-    const buffer = await renderContractPdf(row, { companyName: "Your Company Name" });
+    const brand = await getDocumentBrand(orgId, "Your Company Name");
+    const buffer = await renderContractPdf(row, { brand });
     return {
       buffer,
       filename: `contract-${row.project.name.replace(/\s+/g, "-").toLowerCase()}.pdf`,

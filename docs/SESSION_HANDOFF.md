@@ -13,50 +13,55 @@ related_code:
 
 ## Mission
 
-S015 was the sole numbered sprint implementation lane authorized after the
-governance-only readiness promotion. S014 is DONE through founder-decision
-record 301 and ADR-006. S015 implementation PR #310 and completion-evidence PR
-#312 are merged. S016 is now in a separate governance-only readiness promotion;
-no S016 implementation writes are authorized in this branch. The next
-implementation lane may be created only after this readiness promotion merges
-and live eligibility is reconfirmed. S015 follows the contract in
-`docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+S016 is the sole numbered sprint implementation lane on
+`feature/s016-implementation`, based on `origin/main` `240e977`. It consumes
+canonical Brand Studio branding through the existing proposal, invoice,
+contract, and authenticated portal document-rendering seams. S014 and S015 are
+DONE; S017, S020, and S022 remain read-only future work.
 
 ## Current truth
 
-- `origin/main` at readiness reconciliation was
-  `e98d2e266e5844e142376501a47b855b87541912`.
 - S021 implementation and completion evidence are merged; S014 and S024 are
-  DONE through founder-decision PR #301; S020's founder/legal boundary is
-  resolved through ADR-007.
-- Existing BrandProfile/BrandDocumentSettings schema, migrations, forced RLS,
-  and adjacent service tests are present. The Settings and Brand Studio stores
-  are still independent; S015 owns their bounded compatibility adapter.
-- S015 implementation PR #310 and completion evidence #312 are merged; S016
-  readiness is being prepared from fresh `origin/main` in this worktree.
-- Exact-head implementation head `4fa0e40333210cdacd30a34972a252badfe9f988`
-  merged as `b6ec078b7bf5e5e45537ed113990c2f2d317c126` after all required checks
-  passed, including PostgreSQL/RLS integration.
-- S016 is READY through this governance-only promotion and is the next legal
-  candidate; S017 remains planned and depends on S015; S020 is planned with
-  its decision blocker resolved. No candidate receives implementation writes in
-  this readiness branch.
+  DONE through founder-decision PR #301; S020's legal boundary is resolved by
+  ADR-007.
+- S015 implementation PR #310 and completion evidence PR #312 are merged.
+- S016 is READY through governance-only PR #313 and is the only implementation
+  lane authorized by the canonical selector.
+- The implementation currently adds server-derived brand resolution, safe
+  fallback/color and asset handling, PDF header/contact/trust-signal wiring,
+  and focused resolver coverage without schema, migration, auth, RLS-policy,
+  payment, signature, or portal-identity changes.
 
 ## Readiness contract
 
-Brand Studio is canonical. Settings keeps its existing API shape and remains a
-compatibility/admin surface. S015 may add a small adapter/mapper and bounded
-Settings bindings so canonical values win, legacy values are adopted lazily and
-non-destructively, unrelated operational Settings data is preserved, and
-existing auth, organization context, permissions, transaction, and forced-RLS
-boundaries remain unchanged. No schema migration, RBAC/RLS redesign, storage
-model, public marketing theming, document rendering, billing, auth/customer
-identity, or broad UI redesign is authorized.
+Brand Studio remains canonical. S016 must reuse the existing frame/generator
+seams, preserve authenticated organization context, route/content-type
+contracts, lifecycle and commercial semantics, safe escaping, deterministic
+fallbacks, and forced RLS. No new renderer, storage model, asset lifecycle,
+public branding, customer identity, payment, signature, schema, or migration
+architecture is authorized.
+
+## Verification and blockers
+
+- Focused App typecheck and document/proposal/invoice/contract test suites pass
+  in the current worktree.
+- PostgreSQL/RLS integration, complete repository gates, remote CI/review, and
+  authenticated production/browser PDF evidence remain pending.
+- No production credential or authenticated browser state is stored or
+  required for the repository-side implementation.
+
+## Next action
+
+Finish S016 focused service/PDF and route/RLS evidence, run the required local
+gates, inspect the final diff, then publish one reviewable S016 PR. Do not
+begin S017, S020, or S022 implementation from this branch; after verified
+merge, record separate S016 completion evidence before selecting the next
+numbered sprint.
 
 ## Next Eligible Sprint
 
 Sprint ID: S016
-Eligibility: S016 is READY through this governance-only promotion; S014 and S015 are DONE and no founder, infrastructure, overlap, or competing implementation blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006; S015 DONE through implementation PR #310 and completion evidence #312.
-Overlap check: No numbered implementation lane is active; this branch is governance-only and S016 implementation must wait for its merge and a fresh selector check.
-Startup prompt: After this readiness PR merges, refresh `origin/main`, rerun the selector and live overlap checks, then create only `feature/s016-implementation` in a fresh isolated worktree if S016 remains READY.
+Eligibility: S016 remains the lowest-numbered READY sprint and is the sole implementation lane on `feature/s016-implementation`.
+Dependencies: S014 and S015 are DONE; S016 readiness is supplied by PR #313.
+Overlap check: No other numbered sprint receives implementation writes; S017, S020, and S022 remain read-only.
+Startup prompt: Finish and publish S016, merge only after required checks/reviews/evidence pass, then create separate completion evidence before selecting the next sprint.

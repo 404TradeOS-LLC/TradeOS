@@ -114,4 +114,54 @@ describe("document frame templates", () => {
     expect(maintenanceHtml).toContain("Roof Maintenance Guide");
     expect(maintenanceHtml).toContain("Clear debris from valleys");
   });
+
+  it("fails closed for unsafe frame colors, fonts, and logo URLs", () => {
+    const html = renderEstimateFrameHtml({
+      brand: {
+        ...brand,
+        logoUrl: "javascript:alert(1)",
+        colors: { primary: "url(javascript:alert(1))", secondary: "#F5F5F4", accent: "#D97706" },
+        typography: {
+          ...brand.typography,
+          headingFontFamily: "}; background:url(javascript:alert(1)); /*",
+        },
+      },
+      estimate: {
+        version: 1,
+        createdAt: new Date("2026-07-03T18:00:00.000Z"),
+        projectName: "Safe Output",
+        projectAddress: "1 Main St",
+        customerName: "Customer",
+        customerEmail: "customer@example.com",
+        subtotalCost: 100,
+        totalPrice: 100,
+        lineItems: [],
+      },
+    });
+
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("--frame-primary: #0f172a;");
+    expect(html).toContain("--frame-heading-font: Arial, sans-serif;");
+  });
+
+  it("honors document trust-signal visibility settings", () => {
+    const html = renderEstimateFrameHtml({
+      brand: { ...brand, showLicenseNumber: false, showInsuranceSummary: false },
+      estimate: {
+        version: 1,
+        createdAt: new Date("2026-07-03T18:00:00.000Z"),
+        projectName: "Visibility Test",
+        projectAddress: "1 Main St",
+        customerName: "Customer",
+        customerEmail: "customer@example.com",
+        subtotalCost: 100,
+        totalPrice: 100,
+        lineItems: [],
+      },
+    });
+
+    expect(html).not.toContain("LIC-44");
+    expect(html).not.toContain("2M aggregate");
+    expect(html).not.toContain("Available");
+  });
 });

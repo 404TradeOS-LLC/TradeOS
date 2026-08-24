@@ -374,6 +374,14 @@ the client is trusted for tenancy.
 
 PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
 
+Document PDF responses for proposals, invoices, and contracts retain their
+existing authenticated routes, content type, and organization checks while
+resolving presentation from the canonical Brand Studio profile and
+BrandDocumentSettings for the server-derived organization. Company identity,
+contact details, safe colors, and configured trust-signal visibility are
+presentation inputs only; caller-supplied company names cannot override
+persisted organization branding when authenticated context is available.
+
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.

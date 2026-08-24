@@ -4,6 +4,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, legacyInvoiceStatusMap, normalizeInvoiceStatus } from "../../domain/contracts";
 import { renderInvoicePdf } from "./pdf";
+import { getDocumentBrand } from "../documents/branding";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import {
@@ -210,6 +211,7 @@ export class InvoicesService {
     });
     if (!row) throw new ApiError(404, `Invoice ${id} not found`);
 
+    const brand = await getDocumentBrand(orgId, "Your Company Name");
     const buffer = await renderInvoicePdf(
       {
         invoiceNumber: row.invoiceNumber,
@@ -228,7 +230,7 @@ export class InvoicesService {
           lineCost: Number(li.lineCost),
         })),
       },
-      { companyName: "Your Company Name" }
+      { brand }
     );
 
     return {

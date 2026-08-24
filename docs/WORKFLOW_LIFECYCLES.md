@@ -166,6 +166,11 @@ Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/propos
 - the product spec for this queue calls for cancelled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical cancelled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
 - this is a read-only aggregate; it introduces no new proposal state or transition
 
+Proposal, invoice, and contract PDF generation preserves each workflow's
+existing lifecycle and binary route contract while applying server-derived
+organization branding. Branding is presentation-only and does not alter
+pricing, payment, signature, status, or document authorization semantics.
+
 ## Contracts
 
 Canonical display states:

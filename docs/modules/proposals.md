@@ -72,6 +72,16 @@ mutation boundary remain unchanged.
 - `/projects/[id]/proposals/[proposalId]/preview`
 - `/portal/proposals/[proposalId]`
 
+## Branded document generation
+
+Proposal PDF generation resolves branding from the authenticated organization
+through the canonical Brand Studio profile and document settings. The PDF
+header, contact rail, accent palette, and optional trust signals use that
+server-derived branding. The existing proposal route shape, pricing, terms,
+lifecycle, and organization/RLS checks are unchanged; a caller-supplied
+company name is only a fallback when authenticated organization context is
+absent.
+
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
@@ -81,6 +91,7 @@ mutation boundary remain unchanged.
 - `app/tests/proposals.queue.test.ts`, `app/tests/proposals.controller.queue.test.ts` — organization work-queue filters (sent/viewed/unsigned/stale), pagination, and authorization
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and unsigned/contractId resolution for the queue read
 - `app/tests/rls.integration.ts` — live same-org/cross-org proposal mutation and competing accept/decline transition coverage
+- `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
 
 ## Known limitations
 
