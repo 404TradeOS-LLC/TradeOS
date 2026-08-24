@@ -496,6 +496,6 @@ No numbered sprint is currently `READY`; S025 is `IN_REVIEW` in the sole impleme
 
 Sprint ID: NONE
 Eligibility: S025 is `IN_REVIEW`; no later numbered sprint may receive implementation writes.
-Dependencies: S024 is DONE; no S025 implementation lane is active.
+Dependencies: S024 is DONE; S025 is the sole active implementation lane.
 Overlap check: S025 PR #331 is the sole numbered implementation lane; S027 remains blocked and receives no implementation writes.
 Startup prompt: Drive PR #331 through migration/RLS review and required CI; do not implement S027 concurrently.
