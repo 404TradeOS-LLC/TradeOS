@@ -24,6 +24,9 @@ This document records the bounded S019 readiness contract. It authorizes a
 future implementation lane to harden and prove the existing proposal review,
 acceptance, decline, and audit boundary. It does not implement S019.
 
+This readiness contract is promoted by governance-only PR #295; no S019
+implementation branch is authorized by that PR.
+
 ## Mission
 
 Make the existing authenticated portal proposal flow deterministic and
