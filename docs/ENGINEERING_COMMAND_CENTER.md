@@ -11,16 +11,28 @@ related_code:
   - docs/SPRINT_BACKLOG.md
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/SESSION_HANDOFF.md
+  - docs/CI_ACCELERATION.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
   - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
+  - scripts/sprint-state-check.mjs
+  - scripts/live-sprint-evidence-check.mjs
   - .github/pull_request_template.md
   - .github/workflows/docs-consistency.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/dependabot-patch-automerge.yml
+  - .github/workflows/sprint-governance.yml
+  - .github/workflows/migration-safety.yml
+  - .github/workflows/stale-pr-check.yml
+  - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/docs-reconciliation.yml
+  - .github/workflows/merge-readiness.yml
+  - .github/workflows/nightly-full-regression.yml
+  - .github/workflows/workflow-health-report.yml
+  - .github/workflows/rc-smoke.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -122,6 +134,12 @@ Production repair should use the health split first:
 - `/health` succeeding and `/ready` failing → investigate database connectivity/configuration/availability;
 - both succeeding while a workflow fails → investigate auth, tenancy/RLS, route/domain behavior, or frontend/backend integration.
 
+### CI acceleration operating mode
+
+CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
+
+The authenticated S027 and RC browser workflows are operator-triggered and require scoped Playwright storage-state secrets; they do not commit cookies or credentials and do not authorize product mutations. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+
 ## Required verification
 
 Expected required CI jobs include:
@@ -131,7 +149,7 @@ Expected required CI jobs include:
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness when the pull request changes `web/**`; the required job still reports success without expensive setup for unrelated pull-request diffs.
 
-Pushes to `main` run all app, integration, and web verification lanes. Pull-request path scoping reduces unrelated CI work without changing required check names, branch-protection requirements, or the meaning of a green check for the code actually changed.
+Pushes to `main` run all app, integration, and web verification lanes. Pull-request path scoping reduces unrelated CI work without changing required check names, branch-protection requirements, or the meaning of a green check for the code actually changed. The required App and Web summary jobs aggregate parallel child jobs so the branch-protection interface remains stable while wall-clock verification is reduced.
 
 Repository workflows use supported action-runtime majors (`actions/checkout@v7` and `actions/setup-node@v7`) independently of the explicit Node versions exercised by the jobs. The 2026-08-18 checkout patch refresh to v7.0.1 is CI-runtime maintenance only; application runtime versions are unchanged. The dedicated dependency-review gate now uses `actions/dependency-review-action@v5`; that action's internal runtime is Node 24 and does not change the Node versions used to build or test TradeOS.
 
@@ -183,6 +201,7 @@ S007 is complete through PR #261, S008 is complete through PR #264, S009 is comp
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
+- [CI_ACCELERATION.md](CI_ACCELERATION.md)
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
