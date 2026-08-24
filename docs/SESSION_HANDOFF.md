@@ -47,4 +47,4 @@ Overlap check: no open or draft S018 implementation/readiness PR, remote S018 br
 
 Implementation branch: `feature/s018-customer-portal-auth-hardening`.
 
-Current state: implementation changes and owned documentation are published in focused draft PR #290; the branch still needs dependency-backed focused tests, required repository checks, exact diff review, and CI/review reconciliation. Do not create a new customer-auth model or begin S019, S020, S021, S022, or S027. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
+Current state: implementation changes and owned documentation are published in focused PR #290, which is ready for review with exact-head CI and automated review green; separate completion-evidence reconciliation remains next. Do not create a new customer-auth model or begin S019, S020, S021, S022, or S027. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
