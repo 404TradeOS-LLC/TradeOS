@@ -141,11 +141,14 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-006 
 
 ### S015 — Brand profile/settings adapter
 
-Status: PLANNED
+Status: READY
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
-Readiness note: S014 is DONE through governance PR #301 and ADR-006. S015 remains the next lower-numbered implementation candidate and requires its own governance-only readiness promotion before implementation.
+Readiness contract: Brand Studio is the canonical organization-brand source. Settings remains the compatibility/admin surface and preserves its existing route shape while branding fields are resolved from or written through the canonical BrandProfile/BrandDocumentSettings records. Legacy OrganizationSettings JSON and organization shell values are adopted lazily and non-destructively; unrelated operational Settings fields remain in OrganizationSettings. No schema migration, destructive rewrite, new asset model, payment/billing change, public marketing theming, auth/customer identity change, permission widening, RBAC/RLS redesign, or document-rendering work is authorized. See `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+Founder-decision boundary: S014's ADR-006 is accepted. Stop if implementation requires a new source of truth, new identity or authorization policy, destructive migration, new storage model, or public branding policy.
+Required evidence: canonical-over-legacy precedence, lazy legacy adoption, explicit clear behavior, mapped Settings round trips, existing organization-shell compatibility, repeated-save safety, same-org/cross-org authorization, forced PostgreSQL RLS, and focused app/web regression coverage.
+Readiness evidence: S014 is DONE through founder-decision PR #301 and ADR-006; the S015 contract is explicit on the readiness branch/PR; no competing S015 implementation PR, branch, or worktree was found at readiness creation.
 
 ### S016 — Document-brand rendering integration
 
@@ -457,14 +460,13 @@ Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after ch
 
 Active Sprint: NONE
 Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `DONE` through founder-decision PR #301.
-Dependencies: S015 and S016 are unblocked by S014's accepted Brand Studio decision; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
-Protected boundary: No numbered-sprint implementation lane is active. The canonical selector must choose or promote exactly one next sprint; do not implement S015, S016, S020, or S024 concurrently.
+Dependencies: S015 is unblocked by S014's accepted Brand Studio decision; S016 is also unblocked but remains planned; S017 depends on S015; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist, and it is reserved for S015. Do not implement S016, S017, S020, or S024 concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-No numbered sprint is currently `READY`.
-Eligibility: S015 is the lowest-numbered remaining candidate but is PLANNED and requires a governance-only readiness promotion. S016 is also PLANNED after S014's decision; S020 is PLANNED with its founder/legal boundary resolved; S022 remains dependency-blocked; and S027 remains environment-evidence blocked.
-Dependencies: none for `Sprint ID: NONE`; rerun the canonical selector after this decision-evidence merge.
-Overlap check: no numbered implementation lane is active; this is governance-only status reconciliation after founder-decision PR #301.
-Startup prompt: After this decision-evidence merge, promote or select only the lowest-numbered eligible sprint, expected to be S015 after live verification; do not begin another numbered sprint until its readiness contract is explicit.
+Sprint ID: S015
+Eligibility: S015 is the lowest-numbered READY sprint and its dependency S014 is DONE; no founder-decision, infrastructure, or competing-lane blocker remains.
+Dependencies: S014 DONE through PR #301 and ADR-006.
+Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed when readiness was created; the only numbered implementation lane authorized next is S015.
+Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
