@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 23556)
-Total output lines: 318
-
 ---
 status: current
 owner: platform
@@ -141,6 +138,7 @@ The repository is no longer organized around MVP planning documents. The active 
 - **S016 completion:** S016 — Document-brand rendering integration is `DONE` after implementation PR #314 merged on 2026-08-24 as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; separate completion evidence is recorded in [S016_COMPLETION_EVIDENCE.md](architecture/S016_COMPLETION_EVIDENCE.md). The shipped code consumes canonical Brand Studio branding in the existing proposal, invoice, contract, and authenticated portal document-rendering seams, with deterministic fallbacks, safe asset/color/font handling, contact/trust-signal presentation, contrast-safe PDF headers/body text, and preserved organization/auth/RLS/lifecycle/payment/signature boundaries.
 - **S017 readiness:** S017 is READY through the governance-only readiness contract in [S017_BRAND_ASSET_LIFECYCLE_PLAN.md](architecture/S017_BRAND_ASSET_LIFECYCLE_PLAN.md); implementation remains unstarted until a separate lane is created after promotion merge.
 - **S017 implementation:** The isolated `feature/s017-implementation` lane adds server-only, admin-equivalent, dry-run-by-default reconciliation for stale generated Settings brand-upload objects. It preserves current metadata, exact organization prefixes, a 24-hour grace period, private-bucket access, and existing auth/RLS boundaries; implementation remains in review until its PR and separate completion evidence merge.
+- **S017 fail-closed repair:** A later Storage list-page failure now discards all candidates for the affected asset namespace before any deletion; focused coverage pins the fail-closed behavior. No product, schema, auth, permission, or RLS boundary changed.
 - **S020 decision:** The founder accepted ADR-007: S020 remains authenticated in-app contract acceptance/signature evidence. TradeOS must not claim certificate-backed signing, identity verification, notarized execution, or standalone legal e-signature semantics. No new identity, public-link, token, schema, or e-signature-provider architecture is authorized.
 - **S024 decision:** S024 is `DONE` through founder-decision PR #301 and ADR-008: AI draft-run persistence is metadata-first, raw prompt/output/tool content is not retained by default, operational metadata defaults to 90 days, tenant/actor isolation is mandatory, secrets are excluded, and reversible organization usage ceilings govern cost. Implementation remains S025 scope.
 - Estimating: estimate creation, line items, duplication, comparison, AI estimate assist, and structured contractor-language draft generation
