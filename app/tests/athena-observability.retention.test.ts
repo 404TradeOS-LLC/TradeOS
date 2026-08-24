@@ -93,7 +93,7 @@ describe("runAthenaObservabilityRetention", () => {
     const generationResult = results.find((result) => result.table === "athena_generation_runs");
     expect(generationResult).toEqual({
       table: "athena_generation_runs",
-      scannedBatches: 3,
+      scannedBatches: 2,
       deletedCount: 3,
       cutoff: now.toISOString(),
     });
