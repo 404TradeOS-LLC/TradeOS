@@ -16,4 +16,4 @@ app/vendor/
 
 # Local Playwright authentication state
 storageState.json
-playwright/.auth/
+**/playwright/.auth/
