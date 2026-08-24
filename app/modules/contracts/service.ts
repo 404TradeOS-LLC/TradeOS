@@ -91,7 +91,7 @@ export class ContractsService {
     return this.getById(id, input.orgId);
   }
 
-  async void(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
+  async void(id: string, orgId: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
     assertContractWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
     if (row.status === "signed") throw new ApiError(409, `Contract ${id} has already been signed and cannot be voided`);
@@ -104,7 +104,7 @@ export class ContractsService {
       throw new ApiError(409, `Contract ${id} changed before it could be voided`);
     }
     await this.recordContractEvent({
-      orgId: orgId ?? row.project.orgId ?? undefined,
+      orgId,
       contractId: row.id,
       projectId: row.projectId,
       actorUserId,

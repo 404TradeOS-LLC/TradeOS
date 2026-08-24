@@ -68,7 +68,10 @@ permissions, organization scoping, and forced RLS remain unchanged.
 ## Known limitations
 
 - the database still stores `pending_signature` as the pre-signature status; the check constraint has never accepted canonical `draft`/`sent`/`viewed`. PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface (`toDTO()` returns canonical `sent`) without a schema migration — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
-- `void()` is not idempotent, neither `sign()` nor `void()` wraps its status update and event write in a transaction, and neither guards its update with the expected prior status (no optimistic-concurrency check). Found during the S010 audit; explicitly out of scope for S010.
+- sign/void status writes now use expected-status predicates and fail closed on
+  stale concurrent requests. The status update and event write are still not
+  wrapped in one transaction; a future hardening slice may make that boundary
+  atomic. `pending_signature` remains the compatibility storage value.
 
 ## Deferred work
 
