@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-07-14
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - web/src/app/(app)/portal
@@ -35,7 +35,7 @@ Provide customer-facing document and project views for proposals, contracts, inv
 
 ## Permissions
 
-Portal routes depend on the same authenticated web session and backend authorization model. See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
+Portal routes currently depend on the same authenticated web session and backend authorization model as the internal application. `web/src/proxy.ts` refreshes the Supabase session for `/portal/:path*`; server-side pages pass the session bearer token to protected `/api/v1/*` routes, where verified identity, active organization membership, request-scoped database session, and forced PostgreSQL RLS remain authoritative. There is no separate customer token or customer identity model today. See [RBAC_MATRIX.md](../RBAC_MATRIX.md) and [S018 readiness plan](../architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md).
 
 ## Lifecycle and statuses
 
@@ -47,7 +47,7 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Known limitations
 
-- portal hardening remains an RC1 follow-through area
+- portal authentication hardening remains an RC1 follow-through area and is now `READY` as S018; no runtime implementation has shipped from that readiness promotion
 
 ## Deferred work
 

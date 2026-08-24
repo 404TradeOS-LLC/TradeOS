@@ -163,10 +163,15 @@ Acceptance: abandoned/replaced assets have documented and tested cleanup behavio
 
 ### S018 — Customer portal authentication hardening
 
-Status: PLANNED
+Status: READY
 Dependencies: S007, S009, S010, S011
 Objective: Verify customer access, tenant boundaries, token expiry, and fail-closed behavior.
 Acceptance: portal access is tenant-safe and covered by integration tests.
+Readiness evidence: S007, S009, S010, and S011 are `DONE`. Live reconciliation found no open or draft S018 implementation/readiness PR, remote branch, or active worktree overlap. The current portal uses the existing authenticated Supabase session and protected bearer-authenticated API/RLS boundary; it does not have a separate customer token or identity model. See `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`.
+Readiness contract: Harden and prove the existing portal boundary for invalid/expired/revoked sessions, missing or inactive memberships, organization-scoped project/proposal/contract/invoice/document access, existing portal mutation permissions, and forced PostgreSQL RLS. Preserve the current server-side bearer-token architecture, request-scoped database session, route/API shapes, actor attribution, and audit behavior unless a separately approved decision authorizes a change.
+Founder-decision boundary: No new customer identity/login/invitation model, public tokenized document links, auth-provider replacement, or RBAC/RLS policy redesign is authorized by this readiness promotion. Stop for a founder decision if tenant-safe customer access requires a new authentication or authorization policy.
+Forbidden in S018: portal redesign, S019 proposal workflow, S020 contract signing workflow, S021 invoice/payment presentation, S022 document rendering, S027 Costbook work, unrelated security/deployment repair, schema migration, new token persistence, or any other numbered sprint. No schema migration is expected; stop and report if one is unavoidable.
+Required implementation validation: focused auth/session/portal authorization tests; same-organization and cross-organization resource tests; invalid/expired/revoked/missing-membership failures; live PostgreSQL/RLS integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and applicable web test/lint/build lanes.
 
 ### S019 — Portal proposal acceptance flow
 
@@ -429,8 +434,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is `READY`; S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and this separate completion-evidence reconciliation. S018 dependencies S007, S009, S010, and S011 are all `DONE`, but live readiness promotion remains required before implementation.
+Sprint ID: S018
+Eligibility: S018 is `READY`; its dependencies S007, S009, S010, and S011 are all `DONE` with merged evidence. S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and separate completion evidence.
 Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with merged evidence.
-Overlap check: no open S012 implementation or completion-evidence PR remains; existing Job/Dispatch runtime work is shipped baseline evidence, not an active implementation.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Reconcile S018 live overlap, dependencies, worktrees, and founder decisions; create only the governance-only readiness promotion if eligible. Do not implement S018 until readiness merges.
+Overlap check: no open S018 implementation/readiness PR, remote S018 branch, or active S018 worktree was found during the readiness reconciliation. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow` and `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. Create the isolated S018 implementation branch from refreshed `origin/main`; do not implement S019, S020, S021, S022, S027, or a new customer-auth model.
