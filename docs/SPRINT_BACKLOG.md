@@ -480,7 +480,7 @@ Protected boundary: Exactly one numbered implementation lane may exist. This bra
 ## Next Eligible Sprint
 
 Sprint ID: S017
-Eligibility: S017 is READY through this governance-only promotion; its implementation lane remains unstarted until this PR merges and live eligibility is reconfirmed.
+Eligibility: S017 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
 Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker identified by the readiness audit.
 Overlap check: No S017 implementation PR or branch exists; this branch changes governance/readiness documentation only and S020/S022 remain read-only.
-Startup prompt: After this readiness PR merges, refresh `origin/main`, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
+Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
