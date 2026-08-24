@@ -112,6 +112,9 @@ export class AuthService {
         throw new ApiError(401, "Invalid refresh token");
       }
 
+      const user = await transaction.appUser.findUnique({ where: { id: existing.userId } });
+      if (!user || !user.isActive) throw new ApiError(401, "Invalid refresh token");
+
       await transaction.$queryRaw(Prisma.sql`
         select
           set_config('app.user_id', ${existing.userId}, true),
@@ -123,9 +126,8 @@ export class AuthService {
       });
       if (!membership) throw new ApiError(401, "Invalid refresh token");
 
-      const user = await transaction.appUser.findUnique({ where: { id: existing.userId } });
       const organization = await transaction.organization.findUnique({ where: { id: existing.orgId } });
-      if (!user || !user.isActive || !organization) throw new ApiError(401, "Invalid refresh token");
+      if (!organization) throw new ApiError(401, "Invalid refresh token");
 
       const replacementToken = createOpaqueToken();
       const replacementHash = hashOpaqueToken(replacementToken);

@@ -72,6 +72,19 @@ describe("local auth JWT hardening", () => {
     expect(() => verifyAuthToken(token, secret)).toThrow(/JWT payload/);
   });
 
+  it.each([
+    { label: "unsupported algorithm", header: { alg: "none", typ: "JWT" } },
+    { label: "non-JWT type", header: { alg: "HS256", typ: "NOT-JWT" } },
+  ])("rejects a local JWT with a $label header", ({ header }) => {
+    const token = signRaw(
+      { sub: "auth-sub-1", iat: 1, exp: 2, iss: "tradeos-costbook", aud: "tradeos-costbook-api" },
+      secret,
+      header
+    );
+
+    expect(() => verifyAuthToken(token, secret)).toThrow("Unsupported JWT algorithm");
+  });
+
   it("rejects a local token with the wrong issuer or audience", () => {
     const issuerToken = signAuthToken(
       { sub: "auth-sub-1", iss: "other-issuer", aud: "tradeos-costbook-api" },
