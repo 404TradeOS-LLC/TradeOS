@@ -98,6 +98,7 @@ describe("branded PDF renderers", () => {
 
     const text = extractPdfText(pdf);
     expect(text).toContain("Invoice Date: 2026-08-25");
+    expect(text).toContain("Due Date: Date unavailable");
     expect(text).toContain("No line items recorded.");
     expect(text).toContain("Amount unavailable");
     expect(text).not.toContain("NaN");
