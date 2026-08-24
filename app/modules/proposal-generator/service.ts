@@ -3,6 +3,7 @@ import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { getDocumentBrand } from "../documents/branding";
 import type { DocumentFrameBrand } from "../documents/frame";
+import { formatDocumentCurrency, formatDocumentDate, formatDocumentNumber } from "../documents/format";
 import { GenerateProjectProposalInput, GenerateProposalInput, ProposalDocument } from "./types";
 
 const DEFAULT_TERMS =
@@ -111,7 +112,7 @@ function renderEstimateProposalPdf(
     doc.on("error", reject);
 
     const projectSummary = opts.showLineItemDetail
-      ? estimate.lineItems.map((li) => `${li.description} — ${Number(li.quantity)} ${li.unitOfMeasure}`).join("\n")
+      ? estimate.lineItems.map((li) => `${li.description} — ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}`).join("\n")
       : estimate.lineItems.map((li) => `• ${li.description}`).join("\n");
 
     drawHeader(doc, opts.brand, "Client Proposal");
@@ -121,7 +122,7 @@ function renderEstimateProposalPdf(
       customerEmail: estimate.project.customer?.email ?? null,
       projectName: estimate.project.name,
       projectAddress: estimate.project.siteAddress,
-      dateLabel: `Issued ${estimate.createdAt.toLocaleDateString()}`,
+      dateLabel: `Issued ${formatDocumentDate(estimate.createdAt)}`,
       statusLabel: `Estimate v${estimate.version}`,
     });
     drawMoneyPanel(doc, {
@@ -153,7 +154,7 @@ function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: Docume
       customerEmail: proposal.project.customer?.email ?? null,
       projectName: proposal.project.name,
       projectAddress: proposal.project.siteAddress,
-      dateLabel: `Drafted ${proposal.createdAt.toLocaleDateString()}`,
+      dateLabel: `Drafted ${formatDocumentDate(proposal.createdAt)}`,
       statusLabel: "Working proposal",
     });
     drawMoneyPanel(doc, {
@@ -368,5 +369,5 @@ function toNullableNumber(value: unknown) {
 
 function formatCurrency(value: number | null) {
   if (value === null || Number.isNaN(value)) return "Not set";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  return formatDocumentCurrency(value);
 }

@@ -164,4 +164,46 @@ describe("document frame templates", () => {
     expect(html).not.toContain("2M aggregate");
     expect(html).toContain("Available");
   });
+
+  it("uses deterministic UTC dates and safe numeric fallbacks", () => {
+    const html = renderEstimateFrameHtml({
+      brand,
+      estimate: {
+        version: 1,
+        createdAt: new Date("2026-08-24T23:30:00-05:00"),
+        projectName: "Safe Output",
+        projectAddress: "",
+        customerName: "Customer",
+        customerEmail: "",
+        subtotalCost: Number.NaN,
+        totalPrice: Number.POSITIVE_INFINITY,
+        lineItems: [{ description: "Work", quantity: Number.NaN, unitOfMeasure: "job", unitCost: Number.NaN, lineCost: Number.NaN }],
+      },
+    });
+
+    expect(html).toContain("2026-08-25");
+    expect(html).toContain("Amount unavailable");
+    expect(html).toContain("—");
+    expect(html).not.toContain("NaN");
+    expect(html).not.toContain("Infinity");
+  });
+
+  it("renders an explicit empty-table state", () => {
+    const html = renderEstimateFrameHtml({
+      brand,
+      estimate: {
+        version: 1,
+        createdAt: new Date("2026-08-24T00:00:00.000Z"),
+        projectName: "Empty Estimate",
+        projectAddress: "1 Main St",
+        customerName: "Customer",
+        customerEmail: "customer@example.com",
+        subtotalCost: 0,
+        totalPrice: 0,
+        lineItems: [],
+      },
+    });
+
+    expect(html).toContain("No line items recorded.");
+  });
 });

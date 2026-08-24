@@ -1,4 +1,5 @@
 import { type DocumentFrameBrand, renderDocumentFrameHtml } from "./frame";
+import { formatDocumentCurrency, formatDocumentDate, formatDocumentNumber, formatDocumentStatus } from "./format";
 
 export interface EstimateFrameInput {
   brand: DocumentFrameBrand;
@@ -104,12 +105,12 @@ export function renderEstimateFrameHtml(input: EstimateFrameInput) {
     projectMeta: [
       { label: "Project", value: input.estimate.projectName },
       { label: "Address", value: input.estimate.projectAddress || "Address to be confirmed" },
-      { label: "Issued", value: input.estimate.createdAt.toLocaleDateString() },
+      { label: "Issued", value: formatDocumentDate(input.estimate.createdAt) },
     ],
     heroMetric: {
       label: "Estimated investment",
-      value: formatCurrency(input.estimate.totalPrice),
-      meta: `Subtotal ${formatCurrency(input.estimate.subtotalCost)} before markup and final presentation adjustments.`,
+      value: formatDocumentCurrency(input.estimate.totalPrice),
+      meta: `Subtotal ${formatDocumentCurrency(input.estimate.subtotalCost)} before markup and final presentation adjustments.`,
     },
     table: {
       columns: [
@@ -120,9 +121,9 @@ export function renderEstimateFrameHtml(input: EstimateFrameInput) {
       ],
       rows: input.estimate.lineItems.map((lineItem) => ({
         description: `${lineItem.description} (${lineItem.unitOfMeasure})`,
-        quantity: formatNumber(lineItem.quantity),
-        unitCost: formatCurrency(lineItem.unitCost),
-        lineCost: formatCurrency(lineItem.lineCost),
+        quantity: formatDocumentNumber(lineItem.quantity),
+        unitCost: formatDocumentCurrency(lineItem.unitCost),
+        lineCost: formatDocumentCurrency(lineItem.lineCost),
       })),
     },
     sections: [
@@ -139,7 +140,7 @@ export function renderChangeOrderFrameHtml(input: ChangeOrderFrameInput) {
     eyebrow: "Change Order",
     title: `Change Order #${input.changeOrder.coNumber}`,
     subtitle: "A client-reviewable change authorization frame for added scope, pricing impact, and schedule movement.",
-    badges: ["Change Order", input.changeOrder.status.replaceAll("_", " "), input.brand.typography.style],
+    badges: ["Change Order", formatDocumentStatus(input.changeOrder.status), input.brand.typography.style],
     customerMeta: [
       { label: "Customer", value: input.changeOrder.customerName },
       { label: "Email", value: input.changeOrder.customerEmail || "Not provided" },
@@ -147,11 +148,11 @@ export function renderChangeOrderFrameHtml(input: ChangeOrderFrameInput) {
     projectMeta: [
       { label: "Project", value: input.changeOrder.projectName },
       { label: "Address", value: input.changeOrder.projectAddress || "Address to be confirmed" },
-      { label: "Created", value: input.changeOrder.createdAt.toLocaleDateString() },
+      { label: "Created", value: formatDocumentDate(input.changeOrder.createdAt) },
     ],
     heroMetric: {
       label: "Change amount",
-      value: formatCurrency(input.changeOrder.amount),
+      value: formatDocumentCurrency(input.changeOrder.amount),
       meta: input.changeOrder.scheduleImpactDays ? `${input.changeOrder.scheduleImpactDays} day schedule impact` : "No schedule impact recorded",
     },
     table: {
@@ -163,9 +164,9 @@ export function renderChangeOrderFrameHtml(input: ChangeOrderFrameInput) {
       ],
       rows: input.changeOrder.lineItems.map((lineItem) => ({
         description: lineItem.description,
-        quantity: formatNumber(lineItem.quantity),
-        unitCost: formatCurrency(lineItem.unitCost),
-        lineCost: formatCurrency(lineItem.lineCost),
+        quantity: formatDocumentNumber(lineItem.quantity),
+        unitCost: formatDocumentCurrency(lineItem.unitCost),
+        lineCost: formatDocumentCurrency(lineItem.lineCost),
       })),
     },
     sections: [
@@ -194,7 +195,7 @@ export function renderCloseoutFrameHtml(input: CloseoutFrameInput) {
     projectMeta: [
       { label: "Project", value: input.closeout.projectName },
       { label: "Address", value: input.closeout.projectAddress || "Address to be confirmed" },
-      { label: "Completed", value: input.closeout.completionDate.toLocaleDateString() },
+      { label: "Completed", value: formatDocumentDate(input.closeout.completionDate) },
     ],
     heroMetric: {
       label: "Closeout snapshot",
@@ -232,11 +233,11 @@ export function renderWarrantyFrameHtml(input: WarrantyFrameInput) {
     projectMeta: [
       { label: "Project", value: input.warranty.projectName },
       { label: "Address", value: input.warranty.projectAddress || "Address to be confirmed" },
-      { label: "Effective", value: input.warranty.effectiveDate.toLocaleDateString() },
+      { label: "Effective", value: formatDocumentDate(input.warranty.effectiveDate) },
     ],
     heroMetric: {
       label: "Coverage in force",
-      value: input.warranty.effectiveDate.toLocaleDateString(),
+      value: formatDocumentDate(input.warranty.effectiveDate),
       meta: "Keep this guide with your closeout packet and final project records.",
     },
     sections: [
@@ -262,7 +263,7 @@ export function renderMaintenanceGuideFrameHtml(input: MaintenanceGuideFrameInpu
     projectMeta: [
       { label: "Project", value: input.guide.projectName },
       { label: "Address", value: input.guide.projectAddress || "Address to be confirmed" },
-      { label: "Prepared", value: input.guide.generatedAt.toLocaleDateString() },
+      { label: "Prepared", value: formatDocumentDate(input.guide.generatedAt) },
     ],
     heroMetric: {
       label: "Service rhythm",
@@ -276,12 +277,4 @@ export function renderMaintenanceGuideFrameHtml(input: MaintenanceGuideFrameInpu
       { title: "Recommended Service Partners", bullets: input.guide.recommendedPartners },
     ],
   });
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }

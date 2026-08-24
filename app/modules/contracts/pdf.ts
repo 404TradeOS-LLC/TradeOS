@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import type { DocumentFrameBrand } from "../documents/frame";
+import { formatDocumentDate } from "../documents/format";
 
 const DOCUMENT_INK = "#0f172a";
 
@@ -38,12 +39,12 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     doc.fontSize(10).fillColor(DOCUMENT_INK).text(`Project: ${contract.project.name}`);
     if (contract.project.siteAddress) doc.text(`Site Address: ${contract.project.siteAddress}`);
     if (contract.project.customer) doc.text(`Customer: ${contract.project.customer.name}`);
-    doc.text(`Contract Date: ${contract.createdAt.toLocaleDateString()}`);
+    doc.text(`Contract Date: ${formatDocumentDate(contract.createdAt)}`);
     doc.moveDown(1);
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Terms", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10).fillColor(DOCUMENT_INK).text(contract.termsText);
+    doc.fontSize(10).fillColor(DOCUMENT_INK).text(contract.termsText?.trim() || "Terms unavailable.");
     doc.moveDown(1.5);
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Signature", { underline: true });
@@ -51,7 +52,7 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     doc.fontSize(10).fillColor(DOCUMENT_INK);
     if (contract.status === "signed" && contract.signerName && contract.signedAt) {
       doc.text(`Signed by: ${contract.signerName}`);
-      doc.text(`Signed on: ${contract.signedAt.toLocaleDateString()}`);
+      doc.text(`Signed on: ${formatDocumentDate(contract.signedAt)}`);
     } else {
       doc.text("Signature: ____________________________");
       doc.text("Date: ____________________________");

@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import type { DocumentFrameBrand } from "../documents/frame";
+import { formatDocumentCurrency, formatDocumentDate, formatDocumentNumber } from "../documents/format";
 
 const DOCUMENT_INK = "#0f172a";
 
@@ -44,24 +45,28 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
       doc.text(`Customer: ${invoice.project.customer.name}`);
       if (invoice.project.customer.email) doc.text(`Email: ${invoice.project.customer.email}`);
     }
-    doc.text(`Invoice Date: ${invoice.createdAt.toLocaleDateString()}`);
-    if (invoice.dueDate) doc.text(`Due Date: ${invoice.dueDate.toLocaleDateString()}`);
+    doc.text(`Invoice Date: ${formatDocumentDate(invoice.createdAt)}`);
+    if (invoice.dueDate) doc.text(`Due Date: ${formatDocumentDate(invoice.dueDate)}`);
     if (invoice.type === "progress" && invoice.percentComplete != null) {
-      doc.text(`Progress Billing: ${Number(invoice.percentComplete).toFixed(1)}% complete`);
+      doc.text(`Progress Billing: ${formatDocumentNumber(invoice.percentComplete)}% complete`);
     }
     doc.moveDown(1);
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Line Items", { underline: true });
     doc.moveDown(0.5);
     doc.fontSize(10).fillColor(DOCUMENT_INK);
-    for (const li of invoice.lineItems) {
-      doc.text(`${li.description}  —  ${li.quantity} ${li.unitOfMeasure}  —  $${li.lineCost.toFixed(2)}`);
+    if (invoice.lineItems.length === 0) {
+      doc.text("No line items recorded.");
+    } else {
+      for (const li of invoice.lineItems) {
+        doc.text(`${li.description}  —  ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}  —  ${formatDocumentCurrency(li.lineCost)}`);
+      }
     }
     doc.moveDown(1.5);
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Amount Due", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(11).fillColor(DOCUMENT_INK).text(`$${invoice.amount.toFixed(2)}`, { align: "right" });
+    doc.fontSize(11).fillColor(DOCUMENT_INK).text(formatDocumentCurrency(invoice.amount), { align: "right" });
 
     const trustSignals = [
       brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
