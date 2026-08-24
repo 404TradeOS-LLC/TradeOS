@@ -131,13 +131,12 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   return runWithBackgroundDatabaseSession(basePrisma, { jobName: "athena-observability-retention", orgId: params.orgId, userId: params.userId }, async () => {
     const results: AthenaRetentionResult[] = [];
     results.push(await deleteOldTelemetryRecords(params.orgId, daysToCutoff(now, telemetryRetentionDays), batchSize));
-    const generationCutoff = daysToCutoff(now, generationRetentionDays);
-    const generationResult = await deleteExpiredAthenaGenerationRecords(params.orgId, generationCutoff, batchSize);
+    const generationResult = await deleteExpiredAthenaGenerationRecords(params.orgId, now, batchSize);
     results.push({
       table: "athena_generation_runs",
       scannedBatches: generationResult.scannedBatches,
       deletedCount: generationResult.deletedCount,
-      cutoff: generationCutoff.toISOString(),
+      cutoff: now.toISOString(),
     });
     results.push(await deleteOldExecutions(params.orgId, daysToCutoff(now, executionRetentionDays), batchSize));
     return results;
