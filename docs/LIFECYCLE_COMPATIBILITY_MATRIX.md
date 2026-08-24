@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -11,6 +11,7 @@ related_code:
   - app/modules/contracts/service.ts
   - app/modules/invoices/service.ts
   - app/modules/jobs/service.ts
+  - app/modules/jobs/lifecycle.ts
   - app/backend/controllers/projects.controller.ts
   - web/src/lib/api.ts
   - web/src/components/shared/status-badge.tsx
@@ -191,7 +192,7 @@ Current documented transitions:
 - create with schedule -> `scheduled`
 - `scheduled -> dispatched -> traveling -> on_site`
 - `on_site -> paused -> on_site`
-- `traveling|on_site|paused -> completed`
+- `on_site -> completed`; `traveling` and `paused` must return to `on_site` before completion
 - `scheduled|dispatched|paused -> cancelled`
 - owner/admin reopen: `completed -> unscheduled|scheduled`
 
@@ -213,7 +214,7 @@ Current documented transitions:
 - Estimate normalization contains a direct internal contradiction for `sent`.
 - Invoice lifecycle inventory now distinguishes canonical vocabulary from DB-legal/reachable persistence and identifies the `paid` reconciliation gap between manual status updates, recorded payments, and follow-up queue derivation.
 - Context-free generic normalization is unsafe for overlapping commercial lifecycle strings.
-- Job vocabulary is comparatively aligned, making S012 primarily a transition/enforcement normalization exercise rather than an alias cleanup.
+- Job vocabulary is comparatively aligned, making S012 primarily a transition/enforcement normalization exercise rather than an alias cleanup. The backend transition table is centralized in `app/modules/jobs/lifecycle.ts`; no Job alias map or persistence migration is introduced.
 - S007-S012 must preserve backwards compatibility deliberately and should not combine all six domains into one migration.
 
 This matrix began as S006 inventory evidence and is kept current as the follow-up normalization sprints land. S007 changes Project write behavior only; it does not authorize S008-S012 behavior, schema, or migration changes.

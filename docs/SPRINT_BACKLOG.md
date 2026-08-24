@@ -110,11 +110,12 @@ Required implementation validation: focused Invoice/payment and queue tests; con
 
 ### S012 — Job lifecycle normalization
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S006
 Objective: Normalize scheduling, dispatch, field-work, completion, and invoice-readiness states.
 Acceptance: permitted transitions are enforced and documented.
 Readiness contract: The authorized S012 implementation is the bounded backend normalization of the existing canonical Job transition graph across scheduling/rescheduling, dispatch, travel, arrival, pause/resume, completion, cancellation, owner/admin reopen, and completed-only invoice readiness. It must preserve current schedule/conflict validation, assignment and role boundaries, organization scoping, forced RLS, activity/audit attribution, required canonical-event behavior, completion/readiness metadata invariants, and the existing request-scoped transaction architecture. Preserve the live service rule that only `on_site` may transition to `completed`; the current `WORKFLOW_LIFECYCLES.md`/S006 wording that also lists `traveling|paused -> completed` is documented drift to resolve, not authorization to expand behavior. Dispatch attention remains derived; persisted Job statuses remain the current eight canonical values.
+Implementation status: `IN_REVIEW` on branch `feature/s012-job-lifecycle-normalization`; the implementation centralizes the existing transition table in `app/modules/jobs/lifecycle.ts`, preserves the live `on_site -> completed` rule, adds focused transition/service coverage, and corrects the stale workflow/matrix documentation. No schema, RBAC/RLS, UI, billing, or later-sprint changes are included.
 Implementation evidence must cover every permitted and rejected transition, schedule/conflict behavior, role/assignment boundaries, cancellation/reopen metadata, completion and invoice-readiness gating, activity/event behavior, derived dispatch classifications, and PostgreSQL/RLS tenant isolation. Required validation: `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`.
 Forbidden in S012: new Job statuses or aliases, schema migration, generic status patching, Dispatcher Workspace/route-optimization/GPS/notification redesign, automatic invoice creation, billing/payment changes, Project-to-Job orchestration redesign, unrelated optimistic-concurrency/idempotency repairs, RBAC/RLS policy changes, S018/S021/S027/S030/S032 work, and any other numbered sprint. See `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`.
 
@@ -428,7 +429,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: S012
-Eligibility: S012 is `READY` after this governance-only promotion; S006 is `DONE`, no open or draft S012 overlap was found, and its implementation contract is explicit.
+Eligibility: S012 implementation is `IN_REVIEW`; the readiness promotion merged as PR #285 (`5264ad84202d832a93ba0a73cb2b291bd0965d46`), S006 is `DONE`, and the implementation contract is explicit.
 Dependencies: S012 depends on S006 (`DONE`). S011 is also complete with merged implementation and completion evidence.
-Overlap check: no open or draft S012 implementation/readiness PR or remote S012 branch was found during live reconciliation; existing Job/Dispatch runtime work is baseline evidence, not an active S012 implementation.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. After this readiness promotion merges, refresh `origin/main`, create `feature/s012-job-lifecycle-normalization` from refreshed main, revalidate runtime drift against `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`, and implement only S012.
+Overlap check: the active S012 implementation branch is `feature/s012-job-lifecycle-normalization`; no duplicate S012 implementation is authorized. Existing Job/Dispatch runtime work is baseline evidence, not a competing implementation.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. The readiness promotion has merged; implementation review must verify exact-head CI/review evidence before merge, and only a separate completion-evidence reconciliation may mark S012 `DONE`.

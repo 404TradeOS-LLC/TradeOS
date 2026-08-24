@@ -39,6 +39,8 @@ import {
   jobNeedsAttention,
   resolveOrgTimezone,
 } from "./dispatchRules";
+import { JOB_ACTION_RULES, isAllowedJobAction, isAllowedJobStatusTransition } from "./lifecycle";
+import type { JobAction } from "./lifecycle";
 
 const activityService = new ActivityTimelineService();
 
@@ -56,7 +58,6 @@ const OVERRIDE_ROLES = new Set(["owner", "admin"]);
 const REOPEN_ROLES = new Set(["owner", "admin"]);
 const TECHNICIAN_FIELD_ROLES = new Set(["technician", "owner", "admin", "dispatcher"]);
 const ACTIVE_SCHEDULE_STATUSES: JobStatus[] = ["scheduled", "dispatched", "traveling", "on_site", "paused"];
-const RESCHEDULABLE_STATUSES: JobStatus[] = ["unscheduled", "scheduled", "dispatched"];
 
 const jobDetailInclude = {
   project: true,
@@ -648,8 +649,7 @@ export class JobsService {
 
   async dispatch(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertManager(input.actor.role);
-    return this.transition(jobId, input, "dispatched", "job.dispatched", {
-      allowedFrom: ["scheduled"],
+    return this.transition(jobId, input, "dispatch", "job.dispatched", {
       title: "Job dispatched",
       validate: async (tx, job) => {
         if (job.archivedAt || job.status === "cancelled") {
@@ -668,16 +668,14 @@ export class JobsService {
 
   async startTravel(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "traveling", "job.travel_started", {
-      allowedFrom: ["dispatched"],
+    return this.transition(jobId, input, "startTravel", "job.travel_started", {
       title: "Travel started",
     });
   }
 
   async arrive(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "on_site", "job.arrived", {
-      allowedFrom: ["traveling"],
+    return this.transition(jobId, input, "arrive", "job.arrived", {
       title: "Arrived on site",
       data: (job) => ({
         actualStart: job.actualStart ?? new Date(),
@@ -687,8 +685,7 @@ export class JobsService {
 
   async pause(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "paused", "job.paused", {
-      allowedFrom: ["on_site"],
+    return this.transition(jobId, input, "pause", "job.paused", {
       title: "Job paused",
       requireReason: true,
     });
@@ -696,16 +693,14 @@ export class JobsService {
 
   async resume(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "on_site", "job.resumed", {
-      allowedFrom: ["paused"],
+    return this.transition(jobId, input, "resume", "job.resumed", {
       title: "Job resumed",
     });
   }
 
   async complete(jobId: string, input: JobTransitionInput): Promise<JobDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertFieldWorker(input.actor.role);
-    const job = await this.transition(jobId, input, "completed", "job.completed", {
-      allowedFrom: ["on_site"],
+    const job = await this.transition(jobId, input, "complete", "job.completed", {
       title: "Job completed",
       data: (job) => ({
         actualStart: job.actualStart ?? new Date(),
@@ -727,8 +722,7 @@ export class JobsService {
 
   async cancel(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertManager(input.actor.role);
-    return this.transition(jobId, input, "cancelled", "job.cancelled", {
-      allowedFrom: ["scheduled", "dispatched", "paused"],
+    return this.transition(jobId, input, "cancel", "job.cancelled", {
       title: "Job cancelled",
       requireReasonFor: ["dispatched", "paused"],
     });
@@ -740,10 +734,14 @@ export class JobsService {
     }
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
-      if (job.status !== "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (!isAllowedJobAction("reopen", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} is not completed`);
       }
       const nextStatus = input.status ?? "unscheduled";
+      if (!isAllowedJobStatusTransition(currentStatus, nextStatus)) {
+        throw new ApiError(409, `Job ${job.id} cannot reopen to status ${nextStatus}`);
+      }
       if (nextStatus === "scheduled" && (!job.scheduledStart || !job.scheduledEnd)) {
         throw new ApiError(409, `Job ${job.id} cannot reopen to scheduled without an existing schedule`);
       }
@@ -779,7 +777,8 @@ export class JobsService {
     assertManager(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
-      if (job.status !== "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (!isAllowedJobAction("readyForInvoice", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} must be completed before it is ready for invoice`);
       }
       const row = await tx.job.update({
@@ -872,13 +871,14 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
       if (job.archivedAt) throw new ApiError(409, `Job ${job.id} is archived`);
-      if (job.status === "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (currentStatus === "completed") {
         throw new ApiError(409, `Completed job ${job.id} must be reopened before rescheduling`);
       }
-      if (job.status === "cancelled") {
+      if (currentStatus === "cancelled") {
         throw new ApiError(409, `Cancelled job ${job.id} must be reopened before rescheduling`);
       }
-      if (!RESCHEDULABLE_STATUSES.includes(job.status as JobStatus)) {
+      if (!isAllowedJobAction("schedule", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} cannot be rescheduled from status ${job.status}`);
       }
 
@@ -898,7 +898,7 @@ export class JobsService {
       });
       this.assertConflictsAllowed(conflicts, input.actor.role, input.overrideConflict, input.overrideReason);
 
-      const nextStatus: JobStatus = job.status === "unscheduled" || job.status === "dispatched" ? "scheduled" : (job.status as JobStatus);
+      const nextStatus = JOB_ACTION_RULES.schedule.target;
       const row = await tx.job.update({
         where: { id: job.id },
         data: {
@@ -991,10 +991,9 @@ export class JobsService {
   private async transition(
     jobId: string,
     input: JobTransitionInput,
-    nextStatus: JobStatus,
+    action: Exclude<JobAction, "schedule" | "reopen" | "readyForInvoice">,
     eventType: string,
     options: {
-      allowedFrom: JobStatus[];
       title: string;
       requireReason?: boolean;
       requireReasonFor?: JobStatus[];
@@ -1004,8 +1003,10 @@ export class JobsService {
   ): Promise<JobDTO> {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
-      const currentStatus = job.status as JobStatus;
-      if (!options.allowedFrom.includes(currentStatus)) {
+      const currentStatus = normalizeJobStatus(job.status);
+      const transition = JOB_ACTION_RULES[action];
+      const nextStatus = transition.target;
+      if (!isAllowedJobAction(action, currentStatus) || !isAllowedJobStatusTransition(currentStatus, nextStatus)) {
         throw new ApiError(409, `Job ${job.id} cannot transition from ${currentStatus} to ${nextStatus}`);
       }
       if (options.requireReason || options.requireReasonFor?.includes(currentStatus)) {

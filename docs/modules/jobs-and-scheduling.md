@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - app/modules/jobs
+  - app/modules/jobs/lifecycle.ts
   - app/backend/routes/jobs.routes.ts
   - app/prisma/schema.prisma
   - web/src/app/(app)/projects/[id]/page.tsx
@@ -65,7 +66,13 @@ Important job-specific rules:
 
 ## Lifecycle and statuses
 
-See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
+See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). The backend transition
+contract is centralized in `app/modules/jobs/lifecycle.ts`: scheduling and
+rescheduling remain limited to `unscheduled|scheduled|dispatched`, field work
+progresses `scheduled -> dispatched -> traveling -> on_site`, pause/resume is
+`on_site <-> paused`, completion is `on_site -> completed`, cancellation is
+limited to `scheduled|dispatched|paused`, and owner/admin reopen is
+`completed -> unscheduled|scheduled`. Dispatch attention remains derived.
 
 ## Emitted activity events
 
@@ -87,6 +94,7 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 ## Tests
 
 - `app/tests/jobs.service.test.ts`
+- `app/tests/jobs.lifecycle.test.ts`
 - `app/tests/jobs.controller.test.ts`
 - `app/tests/jobs.migration.test.ts`
 - `app/tests/dispatchRules.test.ts`

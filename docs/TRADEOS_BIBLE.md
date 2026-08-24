@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -44,7 +44,7 @@ S007 — Project lifecycle normalization is complete. PR #261 merged on 2026-08-
 
 S011 invoice lifecycle normalization is `DONE`: PR #283 merged 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, followed by separate completion evidence. The shipped bounded implementation owns backend payment reconciliation correctness: serialize concurrent reconciliation per Invoice, aggregate valid recorded payments with cent-safe semantics, transition eligible fully covered `sent` or existing raw `overdue` invoices to persisted `paid` inside the existing request-scoped transaction/event boundary, enforce `billing.write` at the service boundary, and exclude persisted terminal invoices from unpaid/partially-paid/overdue follow-up queues. Overdue and partially-paid remain derived; payment-entry UI expansion is deferred; persisted `partially_paid`, a new overdue writer, `viewed` tracking, billing/payment-processor or portal redesign, unrelated Invoice mutation repairs, and S012 remain out of scope.
 
-S012 Job lifecycle normalization is `READY` through a separate governance-only promotion. Its bounded implementation owns backend enforcement and documentation of the existing canonical Job transition graph across scheduling, dispatch, field work, completion, cancellation/reopen, and completed-only invoice readiness. It preserves current permissions, assignment/conflict validation, organization/RLS scoping, activity and required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived and Job persistence remains the existing eight statuses; no new status, alias, migration, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work is authorized. The implementation must begin only after this readiness promotion merges and `origin/main` is refreshed; see `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`.
+S012 Job lifecycle normalization is `IN_REVIEW` on `feature/s012-job-lifecycle-normalization` after readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`. Its bounded implementation centralizes backend enforcement and documentation of the existing canonical Job transition graph across scheduling, dispatch, field work, completion, cancellation/reopen, and completed-only invoice readiness. It preserves the live `on_site -> completed` rule, current permissions, assignment/conflict validation, organization/RLS scoping, activity and required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived and Job persistence remains the existing eight statuses; no new status, alias, migration, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work is authorized. Only a separate completion-evidence reconciliation may mark S012 `DONE`; see `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`.
 
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,

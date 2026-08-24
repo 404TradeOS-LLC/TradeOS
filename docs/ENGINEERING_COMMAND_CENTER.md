@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -69,14 +69,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 - S001-S010 are complete where the backlog records merged evidence; S006's lifecycle inventory merged in PR #95 as `5e59880aba24acbe943b03d1a34aa787cb7db801`, S007 Project lifecycle normalization merged in PR #261 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, S008 Estimate lifecycle normalization merged in PR #264 as `dee5f98f0b46e98782b887fca80a63e55800cd65`, S009 Proposal lifecycle normalization merged in PR #267, and S010 Contract lifecycle normalization merged in PR #276 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`.
 - S011 Invoice lifecycle normalization is `DONE`: PR #283 merged 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, and separate completion evidence records the shipped behavior. Its bounded slice owns backend payment reconciliation correctness and paid follow-up exclusion. Overdue and partially-paid remain derived, payment-entry UI expansion is deferred, and no schema/status/portal/billing redesign or unrelated Invoice mutation repair was included.
-- S012 Job lifecycle normalization is `READY` through a separate governance-only promotion. Its authorized implementation is the bounded backend transition-contract normalization described in `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`; preserve existing Job statuses, assignment/conflict and role boundaries, forced RLS, activity/required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived. No Job schema/status expansion, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work is authorized.
+- S012 Job lifecycle normalization is `IN_REVIEW` on `feature/s012-job-lifecycle-normalization` after readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`. The implementation centralizes the existing transition contract, preserves `on_site -> completed`, and keeps existing Job statuses, assignment/conflict and role boundaries, forced RLS, activity/required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived. No Job schema/status expansion, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work is authorized.
 - S010 is `DONE`. The implementation normalizes `toDTO()` to return canonical `sent` for stored `pending_signature`, confined to `app/modules/contracts/service.ts`. No Contract schema migration, default change, or `sign()`/`void()` guard change was made; persisted status remains `pending_signature` — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007-S011 are complete with merged evidence. S012 is now `READY`; after this readiness promotion merges, create its separate implementation branch from refreshed `origin/main` and revalidate runtime drift against `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S007-S011 are complete with merged evidence. S012 is now `IN_REVIEW` on its separate implementation branch after readiness PR #285 merged; review exact-head CI and automated findings before merge, then record separate completion evidence. S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -166,7 +166,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261, S008 is complete through PR #264, S009 is complete through PR #267, and S010 is complete through PR #276 (`fcbf1fff342053d854ad73667c54a5e44c1bbfb6`). S011 is `DONE`: PR #283 merged on 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, and its separate completion-evidence reconciliation merged as PR #284 (`0c693a8e29884d29305160498c46e2af38b7e14b`). S012 is now `READY` through its separate governance-only promotion; do not implement it until that promotion merges.
+S007 is complete through PR #261, S008 is complete through PR #264, S009 is complete through PR #267, and S010 is complete through PR #276 (`fcbf1fff342053d854ad73667c54a5e44c1bbfb6`). S011 is `DONE`: PR #283 merged on 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, and its separate completion-evidence reconciliation merged as PR #284 (`0c693a8e29884d29305160498c46e2af38b7e14b`). S012 readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`; its implementation is now `IN_REVIEW` on `feature/s012-job-lifecycle-normalization`. Verify the implementation PR before merging and do not mark S012 `DONE` until a separate completion-evidence reconciliation lands.
 
 ## Source-of-truth links
 
