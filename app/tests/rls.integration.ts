@@ -85,6 +85,8 @@ const proposalDeclinedStatusA = "10000000-0000-0000-0000-000000000119";
 const proposalRejectedStatusA = "10000000-0000-0000-0000-000000000120";
 const proposalInvalidStatusA = "10000000-0000-0000-0000-000000000121";
 const proposalConcurrencyA = "10000000-0000-0000-0000-000000000122";
+const generationA = "10000000-0000-0000-0000-000000000123";
+const generationB = "20000000-0000-0000-0000-000000000124";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -498,6 +500,34 @@ describe("live organization row-level security", () => {
         status: "recorded",
       },
     });
+    await adminClient.athenaGenerationRun.createMany({
+      data: [
+        {
+          id: generationA,
+          orgId: orgA,
+          actorUserId: adminUser,
+          requestId: "rls-generation-a",
+          traceId: "rls-trace-a",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+        {
+          id: generationB,
+          orgId: orgB,
+          actorUserId: otherUser,
+          requestId: "rls-generation-b",
+          traceId: "rls-trace-b",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -518,6 +548,53 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("enforces generation metadata tenant and actor boundaries", async () => {
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(visible?.orgId).toBe(orgA);
+
+    const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(hiddenCrossOrg).toBeNull();
+
+    const hiddenPeerActor = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(hiddenPeerActor).toBeNull();
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().athenaGenerationRun.create({
+          data: {
+            orgId: orgA,
+            actorUserId: viewerUser,
+            requestId: "rls-generation-viewer",
+            traceId: "rls-trace-viewer",
+            provider: "fake",
+            model: "fake",
+            status: "succeeded",
+            latencyMs: 1,
+            retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+  });
+
+  it("allows only an organization administrator to delete generation metadata", async () => {
+    const viewerDelete = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.deleteMany({ where: { id: generationA } })
+    );
+    expect(viewerDelete.count).toBe(0);
+
+    const adminDelete = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationRun.deleteMany({ where: { id: generationA } })
+    );
+    expect(adminDelete.count).toBe(1);
   });
 
   it("keeps Prisma migration history inaccessible to the runtime role", async () => {
