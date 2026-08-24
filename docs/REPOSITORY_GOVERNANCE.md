@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - AGENTS.md
   - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
+  - scripts/sprint-state-check.mjs
+  - scripts/live-sprint-evidence-check.mjs
   - scripts/__tests__/pr-preflight.test.mjs
   - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
@@ -20,6 +22,15 @@ related_code:
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
   - .github/workflows/preview-smoke-check.yml
+  - .github/workflows/sprint-governance.yml
+  - .github/workflows/migration-safety.yml
+  - .github/workflows/stale-pr-check.yml
+  - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/docs-reconciliation.yml
+  - .github/workflows/merge-readiness.yml
+  - .github/workflows/nightly-full-regression.yml
+  - .github/workflows/workflow-health-report.yml
+  - .github/workflows/rc-smoke.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -28,6 +39,7 @@ related_code:
   - docs/ENGINEERING_COMMAND_CENTER.md
   - docs/SPRINT_BACKLOG.md
   - docs/SESSION_HANDOFF.md
+  - docs/CI_ACCELERATION.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - docs/decisions/ADR-004-worktree-policy.md
 ---
@@ -71,6 +83,10 @@ Expected verification jobs are:
 - `Web lint and build` (for pull requests that change `web/**`, runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup).
 
 Pushes to `main` run every app, integration, and web lane in full. Pull-request path scoping is an execution optimization, not a branch-protection bypass: the required check names remain unchanged, each required job still reports, and the changed product lane receives its full verification surface.
+
+Within `Verify repository`, App typecheck, unit tests, Athena contracts/smoke, and build/dependency-audit work may run as independent child jobs; Web tests, lint, and build/dependency-audit work may do the same. The existing required summary-job names above remain the stable branch-protection contract, and each summary fails if any required child lane for its changed surface fails. Parallelization changes wall-clock execution, not verification scope.
+
+Supplemental workflows such as `Sprint governance`, `Migration safety`, `PR branch currency`, `Live documentation reconciliation`, `Merge readiness`, authenticated browser evidence, nightly full regression, and workflow-health reporting provide earlier or richer evidence. Their presence in the repository does not make them required branch-protection checks or grant merge authority; only live GitHub ruleset configuration can do that. `docs/CI_ACCELERATION.md` documents their operating intent and credentials/evidence boundaries.
 
 The dedicated `Dependency review` workflow is an additional pull-request security signal. It runs with read-only repository contents access and fails when a pull request introduces a dependency with a known high or critical vulnerability. It complements the package-manager audits in the normal verification workflow; it does not replace them. The workflow uses `actions/dependency-review-action@v5`, whose internal Node 24 runtime is isolated from the explicit Node versions used for TradeOS workload verification. Whether `Dependency review` is a required branch-protection check is live GitHub state and must be verified before being described as enforced.
 

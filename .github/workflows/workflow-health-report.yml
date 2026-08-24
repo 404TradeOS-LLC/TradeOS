@@ -1,0 +1,58 @@
+name: Workflow health report
+
+on:
+  schedule:
+    - cron: "7 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: workflow-health-report
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Recent workflow failures and duration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize recent workflow runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cutoff="$(date -u -d '24 hours ago' +%s)"
+          gh run list --repo "$GITHUB_REPOSITORY" --limit 100 \
+            --json databaseId,name,workflowName,status,conclusion,createdAt,updatedAt,url \
+            > "$RUNNER_TEMP/runs.json"
+
+          jq --argjson cutoff "$cutoff" '
+            map(. + {
+              createdEpoch: (.createdAt | fromdateiso8601),
+              durationSeconds: ((.updatedAt | fromdateiso8601) - (.createdAt | fromdateiso8601))
+            })
+            | map(select(.createdEpoch >= $cutoff))
+          ' "$RUNNER_TEMP/runs.json" > "$RUNNER_TEMP/recent.json"
+
+          total="$(jq 'length' "$RUNNER_TEMP/recent.json")"
+          failures="$(jq '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled")] | length' "$RUNNER_TEMP/recent.json")"
+
+          {
+            echo "## Workflow health — last 24 hours"
+            echo
+            echo "- Runs: $total"
+            echo "- Failed/timed-out/cancelled: $failures"
+            echo
+            echo "### Slowest completed runs"
+            jq -r 'sort_by(.durationSeconds) | reverse | .[:15][] | "- \(.workflowName // .name): \(.durationSeconds)s — \(.conclusion // .status) — \(.url)"' "$RUNNER_TEMP/recent.json"
+            echo
+            echo "### Failures"
+            jq -r '.[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled") | "- \(.workflowName // .name): \(.conclusion) — \(.url)"' "$RUNNER_TEMP/recent.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failures" -gt 0 ]; then
+            echo "::warning::$failures workflow runs failed, timed out, or were cancelled in the last 24 hours."
+          fi

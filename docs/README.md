@@ -1,12 +1,13 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - AGENTS.md
   - README.md
   - docs/REPOSITORY_GOVERNANCE.md
+  - docs/CI_ACCELERATION.md
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -19,6 +20,8 @@ related_code:
   - app/prisma/schema.prisma
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
+  - scripts/sprint-state-check.mjs
+  - scripts/live-sprint-evidence-check.mjs
   - scripts/__tests__/pr-preflight.test.mjs
   - scripts/__tests__/pr-body-check.test.mjs
   - .github/workflows/docs-consistency.yml
@@ -31,6 +34,15 @@ related_code:
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
   - .github/workflows/preview-smoke-check.yml
+  - .github/workflows/sprint-governance.yml
+  - .github/workflows/migration-safety.yml
+  - .github/workflows/stale-pr-check.yml
+  - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/docs-reconciliation.yml
+  - .github/workflows/merge-readiness.yml
+  - .github/workflows/nightly-full-regression.yml
+  - .github/workflows/workflow-health-report.yml
+  - .github/workflows/rc-smoke.yml
 ---
 
 # TradeOS Documentation
@@ -58,6 +70,8 @@ Use these files first:
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 - `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)
 - `docs/athena/SECURITY_MODEL.md` for Athena trust boundaries, approval rules, and forbidden patterns
+
+`docs/CI_ACCELERATION.md` is supporting operational documentation for the CI throughput/evidence workflows. It does not replace Repository Governance or the numbered-sprint protocol.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -128,6 +142,8 @@ no `app/**` or `packages/knowledge-engine/**` changes, and expensive web setup
 is skipped when the diff has no `web/**` changes. Pushes to `main` still run
 all lanes. This keeps branch-protection semantics stable while avoiding
 unrelated installs/tests/builds on single-lane PRs.
+
+The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
 
 `Docs consistency` also validates that the PR body contains every required default-template section and a real non-placeholder Summary before installing the docs checker dependencies. It then runs the focused PR-preflight tests, autonomy-reconciliation tests, and documentation ownership validation. This converts missing PR-template sections and missing owner docs into early, deterministic failures rather than late review churn.
 
@@ -222,6 +238,7 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
+- [CI_ACCELERATION.md](CI_ACCELERATION.md)
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
