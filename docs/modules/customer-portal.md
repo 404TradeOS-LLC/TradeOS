@@ -41,6 +41,15 @@ Portal routes currently depend on the same authenticated web session and backend
 
 Portal timelines render proposal delivery history, contract events, and invoice delivery history. See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
+## Invoice presentation
+
+The portal project view lists all organization-scoped invoices for the project,
+including total, recorded paid amount, derived balance due, due date, and
+status. The invoice detail view shows the same server-derived values and a
+sanitized history of recorded payments. Pending or failed payment rows are not
+counted or displayed, and the portal does not expose the internal payment-
+recording mutation or invent a pay-now action.
+
 ## Proposal review actions
 
 `/portal/proposals/[proposalId]` uses the existing server-side session-token

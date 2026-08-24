@@ -16,6 +16,7 @@ import {
   InvoiceQueueFilters,
   InvoiceQueueItemDTO,
 } from "./types";
+import { calculateInvoiceFinancials, toInvoicePaymentDTO } from "./presentation";
 
 export class InvoicesService {
   private readonly activityService = new ActivityTimelineService();
@@ -82,10 +83,13 @@ export class InvoicesService {
   async listByProject(projectId: string, orgId?: string): Promise<InvoiceDTO[]> {
     const rows = await prisma.invoice.findMany({
       where: { projectId, project: orgId ? { orgId } : undefined },
-      include: { deliveries: { orderBy: { occurredAt: "desc" } } },
+      include: {
+        payments: { where: { status: "recorded" }, orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }] },
+        deliveries: { orderBy: { occurredAt: "desc" } },
+      },
       orderBy: { invoiceNumber: "asc" },
     });
-    return rows.map(toDTO);
+    return rows.map(toInvoiceDTO);
   }
 
   /**
@@ -150,7 +154,7 @@ export class InvoicesService {
           p.name as project_name,
           c.name as customer_name,
           coalesce(pt.paid_amount, 0) as paid_amount,
-          (i.amount - coalesce(pt.paid_amount, 0)) as balance_due
+          greatest(i.amount - coalesce(pt.paid_amount, 0), 0) as balance_due
         from invoices i
         join projects p on p.id = i.project_id
         left join customers c on c.id = p.customer_id
@@ -191,11 +195,12 @@ export class InvoicesService {
       where: { id, project: orgId ? { orgId } : undefined },
       include: {
         lineItems: { orderBy: { sortOrder: "asc" } },
+        payments: { where: { status: "recorded" }, orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }] },
         deliveries: { orderBy: { occurredAt: "desc" } },
       },
     });
     if (!row) throw new ApiError(404, `Invoice ${id} not found`);
-    return { ...toDTO(row), lineItems: row.lineItems.map(toLineItemDTO) };
+    return { ...toInvoiceDTO(row), lineItems: row.lineItems.map(toLineItemDTO) };
   }
 
   async getPdf(id: string, orgId?: string): Promise<InvoiceDocument> {
@@ -421,7 +426,7 @@ function toInvoiceQueueItemDTO(row: InvoiceQueueRawRow): InvoiceQueueItemDTO {
   };
 }
 
-function toDTO(row: {
+export function toInvoiceDTO(row: {
   id: string;
   projectId: string;
   estimateId: string | null;
@@ -435,6 +440,13 @@ function toDTO(row: {
   sentAt: Date | null;
   paidAt: Date | null;
   createdAt: Date;
+  payments?: Array<{
+    id: string;
+    amount: unknown;
+    paymentDate: Date;
+    method: string;
+    createdAt: Date;
+  }>;
   deliveries?: Array<{
     id: string;
     eventType: string;
@@ -446,6 +458,9 @@ function toDTO(row: {
     createdAt: Date;
   }>;
 }): InvoiceDTO {
+  const payments = (row.payments ?? []).map(toInvoicePaymentDTO);
+  const financials = calculateInvoiceFinancials(row.amount, row.status, payments);
+
   return {
     id: row.id,
     projectId: row.projectId,
@@ -460,6 +475,8 @@ function toDTO(row: {
     sentAt: row.sentAt,
     paidAt: row.paidAt,
     createdAt: row.createdAt,
+    ...financials,
+    payments,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
   };
 }

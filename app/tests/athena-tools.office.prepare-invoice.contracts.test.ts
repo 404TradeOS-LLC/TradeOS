@@ -44,6 +44,9 @@ function invoiceRow(overrides: Partial<InvoiceRow> = {}): InvoiceRow {
     sentAt: null,
     paidAt: null,
     createdAt: new Date("2026-08-11T12:00:00.000Z"),
+    paidAmount: 0,
+    balanceDue: 1200,
+    payments: [],
     deliveries: [],
     ...overrides,
   };

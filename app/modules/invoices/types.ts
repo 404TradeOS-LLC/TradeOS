@@ -68,6 +68,14 @@ export interface InvoiceDeliveryDTO {
   createdAt: string;
 }
 
+export interface InvoicePaymentDTO {
+  id: string;
+  amount: number;
+  paymentDate: Date;
+  method: string;
+  createdAt: Date;
+}
+
 export interface InvoiceDTO {
   id: string;
   projectId: string;
@@ -82,6 +90,9 @@ export interface InvoiceDTO {
   sentAt: Date | null;
   paidAt: Date | null;
   createdAt: Date;
+  paidAmount: number;
+  balanceDue: number;
+  payments: InvoicePaymentDTO[];
   deliveries: InvoiceDeliveryDTO[];
 }
 

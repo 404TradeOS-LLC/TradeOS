@@ -13,41 +13,55 @@ related_code:
 
 ## Mission
 
-Backlog acceleration after S019 completion. S019 is DONE; this governance-only
-lane promotes S021 to READY while recording S020's founder/legal-signature
-blocker and S027's separate environment-evidence blocker. No numbered sprint
-implementation has started.
+S021 customer invoice/payment presentation is the sole numbered-sprint
+implementation lane. Implementation PR #299 is in review; do not begin another
+numbered sprint until S021 merges and its separate completion-evidence
+reconciliation is complete.
 
 ## Current branch
 
-`docs/s021-readiness`, based on refreshed `origin/main` at
-`4412704bbf81c9cf26da94d6b22cfe556fc231de`.
+`feature/s021-customer-invoice-payment-presentation`, based on
+`origin/main` `dd9aef806a285abf884bcf5f9046217d106ee360`.
+
+Remote implementation head:
+`c2bf03e69670d903af8e0e03673bb5cc3931f98b`.
+
+Implementation PR: #299
+https://github.com/404TradeOS-LLC/TradeOS/pull/299
 
 ## Current truth
 
-- S019 implementation PR #296 merged as
-  `9291ccd58624326b1bb142d47d50f97f85b413e3`; separate completion-evidence PR
-  #297 merged as `4412704bbf81c9cf26da94d6b22cfe556fc231de`.
-- S021 depends on S011 and S018, both DONE with merged implementation and
-  completion evidence.
-- S021 is presentation-centric: use existing Invoice.amount, recorded Payment
-  rows, derived paid/balance/partial/overdue semantics, authenticated portal
-  reads, billing permissions, request-scoped sessions, and forced RLS.
-- S020 is not promoted: the current internal `documents.manage` sign route
-  captures typed/drawn input, server time, request IP, and events, but does not
-  establish customer identity, identity verification, immutable signed-document
-  evidence, or a founder-approved legal meaning for “signed”.
-- S027 remains BLOCKED/PARTIAL pending authenticated rendered Costbook evidence.
-  The workflow requires `S027_E2E_STORAGE_STATE_B64`; secret configuration is
-  not inspectable through this session's GitHub read connector, and no workflow
-  dispatch capability is available here. No credential value is exposed.
-- No S020/S021/S022/S024 implementation PR, remote implementation branch, or
-  competing implementation worktree was found in the live overlap search.
+- S021 remains presentation-centric and preserves existing Invoice and Payment
+  financial truth, billing authorization, server-derived organization context,
+  request-scoped sessions, and forced PostgreSQL RLS.
+- The implementation adds server-derived paid amount and balance due,
+  recorded-only sanitized payment history, invoice-read billing authorization,
+  and customer portal invoice list/detail presentation.
+- Overdue and partially-paid states remain derived. No payment processor,
+  checkout, ledger, new payment-entry architecture, schema migration, customer
+  identity model, or RBAC/RLS redesign shipped.
+- Local focused/unit/web/docs checks passed. PostgreSQL integration could not run
+  locally because Docker is unavailable; CI must provide the live PostgreSQL/RLS
+  evidence.
+- S020 remains PLANNED and blocked on founder/legal-signature semantics.
+- S022 remains blocked by S016, S020, and S021. S024 remains founder-decision
+  blocked. S027 remains BLOCKED/PARTIAL pending authenticated rendered Costbook
+  browser evidence and its storage-state secret.
+
+## Active Sprint and Next Eligibility
+
+Active Sprint: S021
+Completion status: S019 is DONE with implementation PR #296 and completion
+evidence PR #297 merged. S021 is IN_REVIEW through PR #299; completion evidence
+is next after implementation merge.
+Protected boundary: Do not introduce new money semantics, payment processing,
+customer auth, RBAC/RLS policy changes, schema changes, or another numbered
+sprint implementation lane.
 
 ## Next Eligible Sprint
 
-Sprint ID: S021
-Eligibility: S021 is the lowest-numbered READY sprint with DONE dependencies; S020 remains PLANNED and blocked on a founder/legal-signature decision.
+Sprint ID: NONE
+Eligibility: S021 is `IN_REVIEW`; the canonical selector must be rerun only after its implementation merge and separate completion-evidence merge.
 Dependencies: S021 depends on S011 and S018, both DONE.
-Overlap check: no active S021 implementation lane exists; only this governance-only readiness lane is active. S027 remains independent and blocked.
-Startup prompt: Verify the S021 readiness PR merges, refresh origin/main, create `feature/s021-portal-invoice-presentation` in a separate worktree, and implement only the bounded presentation contract. Do not implement S020, S022, S024, or S027 from that branch.
+Overlap check: PR #299 is the sole numbered-sprint implementation lane; do not create S020/S022/S024/S027 implementation branches.
+Startup prompt: Verify exact-head CI and review state for PR #299, repair only deterministic scoped findings on the same branch, merge when governed checks are green, then create `docs/s021-completion-evidence` for the separate governance-only completion flow. Do not begin another numbered sprint from the implementation branch.

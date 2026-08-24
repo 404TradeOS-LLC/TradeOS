@@ -198,12 +198,13 @@ Readiness blocker: The existing flow is an authenticated internal `documents.man
 
 ### S021 — Portal invoice and payment presentation
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S011, S018
 Objective: Correct invoice totals, partial-payment state, overdue state, and customer presentation.
 Acceptance: portal and internal workspace agree on balances and status.
-Readiness evidence: S011 and S018 are DONE with merged implementation and completion evidence. Existing invoice amount, recorded Payment aggregation, derived balance/partial/overdue semantics, organization-scoped portal reads, `billing.read`, request-scoped sessions, and forced PostgreSQL RLS were revalidated on origin/main. No open/draft S021 PR, remote S021 implementation/readiness branch, or competing worktree exists. S020 is independently blocked on founder/legal-signature semantics and is not a dependency of S021.
+Readiness evidence: S011 and S018 are DONE with merged implementation and completion evidence. Existing invoice amount, recorded Payment aggregation, derived balance/partial/overdue semantics, organization-scoped portal reads, `billing.read`, request-scoped sessions, and forced PostgreSQL RLS were revalidated on origin/main. At the readiness-promotion snapshot, no open/draft S021 PR, remote S021 implementation/readiness branch, or competing worktree existed; implementation PR #299 is now the sole S021 lane and is recorded below as `IN_REVIEW`. S020 is independently blocked on founder/legal-signature semantics and is not a dependency of S021.
 Readiness contract: S021 is presentation-centric. It may prove and harden existing portal display of authoritative invoice amount, paid amount, balance due, due date, payment history, paid/unpaid/partially-paid/overdue/voided state, and bounded loading/error states. Preserve the current Invoice and Payment source of truth, recorded-payment filtering, billing permissions, server-derived organization context, request-scoped database session, forced RLS, route/API shapes, and audit behavior. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
+Implementation status: `IN_REVIEW` through implementation PR #299 at head `fb65384fad47f40ef2b3e47041ea2c2a9ce314aa`. The bounded implementation adds server-derived paid/balance projections, sanitized recorded-payment history, billing-read authorization on invoice reads, and customer portal invoice presentation. Separate completion-evidence reconciliation remains required after merge.
 Founder-decision boundary: Stop if implementation requires a new payment processor, checkout or public payment link, ledger or payment status, refund/reversal semantics, billing policy, customer identity/authorization model, schema migration, or RLS/RBAC redesign.
 Forbidden in S021: payment processing, payment-entry architecture, new money movement, payment-provider integration, persisted partial-payment or overdue writers, billing redesign, contract signing, document rendering redesign, S022/S024/S027 work, or any other numbered sprint.
 Required implementation validation: same-organization/cross-organization invoice and payment/RLS tests; authoritative balance and no-duplication tests for paid, unpaid, partial, overdue, and voided cases; portal loading/error/empty-state coverage; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and applicable web test/lint/build lanes.
@@ -448,15 +449,16 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S019 is `DONE` after implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`; separate completion evidence is merged.
+Active Sprint: S021
+Completion status: S019 is `DONE` after implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`; separate completion evidence is merged. S021 is `IN_REVIEW` through implementation PR #299; completion evidence is not yet merged.
 Dependencies: S021 depends on DONE sprints S011 and S018; S020 remains planned pending founder/legal-signature semantics.
 Protected boundary: Only one numbered-sprint implementation lane may open; if S021 is selected, do not implement S020 or any other numbered sprint concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S021
-Eligibility: S021 is the lowest-numbered READY sprint with DONE dependencies; S020 remains PLANNED and blocked on a founder/legal-signature decision.
+Sprint ID: NONE
+No numbered sprint is currently `READY`.
+Eligibility: S021 is `IN_REVIEW` through implementation PR #299; no other numbered sprint may enter an implementation lane until S021 completion evidence is merged and the canonical selector is rerun.
 Dependencies: S021 depends on S011 and S018, both DONE with merged implementation and completion evidence.
-Overlap check: no active S021 implementation/readiness lane existed before this governance-only promotion; no S020 implementation lane, S022 lane, or competing numbered implementation is authorized.
-Startup prompt: Verify this readiness PR merges, refresh origin/main, create `feature/s021-portal-invoice-presentation` from the refreshed main in a separate worktree, and implement only the bounded S021 contract. Do not implement S020, S022, S024, or S027 from that branch.
+Overlap check: S021 implementation PR #299 is the sole numbered-sprint implementation lane; no S020, S022, S024, or S027 implementation lane is authorized.
+Startup prompt: Verify S021 implementation PR #299 exact-head checks and reviews, merge only when objectively ready, then create the separate `docs/s021-completion-evidence` governance lane. Do not begin another numbered sprint from the implementation branch.
