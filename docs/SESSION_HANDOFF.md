@@ -15,14 +15,14 @@ related_code:
 
 S021 customer invoice/payment presentation is complete. Implementation PR #299
 merged as `514c94900263744ac8cf498c6b06da336e097512`; completion-evidence PR
-#300 is merged. This branch records the founder decisions that resolve S014,
-S020, and S024 boundaries. Do not begin another numbered sprint until the
-canonical selector identifies an eligible READY sprint.
+#300 is merged. Founder-decision PR #301 is also merged: S014 and S024 are
+DONE, and S020's founder/legal boundary is resolved. Do not begin another
+numbered sprint until the canonical selector identifies an eligible READY sprint.
 
 ## Current branch
 
-`docs/founder-decisions-s014-s020-s024`, based on
-`origin/main` `f371e23d4133296e9b616c3e847cb423b76cc1ca`.
+`docs/finalize-s014-s024-status`, based on
+`origin/main` `7faf4915bc07820a75c9eb73901ee4137b506e86`.
 
 Implementation PR: #299
 https://github.com/404TradeOS-LLC/TradeOS/pull/299
@@ -42,13 +42,13 @@ https://github.com/404TradeOS-LLC/TradeOS/pull/299
   PostgreSQL-backed integration/RLS, web unit/lint/build, docs, governance,
   branch-currency, dependency, and review gates.
 - ADR-006 accepts Brand Studio as the canonical organization-brand source and
-  keeps Settings as a compatibility/administration adapter; S014 is decision-
-  complete after this governance PR merges.
+  keeps Settings as a compatibility/administration adapter; S014 is DONE
+  through merged founder-decision PR #301.
 - ADR-007 accepts authenticated in-app contract acceptance/signature evidence
   for S020 and forbids formal e-signature claims or new identity architecture.
 - ADR-008 accepts metadata-first AI retention/privacy/cost controls for S024;
   raw prompt/output/tool content is not retained by default and metadata has a
-  90-day default retention period. S024 is decision-complete after this PR.
+  90-day default retention period. S024 is DONE through PR #301.
 - S015 is the lowest-numbered planned candidate and requires readiness
   promotion. S016 is unblocked by S014; S020 is planned with its decision
   blocker resolved; S022 remains blocked by S016/S020/S021; and S027 remains
@@ -59,5 +59,5 @@ https://github.com/404TradeOS-LLC/TradeOS/pull/299
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S015 is the lowest-numbered planned candidate and needs a governance-only readiness promotion. S016 is unblocked but planned, S020 is unblocked but planned, S022 remains dependency-blocked, and S027 remains environment-evidence blocked.
 Dependencies: none
-Overlap check: no numbered implementation lane is active; this is governance-only founder-decision evidence for S014, S020, and S024.
-Startup prompt: After this decision-evidence merge, rerun the canonical selector and promote only the lowest-numbered eligible sprint, expected to be S015. Do not implement S016, S020, or S024 concurrently.
+Overlap check: no numbered implementation lane is active; this is governance-only status reconciliation after founder-decision PR #301.
+Startup prompt: Rerun the canonical selector and promote only the lowest-numbered eligible sprint, expected to be S015. Do not implement S016, S020, or S024 concurrently.

@@ -132,12 +132,12 @@ Evidence: PR #30 merged 2026-08-04 as `2d80214a99b476e9a271c04fbe8a608eb80b3883`
 
 ### S014 — Settings and Brand Studio architecture decision
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S013
 Objective: Decide whether Settings branding and Brand Studio remain separate, converge, or share an adapter.
 Founder decision: Accepted — Brand Studio is the canonical organization-brand source; Settings remains a compatibility and administration surface through the Brand Studio-owned adapter.
 Acceptance: ADR-006 records ownership, migration-safe compatibility, fallback behavior, and explicit non-goals.
-Evidence: Founder-decision reconciliation is in review; S014 becomes `DONE` only after this governance PR merges.
+Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-006 is the accepted S014 decision record.
 
 ### S015 — Brand profile/settings adapter
 
@@ -145,7 +145,7 @@ Status: PLANNED
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
-Readiness note: S014 is DONE through ADR-006. S015 remains the next lower-numbered implementation candidate and requires its own governance-only readiness promotion before implementation.
+Readiness note: S014 is DONE through governance PR #301 and ADR-006. S015 remains the next lower-numbered implementation candidate and requires its own governance-only readiness promotion before implementation.
 
 ### S016 — Document-brand rendering integration
 
@@ -153,7 +153,7 @@ Status: PLANNED
 Dependencies: S014
 Objective: Wire approved branding into proposal, invoice, contract, and portal document rendering.
 Acceptance: generated documents use persisted organization branding consistently.
-Readiness note: S014 is DONE through ADR-006. S016 may consume the approved Brand Studio-owned branding boundary after the canonical selector and dependency/readiness checks authorize it.
+Readiness note: S014 is DONE through governance PR #301 and ADR-006. S016 may consume the approved Brand Studio-owned branding boundary after the canonical selector and dependency/readiness checks authorize it.
 
 ### S017 — Brand asset lifecycle and cleanup
 
@@ -232,12 +232,12 @@ Evidence: PR #29 merged as `10ec35e`.
 
 ### S024 — AI draft-run persistence decision
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S023
 Objective: Decide and specify whether to persist full AI draft runs, prompts, provenance, and costs.
 Founder decision: Accepted through ADR-008 — metadata-first retention, no raw prompt/output/tool content by default, 90-day operational metadata retention, tenant/actor isolation, data minimization, and reversible organization usage ceilings.
 Acceptance: ADR-008 records the approved retention/privacy/cost data contract and explicit non-goals.
-Evidence: Founder-decision reconciliation is in review; S024 becomes `DONE` only after this governance PR merges.
+Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 is the accepted S024 decision and data-contract record.
 
 ### S025 — AI generation persistence
 
@@ -456,7 +456,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `IN_REVIEW` through this founder-decision governance lane.
+Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `DONE` through founder-decision PR #301.
 Dependencies: S015 and S016 are unblocked by S014's accepted Brand Studio decision; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
 Protected boundary: No numbered-sprint implementation lane is active. The canonical selector must choose or promote exactly one next sprint; do not implement S015, S016, S020, or S024 concurrently.
 
@@ -466,5 +466,5 @@ Sprint ID: NONE
 No numbered sprint is currently `READY`.
 Eligibility: S015 is the lowest-numbered remaining candidate but is PLANNED and requires a governance-only readiness promotion. S016 is also PLANNED after S014's decision; S020 is PLANNED with its founder/legal boundary resolved; S022 remains dependency-blocked; and S027 remains environment-evidence blocked.
 Dependencies: none for `Sprint ID: NONE`; rerun the canonical selector after this decision-evidence merge.
-Overlap check: no numbered implementation lane is active; this is governance-only founder-decision evidence for S014, S020, and S024.
+Overlap check: no numbered implementation lane is active; this is governance-only status reconciliation after founder-decision PR #301.
 Startup prompt: After this decision-evidence merge, promote or select only the lowest-numbered eligible sprint, expected to be S015 after live verification; do not begin another numbered sprint until its readiness contract is explicit.
