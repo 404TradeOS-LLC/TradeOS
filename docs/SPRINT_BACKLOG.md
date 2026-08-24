@@ -441,11 +441,11 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: S019
-Eligibility: S019 is `READY` through this governance-only readiness promotion; implementation may begin only from a fresh `feature/s019-portal-proposal-acceptance` branch after this PR merges.
+Active Sprint: S019
+Implementation status: `IN_REVIEW` through PR #296 on `feature/s019-customer-proposal-approval`; the implementation lane is sole and current.
 Dependencies: S009 and S018 are `DONE` with merged evidence.
-Overlap check: no S019 implementation branch or PR exists; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup/resume flow: After this readiness PR merges, refresh `origin/main`, rerun the canonical selector, create one isolated S019 implementation lane, and revalidate the plan against live code. Do not begin S020 or any other numbered sprint.
+Completion state: S019 is not `DONE` until PR #296 merges and the separate `docs/s019-completion-evidence` reconciliation completes.
+Protected boundary: Do not begin S020 or any other numbered sprint from this implementation lane.
 
 ## Next Eligible Sprint
 
@@ -454,4 +454,3 @@ Eligibility: No numbered sprint is currently `READY`; S019 is `IN_REVIEW` in imp
 Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290 and completion-evidence PR #292 are merged.
 Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 Startup prompt: Finish exact-head validation and review repair on PR #296, then create `docs/s019-completion-evidence` only after merge; do not begin S020.
-
