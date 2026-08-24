@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -88,4 +88,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-16
+2026-08-24
