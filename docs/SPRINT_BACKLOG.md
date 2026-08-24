@@ -99,11 +99,12 @@ Evidence: PR #276 merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6
 
 ### S011 — Invoice lifecycle normalization
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S006
 Objective: Normalize backend payment reconciliation and invoice follow-up classification while keeping partial-payment and overdue presentation derived.
 Acceptance: eligible sent invoices and existing raw overdue invoices reconcile to persisted `paid` when recorded payments fully cover the total; concurrent final payments are serialized; payment/status/audit writes remain transactionally coherent; persisted `paid` and `voided` invoices are excluded from unpaid, partially-paid, and overdue follow-up queues; partial and new overdue states remain derived; no payment-entry UI expansion is included.
-Readiness contract: Founder-approved decisions record that overdue remains derived, partially-paid remains derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. The authorized implementation is limited to per-invoice concurrent-payment serialization, cent-safe aggregation of valid recorded payments, eligible `sent -> paid` reconciliation including existing raw overdue compatibility, existing request-scoped transaction/event behavior, and paid/terminal follow-up exclusions. The implementation PR is now in review; S011 is not complete until it merges and a separate completion-evidence reconciliation lands.
+Evidence: PR #283 merged 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`. This completion-evidence reconciliation records the shipped behavior and verification.
+Readiness contract: Founder-approved decisions record that overdue remains derived, partially-paid remains derived, payment-entry UI expansion is deferred, and S011 owns backend payment reconciliation correctness. The shipped implementation is limited to per-invoice concurrent-payment serialization, cent-safe aggregation of valid recorded payments, eligible `sent -> paid` reconciliation including existing raw overdue compatibility, existing request-scoped transaction/event behavior, service-boundary `billing.write` enforcement, and paid/terminal follow-up exclusions. No persisted partial/overdue/viewed state, payment UI, schema migration, or billing/portal redesign was introduced.
 Forbidden in S011: persisted `partially_paid`, a new persisted-overdue writer, `viewed` tracking, payment-entry UI, billing/payment-processor or portal redesign, unrelated Invoice idempotency/optimistic-concurrency repairs, schema migration unless separately re-approved as unavoidable, and S012 work.
 Required implementation validation: focused Invoice/payment and queue tests; concurrent PostgreSQL/RLS integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `cd app && npm test`; `cd app && npm run lint`; `cd app && npm run build`; and `cd app && npm run test:integration`.
 
@@ -424,7 +425,7 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S011 is `IN_REVIEW` through its implementation PR after the separate governance-only readiness promotion. S006, S007, S008, S009, and S010 are `DONE` with merged evidence.
-Dependencies: S011 depends on S006 (`DONE`); its implementation PR is the active work and the readiness contract/named validation are recorded above.
-Overlap check: the S011 implementation PR is the active in-review work; no duplicate implementation should be opened.
-Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. The implementation branch is `feature/s011-invoice-lifecycle-normalization`; revalidate runtime drift and implement only the approved bounded S011 slice.
+Eligibility: No numbered sprint is currently `READY`; S011 is `DONE` with merged implementation evidence. S006-S011 are `DONE` with merged evidence.
+Dependencies: S012 remains `PLANNED` and must receive a separate readiness promotion before implementation.
+Overlap check: no S011 implementation or completion-evidence work remains active; do not reopen or duplicate S011.
+Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. The next authorized action is a governance-only promotion of S012 — Job lifecycle normalization.
