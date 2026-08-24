@@ -210,14 +210,15 @@ Completed validation: exact-head Verify repository #1358 passed app unit/typeche
 
 ### S020 — Portal contract signing flow
 
-Status: READY
+Status: DONE
 Dependencies: S010, S018
 Objective: Harden contract viewing, signing, decline, and signature audit history.
 Acceptance: signatures and state transitions are durable and auditable.
 Readiness boundary: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, or immutable signed-document evidence. ADR-007 resolves the founder-approved meaning for S020 as bounded authenticated in-app contract acceptance/signature evidence; do not invent stronger legal-signature semantics or a new auth model.
 Founder decision: Accepted through ADR-007 — S020 remains authenticated in-app contract acceptance/signature evidence and must not claim certificate-backed, identity-verified, notarized, or standalone legal e-signature semantics. S020 readiness may now be prepared, subject to the canonical selector.
-Readiness evidence: S010 and S018 are DONE with merged implementation and completion evidence; ADR-007 resolves the founder/legal boundary; no open S020 implementation or readiness overlap exists. See [S020_PORTAL_CONTRACT_SIGNING_PLAN.md](architecture/S020_PORTAL_CONTRACT_SIGNING_PLAN.md).
+Readiness evidence: S010 and S018 are DONE with merged implementation and completion evidence; ADR-007 resolves the founder/legal boundary. Implementation PR #322 merged as `a3e9d376ebb1f350330b8924951c12ffc00911f3`; separate completion evidence is recorded in [S020_COMPLETION_EVIDENCE.md](architecture/S020_COMPLETION_EVIDENCE.md). See [S020_PORTAL_CONTRACT_SIGNING_PLAN.md](architecture/S020_PORTAL_CONTRACT_SIGNING_PLAN.md).
 Required implementation validation: focused contract service/controller tests; same-organization, cross-organization, unauthorized-role, malformed-ID, and unauthenticated denial evidence; PostgreSQL/RLS and concurrent transition coverage; typecheck/lint/build; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable App/Web suites.
+Evidence: Implementation PR #322 merged as `a3e9d376ebb1f350330b8924951c12ffc00911f3`; separate completion evidence is recorded in [S020_COMPLETION_EVIDENCE.md](architecture/S020_COMPLETION_EVIDENCE.md).
 
 ### S021 — Portal invoice and payment presentation
 
@@ -474,15 +475,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S020
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; completion evidence is recorded in [S017_COMPLETION_EVIDENCE.md](architecture/S017_COMPLETION_EVIDENCE.md). S020 is promoted `READY` through this governance-only contract; no implementation lane is active.
-Dependencies: S010 and S018 are DONE; ADR-007 resolves S020's legal-signature boundary. S022 remains ordered behind S020; S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. This branch is governance-only; create only one isolated S020 implementation lane after this promotion merges and live eligibility is reconfirmed.
+Active Sprint: NONE
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 merged. Separate completion evidence is recorded for both sprints. No numbered implementation lane is active.
+Dependencies: S010, S016, S018, S019, S020, and S021 are DONE. S022 now has its numbered dependencies satisfied; S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. No implementation lane is active; S022 may receive only a governance-only readiness promotion before implementation.
 
 ## Next Eligible Sprint
 
-Sprint ID: S020
-Eligibility: S020 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
-Dependencies: S010 and S018 are DONE; ADR-007 resolves the founder/legal boundary; no S020 overlap is present.
-Overlap check: No S020 implementation PR or branch exists; this branch changes governance/readiness documentation only and S022 remains read-only.
-Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s020-implementation lane; do not implement S022 concurrently.
+Sprint ID: NONE
+Eligibility: S020 is DONE after implementation PR #322 and this completion-evidence reconciliation. No numbered sprint is currently `READY`.
+Dependencies: S016, S019, S020, and S021 are DONE; S022's numbered dependencies are satisfied, but its readiness contract must be promoted separately.
+Overlap check: S020 implementation PR #322 is merged; this branch is governance-only; no numbered implementation lane is active.
+Startup prompt: After this completion-evidence PR merges, refresh origin/main, promote S022 only through a separate governance-only readiness PR, then create one isolated S022 implementation lane after live eligibility is reconfirmed.
