@@ -30,12 +30,15 @@ const adminUser = "10000000-0000-0000-0000-000000000011";
 const viewerUser = "10000000-0000-0000-0000-000000000012";
 const technicianUser = "10000000-0000-0000-0000-000000000014";
 const otherUser = "20000000-0000-0000-0000-000000000021";
+const noMembershipUser = "10000000-0000-0000-0000-000000000022";
+const disabledMembershipUser = "10000000-0000-0000-0000-000000000023";
 const estimatorUser = "10000000-0000-0000-0000-000000000013";
 const adminMembership = "10000000-0000-0000-0000-000000000031";
 const viewerMembership = "10000000-0000-0000-0000-000000000032";
 const technicianMembership = "10000000-0000-0000-0000-000000000034";
 const otherMembership = "20000000-0000-0000-0000-000000000041";
 const estimatorMembership = "10000000-0000-0000-0000-000000000033";
+const disabledMembership = "10000000-0000-0000-0000-000000000035";
 const divisionA = "10000000-0000-0000-0000-000000000051";
 const divisionB = "20000000-0000-0000-0000-000000000052";
 const materialA = "10000000-0000-0000-0000-000000000061";
@@ -95,6 +98,8 @@ describe("live organization row-level security", () => {
         { id: viewerUser, authSubject: "rls-viewer", email: "rls-viewer@example.com" },
         { id: technicianUser, authSubject: "rls-technician", email: "rls-tech@example.com", fullName: "Assigned Technician" },
         { id: otherUser, authSubject: "rls-other", email: "rls-other@example.com" },
+        { id: noMembershipUser, authSubject: "rls-no-membership", email: "rls-no-membership@example.com" },
+        { id: disabledMembershipUser, authSubject: "rls-disabled-membership", email: "rls-disabled-membership@example.com" },
         { id: estimatorUser, authSubject: "rls-estimator", email: "rls-estimator@example.com" },
       ],
     });
@@ -104,6 +109,7 @@ describe("live organization row-level security", () => {
         { id: viewerMembership, orgId: orgA, userId: viewerUser, role: "viewer", status: "active" },
         { id: technicianMembership, orgId: orgA, userId: technicianUser, role: "technician", status: "active" },
         { id: otherMembership, orgId: orgB, userId: otherUser, role: "owner", status: "active" },
+        { id: disabledMembership, orgId: orgA, userId: disabledMembershipUser, role: "viewer", status: "disabled" },
         { id: estimatorMembership, orgId: orgA, userId: estimatorUser, role: "estimator", status: "active" },
       ],
     });
@@ -918,6 +924,37 @@ describe("live organization row-level security", () => {
     await expect(resolveAuthContext({ sub: "rls-admin", orgId: orgB })).rejects.toThrow(
       "Authenticated user does not belong to the requested organization"
     );
+
+    await expect(resolveAuthContext({ sub: "rls-no-membership", orgId: orgA })).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
+    await expect(resolveAuthContext({ sub: "rls-disabled-membership", orgId: orgA })).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
+  });
+
+  it("proves direct portal resource isolation under forced RLS", async () => {
+    const sameOrgProject = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().project.findUnique({ where: { id: projectA } })
+    );
+    expect(sameOrgProject?.id).toBe(projectA);
+
+    const crossOrgProject = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().project.findUnique({ where: { id: projectA } })
+    );
+    expect(crossOrgProject).toBeNull();
+
+    const tables = await adminClient.$queryRaw<Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>>(
+      Prisma.sql`
+        select c.relname, c.relrowsecurity, c.relforcerowsecurity
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relname in ('projects', 'proposals', 'invoices', 'contracts')
+      `
+    );
+    expect(tables).toHaveLength(4);
+    expect(tables.every((table) => table.relrowsecurity && table.relforcerowsecurity)).toBe(true);
   });
 
   it("provisions a new organization and initial owner atomically", async () => {
@@ -1130,6 +1167,11 @@ describe("live organization row-level security", () => {
     );
     expect(proposal.status).toBe("draft");
 
+    const sameOrgProposal = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().proposal.findUnique({ where: { id: proposal.id } })
+    );
+    expect(sameOrgProposal?.id).toBe(proposal.id);
+
     // Cross-org: a session scoped to orgB must not see a proposal that
     // belongs to an orgA project, even by direct id lookup.
     const crossOrgLookup = await inSession(otherUser, orgB, "owner", async () =>
@@ -1179,6 +1221,10 @@ describe("live organization row-level security", () => {
       })
     );
     expect(invoice.amount).toBe(1000);
+    const sameOrgInvoice = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().invoice.findUnique({ where: { id: invoice.id } })
+    );
+    expect(sameOrgInvoice?.id).toBe(invoice.id);
     expect(invoice.deliveries.map((delivery) => delivery.eventType)).toEqual(["invoice.created"]);
 
     const sentInvoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().send(invoice.id, orgA, adminUser, "admin"));
@@ -1213,6 +1259,10 @@ describe("live organization row-level security", () => {
       new ContractsService().create({ orgId: orgA, actorUserId: adminUser, actorRole: "admin", proposalId: proposal.id })
     );
     expect(contract.status).toBe("sent");
+    const sameOrgContract = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().contract.findUnique({ where: { id: contract.id } })
+    );
+    expect(sameOrgContract?.id).toBe(contract.id);
     expect(contract.events.map((event) => event.eventType)).toEqual(["contract.created"]);
 
     const signed = await inSession(adminUser, orgA, "admin", async () =>

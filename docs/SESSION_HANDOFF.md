@@ -14,11 +14,11 @@ related_code:
 
 ## Mission
 
-This session records the S018 — Customer portal authentication hardening readiness promotion. S012 readiness PR #285, implementation PR #286, and separate completion evidence have merged; S018 is now the next eligible `READY` sprint.
+This session records the S018 — Customer portal authentication hardening implementation lane. S018 was selected from `READY` after the required live overlap reconciliation; implementation is bounded to the existing authenticated Supabase/bearer/RLS boundary and remains pending PR review and separate completion evidence.
 
 ## Current branch
 
-`docs/s018-readiness-promotion`, based on refreshed `origin/main` `33ba32446886e9b45e4471168f095a9a7993fc91` after S012 completion evidence merged. This branch is documentation-only.
+`feature/s018-customer-portal-auth-hardening`, based on refreshed `origin/main` `1ad6a52355c7e3cd383d862209a02cd0910d4686`. This is the sole S018 implementation write lane.
 
 ## Current truth
 
@@ -32,8 +32,10 @@ This session records the S018 — Customer portal authentication hardening readi
 - S012 (Job lifecycle normalization) is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged as `403d84cb6187b59cf468802977a19fbc847ce314`, and this separate evidence branch records the outcome. Runtime revalidation confirmed the canonical eight statuses and named service actions. The implementation centralizes the existing transition table, preserves `JobsService.complete()` as `on_site -> completed`, adds focused transition/service/PostgreSQL-RLS coverage, and corrects stale lifecycle/API/RBAC documentation. No schema, status-vocabulary, RBAC/RLS policy, automatic-invoice, or broader architecture change shipped. See `docs/architecture/S012_JOB_LIFECYCLE_PLAN.md`.
 - S027 remains separately `BLOCKED/PARTIAL` only on authenticated rendered Costbook browser evidence at 1440/1024/768/390 and does not alter numbered lifecycle-sprint selection. No S027 evidence was touched by this session.
 - S018 is `READY` with its bounded plan in `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`. The live portal uses the existing authenticated Supabase session and protected bearer-authenticated API/RLS boundary; no separate customer token or identity model exists. Implement only the scoped hardening/evidence contract, and stop for a founder decision if a new customer-auth policy is required.
+- Six independent read-only audits found no confirmed cross-organization IDOR, client-selected organization bypass, or RLS policy defect. They confirmed two local-token defects (non-expiring HS256 access tokens and permissive claim typing), inactive-user gaps in refresh/bootstrap, and a portal behavioral-evidence gap. The implementation adds finite local JWT expiry/strict claims, inactive-user denial, HTTP regressions, and live RLS assertions for same-org/cross-org resources and missing/inactive membership.
+- Immediate revocation of already-issued local or Supabase bearer tokens, a new customer identity/token model, RBAC/RLS redesign, schema migration, public links, or portal redesign are protected decisions and were not implemented.
 
-## Next Eligible Sprint
+## S018 Implementation Status
 
 Sprint ID: S018
 
@@ -43,4 +45,6 @@ Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with me
 
 Overlap check: no open or draft S018 implementation/readiness PR, remote S018 branch, or active S018 worktree was found. Existing portal/auth runtime work is shipped baseline evidence, not a competing implementation.
 
-Startup prompt: Create the isolated S018 implementation branch from refreshed `origin/main` and follow the bounded plan. Do not create a new customer-auth model or begin S019, S020, S021, S022, or S027. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
+Implementation branch: `feature/s018-customer-portal-auth-hardening`.
+
+Current state: implementation changes and owned documentation are present locally; the branch still needs dependency-backed focused tests, required repository checks, exact diff review, publication of one focused draft PR, and CI/review reconciliation. Do not create a new customer-auth model or begin S019, S020, S021, S022, or S027. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.

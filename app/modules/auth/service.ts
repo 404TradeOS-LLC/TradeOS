@@ -125,7 +125,7 @@ export class AuthService {
 
       const user = await transaction.appUser.findUnique({ where: { id: existing.userId } });
       const organization = await transaction.organization.findUnique({ where: { id: existing.orgId } });
-      if (!user || !organization) throw new ApiError(401, "Invalid refresh token");
+      if (!user || !user.isActive || !organization) throw new ApiError(401, "Invalid refresh token");
 
       const replacementToken = createOpaqueToken();
       const replacementHash = hashOpaqueToken(replacementToken);
@@ -382,6 +382,9 @@ export class AuthService {
     });
 
     if (existing) {
+      if (!existing.user.isActive) {
+        throw new ApiError(403, "Authenticated user is not provisioned in this organization");
+      }
       if (!existing.membership || !existing.organization) {
         throw new ApiError(409, "User exists but has no active organization membership");
       }
