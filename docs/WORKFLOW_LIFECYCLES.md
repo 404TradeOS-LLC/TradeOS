@@ -299,3 +299,7 @@ For the six required A12 canonical mutation events — `EstimateStarted`, `Estim
 - owner/admin schedule conflict override for jobs
 - owner/admin reopen completed jobs
 - compatibility normalization for legacy role and status values remains active until persisted values are cleaned up in a dedicated migration plan
+
+## Document rendering lifecycle evidence
+
+S022 rendering is presentation-only: proposal, contract, and invoice lifecycle values remain server-derived and are not persisted or reinterpreted by renderers. The current slice emits deterministic UTC dates, safe finite-number fallbacks, canonical HTML status labels, and explicit empty line-item states while preserving authorization and tenant boundaries.

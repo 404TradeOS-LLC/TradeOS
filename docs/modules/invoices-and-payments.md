@@ -120,3 +120,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 ## Last verified date
 
 2026-08-24
+
+## S022 rendering boundary
+
+Invoice PDF rendering continues to use server-derived invoice and payment semantics. The S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and an explicit empty line-item state without changing payment aggregation, balance presentation, invoice status, authorization, or RLS behavior.

@@ -79,6 +79,30 @@ describe("branded PDF renderers", () => {
     expect(text).toContain("Signed by: Customer");
     expect(text).toContain("Signed on:");
   });
+
+  it("uses deterministic UTC dates and explicit empty-data fallbacks", async () => {
+    const pdf = await renderInvoicePdf(
+      {
+        invoiceNumber: 8,
+        type: "full",
+        status: "draft",
+        amount: Number.NaN,
+        dueDate: new Date("invalid"),
+        createdAt: new Date("2026-08-24T23:30:00-05:00"),
+        percentComplete: null,
+        project: { name: "Empty Project", siteAddress: null, customer: null },
+        lineItems: [],
+      },
+      { brand }
+    );
+
+    const text = extractPdfText(pdf);
+    expect(text).toContain("Invoice Date: 2026-08-25");
+    expect(text).toContain("Due Date: Date unavailable");
+    expect(text).toContain("No line items recorded.");
+    expect(text).toContain("Amount unavailable");
+    expect(text).not.toContain("NaN");
+  });
 });
 
 function extractPdfText(pdf: Buffer): string {

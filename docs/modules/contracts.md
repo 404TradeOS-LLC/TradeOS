@@ -80,3 +80,7 @@ permissions, organization scoping, and forced RLS remain unchanged.
 ## Last verified date
 
 2026-08-24
+
+## S022 rendering boundary
+
+Contract PDF rendering preserves the existing authenticated organization-scoped route and signature semantics. The S022 slice uses deterministic UTC dates, renders an explicit fallback when terms are empty, and leaves contract lifecycle state and in-app signature policy unchanged.

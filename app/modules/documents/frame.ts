@@ -140,13 +140,15 @@ export function renderDocumentFrameHtml(brand: DocumentFrameBrand, context: Docu
                     .join("")}</tr>
                 </thead>
                 <tbody>
-                  ${context.table.rows
-                    .map(
-                      (row) => `<tr>${context.table!.columns
-                        .map((column) => `<td class="${column.align === "right" ? "is-number" : ""}">${escapeHtml(row[column.key] ?? "")}</td>`)
-                        .join("")}</tr>`
-                    )
-                    .join("")}
+                  ${context.table.rows.length
+                    ? context.table.rows
+                        .map(
+                          (row) => `<tr>${context.table!.columns
+                            .map((column) => `<td class="${column.align === "right" ? "is-number" : ""}">${escapeHtml(row[column.key] ?? "")}</td>`)
+                            .join("")}</tr>`
+                        )
+                        .join("")
+                    : `<tr><td colspan="${context.table.columns.length}">No line items recorded.</td></tr>`}
                 </tbody>
               </table>
             </section>`
