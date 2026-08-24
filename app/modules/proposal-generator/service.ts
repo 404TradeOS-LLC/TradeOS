@@ -133,6 +133,7 @@ function renderEstimateProposalPdf(
     writeTextSection(doc, "Pricing Notes", "This estimate is presented as a client-facing proposal and may be refined if field conditions or selections change.");
     writeTextSection(doc, "Terms & Conditions", opts.termsAndConditions);
     writeAcceptanceBlock(doc);
+    drawTrustFooter(doc, opts.brand);
     doc.end();
   });
 }
@@ -168,6 +169,7 @@ function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: Docume
     writePaymentScheduleSection(doc, proposal.paymentScheduleJson);
     writeTextSection(doc, "Terms & Conditions", proposal.termsAndConditions ?? DEFAULT_TERMS);
     writeAcceptanceBlock(doc);
+    drawTrustFooter(doc, brand);
     doc.end();
   });
 }
@@ -306,6 +308,20 @@ function writeAcceptanceBlock(doc: any) {
   drawSignatureLine(doc, left + 256, y + 78, 120, "Date");
   doc.fillColor(BRAND.ink);
   doc.y = y + 124;
+}
+
+function drawTrustFooter(doc: any, brand: DocumentFrameBrand) {
+  const trustSignals = [
+    brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",
+    brand.showInsuranceSummary !== false && brand.insuranceSummary ? brand.insuranceSummary : "",
+    brand.showInsuranceSummary !== false && brand.bondingSummary ? brand.bondingSummary : "",
+    brand.showPoweredByTradeOS ? "Powered by TradeOS" : "",
+  ].filter(Boolean);
+  if (trustSignals.length === 0) return;
+  ensureSpace(doc, 32);
+  doc.moveDown(0.5);
+  doc.font("Helvetica").fontSize(8).fillColor(BRAND.muted).text(trustSignals.join("   •   "), { align: "center" });
+  doc.fillColor(BRAND.ink);
 }
 
 function drawSignatureLine(doc: any, x: number, y: number, width: number, label: string) {

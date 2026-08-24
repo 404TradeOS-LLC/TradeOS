@@ -74,4 +74,4 @@ permissions, organization scoping, and forced RLS remain unchanged.
 
 ## Last verified date
 
-2026-08-22
+2026-08-24

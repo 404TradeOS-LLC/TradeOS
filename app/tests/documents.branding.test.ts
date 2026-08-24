@@ -120,6 +120,7 @@ describe("document branding resolution", () => {
 
     await expect(getDocumentBrand("org-1")).resolves.toMatchObject({
       colors: { primary: "#0f172a", secondary: "#f8fafc", accent: "#123456" },
+      logoUrl: null,
     });
   });
 

@@ -105,6 +105,9 @@ absent.
 
 ## Last verified date
 
-2026-08-22
+2026-08-24
 
-Exact-head GitHub verification for PR #267 passed on 2026-08-22; production rollout remains pending merge and the protected migration approval.
+Exact-head GitHub verification for the earlier lifecycle PR #267 passed on
+2026-08-22; the S016 document-brand rendering verification was completed on
+2026-08-24. Production rollout remains governed by merge and deployment
+evidence.
