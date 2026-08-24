@@ -53,6 +53,8 @@ https://github.com/404TradeOS-LLC/TradeOS/pull/299
   promotion. S016 is unblocked by S014; S020 is planned with its decision
   blocker resolved; S022 remains blocked by S016/S020/S021; and S027 remains
   BLOCKED/PARTIAL pending authenticated rendered Costbook browser evidence.
+- S020's readiness wording is reconciled to ADR-007; no unresolved founder
+  decision remains for its bounded in-app acceptance boundary.
 
 ## Next Eligible Sprint
 
