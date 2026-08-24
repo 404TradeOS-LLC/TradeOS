@@ -287,3 +287,10 @@ Current CI workflows:
 ## S022 document rendering reliability (complete)
 
 PR #325 and focused coverage PR #328 harden existing proposal, contract, invoice, and document-frame renderers with deterministic UTC dates, finite numeric/currency fallbacks, canonical HTML status labels, explicit empty line-item states, and long/special-character content coverage. Routes, organization scoping, forced RLS, lifecycle semantics, payment/signature boundaries, and Brand Studio ownership remain unchanged. Completion evidence is recorded in `docs/architecture/S022_COMPLETION_EVIDENCE.md`; production/browser verification was not run and remains external follow-up.
+
+## S025 AI generation persistence (in review)
+
+PR #331 adds metadata-first `AthenaGenerationRun` and append-only review
+provenance persistence behind forced RLS, using the existing Athena execution
+and retention seams. Raw AI content remains excluded by default; the migration
+and PostgreSQL/RLS verification remain review-gated before merge.

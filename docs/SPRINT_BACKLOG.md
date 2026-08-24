@@ -267,13 +267,14 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 
 
 ### S025 — AI generation persistence
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S024
 Objective: Persist approved AI generation metadata and review provenance.
 Acceptance: every generation is addressable, auditable, and tenant-scoped.
 Readiness evidence: S024 is `DONE` through ADR-008; the existing `AthenaExecution`, redacted `AthenaTelemetryRecordRow`, provider usage contract, bounded Athena retention job, and review-first AI Estimate Assist path are the verified baseline. No competing S025 branch, worktree, implementation PR, or readiness PR existed at the readiness snapshot.
 Readiness contract: S025 is bounded to metadata-first generation records and review provenance with organization/actor isolation, forced RLS, allowlisted redaction, 90-day default expiry, bounded idempotent cleanup, and existing application-service review-first writes. Raw prompt/output/tool content, new providers, autonomous writes, billing changes, public links, and new secrets architecture are forbidden. See [S025_AI_GENERATION_PERSISTENCE_PLAN.md](architecture/S025_AI_GENERATION_PERSISTENCE_PLAN.md).
 Founder-decision boundary: NO. ADR-008 resolves metadata-first retention/privacy/cost policy; stop only if implementation requires a materially different customer-facing retention policy, content persistence, provider, billing, identity, or irreversible deletion behavior.
+Implementation status: `IN_REVIEW` in PR #331; schema/migration behavior is review-only under repository governance. Production implementation and completion evidence remain pending merge.
 
 ### S026 — Estimate line-item ordering concurrency
 
@@ -484,17 +485,17 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is `DONE` after implementation PR #325, focused coverage PR #328, and completion evidence in this reconciliation.
+Active Sprint: S025
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is `DONE` after implementation PR #325, focused coverage PR #328, and completion evidence PR #329. S025 implementation PR #331 is open.
 Dependencies: S016, S019, S020, and S021 are DONE. S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. No numbered implementation lane is active until the next READY promotion; no S027 implementation may begin concurrently.
+Protected boundary: Exactly one numbered implementation lane may exist. S025 PR #331 is the sole active lane; no S027 implementation may begin concurrently.
 
 ## Next Eligible Sprint
 
-No numbered sprint is currently `READY`; S025 is the next planned candidate pending readiness analysis.
+No numbered sprint is currently `READY`; S025 is `IN_REVIEW` in the sole implementation lane.
 
 Sprint ID: NONE
-Eligibility: PLANNED candidate; S024 is DONE and S025 readiness analysis is required before promotion.
+Eligibility: S025 is `IN_REVIEW`; no later numbered sprint may receive implementation writes.
 Dependencies: S024 is DONE; no S025 implementation lane is active.
-Overlap check: S022 implementation and completion evidence are merged; no S025 implementation or readiness PR is open.
-Startup prompt: Reconcile live state, analyze S025 readiness and founder-decision boundaries, then promote only through the required governance-only readiness lane; do not implement S027 concurrently.
+Overlap check: S025 PR #331 is the sole numbered implementation lane; S027 remains blocked and receives no implementation writes.
+Startup prompt: Drive PR #331 through migration/RLS review and required CI; do not implement S027 concurrently.

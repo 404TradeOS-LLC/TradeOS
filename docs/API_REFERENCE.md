@@ -424,3 +424,11 @@ bounded response as a complete catalog.
 ## S022 document rendering reliability
 
 Existing proposal, contract, invoice, and document-frame endpoints retain their current routes, organization scoping, authentication, authorization, and `application/pdf` content types. S022 hardens presentation output with deterministic UTC dates, finite numeric fallbacks, canonical status labels, and explicit empty line-item states; it adds no routes or domain semantics.
+
+## S025 AI generation persistence
+
+S025 adds no public endpoint. The existing authenticated Athena draft path
+persists only organization/actor-scoped generation metadata through the
+application service; raw prompts, model output, tool arguments, and tool
+results remain excluded by default. Review provenance does not bypass existing
+review-first application-service writes.
