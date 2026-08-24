@@ -5,7 +5,7 @@ last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
-  - docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md
+  - docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -13,53 +13,41 @@ related_code:
 
 ## Mission
 
-S019 — Portal proposal acceptance flow is complete. This handoff records the
-merged implementation and the separate governance-only completion-evidence
-reconciliation; no subsequent numbered-sprint implementation has started.
+Backlog acceleration after S019 completion. S019 is DONE; this governance-only
+lane promotes S021 to READY while recording S020's founder/legal-signature
+blocker and S027's separate environment-evidence blocker. No numbered sprint
+implementation has started.
 
 ## Current branch
 
-`docs/s019-completion-evidence`, based on merged `origin/main` at
-`9291ccd58624326b1bb142d47d50f97f85b413e3`.
+`docs/s021-readiness`, based on refreshed `origin/main` at
+`4412704bbf81c9cf26da94d6b22cfe556fc231de`.
 
 ## Current truth
 
-- S018 implementation PR #290 merged on 2026-08-24 as
-  `6f2dd254c121855fa629d19da6bc0452cc9e6de7`.
-- Exact-head Verify repository #1332 passed App typecheck, unit tests,
-  PostgreSQL integration/migration rehearsal, build/dependency audit, Athena
-  checks, and the aggregate Web lane.
-- Exact-head Docs consistency #1229, Dependency review #296, PR branch
-  currency #15, Live documentation reconciliation #14, and Sprint governance
-  #14 passed for the implementation head; completion-evidence PR #292 also
-  passed its exact-head docs, governance, Verify, and dependency checks.
-- S018 shipped finite local HS256 token expiry and strict claim validation,
-  fail-closed malformed/expired/invalid bearer handling, inactive-user denial
-  in refresh/bootstrap, focused HTTP regressions, and PostgreSQL/RLS assertions
-  for membership and same-org/cross-org portal resource behavior.
-- No new customer identity, portal token persistence, public link, auth-provider
-  replacement, RBAC/RLS redesign, schema migration, billing behavior, route/API
-  shape change, or portal redesign shipped.
-- S019 implementation PR #296 merged on 2026-08-24 as
-  `9291ccd58624326b1bb142d47d50f97f85b413e3`. Exact-head Verify repository
-  #1358 passed app unit/typecheck/build/integration and PostgreSQL/RLS
-  migration rehearsal, web unit/lint/build, Athena contracts/smoke, and
-  dependency audits. Docs consistency #1267, Dependency review #317, PR branch
-  currency #36, Live documentation reconciliation #32, and Sprint governance
-  #31 also passed.
-- S019 shipped only the bounded existing authenticated proposal review, viewed,
-  acceptance, decline, and audit/event hardening: organization-scoped
-  compare-and-swap transitions, fail-closed competing mutations, preserved
-  event/project side effects, and bounded portal pending/error/decline
-  feedback. Existing permission, session, organization, RLS, actor/org, event,
-  and project-side-effect behavior remains unchanged.
-- S027 remains separately blocked on authenticated rendered Costbook browser
-  evidence. Do not begin S020 or any later sprint from this branch.
+- S019 implementation PR #296 merged as
+  `9291ccd58624326b1bb142d47d50f97f85b413e3`; separate completion-evidence PR
+  #297 merged as `4412704bbf81c9cf26da94d6b22cfe556fc231de`.
+- S021 depends on S011 and S018, both DONE with merged implementation and
+  completion evidence.
+- S021 is presentation-centric: use existing Invoice.amount, recorded Payment
+  rows, derived paid/balance/partial/overdue semantics, authenticated portal
+  reads, billing permissions, request-scoped sessions, and forced RLS.
+- S020 is not promoted: the current internal `documents.manage` sign route
+  captures typed/drawn input, server time, request IP, and events, but does not
+  establish customer identity, identity verification, immutable signed-document
+  evidence, or a founder-approved legal meaning for “signed”.
+- S027 remains BLOCKED/PARTIAL pending authenticated rendered Costbook evidence.
+  The workflow requires `S027_E2E_STORAGE_STATE_B64`; secret configuration is
+  not inspectable through this session's GitHub read connector, and no workflow
+  dispatch capability is available here. No credential value is exposed.
+- No S020/S021/S022/S024 implementation PR, remote implementation branch, or
+  competing implementation worktree was found in the live overlap search.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S019 is `DONE`, S020 remains `PLANNED`, and the next numbered sprint requires a fresh canonical readiness audit and promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`.
-Overlap check: no active S019 implementation lane remains; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup prompt: Verify this completion-evidence PR merges, refresh `origin/main`, rerun the canonical selector, and promote only the lowest eligible planned sprint; do not implement S020 from this governance-only lane.
+Sprint ID: S021
+Eligibility: S021 is the lowest-numbered READY sprint with DONE dependencies; S020 remains PLANNED and blocked on a founder/legal-signature decision.
+Dependencies: S021 depends on S011 and S018, both DONE.
+Overlap check: no active S021 implementation lane exists; only this governance-only readiness lane is active. S027 remains independent and blocked.
+Startup prompt: Verify the S021 readiness PR merges, refresh origin/main, create `feature/s021-portal-invoice-presentation` in a separate worktree, and implement only the bounded presentation contract. Do not implement S020, S022, S024, or S027 from that branch.
