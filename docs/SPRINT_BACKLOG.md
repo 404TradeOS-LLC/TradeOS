@@ -449,8 +449,9 @@ Startup/resume flow: After this readiness PR merges, refresh `origin/main`, reru
 
 ## Next Eligible Sprint
 
-Sprint ID: S019
-Eligibility: S019 is `READY` through this governance-only readiness promotion; no implementation code is included here.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S019 is `IN_REVIEW` in implementation PR #296 and requires separate completion evidence after merge.
 Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290 and completion-evidence PR #292 are merged.
-Overlap check: no S019 implementation branch or PR exists; this is the sole S019 governance-only readiness lane.
-Startup prompt: After this readiness PR merges, refresh `origin/main`, rerun the canonical selector, and create `feature/s019-portal-proposal-acceptance` only if the live selector still selects S019. Do not implement S020 or another numbered sprint.
+Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Startup prompt: Finish exact-head validation and review repair on PR #296, then create `docs/s019-completion-evidence` only after merge; do not begin S020.
+

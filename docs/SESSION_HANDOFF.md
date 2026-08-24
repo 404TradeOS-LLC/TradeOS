@@ -50,10 +50,11 @@ handoff records the active implementation lane and its bounded contract.
 - S027 remains separately blocked on authenticated rendered Costbook browser
   evidence. Do not begin S020 or any later sprint from this branch.
 
-## Active Sprint
+## Next Eligible Sprint
 
-Sprint ID: S019
-Eligibility: S019 was `READY` through governance-only PR #295 and is now `IN_REVIEW` through implementation PR #296; it is not `DONE` until merge and separate completion evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S019 is `IN_REVIEW` in implementation PR #296 and is not `DONE` until merge and separate completion evidence.
 Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290, completion-evidence PR #292, and post-merge handoff PR #294 are merged.
 Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; no competing implementation branch or worktree exists.
-Startup/resume prompt: Finish exact-head validation and review repair on PR #296. If it merges, create a fresh `docs/s019-completion-evidence` governance-only lane. Stop for a founder decision if a new customer identity, authorization policy, RBAC/RLS policy, schema, token model, or legal-signature policy is required. Do not begin S020.
+Startup prompt: Finish exact-head validation and review repair on PR #296. If it merges, create a fresh `docs/s019-completion-evidence` governance-only lane; stop for any new identity/auth/authorization/RBAC/RLS/schema/token/legal-signature requirement and do not begin S020.
+
