@@ -5,6 +5,7 @@ const mockPrisma = {
     create: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   proposalDelivery: { create: jest.fn() },
 };
@@ -74,7 +75,7 @@ describe("proposal-driven Project lifecycle behavior", () => {
     mockPrisma.proposal.findFirst
       .mockResolvedValueOnce(proposalRow("sent"))
       .mockResolvedValueOnce(proposalRow("declined"));
-    mockPrisma.proposal.update.mockResolvedValue(proposalRow("declined"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.proposalDelivery.create.mockResolvedValue({});
 
     const service = new ProposalsService();
@@ -99,3 +100,4 @@ describe("proposal-driven Project lifecycle behavior", () => {
     });
   });
 });
+

@@ -41,6 +41,16 @@ Portal routes currently depend on the same authenticated web session and backend
 
 Portal timelines render proposal delivery history, contract events, and invoice delivery history. See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
+## Proposal review actions
+
+`/portal/proposals/[proposalId]` uses the existing server-side session-token
+path for proposal reads and mutations. Sent proposals can be marked viewed,
+accepted, or declined; drafts and terminal proposals do not expose invalid
+actions. The action controls disable while a mutation is pending and surface
+server errors, while authorization remains enforced by the protected API rather
+than by button visibility. The existing `documents.manage` permission boundary
+is unchanged.
+
 ## Tests
 
 - backend authentication and tenant-boundary behavior is covered by `app/tests/auth.middleware.test.ts`, `app/tests/jwt.local.test.ts`, and the live PostgreSQL assertions in `app/tests/rls.integration.ts`

@@ -143,6 +143,12 @@ Current enforced transitions:
 - `sent|viewed -> declined`
 - `sent|viewed -> sent` through resend
 
+View, accept, and decline writes use organization-scoped conditional updates
+inside the existing request transaction. A competing transition can produce
+only one winning terminal result; the losing request fails closed without a
+second delivery/activity event or project-side-effect overwrite. Repeated
+terminal approval/decline remains an invalid transition.
+
 Compatibility note:
 
 - the `/reject` route and service method remain for API compatibility, but the mutation writes canonical `declined` and records `proposal.declined`; historical `rejected` values remain read-compatible

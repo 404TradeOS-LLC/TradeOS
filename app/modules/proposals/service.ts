@@ -209,7 +209,16 @@ export class ProposalsService {
     const currentStatus = normalizeProposalStatus(row.status);
     if (currentStatus === "draft") throw new ApiError(409, `Proposal ${id} has not been sent yet`);
     if (currentStatus === "viewed" || currentStatus === "accepted" || currentStatus === "declined") return toDTO(row);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "viewed", viewedAt: new Date() } });
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "sent", project: orgId ? { orgId } : undefined },
+      data: { status: "viewed", viewedAt: new Date() },
+    });
+    if (updated.count !== 1) {
+      const latest = await this.findOrThrow(id, orgId);
+      const latestStatus = normalizeProposalStatus(latest.status);
+      if (latestStatus === "viewed" || latestStatus === "accepted" || latestStatus === "declined") return toDTO(latest);
+      throw new ApiError(409, `Proposal ${id} changed before it could be marked viewed`);
+    }
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -219,14 +228,18 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "viewed" },
     });
-    return this.getById(updated.id, orgId);
+    return this.getById(row.id, orgId);
   }
 
   async accept(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     const currentStatus = normalizeProposalStatus(row.status);
     if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "accepted", respondedAt: new Date() } });
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
+      data: { status: "accepted", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be accepted`);
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -237,14 +250,18 @@ export class ProposalsService {
       metadata: { previousStatus: row.status, newStatus: "accepted" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "awarded" } });
-    return this.getById(updated.id, orgId);
+    return this.getById(row.id, orgId);
   }
 
   async reject(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
     const currentStatus = normalizeProposalStatus(row.status);
     if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "declined", respondedAt: new Date() } });
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
+      data: { status: "declined", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -255,7 +272,7 @@ export class ProposalsService {
       metadata: { previousStatus: currentStatus, newStatus: "declined" },
     });
     await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
-    return this.getById(updated.id, orgId);
+    return this.getById(row.id, orgId);
   }
 
   async resend(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
@@ -606,3 +623,4 @@ function toStringArray(value: unknown): string[] {
 function roundPercent(value: number) {
   return Math.round(value * 100) / 100;
 }
+
