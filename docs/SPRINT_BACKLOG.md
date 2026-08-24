@@ -466,8 +466,8 @@ Protected boundary: Exactly one numbered implementation lane may exist, and it i
 
 ## Next Eligible Sprint
 
-Sprint ID: S015
-Eligibility: S015 is the lowest-numbered READY sprint and its dependency S014 is DONE; no founder-decision, infrastructure, or competing-lane blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006.
-Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed when readiness was created; the only numbered implementation lane authorized next is S015.
-Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only the S015 adapter contract described in `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S015 is `IN_REVIEW` through implementation PR #310 and remains the sole numbered implementation lane.
+Dependencies: S015 depends on S014 DONE through PR #301 and ADR-006; S017 remains dependent on S015.
+Overlap check: PR #310 and `feature/s015-implementation` are the only S015 implementation lane; no other numbered sprint may receive implementation writes.
+Startup prompt: Reconcile PR #310 at exact head, repair only deterministic scoped findings on the same branch, merge when objectively green, then create separate S015 completion evidence before promoting the next candidate.
