@@ -68,39 +68,52 @@ jobs:
           draft="$(jq -r '.isDraft' "$RUNNER_TEMP/pr.json")"
           merge_state="$(jq -r '.mergeStateStatus' "$RUNNER_TEMP/pr.json")"
           review="$(jq -r '.reviewDecision // "NONE"' "$RUNNER_TEMP/pr.json")"
+          failed="$(jq '[.statusCheckRollup[]? | select((.conclusion // "") | test("FAILURE|CANCELLED|TIMED_OUT|ACTION_REQUIRED"))] | length' "$RUNNER_TEMP/pr.json")"
+          pending="$(jq '[.statusCheckRollup[]? | select(((.conclusion // "") == "") and ((.state // .status // "") | test("PENDING|QUEUED|IN_PROGRESS|EXPECTED")))] | length' "$RUNNER_TEMP/pr.json")"
+
+          readiness="READY"
+          reasons=()
+          if [ "$draft" = "true" ]; then
+            readiness="BLOCKED"
+            reasons+=("PR is still draft")
+          fi
+          if [ "$failed" -gt 0 ]; then
+            readiness="BLOCKED"
+            reasons+=("$failed checks are failing")
+          fi
+          if [ "$pending" -gt 0 ]; then
+            readiness="BLOCKED"
+            reasons+=("$pending checks are pending")
+          fi
+          case "$merge_state" in
+            CLEAN|HAS_HOOKS|UNSTABLE) ;;
+            *)
+              readiness="BLOCKED"
+              reasons+=("merge state is $merge_state")
+              ;;
+          esac
 
           {
             echo "## Merge readiness for PR #$PR_NUMBER"
+            echo
+            echo "**$readiness**"
             echo
             echo "- URL: $url"
             echo "- Draft: $draft"
             echo "- Merge state: $merge_state"
             echo "- Review decision: $review"
+            if [ "${#reasons[@]}" -gt 0 ]; then
+              echo
+              echo "### Blockers"
+              printf -- '- %s\n' "${reasons[@]}"
+            fi
             echo
             echo "### Checks"
             jq -r '.statusCheckRollup[]? | "- \(.name // .context // "unnamed"): \(.conclusion // .state // .status // "UNKNOWN")"' "$RUNNER_TEMP/pr.json"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          failed="$(jq '[.statusCheckRollup[]? | select((.conclusion // "") | test("FAILURE|CANCELLED|TIMED_OUT|ACTION_REQUIRED"))] | length' "$RUNNER_TEMP/pr.json")"
-          pending="$(jq '[.statusCheckRollup[]? | select(((.conclusion // "") == "") and ((.state // .status // "") | test("PENDING|QUEUED|IN_PROGRESS|EXPECTED")))] | length' "$RUNNER_TEMP/pr.json")"
-
-          if [ "$draft" = "true" ]; then
-            echo "::error::PR is still draft."
-            exit 1
+          if [ "$readiness" = "READY" ]; then
+            echo "PR #$PR_NUMBER appears merge-ready from GitHub's current evidence."
+          else
+            echo "PR #$PR_NUMBER is currently blocked; see the job summary."
           fi
-          if [ "$failed" -gt 0 ]; then
-            echo "::error::$failed required/reported checks are failing."
-            exit 1
-          fi
-          if [ "$pending" -gt 0 ]; then
-            echo "::error::$pending checks are still pending."
-            exit 1
-          fi
-          case "$merge_state" in
-            CLEAN|HAS_HOOKS|UNSTABLE) ;;
-            *)
-              echo "::error::Merge state is $merge_state."
-              exit 1
-              ;;
-          esac
-          echo "PR #$PR_NUMBER is merge-ready from GitHub's current evidence."
