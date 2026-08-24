@@ -236,10 +236,14 @@ Required implementation validation: same-organization/cross-organization invoice
 
 ### S022 — Document rendering reliability
 
-Status: PLANNED
+Status: READY
 Dependencies: S016, S019, S020, S021
 Objective: Verify proposal, contract, and invoice rendering across representative data and branding states.
 Acceptance: deterministic documents with no broken assets or unsupported state labels.
+Readiness evidence: S016, S019, S020, and S021 are DONE with merged implementation and completion evidence; the existing PDF generators, authenticated document routes, canonical Brand Studio resolver, lifecycle DTOs, and payment/signature semantics are the verified baseline. No open S022 implementation or readiness overlap exists.
+Readiness contract: S022 owns reliability verification and narrowly necessary repairs at the existing proposal, contract, invoice, portal-document, and PDF seams. It must preserve route/content-type contracts, organization context, forced RLS, lifecycle semantics, payment/signature boundaries, and Brand Studio ownership. See [S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md](architecture/S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md).
+Founder-decision boundary: Stop if implementation requires a new renderer, public links, frozen document persistence, identity/legal-signature architecture, payment/accounting change, schema migration, remote asset fetching, arbitrary font loading, or changed authorization policy.
+Required implementation validation: focused proposal/contract/invoice PDF and HTML tests; lifecycle, branding, missing-data, long-text, special-character, malformed-ID, same-org/cross-org, unauthorized, and unauthenticated coverage; App/Web typecheck/lint/build/integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; and `npm run docs:check -- --base origin/main`.
 
 ## Phase 5 — Estimating and AI Assist Hardening
 
@@ -475,15 +479,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 merged. Separate completion evidence is recorded for both sprints. No numbered implementation lane is active.
-Dependencies: S010, S016, S018, S019, S020, and S021 are DONE. S022 now has its numbered dependencies satisfied; S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. No implementation lane is active; S022 may receive only a governance-only readiness promotion before implementation.
+Active Sprint: S022
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is promoted `READY` through this governance-only contract; no implementation lane is active.
+Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present. S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. This branch is governance-only; create only one isolated S022 implementation lane after this promotion merges and live eligibility is reconfirmed.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: S020 is DONE after implementation PR #322 and this completion-evidence reconciliation. No numbered sprint is currently `READY`.
-Dependencies: S016, S019, S020, and S021 are DONE; S022's numbered dependencies are satisfied, but its readiness contract must be promoted separately.
-Overlap check: S020 implementation PR #322 is merged; this branch is governance-only; no numbered implementation lane is active.
-Startup prompt: After this completion-evidence PR merges, refresh origin/main, promote S022 only through a separate governance-only readiness PR, then create one isolated S022 implementation lane after live eligibility is reconfirmed.
+Sprint ID: S022
+Eligibility: S022 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
+Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present.
+Overlap check: No S022 implementation PR or branch exists; this branch changes governance/readiness documentation only and S027 remains separately blocked.
+Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s022-implementation lane; do not implement S027 concurrently.

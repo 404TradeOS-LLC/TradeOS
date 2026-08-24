@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Publish and merge this separate S020 completion-evidence PR, then refresh origin/main, verify S020 is DONE, and prepare only a governance-only S022 readiness promotion. Do not begin S022 implementation before that promotion merges.
+Publish and merge this separate S022 readiness PR, then refresh origin/main, re-run the canonical selector and live overlap checks, and create only the isolated S022 implementation lane if S022 remains READY. Do not begin S027 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: S020 is DONE after implementation PR #322 and this completion-evidence reconciliation. No numbered sprint is currently `READY`.
-Dependencies: S016, S019, S020, and S021 are DONE; S022's numbered dependencies are satisfied, but its readiness contract must be promoted separately.
-Overlap check: S020 implementation PR #322 is merged; this branch is governance-only; no numbered implementation lane is active.
-Startup prompt: After this completion-evidence PR merges, refresh origin/main, promote S022 only through a separate governance-only readiness PR, then create one isolated S022 implementation lane after live eligibility is reconfirmed.
+Sprint ID: S022
+Eligibility: S022 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
+Dependencies: S016, S019, S020, and S021 are DONE; no S022 overlap is present.
+Overlap check: No S022 implementation PR or branch exists; this branch changes governance/readiness documentation only and S027 remains separately blocked.
+Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s022-implementation lane; do not implement S027 concurrently.
