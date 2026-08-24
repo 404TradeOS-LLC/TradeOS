@@ -196,6 +196,10 @@ Current enforced transitions:
 Compatibility note:
 
 - PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface: `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
+- S020 hardening adds optimistic concurrency at both contract mutation
+  boundaries: sign requires the row to remain `pending_signature`, void requires
+  the previously read status to remain unchanged, and a competing mutation
+  fails closed without a duplicate event. Already-voided contracts are rejected.
 
 ## Jobs
 

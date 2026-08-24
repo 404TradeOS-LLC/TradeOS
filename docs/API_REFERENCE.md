@@ -374,6 +374,11 @@ the client is trusted for tenancy.
 
 PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
 
+S020's implementation lane now makes sign and void transitions status-conditional
+and organization-scoped so a stale concurrent request fails closed before its
+contract event is recorded. Repeated voiding is rejected; route shape and
+authenticated `documents.manage` authorization are unchanged.
+
 Document PDF responses for proposals, invoices, and contracts retain their
 existing authenticated routes, content type, and organization checks while
 resolving presentation from the canonical Brand Studio profile and

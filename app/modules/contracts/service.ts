@@ -61,8 +61,8 @@ export class ContractsService {
     assertContractWriteAccess(input.actorRole);
     const row = await this.findOrThrow(id, input.orgId);
     if (row.status !== "pending_signature") throw new ApiError(409, `Contract ${id} cannot be signed from status ${row.status}`);
-    const updated = await prisma.contract.update({
-      where: { id },
+    const updated = await prisma.contract.updateMany({
+      where: { id, status: "pending_signature", project: input.orgId ? { orgId: input.orgId } : undefined },
       data: {
         status: "signed",
         signerName: input.signerName,
@@ -72,6 +72,9 @@ export class ContractsService {
         signedAt: new Date(),
       },
     });
+    if (updated.count !== 1) {
+      throw new ApiError(409, `Contract ${id} changed before it could be signed`);
+    }
     await this.recordContractEvent({
       orgId: input.orgId,
       contractId: row.id,
@@ -85,16 +88,23 @@ export class ContractsService {
         signerName: input.signerName,
       },
     });
-    return this.getById(updated.id, input.orgId);
+    return this.getById(id, input.orgId);
   }
 
-  async void(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
+  async void(id: string, orgId: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
     assertContractWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
     if (row.status === "signed") throw new ApiError(409, `Contract ${id} has already been signed and cannot be voided`);
-    const updated = await prisma.contract.update({ where: { id }, data: { status: "voided" } });
+    if (row.status === "voided") throw new ApiError(409, `Contract ${id} has already been voided`);
+    const updated = await prisma.contract.updateMany({
+      where: { id, status: row.status, project: orgId ? { orgId } : undefined },
+      data: { status: "voided" },
+    });
+    if (updated.count !== 1) {
+      throw new ApiError(409, `Contract ${id} changed before it could be voided`);
+    }
     await this.recordContractEvent({
-      orgId: orgId ?? row.project.orgId ?? undefined,
+      orgId,
       contractId: row.id,
       projectId: row.projectId,
       actorUserId,
@@ -102,7 +112,7 @@ export class ContractsService {
       recipientEmail: row.signerEmail,
       metadata: { previousStatus: row.status, newStatus: "voided", proposalId: row.proposalId },
     });
-    return this.getById(updated.id, orgId);
+    return this.getById(id, orgId);
   }
 
   async getPdf(id: string, orgId?: string): Promise<ContractDocument> {
