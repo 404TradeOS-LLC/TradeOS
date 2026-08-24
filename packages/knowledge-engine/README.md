@@ -32,8 +32,9 @@ resolver at `pipelines/package_root.py`, and fixed the specific relative-path de
 producing divergent `costbook.json`/`sync_final.sql` copies under `pipelines/exports/**` —
 see §8 and [`PATHS.md`](PATHS.md) for exactly what changed. A later bounded 2026-08-14 technical-
 debt repair corrected the assembly-specific pipeline's shallow knowledge-root bug and added
-focused regression coverage. **None of these repairs moved, deleted, deduplicated, or regenerated
-anything under this package; the nested duplicate tree in §6 is still fully untouched.**
+focused regression coverage. The founder-approved 2026-08-24 cleanup removed the confirmed nested
+duplicate tree after fresh hash, reference, and loader/path-resolution evidence; the canonical
+top-level package tree was not moved or regenerated.
 
 If any other document under `packages/knowledge-engine/**` disagrees with this file about what is
 canonical, current, or safe to delete, **this file wins** until it is explicitly updated.
@@ -139,7 +140,8 @@ The canonical Loki sample backend lockfile at
 4.22.2, `ip-address` 10.4.0, and their patched transitive dependencies. The target registry
 packages are signed and provenance-attested. A clean Node 24 install, TypeScript build, package
 signature audit, live rate-limit smoke test, and package audit pass with zero vulnerabilities;
-the nested `knowledge-engine/knowledge-engine/` duplicate remains deliberately untouched.
+the former `knowledge-engine/knowledge-engine/` duplicate was removed in the founder-approved
+2026-08-24 cleanup; the canonical example remains under this package's top-level tree.
 
 ## 5. Generated outputs and offline tooling
 
@@ -155,33 +157,23 @@ debt repair, `scripts/assembly_pipeline_common.py` also resolves its assembly co
 canonical `knowledge/knowledge/` root, so the audit/start/next/validate/approve/reject assembly
 pipeline can see the existing committed assemblies again.
 
-## 6. Known-nested duplicate tree — `packages/knowledge-engine/knowledge-engine/`
+## 6. Removed nested duplicate tree
 
-`packages/knowledge-engine/knowledge-engine/**` is a **confirmed self-nested duplicate of this
-entire package**, verified two ways now: Phase A's `sha256sum` pass across all 11 top-level
-subdirectories, and a Phase B re-verification (2026-07-16) via `git ls-files` counts and a full
-recursive `diff -rq`. Current true counts: **4,746 tracked files in the duplicate vs. 4,748 in
-the canonical tree** (not the earlier "4,993" figure, which was stale). Only **7 files now
-differ** in content between the two trees — `docs/knowledge-engine-architecture.md`,
-`docs/migration-plan.md`, `runtime/README.md`, and `review/runtime/README.md` (edited by Phase A),
-plus `pipelines/master_pipeline.py`, `pipelines/export/sync_manager.py`, and
-`pipelines/export/publish_to_supabase.py` (edited by Phase B) — because each phase edited the
-canonical copies of those files only, and correctly did not propagate the edits into the
-duplicate. Every other file remains byte-for-byte identical. It landed in the same single
-squash-merge commit as the rest of this package, with a later filesystem mtime, and Phase B's
-exhaustive `git grep` sweep (see [`PATHS.md`](PATHS.md)) confirms it still has **zero functional
-references anywhere else in the repository** — only this README and `docs/DOC_OWNERSHIP.yml`
-mention it, both descriptively.
+`packages/knowledge-engine/knowledge-engine/**` was a confirmed self-nested duplicate of this
+entire package. On 2026-08-24, after founder approval, the cleanup branch completed the required
+proof pass before removing it:
 
-**`packages/knowledge-engine/knowledge-engine/**` is not the canonical path. It is not the source
-of truth for anything. It is not documented as authoritative anywhere. It is not currently safe
-to delete** — it has not been reviewed file-by-file, and the live TypeScript loader's dual-marker
-check happens to prevent it from being resolved at runtime, but ad hoc Python script invocations
-from inside that nested tree would not be protected the same way. Any future migration or
-deletion of this tree requires an explicit, evidence-backed proof pass (full re-hash, a fresh
-repo-wide reference grep, and a green `knowledge-runtime.loader.test.ts` run) followed by founder
-sign-off — see the audit's Phase B/C/D migration plan. This Phase A pass documents the duplicate;
-it does not touch it.
+- 4,746 tracked duplicate files were compared against the canonical package-relative file set;
+- no duplicate-only files existed;
+- all 12 content differences were stale copies of canonical docs, pipeline hardening, or newer
+  vendored dependency metadata, with no unique runtime or build behavior in the duplicate;
+- a fresh repository-wide reference search found no executable consumer of the nested path;
+- the Python path-resolution tests passed 13/13 and the Knowledge Runtime loader suite passed 5/5
+  against source identical to `origin/main`.
+
+The canonical top-level `packages/knowledge-engine/**` tree remains the sole source of truth. The
+loader's marker validation and the Python package-root resolver continue to reject non-canonical
+path candidates; no compatibility fallback or runtime behavior change was introduced.
 
 ## 7. Historical or superseded guidance
 
@@ -207,9 +199,8 @@ canonical summary:
 
 ## 8. Known risks (read before touching anything under this package)
 
-- **Exact nested duplicate tree**: `knowledge-engine/knowledge-engine/**`, 4,746 tracked files
-  (see §6 for the corrected count), zero functional references anywhere. Still fully untouched
-  by Phase B and the later assembly-path repair. Do not delete yet.
+- **Former exact nested duplicate tree**: removed on 2026-08-24 after founder approval and a
+  fresh full hash/reference/loader proof pass. The canonical top-level tree remains authoritative.
 - **Divergent `costbook.json` / `sync_final.sql` copies — path defect fixed in Phase B, historical
   files left untouched**: `exports/json/costbook.json` (canonical, 1,795 items / 289 assemblies)
   still differs from `pipelines/exports/json/costbook.json` (1,795 items / 39 assemblies, a stale

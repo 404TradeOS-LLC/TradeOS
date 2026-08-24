@@ -178,7 +178,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 ## Current risks and guarded areas
 
 - Production migration changes remain manual/approval-gated; pull-request CI may rehearse tracked migrations only against disposable databases.
-- `packages/knowledge-engine/knowledge-engine/**` is a confirmed self-nested duplicate tree, not a second canonical package. Do not normalize it through dependency maintenance or delete it without the approved cleanup decision/process.
+- The former `packages/knowledge-engine/knowledge-engine/**` self-nested duplicate was removed in the founder-approved cleanup on 2026-08-24 after full hash, reference, and loader/path-resolution evidence. The canonical top-level package remains authoritative.
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.

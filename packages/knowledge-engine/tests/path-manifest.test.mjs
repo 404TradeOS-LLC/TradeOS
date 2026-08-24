@@ -50,9 +50,9 @@ describe("path-manifest.json — runtime-critical assets", () => {
   }
 });
 
-describe("path-manifest.json — deprecated roots are real, and are not the canonical export root", () => {
+describe("path-manifest.json — remaining deprecated roots are real, and are not the canonical export root", () => {
   for (const deprecated of manifest.deprecatedRoots) {
-    test(`${deprecated.path} exists on disk (it should — it's deprecated, not deleted)`, () => {
+      test(`${deprecated.path} exists on disk (it is deprecated, not deleted)`, () => {
       assert.equal(existsSync(repoPath(deprecated.path)), true, `expected deprecated path ${deprecated.path} to still exist`);
     });
 
@@ -63,27 +63,16 @@ describe("path-manifest.json — deprecated roots are real, and are not the cano
   }
 });
 
-describe("path-manifest.json — the duplicate tree is documented as prohibited, not deleted", () => {
-  const duplicate = manifest.deprecatedRoots.find((entry) => entry.path.endsWith("knowledge-engine/knowledge-engine"));
-
-  test("the nested duplicate tree entry exists in the manifest", () => {
-    assert.ok(duplicate, "expected a deprecatedRoots entry for packages/knowledge-engine/knowledge-engine");
+describe("path-manifest.json — founder-approved duplicate cleanup", () => {
+  test("the former nested duplicate tree is absent from disk", () => {
+    assert.equal(existsSync(repoPath("packages/knowledge-engine/knowledge-engine")), false);
   });
 
-  test("the manifest's tracked file counts are plausible (both non-zero, same order of magnitude)", () => {
-    const { duplicate: dupCount, canonical: canonicalCount } = duplicate.trackedFileCount;
-    assert.ok(dupCount > 1000, "expected the duplicate tree file count to be in the thousands");
-    assert.ok(canonicalCount > 1000, "expected the canonical tree file count to be in the thousands");
-    assert.ok(
-      Math.abs(dupCount - canonicalCount) < 50,
-      "expected the duplicate and canonical file counts to be very close (they diverge only by Phase A's own new files)",
+  test("the former nested duplicate tree is absent from the deprecated-root manifest", () => {
+    assert.equal(
+      manifest.deprecatedRoots.some((entry) => entry.path.endsWith("knowledge-engine/knowledge-engine")),
+      false,
     );
-  });
-
-  test("removal is gated on explicit prerequisites, not marked safe", () => {
-    assert.ok(Array.isArray(duplicate.removalPrerequisites));
-    assert.ok(duplicate.removalPrerequisites.length > 0);
-    assert.ok(duplicate.removalPrerequisites.some((p) => /founder/i.test(p)), "expected founder sign-off to be a listed prerequisite");
   });
 });
 

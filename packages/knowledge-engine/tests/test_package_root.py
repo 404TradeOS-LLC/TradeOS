@@ -27,7 +27,6 @@ from package_root import (  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = REPO_ROOT / "packages" / "knowledge-engine"
-DUPLICATE_ROOT = PACKAGE_ROOT / "knowledge-engine"
 
 
 class ResolveRepoRootTests(unittest.TestCase):
@@ -46,15 +45,12 @@ class ResolveRepoRootTests(unittest.TestCase):
         results = {resolve_repo_root(start=start) for start in starts}
         self.assertEqual(results, {REPO_ROOT})
 
-    def test_starting_from_inside_the_duplicate_tree_still_resolves_to_the_real_root(self):
-        # The discriminating case: packages/knowledge-engine/knowledge-engine/ mirrors this
-        # package's own directory names one level down. A naive __file__-relative resolver
-        # would silently treat it as home. This must not.
-        self.assertTrue(DUPLICATE_ROOT.is_dir(), "expected the nested duplicate tree to exist")
-        dup_start = DUPLICATE_ROOT / "pipelines" / "export"
-        result = resolve_repo_root(start=dup_start)
+    def test_starting_from_inside_the_canonical_nested_data_tree_still_resolves_to_the_real_root(self):
+        # The canonical runtime data lives below packages/knowledge-engine/knowledge/knowledge/.
+        # Root resolution must remain independent of the caller's depth within that tree.
+        nested_start = PACKAGE_ROOT / "knowledge" / "knowledge" / "assemblies"
+        result = resolve_repo_root(start=nested_start)
         self.assertEqual(result, REPO_ROOT)
-        self.assertNotIn("knowledge-engine/knowledge-engine", str(result))
 
     def test_missing_markers_raises_a_clear_actionable_error(self):
         with tempfile.TemporaryDirectory() as outside_repo:
