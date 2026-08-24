@@ -98,6 +98,11 @@ jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 const recordPaidEventMock = jest.fn().mockResolvedValue(undefined);
 jest.mock("../modules/invoices/service", () => ({
   InvoicesService: jest.fn().mockImplementation(() => ({ recordPaidEvent: recordPaidEventMock })),
+  assertInvoiceWriteAccess: jest.fn((role?: string) => {
+    if (!["owner", "admin", "dispatcher", "estimator"].includes(role ?? "")) {
+      throw Object.assign(new Error("You do not have permission to manage invoices"), { statusCode: 403 });
+    }
+  }),
 }));
 
 import { CrmService } from "../modules/crm/service";
