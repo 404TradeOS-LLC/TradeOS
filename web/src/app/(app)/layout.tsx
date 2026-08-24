@@ -37,7 +37,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }
     }
   } catch (error) {
-    console.error("AppLayout: failed to resolve Athena nav visibility", error);
+    if (error instanceof Error && error.name === "AbortError") {
+      console.warn("AppLayout: Athena nav visibility lookup timed out; hiding Athena navigation");
+    } else {
+      console.error("AppLayout: failed to resolve Athena nav visibility", error);
+    }
     canViewAthena = false;
   }
 
