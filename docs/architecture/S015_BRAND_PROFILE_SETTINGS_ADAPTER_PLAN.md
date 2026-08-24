@@ -131,7 +131,7 @@ S015.
 | Surface | Reads | Writes | Organization enforcement | Required evidence |
 | --- | --- | --- | --- | --- |
 | `GET /api/v1/settings` | authenticated organization member | none | server-derived org context plus request-scoped forced RLS | same-org read and cross-org denial |
-| `PATCH /api/v1/settings` | owner/admin permission gate | existing `team.manage`/`company.manage`/`settings.manage` gate | server-derived org context; never trust a client org ID | admin write, non-admin denial, cross-org denial |
+| `PATCH /api/v1/settings` | owner/admin permission gate | existing `team.manage`/`company.manage`/`settings.manage` gate | server-derived org context; never trust a client org ID | permitted-role write, denial for roles lacking the existing gate, cross-org denial |
 | Brand Studio profile/document settings | authenticated member reads | existing org-admin gate | existing `brand_profiles`/`brand_document_settings` forced RLS | canonical row isolation and mutation denial |
 
 The adapter must pass the authenticated `orgId` from request context to every
@@ -155,7 +155,8 @@ Behavioral tests must cover:
   consumers require them;
 - Brand Studio defaults remain stable when fields are missing or malformed;
 - same-organization reads/writes succeed, cross-organization access is denied,
-  and non-admin writes fail closed under existing auth and forced-RLS tests;
+  every currently permitted role can write, and roles lacking the existing
+  permission fail closed under existing auth and forced-RLS tests;
 - repeated adapter saves do not create duplicate canonical profiles or
   document-settings rows.
 

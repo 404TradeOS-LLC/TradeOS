@@ -94,7 +94,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007-S012, S014, S018, S019, S021, and S024 are complete with merged evidence. No numbered-sprint implementation lane is active; S015 is the lowest-numbered planned candidate requiring readiness promotion; S016 is unblocked by S014; S020's decision blocker is resolved but implementation is not started; S022 remains dependency-blocked; and S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S007-S012, S014, S018, S019, S021, and S024 are complete with merged evidence. No numbered-sprint implementation lane is active; S015 is the sole READY candidate after its governance-only readiness promotion; S016 is unblocked by S014; S020's decision blocker is resolved but implementation is not started; S022 remains dependency-blocked; and S027 remains separately blocked on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
