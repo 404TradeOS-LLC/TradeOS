@@ -43,6 +43,8 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 ## Emitted activity events
 
 - contract creation, signing, and voiding write contract event history
+- signing and voiding use organization-scoped status-conditional writes so
+  competing stale mutations fail closed; repeated voiding is rejected
 
 ## Frontend surfaces
 
