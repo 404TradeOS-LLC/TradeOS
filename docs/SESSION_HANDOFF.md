@@ -59,6 +59,7 @@ customer auth, RBAC/RLS policy changes, schema changes, or another numbered
 sprint implementation lane.
 
 ## Next Eligible Sprint
+
 Sprint ID: NONE
 Eligibility: S021 is `IN_REVIEW`; the canonical selector must be rerun only after its implementation merge and separate completion-evidence merge.
 Dependencies: S021 depends on S011 and S018, both DONE.
