@@ -132,11 +132,12 @@ Evidence: PR #30 merged 2026-08-04 as `2d80214a99b476e9a271c04fbe8a608eb80b3883`
 
 ### S014 — Settings and Brand Studio architecture decision
 
-Status: BLOCKED
+Status: IN_REVIEW
 Dependencies: S013
 Objective: Decide whether Settings branding and Brand Studio remain separate, converge, or share an adapter.
-Founder decision required: YES — choose the product-facing source of truth.
-Acceptance: ADR records ownership, migration, and compatibility strategy.
+Founder decision: Accepted — Brand Studio is the canonical organization-brand source; Settings remains a compatibility and administration surface through the Brand Studio-owned adapter.
+Acceptance: ADR-006 records ownership, migration-safe compatibility, fallback behavior, and explicit non-goals.
+Evidence: Founder-decision reconciliation is in review; S014 becomes `DONE` only after this governance PR merges.
 
 ### S015 — Brand profile/settings adapter
 
@@ -144,6 +145,7 @@ Status: PLANNED
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
+Readiness note: S014 is DONE through ADR-006. S015 remains the next lower-numbered implementation candidate and requires its own governance-only readiness promotion before implementation.
 
 ### S016 — Document-brand rendering integration
 
@@ -151,6 +153,7 @@ Status: PLANNED
 Dependencies: S014
 Objective: Wire approved branding into proposal, invoice, contract, and portal document rendering.
 Acceptance: generated documents use persisted organization branding consistently.
+Readiness note: S014 is DONE through ADR-006. S016 may consume the approved Brand Studio-owned branding boundary after the canonical selector and dependency/readiness checks authorize it.
 
 ### S017 — Brand asset lifecycle and cleanup
 
@@ -195,6 +198,7 @@ Dependencies: S010, S018
 Objective: Harden contract viewing, signing, decline, and signature audit history.
 Acceptance: signatures and state transitions are durable and auditable.
 Readiness blocker: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, immutable signed-document evidence, or a founder-approved legal meaning for "signed". Prepare a founder decision before promoting S020; do not invent legal-signature semantics or a new auth model.
+Founder decision: Accepted through ADR-007 — S020 remains authenticated in-app contract acceptance/signature evidence and must not claim certificate-backed, identity-verified, notarized, or standalone legal e-signature semantics. S020 readiness may now be prepared, subject to the canonical selector.
 
 ### S021 — Portal invoice and payment presentation
 
@@ -202,7 +206,7 @@ Status: DONE
 Dependencies: S011, S018
 Objective: Correct invoice totals, partial-payment state, overdue state, and customer presentation.
 Acceptance: portal and internal workspace agree on balances and status.
-Readiness evidence: S011 and S018 are DONE with merged implementation and completion evidence. Existing invoice amount, recorded Payment aggregation, derived balance/partial/overdue semantics, organization-scoped portal reads, `billing.read`, request-scoped sessions, and forced PostgreSQL RLS were revalidated on origin/main. At the readiness-promotion snapshot, no open/draft S021 PR, remote S021 implementation/readiness branch, or competing worktree existed; implementation PR #299 was the sole S021 lane. S020 is independently blocked on founder/legal-signature semantics and is not a dependency of S021.
+Readiness evidence: S011 and S018 are DONE with merged implementation and completion evidence. Existing invoice amount, recorded Payment aggregation, derived balance/partial/overdue semantics, organization-scoped portal reads, `billing.read`, request-scoped sessions, and forced PostgreSQL RLS were revalidated on origin/main. At the readiness-promotion snapshot, no open/draft S021 PR, remote S021 implementation/readiness branch, or competing worktree existed; implementation PR #299 was the sole S021 lane. S020 remains independently planned and is not a dependency of S021; its founder/legal boundary is now resolved by ADR-007.
 Readiness contract: S021 is presentation-centric. It may prove and harden existing portal display of authoritative invoice amount, paid amount, balance due, due date, payment history, paid/unpaid/partially-paid/overdue/voided state, and bounded loading/error states. Preserve the current Invoice and Payment source of truth, recorded-payment filtering, billing permissions, server-derived organization context, request-scoped database session, forced RLS, route/API shapes, and audit behavior. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
 Implementation status: `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`. The bounded implementation adds server-derived paid/balance projections, sanitized recorded-payment history, billing-read authorization on invoice reads, and customer portal invoice presentation. Separate completion-evidence PR #300 records the exact shipped behavior and validation.
 Evidence: Implementation PR #299 merged; completion-evidence PR #300 records the shipped result and exact-head validation.
@@ -228,11 +232,12 @@ Evidence: PR #29 merged as `10ec35e`.
 
 ### S024 — AI draft-run persistence decision
 
-Status: PLANNED
+Status: IN_REVIEW
 Dependencies: S023
 Objective: Decide and specify whether to persist full AI draft runs, prompts, provenance, and costs.
-Founder decision required: YES — retention/privacy/cost policy.
-Acceptance: ADR and data contract approved.
+Founder decision: Accepted through ADR-008 — metadata-first retention, no raw prompt/output/tool content by default, 90-day operational metadata retention, tenant/actor isolation, data minimization, and reversible organization usage ceilings.
+Acceptance: ADR-008 records the approved retention/privacy/cost data contract and explicit non-goals.
+Evidence: Founder-decision reconciliation is in review; S024 becomes `DONE` only after this governance PR merges.
 
 ### S025 — AI generation persistence
 
@@ -451,15 +456,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S019 is also `DONE` with implementation PR #296 and separate completion evidence.
-Dependencies: S021 depended on DONE sprints S011 and S018; S020 remains planned pending founder/legal-signature semantics, S022 remains dependency-blocked, S024 remains founder-decision blocked, and S027 remains environment-evidence blocked.
-Protected boundary: No numbered-sprint implementation lane is active until the canonical selector identifies and authorizes one eligible READY sprint. Do not begin another numbered sprint from this evidence branch.
+Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `IN_REVIEW` through this founder-decision governance lane.
+Dependencies: S015 and S016 are unblocked by S014's accepted Brand Studio decision; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
+Protected boundary: No numbered-sprint implementation lane is active. The canonical selector must choose or promote exactly one next sprint; do not implement S015, S016, S020, or S024 concurrently.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
 No numbered sprint is currently `READY`.
-Eligibility: No numbered sprint is currently `READY`; S020 is PLANNED and founder/legal-signature blocked, S022 is blocked by S016/S020/S021, S024 is founder-decision blocked, and S027 is blocked on authenticated rendered Costbook browser evidence.
-Dependencies: none for `Sprint ID: NONE`; rerun the canonical selector after this completion-evidence merge.
-Overlap check: no numbered implementation lane is active; this is governance-only S021 completion evidence.
-Startup prompt: Re-run the canonical selector after this evidence merge; do not begin another numbered sprint until a single lowest-numbered READY sprint is promoted or selected.
+Eligibility: S015 is the lowest-numbered remaining candidate but is PLANNED and requires a governance-only readiness promotion. S016 is also PLANNED after S014's decision; S020 is PLANNED with its founder/legal boundary resolved; S022 remains dependency-blocked; and S027 remains environment-evidence blocked.
+Dependencies: none for `Sprint ID: NONE`; rerun the canonical selector after this decision-evidence merge.
+Overlap check: no numbered implementation lane is active; this is governance-only founder-decision evidence for S014, S020, and S024.
+Startup prompt: After this decision-evidence merge, promote or select only the lowest-numbered eligible sprint, expected to be S015 after live verification; do not begin another numbered sprint until its readiness contract is explicit.
