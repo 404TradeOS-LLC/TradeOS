@@ -236,7 +236,7 @@ Required implementation validation: same-organization/cross-organization invoice
 
 ### S022 — Document rendering reliability
 
-Status: READY
+Status: DONE
 Dependencies: S016, S019, S020, S021
 Objective: Verify proposal, contract, and invoice rendering across representative data and branding states.
 Acceptance: deterministic documents with no broken assets or unsupported state labels.
@@ -244,6 +244,8 @@ Readiness evidence: S016, S019, S020, and S021 are DONE with merged implementati
 Readiness contract: S022 owns reliability verification and narrowly necessary repairs at the existing proposal, contract, invoice, portal-document, and PDF seams. It must preserve route/content-type contracts, organization context, forced RLS, lifecycle semantics, payment/signature boundaries, and Brand Studio ownership. See [S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md](architecture/S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md).
 Founder-decision boundary: Stop if implementation requires a new renderer, public links, frozen document persistence, identity/legal-signature architecture, payment/accounting change, schema migration, remote asset fetching, arbitrary font loading, or changed authorization policy.
 Required implementation validation: focused proposal/contract/invoice PDF and HTML tests; lifecycle, branding, missing-data, long-text, special-character, malformed-ID, same-org/cross-org, unauthorized, and unauthenticated coverage; App/Web typecheck/lint/build/integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; and `npm run docs:check -- --base origin/main`.
+Implementation status: `DONE` after implementation PR #325 and focused coverage PR #328 merged. See [S022_COMPLETION_EVIDENCE.md](architecture/S022_COMPLETION_EVIDENCE.md).
+Evidence: Implementation PR #325 merged as `f1a725804934c8dacb1807f4917f2bec0d2c5a30`; focused long-content coverage PR #328 merged as `d2b1b426544e263b4402f2f1a86a85c8bd2df140`; exact-head Verify runs #1439 and #1445 passed. Production/browser verification remains explicitly external and not run.
 
 ## Phase 5 — Estimating and AI Assist Hardening
 
@@ -479,15 +481,17 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S022
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 readiness PR #324 and implementation PR #325 are merged; S022 completion evidence remains pending.
+Active Sprint: NONE
+Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is `DONE` after implementation PR #325, focused coverage PR #328, and completion evidence in this reconciliation.
 Dependencies: S016, S019, S020, and S021 are DONE. S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. S022 owns the sole active implementation/evidence lane; no S027 implementation may begin concurrently.
+Protected boundary: Exactly one numbered implementation lane may exist. No numbered implementation lane is active until the next READY promotion; no S027 implementation may begin concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S022
-Eligibility: S022 remains promoted; implementation PR #325 is merged and completion evidence is pending.
-Dependencies: S016, S019, S020, and S021 are DONE.
-Overlap check: Implementation PR #325 is merged; the S022 follow-up lane owns remaining verification/evidence work and S027 remains separately blocked.
-Startup prompt: Continue S022 verification and bounded repairs, then record completion evidence; do not implement S027 concurrently.
+No numbered sprint is currently `READY`; S025 is the next planned candidate pending readiness analysis.
+
+Sprint ID: NONE
+Eligibility: PLANNED candidate; S024 is DONE and S025 readiness analysis is required before promotion.
+Dependencies: S024 is DONE; no S025 implementation lane is active.
+Overlap check: S022 implementation and completion evidence are merged; no S025 implementation or readiness PR is open.
+Startup prompt: Reconcile live state, analyze S025 readiness and founder-decision boundaries, then promote only through the required governance-only readiness lane; do not implement S027 concurrently.

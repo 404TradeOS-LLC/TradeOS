@@ -13,7 +13,7 @@ related_code:
 
 ## Mission
 
-S022 is the current sole numbered implementation lane. Readiness PR #324 and implementation PR #325 are merged; completion evidence and the remaining S022 verification contract are still pending. Do not begin S027 implementation concurrently.
+S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and this completion-evidence reconciliation. No numbered implementation lane is active. S025 is the next planned candidate; do not begin S027 implementation concurrently.
 
 ## Current truth
 
@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Continue S022 verification and bounded repairs from the isolated implementation lane, then record completion evidence only after the acceptance, security, repository, and production/browser requirements are reconciled. Do not begin S027 implementation concurrently.
+Reconcile live state, analyze S025 readiness and founder-decision boundaries, and promote S025 only through its required governance-only readiness lane. Do not begin S027 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S022
-Eligibility: S022 remains the promoted sprint; implementation PR #325 is merged and completion evidence is pending.
-Dependencies: S016, S019, S020, and S021 are DONE.
-Overlap check: S022 implementation PR #325 is merged; this follow-up lane is the sole remaining S022 implementation/evidence lane and S027 remains separately blocked.
-Startup prompt: Continue S022 route, rendering, security, and browser verification; do not implement S027 concurrently.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S025 is the next planned candidate pending readiness analysis.
+Dependencies: S024 is DONE; no S025 implementation or readiness PR is open.
+Overlap check: S022 implementation, focused coverage, and completion evidence are merged; no numbered implementation lane is active.
+Startup prompt: Analyze and promote S025 through the required governance-only readiness lane before implementation; do not implement S027 concurrently.
