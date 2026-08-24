@@ -36,3 +36,9 @@ test("overpayment remains paid only when recorded payment exists and displays ze
   assert.equal(getInvoiceDisplayStatus(invoice, now), "voided");
   assert.equal(getInvoiceRunningBalance(invoice), 0);
 });
+
+test("raw void status remains voided instead of becoming overdue", () => {
+  const invoice = { status: "void", paidAmount: 0, balanceDue: 100, dueDate: "2026-08-01T00:00:00.000Z" };
+
+  assert.equal(getInvoiceDisplayStatus(invoice, now), "voided");
+});
