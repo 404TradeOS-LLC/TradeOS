@@ -194,13 +194,19 @@ Status: PLANNED
 Dependencies: S010, S018
 Objective: Harden contract viewing, signing, decline, and signature audit history.
 Acceptance: signatures and state transitions are durable and auditable.
+Readiness blocker: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, immutable signed-document evidence, or a founder-approved legal meaning for "signed". Prepare a founder decision before promoting S020; do not invent legal-signature semantics or a new auth model.
 
 ### S021 — Portal invoice and payment presentation
 
-Status: PLANNED
+Status: READY
 Dependencies: S011, S018
 Objective: Correct invoice totals, partial-payment state, overdue state, and customer presentation.
 Acceptance: portal and internal workspace agree on balances and status.
+Readiness evidence: S011 and S018 are DONE with merged implementation and completion evidence. Existing invoice amount, recorded Payment aggregation, derived balance/partial/overdue semantics, organization-scoped portal reads, `billing.read`, request-scoped sessions, and forced PostgreSQL RLS were revalidated on origin/main. No open/draft S021 PR, remote S021 implementation/readiness branch, or competing worktree exists. S020 is independently blocked on founder/legal-signature semantics and is not a dependency of S021.
+Readiness contract: S021 is presentation-centric. It may prove and harden existing portal display of authoritative invoice amount, paid amount, balance due, due date, payment history, paid/unpaid/partially-paid/overdue/voided state, and bounded loading/error states. Preserve the current Invoice and Payment source of truth, recorded-payment filtering, billing permissions, server-derived organization context, request-scoped database session, forced RLS, route/API shapes, and audit behavior. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
+Founder-decision boundary: Stop if implementation requires a new payment processor, checkout or public payment link, ledger or payment status, refund/reversal semantics, billing policy, customer identity/authorization model, schema migration, or RLS/RBAC redesign.
+Forbidden in S021: payment processing, payment-entry architecture, new money movement, payment-provider integration, persisted partial-payment or overdue writers, billing redesign, contract signing, document rendering redesign, S022/S024/S027 work, or any other numbered sprint.
+Required implementation validation: same-organization/cross-organization invoice and payment/RLS tests; authoritative balance and no-duplication tests for paid, unpaid, partial, overdue, and voided cases; portal loading/error/empty-state coverage; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and applicable web test/lint/build lanes.
 
 ### S022 — Document rendering reliability
 
@@ -443,14 +449,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S019 is `DONE` after implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`; this governance-only completion-evidence lane records the shipped result.
-Dependencies: S009 and S018 are `DONE` with merged evidence; S019 implementation and exact-head validation are complete.
-Protected boundary: Do not begin S020 or any other numbered sprint until the canonical selector and readiness promotion flow authorizes it.
+Completion status: S019 is `DONE` after implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`; separate completion evidence is merged.
+Dependencies: S021 depends on DONE sprints S011 and S018; S020 remains planned pending founder/legal-signature semantics.
+Protected boundary: Only one numbered-sprint implementation lane may open; if S021 is selected, do not implement S020 or any other numbered sprint concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S019 is `DONE`, S020 remains `PLANNED`, and the next numbered sprint requires a fresh canonical readiness audit and promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3` and this separate completion-evidence reconciliation is the remaining governance step.
-Overlap check: no active S019 implementation lane remains; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup prompt: Verify this completion-evidence PR merges, refresh `origin/main`, rerun the canonical selector, and promote only the lowest eligible planned sprint; do not implement S020 from this governance-only lane.
+Sprint ID: S021
+Eligibility: S021 is the lowest-numbered READY sprint with DONE dependencies; S020 remains PLANNED and blocked on a founder/legal-signature decision.
+Dependencies: S021 depends on S011 and S018, both DONE with merged implementation and completion evidence.
+Overlap check: no active S021 implementation/readiness lane existed before this governance-only promotion; no S020 implementation lane, S022 lane, or competing numbered implementation is authorized.
+Startup prompt: Verify this readiness PR merges, refresh origin/main, create `feature/s021-portal-invoice-presentation` from the refreshed main in a separate worktree, and implement only the bounded S021 contract. Do not implement S020, S022, S024, or S027 from that branch.
