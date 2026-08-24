@@ -57,8 +57,8 @@ Publish and merge this separate S017 readiness PR, then refresh origin/main, re-
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S017 is the next dependency-safe planned candidate and requires separate readiness promotion before implementation.
-Dependencies: S015 and S016 are DONE; S017 remains planned pending its readiness contract.
-Overlap check: S016 implementation PR #314 is merged; this branch is governance-only and no numbered sprint receives implementation writes.
-Startup prompt: Refresh `origin/main`, run the canonical selector and live overlap checks, prepare or promote S017 only when objectively READY, then create one isolated S017 implementation lane; keep S020 and S022 read-only.
+Sprint ID: S017
+Eligibility: S017 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
+Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker identified by the readiness audit.
+Overlap check: No S017 implementation PR or branch exists; this branch changes governance/readiness documentation only and S020/S022 remain read-only.
+Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
