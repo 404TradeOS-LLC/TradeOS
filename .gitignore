@@ -13,3 +13,7 @@ app/vendor/
 .claude/scheduled_tasks.lock
 .idea/
 .codex/
+
+# Local Playwright authentication state
+storageState.json
+playwright/.auth/
