@@ -13,16 +13,15 @@ related_code:
 
 ## Mission
 
-S018 — Customer portal authentication hardening is complete. Implementation PR
-#290 and the required separate completion-evidence PR #292 are merged. This
-handoff records the landed truth and the next authorized governance action; no
+S018 — Customer portal authentication hardening is complete. This governance-only
+branch promotes S019 — Portal proposal acceptance flow to `READY`; no
 product/runtime code is being implemented.
 
 ## Current branch
 
-`docs/s018-post-merge-handoff`, based on refreshed `origin/main` at
-`8def755e2109222d9a5fd357d8fbc93585bb8cbe`, the verified completion-evidence
-merge SHA for S018.
+`docs/s019-readiness-promotion`, based on refreshed `origin/main` at
+`15a9abfc1ad71643b6aa6eecec8e63c64c249ff2`, which includes S018 implementation
+PR #290, completion-evidence PR #292, and post-merge handoff PR #294.
 
 ## Current truth
 
@@ -42,13 +41,18 @@ merge SHA for S018.
 - No new customer identity, portal token persistence, public link, auth-provider
   replacement, RBAC/RLS redesign, schema migration, billing behavior, route/API
   shape change, or portal redesign shipped.
+- S019 readiness is bounded to the existing authenticated proposal review,
+  viewed, acceptance, decline, and audit/event boundary. The readiness plan
+  requires current permission, session, organization, RLS, actor/org, event,
+  and project-side-effect behavior to remain unchanged unless a separate
+  founder decision authorizes otherwise.
 - S027 remains separately blocked on authenticated rendered Costbook browser
-  evidence. Do not begin S019 implementation from this branch.
+  evidence. Do not begin S020 or any later sprint from this branch.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S019 is the lowest planned dependency-complete candidate and requires a governance-only readiness promotion.
-Dependencies: S019 depends on DONE sprints S009 and S018; the completion evidence is merged.
-Overlap check: no S019 implementation lane exists; do not start one from this branch.
-Startup prompt: Refresh `origin/main`, rerun the canonical selector, and prepare one bounded S019 readiness-promotion PR without implementing S019.
+Sprint ID: S019
+Eligibility: S019 is `READY` through this governance-only readiness promotion; implementation may begin only after this PR merges and the live selector still selects S019.
+Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290, completion-evidence PR #292, and post-merge handoff PR #294 are merged.
+Overlap check: no S019 implementation branch or PR exists; this is the sole S019 readiness lane.
+Startup prompt: After this PR merges, refresh `origin/main`, rerun the canonical selector, and create `feature/s019-portal-proposal-acceptance` for the bounded implementation contract. Stop for a founder decision if a new customer identity, authorization policy, RBAC/RLS policy, schema, token model, or legal-signature policy is required.
