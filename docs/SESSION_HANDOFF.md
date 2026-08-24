@@ -45,7 +45,10 @@ PR #290, completion-evidence PR #292, and post-merge handoff PR #294.
   viewed, acceptance, decline, and audit/event boundary. The readiness plan
   requires current permission, session, organization, RLS, actor/org, event,
   and project-side-effect behavior to remain unchanged unless a separate
-  founder decision authorizes otherwise.
+  founder decision authorizes otherwise. It also requires reproducing and
+  repairing the known competing-transition race with atomic conditional
+  transitions or equivalent serialization inside the existing transaction
+  architecture.
 - S027 remains separately blocked on authenticated rendered Costbook browser
   evidence. Do not begin S020 or any later sprint from this branch.
 
