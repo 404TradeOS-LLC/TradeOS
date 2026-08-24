@@ -103,6 +103,29 @@ describe("branded PDF renderers", () => {
     expect(text).toContain("Amount unavailable");
     expect(text).not.toContain("NaN");
   });
+
+  it("keeps long and special-character contract content renderable", async () => {
+    const terms = `Terms & conditions <approved> ${"Long paragraph with special characters — homeowner’s scope. ".repeat(180)}END_MARKER`;
+    const pdf = await renderContractPdf(
+      {
+        status: "pending_signature",
+        termsText: terms,
+        signerName: null,
+        signedAt: null,
+        createdAt: new Date("2026-08-24T00:00:00.000Z"),
+        project: { name: "O'Brien & Sons <Main St>", siteAddress: null, customer: null },
+      },
+      { brand }
+    );
+
+    expect(pdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(1000);
+    const text = extractPdfText(pdf);
+    expect(text).toContain("O'Brien & Sons");
+    expect(text).toContain("Terms & conditions");
+    expect(text).toContain("END_MARKER");
+    expect(text).toContain("Signature:");
+  });
 });
 
 function extractPdfText(pdf: Buffer): string {
