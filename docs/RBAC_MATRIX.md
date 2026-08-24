@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -86,6 +86,7 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - technicians may move assigned jobs through field states that the service permits
 - owners and admins can override schedule conflicts
 - only owners and admins can reopen completed jobs
+- the centralized Job lifecycle contract in `app/modules/jobs/lifecycle.ts` preserves the existing action graph: completion is `on_site -> completed`, cancellation is limited to `scheduled|dispatched|paused`, and owner/admin reopen is `completed -> unscheduled|scheduled`; no role receives generic status-write access
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
 
 ## Athena business tools (A12)
