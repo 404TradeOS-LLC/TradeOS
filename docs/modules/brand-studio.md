@@ -87,3 +87,7 @@ permissions, fallbacks, and route shapes remain intact.
 ## Last verified date
 
 2026-08-24 (S016 document-rendering integration branch)
+
+## S022 rendering boundary
+
+S022 continues to resolve document branding from the canonical Brand Studio profile and document settings. Rendering sanitizes colors, font families, and asset URLs as before; the first slice adds deterministic document formatting and introduces no remote asset fetching, arbitrary fonts, or second branding source.

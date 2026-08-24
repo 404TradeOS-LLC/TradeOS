@@ -420,3 +420,7 @@ bounded response as a complete catalog.
 - [modules/customer-portal.md](modules/customer-portal.md)
 - [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
 - [modules/settings-and-operations.md](modules/settings-and-operations.md)
+
+## S022 document rendering reliability
+
+Existing proposal, contract, invoice, and document-frame endpoints retain their current routes, organization scoping, authentication, authorization, and `application/pdf` content types. S022 hardens presentation output with deterministic UTC dates, finite numeric fallbacks, canonical status labels, and explicit empty line-item states; it adds no routes or domain semantics.

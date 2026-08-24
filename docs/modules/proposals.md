@@ -111,3 +111,7 @@ Exact-head GitHub verification for the earlier lifecycle PR #267 passed on
 2026-08-22; the S016 document-brand rendering verification was completed on
 2026-08-24. Production rollout remains governed by merge and deployment
 evidence.
+
+## S022 rendering boundary
+
+Proposal PDF and document-frame rendering preserve the existing organization-scoped routes and proposal semantics. The first S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and explicit empty-table presentation; it does not change proposal lifecycle, persistence, or authorization behavior.
