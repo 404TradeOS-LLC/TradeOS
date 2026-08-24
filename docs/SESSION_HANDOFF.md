@@ -33,12 +33,12 @@ This session records the S012 — Job lifecycle normalization completion evidenc
 
 ## Next Eligible Sprint
 
-Sprint ID: S018
+Sprint ID: NONE
 
-Eligibility: S018 is the next dependency-satisfied readiness candidate after S012 completion evidence; S007, S009, S010, and S011 are `DONE`. Live S018 overlap and founder-decision checks must still be completed before promotion.
+Eligibility: No numbered sprint is `READY`. S012 is `DONE`; S014 is `BLOCKED` by its founder architecture decision; S018 remains `PLANNED` and is the next readiness candidate after fresh live reconciliation.
 
-Dependencies: S012 depends on S006 (`DONE`). S011 is also complete with merged implementation and completion evidence, but S012 must remain on its own branch and must not stack on S011 worktrees.
+Dependencies: S012 depends on S006 (`DONE`) and its implementation and completion evidence are merged. S018's recorded dependencies S007, S009, S010, and S011 are `DONE`, but S018 has not been promoted to `READY`.
 
 Overlap check: no open S012 implementation or completion-evidence PR remains. Existing Job/Dispatch runtime work is shipped baseline evidence, not a competing implementation.
 
-Startup prompt: Reconcile live S018 dependencies, open/draft overlap, worktrees, and founder decisions. If eligible, create only `docs/s018-readiness-promotion` from refreshed `origin/main`, promote S018 to `READY`, and wait for that governance-only PR to merge before creating an S018 implementation branch. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
+Startup prompt: Run the canonical startup/reconciliation flow for S018, verify its live dependencies, overlap, founder-decision, infrastructure, ownership, and evidence gates, and create only the governance-only readiness promotion if eligible. Do not implement S018 until its readiness promotion merges. Keep S027 separately blocked on authenticated rendered Costbook viewport evidence.
