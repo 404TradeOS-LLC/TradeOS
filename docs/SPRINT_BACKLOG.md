@@ -429,8 +429,8 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Sprint ID: S018
-Eligibility: S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and this separate completion-evidence reconciliation. S018 dependencies S007, S009, S010, and S011 are all `DONE`; live readiness promotion remains required before implementation.
+Sprint ID: NONE
+Eligibility: No numbered sprint is `READY`; S012 is `DONE` after implementation PR #286 (`403d84cb6187b59cf468802977a19fbc847ce314`) and this separate completion-evidence reconciliation. S018 dependencies S007, S009, S010, and S011 are all `DONE`, but live readiness promotion remains required before implementation.
 Dependencies: S018 depends on S007, S009, S010, and S011; all are `DONE` with merged evidence.
 Overlap check: no open S012 implementation or completion-evidence PR remains; existing Job/Dispatch runtime work is shipped baseline evidence, not an active implementation.
 Startup flow: See `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow`. Reconcile S018 live overlap, dependencies, worktrees, and founder decisions; create only the governance-only readiness promotion if eligible. Do not implement S018 until readiness merges.
