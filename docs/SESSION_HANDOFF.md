@@ -14,8 +14,8 @@ related_code:
 ## Mission
 
 S021 customer invoice/payment presentation is complete. Implementation PR #299
-merged as `514c94900263744ac8cf498c6b06da336e097512`; this separate branch is
-the governance-only completion-evidence reconciliation. Do not begin another
+merged as `514c94900263744ac8cf498c6b06da336e097512`; completion-evidence PR
+#300 is the separate governance-only reconciliation. Do not begin another
 numbered sprint until the canonical selector identifies an eligible READY sprint.
 
 ## Current branch
