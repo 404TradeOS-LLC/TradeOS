@@ -176,16 +176,17 @@ Required implementation validation: focused auth/session/portal authorization te
 
 ### S019 — Portal proposal acceptance flow
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S009, S018
 Objective: Harden proposal review, acceptance, rejection, and audit events.
 Acceptance: complete happy-path and failure-path coverage.
-Readiness evidence: S009 and S018 are `DONE` with merged implementation and completion evidence. The existing portal proposal page, server-side session-token fetching, proposal API routes, service-layer organization scoping, existing mutation permissions, project side effects, and proposal delivery events were revalidated against current `origin/main`. No competing S019 implementation lane exists; implementation PR #296 is the sole S019 implementation lane after governance-only readiness promotion PR #295.
+Evidence: Implementation PR #296 merged on 2026-08-24 as `9291ccd58624326b1bb142d47d50f97f85b413e3`; this separate completion-evidence reconciliation records the shipped outcome.
+Readiness evidence: S009 and S018 are `DONE` with merged implementation and completion evidence. The existing portal proposal page, server-side session-token fetching, proposal API routes, service-layer organization scoping, existing mutation permissions, project side effects, and proposal delivery events were revalidated against current `origin/main`. No competing S019 implementation lane existed; implementation PR #296 was the sole S019 implementation lane after governance-only readiness promotion PR #295.
 Readiness contract: Harden and prove the existing authenticated portal proposal review, viewed, acceptance, decline, and audit/event boundary. Preserve the existing Supabase session, protected bearer API, server-derived organization context, request-scoped database session, forced PostgreSQL RLS, route/API shapes, actor/org attribution, proposal delivery events, project side effects, and current permissions. The current read-then-unconditional-update mutation pattern is a known concurrency-risk baseline; S019 must reproduce competing view/accept/decline requests and repair the race with an atomic conditional transition or equivalent serialization inside the existing transaction architecture. Add behavioral evidence for malformed/invalid/expired sessions, missing/inactive membership, same-organization access, cross-organization denial, invalid lifecycle transitions, mutation authorization, concurrent transition integrity, and forced-RLS tenant isolation. See `docs/architecture/S019_PORTAL_PROPOSAL_ACCEPTANCE_PLAN.md`.
-Implementation status: `IN_REVIEW` after implementation PR #296 opened on `feature/s019-customer-proposal-approval`. The implementation adds organization-scoped conditional transition writes, fail-closed competing mutations, preserved event/project side effects, and bounded portal pending/error/decline controls. Separate completion-evidence reconciliation is required after merge.
+Implementation status: `DONE` after implementation PR #296 merged on 2026-08-24 as `9291ccd58624326b1bb142d47d50f97f85b413e3`. The implementation adds organization-scoped conditional transition writes, fail-closed competing mutations, preserved event/project side effects, and bounded portal pending/error/decline controls. Separate completion-evidence reconciliation records the shipped outcome.
 Founder-decision boundary: Do not invent a customer identity, public link, portal token, customer-specific permission, new authorization policy, auth-provider change, RBAC/RLS redesign, schema migration, or legal-signature policy. If intended customer self-service acceptance requires any of those changes, stop and prepare a founder-decision packet.
 Forbidden in S019: new customer login/invitation or magic-link product, public unauthenticated proposal links, token persistence, Supabase replacement, permission widening, contract signing, invoice/payment behavior, document rendering, portal redesign, S020/S021/S022/S027 work, or any other numbered sprint.
-Required implementation validation: focused portal proposal HTTP/session and authorization tests; same-organization and cross-organization proposal tests; membership and invalid-transition failures; concurrent view/accept/decline transition integrity; actor/org/event attribution assertions; live PostgreSQL/RLS integration; server-side portal session/token propagation evidence; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and applicable web test/lint/build lanes.
+Completed validation: exact-head Verify repository #1358 passed app unit/typecheck/build/integration and PostgreSQL/RLS migration rehearsal, web unit/lint/build, Athena contracts/smoke, and dependency audits; Docs consistency #1267, Dependency review #317, PR branch currency #36, Live documentation reconciliation #32, and Sprint governance #31 passed. The implementation also passed `git diff --check` and the canonical backlog selector tests before merge.
 
 ### S020 — Portal contract signing flow
 
@@ -441,16 +442,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S019
-Implementation status: `IN_REVIEW` through PR #296 on `feature/s019-customer-proposal-approval`; the implementation lane is sole and current.
-Dependencies: S009 and S018 are `DONE` with merged evidence.
-Completion state: S019 is not `DONE` until PR #296 merges and the separate `docs/s019-completion-evidence` reconciliation completes.
-Protected boundary: Do not begin S020 or any other numbered sprint from this implementation lane.
+Active Sprint: NONE
+Completion status: S019 is `DONE` after implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`; this governance-only completion-evidence lane records the shipped result.
+Dependencies: S009 and S018 are `DONE` with merged evidence; S019 implementation and exact-head validation are complete.
+Protected boundary: Do not begin S020 or any other numbered sprint until the canonical selector and readiness promotion flow authorizes it.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S019 is `IN_REVIEW` in implementation PR #296 and requires separate completion evidence after merge.
-Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290 and completion-evidence PR #292 are merged.
-Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
-Startup prompt: Finish exact-head validation and review repair on PR #296, then create `docs/s019-completion-evidence` only after merge; do not begin S020.
+Eligibility: No numbered sprint is currently `READY`; S019 is `DONE`, S020 remains `PLANNED`, and the next numbered sprint requires a fresh canonical readiness audit and promotion.
+Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3` and this separate completion-evidence reconciliation is the remaining governance step.
+Overlap check: no active S019 implementation lane remains; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Startup prompt: Verify this completion-evidence PR merges, refresh `origin/main`, rerun the canonical selector, and promote only the lowest eligible planned sprint; do not implement S020 from this governance-only lane.

@@ -18,14 +18,17 @@ related_docs:
   - docs/SPRINT_BACKLOG.md
 ---
 
-# S019 — Portal proposal acceptance flow plan
+# S019 — Portal proposal acceptance flow plan and completion evidence
 
-This document records the bounded S019 readiness contract. It authorizes a
-future implementation lane to harden and prove the existing proposal review,
-acceptance, decline, and audit boundary. It does not implement S019.
+This document records the bounded S019 readiness contract and the shipped
+completion evidence. The implementation hardened and proved the existing
+proposal review, acceptance, decline, and audit boundary without changing the
+customer identity, authorization, RLS, schema, or portal architecture.
 
-This readiness contract is promoted by governance-only PR #295; no S019
-implementation branch is authorized by that PR.
+This readiness contract was promoted by governance-only PR #295. The
+implementation shipped in PR #296, merged on 2026-08-24 as
+`9291ccd58624326b1bb142d47d50f97f85b413e3`. Separate completion-evidence
+reconciliation is recorded by the governance-only PR containing this update.
 
 ## Mission
 
@@ -135,3 +138,32 @@ intended actor and a new customer authorization policy is required, or if
 completion requires a new identity model, token persistence, auth-provider
 change, RBAC/RLS policy change, schema migration, legal-signature semantics,
 or unavailable mandatory production evidence.
+
+## Shipped completion evidence
+
+- Implementation PR #296 merged on 2026-08-24 as
+  `9291ccd58624326b1bb142d47d50f97f85b413e3` using the repository-approved
+  squash method.
+- `app/modules/proposals/service.ts` now performs organization-scoped
+  compare-and-swap writes for viewed, accepted, and declined transitions using
+  the status actually observed before the write. Competing or stale mutations
+  fail closed without duplicate delivery/activity/project side effects.
+- Existing `billing.read` proposal reads and `documents.manage` proposal
+  mutations remain unchanged. Server-derived organization context, request
+  scoped database sessions, forced RLS, route/API shapes, actor/org
+  attribution, and project side effects remain unchanged.
+- The portal retains the existing authenticated server-side session-token API
+  path and now exposes only valid proposal actions with pending, duplicate
+  submit, terminal-state, and error feedback. No new customer identity, token,
+  public-link, permission, schema, RLS policy, contract-signing, payment, or
+  document-rendering architecture shipped.
+- Exact-head Verify repository #1358 passed app unit/typecheck/build,
+  PostgreSQL/RLS integration and migration rehearsal, web unit/lint/build,
+  Athena contracts/smoke, and dependency audits. Docs consistency #1267,
+  Dependency review #317, PR branch currency #36, Live documentation
+  reconciliation #32, and Sprint governance #31 passed.
+- Focused tests cover same-organization proposal approval, cross-organization
+  mutation denial, repeated terminal mutation denial, observed-status
+  compare-and-swap semantics, concurrent accept/decline serialization, and one
+  resulting delivery event under forced PostgreSQL RLS.
+

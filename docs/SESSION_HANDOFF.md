@@ -13,15 +13,14 @@ related_code:
 
 ## Mission
 
-S018 — Customer portal authentication hardening is complete. S019 — Portal
-proposal acceptance flow is now `IN_REVIEW` in implementation PR #296; this
-handoff records the active implementation lane and its bounded contract.
+S019 — Portal proposal acceptance flow is complete. This handoff records the
+merged implementation and the separate governance-only completion-evidence
+reconciliation; no subsequent numbered-sprint implementation has started.
 
 ## Current branch
 
-`feature/s019-customer-proposal-approval`, based on refreshed `origin/main` at
-`93088cc6881bb095376e68238fbc0678daf5ab9b`, with implementation head
-`243be37972be7ae99a012ba85f387d74429b5f06` published to PR #296.
+`docs/s019-completion-evidence`, based on merged `origin/main` at
+`9291ccd58624326b1bb142d47d50f97f85b413e3`.
 
 ## Current truth
 
@@ -41,11 +40,18 @@ handoff records the active implementation lane and its bounded contract.
 - No new customer identity, portal token persistence, public link, auth-provider
   replacement, RBAC/RLS redesign, schema migration, billing behavior, route/API
   shape change, or portal redesign shipped.
-- S019 implementation is bounded to the existing authenticated proposal
-  review, viewed, acceptance, decline, and audit/event boundary. PR #296 adds
-  organization-scoped conditional transitions, fail-closed competing mutation
-  behavior, preserved event/project side effects, and bounded portal action
-  feedback. Current permission, session, organization, RLS, actor/org, event,
+- S019 implementation PR #296 merged on 2026-08-24 as
+  `9291ccd58624326b1bb142d47d50f97f85b413e3`. Exact-head Verify repository
+  #1358 passed app unit/typecheck/build/integration and PostgreSQL/RLS
+  migration rehearsal, web unit/lint/build, Athena contracts/smoke, and
+  dependency audits. Docs consistency #1267, Dependency review #317, PR branch
+  currency #36, Live documentation reconciliation #32, and Sprint governance
+  #31 also passed.
+- S019 shipped only the bounded existing authenticated proposal review, viewed,
+  acceptance, decline, and audit/event hardening: organization-scoped
+  compare-and-swap transitions, fail-closed competing mutations, preserved
+  event/project side effects, and bounded portal pending/error/decline
+  feedback. Existing permission, session, organization, RLS, actor/org, event,
   and project-side-effect behavior remains unchanged.
 - S027 remains separately blocked on authenticated rendered Costbook browser
   evidence. Do not begin S020 or any later sprint from this branch.
@@ -53,8 +59,7 @@ handoff records the active implementation lane and its bounded contract.
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S019 is `IN_REVIEW` in implementation PR #296 and is not `DONE` until merge and separate completion evidence.
-Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #290, completion-evidence PR #292, and post-merge handoff PR #294 are merged.
-Overlap check: PR #296 on `feature/s019-customer-proposal-approval` is the sole S019 implementation lane; no competing implementation branch or worktree exists.
-Startup prompt: Finish exact-head validation and review repair on PR #296. If it merges, create a fresh `docs/s019-completion-evidence` governance-only lane; stop for any new identity/auth/authorization/RBAC/RLS/schema/token/legal-signature requirement and do not begin S020.
-
+Eligibility: No numbered sprint is currently `READY`; S019 is `DONE`, S020 remains `PLANNED`, and the next numbered sprint requires a fresh canonical readiness audit and promotion.
+Dependencies: S019 depends on DONE sprints S009 and S018; implementation PR #296 merged as `9291ccd58624326b1bb142d47d50f97f85b413e3`.
+Overlap check: no active S019 implementation lane remains; S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Startup prompt: Verify this completion-evidence PR merges, refresh `origin/main`, rerun the canonical selector, and promote only the lowest eligible planned sprint; do not implement S020 from this governance-only lane.
