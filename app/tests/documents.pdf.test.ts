@@ -96,7 +96,7 @@ function extractPdfText(pdf: Buffer): string {
     const raw = pdf.subarray(contentStart, streamEnd).subarray(0, -1);
     try {
       const decoded = inflateSync(raw).toString("latin1");
-      const tjText = Array.from(decoded.matchAll(/\[((?:<[^>]+>|[-0-9. ]+)+)\]\s*TJ/g), (match) =>
+      const tjText = Array.from(decoded.matchAll(/\[([^\]]*)\]\s*TJ/g), (match) =>
         Array.from(match[1].matchAll(/<([0-9a-f]+)>/gi), (hex) => Buffer.from(hex[1], "hex").toString("latin1")).join("")
       );
       text.push(decoded, ...tjText);
