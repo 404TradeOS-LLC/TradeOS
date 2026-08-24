@@ -121,6 +121,7 @@ A billing document stored in `Invoice`.
 - belongs to one project
 - may reference an estimate and proposal
 - owns invoice line items, payments, and delivery history
+- a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
 
@@ -128,6 +129,7 @@ A recorded payment event stored in `Payment`.
 
 - belongs to one invoice and organization
 - tracks amount, payment date, method, reference, notes, and status
+- only `recorded` payments count toward reconciliation and queue balance derivation; concurrent payment reconciliation serializes on the Invoice row and preserves the Payment/status/audit transaction boundary
 
 ## Change Order
 

@@ -81,7 +81,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
     expect(valuesOf(countCall)).toContain("org-a");
   });
 
-  it("wires the overdue predicate: due_date passed, balance_due > 0, voided excluded", async () => {
+  it("wires the overdue predicate: due_date passed, balance_due > 0, voided and paid excluded", async () => {
     queryRawMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: BigInt(0) }]);
     await service.listOrganizationQueue({ orgId: "org-a", overdue: true });
 
@@ -90,7 +90,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
     expect(sql).toContain("balance_due > 0");
     expect(sql).toMatch(/status NOT IN/);
     const values = valuesOf(queryRawMock.mock.calls[0][0]);
-    expect(values).toEqual(expect.arrayContaining(["voided", "void", "cancelled"]));
+    expect(values).toEqual(expect.arrayContaining(["voided", "void", "cancelled", "paid"]));
   });
 
   it("wires the partiallyPaid predicate: paid_amount > 0 AND balance_due > 0", async () => {
@@ -100,6 +100,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
     const sql = sqlOf(queryRawMock.mock.calls[0][0]);
     expect(sql).toContain("paid_amount > 0");
     expect(sql).toContain("balance_due > 0");
+    expect(valuesOf(queryRawMock.mock.calls[0][0])).toContain("paid");
   });
 
   it("wires the unpaid predicate as balance_due > 0 (so partially-paid invoices are included, per spec)", async () => {
@@ -108,6 +109,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
 
     const sql = sqlOf(queryRawMock.mock.calls[0][0]);
     expect(sql).toContain("balance_due > 0");
+    expect(valuesOf(queryRawMock.mock.calls[0][0])).toContain("paid");
     // unpaid must NOT additionally require paid_amount = 0 — that would wrongly
     // exclude partially-paid invoices, which the spec says are still unpaid.
     expect(sql).not.toContain("paid_amount = 0");

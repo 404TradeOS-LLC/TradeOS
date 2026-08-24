@@ -14,6 +14,7 @@ import { AssembliesDatabaseService } from "../modules/assemblies-database/servic
 import { ProposalsService } from "../modules/proposals/service";
 import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
+import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
@@ -1407,6 +1408,10 @@ describe("live organization row-level security", () => {
     const invoiceQueueA3 = "10000000-0000-0000-0000-000000000210";
     const invoiceQueueA4 = "10000000-0000-0000-0000-000000000211";
     const invoiceQueueB1 = "20000000-0000-0000-0000-000000000212";
+    const invoiceQueueA5 = "10000000-0000-0000-0000-000000000216";
+    const invoiceConcurrency = "10000000-0000-0000-0000-000000000217";
+    const invoiceCrossOrg = "10000000-0000-0000-0000-000000000218";
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     beforeAll(async () => {
       await adminClient.estimate.create({
@@ -1449,7 +1454,6 @@ describe("live organization row-level security", () => {
         data: { id: proposalQueueB1, projectId: projectB, status: "sent", sentAt: new Date("2026-07-01T00:00:00.000Z") },
       });
 
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
       await adminClient.invoice.create({
         data: { id: invoiceQueueA1, projectId: projectA, invoiceNumber: 201, status: "sent", amount: 1000, dueDate: yesterday },
       });
@@ -1497,6 +1501,11 @@ describe("live organization row-level security", () => {
       // — must be excluded from overdue/unpaid/partiallyPaid despite a positive balance.
       await adminClient.invoice.create({
         data: { id: invoiceQueueA4, projectId: projectA, invoiceNumber: 204, status: "void", amount: 1000, dueDate: yesterday },
+      });
+      // Persisted paid is authoritative for follow-up exclusion even when
+      // markPaid() intentionally has no corresponding Payment row.
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA5, projectId: projectA, invoiceNumber: 205, status: "paid", amount: 750, dueDate: yesterday },
       });
       await adminClient.invoice.create({
         data: { id: invoiceQueueB1, projectId: projectB, invoiceNumber: 1, status: "sent", amount: 250, dueDate: yesterday },
@@ -1576,6 +1585,7 @@ describe("live organization row-level security", () => {
       expect(unpaidIds).toEqual(expect.arrayContaining([invoiceQueueA1, invoiceQueueA2]));
       expect(unpaidIds).not.toContain(invoiceQueueA3); // fully paid: balanceDue 0
       expect(unpaidIds).not.toContain(invoiceQueueA4); // voided: excluded despite balance > 0
+      expect(unpaidIds).not.toContain(invoiceQueueA5); // persisted paid: authoritative even with no Payment row
     });
 
     it("invoices queue: never returns another organization's invoices, even unfiltered", async () => {
@@ -1602,6 +1612,76 @@ describe("live organization row-level security", () => {
       await expect(
         inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA, cursor: "not-a-real-cursor" }))
       ).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it("serializes concurrent final payments and emits one paid transition while preserving both payments", async () => {
+      await adminClient.invoice.create({
+        data: { id: invoiceConcurrency, projectId: projectA, invoiceNumber: 206, status: "sent", amount: 100, dueDate: yesterday },
+      });
+
+      const [first, second] = await Promise.all([
+        inSession(adminUser, orgA, "admin", async () =>
+          new CrmService().createPayment(
+            orgA,
+            invoiceConcurrency,
+            { amount: 50, paymentDate: "2026-07-12T00:00:00.000Z", method: "card" },
+            adminUser,
+            "admin"
+          )
+        ),
+        inSession(adminUser, orgA, "admin", async () =>
+          new CrmService().createPayment(
+            orgA,
+            invoiceConcurrency,
+            { amount: 50, paymentDate: "2026-07-13T00:00:00.000Z", method: "cash" },
+            adminUser,
+            "admin"
+          )
+        ),
+      ]);
+
+      const state = await inSession(adminUser, orgA, "admin", async () => ({
+        invoice: await currentTransaction().invoice.findUnique({ where: { id: invoiceConcurrency } }),
+        payments: await currentTransaction().payment.findMany({ where: { invoiceId: invoiceConcurrency } }),
+        paidEvents: await currentTransaction().invoiceDelivery.findMany({
+          where: { invoiceId: invoiceConcurrency, eventType: "invoice.paid" },
+        }),
+      }));
+
+      expect([first.id, second.id]).toEqual(expect.arrayContaining(state.payments.map((payment) => payment.id)));
+      expect(state.payments).toHaveLength(2);
+      expect(state.invoice?.status).toBe("paid");
+      expect(state.paidEvents).toHaveLength(1);
+    });
+
+    it("keeps reconciliation tenant-scoped and never revives a voided invoice", async () => {
+      await adminClient.invoice.create({
+        data: { id: invoiceCrossOrg, projectId: projectA, invoiceNumber: 207, status: "sent", amount: 100, dueDate: yesterday },
+      });
+
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          new CrmService().createPayment(
+            orgB,
+            invoiceCrossOrg,
+            { amount: 100, paymentDate: "2026-07-14T00:00:00.000Z", method: "card" },
+            otherUser
+          )
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      await inSession(adminUser, orgA, "admin", async () =>
+        new CrmService().createPayment(
+          orgA,
+          invoiceQueueA4,
+          { amount: 1000, paymentDate: "2026-07-15T00:00:00.000Z", method: "card" },
+          adminUser
+        )
+      );
+      const voided = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoice.findUnique({ where: { id: invoiceQueueA4 } })
+      );
+      expect(voided?.status).toBe("void");
     });
   });
 });

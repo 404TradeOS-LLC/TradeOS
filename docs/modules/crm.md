@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -15,7 +15,7 @@ related_code:
 
 ## Purpose
 
-Own customer records, service addresses, customer equipment, service agreements, notes, customer import, and company profile data used by the project workflow.
+Own customer records, service addresses, customer equipment, service agreements, notes, customer import, company profile data, and the existing invoice-scoped payment-recording entry point used by the project workflow.
 
 ## Source code locations
 
@@ -45,6 +45,7 @@ Own customer records, service addresses, customer equipment, service agreements,
 - `GET|POST /api/v1/notes`
 - `POST /api/v1/import/customers`
 - `GET|PATCH /api/v1/company`
+- `GET|POST /api/v1/invoices/:id/payments` — payment recording remains backend-owned; `POST` reconciles valid recorded payments against the eligible Invoice inside the existing request-scoped transaction
 
 ## Permissions
 
@@ -55,6 +56,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - customer records support soft delete through `deleted_at`
 - equipment assets use a free-form `status` field
 - service agreements default to `draft`
+- payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent` or existing `overdue` Invoice is advanced to persisted `paid`, while persisted `paid` remains authoritative for follow-up exclusion
 
 ## Emitted activity events
 
@@ -73,6 +75,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Tests
 
 - `app/tests/crm.service.test.ts`
+- `app/tests/rls.integration.ts` covers payment reconciliation's PostgreSQL locking, tenant boundary, and event behavior
 - A12 Athena Office Manager contract coverage verifies bounded name/email/phone customer searches through the service boundary
 
 ## Known limitations
@@ -85,4 +88,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-16
+2026-08-24
