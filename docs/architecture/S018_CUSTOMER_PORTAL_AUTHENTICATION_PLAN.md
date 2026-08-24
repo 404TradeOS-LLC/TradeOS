@@ -1,5 +1,5 @@
 ---
-status: ready
+status: current
 owner: platform
 last_verified: 2026-08-24
 source_of_truth: false
@@ -20,6 +20,29 @@ related_code:
 ---
 
 # S018 — Customer Portal Authentication Hardening
+
+## Shipped outcome
+
+S018 is complete. Implementation PR #290 merged on 2026-08-24 as
+`6f2dd254c121855fa629d19da6bc0452cc9e6de7`; this separate completion-evidence
+reconciliation records the exact-head verification. The shipped slice preserves
+the existing authenticated Supabase session, bearer-authenticated API,
+membership resolution, request-scoped database session, forced PostgreSQL RLS,
+route/API shapes, and existing permissions.
+
+The implementation adds finite expiry and strict claim validation for locally
+issued HS256 access tokens, fail-closed malformed/expired/invalid bearer
+handling, and inactive-user denial in refresh/bootstrap flows. Focused HTTP
+regressions and PostgreSQL/RLS integration assertions cover missing/inactive
+membership, same-organization project/proposal/contract/invoice access,
+cross-organization direct-ID denial, and forced-RLS metadata. No new customer
+identity, portal token persistence, public link, auth-provider replacement,
+RBAC/RLS redesign, schema migration, billing behavior, or portal redesign
+shipped.
+
+Exact-head Verify repository #1332, Docs consistency #1229, Dependency review
+#296, PR branch currency #15, Live documentation reconciliation #14, and Sprint
+governance #14 passed.
 
 ## Readiness decision
 
@@ -95,4 +118,3 @@ run `git diff --check`, `npm run pr:preflight -- --base origin/main`,
 lint && npm run build && npm run test:integration)`, and the applicable web
 test/lint/build lanes. Exact-head GitHub Actions and review state are
 authoritative.
-

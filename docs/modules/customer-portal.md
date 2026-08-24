@@ -48,7 +48,7 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Known limitations
 
-- S018 hardens the existing boundary only: local access tokens expire and reject malformed claims, inactive users cannot refresh or bootstrap a session, and the PostgreSQL/RLS test suite asserts same-organization access plus cross-organization denial for portal resources; exact-head CI is authoritative for live execution. There is still no separate customer identity, portal token, or immediate bearer-revocation model.
+- S018 shipped the bounded hardening of the existing boundary: local access tokens expire and reject malformed claims, inactive users cannot refresh or bootstrap a session, and the PostgreSQL/RLS test suite asserts same-organization access plus cross-organization denial for portal resources. Exact-head Verify repository #1332 and the associated governance checks passed before implementation merge. There is still no separate customer identity, portal token, or immediate bearer-revocation model.
 
 ## Deferred work
 
@@ -56,4 +56,4 @@ Portal timelines render proposal delivery history, contract events, and invoice 
 
 ## Last verified date
 
-2026-08-24 (implementation assertions; exact-head CI remains authoritative)
+2026-08-24 (S018 implementation and exact-head CI evidence)
