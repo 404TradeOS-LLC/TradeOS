@@ -1208,28 +1208,6 @@ describe("live organization row-level security", () => {
     );
     expect(hiddenDeliveries).toEqual([]);
 
-    await adminClient.proposal.create({
-      data: { id: proposalConcurrencyA, projectId: projectA, status: "sent", sentAt: new Date() },
-    });
-    const transitionResults = await Promise.allSettled([
-      inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposalConcurrencyA, orgA, adminUser)),
-      inSession(adminUser, orgA, "admin", async () => new ProposalsService().reject(proposalConcurrencyA, orgA, adminUser)),
-    ]);
-    expect(transitionResults.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(transitionResults.filter((result) => result.status === "rejected")).toHaveLength(1);
-    const transitionFailure = transitionResults.find((result) => result.status === "rejected");
-    expect(transitionFailure).toMatchObject({ reason: { statusCode: 409 } });
-    const finalConcurrencyRow = await adminClient.proposal.findUnique({
-      where: { id: proposalConcurrencyA },
-      select: { status: true },
-    });
-    expect(["accepted", "declined"]).toContain(finalConcurrencyRow?.status);
-    const concurrencyDeliveries = await adminClient.proposalDelivery.findMany({
-      where: { proposalId: proposalConcurrencyA },
-      select: { eventType: true },
-    });
-    expect(concurrencyDeliveries).toHaveLength(1);
-
     await expect(
       inSession(viewerUser, orgA, "viewer", async () =>
         new InvoicesService().create({
@@ -1777,6 +1755,32 @@ describe("live organization row-level security", () => {
       );
       expect(voided?.status).toBe("void");
     });
+
+    it("serializes competing proposal decisions and records one delivery event", async () => {
+      await adminClient.proposal.create({
+        data: { id: proposalConcurrencyA, projectId: projectA, status: "sent", sentAt: new Date() },
+      });
+
+      const transitionResults = await Promise.allSettled([
+        inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposalConcurrencyA, orgA, adminUser)),
+        inSession(adminUser, orgA, "admin", async () => new ProposalsService().reject(proposalConcurrencyA, orgA, adminUser)),
+      ]);
+      expect(transitionResults.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(transitionResults.filter((result) => result.status === "rejected")).toHaveLength(1);
+      const transitionFailure = transitionResults.find((result) => result.status === "rejected");
+      expect(transitionFailure).toMatchObject({ reason: { statusCode: 409 } });
+
+      const finalConcurrencyRow = await adminClient.proposal.findUnique({
+        where: { id: proposalConcurrencyA },
+        select: { status: true },
+      });
+      expect(["accepted", "declined"]).toContain(finalConcurrencyRow?.status);
+      const concurrencyDeliveries = await adminClient.proposalDelivery.findMany({
+        where: { proposalId: proposalConcurrencyA },
+        select: { eventType: true },
+      });
+      expect(concurrencyDeliveries).toHaveLength(1);
+    });
   });
 });
 
@@ -1802,3 +1806,4 @@ function requiredEnvironment(name: string): string {
   if (!value) throw new Error(`${name} is required for RLS integration tests`);
   return value;
 }
+

@@ -324,9 +324,7 @@ describe("ProposalsService", () => {
   });
 
   it("fails closed when a competing acceptance wins the conditional transition", async () => {
-    mockPrisma.proposal.findFirst
-      .mockResolvedValueOnce(proposalRow("sent"))
-      .mockResolvedValueOnce(proposalRow("accepted"));
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(proposalRow("sent"));
     mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
 
     const service = new ProposalsService();
