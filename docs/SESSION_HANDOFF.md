@@ -13,7 +13,7 @@ related_code:
 
 ## Mission
 
-S017 readiness promotion is the current bounded governance task. S016 implementation PR #314 and its completion evidence are merged. S017 is the sole READY candidate through this governance-only branch; no implementation lane is active here. S020 and S022 remain read-only future work.
+S017 completion evidence is the current bounded governance task. S016 implementation PR #314 and its completion evidence are merged; S017 implementation PR #317 and corrective PR #319 are merged. No numbered implementation lane is active here. S020 and S022 remain read-only future work.
 
 ## Current truth
 
@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Publish and merge this separate S017 readiness PR, then refresh origin/main, re-run the canonical selector and live overlap checks, and create only the isolated feature/s017-implementation lane if S017 remains READY. Do not begin S020 or S022 implementation concurrently.
+Publish and merge this separate S017 completion-evidence PR, then refresh origin/main, verify S017 is DONE, and recompute the canonical selector. Do not begin S020 or S022 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S017
-Eligibility: S017 is READY through this governance-only promotion; implementation remains unstarted until this PR merges and live eligibility is reconfirmed.
-Dependencies: S015 and S016 are DONE; S017 has no founder, infrastructure, or overlap blocker identified by the readiness audit.
-Overlap check: No S017 implementation PR or branch exists; this branch changes governance/readiness documentation only and S020/S022 remain read-only.
-Startup prompt: After this readiness PR merges, refresh origin/main, run the canonical selector and live overlap checks, then create one isolated feature/s017-implementation lane; do not implement S020 or S022 concurrently.
+Sprint ID: NONE
+Eligibility: S017 is DONE after implementation PR #317, corrective PR #319, and this completion-evidence reconciliation. No numbered sprint is currently `READY`.
+Dependencies: S015, S016, and S017 are DONE. S020 ADR-007 is resolved but S020 remains planned; S022 depends on S020.
+Overlap check: S017 implementation and corrective PRs are merged; this branch is governance-only; no implementation lane is active.
+Startup prompt: After this completion-evidence PR merges, refresh origin/main, verify S017 DONE, recompute the selector, and promote only an objectively READY sprint; keep S020/S022 read-only until their gates are satisfied.
