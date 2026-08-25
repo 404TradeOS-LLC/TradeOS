@@ -48,11 +48,11 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 
 - assist output is advisory only
 - accepted suggestions still flow through the ordinary estimate line-item paths
-- structured estimator draft generation records only a non-sensitive activity event; it does not create estimate line items
+- authenticated structured estimator draft generation also persists an addressable, tenant/actor-scoped metadata record without raw prompt or model content; it does not create estimate line items
 - accepted reviewed lines call the existing Estimate Engine line-item path and never write estimate lines directly from generated output
 - structured estimator draft lines with resolved targets include server-signed review tokens binding the estimate, organization, draft line, target kind, target ID, engine version, and issue time
 - structured estimator apply validates accepted targets against org-scoped active cost items or assemblies before writing, requires accepted lines to present matching unexpired review tokens, skips fabricated or foreign targets with the same safe reason, serializes concurrent apply attempts per estimate, and uses server-built `sourceKey` values plus existing-line reconciliation for retry protection
-- apply does not currently persist a draft-run record; signed review tokens bind accepted lines to server-generated draft targets without storing the full contractor prompt
+- structured estimator apply accepts the draft generation ID and, for owner/admin reviewers, records append-only review provenance (reviewer, outcome, bounded apply counts) inside the existing transaction; signed review tokens still bind accepted lines to server-generated draft targets without storing the full contractor prompt
 
 ## Frontend surfaces
 
@@ -78,7 +78,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - runtime is deterministic and read-only
 - all generated drafts require human review before line items are applied
 - live integration/RLS verification requires the Docker-backed `npm run test:integration` harness
-- generated-draft provenance is tokenized per resolved line rather than persisted as a signed draft-run record; apply relies on review tokens, server-side org target validation, human review status, and source-key replay protection
+- raw contractor prompts, generated output, tool arguments, and tool results are excluded from generation metadata; apply relies on review tokens, server-side org target validation, human review status, append-only review provenance, and source-key replay protection
 - `packages/knowledge-engine/` (the actual data `knowledge-runtime` reads) lives outside `app/` at the repo root. Vercel's `tradeos-costbook` project deploys with Root Directory `app`, so that data is not present at runtime in production by default — `app/scripts/vendor-knowledge-engine.js` copies it into `app/vendor/knowledge-engine/` as a build step (`npm run build`), `app/vercel.json` explicitly includes `vendor/knowledge-engine/**` in the `index.ts` function bundle, and `resolveKnowledgeEnginePaths()` (`app/modules/knowledge-runtime/loader.ts`) checks the process-root vendored path plus source-layout and compiled-`dist` candidates before falling back to its original repo-root search for local development. This was previously broken in production — every knowledge-runtime route (including `GET /api/v1/knowledge/stats`, used by the dashboard and this page) threw `"Unable to locate the TradeOS repository root for Knowledge Engine loading"` — because JWT verification was itself broken until a separate fix, so no request had ever actually reached this code path in production before. `web/src/app/(app)/dashboard/page.tsx` and this page's `getKnowledgeStats`/`getKnowledgeTrades` calls are also now wrapped in `.catch()` fallbacks to their existing null/empty UI states, so a future knowledge-runtime failure degrades gracefully instead of crashing the whole page into the generic error boundary.
 
 ## Deferred work
