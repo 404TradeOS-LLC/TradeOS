@@ -444,3 +444,8 @@ The existing AI Estimate Assist routes expose this contract:
   (reviewer, outcome, and bounded apply counts). The organization is derived
   server-side, and accepted business writes still use the existing
   review-first Estimate Engine path.
+
+
+## Estimate line-item ordering
+
+Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.

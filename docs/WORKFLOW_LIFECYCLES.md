@@ -303,3 +303,8 @@ For the six required A12 canonical mutation events — `EstimateStarted`, `Estim
 ## Document rendering lifecycle evidence
 
 S022 rendering is presentation-only: proposal, contract, and invoice lifecycle values remain server-derived and are not persisted or reinterpreted by renderers. The current slice emits deterministic UTC dates, safe finite-number fallbacks, canonical HTML status labels, and explicit empty line-item states while preserving authorization and tenant boundaries.
+
+
+## Estimate line-item ordering concurrency
+
+Estimate line-item append order is persisted and remains deterministic under concurrent manual or AI/replay-shaped inserts. The implementation serializes allocation on the parent Estimate row without changing estimate lifecycle states.

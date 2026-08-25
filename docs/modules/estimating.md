@@ -108,3 +108,8 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 ## Last verified date
 
 2026-08-21
+
+
+## S026 ordering concurrency
+
+Estimate line-item append allocation remains persisted through `EstimateLineItem.sortOrder`. The S026 implementation serializes next-order allocation on the organization-scoped parent Estimate row inside the existing request-aware transaction, preserving append order, pricing snapshots, source-key idempotency, and draft-only writes.

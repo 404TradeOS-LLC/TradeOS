@@ -295,3 +295,7 @@ PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44 from fi
 ## S026 Estimate line-item ordering concurrency (ready)
 
 S026 is the sole READY numbered-sprint candidate. It addresses the existing EstimateEngineService.addLineItem aggregate-then-insert ordering race while preserving persisted EstimateLineItem.sortOrder, draft-only writes, pricing snapshots, source-key idempotency, organization scoping, and forced RLS. Implementation must follow docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md; S027 remains blocked on authenticated rendered Costbook evidence.
+
+## S026 implementation in progress
+
+S026 is the active numbered-sprint lane. Its bounded backend change serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row, preserving organization/RLS, draft-only mutation, pricing snapshots, source-key idempotency, and public API shapes. Runtime verification is in PR #334; completion evidence will be recorded only after merge.
