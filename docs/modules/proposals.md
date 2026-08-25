@@ -119,4 +119,6 @@ Proposal PDF and document-frame rendering preserve the existing organization-sco
 
 ## S028 estimate-to-proposal handoff
 
+Estimate-backed proposal creation persists the finalized Estimate `totalPrice` into `Proposal.finalPrice` at creation time when the caller supplies no explicit price. Draft estimates retain null pricing, and explicit low/high proposal ranges are preserved without a second derived fixed price.
+
 PR #338 carries the verified estimate state through the existing proposal creation and document/PDF handoff path, preserving proposal authorization, lifecycle semantics, audit events, and organization scoping.

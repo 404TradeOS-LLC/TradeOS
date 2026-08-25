@@ -79,8 +79,8 @@ describe("ProposalsService", () => {
     });
   });
 
-  it("creates a draft proposal scoped to the estimate's project", async () => {
-    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1" });
+  it("creates a draft proposal scoped to the estimate's project without inventing a price", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", totalPrice: 0 });
     mockPrisma.proposal.create.mockResolvedValue({
       id: "proposal-1",
       projectId: "project-1",
@@ -101,7 +101,62 @@ describe("ProposalsService", () => {
 
     expect(proposal.status).toBe("draft");
     expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ projectId: "project-1", estimateId: "estimate-1" }) })
+      expect.objectContaining({ data: expect.objectContaining({ projectId: "project-1", estimateId: "estimate-1", finalPrice: null }) })
+    );
+  });
+
+  it("persists a finalized estimate total as the proposal final price", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      totalPrice: 7125.37,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      status: "draft",
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: 7125.37,
+      deliveries: [],
+    });
+
+    const service = new ProposalsService();
+    await service.create({ orgId: "org-1", estimateId: "estimate-1" });
+
+    expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          projectId: "project-1",
+          estimateId: "estimate-1",
+          priceLow: undefined,
+          priceHigh: undefined,
+          finalPrice: 7125.37,
+        }),
+      })
+    );
+  });
+
+  it("preserves explicit estimate-backed ranges without creating a contradictory final price", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      totalPrice: 12000,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ id: "proposal-1", projectId: "project-1", estimateId: "estimate-1", status: "draft", deliveries: [] });
+
+    const service = new ProposalsService();
+    await service.create({ orgId: "org-1", estimateId: "estimate-1", priceLow: 10000, priceHigh: 15000 });
+
+    expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ priceLow: 10000, priceHigh: 15000, finalPrice: null }),
+      })
     );
   });
 
@@ -465,9 +520,9 @@ describe("ProposalsService", () => {
       assumptions: undefined,
       exclusions: undefined,
       timeline: undefined,
-      priceLow: null,
-      priceHigh: null,
-      finalPrice: null,
+      priceLow: 10000,
+      priceHigh: 15000,
+      finalPrice: 12000,
       paymentScheduleJson: undefined,
     });
     mockProposalGenerator.generateProposal.mockResolvedValue({ buffer: Buffer.from("pdf"), filename: "p.pdf", contentType: "application/pdf" });
@@ -485,9 +540,9 @@ describe("ProposalsService", () => {
       assumptions: undefined,
       exclusions: undefined,
       timeline: undefined,
-      priceLow: null,
-      priceHigh: null,
-      finalPrice: null,
+      priceLow: 10000,
+      priceHigh: 15000,
+      finalPrice: 12000,
       paymentScheduleJson: undefined,
     });
   });
