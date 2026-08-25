@@ -4,21 +4,13 @@ import { apiFetch } from "@/lib/api";
 import { isAthenaOperatorRole } from "@/lib/athena-state";
 import { getSession, getSessionToken } from "@/lib/session";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
+import { handleAthenaNavLookupFailure } from "./layout-athena-error.mjs";
 
 // Bounds how long AppLayout waits on the organization-settings lookup below.
 // The request is explicitly aborted when this deadline expires so a stalled
 // backend does not leave an orphaned outbound fetch running after the layout
 // falls back to hiding the Athena navigation entry.
 const ORG_SETTINGS_TIMEOUT_MS = 5000;
-
-export function handleAthenaNavLookupFailure(error: unknown): false {
-  if (error instanceof Error && error.name === "AbortError") {
-    console.warn("AppLayout: Athena nav visibility lookup timed out; hiding Athena navigation");
-  } else {
-    console.error("AppLayout: failed to resolve Athena nav visibility", error);
-  }
-  return false;
-}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
