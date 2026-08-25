@@ -306,6 +306,7 @@ Status: DONE
 Dependencies: S008, S009
 Objective: Verify the full estimate approval and proposal generation path.
 Acceptance: totals, statuses, documents, and audit events remain consistent.
+Evidence: PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`.
 
 ## Phase 6 — Scheduling, Dispatch, and Field Work
 
