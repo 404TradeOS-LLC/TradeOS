@@ -323,16 +323,17 @@ Evidence: PR #20 merged.
 
 ### S030 — Dispatcher workspace end-to-end verification
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S012
 Objective: Verify scheduled/unscheduled work, assignment, rescheduling, conflicts, and job state transitions.
 Acceptance: dispatcher critical path works across UI, API, and persistence.
-Readiness evidence: S012 and S029 are DONE; readiness promotion PR #340 is merged and PR #341 is the sole S030 implementation lane. PR #341 is reconciled onto live `main` at `24fef89df509331119e2fc2cad81286cfa1a729b`; its bounded repair reactivates declined non-removed assignments in place, while schedule-conflict concurrency remains a documented non-goal. The governed RLS migration still requires human review and authenticated browser evidence remains outstanding.
+Completion evidence: Implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; readiness PR #340 is merged; full repository verification passed; authenticated browser evidence remains environment-dependent. See `docs/architecture/S030_COMPLETION_EVIDENCE.md`.
+Evidence: PR #341 merged on 2026-08-25 as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`.
 Readiness contract: Verify and narrowly repair the existing Dispatcher Workspace across scheduled/unscheduled queues, assignment, unassignment, rescheduling, deterministic conflicts, dispatch-summary scope, canonical S012 actions, refresh consistency, data states, responsive behavior, and organization/RLS boundaries. See docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md.
 Founder-decision boundary: NO under existing lifecycle, RBAC, RLS, route, and workspace semantics.
 Required implementation validation: git diff --check; npm run pr:preflight -- --base origin/main; npm run pr:test; npm run docs:test; npm run docs:check -- --base origin/main; app and web tests/lint/build; PostgreSQL/RLS integration; focused browser evidence; exact-head CI.
 Forbidden in S030: new statuses, generic status mutation, new dispatch persistence, route optimization/GPS/notifications, automatic invoice creation, billing/payment changes, new roles or permission/RLS redesign, broad UI rewrites, unrelated concurrency/idempotency repairs, unreviewed migrations, and S031/S032/S034/S035 work.
-Implementation status: IN_REVIEW through PR #341; declined-assignment reactivation is covered by a focused regression test; do not create a competing numbered lane.
+Implementation status: DONE through PR #341; declined-assignment reactivation is covered by a focused regression test. No competing numbered lane remains.
 
 
 ### S031 — Scheduling conflict rules
@@ -501,15 +502,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S030
-Completion status: S028 is DONE through implementation PR #338, completion-evidence PR #339, and PT-003 follow-up PR #342; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S030 depends on S012, which is DONE; S029 is DONE; S027 is independent.
-Protected boundary: S030 is the sole numbered-sprint implementation lane after this governance-only readiness promotion.
+Active Sprint: NONE
+Completion status: S028 and S030 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S030 is DONE; S040 is the preferred next security-leverage candidate after its own readiness promotion; S027 remains independent and blocked on browser evidence.
+Protected boundary: No numbered-sprint implementation lane is active; do not create S040 implementation work before its readiness promotion.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S030 is IN_REVIEW through implementation PR #341.
-Dependencies: S030 depends on S012 and the S029 baseline; S027 remains blocked but does not block S030.
-Overlap check: PR #341 is the sole S030 implementation lane; no competing S030 implementation exists.
-Startup prompt: Reconcile PR #341 onto live main, repair deterministic assignment/conflict findings, complete governed RLS review, and verify S030 before evaluating S040. Do not implement another numbered sprint concurrently.
+Eligibility: No numbered sprint is currently `READY`; S030 is DONE and S040 remains PLANNED pending governed readiness promotion.
+Dependencies: S030 is complete; S040 must be promoted through the readiness protocol; S027 remains blocked but does not block that governance work.
+Overlap check: No numbered implementation lane is active; no competing S040 implementation exists.
+Startup prompt: Evaluate S040 readiness against live dependencies and browser/security evidence. Do not implement another numbered sprint concurrently.
