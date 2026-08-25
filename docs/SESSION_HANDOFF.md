@@ -50,7 +50,7 @@ S041 is DONE through implementation PR #351 and completion evidence; keep authen
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S041 is DONE; recompute the next numbered sprint under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
+Eligibility: No numbered sprint is currently `READY`; S041 is DONE. Recompute the next numbered sprint under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
 Overlap check: No open S041 implementation or completion PR remains; no authoritative S041 branch/worktree remains after reconciliation.
 Startup prompt: Inspect next-sprint eligibility only. Do not begin S042 automatically or combine S027 browser evidence with another sprint.
