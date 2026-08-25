@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -141,7 +141,7 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-006 
 
 ### S015 — Brand profile/settings adapter
 
-Status: READY
+Status: DONE
 Dependencies: S014
 Objective: Implement the approved compatibility boundary between Settings and Brand Studio.
 Acceptance: one clear read/write source with tested migration behavior.
@@ -149,21 +149,35 @@ Readiness contract: Brand Studio is the canonical organization-brand source. Set
 Founder-decision boundary: S014's ADR-006 is accepted. Stop if implementation requires a new source of truth, new identity or authorization policy, destructive migration, new storage model, or public branding policy.
 Required evidence: canonical-over-legacy precedence, lazy legacy adoption, explicit clear behavior, mapped Settings round trips, existing organization-shell compatibility, repeated-save safety, same-org/cross-org authorization, forced PostgreSQL RLS, and focused app/web regression coverage.
 Readiness evidence: S014 is DONE through founder-decision record #301 and ADR-006; the S015 contract is explicit on the readiness branch/PR; no competing S015 implementation PR, branch, or worktree was found at readiness creation.
+Implementation evidence: PR #310 merged on 2026-08-24 at `b6ec078b7bf5e5e45537ed113990c2f2d317c126` from `feature/s015-implementation`; exact-head implementation commit was `4fa0e40333210cdacd30a34972a252badfe9f988`.
+Completion evidence: `docs/architecture/S015_COMPLETION_EVIDENCE.md` records the shipped behavior, tests, authorization/RLS and integration evidence, non-goals, and deferred work; this governance-only branch supplies the completion-evidence PR.
+Evidence: Implementation PR #310 merged 2026-08-24 as `b6ec078b7bf5e5e45537ed113990c2f2d317c126`; completion evidence is supplied by this governance-only PR.
 
 ### S016 — Document-brand rendering integration
 
-Status: PLANNED
+Status: DONE
 Dependencies: S014
 Objective: Wire approved branding into proposal, invoice, contract, and portal document rendering.
 Acceptance: generated documents use persisted organization branding consistently.
-Readiness note: S014 is DONE through governance PR #301 and ADR-006. S016 may consume the approved Brand Studio-owned branding boundary after the canonical selector and dependency/readiness checks authorize it.
+Readiness contract: S014 is DONE through governance record #301 and ADR-006; S015 is DONE through implementation record #310 and completion evidence #312. S016 consumes canonical BrandProfile/BrandDocumentSettings through the existing document frame and PDF generator seams, preserving route shapes, lifecycle semantics, authenticated organization context, safe escaping, binary responses, and deterministic fallbacks. No new source of truth, public branding policy, schema/migration, storage model, asset lifecycle, RBAC/RLS redesign, billing/payment semantic change, document identity/legal claim, or broad UI redesign is authorized. See `docs/architecture/S016_DOCUMENT_BRAND_RENDERING_PLAN.md`.
+Founder-decision boundary: Stop if implementation requires a new document renderer, public/unauthenticated branding policy, new identity/legal signature claim, destructive migration, new storage architecture, or changed authorization policy.
+Required evidence: canonical branding reaches supported proposal/invoice/contract/portal documents; missing-brand fallback is deterministic; HTML/assets remain safe; same-org and cross-org access evidence passes where applicable; existing route/content-type/lifecycle contracts remain unchanged; focused App/Web/document and PostgreSQL/RLS evidence passes.
+Implementation status: DONE after implementation PR #314 merged on 2026-08-24 as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b` from `feature/s016-implementation`; exact implementation head was `26304048985020ea8f49f701550112b2f6932d0f`.
+Completion evidence: `docs/architecture/S016_COMPLETION_EVIDENCE.md` records shipped behavior, local and exact-head CI verification, security boundaries, review disposition, non-goals, and deferred external evidence.
+Evidence: Implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; Verify repository #1408, Docs consistency #1335, Dependency review #354, PR branch currency #82, Live documentation reconciliation #64, and Sprint governance #63 passed for the merged head.
 
 ### S017 — Brand asset lifecycle and cleanup
 
-Status: PLANNED
-Dependencies: S015
+Status: DONE
+Dependencies: S015, S016
 Objective: Prevent or clean orphaned uploads and safely replace obsolete assets.
 Acceptance: abandoned/replaced assets have documented and tested cleanup behavior.
+Readiness evidence: S015 and S016 are DONE with merged implementation and completion evidence; no S017 implementation PR, branch, worktree, or overlapping storage/Brand Studio change exists in live GitHub state; S017 is the lowest-numbered planned candidate after S016.
+Readiness contract: S017 owns the existing organization-scoped Settings brand-upload lifecycle. It preserves upload-new-then-record-current semantics, cleans failed-upload orphans conservatively, makes explicit removal idempotent, and adds a dry-run-capable reconciliation path for stale generated objects under exact private organization/key prefixes. Current metadata remains the source of truth; arbitrary BrandAsset URLs are not deletable storage ownership evidence. See docs/architecture/S017_BRAND_ASSET_LIFECYCLE_PLAN.md.
+Founder-decision boundary: Stop if implementation requires a new retention policy with customer-facing consequences, schema/history migration, new scheduler/background-job architecture, third-party storage change, production credential/configuration change, public bucket, arbitrary URL deletion, or irreversible deletion without a recoverable dry-run/review boundary.
+Required evidence: replacement and remove failure paths are tested; stale generated objects are dry-run/reconciled without touching current or recent objects; malformed paths, unsupported keys, cross-org access, unauthorized roles, and secret leakage fail closed; existing private asset proxy, Settings/Brand Studio behavior, forced RLS, and document-rendering consumers remain intact.
+Allowed implementation surface: existing Settings asset action/helpers, a small server-only cleanup/reconciliation helper, focused Web tests, existing API helpers, and required owner documentation. No product implementation is included in this readiness branch.
+Evidence: Implementation PR #317 merged as `4b02c8257d7934a4e18d304ce9bdd8ba51878645`; corrective PR #319 merged as `8ebb1a84302eafcab529f3db2f93c63000a76ffe`; separate completion evidence is recorded in [S017_COMPLETION_EVIDENCE.md](architecture/S017_COMPLETION_EVIDENCE.md).
 
 ## Phase 4 — Customer Portal and Document Workflow Hardening
 
@@ -196,12 +210,15 @@ Completed validation: exact-head Verify repository #1358 passed app unit/typeche
 
 ### S020 — Portal contract signing flow
 
-Status: PLANNED
+Status: DONE
 Dependencies: S010, S018
 Objective: Harden contract viewing, signing, decline, and signature audit history.
 Acceptance: signatures and state transitions are durable and auditable.
 Readiness boundary: The existing flow is an authenticated internal `documents.manage` mutation that captures a client-supplied typed name/drawn signature, server timestamp, request IP, and contract event. It does not establish customer identity, identity verification, or immutable signed-document evidence. ADR-007 resolves the founder-approved meaning for S020 as bounded authenticated in-app contract acceptance/signature evidence; do not invent stronger legal-signature semantics or a new auth model.
 Founder decision: Accepted through ADR-007 — S020 remains authenticated in-app contract acceptance/signature evidence and must not claim certificate-backed, identity-verified, notarized, or standalone legal e-signature semantics. S020 readiness may now be prepared, subject to the canonical selector.
+Readiness evidence: S010 and S018 are DONE with merged implementation and completion evidence; ADR-007 resolves the founder/legal boundary. Implementation PR #322 merged as `a3e9d376ebb1f350330b8924951c12ffc00911f3`; separate completion evidence is recorded in [S020_COMPLETION_EVIDENCE.md](architecture/S020_COMPLETION_EVIDENCE.md). See [S020_PORTAL_CONTRACT_SIGNING_PLAN.md](architecture/S020_PORTAL_CONTRACT_SIGNING_PLAN.md).
+Required implementation validation: focused contract service/controller tests; same-organization, cross-organization, unauthorized-role, malformed-ID, and unauthenticated denial evidence; PostgreSQL/RLS and concurrent transition coverage; typecheck/lint/build; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable App/Web suites.
+Evidence: Implementation PR #322 merged as `a3e9d376ebb1f350330b8924951c12ffc00911f3`; separate completion evidence is recorded in [S020_COMPLETION_EVIDENCE.md](architecture/S020_COMPLETION_EVIDENCE.md).
 
 ### S021 — Portal invoice and payment presentation
 
@@ -219,10 +236,16 @@ Required implementation validation: same-organization/cross-organization invoice
 
 ### S022 — Document rendering reliability
 
-Status: PLANNED
+Status: DONE
 Dependencies: S016, S019, S020, S021
 Objective: Verify proposal, contract, and invoice rendering across representative data and branding states.
 Acceptance: deterministic documents with no broken assets or unsupported state labels.
+Readiness evidence: S016, S019, S020, and S021 are DONE with merged implementation and completion evidence; the existing PDF generators, authenticated document routes, canonical Brand Studio resolver, lifecycle DTOs, and payment/signature semantics are the verified baseline. No open S022 implementation or readiness overlap exists.
+Readiness contract: S022 owns reliability verification and narrowly necessary repairs at the existing proposal, contract, invoice, portal-document, and PDF seams. It must preserve route/content-type contracts, organization context, forced RLS, lifecycle semantics, payment/signature boundaries, and Brand Studio ownership. See [S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md](architecture/S022_DOCUMENT_RENDERING_RELIABILITY_PLAN.md).
+Founder-decision boundary: Stop if implementation requires a new renderer, public links, frozen document persistence, identity/legal-signature architecture, payment/accounting change, schema migration, remote asset fetching, arbitrary font loading, or changed authorization policy.
+Required implementation validation: focused proposal/contract/invoice PDF and HTML tests; lifecycle, branding, missing-data, long-text, special-character, malformed-ID, same-org/cross-org, unauthorized, and unauthenticated coverage; App/Web typecheck/lint/build/integration; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; and `npm run docs:check -- --base origin/main`.
+Implementation status: `DONE` after implementation PR #325 and focused coverage PR #328 merged. See [S022_COMPLETION_EVIDENCE.md](architecture/S022_COMPLETION_EVIDENCE.md).
+Evidence: Implementation PR #325 merged as `f1a725804934c8dacb1807f4917f2bec0d2c5a30`; focused long-content coverage PR #328 merged as `d2b1b426544e263b4402f2f1a86a85c8bd2df140`; exact-head Verify runs #1439 and #1445 passed. Production/browser verification remains explicitly external and not run.
 
 ## Phase 5 — Estimating and AI Assist Hardening
 
@@ -244,17 +267,25 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 
 
 ### S025 — AI generation persistence
 
-Status: PLANNED
+Status: DONE
+Evidence: PR #331 merged 2026-08-25 as `cffc92697196fea22b144424fd9fec4d8865aa44`; completion evidence: `docs/architecture/S025_COMPLETION_EVIDENCE.md`.
 Dependencies: S024
 Objective: Persist approved AI generation metadata and review provenance.
 Acceptance: every generation is addressable, auditable, and tenant-scoped.
+Readiness evidence: S024 is DONE through ADR-008; the existing AthenaExecution, redacted AthenaTelemetryRecordRow, provider usage contract, bounded Athena retention job, and review-first AI Estimate Assist path were the verified baseline.
+Implementation status: DONE through PR #331, merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44; final implementation head was 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6.
+Completion evidence: docs/architecture/S025_COMPLETION_EVIDENCE.md records the shipped behavior, security boundaries, and exact merge/CI evidence.
 
 ### S026 — Estimate line-item ordering concurrency
 
-Status: PLANNED
+Status: DONE
+Evidence: PR #334 merged 2026-08-25 as `b53510eff86899261134f957377e1ba65b60dbe2`; final implementation head was `ea531d0df830c227d1a1fdc8ec3296c971a08941`.
 Dependencies: S023
 Objective: Eliminate remaining manual/AI line-item sort-order races.
 Acceptance: concurrent inserts produce deterministic order without collisions.
+Readiness evidence: S023 is DONE; the current Estimate Engine uses persisted EstimateLineItem.sortOrder with estimate reads ordered by sortOrder ascending, while addLineItem allocates the next value through an unprotected aggregate-then-insert sequence. No competing S026 implementation branch, worktree, or PR exists in live GitHub state.
+Readiness contract: S026 is bounded to atomic or estimate-scoped serialized order allocation across existing manual and AI line-item creation paths, with concurrency/retry/RLS evidence and no pricing, lifecycle, UI ordering-policy, provider, or S027 Costbook changes. See docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md.
+Founder-decision boundary: NO. Stop only if implementation would change customer-visible ordering semantics, require irreversible data rewriting, or introduce materially different estimate persistence architecture.
 
 ### S027 — Intelligent Costbook production readiness
 
@@ -456,17 +487,17 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 ## Active Sprint and Next Eligibility
 
-Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
+Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; separate completion-evidence PR #300 records the governance evidence. S014 and S024 are `DONE` through founder-decision PR #301.
-Dependencies: S015 is unblocked by S014's accepted Brand Studio decision; S016 is also unblocked but remains planned; S017 depends on S015; S020's legal-signature decision is resolved but implementation remains unstarted; S022 still depends on S016, S019, S020, and S021; S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist, and it is reserved for S015. Do not implement S016, S017, S020, or S024 concurrently.
+Completion status: S026 is DONE through implementation PR #334 and completion evidence is pending this governance merge. S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S027 remains environment-evidence blocked.
+Protected boundary: No numbered-sprint implementation lane is active while S027 remains blocked; do not bypass its authenticated browser-evidence gate.
 
 ## Next Eligible Sprint
 
-Sprint ID: S015
-Eligibility: S015 is the lowest-numbered READY sprint and its dependency S014 is DONE; no founder-decision, infrastructure, or competing-lane blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006.
-Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed when readiness was created; the only numbered implementation lane authorized next is S015.
-Startup prompt: After this readiness PR merges, refresh origin/main, create or reuse the isolated S015 implementation branch, and implement only the S015 adapter contract described in `docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S026 is DONE; S027's required external evidence is unavailable.
+Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
+Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.

@@ -1,6 +1,6 @@
 import type { AuthContext } from "../../backend/auth/context";
 import { AdminDashboardService } from "../admin-dashboard/service";
-import { Prisma } from "@prisma/client";
+import { Prisma, type BrandProfile } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
@@ -39,6 +39,17 @@ export class OrganizationSettingsService {
     });
 
     const parsed: Partial<OrganizationSettingsSnapshot> = isSettingsSnapshot(row?.settingsJson) ? row.settingsJson : {};
+    const profile = await prisma.brandProfile.findUnique({ where: { organizationId: orgId } });
+    const adoption = buildLazyBrandProfileAdoption(parsed, organization, profile);
+    const adoptedProfile = adoption
+      ? await runInDatabaseTransaction(prisma, async (transaction) =>
+          transaction.brandProfile.upsert({
+            where: { organizationId: orgId },
+            update: adoption,
+            create: { organizationId: orgId, ...adoption },
+          })
+        )
+      : profile;
     const canManageWorkspace = auth.role === "owner" || auth.role === "admin";
     const teamMembers = canManageWorkspace ? await this.getTeamMembers(orgId) : [];
     const roleProfiles = canManageWorkspace ? buildRoleProfiles(teamMembers) : [];
@@ -51,11 +62,8 @@ export class OrganizationSettingsService {
       teamMembers,
       roleProfiles,
       settings: {
-        companyName: parsed?.companyName ?? organization.name,
-        address: parsed?.address ?? organization.address ?? "",
-        phone: parsed?.phone ?? organization.phone ?? "",
-        logoUrl: parsed?.logoUrl ?? organization.logoUrl ?? "",
         ...parsed,
+        ...resolveCanonicalBranding(parsed, organization, adoptedProfile),
       },
     };
   }
@@ -64,9 +72,13 @@ export class OrganizationSettingsService {
     const organization = await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true } });
     if (!organization) throw new ApiError(404, `Organization ${orgId} not found`);
 
-    const settingsJson = input as unknown as Prisma.InputJsonValue;
-
     const row = await runInDatabaseTransaction(prisma, async (transaction) => {
+      const existingSettings = await transaction.organizationSettings.findUnique({
+        where: { orgId },
+        select: { settingsJson: true },
+      });
+      const settingsJson = mergeSettingsJson(existingSettings?.settingsJson, input);
+
       await transaction.organization.update({
         where: { id: orgId },
         data: {
@@ -77,6 +89,12 @@ export class OrganizationSettingsService {
           defaultLaborRate: toNullableDecimal(input.laborRate),
           defaultMarkupPercent: toNullableDecimal(input.markupPercent),
         },
+      });
+
+      await transaction.brandProfile.upsert({
+        where: { organizationId: orgId },
+        update: mapSettingsToBrandProfile(input),
+        create: { organizationId: orgId, ...mapSettingsToBrandProfile(input) },
       });
 
       return transaction.organizationSettings.upsert({
@@ -230,6 +248,175 @@ function toNullableDecimal(value: string): Prisma.Decimal | null {
     throw new ApiError(400, `Expected a numeric value but received "${value}"`);
   }
   return new Prisma.Decimal(parsed);
+}
+
+type OrganizationBrandingShell = {
+  name: string;
+  phone: string | null;
+  address: string | null;
+  logoUrl: string | null;
+};
+
+type CanonicalBrandingField =
+  | "companyDisplayName"
+  | "logoUrl"
+  | "logoDarkUrl"
+  | "iconUrl"
+  | "watermarkUrl"
+  | "primaryColor"
+  | "secondaryColor"
+  | "accentColor"
+  | "typographyStyle"
+  | "defaultDocumentTheme"
+  | "proposalStyle"
+  | "invoiceStyle"
+  | "contractStyle"
+  | "emailSignature"
+  | "websiteUrl"
+  | "phone"
+  | "licenseNumber"
+  | "insuranceSummary"
+  | "addressLine1";
+
+function mapSettingsToBrandProfile(input: UpdateOrganizationSettingsInput): Record<CanonicalBrandingField, string | null> {
+  return {
+    companyDisplayName: emptyToNull(input.companyName),
+    logoUrl: emptyToNull(input.logoUrl),
+    logoDarkUrl: emptyToNull(input.darkLogoUrl),
+    iconUrl: emptyToNull(input.iconUrl),
+    watermarkUrl: emptyToNull(input.watermarkUrl),
+    primaryColor: emptyToNull(input.brandPrimary),
+    secondaryColor: emptyToNull(input.brandSecondary),
+    accentColor: emptyToNull(input.accentColor),
+    typographyStyle: emptyToNull(input.typography),
+    defaultDocumentTheme: emptyToNull(input.pdfAppearance),
+    proposalStyle: emptyToNull(input.proposalStyle),
+    invoiceStyle: emptyToNull(input.invoiceStyle),
+    contractStyle: emptyToNull(input.contractStyle),
+    emailSignature: emptyToNull(input.emailSignature),
+    websiteUrl: emptyToNull(input.website),
+    phone: emptyToNull(input.phone),
+    licenseNumber: emptyToNull(input.licenseNumber),
+    insuranceSummary: combineInsuranceSummary(input.insuranceProvider, input.insurancePolicy),
+    addressLine1: emptyToNull(input.address),
+  };
+}
+
+function resolveCanonicalBranding(
+  legacy: Partial<OrganizationSettingsSnapshot>,
+  organization: OrganizationBrandingShell,
+  profile: BrandProfile | null | undefined
+): Partial<OrganizationSettingsSnapshot> {
+  const insurance = resolveInsurance(legacy, profile);
+  return {
+    companyName: canonicalString(profile, "companyDisplayName", legacyString(legacy, "companyName", organization.name)),
+    logoUrl: canonicalString(profile, "logoUrl", legacyString(legacy, "logoUrl", organization.logoUrl ?? "")),
+    darkLogoUrl: canonicalString(profile, "logoDarkUrl", legacyString(legacy, "darkLogoUrl", "")),
+    iconUrl: canonicalString(profile, "iconUrl", legacyString(legacy, "iconUrl", "")),
+    watermarkUrl: canonicalString(profile, "watermarkUrl", legacyString(legacy, "watermarkUrl", "")),
+    brandPrimary: canonicalString(profile, "primaryColor", legacyString(legacy, "brandPrimary", "")),
+    brandSecondary: canonicalString(profile, "secondaryColor", legacyString(legacy, "brandSecondary", "")),
+    accentColor: canonicalString(profile, "accentColor", legacyString(legacy, "accentColor", "")),
+    typography: canonicalString(profile, "typographyStyle", legacyString(legacy, "typography", "")),
+    pdfAppearance: canonicalString(profile, "defaultDocumentTheme", legacyString(legacy, "pdfAppearance", "")),
+    proposalStyle: canonicalString(profile, "proposalStyle", legacyString(legacy, "proposalStyle", "")),
+    invoiceStyle: canonicalString(profile, "invoiceStyle", legacyString(legacy, "invoiceStyle", "")),
+    contractStyle: canonicalString(profile, "contractStyle", legacyString(legacy, "contractStyle", "")),
+    emailSignature: canonicalString(profile, "emailSignature", legacyString(legacy, "emailSignature", "")),
+    website: canonicalString(profile, "websiteUrl", legacyString(legacy, "website", "")),
+    phone: canonicalString(profile, "phone", legacyString(legacy, "phone", organization.phone ?? "")),
+    licenseNumber: canonicalString(profile, "licenseNumber", legacyString(legacy, "licenseNumber", "")),
+    insuranceProvider: insurance.provider,
+    insurancePolicy: insurance.policy,
+    address: canonicalString(profile, "addressLine1", legacyString(legacy, "address", organization.address ?? "")),
+  };
+}
+
+function buildLazyBrandProfileAdoption(
+  legacy: Partial<OrganizationSettingsSnapshot>,
+  organization: OrganizationBrandingShell,
+  profile: BrandProfile | null | undefined
+): Partial<Record<CanonicalBrandingField, string | null>> | null {
+  const adoption: Partial<Record<CanonicalBrandingField, string | null>> = {};
+  const candidates: Array<[CanonicalBrandingField, keyof OrganizationSettingsSnapshot, string]> = [
+    ["companyDisplayName", "companyName", organization.name],
+    ["logoUrl", "logoUrl", organization.logoUrl ?? ""],
+    ["logoDarkUrl", "darkLogoUrl", ""],
+    ["iconUrl", "iconUrl", ""],
+    ["watermarkUrl", "watermarkUrl", ""],
+    ["primaryColor", "brandPrimary", ""],
+    ["secondaryColor", "brandSecondary", ""],
+    ["accentColor", "accentColor", ""],
+    ["typographyStyle", "typography", ""],
+    ["defaultDocumentTheme", "pdfAppearance", ""],
+    ["proposalStyle", "proposalStyle", ""],
+    ["invoiceStyle", "invoiceStyle", ""],
+    ["contractStyle", "contractStyle", ""],
+    ["emailSignature", "emailSignature", ""],
+    ["websiteUrl", "website", ""],
+    ["phone", "phone", organization.phone ?? ""],
+    ["licenseNumber", "licenseNumber", ""],
+    ["addressLine1", "address", organization.address ?? ""],
+  ];
+
+  for (const [profileField, settingsField, organizationFallback] of candidates) {
+    if (profile && profile[profileField] !== null && profile[profileField] !== undefined) continue;
+    const source = hasOwn(legacy, settingsField) ? legacyString(legacy, settingsField, "") : organizationFallback;
+    if (source) adoption[profileField] = source;
+  }
+
+  if (!profile || profile.insuranceSummary === null || profile.insuranceSummary === undefined) {
+    const provider = legacyString(legacy, "insuranceProvider", "");
+    const policy = legacyString(legacy, "insurancePolicy", "");
+    const summary = combineInsuranceSummary(provider, policy);
+    if (summary) adoption.insuranceSummary = summary;
+  }
+
+  return Object.keys(adoption).length ? adoption : null;
+}
+
+function canonicalString(profile: BrandProfile | null | undefined, field: CanonicalBrandingField, fallback: string): string {
+  const value = profile?.[field];
+  return value === null || value === undefined ? fallback : value;
+}
+
+function legacyString(legacy: Partial<OrganizationSettingsSnapshot>, field: keyof OrganizationSettingsSnapshot, fallback: string): string {
+  const value = legacy[field];
+  return typeof value === "string" ? value : fallback;
+}
+
+function hasOwn(value: object, key: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function mergeSettingsJson(existing: unknown, input: UpdateOrganizationSettingsInput): Prisma.InputJsonValue {
+  const previous = isRecord(existing) ? existing : {};
+  return { ...previous, ...input } as Prisma.InputJsonValue;
+}
+
+const INSURANCE_SEPARATOR = " — ";
+
+function combineInsuranceSummary(provider: string, policy: string): string | null {
+  const normalizedProvider = provider.trim();
+  const normalizedPolicy = policy.trim();
+  if (!normalizedProvider && !normalizedPolicy) return null;
+  if (!normalizedProvider) return normalizedPolicy;
+  if (!normalizedPolicy) return normalizedProvider;
+  return `${normalizedProvider}${INSURANCE_SEPARATOR}${normalizedPolicy}`;
+}
+
+function resolveInsurance(
+  legacy: Partial<OrganizationSettingsSnapshot>,
+  profile: BrandProfile | null | undefined
+): { provider: string; policy: string } {
+  if (profile?.insuranceSummary !== null && profile?.insuranceSummary !== undefined) {
+    const [provider, ...policyParts] = profile.insuranceSummary.split(INSURANCE_SEPARATOR);
+    return { provider, policy: policyParts.join(INSURANCE_SEPARATOR) };
+  }
+  return {
+    provider: legacyString(legacy, "insuranceProvider", ""),
+    policy: legacyString(legacy, "insurancePolicy", ""),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

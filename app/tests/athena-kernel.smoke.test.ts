@@ -15,6 +15,15 @@ const athenaExecutionUpdate = jest.fn(async ({ where, data }: { where: { id: str
 const athenaExecutionFindFirst = jest.fn(async ({ where }: { where: { id: string } }) => executions.get(where.id) ?? null);
 const athenaExecutionTransitionCreate = jest.fn(async () => undefined);
 const athenaTelemetryRecordCreate = jest.fn(async () => undefined);
+const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+  ...data,
+  estimatedUsd: data.estimatedUsd ?? null,
+  toolNamesJson: data.toolNamesJson ?? [],
+  provenanceJson: data.provenanceJson ?? {},
+  retentionExpiresAt: data.retentionExpiresAt ?? new Date(),
+  createdAt: data.createdAt ?? new Date(),
+  completedAt: data.completedAt ?? null,
+}));
 const athenaAuditEventFindFirst = jest.fn(async () => null);
 const athenaAuditEventCreate = jest.fn(async () => undefined);
 
@@ -23,6 +32,7 @@ jest.mock("../db/client", () => ({
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaGenerationRun: { create: athenaGenerationRunCreate },
     athenaAuditEvent: { findFirst: athenaAuditEventFindFirst, create: athenaAuditEventCreate },
   },
 }));

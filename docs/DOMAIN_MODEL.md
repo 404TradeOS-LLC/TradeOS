@@ -305,3 +305,11 @@ Operational sub-relationships:
 - `Invoice -> Payment`
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
+
+## AI generation metadata
+
+S025 introduces tenant-owned `AthenaGenerationRun` metadata and append-only
+`AthenaGenerationReview` provenance. These records identify the organization,
+actor, execution correlation, model usage, status, and retention expiry; they
+do not persist raw prompts, model output, tool arguments, or tool results by
+default. Business mutations remain owned by existing review-first services.

@@ -71,6 +71,8 @@ model Organization {
   athenaExecutions AthenaExecution[]
   athenaExecutionTransitions AthenaExecutionTransition[]
   athenaTelemetryRecords AthenaTelemetryRecordRow[]
+  athenaGenerationRuns AthenaGenerationRun[]
+  athenaGenerationReviews AthenaGenerationReview[]
   athenaMemories AthenaMemory[]
   athenaEvents AthenaEvent[]
   athenaEventDeliveries AthenaEventDelivery[]
@@ -267,6 +269,8 @@ model AppUser {
   assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
   assignedJobActions JobAssignment[] @relation("JobAssignedBy")
   athenaExecutions AthenaExecution[]
+  athenaGenerationRuns AthenaGenerationRun[]
+  athenaGenerationReviews AthenaGenerationReview[]
   athenaApprovals AthenaApproval[]
   athenaAuditEvents AthenaAuditEvent[]
 
@@ -1440,6 +1444,7 @@ model AthenaExecution {
   actor        AppUser                     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
   transitions  AthenaExecutionTransition[]
   telemetry    AthenaTelemetryRecordRow[]
+  generationRuns AthenaGenerationRun[]
 
   @@index([orgId, state])
   @@index([orgId, actorUserId, createdAt])
@@ -1500,6 +1505,62 @@ model AthenaTelemetryRecordRow {
   @@index([orgId, spanType, createdAt])
   @@index([orgId, status, createdAt])
   @@map("athena_telemetry_records")
+}
+
+// S025 metadata-first AI generation persistence. This record deliberately
+// excludes raw prompts, model output, tool arguments, and tool results.
+model AthenaGenerationRun {
+  id                String    @id @default(uuid())
+  orgId             String    @map("org_id")
+  actorUserId       String    @map("actor_user_id")
+  executionId       String?   @map("execution_id")
+  requestId         String    @map("request_id")
+  traceId           String    @map("trace_id")
+  provider          String
+  model             String
+  providerVersion   String?   @map("provider_version")
+  status            String
+  failureCode       String?   @map("failure_code")
+  inputTokens       Int?     @map("input_tokens")
+  outputTokens      Int?     @map("output_tokens")
+  estimatedUsd      Decimal? @map("estimated_usd") @db.Decimal(12, 6)
+  latencyMs         Int       @map("latency_ms")
+  toolNamesJson     Json      @default("[]") @map("tool_names_json")
+  provenanceJson    Json      @default("{}") @map("provenance_json")
+  retentionExpiresAt DateTime @map("retention_expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  completedAt       DateTime? @map("completed_at")
+
+  organization Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser                  @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  execution    AthenaExecution?         @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  reviews      AthenaGenerationReview[]
+
+  @@index([orgId, actorUserId, createdAt])
+  @@index([orgId, executionId, createdAt])
+  @@index([orgId, retentionExpiresAt])
+  @@map("athena_generation_runs")
+}
+
+// Reviews are append-only provenance records. Business mutations remain in
+// the existing review-first application-service paths.
+model AthenaGenerationReview {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  generationId String   @map("generation_id")
+  reviewerUserId String @map("reviewer_user_id")
+  outcome      String
+  provenanceJson Json   @default("{}") @map("provenance_json")
+  reviewedAt   DateTime @map("reviewed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  generation   AthenaGenerationRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  reviewer     AppUser             @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, generationId, reviewedAt])
+  @@index([orgId, reviewerUserId, reviewedAt])
+  @@map("athena_generation_reviews")
 }
 
 // A7 memory persistence (docs/athena/roadmap/A7-memory-implementation-plan.md,

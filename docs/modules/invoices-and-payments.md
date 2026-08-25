@@ -88,6 +88,12 @@ persisted `paid` invoice remains authoritative even when it has no Payment row.
 
 The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger response as the drill-down. If that read fails, the KPI reports `Unavailable` instead of substituting paid-invoice totals.
 
+Invoice PDFs resolve their company identity, contact rail, accent palette, and
+optional trust signals from the authenticated organization's canonical Brand
+Studio profile and document settings. This changes presentation only: invoice
+amounts, payment records, balance/status derivation, billing permissions,
+payment reconciliation, and organization/RLS boundaries are unchanged.
+
 ## Tests
 
 - `app/tests/invoices.service.test.ts`
@@ -98,6 +104,7 @@ The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger 
 - `app/tests/invoices.queue.test.ts`, `app/tests/invoices.controller.queue.test.ts` — organization work-queue filter/SQL wiring, DTO mapping, and authorization
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and real Payment-aggregate balance computation (overdue/partiallyPaid/unpaid, voided exclusion) for the queue read
 - `app/tests/rls.integration.ts` — live PostgreSQL concurrent-payment serialization, one paid event, payment durability, cross-organization denial, and voided-invoice non-revival
+- `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
 
 ## Known limitations
 
@@ -113,3 +120,7 @@ The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger 
 ## Last verified date
 
 2026-08-24
+
+## S022 rendering boundary
+
+Invoice PDF rendering continues to use server-derived invoice and payment semantics. The S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and an explicit empty line-item state without changing payment aggregation, balance presentation, invoice status, authorization, or RLS behavior.

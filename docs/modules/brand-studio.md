@@ -46,6 +46,18 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 The shared document frame defines safe fallback CSS custom properties for its palette and typography so the stylesheet renders deterministically even before organization branding is injected. `renderDocumentFrameHtml()` still injects the organization's configured colors and font families at runtime and those values override the fallbacks. The fallback font stacks include a generic `sans-serif` family and do not change persisted Brand Studio settings or document data.
 
+## Document rendering integration
+
+S016 consumes the canonical `BrandProfile` and `BrandDocumentSettings` through
+the existing server-derived organization context for proposal, invoice, and
+contract PDF generation. The shared resolver applies canonical company
+identity, safe validated colors, contact details, and configured trust-signal
+visibility; missing optional branding falls back deterministically, including
+compatibility contact values from the organization shell or legacy settings
+snapshot. A caller cannot replace persisted organization branding by supplying
+a company name when authenticated `orgId` context is available. No schema,
+asset lifecycle, storage, authorization, or public-branding behavior changes.
+
 ## Implementation notes
 
 S015 owns the compatibility boundary between this canonical Brand Studio
@@ -62,6 +74,7 @@ permissions, fallbacks, and route shapes remain intact.
 - `app/tests/brand-studio.service.test.ts`
 - `app/tests/brand-studio.migration.test.ts`
 - `app/tests/document-frame.test.ts`
+- `app/tests/documents.branding.test.ts`
 
 ## Known limitations
 
@@ -73,4 +86,8 @@ permissions, fallbacks, and route shapes remain intact.
 
 ## Last verified date
 
-2026-08-24 (S015 readiness documentation only; implementation behavior is not yet shipped)
+2026-08-24 (S016 document-rendering integration branch)
+
+## S022 rendering boundary
+
+S022 continues to resolve document branding from the canonical Brand Studio profile and document settings. Rendering sanitizes colors, font families, and asset URLs as before; the first slice adds deterministic document formatting and introduces no remote asset fetching, arbitrary fonts, or second branding source.

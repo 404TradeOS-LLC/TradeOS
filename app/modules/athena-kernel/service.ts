@@ -35,7 +35,41 @@ const DEFAULT_PROVIDER_DEADLINE_MS = 8_000;
 function parsePositiveIntEnv(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function persistGenerationWithinDeadline(
+  persist: () => Promise<void>,
+  deadline: Date,
+  signal: AbortSignal,
+  abort: (reason: AthenaCancellationReason) => void,
+  getCancellationReason: () => AthenaCancellationReason | undefined
+): Promise<void> {
+  if (signal.aborted) {
+    throw new AthenaAbortedError(getCancellationReason() ?? "shutdown");
+  }
+
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  let rejectCancellation: ((reason?: unknown) => void) | undefined;
+  const onAbort = () => rejectCancellation?.(new AthenaAbortedError(getCancellationReason() ?? "shutdown"));
+  const cancellationPromise = new Promise<never>((_, reject) => {
+    rejectCancellation = reject;
+  });
+  signal.addEventListener("abort", onAbort, { once: true });
+  const deadlinePromise = new Promise<never>((_, reject) => {
+    const remainingMs = Math.max(0, deadline.getTime() - Date.now());
+    timeoutTimer = setTimeout(() => {
+      abort("deadline_exceeded");
+      reject(new AthenaAbortedError("deadline_exceeded"));
+    }, remainingMs);
+  });
+
+  try {
+    await Promise.race([persist(), cancellationPromise, deadlinePromise]);
+  } finally {
+    clearTimeout(timeoutTimer);
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
 }
 
 // Internal-only marker distinguishing "the kernel-owned AbortController
@@ -724,9 +758,11 @@ export class AthenaKernelService {
         signal: controller.signal,
         deadline,
         providerDeadlineMs,
+        generationRetentionDays: parsePositiveIntEnv(env.ATHENA_GENERATION_RETENTION_DAYS, 90),
         abort,
         getCancellationReason: () => cancellationReason,
         emitSpan,
+        persistGeneration: async (generation) => executionStore.persistGenerationRecord({ ...generation, orgId: actor.orgId, actorUserId: actor.userId, executionId, requestId: input.requestId, traceId }),
       });
 
       await applyTransition("succeeded", "draft_response_completed");
@@ -850,9 +886,23 @@ export class AthenaKernelService {
     signal: AbortSignal;
     deadline: Date;
     providerDeadlineMs: number;
+    generationRetentionDays: number;
     abort: (reason: AthenaCancellationReason) => void;
     getCancellationReason: () => AthenaCancellationReason | undefined;
     emitSpan: (spanType: "model", status: "ok" | "error", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => Promise<void>;
+    persistGeneration: (generation: {
+      provider: string;
+      model: string;
+      providerVersion?: string;
+      status: "succeeded";
+      inputTokens?: number;
+      outputTokens?: number;
+      estimatedUsd?: number;
+      latencyMs: number;
+      provenance?: Record<string, unknown>;
+      retentionExpiresAt: Date;
+      completedAt: Date;
+    }) => Promise<void>;
   }): Promise<{ summary: string; message: string | null; warnings: { code: string; message: string }[] }> {
     if (!input.flags.draftResponsesEnabled) {
       return {
@@ -882,6 +932,8 @@ export class AthenaKernelService {
 
     try {
       const result = await Promise.race([input.provider.generateDraft({ message: input.message, signal: input.signal, deadline: providerDeadline }), providerTimeoutPromise]);
+      clearTimeout(providerTimeoutTimer);
+      providerTimeoutTimer = undefined;
       // Missing provider usage data is recorded as absent, not estimated
       // from prompt text (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
       // "Cost attribution"). costTrackingEnabled=false omits the field
@@ -890,6 +942,29 @@ export class AthenaKernelService {
         ? { provider: result.provider, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, estimatedUsd: result.estimatedUsd }
         : undefined;
       await input.emitSpan("model", "ok", Date.now() - modelStart, { provider: result.provider, model: result.model }, cost);
+      await persistGenerationWithinDeadline(
+        () =>
+          input.persistGeneration({
+            provider: result.provider,
+            model: result.model,
+            providerVersion: result.providerVersion,
+            status: "succeeded",
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            estimatedUsd: result.estimatedUsd,
+            latencyMs: Date.now() - modelStart,
+            provenance: { source: "athena_kernel", executionState: "succeeded" },
+            retentionExpiresAt: new Date(Date.now() + input.generationRetentionDays * 24 * 60 * 60 * 1000),
+            completedAt: new Date(),
+          }),
+        input.deadline,
+        input.signal,
+        input.abort,
+        input.getCancellationReason
+      );
+      if (input.signal.aborted) {
+        throw new AthenaAbortedError(input.getCancellationReason() ?? "shutdown");
+      }
       return { summary: "Athena prepared a draft response.", message: result.text, warnings: [] };
     } catch (error) {
       const errorCode = error instanceof AthenaAbortedError ? `athena_${error.reason}` : error instanceof AthenaKernelError ? error.code : "unknown";

@@ -88,3 +88,83 @@ export function buildSettingsAssetStoragePath(orgId: string, assetKey: SettingsA
   }
   return `organizations/${orgId}/brand-assets/${objectName}`;
 }
+
+export function buildSettingsAssetStoragePrefix(orgId: string, assetKey: SettingsAssetKey): string {
+  if (!isSafeOrgId(orgId)) {
+    throw new Error("Invalid organization id.");
+  }
+  return `organizations/${orgId}/brand-assets/${assetKey}-`;
+}
+
+const GENERATED_SETTINGS_ASSET_OBJECT_PATTERN =
+  /^(logoUrl|darkLogoUrl|iconUrl|watermarkUrl)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isGeneratedSettingsAssetObjectName(assetKey: SettingsAssetKey, objectName: string): boolean {
+  return objectName.startsWith(`${assetKey}-`) && GENERATED_SETTINGS_ASSET_OBJECT_PATTERN.test(objectName);
+}
+
+export function isGeneratedSettingsAssetStoragePath(
+  orgId: string,
+  assetKey: SettingsAssetKey,
+  storagePath: string
+): boolean {
+  if (!isSafeOrgId(orgId) || !isAllowedSettingsAssetKey(assetKey)) return false;
+  const prefix = `organizations/${orgId}/brand-assets/`;
+  if (!storagePath.startsWith(prefix)) return false;
+  return isGeneratedSettingsAssetObjectName(assetKey, storagePath.slice(prefix.length));
+}
+
+export const SETTINGS_ASSET_CLEANUP_GRACE_MS = 24 * 60 * 60 * 1000;
+
+export interface SettingsAssetStorageEntry {
+  name: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface SettingsAssetCleanupCandidate {
+  assetKey: SettingsAssetKey;
+  storagePath: string;
+  updatedAt: string;
+}
+
+export function selectSettingsAssetCleanupCandidates({
+  orgId,
+  assetKey,
+  entries,
+  currentStoragePath,
+  now = Date.now(),
+  graceMs = SETTINGS_ASSET_CLEANUP_GRACE_MS,
+}: {
+  orgId: string;
+  assetKey: SettingsAssetKey;
+  entries: SettingsAssetStorageEntry[];
+  currentStoragePath: string | null;
+  now?: number;
+  graceMs?: number;
+}): { candidates: SettingsAssetCleanupCandidate[]; skipped: number } {
+  if (!isSafeOrgId(orgId) || graceMs < 0) return { candidates: [], skipped: entries.length };
+  const generatedPrefix = buildSettingsAssetStoragePrefix(orgId, assetKey);
+  const prefix = generatedPrefix.slice(0, generatedPrefix.lastIndexOf("/")) + "/";
+  const candidates: SettingsAssetCleanupCandidate[] = [];
+  let skipped = 0;
+
+  for (const entry of entries) {
+    const storagePath = `${prefix}${entry.name}`;
+    const updatedAt = entry.updated_at ?? entry.created_at;
+    const timestamp = updatedAt ? Date.parse(updatedAt) : Number.NaN;
+    if (
+      !isGeneratedSettingsAssetStoragePath(orgId, assetKey, storagePath) ||
+      storagePath === currentStoragePath ||
+      !updatedAt ||
+      !Number.isFinite(timestamp) ||
+      now - timestamp < graceMs
+    ) {
+      skipped += 1;
+      continue;
+    }
+    candidates.push({ assetKey, storagePath, updatedAt });
+  }
+
+  return { candidates, skipped };
+}

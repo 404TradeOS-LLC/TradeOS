@@ -1,11 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
-  - docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md
+  - docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -13,45 +13,32 @@ related_code:
 
 ## Mission
 
-S015 is the sole numbered sprint implementation lane authorized after this
-governance-only readiness promotion. S014 is DONE through founder-decision
-record 301 and ADR-006. S015 is READY; no product implementation belongs in this
-readiness branch. The implementation must use a separate isolated branch and
-must follow the S015 contract in
-`docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md`.
+S025 is DONE after implementation PR #331 and completion evidence in docs/architecture/S025_COMPLETION_EVIDENCE.md. S026 is now the sole READY numbered-sprint implementation lane.
 
 ## Current truth
 
-- `origin/main` at readiness reconciliation was
-  `e98d2e266e5844e142376501a47b855b87541912`.
-- S021 implementation and completion evidence are merged; S014 and S024 are
-  DONE through founder-decision PR #301; S020's founder/legal boundary is
-  resolved through ADR-007.
-- Existing BrandProfile/BrandDocumentSettings schema, migrations, forced RLS,
-  and adjacent service tests are present. The Settings and Brand Studio stores
-  are still independent; S015 owns their bounded compatibility adapter.
-- No S015 implementation PR, remote branch, or worktree was found when this
-  readiness branch was created. The only open PRs observed were unrelated
-  Dependabot updates #305 and #306.
-- S016 is the next lower-numbered planned candidate after S015; S017 depends
-  on S015; S020 is planned with its decision blocker resolved. Those candidates
-  are pre-audit work only and must not receive implementation writes.
+- S025 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44; final implementation head was 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6.
+- S023 is DONE, satisfying S026's dependency.
+- S026 owns only deterministic EstimateLineItem sort-order allocation under concurrent manual and AI/replay-shaped inserts.
+- S027 remains BLOCKED on authenticated rendered Costbook browser evidence and receives no implementation writes.
+- No founder decision is required for S026 under the current readiness contract.
 
 ## Readiness contract
 
-Brand Studio is canonical. Settings keeps its existing API shape and remains a
-compatibility/admin surface. S015 may add a small adapter/mapper and bounded
-Settings bindings so canonical values win, legacy values are adopted lazily and
-non-destructively, unrelated operational Settings data is preserved, and
-existing auth, organization context, permissions, transaction, and forced-RLS
-boundaries remain unchanged. No schema migration, RBAC/RLS redesign, storage
-model, public marketing theming, document rendering, billing, auth/customer
-identity, or broad UI redesign is authorized.
+Preserve the existing Estimate Engine boundary, persisted sortOrder semantics, pricing snapshots, source-key idempotency, draft-only authorization, organization scoping, and forced RLS. No UI ordering-policy change, pricing/lifecycle redesign, AI provider change, broad schema redesign, or S027 work is authorized.
+
+## Verification and blockers
+
+Readiness evidence is complete for S026. Implementation must add focused concurrency/retry tests, verify totals and existing order, run typecheck/lint/build, run PostgreSQL/RLS checks where applicable, and pass required CI/docs/governance checks.
+
+## Next action
+
+Create/reconcile the isolated S026 implementation branch/worktree and implement only the S026 READY contract. Do not implement S027 concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S015
-Eligibility: S015 is READY; S014 is DONE; no founder, infrastructure, overlap, or competing-lane blocker remains.
-Dependencies: S014 DONE through PR #301 and ADR-006.
-Overlap check: no open/draft S015 PR, remote S015 branch, or S015 worktree existed at readiness creation; keep S015 as the only numbered implementation lane.
-Startup prompt: Refresh origin/main after this readiness PR merges, create or reuse `feature/s015-implementation` in an isolated worktree, and implement only the S015 readiness contract.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S026 is DONE and S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S026 is DONE; S027's required external evidence is unavailable.
+Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
+Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.

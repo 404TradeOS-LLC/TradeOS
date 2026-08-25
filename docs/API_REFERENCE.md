@@ -328,6 +328,17 @@ Settings asset storage metadata routes under `/api/v1/settings`:
 
 These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
 
+S015's Settings compatibility adapter preserves the existing `GET`/`PATCH
+/api/v1/settings` shape while resolving mapped branding fields from the
+organization's canonical `BrandProfile` first. Legacy Settings JSON and
+organization-shell values are used only for missing canonical fields, and
+legacy-only values are adopted lazily inside the existing request-scoped
+transaction. PATCH preserves unrelated Settings JSON keys and synchronizes the
+mapped canonical profile fields without changing the existing permission,
+organization-context, or forced-RLS boundary. This behavior is on the S015
+implementation branch until its implementation and completion-evidence PRs
+merge.
+
 Project task routes under `/api/v1/projects`:
 
 - `GET /api/v1/projects/tasks`
@@ -363,6 +374,19 @@ the client is trusted for tenancy.
 
 PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
 
+S020's implementation lane now makes sign and void transitions status-conditional
+and organization-scoped so a stale concurrent request fails closed before its
+contract event is recorded. Repeated voiding is rejected; route shape and
+authenticated `documents.manage` authorization are unchanged.
+
+Document PDF responses for proposals, invoices, and contracts retain their
+existing authenticated routes, content type, and organization checks while
+resolving presentation from the canonical Brand Studio profile and
+BrandDocumentSettings for the server-derived organization. Company identity,
+contact details, safe colors, and configured trust-signal visibility are
+presentation inputs only; caller-supplied company names cannot override
+persisted organization branding when authenticated context is available.
+
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
@@ -396,3 +420,32 @@ bounded response as a complete catalog.
 - [modules/customer-portal.md](modules/customer-portal.md)
 - [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
 - [modules/settings-and-operations.md](modules/settings-and-operations.md)
+
+## S022 document rendering reliability
+
+Existing proposal, contract, invoice, and document-frame endpoints retain their current routes, organization scoping, authentication, authorization, and `application/pdf` content types. S022 hardens presentation output with deterministic UTC dates, finite numeric fallbacks, canonical status labels, and explicit empty line-item states; it adds no routes or domain semantics.
+
+## S025 AI generation persistence
+
+S025 adds no public endpoint. The existing authenticated Athena draft path
+persists only organization/actor-scoped generation metadata through the
+application service; raw prompts, model output, tool arguments, and tool
+results remain excluded by default. Review provenance does not bypass existing
+review-first application-service writes.
+
+The existing AI Estimate Assist routes expose this contract:
+
+- `POST /api/v1/estimates/:id/ai-estimator/draft` returns `generationId` for
+  successful authenticated structured draft generation. The identifier points
+  to metadata only; raw prompt and model content are not persisted.
+- `POST /api/v1/estimates/:id/ai-estimator/apply` accepts an optional root
+  `generationId` UUID. When present, the authenticated owner/admin review is
+  bound to the same estimate and persists append-only generation provenance
+  (reviewer, outcome, and bounded apply counts). The organization is derived
+  server-side, and accepted business writes still use the existing
+  review-first Estimate Engine path.
+
+
+## Estimate line-item ordering
+
+Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.

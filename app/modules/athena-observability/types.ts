@@ -245,7 +245,7 @@ export interface AthenaObservabilityExporter {
 }
 
 export interface AthenaRetentionResult {
-  table: "athena_telemetry_records" | "athena_execution_transitions" | "athena_executions";
+  table: "athena_telemetry_records" | "athena_execution_transitions" | "athena_executions" | "athena_generation_runs";
   scannedBatches: number;
   deletedCount: number;
   cutoff: string;

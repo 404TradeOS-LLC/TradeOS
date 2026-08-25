@@ -9,9 +9,36 @@ interface FakeExecutionRow {
   roundTrips?: number;
 }
 
+interface FakeGenerationRow {
+  id: string;
+  orgId: string;
+  actorUserId: string;
+  executionId?: string;
+  requestId: string;
+  traceId: string;
+  provider: string;
+  model: string;
+  providerVersion?: string;
+  status: string;
+  failureCode?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  estimatedUsd?: { toNumber(): number } | null;
+  latencyMs: number;
+  toolNamesJson: unknown;
+  provenanceJson: unknown;
+  retentionExpiresAt: Date;
+  createdAt: Date;
+  completedAt?: Date | null;
+}
+
+type FakeGenerationCreateData = Omit<FakeGenerationRow, "createdAt">;
+
+
 const executions = new Map<string, FakeExecutionRow>();
 const transitions: Array<{ executionId: string; fromState: string; toState: string; reasonCode: string }> = [];
 const telemetryRows: Array<{ orgId: string; executionId: string; spanType: string; status: string; redaction: string; metadataJson: unknown; costJson: unknown }> = [];
+const generationRows: FakeGenerationRow[] = [];
 
 const athenaExecutionCreate = jest.fn(async ({ data }: { data: FakeExecutionRow }) => {
   executions.set(data.id, { ...data });
@@ -27,12 +54,18 @@ const athenaExecutionTransitionCreate = jest.fn(async ({ data }: { data: { execu
 const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof telemetryRows)[number] }) => {
   telemetryRows.push(data);
 });
+const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGenerationCreateData }) => {
+  const row: FakeGenerationRow = { ...data, createdAt: new Date() };
+  generationRows.push(row);
+  return row;
+});
 
 jest.mock("../db/client", () => ({
   prisma: {
     athenaExecution: { create: athenaExecutionCreate, update: athenaExecutionUpdate, findFirst: athenaExecutionFindFirst },
     athenaExecutionTransition: { create: athenaExecutionTransitionCreate },
     athenaTelemetryRecordRow: { create: athenaTelemetryRecordCreate },
+    athenaGenerationRun: { create: athenaGenerationRunCreate },
   },
 }));
 
@@ -76,6 +109,7 @@ describe("AthenaKernelService", () => {
     executions.clear();
     transitions.length = 0;
     telemetryRows.length = 0;
+    generationRows.length = 0;
     jest.clearAllMocks();
   });
 
@@ -134,6 +168,61 @@ describe("AthenaKernelService", () => {
     expect(result.state).toBe("succeeded");
     expect(result.message).not.toBeNull();
     expect(telemetryRows.some((row) => row.spanType === "model")).toBe(true);
+  });
+
+  it("uses the configured generation retention window", async () => {
+    const before = Date.now();
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-2-retention",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_GENERATION_RETENTION_DAYS: "7" } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(true);
+    const retentionExpiresAt = generationRows[0]?.retentionExpiresAt.getTime();
+    expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 7 * 24 * 60 * 60 * 1000);
+    expect(retentionExpiresAt).toBeLessThanOrEqual(Date.now() + 7 * 24 * 60 * 60 * 1000 + 1_000);
+  });
+
+
+  it.each(["0.5", "0", "-1", "not-a-number"])("falls back to the default retention window for invalid value %s", async (retentionDays) => {
+    const before = Date.now();
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: `req-invalid-retention-${retentionDays}`,
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_GENERATION_RETENTION_DAYS: retentionDays } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(true);
+    const retentionExpiresAt = generationRows[0]?.retentionExpiresAt.getTime();
+    expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 90 * 24 * 60 * 60 * 1000);
+    expect(retentionExpiresAt).toBeLessThanOrEqual(Date.now() + 90 * 24 * 60 * 60 * 1000 + 1_000);
+  });
+
+  it("expires instead of succeeding when generation persistence exceeds the request deadline", async () => {
+    athenaGenerationRunCreate.mockImplementationOnce(async ({ data }: { data: FakeGenerationCreateData }) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const row: FakeGenerationRow = { ...data, createdAt: new Date() };
+      generationRows.push(row);
+      return row;
+    });
+
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-persistence-deadline",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_REQUEST_DEADLINE_MS: "20" } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("expired");
+    expect(result.error?.code).toBe("athena_deadline_exceeded");
+    expect(transitions.at(-1)?.toState).toBe("expired");
   });
 
   it("denies a mutation-shaped request without ever calling the provider", async () => {

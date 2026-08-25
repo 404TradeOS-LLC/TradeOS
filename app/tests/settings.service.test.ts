@@ -10,6 +10,10 @@ type MockPrisma = {
     findUnique: jest.Mock;
     upsert: jest.Mock;
   };
+  brandProfile: {
+    findUnique: jest.Mock;
+    upsert: jest.Mock;
+  };
   organizationMembership: {
     findMany: jest.Mock;
   };
@@ -27,6 +31,10 @@ const mockPrisma: MockPrisma = {
     update: jest.fn(),
   },
   organizationSettings: {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+  },
+  brandProfile: {
     findUnique: jest.fn(),
     upsert: jest.fn(),
   },
@@ -235,6 +243,36 @@ describe("OrganizationSettingsService", () => {
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it("writes mapped branding fields to the canonical BrandProfile while preserving unknown settings JSON", async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue({ id: "org-1" });
+      mockPrisma.organizationSettings.findUnique.mockResolvedValue({ settingsJson: { futureOperationalFlag: true } });
+      mockPrisma.organizationSettings.upsert.mockResolvedValue({
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+        settingsJson: { futureOperationalFlag: true, ...buildInput() },
+      });
+
+      await new OrganizationSettingsService().updateSettings("org-1", buildInput(), ownerAuth);
+
+      expect(mockPrisma.brandProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { organizationId: "org-1" },
+          update: expect.objectContaining({
+            companyDisplayName: "Acme Contracting",
+            primaryColor: "#111111",
+            defaultDocumentTheme: "standard",
+            insuranceSummary: "Acme Insurance — POLICY-1",
+            addressLine1: "1 Main St",
+          }),
+        })
+      );
+      expect(mockPrisma.organizationSettings.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { settingsJson: expect.objectContaining({ futureOperationalFlag: true }) },
+          create: { orgId: "org-1", settingsJson: expect.objectContaining({ futureOperationalFlag: true }) },
+        })
+      );
+    });
+
     // NOTE: there is no role/permission check inside updateSettings itself --
     // that gate lives one layer up, in requireOrgAdmin() (backend/requestContext.ts),
     // which settings.controller.ts calls before invoking this service at all.
@@ -319,6 +357,105 @@ describe("OrganizationSettingsService", () => {
       expect(result.settings.darkLogoUrl).toBe("");
       expect(result.settings.iconUrl).toBe("");
       expect(result.settings.watermarkUrl).toBe("");
+    });
+
+    it("prefers populated canonical BrandProfile values over stale legacy settings and shell values", async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: "org-1",
+        name: "Shell Name",
+        phone: "shell-phone",
+        address: "Shell Address",
+        logoUrl: "https://stale.example.com/logo.png",
+      });
+      mockPrisma.organizationSettings.findUnique.mockResolvedValue({
+        settingsJson: { companyName: "Legacy Name", logoUrl: "https://legacy.example.com/logo.png", brandPrimary: "#000000" },
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      });
+      mockPrisma.brandProfile.findUnique.mockResolvedValue({
+        companyDisplayName: "Canonical Name",
+        logoUrl: "https://canonical.example.com/logo.png",
+        logoDarkUrl: "",
+        iconUrl: "",
+        watermarkUrl: "",
+        primaryColor: "#ABCDEF",
+        secondaryColor: "",
+        accentColor: "",
+        typographyStyle: "Professional",
+        defaultDocumentTheme: "signature-frame",
+        proposalStyle: "premium",
+        invoiceStyle: "compact",
+        contractStyle: "formal",
+        emailSignature: "",
+        websiteUrl: "",
+        phone: "canonical-phone",
+        licenseNumber: "",
+        insuranceSummary: "",
+        addressLine1: "Canonical Address",
+      });
+
+      const result = await new OrganizationSettingsService().getSettings("org-1", ownerAuth);
+
+      expect(result.settings.companyName).toBe("Canonical Name");
+      expect(result.settings.logoUrl).toBe("https://canonical.example.com/logo.png");
+      expect(result.settings.brandPrimary).toBe("#ABCDEF");
+      expect(result.settings.phone).toBe("canonical-phone");
+      expect(result.settings.address).toBe("Canonical Address");
+    });
+
+    it("lazily adopts legacy branding without dropping unrelated settings fields", async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: "org-1",
+        name: "Shell Name",
+        phone: "",
+        address: "",
+        logoUrl: "",
+      });
+      mockPrisma.organizationSettings.findUnique.mockResolvedValue({
+        settingsJson: { companyName: "Legacy Name", logoUrl: "https://legacy.example.com/logo.png", futureFlag: "keep" },
+        updatedAt: null,
+      });
+      mockPrisma.brandProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.brandProfile.upsert.mockResolvedValue({
+        companyDisplayName: "Legacy Name",
+        logoUrl: "https://legacy.example.com/logo.png",
+        phone: null,
+        addressLine1: null,
+        insuranceSummary: null,
+      });
+
+      const result = await new OrganizationSettingsService().getSettings("org-1", ownerAuth);
+
+      expect(mockPrisma.brandProfile.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            organizationId: "org-1",
+            companyDisplayName: "Legacy Name",
+            logoUrl: "https://legacy.example.com/logo.png",
+          }),
+        })
+      );
+      expect(result.settings.companyName).toBe("Legacy Name");
+      expect(result.settings.logoUrl).toBe("https://legacy.example.com/logo.png");
+      expect((result.settings as Record<string, unknown>).futureFlag).toBe("keep");
+    });
+
+    it("does not repopulate a canonical clear from a stale organization fallback", async () => {
+      mockPrisma.organization.findUnique.mockResolvedValue({
+        id: "org-1",
+        name: "Acme Contracting",
+        phone: "",
+        address: "",
+        logoUrl: "https://stale.example.com/logo.png",
+      });
+      mockPrisma.organizationSettings.findUnique.mockResolvedValue({ settingsJson: { logoUrl: "" }, updatedAt: null });
+      mockPrisma.brandProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.brandProfile.upsert.mockResolvedValue(null);
+
+      const result = await new OrganizationSettingsService().getSettings("org-1", ownerAuth);
+
+      expect(result.settings.logoUrl).toBe("");
+      const upsert = mockPrisma.brandProfile.upsert.mock.calls[0]?.[0];
+      expect(upsert?.create).not.toHaveProperty("logoUrl");
     });
   });
 
