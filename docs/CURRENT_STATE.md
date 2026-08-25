@@ -303,7 +303,7 @@ Estimate-backed Proposal creation now persists the finalized estimate's existing
 
 PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; the invoice queue now treats persisted `paid` as authoritative for `balanceDue: 0` while retaining recorded-payment aggregation semantics.
 
-S030 implementation PR #341 is merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. The authenticated browser evidence limitation is recorded explicitly. S040 is the preferred next security-leverage candidate after its own readiness promotion.
+S030 implementation PR #341 is merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. The authenticated browser evidence limitation is recorded explicitly. S040 is complete with implementation PR #346 and completion evidence; S041 is the next security-leverage candidate but remains PLANNED pending readiness promotion.
 
 ## S040 tenant-boundary regression readiness
 
