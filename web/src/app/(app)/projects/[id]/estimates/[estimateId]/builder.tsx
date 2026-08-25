@@ -287,7 +287,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setError("Quantity must be a positive number");
       return;
     }
-    addLineItem.mutate({ item: target, quantity: qty, section, costType, taxable });
+    addLineItem.mutate({ item: target, quantity: qty, section, costType: costType || undefined, taxable });
   };
 
   const addLineItem = useMutation({
