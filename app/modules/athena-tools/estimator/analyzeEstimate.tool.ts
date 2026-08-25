@@ -50,7 +50,7 @@ export function createEstimateAnalyzeTool(deps: EstimateAnalyzeToolDeps): Athena
 
       const preTaxTotalPrice = estimate.preTaxTotalPrice ?? estimate.totalPrice - (estimate.taxAmount ?? 0);
       const costAfterOverhead = estimate.costAfterOverhead ?? applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct);
-      const realizedMarginPct = preTaxTotalPrice <= 0 || preTaxTotalPrice <= costAfterOverhead ? 0 : ((preTaxTotalPrice - costAfterOverhead) / preTaxTotalPrice) * 100;
+      const realizedMarginPct = preTaxTotalPrice <= 0 ? 0 : ((preTaxTotalPrice - costAfterOverhead) / preTaxTotalPrice) * 100;
 
       const warnings: AthenaWarning[] = [];
       if (estimate.lineItems.length === 0) {

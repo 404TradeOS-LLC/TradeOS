@@ -223,7 +223,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const [activeIndex, setActiveIndex] = useState(0);
   const [quantity, setQuantity] = useState("1");
   const [section, setSection] = useState("Demolition");
-  const [costType, setCostType] = useState<LineItem["costType"]>("labor");
+  const [costType, setCostType] = useState<LineItem["costType"] | "">("");
   const [taxable, setTaxable] = useState(false);
   const [custom, setCustom] = useState({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor" as LineItem["costType"], taxable: false });
   const [error, setError] = useState<string | null>(null);
@@ -291,14 +291,14 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   };
 
   const addLineItem = useMutation({
-    mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable }: { item: PickerResult; quantity: number; section: string; costType: LineItem["costType"]; taxable: boolean }) => {
+    mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable }: { item: PickerResult; quantity: number; section: string; costType?: LineItem["costType"]; taxable: boolean }) => {
       return clientFetch(`/estimates/${estimateId}/line-items`, {
         method: "POST",
         body: JSON.stringify({
           [item.kind === "costItem" ? "costItemId" : "assemblyId"]: item.id,
           quantity,
           section: itemSection,
-          costType: itemCostType,
+          ...(itemCostType ? { costType: itemCostType } : {}),
           taxable: itemTaxable,
         }),
       });
@@ -308,6 +308,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setQuery("");
       setQuantity("1");
       setSection("Demolition");
+      setCostType("");
       setTaxable(false);
       setError(null);
       setActiveIndex(0);
@@ -462,7 +463,8 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
         <div>
           <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
-          <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"])}>
+          <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"] | "")}>
+            <option value="">Auto-detect</option>
             {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>

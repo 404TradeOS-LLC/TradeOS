@@ -70,7 +70,7 @@ async function runWorkflow(page, runNumber) {
   await page.locator("#custom-unit").fill("SF");
   await page.locator("#custom-section").fill("Reconstruction / Finish");
   await page.locator("#custom-cost-type").selectOption("material");
-  await page.locator('input[type="checkbox"]').last().check();
+  await page.getByLabel("Taxable", { exact: true }).check();
   await page.getByRole("button", { name: "Add custom" }).click();
   await page.getByText("Flooring material allowance", { exact: true }).waitFor();
 
@@ -95,8 +95,8 @@ async function runWorkflow(page, runNumber) {
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$5,329.50", { exact: true }).waitFor();
-  await page.getByText("$12,061.50", { exact: true }).waitFor();
+  await page.getByText("$6,732.00", { exact: true }).waitFor();
+  await page.getByText("$7,105.07", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor();
 

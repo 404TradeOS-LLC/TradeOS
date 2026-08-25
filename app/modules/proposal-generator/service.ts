@@ -133,11 +133,12 @@ function renderEstimateProposalPdf(
       dateLabel: `Issued ${formatDocumentDate(estimate.createdAt)}`,
       statusLabel: `Estimate v${estimate.version}`,
     });
-    const overridePrice = opts.finalPrice ?? opts.priceHigh ?? opts.priceLow ?? null;
+    const priceRange = opts.finalPrice == null && (opts.priceLow != null || opts.priceHigh != null) ? formatPriceRange(opts.priceLow, opts.priceHigh) : null;
+    const primaryPrice = opts.finalPrice != null ? formatCurrency(opts.finalPrice) : priceRange ?? formatCurrency(toNullableNumber(estimate.totalPrice));
     drawMoneyPanel(doc, {
       title: "Investment",
-      primary: formatCurrency(overridePrice ?? toNullableNumber(estimate.totalPrice)),
-      secondary: overridePrice != null ? "Proposal price" : "Lump-sum project price",
+      primary: primaryPrice,
+      secondary: opts.finalPrice != null ? "Proposal price" : priceRange ? "Proposal price range" : "Lump-sum project price",
     });
     writeTextSection(doc, "Scope of Work", opts.scopeOfWork ?? projectSummary);
     writeTextSection(doc, "Assumptions", opts.assumptions ?? "This proposal assumes currently documented site conditions and available access.");
@@ -150,6 +151,14 @@ function renderEstimateProposalPdf(
     drawTrustFooter(doc, opts.brand);
     doc.end();
   });
+}
+
+function formatPriceRange(low: number | null | undefined, high: number | null | undefined): string {
+  const lowValue = low ?? high;
+  const highValue = high ?? low;
+  if (lowValue == null && highValue == null) return formatCurrency(0);
+  if (lowValue == null || highValue == null || lowValue === highValue) return formatCurrency(lowValue ?? highValue ?? 0);
+  return `${formatCurrency(Math.min(lowValue, highValue))}–${formatCurrency(Math.max(lowValue, highValue))}`;
 }
 
 function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: DocumentFrameBrand): Promise<Buffer> {

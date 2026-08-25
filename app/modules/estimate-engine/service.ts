@@ -178,14 +178,7 @@ export class EstimateEngineService {
 
   private async addLineItemInTransaction(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
     if (!input.orgId) throw new ApiError(400, "Organization context is required for estimate line-item mutations");
-    if (typeof prisma.$queryRaw === "function") {
-      await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT id
-        FROM estimates
-        WHERE id = ${input.estimateId} AND org_id = ${input.orgId}
-        FOR UPDATE
-      `);
-    }
+    await this.lockEstimateForMutation(input.estimateId, input.orgId);
     await this.assertDraft(input.estimateId, input.orgId);
     if (input.costItemId && input.assemblyId) {
       throw new ApiError(400, "Provide exactly one of costItemId or assemblyId, not both");
@@ -275,10 +268,17 @@ export class EstimateEngineService {
   }
 
   async removeLineItem(lineItemId: string, orgId?: string, estimateId?: string): Promise<{ estimateId: string }> {
+    const operation = () => this.removeLineItemInTransaction(lineItemId, orgId, estimateId);
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  private async removeLineItemInTransaction(lineItemId: string, orgId?: string, estimateId?: string): Promise<{ estimateId: string }> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
     if (orgId && lineItem.estimate.orgId !== orgId) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
     if (estimateId && lineItem.estimateId !== estimateId) throw new ApiError(404, `EstimateLineItem ${lineItemId} not found`);
+    await this.lockEstimateForMutation(lineItem.estimateId, orgId);
     await this.assertDraft(lineItem.estimateId, orgId);
     await prisma.estimateLineItem.delete({ where: { id: lineItemId } });
     await this.recalculate(lineItem.estimateId, orgId);
@@ -286,10 +286,17 @@ export class EstimateEngineService {
   }
 
   async updateLineItem(input: UpdateLineItemInput): Promise<EstimateLineItemDTO> {
+    const operation = () => this.updateLineItemInTransaction(input);
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  private async updateLineItemInTransaction(input: UpdateLineItemInput): Promise<EstimateLineItemDTO> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: input.lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
     if (lineItem.estimate.orgId !== input.orgId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
     if (lineItem.estimateId !== input.estimateId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
+    await this.lockEstimateForMutation(lineItem.estimateId, input.orgId);
     await this.assertDraft(lineItem.estimateId, input.orgId);
 
     const quantity = input.quantity ?? Number(lineItem.quantity);
@@ -312,6 +319,13 @@ export class EstimateEngineService {
   }
 
   async updateEstimate(input: UpdateEstimateInput): Promise<EstimateDTO> {
+    const operation = () => this.updateEstimateInTransaction(input);
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  private async updateEstimateInTransaction(input: UpdateEstimateInput): Promise<EstimateDTO> {
+    await this.lockEstimateForMutation(input.estimateId, input.orgId);
     await this.assertDraft(input.estimateId, input.orgId);
     await prisma.estimate.update({
       where: { id: input.estimateId },
@@ -324,6 +338,13 @@ export class EstimateEngineService {
   }
 
   async setPricingMode(input: SetPricingModeInput): Promise<EstimateDTO> {
+    const operation = () => this.setPricingModeInTransaction(input);
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  private async setPricingModeInTransaction(input: SetPricingModeInput): Promise<EstimateDTO> {
+    await this.lockEstimateForMutation(input.estimateId, input.orgId);
     await this.assertDraft(input.estimateId, input.orgId);
     await prisma.estimate.update({
       where: { id: input.estimateId },
@@ -358,6 +379,13 @@ export class EstimateEngineService {
   }
 
   async finalize(estimateId: string, orgId?: string): Promise<EstimateDTO & { athenaEvent?: EstimateEventRef }> {
+    const operation = () => this.finalizeInTransaction(estimateId, orgId);
+    if (typeof prisma.$transaction !== "function") return operation();
+    return runInDatabaseTransaction(prisma, operation);
+  }
+
+  private async finalizeInTransaction(estimateId: string, orgId?: string): Promise<EstimateDTO & { athenaEvent?: EstimateEventRef }> {
+    await this.lockEstimateForMutation(estimateId, orgId);
     await this.recalculate(estimateId, orgId);
     const estimate = await prisma.estimate.findFirst({ where: { id: estimateId, orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${estimateId} not found`);
@@ -369,6 +397,16 @@ export class EstimateEngineService {
     const dto = toEstimateDTO(row);
     const athenaEvent = await this.publishEstimateEvent(orgId, "EstimateCompleted", row.id, `estimate:${row.id}:completed:v1`, { projectId: row.projectId, totalPrice: dto.totalPrice });
     return { ...dto, athenaEvent };
+  }
+
+  private async lockEstimateForMutation(estimateId: string, orgId?: string): Promise<void> {
+    if (!orgId || typeof prisma.$queryRaw !== "function") return;
+    await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT id
+      FROM estimates
+      WHERE id = ${estimateId} AND org_id = ${orgId}
+      FOR UPDATE
+    `);
   }
 
   private async assertDraft(estimateId: string, orgId?: string): Promise<void> {
