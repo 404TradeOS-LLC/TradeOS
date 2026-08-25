@@ -323,16 +323,16 @@ Evidence: PR #20 merged.
 
 ### S030 — Dispatcher workspace end-to-end verification
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S012
 Objective: Verify scheduled/unscheduled work, assignment, rescheduling, conflicts, and job state transitions.
 Acceptance: dispatcher critical path works across UI, API, and persistence.
-Readiness evidence: S012 and S029 are DONE; the existing Dispatcher Workspace, organization-scoped Job routes, named lifecycle actions, and dispatch-summary contract are the verified baseline. No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found.
+Readiness evidence: S012 and S029 are DONE; readiness promotion PR #340 is merged and PR #341 is the sole S030 implementation lane. PR #341 is currently behind live `main` at `164fe63867dceb265d80a0a61098c4c99315a3f3`; it also contains a governed RLS migration requiring human review and needs deterministic declined-assignment reactivation, schedule-conflict concurrency, and authenticated browser evidence reconciliation.
 Readiness contract: Verify and narrowly repair the existing Dispatcher Workspace across scheduled/unscheduled queues, assignment, unassignment, rescheduling, deterministic conflicts, dispatch-summary scope, canonical S012 actions, refresh consistency, data states, responsive behavior, and organization/RLS boundaries. See docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md.
 Founder-decision boundary: NO under existing lifecycle, RBAC, RLS, route, and workspace semantics.
 Required implementation validation: git diff --check; npm run pr:preflight -- --base origin/main; npm run pr:test; npm run docs:test; npm run docs:check -- --base origin/main; app and web tests/lint/build; PostgreSQL/RLS integration; focused browser evidence; exact-head CI.
 Forbidden in S030: new statuses, generic status mutation, new dispatch persistence, route optimization/GPS/notifications, automatic invoice creation, billing/payment changes, new roles or permission/RLS redesign, broad UI rewrites, unrelated concurrency/idempotency repairs, unreviewed migrations, and S031/S032/S034/S035 work.
-Implementation status: NOT STARTED; this governance-only promotion authorizes the sole S030 implementation lane after merge.
+Implementation status: IN_REVIEW through PR #341; do not create a competing numbered lane.
 
 
 ### S031 — Scheduling conflict rules
@@ -502,14 +502,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: S030
-Completion status: S028 is DONE through implementation PR #338 and completion-evidence PR #339; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Completion status: S028 is DONE through implementation PR #338, completion-evidence PR #339, and PT-003 follow-up PR #342; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
 Dependencies: S030 depends on S012, which is DONE; S029 is DONE; S027 is independent.
 Protected boundary: S030 is the sole numbered-sprint implementation lane after this governance-only readiness promotion.
 
 ## Next Eligible Sprint
 
-Sprint ID: S030
-Eligibility: S030 is READY; S012 and S029 are DONE and no competing S030 implementation exists.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S030 is IN_REVIEW through implementation PR #341.
 Dependencies: S030 depends on S012 and the S029 baseline; S027 remains blocked but does not block S030.
-Overlap check: No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found; this branch is governance-only.
-Startup prompt: Create or reconcile the sole S030 implementation branch/worktree and verify docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. Do not implement another numbered sprint concurrently.
+Overlap check: PR #341 is the sole S030 implementation lane; no competing S030 implementation exists.
+Startup prompt: Reconcile PR #341 onto live main, repair deterministic assignment/conflict findings, complete governed RLS review, and verify S030 before evaluating S040. Do not implement another numbered sprint concurrently.
