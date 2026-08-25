@@ -31,7 +31,7 @@ Authenticate users, resolve organization membership, and establish the RLS-backe
 
 Protected API requests must derive tenant context from a verified authenticated identity plus an active membership. Request headers are not a tenant-selection mechanism.
 
-Locally issued HS256 access tokens carry a finite expiration (one hour by default, configurable through the positive `AUTH_JWT_TTL_SECONDS` value) and the verifier requires valid `sub`, `iat`, `exp`, and registered claim types. Expiration is fail-closed at the current JWT second. Refresh and Supabase bootstrap flows also reject inactive application users before issuing or returning an authenticated session. Existing Supabase bearer verification remains signature/issuer/audience/expiry-based; this sprint does not add token persistence or provider introspection for immediate bearer revocation.
+Locally issued HS256 access tokens carry a finite expiration (one hour by default, configurable through the positive `AUTH_JWT_TTL_SECONDS` value) and the verifier requires valid `sub`, `iat`, `exp`, and registered claim types. Expiration is fail-closed at the current JWT second. Refresh and Supabase bootstrap flows also reject inactive application users before issuing or returning an authenticated session. Supabase JWT verification requires finite `exp` and `iat` claims. Refresh rotation is conditional and single-use under concurrency; logout, password-reset confirmation, and inactive-account rejection revoke active local refresh sessions. Already-issued access JWTs remain valid until their current expiry by design.
 
 Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary. The SQL session preserves the supported database role string; legacy `estimator` and `viewer` inputs remain accepted by AuthContext without being normalized into broader RLS write/admin roles. Pre-RLS membership resolution and request transactions share a separately bounded 15-second acquisition wait by default; request transactions retain their 60-second execution timeout. The acquisition wait prevents parallel authenticated loaders from failing at Prisma's two-second default while a serverless instance's intentionally single-connection pool is busy; `RLS_TRANSACTION_TIMEOUT_MS` and `RLS_TRANSACTION_MAX_WAIT_MS` may override the positive millisecond values.
 
@@ -60,6 +60,7 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout` — requires the authenticated request context and revokes the caller's active local refresh sessions.
 - `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
 
@@ -76,6 +77,7 @@ Special constraints:
 ## Database security invariants
 
 - `OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` retain their organization/user/token identity across updates, including during transaction-local login lookup; only the lifecycle fields used by invite acceptance, token rotation, and password reset consumption remain mutable
+- refresh rotation updates the presented token only when `revokedAt` is still null; a concurrent loser receives `401` and cannot create a replacement session
 - update policies validate the resulting row rather than using an unconditional `WITH CHECK (true)` expression
 - request-context RLS helper functions have fixed empty search paths; helpers that call another application function use schema-qualified references
 - `public._prisma_migrations` is administrator-only deployment state and is excluded from runtime application-role privileges after every role-provisioning run

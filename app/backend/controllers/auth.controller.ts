@@ -107,6 +107,11 @@ export const authController = {
   async resetPassword(req: Request, res: Response) {
     res.json(await service.resetPassword(resetPasswordSchema.parse(req.body)));
   },
+  async logout(req: Request, res: Response) {
+    const auth = requireAuthContext(req);
+    await service.logout(auth.userId);
+    res.status(204).send();
+  },
   async invite(req: Request, res: Response) {
     const auth = requireRoles(req, ["owner"]);
     const input = inviteSchema.parse(req.body);

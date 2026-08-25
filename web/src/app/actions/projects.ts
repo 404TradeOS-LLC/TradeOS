@@ -116,6 +116,7 @@ export async function duplicateEstimateAction(formData: FormData): Promise<void>
 
 export async function createSiteVisitAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
+  if (!token) return { error: "Authentication is required." };
   const projectId = String(formData.get("projectId") ?? "");
   const notes = String(formData.get("notes") ?? "").trim();
   const transcript = String(formData.get("transcript") ?? "").trim();
@@ -245,6 +246,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
 
 export async function uploadProjectDocumentAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
+  if (!token) return { error: "Authentication is required." };
   const projectId = String(formData.get("projectId") ?? "");
   const fileType = String(formData.get("fileType") ?? "document").trim();
   const file = formData.get("file");
@@ -440,6 +442,7 @@ export async function rejectChangeOrderAction(formData: FormData): Promise<void>
 
 export async function deleteProjectFileAction(formData: FormData): Promise<void> {
   const token = await getSessionToken();
+  if (!token) throw new Error("Authentication is required.");
   const projectId = String(formData.get("projectId") ?? "");
   const fileId = String(formData.get("fileId") ?? "");
   const storagePath = String(formData.get("storagePath") ?? "").trim();

@@ -19,6 +19,7 @@ import {
   SupabaseBootstrapInput,
 } from "./types";
 import { normalizeRole } from "../../domain";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -133,14 +134,15 @@ export class AuthService {
       const replacementHash = hashOpaqueToken(replacementToken);
       const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-      await transaction.authRefreshToken.update({
-        where: { id: existing.id },
+      const rotation = await transaction.authRefreshToken.updateMany({
+        where: { id: existing.id, revokedAt: null },
         data: {
           revokedAt: new Date(),
           lastUsedAt: new Date(),
           replacedById: replacementHash,
         },
       });
+      if (rotation.count !== 1) throw new ApiError(401, "Invalid refresh token");
 
       await transaction.authRefreshToken.create({
         data: {
@@ -217,9 +219,23 @@ export class AuthService {
         where: { id: row.id },
         data: { consumedAt: new Date() },
       });
+      await transaction.authRefreshToken.updateMany({
+        where: { userId: row.userId, revokedAt: null },
+        data: { revokedAt: new Date(), lastUsedAt: new Date() },
+      });
     });
 
     return { success: true };
+  }
+
+  async logout(userId: string): Promise<void> {
+    await runInDatabaseTransaction(basePrisma, async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+      await transaction.authRefreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date(), lastUsedAt: new Date() },
+      });
+    });
   }
 
   async inviteTeamMember(input: InviteTeamMemberInput): Promise<InviteTeamMemberResult> {

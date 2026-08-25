@@ -81,4 +81,14 @@ describe("verifyAnyAuthToken against a Supabase-style RS256 JWT", () => {
 
     await expect(verifyAnyAuthToken(token)).rejects.toThrow("Invalid bearer token");
   });
+
+  it("rejects a validly signed token without finite session timestamps", async () => {
+    const token = await new SignJWT({ email })
+      .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+      .setIssuer(issuer)
+      .setSubject(subject)
+      .sign(privateKey);
+
+    await expect(verifyAnyAuthToken(token)).rejects.toThrow("JWT payload is missing required claims");
+  });
 });

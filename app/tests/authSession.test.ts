@@ -9,6 +9,9 @@ const mockPrisma = {
   organizationMembership: {
     findFirst: jest.fn(),
   },
+  authRefreshToken: {
+    updateMany: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
@@ -109,6 +112,10 @@ describe("resolveAuthContext (production schema compatibility)", () => {
       new ApiError(403, "Authenticated user is not provisioned in this organization")
     );
     expect(mockPrisma.organizationMembership.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.authRefreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: expect.objectContaining({ revokedAt: expect.any(Date), lastUsedAt: expect.any(Date) }),
+    });
   });
 
   it("rejects when no app user is provisioned for the auth subject", async () => {

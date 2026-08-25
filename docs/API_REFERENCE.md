@@ -38,6 +38,8 @@ Tenant impersonation through request-controlled organization headers is not supp
 
 Locally issued HS256 access tokens carry a finite expiration (one hour by default; configure the positive `AUTH_JWT_TTL_SECONDS` value when needed). The verifier requires `sub`, `iat`, and `exp`, validates optional registered claims when present, and enforces configured issuer and audience values when `AUTH_ISSUER` and `AUTH_AUDIENCE` are set. Expired, malformed, or invalid-signature bearer requests fail before membership resolution. Refresh and Supabase bootstrap also reject inactive application users. Immediate revocation of an already-issued bearer JWT is not represented by a new token store or provider-introspection call in the current architecture.
 
+`POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
+
 Public routes are limited to:
 
 - `/api/v1/auth/*`
