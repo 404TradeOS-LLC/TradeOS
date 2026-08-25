@@ -95,7 +95,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S026, S028, and S030 are DONE with merged evidence; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. S040 is READY through its governed tenant-boundary regression contract and is the sole next numbered implementation candidate.
+Prioritize existing authorized work before inventing new scope. S026, S028, and S030 are DONE with merged evidence; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. S040 readiness is merged; its sole implementation lane is PR #346, currently `IN_REVIEW`. Do not create a competing S040 lane or begin S041 before PR #346 is merged and completion evidence is reconciled.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -219,7 +219,7 @@ S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e
 
 ## S028 completion
 
-S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f8303062103c8e8c4690c; completion evidence is recorded in docs/architecture/S028_COMPLETION_EVIDENCE.md. S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 is READY as the next security-leverage candidate through `docs/architecture/S040_TENANT_BOUNDARY_REGRESSION_PLAN.md`.
+S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f8303062103c8e8c4690c; completion evidence is recorded in docs/architecture/S028_COMPLETION_EVIDENCE.md. S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 readiness PR #345 is merged, and its sole implementation lane is PR #346, currently `IN_REVIEW`, through `docs/architecture/S040_TENANT_BOUNDARY_REGRESSION_PLAN.md`.
 
 ## S030 readiness
 
