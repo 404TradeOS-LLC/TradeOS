@@ -95,7 +95,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S026, S028, S030, and S040 are DONE with merged evidence; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. S041 is READY through its governed RLS policy coverage contract and is the sole next numbered implementation candidate.
+Prioritize existing authorized work before inventing new scope. S026, S028, S030, and S040 are DONE with merged evidence; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. S041 implementation PR #351 is the sole active numbered implementation lane under its merged RLS policy coverage contract.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 

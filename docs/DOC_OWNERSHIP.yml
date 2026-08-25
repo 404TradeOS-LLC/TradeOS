@@ -169,6 +169,14 @@ rules:
     explanation: Settings, internal operations, and supplier review flows need dedicated operational docs.
 
   - paths:
+      - app/backend/controllers/changeOrders.controller.ts
+    requires:
+      - docs/API_REFERENCE.md
+      - docs/RBAC_MATRIX.md
+      - docs/CURRENT_STATE.md
+    explanation: Change-order authorization and route behavior must remain documented with billing permission boundaries.
+
+  - paths:
       - web/src/app/(app)/portal/**
     requires:
       - docs/modules/customer-portal.md

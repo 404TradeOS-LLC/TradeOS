@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-25
 source_of_truth: false
 related_code:
   - app/modules/settings
@@ -23,6 +23,8 @@ related_code:
 ## Purpose
 
 Own the organization settings control center, internal admin summaries, supplier records, and supplier review queue operations.
+
+Supplier database mutations are restricted to the existing `costbook.manage` permission at the controller boundary; reads use `costbook.read`. The service continues to receive organization context only from the authenticated request session, with forced RLS providing tenant isolation.
 
 ## Source code locations
 

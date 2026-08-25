@@ -308,3 +308,7 @@ S030 implementation PR #341 is merged as `d8e07606737de561b7cbed4e0be72ce875fae7
 ## S040 tenant-boundary regression readiness
 
 S040 is `DONE`: implementation PR #346 merged on 2026-08-25 as `6fb0596c6a865923627e621c0933033dad3c636b`, with completion evidence in `docs/architecture/S040_COMPLETION_EVIDENCE.md`. The bounded change adds live same-organization/cross-organization service-boundary regression coverage and repairs the existing estimate parent-lock UUID parameter binding exposed by that coverage. No schema, migration, RLS-policy redesign, authorization-policy change, or production data operation shipped. S027 remains independently blocked on authenticated rendered Costbook evidence; S041 is READY through `docs/architecture/S041_RLS_POLICY_COVERAGE_PLAN.md`.
+
+## S041 bounded implementation
+
+S041 readiness PR #350 is merged as `9fde03effd679f63c36790f37ddfade2913247ed`. The single implementation lane is limited to the approved application permission gates, preserved raw SQL role semantics, focused authorization/session/RLS evidence, and required documentation; no implementation merge or completion evidence is claimed yet.
