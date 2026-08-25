@@ -528,7 +528,7 @@ Protected boundary: Do not begin S043 while its S037 dependency is PLANNED; do n
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is READY. S043 depends on S037, which remains PLANNED; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Eligibility: No numbered sprint is `READY`. S043 depends on S037, which remains PLANNED; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
 Dependencies: S042 is DONE with merged completion evidence; S037 is not DONE, so S043 is not eligible.
 Overlap check: No open S042 PR remains; completion evidence is the authoritative final lane.
 Startup prompt: Re-read NEXT_SPRINT_PROTOCOL.md and prepare only governance/read-only work until a numbered sprint becomes eligible. Do not mix S027 browser evidence into completed S042.
