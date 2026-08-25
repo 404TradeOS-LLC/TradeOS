@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { handleAthenaNavLookupFailure } from "./layout";
+import { handleAthenaNavLookupFailure } from "./layout-athena-error.mjs";
 
 test("AppLayout treats its deliberate Athena settings abort as a warning and hides Athena navigation", () => {
   const originalWarn = console.warn;
