@@ -162,7 +162,28 @@ export class EstimateEngineService {
   }
 
   async addLineItem(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
+    // Keep lightweight unit-test doubles compatible while production requests
+    // always use the existing request-aware transaction helper.
+    if (typeof prisma.$transaction !== "function") {
+      return this.addLineItemInTransaction(input);
+    }
+    return runInDatabaseTransaction(prisma, () => this.addLineItemInTransaction(input));
+  }
+
+  private async addLineItemInTransaction(input: AddLineItemInput): Promise<EstimateLineItemDTO> {
     if (!input.orgId) throw new ApiError(400, "Organization context is required for estimate catalog mutations");
+
+    // Serialize append allocation on the parent estimate row. This keeps the
+    // existing persisted sortOrder contract while preventing concurrent
+    // aggregate-then-insert callers from selecting the same next value.
+    if (typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT id
+        FROM estimates
+        WHERE id = ${input.estimateId} AND org_id = ${input.orgId}
+        FOR UPDATE
+      `);
+    }
     await this.assertDraft(input.estimateId, input.orgId);
     if (!input.costItemId && !input.assemblyId) {
       throw new ApiError(400, "Either costItemId or assemblyId is required");
