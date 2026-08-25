@@ -1,11 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: false
 related_code:
   - docs/SPRINT_BACKLOG.md
-  - docs/architecture/S015_BRAND_PROFILE_SETTINGS_ADAPTER_PLAN.md
+  - docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -13,52 +13,32 @@ related_code:
 
 ## Mission
 
-S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and completion-evidence PR #329. S025 implementation PR #331 is open from the sole numbered lane; do not begin S027 implementation concurrently.
+S025 is DONE after implementation PR #331 and completion evidence in docs/architecture/S025_COMPLETION_EVIDENCE.md. S026 is now the sole READY numbered-sprint implementation lane.
 
 ## Current truth
 
-- S021 implementation and completion evidence are merged; S014 and S024 are
-  DONE through founder-decision PR #301; S020's legal boundary is resolved by
-  ADR-007.
-- S015 implementation PR #310 and completion evidence PR #312 are merged.
-- S016 implementation PR #314 merged on 2026-08-24 with squash SHA
-  `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b` from exact head
-  `26304048985020ea8f49f701550112b2f6932d0f`.
-- The shipped implementation adds server-derived brand resolution, safe
-  fallback/color/asset handling, contrast-safe PDF header/body text,
-  contact/trust-signal wiring, legacy contact compatibility, and focused
-  resolver/PDF evidence without schema, migration, auth, RLS-policy, payment,
-  signature, or portal-identity changes.
+- S025 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44; final implementation head was 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6.
+- S023 is DONE, satisfying S026's dependency.
+- S026 owns only deterministic EstimateLineItem sort-order allocation under concurrent manual and AI/replay-shaped inserts.
+- S027 remains BLOCKED on authenticated rendered Costbook browser evidence and receives no implementation writes.
+- No founder decision is required for S026 under the current readiness contract.
 
 ## Readiness contract
 
-Brand Studio remains canonical. S016 must reuse the existing frame/generator
-seams, preserve authenticated organization context, route/content-type
-contracts, lifecycle and commercial semantics, safe escaping, deterministic
-fallbacks, and forced RLS. No new renderer, storage model, asset lifecycle,
-public branding, customer identity, payment, signature, schema, or migration
-architecture is authorized.
+Preserve the existing Estimate Engine boundary, persisted sortOrder semantics, pricing snapshots, source-key idempotency, draft-only authorization, organization scoping, and forced RLS. No UI ordering-policy change, pricing/lifecycle redesign, AI provider change, broad schema redesign, or S027 work is authorized.
 
 ## Verification and blockers
 
-- Local App verification: 216/216 suites and 1,870/1,870 tests; focused S016
-  suites 6/6 and 44/44; typecheck and diff checks passed.
-- Exact-head Verify repository #1408, Docs consistency #1335, Dependency review
-  #354, branch currency #82, Live documentation reconciliation #64, and Sprint
-  governance #63 passed.
-- Authenticated production/browser PDF evidence remains unavailable because no
-  authorized browser session or deployed authenticated state is available.
-- No production credential or authenticated browser state is stored or
-  required for the repository-side implementation.
+Readiness evidence is complete for S026. Implementation must add focused concurrency/retry tests, verify totals and existing order, run typecheck/lint/build, run PostgreSQL/RLS checks where applicable, and pass required CI/docs/governance checks.
 
 ## Next action
 
-Drive S025 PR #331 through migration/RLS review and required CI. Do not begin S027 implementation concurrently.
+Create/reconcile the isolated S026 implementation branch/worktree and implement only the S026 READY contract. Do not implement S027 concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: S025 is `IN_REVIEW`; resume PR #331 rather than selecting another sprint.
-Dependencies: S024 is DONE; S022 implementation and completion evidence are merged.
-Overlap check: S025 is the sole numbered implementation lane; S027 remains blocked and receives no implementation writes.
-Startup prompt: Drive PR #331 through migration/RLS review and required CI; do not implement S027 concurrently.
+Sprint ID: S026
+Eligibility: READY; S023 is DONE and the readiness contract is recorded in docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md.
+Dependencies: S023 is DONE.
+Overlap check: S026 is the sole numbered-sprint implementation lane; no S026 implementation branch or PR exists, and S027 remains blocked.
+Startup prompt: Implement S026 deterministic concurrent sort-order allocation, preserve all existing estimate/AI/RLS semantics, and stop at the repository PR-only boundary if a migration becomes necessary.
