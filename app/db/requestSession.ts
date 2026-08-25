@@ -32,7 +32,7 @@ export async function runWithDatabaseSession<T>(
         select
           set_config('app.user_id', ${auth.userId}, true),
           set_config('app.org_id', ${auth.orgId}, true),
-          set_config('app.role', ${auth.role}, true),
+          set_config('app.role', ${normalizeRole(auth.role)}, true),
           set_config('app.session_source', ${sessionSource}, true)
       `);
 

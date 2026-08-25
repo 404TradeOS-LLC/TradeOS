@@ -64,6 +64,8 @@ Shared permission keys from `app/domain/contracts.ts`:
 
 Costbook hierarchy PATCH operations intentionally split ordinary editing from lifecycle control. Changes to Division, Category, or Subcategory fields such as `code`, `name`, and `sortOrder` require `costbook.write`; any PATCH that includes `isActive` additionally requires `costbook.manage`, matching the existing manage-only DELETE/deactivation boundary. Owner/admin currently hold both permissions, but this distinction is enforced independently so a future write-only Costbook role cannot activate or deactivate hierarchy records.
 
+Change-order reads require `billing.read`; change-order creation, edits, line-item changes, deletion, approval, and rejection require `billing.write`. Supplier reads require `costbook.read`; supplier creation, edits, and deletion require `costbook.manage`. These are application-layer gates in addition to the existing forced-RLS tenant floor.
+
 S008 changes estimate lifecycle normalization only. It does not change estimate permissions, roles, organization scoping, or the existing `crm.read`/`crm.write` boundaries.
 
 ## Tenant-boundary behavior

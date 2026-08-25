@@ -59,6 +59,26 @@ describe("request database session", () => {
     });
   });
 
+  it.each([
+    ["estimator", "dispatcher"],
+    ["viewer", "technician"],
+  ])("canonicalizes legacy SQL session role %s to %s", async (role, canonicalRole) => {
+    const transaction = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    const client = {
+      $transaction: jest.fn(async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction)),
+    };
+
+    await runWithDatabaseSession(
+      client as never,
+      { userId: "user-1", orgId: "org-1", role },
+      async () => undefined
+    );
+
+    expect(transaction.$queryRaw.mock.calls[0][0]).toMatchObject({
+      values: ["user-1", "org-1", canonicalRole, "http"],
+    } satisfies Partial<Prisma.Sql>);
+  });
+
   it("accepts a positive transaction acquisition wait override", async () => {
     process.env.RLS_TRANSACTION_MAX_WAIT_MS = "9000";
     const transaction = { $queryRaw: jest.fn().mockResolvedValue([]) };

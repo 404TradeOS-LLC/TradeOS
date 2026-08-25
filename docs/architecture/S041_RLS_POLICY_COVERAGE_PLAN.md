@@ -9,6 +9,7 @@ related_docs:
   - docs/REPOSITORY_GOVERNANCE.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - docs/RBAC_MATRIX.md
+  - docs/architecture/S041_RLS_POLICY_COVERAGE_INVENTORY.md
 related_code:
   - app/prisma/schema.prisma
   - app/prisma/migrations/**
@@ -73,7 +74,7 @@ policies or change the schema.
 
 ## Acceptance and verification
 
-1. The table/policy inventory is complete and has no unowned or ambiguous
+1. The table/policy inventory in `docs/architecture/S041_RLS_POLICY_COVERAGE_INVENTORY.md` is complete and has no unowned or ambiguous
    access path.
 2. Focused controller tests prove technician denial and permitted-role success
    for change-order and supplier mutations.
