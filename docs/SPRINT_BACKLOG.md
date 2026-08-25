@@ -268,6 +268,7 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 
 ### S025 — AI generation persistence
 
 Status: DONE
+Evidence: PR #331 merged 2026-08-25 as `cffc92697196fea22b144424fd9fec4d8865aa44`; completion evidence: `docs/architecture/S025_COMPLETION_EVIDENCE.md`.
 Dependencies: S024
 Objective: Persist approved AI generation metadata and review provenance.
 Acceptance: every generation is addressable, auditable, and tenant-scoped.
