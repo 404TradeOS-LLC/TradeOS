@@ -338,7 +338,7 @@ Implementation status: DONE through PR #341; declined-assignment reactivation is
 
 ### S031 — Scheduling conflict rules
 
-Status: PLANNED
+Status: READY
 Dependencies: S030
 Objective: Define and enforce technician, time, duration, and overlap conflicts.
 Acceptance: conflicts are deterministic, visible, and tested.
@@ -386,7 +386,7 @@ Status: PLANNED
 Dependencies: none
 Objective: Define and extend structured logs, correlation IDs, error boundaries, health/readiness signals, and operational events.
 Acceptance: critical request flows are traceable without leaking secrets.
-Current foundation: PR #178 merged 2026-08-12 as `834fb3433604045a46dfe377df47fa08cee499d8`, adding separate `/health` liveness and `/ready` database-readiness signals; S037 remains broader than that foundation and is not implicitly `READY`.
+Current foundation: PR #178 merged 2026-08-12 as `834fb3433604045a46dfe377df47fa08cee499d8`, adding separate `/health` liveness and `/ready` database-readiness signals. Readiness contract: `docs/architecture/S037_APPLICATION_OBSERVABILITY_PLAN.md` bounds S037 to safe structured request/error telemetry, correlation continuity, user-safe frontend errors, and regression coverage. No schema, migrations, auth/RBAC/RLS changes, persisted security-event trail, vendor telemetry, or S038/S043/S027 scope.
 
 ### S038 — Background and retry semantics
 
@@ -520,15 +520,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
+Active Sprint: S037
 Completion status: S028, S030, S040, S041, and S042 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S018 is DONE; S042 implementation and evidence are merged; S027 remains independent and blocked on browser evidence.
-Protected boundary: Do not begin S043 while its S037 dependency is PLANNED; do not combine S027 browser evidence with S042.
+Dependencies: S037 has no numbered dependencies; S042 implementation and evidence are merged; S027 remains independent and blocked on browser evidence.
+Protected boundary: Implement only the merged S037 readiness contract. Do not begin S038 or S043, and do not combine S027 browser evidence with S037.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is `READY`. S043 depends on S037, which remains PLANNED; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Dependencies: S042 is DONE with merged completion evidence; S037 is not DONE, so S043 is not eligible.
+Sprint ID: S037
+Eligibility: S037 is `READY` with no numbered dependencies; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S042 is DONE with merged completion evidence; S037 readiness plan must merge before implementation begins.
 Overlap check: No open S042 PR remains; completion evidence is the authoritative final lane.
-Startup prompt: Re-read NEXT_SPRINT_PROTOCOL.md and prepare only governance/read-only work until a numbered sprint becomes eligible. Do not mix S027 browser evidence into completed S042.
+Startup prompt: Implement only `docs/architecture/S037_APPLICATION_OBSERVABILITY_PLAN.md`; preserve auth, tenant scoping, forced RLS, and existing route contracts. Do not begin S038/S043 or mix S027 browser evidence.

@@ -317,3 +317,7 @@ S041 readiness PR #350 merged as `9fde03effd679f63c36790f37ddfade2913247ed`; imp
 ## S042 authentication/session hardening
 
 S042 is DONE through readiness PR #353, implementation PR #354, and `docs/architecture/S042_COMPLETION_EVIDENCE.md`. The shipped contract covers single-use refresh rotation, local refresh-session revocation on logout/password reset/deactivation, explicit Supabase token expiry claims, and pre-side-effect server-action authentication. No production/browser evidence is claimed. No numbered sprint is currently READY because S043 depends on PLANNED S037; S027 remains independently blocked on authenticated rendered Costbook evidence.
+
+## S037 application observability baseline
+
+S037 is READY under `docs/architecture/S037_APPLICATION_OBSERVABILITY_PLAN.md`. The bounded implementation will extend the existing request-ID, structured logging, centralized error, and `/health`/`/ready` foundation with redaction and user-safe error-boundary regression coverage. No schema, migration, auth/RBAC/RLS, persisted security-event, vendor telemetry, or production/browser evidence is implied.

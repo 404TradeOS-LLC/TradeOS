@@ -43,14 +43,18 @@ Read `docs/architecture/S040_TENANT_BOUNDARY_REGRESSION_PLAN.md` before editing.
 
 Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserve S012 lifecycle and existing role/assignment/conflict semantics. Do not add statuses, generic mutation, roles, RLS redesign, new persistence, unreviewed migrations, route optimization/GPS/notifications, billing/payment behavior, or later sprints.
 
+## Readiness contract — S037
+
+Read `docs/architecture/S037_APPLICATION_OBSERVABILITY_PLAN.md` before editing. Implement only safe structured request/error telemetry, correlation continuity, user-safe frontend error handling, and regression coverage. Do not add schema, migrations, auth/RBAC/RLS changes, persisted security-event/audit storage, vendor telemetry, S038/S043 behavior, or S027 browser evidence.
+
 ## Next action
 
-Reconcile S042 completion evidence through `docs/architecture/S042_COMPLETION_EVIDENCE.md`. S042 implementation PR #354 is merged; do not reopen its implementation lane. Preserve the existing provider, token tables, roles, permissions, request-scoped sessions, forced RLS, and finite stateless access-token boundary. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
+Create exactly one S037 implementation lane from the merged readiness commit. S042 implementation PR #354 and completion evidence are merged; do not reopen its lane. Preserve existing auth, request-scoped sessions, forced RLS, and finite stateless access-token boundary. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is READY; S043 depends on PLANNED S037 and S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Sprint ID: S037
+Eligibility: S037 is READY; no other numbered sprint may start while S037 is active. S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
 Dependencies: S042 is DONE with merged completion evidence.
-Overlap check: No open S042 PR remains. Do not reopen S042 or begin S043.
-Startup prompt: Follow NEXT_SPRINT_PROTOCOL.md for read-only eligibility reconciliation only. Keep S027 browser evidence independent.
+Overlap check: No open S037 PR or competing S037 implementation lane exists at readiness promotion. Do not reopen S042 or begin S038/S043.
+Startup prompt: Follow NEXT_SPRINT_PROTOCOL.md and the S037 readiness plan. Keep one authoritative implementation writer and keep S027 browser evidence independent.
