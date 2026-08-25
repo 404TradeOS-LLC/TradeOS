@@ -293,15 +293,6 @@ PR #325 and focused coverage PR #328 harden existing proposal, contract, invoice
 
 PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44 from final implementation head 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6. The implementation persists metadata-first, tenant/actor-scoped AI generation records and append-only review provenance behind forced RLS, binds review provenance to the originating estimate, and extends bounded retention cleanup with zero-progress protection. Required app, integration/migration/RLS, web, docs, governance, dependency, branch-currency, live-reconciliation, and CodeQL verification passed. Completion evidence is recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md.
 
-## S026 Estimate line-item ordering concurrency (ready)
-
-S026 is the sole READY numbered-sprint candidate. It addresses the existing EstimateEngineService.addLineItem aggregate-then-insert ordering race while preserving persisted EstimateLineItem.sortOrder, draft-only writes, pricing snapshots, source-key idempotency, organization scoping, and forced RLS. Implementation must follow docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md; S027 remains blocked on authenticated rendered Costbook evidence.
-
-## S026 implementation in progress
-
-S026 is the active numbered-sprint lane. Its bounded backend change serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row, preserving organization/RLS, draft-only mutation, pricing snapshots, source-key idempotency, and public API shapes. Runtime verification is in PR #334; completion evidence will be recorded only after merge.
-
-
 ## S026 Estimate line-item ordering concurrency (done)
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
@@ -313,3 +304,7 @@ Estimate-backed Proposal creation now persists the finalized estimate's existing
 PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; the invoice queue now treats persisted `paid` as authoritative for `balanceDue: 0` while retaining recorded-payment aggregation semantics.
 
 S030 implementation PR #341 is merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. The authenticated browser evidence limitation is recorded explicitly. S040 is the preferred next security-leverage candidate after its own readiness promotion.
+
+## S040 tenant-boundary regression readiness
+
+S040 is `READY` after the governed readiness contract in `docs/architecture/S040_TENANT_BOUNDARY_REGRESSION_PLAN.md`. Its implementation is limited to expanding behavior-level and PostgreSQL/RLS cross-organization denial coverage for the core CRM, estimating/proposal, invoice/payment, jobs/dispatch, and Costbook paths already present on `main`. No schema, migration, RLS-policy redesign, authorization-policy change, or production data operation is included in the readiness contract. S027 remains independently blocked on authenticated rendered Costbook evidence.
