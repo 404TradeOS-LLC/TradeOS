@@ -23,7 +23,7 @@ S028 is DONE after implementation PR #338, completion-evidence PR #339, and PT-0
 
 ## Current truth
 
-- Main is reconciled through S040 implementation merge `6fb0596c6a865923627e621c0933033dad3c636b`; S030 implementation merge is `d8e07606737de561b7cbed4e0be72ce875fae73c` and completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`. S041 is READY through `docs/architecture/S041_RLS_POLICY_COVERAGE_PLAN.md`.
+- Main is reconciled through S040 implementation merge `6fb0596c6a865923627e621c0933033dad3c636b`; S030 implementation merge is `d8e07606737de561b7cbed4e0be72ce875fae73c` and completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`. S041 implementation PR #351 and completion evidence are merged; evidence is recorded in `docs/architecture/S041_COMPLETION_EVIDENCE.md`.
 - PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; persisted paid invoices now present queue `balanceDue: 0` consistently with invoice detail without fabricating Payment rows.
 - PR #332 is closed superseded; #338/#339/#342 are merged and no stale #332 implementation lane remains.
 - S012 and S029 are DONE and satisfy S030 dependencies.
@@ -45,12 +45,12 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-Continue S041 PR #351 through verification, review, merge, and completion evidence; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated, and S027 remains separate.
+S041 is DONE through implementation PR #351 and completion evidence; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated, and S027 remains separate.
 
 ## Next Eligible Sprint
 
-Sprint ID: S041
-Eligibility: S041 implementation PR #351 is open from the sole authoritative implementation lane and is not complete until merged with evidence.
+Sprint ID: NONE
+Eligibility: S041 is DONE; recompute the next numbered sprint under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: No competing S041 implementation PR, branch, or worktree exists beyond `feature/s041-implementation` and PR #351.
-Startup prompt: Continue only S041 PR #351 through verification, review, merge, and completion evidence. Do not begin S042 or combine S027 browser evidence with S041.
+Overlap check: No open S041 implementation or completion PR remains; no authoritative S041 branch/worktree remains after reconciliation.
+Startup prompt: Inspect next-sprint eligibility only. Do not begin S042 automatically or combine S027 browser evidence with another sprint.

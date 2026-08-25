@@ -420,7 +420,7 @@ Evidence: PR #346 merged as `6fb0596c6a865923627e621c0933033dad3c636b`; completi
 
 ### S041 — RLS policy coverage audit
 
-Status: READY
+Status: DONE
 Dependencies: S040
 Objective: Compare schema tables, application roles, and live RLS policies for gaps.
 Acceptance: no unowned table or ambiguous access path remains.
@@ -429,6 +429,7 @@ Allowed implementation paths: existing change-order/supplier route and controlle
 Forbidden paths: schema or migration changes, RLS-policy redesign, new roles or permissions, authentication-provider changes, billing/payment semantic redesign, production data or credential changes, broad authorization refactors, S027 browser evidence, and S042+ work.
 Founder-decision boundary: RESOLVED for this bounded lane — RLS remains the tenant floor; change-order mutations use `billing.write`; supplier mutations use `costbook.manage`; legacy SQL session roles retain their existing narrower database semantics.
 Required implementation validation: focused permission/session/RLS tests; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; `(cd web && npm test && npm run lint && npm run build)`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and `git diff --check`.
+Evidence: implementation PR #351 merged as `3f7c263f324911911f734cd29ce1ed6879dc8ccc`; completion evidence is recorded in `docs/architecture/S041_COMPLETION_EVIDENCE.md`.
 
 ### S042 — Authentication/session hardening
 
@@ -513,15 +514,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S041
-Completion status: S028, S030, and S040 are DONE with merged implementation and completion evidence; S041 readiness PR #350 is merged and implementation PR #351 is active; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S040 implementation PR #346 and completion evidence are merged; S041 implementation is confined to `feature/s041-implementation`; S027 remains independent and blocked on browser evidence.
-Protected boundary: One numbered implementation lane is active for S041; do not begin S042 or combine S027 browser evidence with S041.
+Active Sprint: NONE
+Completion status: S028, S030, S040, and S041 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S041 implementation PR #351 and completion evidence are merged; S027 remains independent and blocked on browser evidence.
+Protected boundary: No numbered implementation lane is active; do not begin S042 until next-sprint eligibility is recomputed.
 
 ## Next Eligible Sprint
 
-Sprint ID: S041
-Eligibility: S041 implementation PR #351 is open from the sole authoritative implementation lane and is not complete until merged with evidence.
+Sprint ID: NONE
+Eligibility: S041 is DONE with implementation PR #351 and completion evidence; recompute the next numbered sprint under the Next Sprint Protocol.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
-Overlap check: No competing S041 implementation PR, branch, or worktree exists beyond `feature/s041-implementation` and PR #351.
-Startup prompt: Continue only S041 PR #351 through verification, review, merge, and completion evidence. Do not begin S042 or combine S027 browser evidence with S041.
+Overlap check: No open S041 implementation or completion PR remains; no authoritative S041 branch/worktree remains after reconciliation.
+Startup prompt: Inspect Next Sprint Protocol eligibility only. Do not begin S042 automatically or combine S027 browser evidence with another sprint.
