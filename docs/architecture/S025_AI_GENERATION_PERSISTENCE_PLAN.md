@@ -1,6 +1,6 @@
 # S025 — AI generation persistence plan
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S024 (`DONE` through ADR-008 and founder-decision PR #301)
 Founder decision required: NO — ADR-008 is the accepted product/privacy/cost boundary.
 
@@ -21,7 +21,9 @@ default.
 - Existing Athena retention cleanup is bounded, idempotent, and runs inside an
   authenticated organization-scoped background session.
 - AI Estimate Assist remains review-first and applies accepted changes through
-  existing application services; S025 must not create a second write path.
+  existing application services; the structured draft/apply path now correlates
+  its metadata generation record with the human review without creating a
+  second write path.
 
 ## In scope
 
@@ -39,6 +41,14 @@ default.
   compatible with the existing Athena maintenance pattern.
 - Repository documentation and evidence for the data contract, migration,
   tests, and operational limitations.
+
+## AI Estimate Assist review correlation
+
+Authenticated structured draft generation returns the persisted metadata record
+identifier without exposing raw prompt or model content. The existing structured
+review/apply request accepts that identifier and records the owner/admin reviewer,
+outcome, and bounded apply counts through the existing transaction. The business write
+still occurs only through the existing Estimate Engine review-first path.
 
 ## Explicit non-goals
 

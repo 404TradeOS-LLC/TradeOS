@@ -1,6 +1,7 @@
 import { basePrisma, prisma } from "../../db/client";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
 import { AthenaRetentionResult } from "./types";
+import { deleteExpiredAthenaGenerationRecords } from "../athena-generation/store";
 
 // A10 retention (docs/athena/roadmap/A10-observability-implementation-plan.md
 // "Exporters and retention"). Deletes old C011 telemetry spans and old A1
@@ -108,8 +109,8 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   if (!Number.isFinite(executionRetentionDays) || executionRetentionDays <= 0) {
     throw new Error(`executionRetentionDays must be a positive number, got ${executionRetentionDays}`);
   }
-  if (!Number.isFinite(batchSize) || batchSize <= 0) {
-    throw new Error(`batchSize must be a positive number, got ${batchSize}`);
+  if (!Number.isFinite(batchSize) || !Number.isInteger(batchSize) || batchSize <= 0) {
+    throw new Error(`batchSize must be a positive integer, got ${batchSize}`);
   }
   // Executions own their telemetry spans (AthenaTelemetryRecordRow.executionId,
   // onDelete: Cascade) - if executions were retained for a *shorter* period
@@ -124,6 +125,13 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   return runWithBackgroundDatabaseSession(basePrisma, { jobName: "athena-observability-retention", orgId: params.orgId, userId: params.userId }, async () => {
     const results: AthenaRetentionResult[] = [];
     results.push(await deleteOldTelemetryRecords(params.orgId, daysToCutoff(now, telemetryRetentionDays), batchSize));
+    const generationResult = await deleteExpiredAthenaGenerationRecords(params.orgId, now, batchSize);
+    results.push({
+      table: "athena_generation_runs",
+      scannedBatches: generationResult.scannedBatches,
+      deletedCount: generationResult.deletedCount,
+      cutoff: now.toISOString(),
+    });
     results.push(await deleteOldExecutions(params.orgId, daysToCutoff(now, executionRetentionDays), batchSize));
     return results;
   });

@@ -13,7 +13,7 @@ related_code:
 
 ## Mission
 
-S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and completion-evidence PR #329. S025 is the sole READY implementation candidate; do not begin S027 implementation concurrently.
+S022 is DONE after readiness PR #324, implementation PR #325, focused coverage PR #328, and completion-evidence PR #329. S025 implementation PR #331 is open from the sole numbered lane; do not begin S027 implementation concurrently.
 
 ## Current truth
 
@@ -53,12 +53,12 @@ architecture is authorized.
 
 ## Next action
 
-Create/reconcile the isolated S025 implementation worktree and implement only the READY S025 metadata-first generation persistence contract. Do not begin S027 implementation concurrently.
+Drive S025 PR #331 through migration/RLS review and required CI. Do not begin S027 implementation concurrently.
 
 ## Next Eligible Sprint
 
-Sprint ID: S025
-Eligibility: READY; S024 is DONE and the S025 readiness contract is recorded in `docs/architecture/S025_AI_GENERATION_PERSISTENCE_PLAN.md`.
+Sprint ID: NONE
+Eligibility: S025 is `IN_REVIEW`; resume PR #331 rather than selecting another sprint.
 Dependencies: S024 is DONE; S022 implementation and completion evidence are merged.
-Overlap check: S025 is the sole numbered implementation lane; no S025 implementation PR is open and S027 remains blocked.
-Startup prompt: Implement S025 from its readiness contract, preserving metadata-first retention, review-first writes, organization/actor isolation, forced RLS, and bounded cleanup; do not implement S027 concurrently.
+Overlap check: S025 is the sole numbered implementation lane; S027 remains blocked and receives no implementation writes.
+Startup prompt: Drive PR #331 through migration/RLS review and required CI; do not implement S027 concurrently.

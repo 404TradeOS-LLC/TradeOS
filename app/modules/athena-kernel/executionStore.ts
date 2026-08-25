@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { AthenaKernelState, AthenaTelemetryCost } from "./types";
+import { createAthenaGenerationRecord, CreateAthenaGenerationInput } from "../athena-generation/store";
 
 // Application-service-owned persistence seam for the A1 kernel execution
 // record (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
@@ -127,4 +128,8 @@ export async function persistTelemetryRecord(input: PersistTelemetryInput): Prom
 
 export async function getExecutionRecord(executionId: string) {
   return prisma.athenaExecution.findFirst({ where: { id: executionId } });
+}
+
+export async function persistGenerationRecord(input: CreateAthenaGenerationInput): Promise<void> {
+  await createAthenaGenerationRecord(input);
 }

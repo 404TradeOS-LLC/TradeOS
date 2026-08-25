@@ -5,6 +5,7 @@ export interface AthenaProviderResult {
   text: string;
   provider: string;
   model: string;
+  providerVersion?: string;
   inputTokens?: number;
   outputTokens?: number;
   estimatedUsd?: number;
@@ -42,6 +43,7 @@ export class FakeAthenaProvider implements AthenaProviderAdapter {
       text: "This is a draft-only Athena response. No business records were changed.",
       provider: "fake",
       model: "athena-fake-v1",
+      providerVersion: "1.0.0",
     };
   }
 }
