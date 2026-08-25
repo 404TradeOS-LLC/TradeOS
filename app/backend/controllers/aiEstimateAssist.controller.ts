@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { AIEstimateAssistService } from "../../modules/ai-estimate-assist/service";
 import { StructuredAIEstimatorService } from "../../modules/ai-estimate-assist/structuredEstimator";
-import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
+import { requireAuthContext, requireOrgId, requirePermissions, requireRoles } from "../requestContext";
 
 const service = new AIEstimateAssistService();
 const structuredEstimator = new StructuredAIEstimatorService();
@@ -89,6 +89,9 @@ export const aiEstimateAssistController = {
     }).strict();
 
     const body = schema.parse(req.body);
+    if (body.generationId) {
+      requireRoles(req, ["owner", "admin"]);
+    }
     const estimateId = z.string().uuid().parse(req.params.id);
     res.json(
       await structuredEstimator.applyReviewedDraft({

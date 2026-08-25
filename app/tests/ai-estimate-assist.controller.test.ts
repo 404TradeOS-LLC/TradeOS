@@ -202,6 +202,25 @@ describe("aiEstimateAssistController structured estimator endpoints", () => {
     expect(mockStructuredEstimator.applyReviewedDraft).not.toHaveBeenCalled();
   });
 
+  it("rejects generation-linked review provenance for non-administrator writers", async () => {
+    const res = response();
+
+    await expect(
+      aiEstimateAssistController.applyStructuredEstimate(
+        authedRequest(
+          {
+            generationId: "10000000-0000-0000-0000-000000000010",
+            lineItems: [{ draftLineItemId: "line-1", status: "rejected", quantity: 1 }],
+          },
+          { id: "10000000-0000-0000-0000-000000000001" },
+          "dispatcher"
+        ),
+        res as never
+      )
+    ).rejects.toThrow("You do not have permission");
+    expect(mockStructuredEstimator.applyReviewedDraft).not.toHaveBeenCalled();
+  });
+
   it("requires write permission for structured apply", async () => {
     const res = response();
 

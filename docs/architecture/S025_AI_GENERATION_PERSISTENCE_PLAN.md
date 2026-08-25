@@ -46,8 +46,8 @@ default.
 
 Authenticated structured draft generation returns the persisted metadata record
 identifier without exposing raw prompt or model content. The existing structured
-review/apply request accepts that identifier and records the reviewer, outcome,
-and bounded apply counts through the existing transaction. The business write
+review/apply request accepts that identifier and records the administrator reviewer, outcome, and bounded
+apply counts through the existing transaction. The business write
 still occurs only through the existing Estimate Engine review-first path.
 
 ## Explicit non-goals
