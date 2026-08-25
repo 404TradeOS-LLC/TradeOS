@@ -19,7 +19,6 @@ function envInt(name: string, fallback: number): number {
 
 const DEFAULT_TELEMETRY_RETENTION_DAYS = envInt("ATHENA_TELEMETRY_RETENTION_DAYS", 90);
 const DEFAULT_EXECUTION_RETENTION_DAYS = envInt("ATHENA_EXECUTION_RETENTION_DAYS", 400);
-const DEFAULT_GENERATION_RETENTION_DAYS = envInt("ATHENA_GENERATION_RETENTION_DAYS", 90);
 const DEFAULT_BATCH_SIZE = 500;
 
 export interface RunAthenaObservabilityRetentionParams {
@@ -27,7 +26,6 @@ export interface RunAthenaObservabilityRetentionParams {
   userId: string;
   telemetryRetentionDays?: number;
   executionRetentionDays?: number;
-  generationRetentionDays?: number;
   batchSize?: number;
   now?: Date;
 }
@@ -102,7 +100,6 @@ async function deleteOldExecutions(orgId: string, cutoff: Date, batchSize: numbe
 export async function runAthenaObservabilityRetention(params: RunAthenaObservabilityRetentionParams): Promise<AthenaRetentionResult[]> {
   const telemetryRetentionDays = params.telemetryRetentionDays ?? DEFAULT_TELEMETRY_RETENTION_DAYS;
   const executionRetentionDays = params.executionRetentionDays ?? DEFAULT_EXECUTION_RETENTION_DAYS;
-  const generationRetentionDays = params.generationRetentionDays ?? DEFAULT_GENERATION_RETENTION_DAYS;
   const batchSize = params.batchSize ?? DEFAULT_BATCH_SIZE;
   const now = params.now ?? new Date();
 
@@ -111,9 +108,6 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   }
   if (!Number.isFinite(executionRetentionDays) || executionRetentionDays <= 0) {
     throw new Error(`executionRetentionDays must be a positive number, got ${executionRetentionDays}`);
-  }
-  if (!Number.isFinite(generationRetentionDays) || generationRetentionDays <= 0) {
-    throw new Error(`generationRetentionDays must be a positive number, got ${generationRetentionDays}`);
   }
   if (!Number.isFinite(batchSize) || !Number.isInteger(batchSize) || batchSize <= 0) {
     throw new Error(`batchSize must be a positive integer, got ${batchSize}`);

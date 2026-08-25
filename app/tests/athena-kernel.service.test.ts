@@ -202,6 +202,28 @@ describe("AthenaKernelService", () => {
     expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 90 * 24 * 60 * 60 * 1000);
   });
 
+  it("expires instead of succeeding when generation persistence exceeds the request deadline", async () => {
+    athenaGenerationRunCreate.mockImplementationOnce(async ({ data }: { data: FakeGenerationCreateData }) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const row: FakeGenerationRow = { ...data, createdAt: new Date() };
+      generationRows.push(row);
+      return row;
+    });
+
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-persistence-deadline",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_REQUEST_DEADLINE_MS: "20" } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBe("expired");
+    expect(result.error?.code).toBe("athena_deadline_exceeded");
+    expect(transitions.at(-1)?.toState).toBe("expired");
+  });
+
   it("denies a mutation-shaped request without ever calling the provider", async () => {
     const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
     const service = new AthenaKernelService();
