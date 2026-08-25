@@ -94,7 +94,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S026 is DONE. S028 is the sole numbered implementation lane through existing PR #338; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S026 and S028 are DONE with merged evidence. S027 remains BLOCKED on authenticated rendered Costbook browser evidence; S030 is the lowest dependency-safe planned candidate awaiting governance readiness.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -218,6 +218,6 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 remains blocked on authenticated rendered Costbook browser evidence.
 
 
-## S028 active lane
+## S028 completion
 
-Existing estimate deliverability PR #338 is reconciled as the S028 implementation lane. Repair it against current main before merge; do not create a competing estimate/proposal implementation.
+S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f8303062103c8e8c4690c; completion evidence is recorded in docs/architecture/S028_COMPLETION_EVIDENCE.md. S030 is the next dependency-safe readiness candidate.

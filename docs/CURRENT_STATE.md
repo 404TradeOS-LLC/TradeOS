@@ -298,7 +298,7 @@ S026 is the sole READY numbered-sprint candidate. It addresses the existing Esti
 
 ## S026 implementation in progress
 
-S026 is the active numbered-sprint lane. Its bounded backend change serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row, preserving organization/RLS, draft-only mutation, pricing snapshots, source-key idempotency, and public API shapes. Runtime verification is in PR #334; completion evidence will be recorded only after merge.
+S026 is DONE after implementation PR #334 and completion evidence; S028 is DONE after implementation PR #338. S027 remains blocked on authenticated rendered Costbook browser evidence, and S030 is the lowest dependency-safe planned candidate.
 
 
 ## S026 Estimate line-item ordering concurrency (done)
@@ -306,11 +306,10 @@ S026 is the active numbered-sprint lane. Its bounded backend change serializes p
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
 
 
-## S028 Estimate-to-proposal workflow (in review)
+## S028 Estimate-to-proposal workflow (complete)
 
-S028 is the active numbered-sprint lane through existing implementation PR #332, which covers the estimate deliverability path into proposal generation. The branch is currently behind origin/main and has deterministic app/docs/governance failures; no duplicate S028 implementation may be created. The bounded contract preserves estimate totals/statuses, proposal documents, audit events, authorization/RLS, and finalized-estimate immutability.
-
+S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f8303062103c8e8c4690c. The reconciled lane shipped additive estimate metadata, serialized estimate mutation/finalization, proposal handoff, signed margin analysis, and corrected browser evidence assertions. Completion evidence is recorded in docs/architecture/S028_COMPLETION_EVIDENCE.md.
 
 ## S028 estimate-to-proposal reconciliation
 
-S028 is IN_REVIEW through reconciled implementation PR #338, based on current main after governance PR #336. The lane covers estimate deliverability into proposal generation while preserving organization authorization, forced RLS, audit/event behavior, and finalized-estimate immutability. S027 remains separately blocked on authenticated rendered Costbook evidence.
+S028 is DONE through implementation PR #338 and completion evidence. S027 remains separately blocked on authenticated rendered Costbook evidence; S030 is the next dependency-safe candidate.
