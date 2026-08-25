@@ -302,17 +302,17 @@ Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolve
 
 ### S028 — Estimate-to-proposal workflow verification
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S008, S009
 Objective: Verify the full estimate approval and proposal generation path.
 Acceptance: totals, statuses, documents, and audit events remain consistent.
 
 ## Phase 6 — Scheduling, Dispatch, and Field Work
 
-Implementation status: IN_REVIEW in existing estimate deliverability PR #338; this is the sole S028 implementation lane. PR #338 must be reconciled onto current main and pass migration, authorization/RLS, app/web, docs, and browser-evidence requirements before merge.
+Implementation status: DONE after implementation PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`. Repository completion evidence is recorded in `docs/architecture/S028_COMPLETION_EVIDENCE.md`.
 Readiness contract: Verify end-to-end draft estimate creation, custom and Costbook-backed line items, section/cost-type/tax semantics, editable draft persistence/reload, deterministic totals, finalize/approval transition, proposal generation/PDF handoff, organization/RLS boundaries, audit events, and failure/retry behavior. Preserve finalized-estimate immutability and existing review-first AI boundaries. No new payment, accounting, legal-signature, customer identity, or S027 Costbook scope.
 Founder-decision boundary: NO under existing estimate/proposal semantics. Stop only if implementation requires a new pricing/accounting/legal policy, destructive migration, or materially different customer-visible workflow.
-Evidence: PR #338 is the existing overlapping implementation lane; no competing S028 branch may be created.
+Evidence: PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`.
 ### S029 — Scheduling engine baseline verification
 
 Status: DONE
@@ -501,7 +501,7 @@ Protected boundary: No numbered-sprint implementation lane is active while S027 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S028 is IN_REVIEW through existing implementation PR #338 and S027 remains BLOCKED on authenticated rendered Costbook evidence.
-Dependencies: S008 and S009 are DONE for S028; S027's required external evidence is unavailable.
-Overlap check: PR #338 remains the sole S028 implementation lane; no competing S028 implementation branch may be created.
-Startup prompt: Continue repairing PR #338 against current main, then perform a fresh readiness reconciliation after its required checks and evidence pass.
+Eligibility: No numbered sprint is currently `READY`; S030 is the lowest dependency-safe PLANNED candidate and S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S030 depends on S012, which is DONE; S027's remaining browser evidence is unavailable.
+Overlap check: S028 is DONE through merged PR #338; no numbered-sprint implementation lane is active and no S030 implementation writes are authorized before readiness promotion.
+Startup prompt: Promote S030 through a governance-only readiness lane, then create its sole implementation branch and verify the dispatcher workspace contract.
