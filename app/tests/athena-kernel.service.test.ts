@@ -32,7 +32,7 @@ interface FakeGenerationRow {
   completedAt?: Date | null;
 }
 
-type FakeGenerationCreateData = Partial<FakeGenerationRow> & Record<string, unknown>;
+type FakeGenerationCreateData = Omit<FakeGenerationRow, "createdAt">;
 
 
 const executions = new Map<string, FakeExecutionRow>();
@@ -55,7 +55,7 @@ const athenaTelemetryRecordCreate = jest.fn(async ({ data }: { data: (typeof tel
   telemetryRows.push(data);
 });
 const athenaGenerationRunCreate = jest.fn(async ({ data }: { data: FakeGenerationCreateData }) => {
-  const row = { ...(data as Record<string, unknown>), createdAt: new Date() } as FakeGenerationRow;
+  const row: FakeGenerationRow = { ...data, createdAt: new Date() };
   generationRows.push(row);
   return row;
 });
@@ -169,6 +169,23 @@ describe("AthenaKernelService", () => {
     expect(result.message).not.toBeNull();
     expect(telemetryRows.some((row) => row.spanType === "model")).toBe(true);
   });
+
+  it("uses the configured generation retention window", async () => {
+    const before = Date.now();
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-2-retention",
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_GENERATION_RETENTION_DAYS: "7" } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(true);
+    const retentionExpiresAt = generationRows[0]?.retentionExpiresAt.getTime();
+    expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 7 * 24 * 60 * 60 * 1000);
+    expect(retentionExpiresAt).toBeLessThanOrEqual(Date.now() + 7 * 24 * 60 * 60 * 1000 + 1_000);
+  });
+
 
   it("denies a mutation-shaped request without ever calling the provider", async () => {
     const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };

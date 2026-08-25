@@ -49,12 +49,19 @@ describe("runAthenaObservabilityRetention", () => {
     await expect(runAthenaObservabilityRetention({ orgId: ORG_A, userId: "user-1", telemetryRetentionDays: 0 })).rejects.toThrow(/positive/);
   });
 
+  it("rejects a fractional batch size before opening a session", async () => {
+    await expect(runAthenaObservabilityRetention({ orgId: ORG_A, userId: "user-1", batchSize: 1.5 })).rejects.toThrow(/positive integer/);
+    expect(runWithBackgroundDatabaseSession).not.toHaveBeenCalled();
+  });
+
+
   it("deletes old telemetry records and old executions in bounded batches, reporting scannedBatches/deletedCount/cutoff per table", async () => {
-    // Telemetry: two batches of batchSize (2), then a final short batch -> loop stops.
+    // Telemetry: two full batches of batchSize (2), then an empty batch.
     mockPrisma.athenaTelemetryRecordRow.findMany
       .mockResolvedValueOnce([{ id: "t1" }, { id: "t2" }])
-      .mockResolvedValueOnce([{ id: "t3" }]);
-    mockPrisma.athenaTelemetryRecordRow.deleteMany.mockResolvedValueOnce({ count: 2 }).mockResolvedValueOnce({ count: 1 });
+      .mockResolvedValueOnce([{ id: "t3" }, { id: "t4" }])
+      .mockResolvedValueOnce([]);
+    mockPrisma.athenaTelemetryRecordRow.deleteMany.mockResolvedValueOnce({ count: 2 }).mockResolvedValueOnce({ count: 2 });
 
     mockPrisma.athenaExecution.findMany.mockResolvedValueOnce([{ id: "e1" }]);
     mockPrisma.athenaExecution.deleteMany.mockResolvedValueOnce({ count: 1 });
@@ -68,7 +75,7 @@ describe("runAthenaObservabilityRetention", () => {
     );
 
     const telemetryResult = results.find((r) => r.table === "athena_telemetry_records");
-    expect(telemetryResult).toEqual({ table: "athena_telemetry_records", scannedBatches: 2, deletedCount: 3, cutoff: expect.any(String) });
+    expect(telemetryResult).toEqual({ table: "athena_telemetry_records", scannedBatches: 3, deletedCount: 4, cutoff: expect.any(String) });
 
     const executionResult = results.find((r) => r.table === "athena_executions");
     expect(executionResult).toEqual({ table: "athena_executions", scannedBatches: 1, deletedCount: 1, cutoff: expect.any(String) });

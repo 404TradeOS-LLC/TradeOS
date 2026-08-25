@@ -87,6 +87,8 @@ const proposalInvalidStatusA = "10000000-0000-0000-0000-000000000121";
 const proposalConcurrencyA = "10000000-0000-0000-0000-000000000122";
 const generationA = "10000000-0000-0000-0000-000000000123";
 const generationB = "20000000-0000-0000-0000-000000000124";
+const generationReviewA = "10000000-0000-0000-0000-000000000125";
+const generationReviewB = "20000000-0000-0000-0000-000000000126";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -528,6 +530,26 @@ describe("live organization row-level security", () => {
         },
       ],
     });
+    await adminClient.athenaGenerationReview.createMany({
+      data: [
+        {
+          id: generationReviewA,
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: adminUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:00.000Z"),
+        },
+        {
+          id: generationReviewB,
+          orgId: orgB,
+          generationId: generationB,
+          reviewerUserId: otherUser,
+          outcome: "rejected",
+          reviewedAt: new Date("2026-07-01T00:01:00.000Z"),
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -583,6 +605,65 @@ describe("live organization row-level security", () => {
         })
       )
     ).rejects.toThrow();
+  });
+
+  it("enforces generation review tenant, reviewer, and append-only boundaries", async () => {
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(visible?.orgId).toBe(orgA);
+
+    const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(hiddenCrossOrg).toBeNull();
+
+    const hiddenPeer = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(hiddenPeer).toBeNull();
+
+    const inserted = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.create({
+        data: {
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: adminUser,
+          outcome: "amended",
+          reviewedAt: new Date("2026-07-01T00:02:00.000Z"),
+        },
+      })
+    );
+    expect(inserted.orgId).toBe(orgA);
+    expect(inserted.reviewerUserId).toBe(adminUser);
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().athenaGenerationReview.create({
+          data: {
+            orgId: orgA,
+            generationId: generationA,
+            reviewerUserId: viewerUser,
+            outcome: "accepted",
+            reviewedAt: new Date("2026-07-01T00:03:00.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().athenaGenerationReview.update({
+          where: { id: generationReviewA },
+          data: { outcome: "rejected" },
+        })
+      )
+    ).rejects.toThrow();
+
+    const adminDelete = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.deleteMany({ where: { id: generationReviewA } })
+    );
+    expect(adminDelete.count).toBe(0);
   });
 
   it("allows only an organization administrator to delete generation metadata", async () => {

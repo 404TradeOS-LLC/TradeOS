@@ -115,8 +115,8 @@ export async function runAthenaObservabilityRetention(params: RunAthenaObservabi
   if (!Number.isFinite(generationRetentionDays) || generationRetentionDays <= 0) {
     throw new Error(`generationRetentionDays must be a positive number, got ${generationRetentionDays}`);
   }
-  if (!Number.isFinite(batchSize) || batchSize <= 0) {
-    throw new Error(`batchSize must be a positive number, got ${batchSize}`);
+  if (!Number.isFinite(batchSize) || !Number.isInteger(batchSize) || batchSize <= 0) {
+    throw new Error(`batchSize must be a positive integer, got ${batchSize}`);
   }
   // Executions own their telemetry spans (AthenaTelemetryRecordRow.executionId,
   // onDelete: Cascade) - if executions were retained for a *shorter* period

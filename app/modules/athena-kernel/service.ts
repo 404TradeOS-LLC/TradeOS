@@ -724,6 +724,7 @@ export class AthenaKernelService {
         signal: controller.signal,
         deadline,
         providerDeadlineMs,
+        generationRetentionDays: parsePositiveIntEnv(env.ATHENA_GENERATION_RETENTION_DAYS, 90),
         abort,
         getCancellationReason: () => cancellationReason,
         emitSpan,
@@ -851,6 +852,7 @@ export class AthenaKernelService {
     signal: AbortSignal;
     deadline: Date;
     providerDeadlineMs: number;
+    generationRetentionDays: number;
     abort: (reason: AthenaCancellationReason) => void;
     getCancellationReason: () => AthenaCancellationReason | undefined;
     emitSpan: (spanType: "model", status: "ok" | "error", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => Promise<void>;
@@ -914,7 +916,7 @@ export class AthenaKernelService {
         estimatedUsd: result.estimatedUsd,
         latencyMs: Date.now() - modelStart,
         provenance: { source: "athena_kernel", executionState: "succeeded" },
-        retentionExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        retentionExpiresAt: new Date(Date.now() + input.generationRetentionDays * 24 * 60 * 60 * 1000),
         completedAt: new Date(),
       });
       return { summary: "Athena prepared a draft response.", message: result.text, warnings: [] };
