@@ -72,7 +72,7 @@ export const estimateEngineController = {
         costType: z.enum(estimateCostTypes).optional(),
         unitOfMeasure: z.string().trim().min(1).max(40).optional(),
         unitCost: z.coerce.number().min(0).optional(),
-        taxable: z.coerce.boolean().optional(),
+        taxable: z.boolean().optional(),
       })
       .refine((v) => {
         if (v.costItemId || v.assemblyId) return Boolean(v.costItemId) !== Boolean(v.assemblyId);
@@ -108,7 +108,7 @@ export const estimateEngineController = {
       unitOfMeasure: z.string().trim().min(1).max(40).optional(),
       quantity: z.coerce.number().positive().optional(),
       unitCost: z.coerce.number().min(0).optional(),
-      taxable: z.coerce.boolean().optional(),
+      taxable: z.boolean().optional(),
     }).refine((value) => Object.keys(value).length > 0, { message: "At least one line item field is required" });
     const body = schema.parse(req.body);
     const lineItem = await service.updateLineItem({ estimateId: req.params.id, lineItemId: req.params.lineItemId, ...body, orgId: requireOrgId(req) });

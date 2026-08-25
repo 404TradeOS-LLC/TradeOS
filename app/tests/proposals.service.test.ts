@@ -481,6 +481,14 @@ describe("ProposalsService", () => {
       companyName: "Acme Co",
       showLineItemDetail: true,
       termsAndConditions: "Custom terms",
+      scopeOfWork: undefined,
+      assumptions: undefined,
+      exclusions: undefined,
+      timeline: undefined,
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: null,
+      paymentScheduleJson: undefined,
     });
   });
 

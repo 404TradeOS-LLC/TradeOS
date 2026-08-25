@@ -273,7 +273,7 @@ export class EstimateEngineService {
   async updateLineItem(input: UpdateLineItemInput): Promise<EstimateLineItemDTO> {
     const lineItem = await prisma.estimateLineItem.findUnique({ where: { id: input.lineItemId }, include: { estimate: true } });
     if (!lineItem) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
-    if (input.orgId && lineItem.estimate.orgId !== input.orgId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
+    if (lineItem.estimate.orgId !== input.orgId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
     if (lineItem.estimateId !== input.estimateId) throw new ApiError(404, `EstimateLineItem ${input.lineItemId} not found`);
     await this.assertDraft(lineItem.estimateId, input.orgId);
 

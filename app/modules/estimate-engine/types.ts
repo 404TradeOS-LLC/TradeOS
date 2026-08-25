@@ -48,7 +48,7 @@ export type EstimateCostType = (typeof estimateCostTypes)[number];
 
 export interface UpdateEstimateInput {
   estimateId: string;
-  orgId?: string;
+  orgId: string;
   overheadPct?: number;
   taxPct?: number;
 }
@@ -56,7 +56,7 @@ export interface UpdateEstimateInput {
 export interface UpdateLineItemInput {
   lineItemId: string;
   estimateId: string;
-  orgId?: string;
+  orgId: string;
   description?: string;
   section?: string;
   costType?: EstimateCostType;

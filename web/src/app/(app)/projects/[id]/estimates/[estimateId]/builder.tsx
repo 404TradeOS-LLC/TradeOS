@@ -459,6 +459,17 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
       </div>
 
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+        <div>
+          <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
+          <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"])}>
+            {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
+        <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
+      </div>
+
       {!selected && orderedResults.length > 0 && (
         <div className="space-y-4">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Search results</div>
@@ -550,9 +561,18 @@ function groupLineItems(items: LineItem[]) {
 function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ description: lineItem.description, quantity: String(lineItem.quantity), unitCost: String(lineItem.unitCost), unitOfMeasure: lineItem.unitOfMeasure, section: lineItem.section, costType: lineItem.costType, taxable: lineItem.taxable });
+  const [error, setError] = useState<string | null>(null);
   const update = useMutation({
-    mutationFn: () => clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity: Number(form.quantity), unitCost: Number(form.unitCost) }) }),
-    onSuccess: () => { setEditing(false); onUpdated(); },
+    mutationFn: () => {
+      const quantity = Number(form.quantity);
+      const unitCost = Number(form.unitCost);
+      if (!form.description.trim() || !form.unitOfMeasure.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+        throw new Error("Description and unit are required; quantity must be positive and unit cost cannot be negative.");
+      }
+      return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
+    },
+    onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
+    onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
   return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
     {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -563,7 +583,8 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       <Input value={form.unitOfMeasure} onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })} aria-label="Unit" />
       <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.costType} onChange={(e) => setForm({ ...form, costType: e.target.value as LineItem["costType"] })}>{costTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
-      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button></div>
+      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
+      {error && <p className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
     </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>

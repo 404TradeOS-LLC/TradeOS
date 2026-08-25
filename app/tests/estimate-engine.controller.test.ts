@@ -176,6 +176,43 @@ describe("estimateEngineController", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it("updates a line item through the authenticated nested route", async () => {
+    updateLineItemMock.mockResolvedValue({ id: "line-1", quantity: 3 });
+    recordMock.mockResolvedValue({});
+    const req = buildRequest("dispatcher", { quantity: 3, unitCost: 125, taxable: true });
+    const res = buildResponse();
+
+    await estimateEngineController.updateLineItem(req, res);
+
+    expect(updateLineItemMock).toHaveBeenCalledWith(expect.objectContaining({
+      estimateId: "estimate-1",
+      lineItemId: "line-1",
+      orgId: "org-1",
+      quantity: 3,
+      unitCost: 125,
+      taxable: true,
+    }));
+    expect(res.json).toHaveBeenCalledWith({ id: "line-1", quantity: 3 });
+  });
+
+  it("rejects an empty line-item update without calling the service", async () => {
+    const req = buildRequest("dispatcher", {});
+    await expect(estimateEngineController.updateLineItem(req, buildResponse())).rejects.toThrow(/At least one line item field is required/);
+    expect(updateLineItemMock).not.toHaveBeenCalled();
+  });
+
+  it("updates estimate overhead and tax through the authenticated route", async () => {
+    updateEstimateMock.mockResolvedValue({ id: "estimate-1", taxPct: 7 });
+    recordMock.mockResolvedValue({});
+    const req = buildRequest("dispatcher", { overheadPct: 10, taxPct: 7 });
+    const res = buildResponse();
+
+    await estimateEngineController.updateEstimate(req, res);
+
+    expect(updateEstimateMock).toHaveBeenCalledWith({ estimateId: "estimate-1", orgId: "org-1", overheadPct: 10, taxPct: 7 });
+    expect(res.json).toHaveBeenCalledWith({ id: "estimate-1", taxPct: 7 });
+  });
+
   it("rejects a pricing mode without its matching percentage", async () => {
     const req = buildRequest("dispatcher", { mode: "markup" });
     await expect(estimateEngineController.setPricingMode(req, buildResponse())).rejects.toThrow(/markupPct is required/);

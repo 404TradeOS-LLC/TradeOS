@@ -75,19 +75,28 @@ async function runWorkflow(page, runNumber) {
   await page.getByText("Flooring material allowance", { exact: true }).waitFor();
 
   // Edit a persisted line after it has been rendered, then reload and assert it remains.
-  await page.locator("li").filter({ hasText: "Remove glued-down linoleum" }).getByRole("button", { name: "Edit" }).click();
-  await page.getByRole("button", { name: "Save" }).click();
+  const editableLine = page.locator("li").filter({ hasText: "Remove glued-down linoleum" });
+  await editableLine.getByRole("button", { name: "Edit" }).click();
+  await editableLine.getByLabel("Description").fill("Remove glued-down linoleum (revised)");
+  await editableLine.getByRole("button", { name: "Save" }).click();
   await page.reload({ waitUntil: "networkidle" });
-  await page.getByText("Remove glued-down linoleum", { exact: true }).waitFor();
+  await page.getByText("Remove glued-down linoleum (revised)", { exact: true }).waitFor();
   await page.getByText("Flooring material allowance", { exact: true }).waitFor();
 
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
-  await page.getByText("Customer-facing price", { exact: true }).waitFor().catch(() => {});
+  await page.reload({ waitUntil: "networkidle" });
+  if (await page.getByLabel("Overhead %").inputValue() !== "10" || await page.getByLabel("Tax %").inputValue() !== "7") {
+    throw new Error("Saved overhead/tax settings did not persist after reload.");
+  }
+  await page.getByText("$310.63", { exact: true }).waitFor();
+  await page.getByText("$5,920.63", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
+  await page.getByText("$5,329.50", { exact: true }).waitFor();
+  await page.getByText("$12,061.50", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor();
 
@@ -101,18 +110,27 @@ async function runWorkflow(page, runNumber) {
   return { runNumber, customerName, projectName, projectId, estimateId, consoleErrors, failedRequests, passed: consoleErrors.length === 0 && failedRequests.length === 0 };
 }
 
+let workflowError = null;
+let context;
 try {
-  const context = await browser.newContext({ storageState, viewport: { width: 1440, height: 1000 } });
-  const page = await context.newPage();
+  context = await browser.newContext({ storageState, viewport: { width: 1440, height: 1000 } });
   for (let runNumber = 1; runNumber <= runs; runNumber += 1) {
-    const result = await runWorkflow(page, runNumber);
-    results.push(result);
-    if (!result.passed) throw new Error(`Run ${runNumber} recorded browser errors or failed requests.`);
+    const page = await context.newPage();
+    try {
+      const result = await runWorkflow(page, runNumber);
+      results.push(result);
+      if (!result.passed) throw new Error(`Run ${runNumber} recorded browser errors or failed requests.`);
+    } finally {
+      await page.close();
+    }
   }
-  await context.close();
+} catch (error) {
+  workflowError = error;
 } finally {
+  if (context) await context.close();
   await browser.close();
+  await fs.writeFile(path.join(outDir, "report.json"), JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, runs, results, error: workflowError instanceof Error ? workflowError.message : workflowError }, null, 2));
 }
 
-await fs.writeFile(path.join(outDir, "report.json"), JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, runs, results }, null, 2));
+if (workflowError) throw workflowError;
 console.log(JSON.stringify({ runs, passed: results.length === runs && results.every((result) => result.passed), results }, null, 2));

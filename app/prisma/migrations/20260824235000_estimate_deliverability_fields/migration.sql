@@ -11,8 +11,8 @@ alter table estimate_line_items
   add column taxable boolean not null default false;
 
 alter table estimates
-  add constraint estimates_tax_pct_range check (tax_pct >= 0 and tax_pct <= 100);
+  add constraint estimates_tax_pct_range check (tax_pct >= 0 and tax_pct <= 100) not valid;
 
 alter table estimate_line_items
   add constraint estimate_line_items_cost_type_check
-    check (cost_type in ('labor', 'material', 'equipment', 'disposal', 'subcontractor', 'other'));
+    check (cost_type in ('labor', 'material', 'equipment', 'disposal', 'subcontractor', 'other')) not valid;
