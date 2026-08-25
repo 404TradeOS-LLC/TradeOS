@@ -26,8 +26,8 @@ function createFakeEstimateEngine(): InvoicePrepareToolDeps["estimateEngine"] {
       preTaxTotalPrice: 1200,
       totalPrice: 1200,
       lineItems: [
-        { id: "li-1", estimateId: id, costItemId: "ci-1", assemblyId: null, description: "Labor", quantity: 10, unitOfMeasure: "hr", unitCost: 50, lineCost: 500, sortOrder: 1, sourceKey: null, section: "General", costType: "labor", taxable: false },
-        { id: "li-2", estimateId: id, costItemId: "ci-2", assemblyId: null, description: "Materials", quantity: 1, unitOfMeasure: "ea", unitCost: 500, lineCost: 500, sortOrder: 2, sourceKey: null, section: "General", costType: "material", taxable: true },
+        { id: "li-1", estimateId: id, costItemId: "ci-1", assemblyId: null, description: "Labor", quantity: 10, unitOfMeasure: "hr", unitCost: 50, lineCost: 500, sortOrder: 1, sourceKey: null, section: "General", costType: "labor" as const, taxable: false },
+        { id: "li-2", estimateId: id, costItemId: "ci-2", assemblyId: null, description: "Materials", quantity: 1, unitOfMeasure: "ea", unitCost: 500, lineCost: 500, sortOrder: 2, sourceKey: null, section: "General", costType: "material" as const, taxable: true },
       ],
     })),
   };
