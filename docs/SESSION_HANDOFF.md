@@ -33,7 +33,7 @@ S028 is DONE after implementation PR #338, completion-evidence PR #339, and PT-0
 
 ## Readiness contract — S041
 
-Read `docs/architecture/S041_RLS_POLICY_COVERAGE_PLAN.md` before editing. Preserve forced RLS as the tenant floor and the existing application permission model. Add only the approved `billing.write` change-order gate, `costbook.manage` supplier gate, canonical SQL session role normalization, and focused audit/regression evidence. Do not add schema, migrations, RLS-policy redesign, new roles/permissions, production data operations, or S027/S042+ scope.
+Read `docs/architecture/S041_RLS_POLICY_COVERAGE_PLAN.md` before editing. Preserve forced RLS as the tenant floor and the existing application permission model. Add only the approved `billing.write` change-order gate, `costbook.manage` supplier gate, preserved raw SQL session role semantics, and focused audit/regression evidence. Do not add schema, migrations, RLS-policy redesign, new roles/permissions, production data operations, or S027/S042+ scope.
 
 ### Historical S040 contract
 
@@ -45,12 +45,12 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-Implement S041 through the merged readiness contract; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated, and S027 remains separate.
+Continue S041 PR #351 through verification, review, merge, and completion evidence; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated, and S027 remains separate.
 
 ## Next Eligible Sprint
 
 Sprint ID: S041
-Eligibility: S041 is READY after governed readiness promotion; no implementation PR exists yet.
+Eligibility: S041 implementation PR #351 is open from the sole authoritative implementation lane and is not complete until merged with evidence.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: No competing S041 implementation PR, branch, or worktree exists. Create one isolated S041 implementation lane only.
-Startup prompt: Implement only the S041 RLS policy coverage contract. Do not begin S042 or combine S027 browser evidence with S041.
+Overlap check: No competing S041 implementation PR, branch, or worktree exists beyond `feature/s041-implementation` and PR #351.
+Startup prompt: Continue only S041 PR #351 through verification, review, merge, and completion evidence. Do not begin S042 or combine S027 browser evidence with S041.

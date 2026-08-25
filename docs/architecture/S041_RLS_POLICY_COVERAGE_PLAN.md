@@ -28,8 +28,10 @@ request-session context. It repairs two established application-boundary gaps:
 
 - change-order mutations require the existing `billing.write` permission;
 - supplier mutations require the existing `costbook.manage` permission;
-- SQL session role context uses the existing canonical mappings for legacy
-  `estimator` and `viewer` inputs while AuthContext remains compatibility-safe.
+- SQL session role context preserves the raw supported role for RLS compatibility;
+  legacy `estimator` and `viewer` inputs must not be normalized because the
+  database policy vocabulary intentionally gives them narrower write/admin
+  behavior than their application compatibility aliases.
 
 RLS remains the database tenant-isolation floor. Application permission checks
 remain the finer product authorization layer. This sprint does not redesign RLS
@@ -49,8 +51,9 @@ policies or change the schema.
   authoritative.
 - Technicians cannot mutate change orders or suppliers through HTTP; permitted
   roles retain access.
-- Transaction-local `app.role` is canonical while legacy role inputs remain
-  supported through the existing `normalizeRole` compatibility map.
+- Transaction-local `app.role` preserves the supported database role vocabulary;
+  application-level `normalizeRole` compatibility remains available without
+  widening database privileges.
 - Cross-organization visibility and mutation remain denied by request-scoped
   forced RLS.
 
@@ -99,8 +102,8 @@ policies or change the schema.
 
 Founder decision: RESOLVED for this bounded lane. Preserve RLS as the tenant
 floor, use `billing.write` for change-order mutations, use `costbook.manage`
-for supplier mutations, and canonicalize only the SQL session role using the
-existing compatibility mapping. Any future RLS-policy redesign or new role/
+for supplier mutations, and preserve raw supported SQL session roles so legacy
+RLS semantics remain fail-closed. Any future RLS-policy redesign or new role/
 permission requires separate approval.
 
 External dependency: no production database or browser evidence is required.

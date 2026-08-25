@@ -76,7 +76,7 @@ The request-scoped database session sets:
 - `app.role`
 - `app.session_source`
 
-The backend establishes those values in `app/db/requestSession.ts` through a Prisma transaction opened by `app/backend/middleware/databaseSession.ts`. `app.role` is canonicalized through the existing legacy compatibility map before policy evaluation; the raw AuthContext role remains available to preserve compatibility at the application boundary.
+The backend establishes those values in `app/db/requestSession.ts` through a Prisma transaction opened by `app/backend/middleware/databaseSession.ts`. `app.role` preserves the supported database role vocabulary; application compatibility normalization is not applied to the SQL session because doing so would widen legacy RLS privileges.
 That transaction keeps separate bounded acquisition and execution timers. The
 15-second default acquisition wait accommodates parallel authenticated loaders
 when a serverless instance intentionally limits Prisma to one connection; it

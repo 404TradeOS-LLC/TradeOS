@@ -59,10 +59,7 @@ describe("request database session", () => {
     });
   });
 
-  it.each([
-    ["estimator", "dispatcher"],
-    ["viewer", "technician"],
-  ])("canonicalizes legacy SQL session role %s to %s", async (role, canonicalRole) => {
+  it.each(["estimator", "viewer"])('preserves legacy SQL session role "%s" for RLS compatibility', async (role) => {
     const transaction = { $queryRaw: jest.fn().mockResolvedValue([]) };
     const client = {
       $transaction: jest.fn(async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction)),
@@ -75,7 +72,7 @@ describe("request database session", () => {
     );
 
     expect(transaction.$queryRaw.mock.calls[0][0]).toMatchObject({
-      values: ["user-1", "org-1", canonicalRole, "http"],
+      values: ["user-1", "org-1", role, "http"],
     } satisfies Partial<Prisma.Sql>);
   });
 

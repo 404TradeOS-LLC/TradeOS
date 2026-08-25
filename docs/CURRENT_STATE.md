@@ -311,4 +311,4 @@ S040 is `DONE`: implementation PR #346 merged on 2026-08-25 as `6fb0596c6a865923
 
 ## S041 bounded implementation
 
-S041 readiness PR #350 is merged as `9fde03effd679f63c36790f37ddfade2913247ed`. The single implementation lane is limited to the approved application permission gates, canonical SQL session role normalization, focused authorization/session/RLS evidence, and required documentation; no implementation merge or completion evidence is claimed yet.
+S041 readiness PR #350 is merged as `9fde03effd679f63c36790f37ddfade2913247ed`. The single implementation lane is limited to the approved application permission gates, preserved raw SQL role semantics, focused authorization/session/RLS evidence, and required documentation; no implementation merge or completion evidence is claimed yet.
