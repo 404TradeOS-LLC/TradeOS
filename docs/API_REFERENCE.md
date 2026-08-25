@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -118,14 +118,18 @@ Mounted route groups from `app/backend/server.ts`:
 
 `POST /api/v1/invoices/:id/payments` remains the existing backend payment-recording boundary. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. No payment-entry UI or payment-processor contract is introduced by S011.
 
+`GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
+
 `GET /api/v1/invoices/:id` and `GET /api/v1/invoices/by-project/:projectId`
 require `billing.read` and return the organization-scoped invoice projection.
 The projection includes `paidAmount` and `balanceDue` derived from `Payment`
 rows whose status is `recorded`, plus a sanitized `payments` array containing
 amount, payment date, method, and creation time. Pending/failed payment rows,
 internal notes, and payment-entry actions are not exposed through this
-presentation projection. The organization remains derived from authenticated
-membership context and forced RLS.
+presentation projection. Persisted `paid` remains authoritative for a zero
+`balanceDue` even when manual mark-paid has no corresponding Payment row. The
+organization remains derived from authenticated membership context and forced
+RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
