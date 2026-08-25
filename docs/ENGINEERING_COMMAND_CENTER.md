@@ -95,7 +95,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S026 and S028 are DONE with merged evidence. S027 remains BLOCKED on authenticated rendered Costbook browser evidence; S030 is the lowest dependency-safe planned candidate awaiting governance readiness.
+Prioritize existing authorized work before inventing new scope. S026 and S028 are DONE with merged evidence; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. S030 is the sole active IN_REVIEW numbered implementation lane through PR #341 after readiness promotion #340; S040 is deferred until S030 completes.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -223,4 +223,4 @@ S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f83030621
 
 ## S030 readiness
 
-S030 is READY through docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. The sole lane verifies the existing Dispatcher Workspace across scheduling, assignment, rescheduling, conflicts, lifecycle actions, responsive states, and organization/RLS boundaries. S027 remains independently blocked on authenticated Costbook browser evidence.
+S030 readiness is promoted through PR #340 and implementation is IN_REVIEW through sole lane PR #341. The lane verifies the existing Dispatcher Workspace across scheduling, assignment, rescheduling, conflicts, lifecycle actions, responsive states, and organization/RLS boundaries. PR #341 must first reconcile onto live main, close deterministic declined-assignment/conflict risks, and receive governed RLS review; browser evidence remains environment-blocked. S027 remains independently blocked on authenticated Costbook browser evidence.

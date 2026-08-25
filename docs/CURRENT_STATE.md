@@ -308,4 +308,8 @@ S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e
 
 ## S028 estimate-to-proposal reconciliation
 
-Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 is the bounded follow-up that closes the persisted proposal-price gap.
+Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 PR #342 is merged as `164fe63867dceb265d80a0a61098c4c99315a3f3` and closes the persisted proposal-price gap.
+
+PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; the invoice queue now treats persisted `paid` as authoritative for `balanceDue: 0` while retaining recorded-payment aggregation semantics.
+
+S030 readiness PR #340 is merged and implementation PR #341 is the sole active lane. It remains IN_REVIEW pending current-main reconciliation, governed RLS review, deterministic assignment/conflict verification, and authenticated browser evidence. S040 is the preferred next security-leverage sprint only after S030 completion.
