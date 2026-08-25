@@ -74,6 +74,7 @@ export const aiEstimateAssistController = {
     const auth = requireAuthContext(req);
     requirePermissions(req, ["billing.write"]);
     const schema = z.object({
+      generationId: z.string().uuid().optional(),
       lineItems: z.array(
         z.object({
           draftLineItemId: z.string().min(1).max(200),
@@ -94,6 +95,7 @@ export const aiEstimateAssistController = {
         estimateId,
         orgId: requireOrgId(req),
         actorUserId: auth.userId,
+        generationId: body.generationId,
         lineItems: body.lineItems,
       })
     );

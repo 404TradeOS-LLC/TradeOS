@@ -1,5 +1,16 @@
 import { createHmac } from "node:crypto";
 
+const mockGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+  ...data,
+  createdAt: new Date(),
+  completedAt: data.completedAt ?? null,
+  estimatedUsd: undefined,
+}));
+const mockGenerationReviewCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+  ...data,
+  createdAt: new Date(),
+}));
+
 const mockPrisma = {
   $queryRaw: jest.fn(),
   estimate: {
@@ -7,6 +18,12 @@ const mockPrisma = {
   },
   estimateLineItem: {
     findFirst: jest.fn(),
+  },
+  athenaGenerationRun: {
+    create: mockGenerationRunCreate,
+  },
+  athenaGenerationReview: {
+    create: mockGenerationReviewCreate,
   },
 };
 
@@ -370,6 +387,15 @@ describe("StructuredAIEstimatorService", () => {
       })
     );
     expect(mockActivityService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "estimate.ai_estimator_draft_generated" }));
+    expect(result.generationId).toEqual(expect.any(String));
+    expect(mockGenerationRunCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        actorUserId: "user-1",
+        provider: "knowledge-runtime",
+        status: "succeeded",
+      }),
+    }));
   });
 
   it.each([
@@ -917,6 +943,52 @@ describe("StructuredAIEstimatorService", () => {
     expect(mockRunInDatabaseTransaction).toHaveBeenCalledTimes(1);
     expect(mockEstimateEngine.addLineItem).toHaveBeenCalledTimes(2);
     expect(mockActivityService.record).not.toHaveBeenCalledWith(expect.objectContaining({ eventType: "estimate.ai_estimator_review_applied" }));
+  });
+
+  it("records review provenance against the generated metadata record", async () => {
+    mockCostDatabase.getById.mockResolvedValue({
+      id: "10000000-0000-0000-0000-000000000002",
+      orgId: "org-1",
+      code: "COST-001",
+      name: "Panel replacement",
+      unitOfMeasure: "EA",
+      isActive: true,
+    });
+    mockEstimateEngine.addLineItem.mockResolvedValue({ id: "line-item-1" });
+
+    const result = await new StructuredAIEstimatorService().applyReviewedDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      actorUserId: "user-1",
+      generationId: "10000000-0000-0000-0000-000000000010",
+      lineItems: [
+        {
+          draftLineItemId: "accepted-1",
+          status: "accepted",
+          reviewToken: buildReviewToken({
+            estimateId: "estimate-1",
+            orgId: "org-1",
+            draftLineItemId: "accepted-1",
+            targetKind: "costItem",
+            targetId: "10000000-0000-0000-0000-000000000002",
+          }),
+          targetId: "10000000-0000-0000-0000-000000000002",
+          targetKind: "costItem",
+          description: "Panel replacement",
+          quantity: 1,
+        },
+      ],
+    });
+
+    expect(result.applied).toHaveLength(1);
+    expect(mockGenerationReviewCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        generationId: "10000000-0000-0000-0000-000000000010",
+        reviewerUserId: "user-1",
+        outcome: "accepted",
+      }),
+    }));
   });
 
   it("skips accepted org-owned targets that are not backed by a matching server review token", async () => {

@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -10,6 +10,7 @@ import { ActivityTimelineService } from "../intelligence/service";
 import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
+import { createAthenaGenerationRecord, createAthenaGenerationReview } from "../athena-generation/store";
 import {
   AIEstimateSuggestionKind,
   AIEstimateSuggestionTarget,
@@ -37,6 +38,7 @@ export class StructuredAIEstimatorService {
   private readonly assembliesDatabase = new AssembliesDatabaseService();
 
   async generateDraft(input: GenerateStructuredEstimateInput): Promise<StructuredEstimateDraft> {
+    const generationStartedAt = Date.now();
     const estimate = await prisma.estimate.findFirst({
       where: { id: input.estimateId, orgId: input.orgId },
       include: { project: true },
@@ -110,7 +112,29 @@ export class StructuredAIEstimatorService {
       summary: validationStatus === "blocked" ? "Draft cannot be applied until at least one target is resolved." : "Draft is staged for human review.",
     });
 
+    const generationRecord = input.actorUserId
+      ? await createAthenaGenerationRecord({
+          orgId: input.orgId,
+          actorUserId: input.actorUserId,
+          requestId: `ai-estimate-assist:${estimate.id}:${randomUUID()}`,
+          traceId: randomUUID(),
+          provider: "knowledge-runtime",
+          model: ENGINE_VERSION,
+          status: "succeeded",
+          latencyMs: Date.now() - generationStartedAt,
+          toolNames: toolRuns.map((tool) => tool.name),
+          provenance: {
+            source: "ai_estimate_assist",
+            engineVersion: ENGINE_VERSION,
+            validationStatus,
+          },
+          retentionExpiresAt: new Date(Date.now() + resolveGenerationRetentionDays() * 24 * 60 * 60 * 1000),
+          completedAt: new Date(),
+        })
+      : null;
+
     const draft: StructuredEstimateDraft = {
+      generationId: generationRecord?.id,
       estimateId: estimate.id,
       orgId: input.orgId,
       projectId: estimate.projectId,
@@ -313,6 +337,30 @@ export class StructuredAIEstimatorService {
         lineItemIds: applied.map((lineItem) => lineItem.lineItemId),
       },
     });
+
+    if (input.generationId && input.actorUserId) {
+      const acceptedCount = input.lineItems.filter((lineItem) => lineItem.status === "accepted").length;
+      const rejectedCount = input.lineItems.filter((lineItem) => lineItem.status === "rejected").length;
+      const outcome = acceptedCount > 0 && rejectedCount > 0
+        ? "amended"
+        : acceptedCount > 0
+          ? "accepted"
+          : "rejected";
+
+      await createAthenaGenerationReview({
+        orgId: input.orgId,
+        generationId: input.generationId,
+        reviewerUserId: input.actorUserId,
+        outcome,
+        provenance: {
+          source: "ai_estimate_assist",
+          engineVersion: ENGINE_VERSION,
+          appliedCount: applied.length,
+          skippedCount: skipped.length,
+        },
+        reviewedAt: new Date(),
+      });
+    }
 
     return { applied, skipped };
   }
@@ -749,6 +797,11 @@ function reviewTokenSecret() {
 function parseReviewTokenTtl() {
   const configured = Number(process.env.AI_ESTIMATOR_REVIEW_TOKEN_TTL_MS);
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_REVIEW_TOKEN_TTL_MS;
+}
+
+function resolveGenerationRetentionDays() {
+  const configured = Number(process.env.ATHENA_GENERATION_RETENTION_DAYS);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 90;
 }
 
 function safeEqual(left: string, right: string) {

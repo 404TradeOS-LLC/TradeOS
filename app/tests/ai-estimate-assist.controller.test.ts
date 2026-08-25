@@ -64,6 +64,29 @@ describe("aiEstimateAssistController structured estimator endpoints", () => {
     });
   });
 
+  it("passes the generation ID through the structured review contract", async () => {
+    const res = response();
+
+    await aiEstimateAssistController.applyStructuredEstimate(
+      authedRequest({
+        generationId: "10000000-0000-0000-0000-000000000010",
+        lineItems: [
+          {
+            draftLineItemId: "line-1",
+            status: "rejected",
+            quantity: 1,
+          },
+        ],
+      }),
+      res as never
+    );
+
+    expect(mockStructuredEstimator.applyReviewedDraft).toHaveBeenCalledWith(expect.objectContaining({
+      generationId: "10000000-0000-0000-0000-000000000010",
+      actorUserId: "user-1",
+    }));
+  });
+
   it("rejects body org IDs and unknown generated price fields on apply", async () => {
     const res = response();
 
