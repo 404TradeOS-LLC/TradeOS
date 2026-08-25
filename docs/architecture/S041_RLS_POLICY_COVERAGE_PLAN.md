@@ -81,7 +81,8 @@ policies or change the schema.
    access path.
 2. Focused controller tests prove technician denial and permitted-role success
    for change-order and supplier mutations.
-3. Request-session tests prove legacy roles map to canonical SQL session roles.
+3. Request-session tests prove legacy roles preserve their raw SQL role strings
+   and do not widen RLS write or administration privileges.
 4. Migration/RLS tests prove the forced-RLS floor remains intact, including the
    raw-SQL Athena idempotency table.
 5. PostgreSQL integration proves cross-organization denial and same-organization
