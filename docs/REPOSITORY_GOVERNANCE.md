@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -95,6 +95,8 @@ A green required-check set is the minimum evidence for autonomous merge eligibil
 The exact GitHub check names remain the source of truth and must be verified before editing the ruleset.
 
 Workflow action implementations must stay on supported action-runtime majors. Upgrading `actions/checkout` or `actions/setup-node` to a supported major is maintenance of the CI execution environment; it does not by itself change the explicit `node-version` values used to test or deploy TradeOS. As of 2026-08-18, workflow checkout call sites are maintained on `actions/checkout@v7.0.1`; this patch refresh does not change application runtime policy.
+
+PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-artifact`, moving the existing RC smoke and S027 browser-evidence artifact steps from v6 to v7 while retaining their normal archived artifact names and paths. The workflows do not set `archive: false` or otherwise opt into v7 direct-upload behavior, and the change does not alter workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
