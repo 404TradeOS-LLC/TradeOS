@@ -20,7 +20,7 @@ function createFakeEstimateEngine(): EstimateUpdateToolDeps["estimateEngine"] {
         sortOrder: 1,
         sourceKey: input.sourceKey ?? null,
         section: "General",
-        costType: "other",
+        costType: "other" as const,
         taxable: false,
       },
       estimate: {
