@@ -83,15 +83,15 @@ alter table athena_generation_reviews force row level security;
 create policy athena_generation_reviews_select_policy on athena_generation_reviews
 for select using (
   org_id = (select current_app_org_id())
-  and exists (
-    select 1 from athena_generation_runs
-    where athena_generation_runs.id = athena_generation_reviews.generation_id
-      and athena_generation_runs.org_id = (select current_app_org_id())
-      and (
-        current_app_can_administer()
-        or athena_generation_runs.actor_user_id = (select current_app_user_id())
-        or reviewer_user_id = (select current_app_user_id())
-      )
+  and (
+    current_app_can_administer()
+    or reviewer_user_id = (select current_app_user_id())
+    or exists (
+      select 1 from athena_generation_runs
+      where athena_generation_runs.id = athena_generation_reviews.generation_id
+        and athena_generation_runs.org_id = (select current_app_org_id())
+        and athena_generation_runs.actor_user_id = (select current_app_user_id())
+    )
   )
 );
 
