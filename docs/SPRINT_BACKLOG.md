@@ -497,7 +497,7 @@ Protected boundary: No numbered-sprint implementation lane is active while S027 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Eligibility: No numbered sprint is currently `READY`; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
 Dependencies: S026 is DONE; S027's required external evidence is unavailable.
 Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
 Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.

@@ -197,3 +197,8 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Broad roadmap priorities do not override the numbered sprint queue.
 - Agents may not invent replacement architecture when an existing source-of-truth contract applies.
 - Destructive documentation consolidation requires an audit, preservation plan, and founder approval.
+
+
+## S026 completion reconciliation
+
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 remains blocked on authenticated rendered Costbook evidence; no numbered implementation lane is active.
