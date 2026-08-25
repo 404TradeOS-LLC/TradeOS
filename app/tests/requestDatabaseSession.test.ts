@@ -59,7 +59,7 @@ describe("request database session", () => {
     });
   });
 
-  it.each(["estimator", "viewer"])('preserves legacy SQL session role "%s" for RLS compatibility', async (role) => {
+  it.each(["estimator", "viewer"] as const)('preserves legacy SQL session role "%s" for RLS compatibility', async (role) => {
     const transaction = { $queryRaw: jest.fn().mockResolvedValue([]) };
     const client = {
       $transaction: jest.fn(async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction)),
