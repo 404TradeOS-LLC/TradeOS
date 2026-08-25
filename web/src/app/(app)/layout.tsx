@@ -11,6 +11,15 @@ import type { OrganizationSettingsResponse } from "@/lib/settings";
 // falls back to hiding the Athena navigation entry.
 const ORG_SETTINGS_TIMEOUT_MS = 5000;
 
+export function handleAthenaNavLookupFailure(error: unknown): false {
+  if (error instanceof Error && error.name === "AbortError") {
+    console.warn("AppLayout: Athena nav visibility lookup timed out; hiding Athena navigation");
+  } else {
+    console.error("AppLayout: failed to resolve Athena nav visibility", error);
+  }
+  return false;
+}
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
@@ -37,12 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }
     }
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      console.warn("AppLayout: Athena nav visibility lookup timed out; hiding Athena navigation");
-    } else {
-      console.error("AppLayout: failed to resolve Athena nav visibility", error);
-    }
-    canViewAthena = false;
+    canViewAthena = handleAthenaNavLookupFailure(error);
   }
 
   return (
