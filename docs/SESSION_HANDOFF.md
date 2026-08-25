@@ -19,7 +19,7 @@ related_docs:
 
 ## Mission
 
-S028 is DONE after implementation PR #338 and completion-evidence PR #339. S030 is now the sole READY numbered-sprint implementation lane. S027 remains independently BLOCKED only on authenticated rendered Costbook evidence.
+S028 is DONE after implementation PR #338 and completion-evidence PR #339. S030 is now the sole READY numbered-sprint implementation lane (readiness PR #340). S027 remains independently BLOCKED only on authenticated rendered Costbook evidence.
 
 ## Current truth
 
