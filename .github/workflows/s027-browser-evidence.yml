@@ -58,7 +58,7 @@ jobs:
       - name: Capture authenticated responsive evidence
         run: node scripts/s027-browser-evidence.mjs
       - name: Upload evidence artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: s027-browser-evidence
           path: artifacts/s027-browser-evidence

@@ -55,7 +55,7 @@ jobs:
           chmod 600 "$RC_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
       - run: node scripts/authenticated-route-smoke.mjs
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: rc-authenticated-smoke
           path: artifacts/rc-smoke
