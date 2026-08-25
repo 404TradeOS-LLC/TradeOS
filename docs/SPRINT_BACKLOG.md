@@ -302,13 +302,17 @@ Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolve
 
 ### S028 — Estimate-to-proposal workflow verification
 
-Status: PLANNED
+Status: IN_REVIEW
 Dependencies: S008, S009
 Objective: Verify the full estimate approval and proposal generation path.
 Acceptance: totals, statuses, documents, and audit events remain consistent.
 
 ## Phase 6 — Scheduling, Dispatch, and Field Work
 
+Implementation status: IN_REVIEW in existing estimate deliverability PR #332; this is the sole S028 implementation lane. PR #332 must be reconciled onto current main and pass migration, authorization/RLS, app/web, docs, and browser-evidence requirements before merge.
+Readiness contract: Verify end-to-end draft estimate creation, custom and Costbook-backed line items, section/cost-type/tax semantics, editable draft persistence/reload, deterministic totals, finalize/approval transition, proposal generation/PDF handoff, organization/RLS boundaries, audit events, and failure/retry behavior. Preserve finalized-estimate immutability and existing review-first AI boundaries. No new payment, accounting, legal-signature, customer identity, or S027 Costbook scope.
+Founder-decision boundary: NO under existing estimate/proposal semantics. Stop only if implementation requires a new pricing/accounting/legal policy, destructive migration, or materially different customer-visible workflow.
+Evidence: PR #332 is the existing overlapping implementation lane; no competing S028 branch may be created.
 ### S029 — Scheduling engine baseline verification
 
 Status: DONE
@@ -497,7 +501,7 @@ Protected boundary: No numbered-sprint implementation lane is active while S027 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S026 is DONE; S027's required external evidence is unavailable.
-Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
-Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.
+Eligibility: No numbered sprint is currently `READY`; S028 is IN_REVIEW through existing implementation PR #332 and S027 remains BLOCKED on authenticated rendered Costbook evidence.
+Dependencies: S008 and S009 are DONE for S028; S027's required external evidence is unavailable.
+Overlap check: PR #332 remains the sole S028 implementation lane; no competing S028 implementation branch may be created.
+Startup prompt: Continue repairing PR #332 against current main, then perform a fresh readiness reconciliation after its required checks and evidence pass.
