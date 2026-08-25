@@ -88,11 +88,11 @@ describe("runAthenaObservabilityRetention", () => {
   it("deletes expired generation metadata in bounded organization-scoped batches", async () => {
     mockPrisma.athenaGenerationRun.findMany
       .mockResolvedValueOnce([{ id: "g1" }, { id: "g2" }])
-      .mockResolvedValueOnce([{ id: "g3" }])
+      .mockResolvedValueOnce([{ id: "g3" }, { id: "g4" }])
       .mockResolvedValueOnce([]);
     mockPrisma.athenaGenerationRun.deleteMany
       .mockResolvedValueOnce({ count: 2 })
-      .mockResolvedValueOnce({ count: 1 });
+      .mockResolvedValueOnce({ count: 2 });
 
     const now = new Date("2026-08-10T12:00:00.000Z");
     const results = await runAthenaObservabilityRetention({ orgId: ORG_A, userId: "user-1", batchSize: 2, now });
@@ -100,8 +100,8 @@ describe("runAthenaObservabilityRetention", () => {
     const generationResult = results.find((result) => result.table === "athena_generation_runs");
     expect(generationResult).toEqual({
       table: "athena_generation_runs",
-      scannedBatches: 2,
-      deletedCount: 3,
+      scannedBatches: 3,
+      deletedCount: 4,
       cutoff: now.toISOString(),
     });
     expect(mockPrisma.athenaGenerationRun.findMany).toHaveBeenNthCalledWith(1, {
@@ -114,7 +114,7 @@ describe("runAthenaObservabilityRetention", () => {
       where: { orgId: ORG_A, id: { in: ["g1", "g2"] } },
     });
     expect(mockPrisma.athenaGenerationRun.deleteMany).toHaveBeenNthCalledWith(2, {
-      where: { orgId: ORG_A, id: { in: ["g3"] } },
+      where: { orgId: ORG_A, id: { in: ["g3", "g4"] } },
     });
   });
 
