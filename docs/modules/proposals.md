@@ -115,3 +115,8 @@ evidence.
 ## S022 rendering boundary
 
 Proposal PDF and document-frame rendering preserve the existing organization-scoped routes and proposal semantics. The first S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and explicit empty-table presentation; it does not change proposal lifecycle, persistence, or authorization behavior.
+
+
+## S028 estimate-to-proposal handoff
+
+PR #338 carries the verified estimate state through the existing proposal creation and document/PDF handoff path, preserving proposal authorization, lifecycle semantics, audit events, and organization scoping.

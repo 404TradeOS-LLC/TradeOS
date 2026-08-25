@@ -309,3 +309,8 @@ S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e
 ## S028 Estimate-to-proposal workflow (in review)
 
 S028 is the active numbered-sprint lane through existing implementation PR #332, which covers the estimate deliverability path into proposal generation. The branch is currently behind origin/main and has deterministic app/docs/governance failures; no duplicate S028 implementation may be created. The bounded contract preserves estimate totals/statuses, proposal documents, audit events, authorization/RLS, and finalized-estimate immutability.
+
+
+## S028 estimate-to-proposal reconciliation
+
+S028 is IN_REVIEW through reconciled implementation PR #338, based on current main after governance PR #336. The lane covers estimate deliverability into proposal generation while preserving organization authorization, forced RLS, audit/event behavior, and finalized-estimate immutability. S027 remains separately blocked on authenticated rendered Costbook evidence.

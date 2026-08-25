@@ -159,3 +159,8 @@ separate application-service seam. Context assembly remains read-only and does
 not persist raw prompts, model output, tool arguments, or tool results; review
 provenance cannot authorize a business write outside the existing application
 services.
+
+
+## S028 boundary
+
+Estimate-to-proposal verification in PR #338 uses the existing authenticated Athena context, permission, and audit/event seams. It does not authorize autonomous AI writes, provider changes, or cross-tenant context expansion.

@@ -94,7 +94,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S026 is DONE. S028 is the sole numbered implementation lane through existing PR #332; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S026 is DONE. S028 is the sole numbered implementation lane through existing PR #338; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -220,4 +220,4 @@ S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e
 
 ## S028 active lane
 
-Existing estimate deliverability PR #332 is reconciled as the S028 implementation lane. Repair it against current main before merge; do not create a competing estimate/proposal implementation.
+Existing estimate deliverability PR #338 is reconciled as the S028 implementation lane. Repair it against current main before merge; do not create a competing estimate/proposal implementation.

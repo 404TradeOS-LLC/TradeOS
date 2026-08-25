@@ -96,6 +96,13 @@ export function applyOverhead(jobCost: number, directOverhead: number, indirectO
   return round2(subtotal * (1 + indirectOverheadPct / 100));
 }
 
+/** Allocates estimate-wide customer pricing to taxable scope before applying tax. */
+export function estimateTaxAmount(input: { preTaxTotalPrice: number; jobCost: number; taxableJobCost: number; taxPct: number }): number {
+  if (input.jobCost <= 0 || input.taxPct <= 0 || input.taxableJobCost <= 0) return 0;
+  const taxablePrice = round2(input.preTaxTotalPrice * (input.taxableJobCost / input.jobCost));
+  return round2(taxablePrice * (input.taxPct / 100));
+}
+
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }

@@ -130,3 +130,8 @@ S025 PR #331 adds metadata-first generation records and append-only review
 provenance with organization/actor isolation and forced RLS. Provider/model
 usage is retained only when supplied; raw prompts, raw output, tool arguments,
 and tool results remain excluded by default. The migration is review-gated.
+
+
+## S028 boundary
+
+PR #338 verifies estimate metadata persistence and proposal handoff through existing Athena-aware service boundaries. Review-first AI behavior, organization context, permission checks, and audit evidence remain unchanged.

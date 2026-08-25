@@ -34,6 +34,14 @@ export class ProposalGeneratorService {
       brand,
       showLineItemDetail: input.showLineItemDetail ?? false,
       termsAndConditions: input.termsAndConditions ?? DEFAULT_TERMS,
+      scopeOfWork: input.scopeOfWork,
+      assumptions: input.assumptions,
+      exclusions: input.exclusions,
+      timeline: input.timeline,
+      priceLow: input.priceLow,
+      priceHigh: input.priceHigh,
+      finalPrice: input.finalPrice,
+      paymentScheduleJson: input.paymentScheduleJson,
     });
 
     return {
@@ -102,7 +110,7 @@ interface ProposalWithRelations {
 
 function renderEstimateProposalPdf(
   estimate: EstimateWithRelations,
-  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string }
+  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown }
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 46, size: "LETTER" });
@@ -125,18 +133,32 @@ function renderEstimateProposalPdf(
       dateLabel: `Issued ${formatDocumentDate(estimate.createdAt)}`,
       statusLabel: `Estimate v${estimate.version}`,
     });
+    const priceRange = opts.finalPrice == null && (opts.priceLow != null || opts.priceHigh != null) ? formatPriceRange(opts.priceLow, opts.priceHigh) : null;
+    const primaryPrice = opts.finalPrice != null ? formatCurrency(opts.finalPrice) : priceRange ?? formatCurrency(toNullableNumber(estimate.totalPrice));
     drawMoneyPanel(doc, {
       title: "Investment",
-      primary: formatCurrency(toNullableNumber(estimate.totalPrice)),
-      secondary: "Lump-sum project price",
+      primary: primaryPrice,
+      secondary: opts.finalPrice != null ? "Proposal price" : priceRange ? "Proposal price range" : "Lump-sum project price",
     });
-    writeTextSection(doc, "Scope of Work", projectSummary);
+    writeTextSection(doc, "Scope of Work", opts.scopeOfWork ?? projectSummary);
+    writeTextSection(doc, "Assumptions", opts.assumptions ?? "This proposal assumes currently documented site conditions and available access.");
+    writeTextSection(doc, "Exclusions", opts.exclusions ?? "Exclusions will be finalized before issue.");
+    writeTextSection(doc, "Estimated Timeline", opts.timeline ?? "Scheduling to be confirmed after scope approval.");
+    writePaymentScheduleSection(doc, opts.paymentScheduleJson);
     writeTextSection(doc, "Pricing Notes", "This estimate is presented as a client-facing proposal and may be refined if field conditions or selections change.");
     writeTextSection(doc, "Terms & Conditions", opts.termsAndConditions);
     writeAcceptanceBlock(doc);
     drawTrustFooter(doc, opts.brand);
     doc.end();
   });
+}
+
+function formatPriceRange(low: number | null | undefined, high: number | null | undefined): string {
+  const lowValue = low ?? high;
+  const highValue = high ?? low;
+  if (lowValue == null && highValue == null) return formatCurrency(0);
+  if (lowValue == null || highValue == null || lowValue === highValue) return formatCurrency(lowValue ?? highValue ?? 0);
+  return `${formatCurrency(Math.min(lowValue, highValue))}–${formatCurrency(Math.max(lowValue, highValue))}`;
 }
 
 function renderProjectProposalPdf(proposal: ProposalWithRelations, brand: DocumentFrameBrand): Promise<Buffer> {

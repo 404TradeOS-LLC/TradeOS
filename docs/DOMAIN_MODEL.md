@@ -313,3 +313,8 @@ S025 introduces tenant-owned `AthenaGenerationRun` metadata and append-only
 actor, execution correlation, model usage, status, and retention expiry; they
 do not persist raw prompts, model output, tool arguments, or tool results by
 default. Business mutations remain owned by existing review-first services.
+
+
+## S028 estimate deliverability
+
+The S028 lane preserves the existing Estimate and Proposal entities while adding additive estimate metadata for tax percentage/amount and line-item section, cost type, and taxable semantics. These fields remain organization-scoped through the existing relationships and do not introduce a new identity, payment, or accounting model.
