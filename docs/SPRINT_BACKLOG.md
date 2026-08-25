@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -267,21 +267,23 @@ Evidence: Founder-decision reconciliation PR #301 merged on 2026-08-24; ADR-008 
 
 ### S025 — AI generation persistence
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: S024
 Objective: Persist approved AI generation metadata and review provenance.
 Acceptance: every generation is addressable, auditable, and tenant-scoped.
-Readiness evidence: S024 is `DONE` through ADR-008; the existing `AthenaExecution`, redacted `AthenaTelemetryRecordRow`, provider usage contract, bounded Athena retention job, and review-first AI Estimate Assist path are the verified baseline. No competing S025 branch, worktree, implementation PR, or readiness PR existed at the readiness snapshot.
-Readiness contract: S025 is bounded to metadata-first generation records and review provenance with organization/actor isolation, forced RLS, allowlisted redaction, 90-day default expiry, bounded idempotent cleanup, and existing application-service review-first writes. Raw prompt/output/tool content, new providers, autonomous writes, billing changes, public links, and new secrets architecture are forbidden. See [S025_AI_GENERATION_PERSISTENCE_PLAN.md](architecture/S025_AI_GENERATION_PERSISTENCE_PLAN.md).
-Founder-decision boundary: NO. ADR-008 resolves metadata-first retention/privacy/cost policy; stop only if implementation requires a materially different customer-facing retention policy, content persistence, provider, billing, identity, or irreversible deletion behavior.
-Implementation status: `IN_REVIEW` in PR #331; schema/migration behavior is review-only under repository governance. Production implementation and completion evidence remain pending merge.
+Readiness evidence: S024 is DONE through ADR-008; the existing AthenaExecution, redacted AthenaTelemetryRecordRow, provider usage contract, bounded Athena retention job, and review-first AI Estimate Assist path were the verified baseline.
+Implementation status: DONE through PR #331, merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44; final implementation head was 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6.
+Completion evidence: docs/architecture/S025_COMPLETION_EVIDENCE.md records the shipped behavior, security boundaries, and exact merge/CI evidence.
 
 ### S026 — Estimate line-item ordering concurrency
 
-Status: PLANNED
+Status: READY
 Dependencies: S023
 Objective: Eliminate remaining manual/AI line-item sort-order races.
 Acceptance: concurrent inserts produce deterministic order without collisions.
+Readiness evidence: S023 is DONE; the current Estimate Engine uses persisted EstimateLineItem.sortOrder with estimate reads ordered by sortOrder ascending, while addLineItem allocates the next value through an unprotected aggregate-then-insert sequence. No competing S026 implementation branch, worktree, or PR exists in live GitHub state.
+Readiness contract: S026 is bounded to atomic or estimate-scoped serialized order allocation across existing manual and AI line-item creation paths, with concurrency/retry/RLS evidence and no pricing, lifecycle, UI ordering-policy, provider, or S027 Costbook changes. See docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md.
+Founder-decision boundary: NO. Stop only if implementation would change customer-visible ordering semantics, require irreversible data rewriting, or introduce materially different estimate persistence architecture.
 
 ### S027 — Intelligent Costbook production readiness
 

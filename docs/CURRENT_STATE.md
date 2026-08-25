@@ -4,7 +4,7 @@ Total output lines: 306
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -107,7 +107,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `8ebb1a84302eafcab529f3db2f93c63000a76ffe` on 2026-08-24 for the merged S017 corrective PR #319. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against origin/main commit cffc92697196fea22b144424fd9fec4d8865aa44 on 2026-08-25 for merged S025 PR #331 and S026 readiness promotion. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
 
 ## Current milestone
 
@@ -288,9 +288,10 @@ Current CI workflows:
 
 PR #325 and focused coverage PR #328 harden existing proposal, contract, invoice, and document-frame renderers with deterministic UTC dates, finite numeric/currency fallbacks, canonical HTML status labels, explicit empty line-item states, and long/special-character content coverage. Routes, organization scoping, forced RLS, lifecycle semantics, payment/signature boundaries, and Brand Studio ownership remain unchanged. Completion evidence is recorded in `docs/architecture/S022_COMPLETION_EVIDENCE.md`; production/browser verification was not run and remains external follow-up.
 
-## S025 AI generation persistence (in review)
+## S025 AI generation persistence (done)
 
-PR #331 adds metadata-first `AthenaGenerationRun` and append-only review
-provenance persistence behind forced RLS, using the existing Athena execution
-and retention seams. Raw AI content remains excluded by default; the migration
-and PostgreSQL/RLS verification remain review-gated before merge.
+PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44 from final implementation head 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6. The implementation persists metadata-first, tenant/actor-scoped AI generation records and append-only review provenance behind forced RLS, binds review provenance to the originating estimate, and extends bounded retention cleanup with zero-progress protection. Required app, integration/migration/RLS, web, docs, governance, dependency, branch-currency, live-reconciliation, and CodeQL verification passed. Completion evidence is recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md.
+
+## S026 Estimate line-item ordering concurrency (ready)
+
+S026 is the sole READY numbered-sprint candidate. It addresses the existing EstimateEngineService.addLineItem aggregate-then-insert ordering race while preserving persisted EstimateLineItem.sortOrder, draft-only writes, pricing snapshots, source-key idempotency, organization scoping, and forced RLS. Implementation must follow docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md; S027 remains blocked on authenticated rendered Costbook evidence.
