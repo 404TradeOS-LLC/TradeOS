@@ -407,10 +407,15 @@ Acceptance: documented restore rehearsal evidence.
 
 ### S040 — Tenant boundary regression suite
 
-Status: PLANNED
+Status: READY
 Dependencies: S007, S008, S009, S010, S011, S012
 Objective: Expand cross-org denial tests across major modules.
 Acceptance: every critical read/write path has tenant-boundary proof.
+Readiness contract: `docs/architecture/S040_TENANT_BOUNDARY_REGRESSION_PLAN.md`.
+Allowed implementation paths: existing `app/tests/**` unit/controller/RLS coverage and narrowly required test fixtures/helpers; preserve current service, route, authorization, and forced-RLS behavior.
+Forbidden paths: schema or migration changes, RLS-policy redesign, authentication/RBAC policy changes, production data operations, broad application refactors, browser mutation evidence, billing/payment semantic changes, and S041+ work.
+Founder-decision boundary: NO under the existing organization-membership, request-scoped session, and forced-RLS model.
+Required implementation validation: focused tenant-boundary unit/controller tests; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and `git diff --check`.
 
 ### S041 — RLS policy coverage audit
 
@@ -509,8 +514,8 @@ Protected boundary: No numbered-sprint implementation lane is active; do not cre
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S030 is DONE and S040 remains PLANNED pending governed readiness promotion.
-Dependencies: S030 is complete; S040 must be promoted through the readiness protocol; S027 remains blocked but does not block that governance work.
-Overlap check: No numbered implementation lane is active; no competing S040 implementation exists.
-Startup prompt: Evaluate S040 readiness against live dependencies and browser/security evidence. Do not implement another numbered sprint concurrently.
+Sprint ID: S040
+Eligibility: S040 is READY after its governed readiness contract; no S040 implementation PR exists yet.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
+Overlap check: No numbered implementation lane or competing S040 PR/worktree exists. Create one isolated S040 implementation lane only.
+Startup prompt: Implement only the S040 tenant-boundary regression contract. Do not begin S041 or combine S027 browser evidence with S040.
