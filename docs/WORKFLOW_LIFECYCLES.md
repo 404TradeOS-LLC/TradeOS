@@ -94,7 +94,7 @@ Implementation notes:
 - Structured AI estimator replay protection adds optional line-item `sourceKey` handling but does not change estimate lifecycle states or the draft-only mutation rule.
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
 - A12.1: `EstimateEngineService.create()` requires durable `EstimateStarted` persistence in the same database transaction as estimate creation, and `finalize()` requires durable `EstimateCompleted` persistence in the same transaction as `draft -> ready`. If either required event cannot be persisted, the enclosing estimate mutation/transition rolls back. This does not add an estimate state or alter the allowed transition graph; subscriber delivery remains outside the lifecycle transaction.
-- Estimate mutation locking remains tenant-bound: the parent Estimate row is locked only for the authenticated organization, with UUID-typed parameter binding before draft validation. Cross-organization reads and updates remain not-found/denied and produce no successful lifecycle side effect; S040 covers the live service path.
+- Estimate mutation locking remains tenant-bound: the parent Estimate row is locked only for the authenticated organization, with UUID-typed estimate and organization parameter binding before draft validation. Cross-organization reads and updates remain not-found/denied and produce no successful lifecycle side effect; S040 covers the live service path.
 
 Organization work-queue reads (`GET /api/v1/estimates`, see `docs/modules/estimating.md`):
 

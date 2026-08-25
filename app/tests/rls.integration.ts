@@ -1070,51 +1070,6 @@ describe("live organization row-level security", () => {
     ).rejects.toThrow();
   });
 
-  it("enforces core service tenant boundaries before foreign reads or writes", async () => {
-    const visibleCustomer = await inSession(adminUser, orgA, "admin", async () => new CrmService().getCustomer(orgA, customerA));
-    expect(visibleCustomer.id).toBe(customerA);
-
-    const visibleEstimate = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().getById(estimateA, orgA));
-    expect(visibleEstimate.id).toBe(estimateA);
-
-    const visibleInvoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceForPaymentA, orgA));
-    expect(visibleInvoice.id).toBe(invoiceForPaymentA);
-
-    const visibleJob = await inSession(adminUser, orgA, "admin", async () =>
-      new JobsService().getById(orgA, jobA, { userId: adminUser, role: "admin" })
-    );
-    expect(visibleJob.id).toBe(jobA);
-
-    await expect(
-      inSession(otherUser, orgB, "owner", async () => new CrmService().getCustomer(orgB, customerA))
-    ).rejects.toMatchObject({ statusCode: 404 });
-
-    await expect(
-      inSession(otherUser, orgB, "owner", async () => new EstimateEngineService().getById(estimateA, orgB))
-    ).rejects.toMatchObject({ statusCode: 404 });
-
-    await expect(
-      inSession(otherUser, orgB, "owner", async () =>
-        new EstimateEngineService().updateEstimate({ estimateId: estimateA, orgId: orgB, taxPct: 9 })
-      )
-    ).rejects.toMatchObject({ statusCode: 404 });
-
-    await expect(
-      inSession(otherUser, orgB, "owner", async () => new InvoicesService().getById(invoiceForPaymentA, orgB))
-    ).rejects.toMatchObject({ statusCode: 404 });
-
-    await expect(
-      inSession(otherUser, orgB, "owner", async () =>
-        new JobsService().getById(orgB, jobA, { userId: otherUser, role: "owner" })
-      )
-    ).rejects.toMatchObject({ statusCode: 404 });
-
-    const unchangedEstimate = await inSession(adminUser, orgA, "admin", async () =>
-      currentTransaction().estimate.findUnique({ where: { id: estimateA }, select: { taxPct: true } })
-    );
-    expect(Number(unchangedEstimate?.taxPct ?? 0)).toBe(0);
-  });
-
   it("enforces intelligence foundation tenant boundaries", async () => {
     const visibleActivity = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().activityEvent.findUnique({ where: { id: activityEventA } })

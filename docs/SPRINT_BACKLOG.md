@@ -407,7 +407,7 @@ Acceptance: documented restore rehearsal evidence.
 
 ### S040 — Tenant boundary regression suite
 
-Status: IN_REVIEW
+Status: READY
 Dependencies: S007, S008, S009, S010, S011, S012
 Objective: Expand cross-org denial tests across major modules.
 Acceptance: every critical read/write path has tenant-boundary proof.
@@ -416,7 +416,6 @@ Allowed implementation paths: existing `app/tests/**` unit/controller/RLS covera
 Forbidden paths: schema or migration changes, RLS-policy redesign, authentication/RBAC policy changes, production data operations, broad application refactors, browser mutation evidence, billing/payment semantic changes, and S041+ work.
 Founder-decision boundary: NO under the existing organization-membership, request-scoped session, and forced-RLS model.
 Required implementation validation: focused tenant-boundary unit/controller tests; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and `git diff --check`.
-Implementation lane: PR #346 is the sole S040 implementation lane at head `138ed9f2703bf50c9c210b75cdf892439a21743e`; S040 remains `IN_REVIEW` only while that PR remains open.
 
 ### S041 — RLS policy coverage audit
 
@@ -508,15 +507,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S040
-Completion status: S028 and S030 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence; S040 implementation is IN_REVIEW in PR #346.
-Dependencies: S030 is DONE and S040 readiness is merged; PR #346 is the sole authorized S040 implementation lane; S027 remains independent and blocked on browser evidence.
-Protected boundary: Do not create a competing S040 lane or begin S041 while PR #346 is active.
+Active Sprint: NONE
+Completion status: S028 and S030 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S030 is DONE; S040 is the preferred next security-leverage candidate after its own readiness promotion; S027 remains independent and blocked on browser evidence.
+Protected boundary: No numbered-sprint implementation lane is active; do not create S040 implementation work before its readiness promotion.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S040 implementation is IN_REVIEW in PR #346 and must finish before the next promotion.
+Sprint ID: S040
+Eligibility: S040 is READY after its governed readiness contract; no S040 implementation PR exists yet.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
-Overlap check: PR #346 and branch `feature/s040-tenant-boundary-regressions` are the sole S040 implementation lane; no competing lane is authorized.
-Startup prompt: Verify and merge PR #346 only after exact-head checks pass, then reconcile S040 completion evidence before evaluating S041. Do not combine S027 browser evidence with S040.
+Overlap check: No numbered implementation lane or competing S040 PR/worktree exists. Create one isolated S040 implementation lane only.
+Startup prompt: Implement only the S040 tenant-boundary regression contract. Do not begin S041 or combine S027 browser evidence with S040.
