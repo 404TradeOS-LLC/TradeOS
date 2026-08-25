@@ -420,10 +420,15 @@ Evidence: PR #346 merged as `6fb0596c6a865923627e621c0933033dad3c636b`; completi
 
 ### S041 — RLS policy coverage audit
 
-Status: PLANNED
+Status: READY
 Dependencies: S040
 Objective: Compare schema tables, application roles, and live RLS policies for gaps.
 Acceptance: no unowned table or ambiguous access path remains.
+Readiness contract: `docs/architecture/S041_RLS_POLICY_COVERAGE_PLAN.md`.
+Allowed implementation paths: existing change-order/supplier route and controller permission seams, request-scoped SQL role normalization, focused app tests, RLS/migration audit fixtures, and required governance documentation; preserve forced RLS and existing role/permission contracts.
+Forbidden paths: schema or migration changes, RLS-policy redesign, new roles or permissions, authentication-provider changes, billing/payment semantic redesign, production data or credential changes, broad authorization refactors, S027 browser evidence, and S042+ work.
+Founder-decision boundary: RESOLVED for this bounded lane — RLS remains the tenant floor; change-order mutations use `billing.write`; supplier mutations use `costbook.manage`; legacy SQL session roles use the existing canonical compatibility mapping.
+Required implementation validation: focused permission/session/RLS tests; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; `(cd web && npm test && npm run lint && npm run build)`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and `git diff --check`.
 
 ### S042 — Authentication/session hardening
 
@@ -509,14 +514,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S028, S030, and S040 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S040 implementation PR #346 and completion evidence are merged; S041 remains PLANNED and requires its own readiness promotion; S027 remains independent and blocked on browser evidence.
-Protected boundary: No numbered implementation lane is active; do not begin S041 implementation before its governed readiness promotion.
+Completion status: S028, S030, and S040 are DONE with merged implementation and completion evidence; S041 is READY through its governed contract; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S040 implementation PR #346 and completion evidence are merged; S041 readiness is being published in its governance-only lane; S027 remains independent and blocked on browser evidence.
+Protected boundary: No numbered implementation lane is active; do not begin S041 implementation until readiness PR merges.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S041 is the next security-leverage candidate but remains PLANNED pending its own governed readiness promotion.
+Sprint ID: S041
+Eligibility: S041 is READY after governed readiness promotion; no implementation PR exists yet.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
-Overlap check: S040 implementation PR #346 and completion evidence are merged; no numbered implementation lane or competing S041 lane exists.
-Startup prompt: Prepare S041 through the governed readiness flow only. Do not begin S041 implementation or combine S027 browser evidence with S041.
+Overlap check: No competing S041 implementation PR, branch, or worktree exists. Create one isolated S041 implementation lane only.
+Startup prompt: Implement only the S041 RLS policy coverage contract. Do not begin S042 or combine S027 browser evidence with S041.
