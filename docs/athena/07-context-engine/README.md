@@ -151,3 +151,16 @@ Approval list/detail normalization is not Context Engine behavior: the approval 
 ## Action idempotency boundary
 
 Durable A6 idempotency is also downstream of context assembly. The Context Engine may carry an idempotency seed/reference in request context, but it does not claim or persist action keys. The Action Engine derives the final tool/version-qualified key after planning and policy, while the production idempotency store binds the database claim to the server-derived organization and current RLS actor inside the same scoped transaction as tool execution. Context freshness or model output never grants ownership of an idempotency record.
+
+## Generation persistence boundary
+
+S025 persists generation metadata after the kernel provider returns through a
+separate application-service seam. Context assembly remains read-only and does
+not persist raw prompts, model output, tool arguments, or tool results; review
+provenance cannot authorize a business write outside the existing application
+services.
+
+
+## S028 boundary
+
+Estimate-to-proposal verification in PR #338 uses the existing authenticated Athena context, permission, and audit/event seams. It does not authorize autonomous AI writes, provider changes, or cross-tenant context expansion.

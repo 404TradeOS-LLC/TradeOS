@@ -6,10 +6,13 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildSettingsAssetStoragePath,
+  buildSettingsAssetStoragePrefix,
   generateSettingsAssetObjectName,
+  isGeneratedSettingsAssetStoragePath,
   isAllowedSettingsAssetKey,
   isSafeOrgId,
   validateSettingsAssetUpload,
+  selectSettingsAssetCleanupCandidates,
 } from "./settingsAssetUpload.ts";
 
 const validFile = { size: 1024, type: "image/png" };
@@ -79,6 +82,77 @@ test("buildSettingsAssetStoragePath is organization-scoped and varies by assetKe
 test("buildSettingsAssetStoragePath rejects a non-UUID-shaped orgId (path-traversal hardening)", () => {
   assert.throws(() => buildSettingsAssetStoragePath("../../etc/passwd", "logoUrl", "logoUrl-x"));
   assert.throws(() => buildSettingsAssetStoragePath("", "logoUrl", "logoUrl-x"));
+});
+
+test("generated asset cleanup selects only stale non-current objects under the exact org prefix", () => {
+  const current = buildSettingsAssetStoragePath(ORG_ID, "logoUrl", "logoUrl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+  const prefix = buildSettingsAssetStoragePrefix(ORG_ID, "logoUrl").replace(/[^/]+$/, "");
+  const selection = selectSettingsAssetCleanupCandidates({
+    orgId: ORG_ID,
+    assetKey: "logoUrl",
+    currentStoragePath: current,
+    now: Date.parse("2026-08-24T12:00:00.000Z"),
+    graceMs: 60 * 60 * 1000,
+    entries: [
+      { name: "logoUrl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", updated_at: "2026-08-24T09:00:00.000Z" },
+      { name: "logoUrl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", updated_at: "2026-08-24T09:00:00.000Z" },
+      { name: "logoUrl-cccccccc-cccc-cccc-cccc-cccccccccccc", updated_at: "2026-08-24T11:30:00.000Z" },
+      { name: "darkLogoUrl-dddddddd-dddd-dddd-dddd-dddddddddddd", updated_at: "2026-08-24T09:00:00.000Z" },
+      { name: "logoUrl-not-a-uuid", updated_at: "2026-08-24T09:00:00.000Z" },
+      { name: "logoUrl-eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee" },
+    ],
+  });
+  assert.deepEqual(selection.candidates, [
+    {
+      assetKey: "logoUrl",
+      storagePath: `${prefix}logoUrl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`,
+      updatedAt: "2026-08-24T09:00:00.000Z",
+    },
+  ]);
+  assert.equal(selection.skipped, 5);
+});
+
+test("generated asset path ownership rejects traversal, other orgs, and unrelated object names", () => {
+  assert.equal(
+    isGeneratedSettingsAssetStoragePath(
+      ORG_ID,
+      "logoUrl",
+      `organizations/${ORG_ID}/brand-assets/logoUrl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+    ),
+    true
+  );
+  assert.equal(
+    isGeneratedSettingsAssetStoragePath(
+      ORG_ID,
+      "logoUrl",
+      `organizations/${ORG_ID}/brand-assets/logoUrl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/../../other`
+    ),
+    false
+  );
+  assert.equal(
+    isGeneratedSettingsAssetStoragePath(
+      ORG_ID,
+      "logoUrl",
+      "organizations/22222222-2222-2222-2222-222222222222/brand-assets/logoUrl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    ),
+    false
+  );
+  assert.equal(
+    isGeneratedSettingsAssetStoragePath(
+      ORG_ID,
+      "logoUrl",
+      `organizations/${ORG_ID}/brand-assets/other-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+    ),
+    false
+  );
+});
+
+test("cleanup fails closed when a later storage-list page fails", () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const source = fs.readFileSync(path.join(here, "settingsAssetCleanup.ts"), "utf8");
+  assert.match(source, /const keyCandidates: SettingsAssetCleanupCandidate\[\] = \[\]/);
+  assert.match(source, /listingComplete = false/);
+  assert.match(source, /if \(listingComplete\) candidates\.push\(\.\.\.keyCandidates\)/);
 });
 
 test("no regression to existing project document storage behavior", () => {

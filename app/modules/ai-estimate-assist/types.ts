@@ -132,6 +132,7 @@ export interface StructuredEstimateDraftValidation {
 }
 
 export interface StructuredEstimateDraft {
+  generationId?: string;
   estimateId: string;
   orgId: string;
   projectId: string;
@@ -164,6 +165,7 @@ export interface ReviewedStructuredEstimateLineItemInput {
 }
 
 export interface ApplyStructuredEstimateInput {
+  generationId?: string;
   estimateId: string;
   orgId: string;
   actorUserId?: string;

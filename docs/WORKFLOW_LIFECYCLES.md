@@ -166,6 +166,11 @@ Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/propos
 - the product spec for this queue calls for cancelled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical cancelled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
 - this is a read-only aggregate; it introduces no new proposal state or transition
 
+Proposal, invoice, and contract PDF generation preserves each workflow's
+existing lifecycle and binary route contract while applying server-derived
+organization branding. Branding is presentation-only and does not alter
+pricing, payment, signature, status, or document authorization semantics.
+
 ## Contracts
 
 Canonical display states:
@@ -191,6 +196,10 @@ Current enforced transitions:
 Compatibility note:
 
 - PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface: `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
+- S020 hardening adds optimistic concurrency at both contract mutation
+  boundaries: sign requires the row to remain `pending_signature`, void requires
+  the previously read status to remain unchanged, and a competing mutation
+  fails closed without a duplicate event. Already-voided contracts are rejected.
 
 ## Jobs
 
@@ -290,3 +299,17 @@ For the six required A12 canonical mutation events — `EstimateStarted`, `Estim
 - owner/admin schedule conflict override for jobs
 - owner/admin reopen completed jobs
 - compatibility normalization for legacy role and status values remains active until persisted values are cleaned up in a dedicated migration plan
+
+## Document rendering lifecycle evidence
+
+S022 rendering is presentation-only: proposal, contract, and invoice lifecycle values remain server-derived and are not persisted or reinterpreted by renderers. The current slice emits deterministic UTC dates, safe finite-number fallbacks, canonical HTML status labels, and explicit empty line-item states while preserving authorization and tenant boundaries.
+
+
+## Estimate line-item ordering concurrency
+
+Estimate line-item append order is persisted and remains deterministic under concurrent manual or AI/replay-shaped inserts. The implementation serializes allocation on the parent Estimate row without changing estimate lifecycle states.
+
+
+## S028 estimate-to-proposal workflow
+
+S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.

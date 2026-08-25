@@ -72,6 +72,16 @@ mutation boundary remain unchanged.
 - `/projects/[id]/proposals/[proposalId]/preview`
 - `/portal/proposals/[proposalId]`
 
+## Branded document generation
+
+Proposal PDF generation resolves branding from the authenticated organization
+through the canonical Brand Studio profile and document settings. The PDF
+header, contact rail, accent palette, and optional trust signals use that
+server-derived branding. The existing proposal route shape, pricing, terms,
+lifecycle, and organization/RLS checks are unchanged; a caller-supplied
+company name is only a fallback when authenticated organization context is
+absent.
+
 ## Tests
 
 - `app/tests/proposals.service.test.ts`
@@ -81,6 +91,7 @@ mutation boundary remain unchanged.
 - `app/tests/proposals.queue.test.ts`, `app/tests/proposals.controller.queue.test.ts` — organization work-queue filters (sent/viewed/unsigned/stale), pagination, and authorization
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and unsigned/contractId resolution for the queue read
 - `app/tests/rls.integration.ts` — live same-org/cross-org proposal mutation and competing accept/decline transition coverage
+- `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
 
 ## Known limitations
 
@@ -94,6 +105,18 @@ mutation boundary remain unchanged.
 
 ## Last verified date
 
-2026-08-22
+2026-08-24
 
-Exact-head GitHub verification for PR #267 passed on 2026-08-22; production rollout remains pending merge and the protected migration approval.
+Exact-head GitHub verification for the earlier lifecycle PR #267 passed on
+2026-08-22; the S016 document-brand rendering verification was completed on
+2026-08-24. Production rollout remains governed by merge and deployment
+evidence.
+
+## S022 rendering boundary
+
+Proposal PDF and document-frame rendering preserve the existing organization-scoped routes and proposal semantics. The first S022 slice adds deterministic UTC dates, safe finite numeric/currency output, and explicit empty-table presentation; it does not change proposal lifecycle, persistence, or authorization behavior.
+
+
+## S028 estimate-to-proposal handoff
+
+PR #338 carries the verified estimate state through the existing proposal creation and document/PDF handoff path, preserving proposal authorization, lifecycle semantics, audit events, and organization scoping.

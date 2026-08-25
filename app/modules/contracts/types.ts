@@ -7,7 +7,7 @@ export interface CreateContractInput {
 }
 
 export interface SignContractInput {
-  orgId?: string;
+  orgId: string;
   actorUserId?: string;
   actorRole?: string;
   signerName: string;

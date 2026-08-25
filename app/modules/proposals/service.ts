@@ -169,6 +169,14 @@ export class ProposalsService {
       companyName: row.companyName ?? undefined,
       showLineItemDetail: row.showLineItemDetail,
       termsAndConditions: row.termsAndConditions ?? undefined,
+      scopeOfWork: row.scopeOfWork ?? undefined,
+      assumptions: row.assumptions ?? undefined,
+      exclusions: row.exclusions ?? undefined,
+      timeline: row.timeline ?? undefined,
+      priceLow: row.priceLow != null ? Number(row.priceLow) : null,
+      priceHigh: row.priceHigh != null ? Number(row.priceHigh) : null,
+      finalPrice: row.finalPrice != null ? Number(row.finalPrice) : null,
+      paymentScheduleJson: row.paymentScheduleJson,
     });
   }
 
@@ -623,4 +631,3 @@ function toStringArray(value: unknown): string[] {
 function roundPercent(value: number) {
   return Math.round(value * 100) / 100;
 }
-

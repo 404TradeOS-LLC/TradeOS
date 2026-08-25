@@ -123,3 +123,15 @@ Before organization-scoped approval list or detail reads, the approval applicati
 ## Durable action idempotency
 
 A6 production action execution no longer relies on process-local memory for deduplication when a caller supplies an idempotency key. The production Athena controller injects a PostgreSQL-backed idempotency store that participates in the existing request-scoped RLS transaction, persists completed action/result envelopes, and uses a unique organization/tool/version/key claim to serialize concurrent requests across API instances. Idempotency rows are additionally exact-actor scoped by forced RLS so a peer user cannot recover another actor's persisted action result. The in-memory implementation remains a test/local fixture only.
+
+## S025 generation persistence
+
+S025 PR #331 adds metadata-first generation records and append-only review
+provenance with organization/actor isolation and forced RLS. Provider/model
+usage is retained only when supplied; raw prompts, raw output, tool arguments,
+and tool results remain excluded by default. The migration is review-gated.
+
+
+## S028 boundary
+
+PR #338 verifies estimate metadata persistence and proposal handoff through existing Athena-aware service boundaries. Review-first AI behavior, organization context, permission checks, and audit evidence remain unchanged.

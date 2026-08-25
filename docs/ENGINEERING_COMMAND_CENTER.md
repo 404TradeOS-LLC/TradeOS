@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -87,14 +87,14 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 - S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 - S018 is `DONE` after implementation PR #290 merged on 2026-08-24 as `6f2dd254c121855fa629d19da6bc0452cc9e6de7`; completion-evidence PR #292 records its exact-head CI and review evidence. Its current portal boundary remains the existing authenticated Supabase session plus protected bearer-authenticated API and forced PostgreSQL RLS; no separate customer token model exists. The implementation hardens local-token expiry/claim validation and inactive-user session denial, and adds focused auth/RLS evidence. Stop for a founder decision if a new customer identity or authorization policy is required.
 - S019 Portal proposal acceptance flow is `DONE` after implementation PR #296 merged on 2026-08-24 as `9291ccd58624326b1bb142d47d50f97f85b413e3`; exact-head Verify repository #1358 and the required docs/governance checks passed. The bounded implementation hardens the existing authenticated proposal review/view/accept/decline and audit/event boundary with organization-scoped conditional transitions, fail-closed competing mutations, and bounded portal action feedback. No customer identity, permission widening, RBAC/RLS redesign, schema, portal redesign, or later sprint work is authorized. See `docs/architecture/S019_PORTAL_PROPOSAL_ACCEPTANCE_PLAN.md`.
-- S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; completion-evidence PR #300 records the separate governance-only reconciliation. The bounded implementation presents existing invoice amount, recorded-payment aggregation, derived balance/partial/overdue/voided semantics, billing authorization, authenticated portal reads, and forced PostgreSQL RLS evidence. New payment processing, public payment links, ledger/money semantics, schema, auth, or RLS/RBAC changes remain forbidden. S020 remains planned but its founder/legal-signature boundary is resolved by ADR-007. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
-- S014 is `DONE` through founder-decision PR #301 and ADR-006: Brand Studio is the canonical organization-brand source and Settings remains an adapter/administration surface. S015 and S016 remain separate planned implementation sprints.
+- S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; completion-evidence PR #300 records the separate governance-only reconciliation. The bounded implementation presents existing invoice amount, recorded-payment aggregation, derived balance/partial/overdue/voided semantics, billing authorization, authenticated portal reads, and forced PostgreSQL RLS evidence. New payment processing, public payment links, ledger/money semantics, schema, auth, or RLS/RBAC changes remain forbidden. S020 is now `DONE` after implementation PR #322 and separate completion evidence; its founder/legal-signature boundary remains resolved by ADR-007. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
+- S014 is `DONE` through founder-decision PR #301 and ADR-006: Brand Studio is the canonical organization-brand source and Settings remains an adapter/administration surface. S015 is `DONE` through implementation PR #310 and completion evidence #312. S016 is `DONE`: implementation PR #314 merged on 2026-08-24 as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; its separate governance-only completion evidence is recorded. S017 is `DONE` after implementation PR #317 and corrective PR #319; separate completion evidence is recorded. S020 is `DONE` after implementation PR #322 and completion evidence #323. S022 implementation PR #325 and focused coverage PR #328 are merged; its completion evidence is being recorded in the current bounded governance lane.
 - S020's founder/legal boundary is resolved through ADR-007: implementation may remain authenticated in-app contract acceptance/signature evidence, without formal e-signature claims or new identity architecture. The S020 backlog wording and S021 readiness reference are reconciled to this accepted boundary.
 - S024 is `DONE` through founder-decision PR #301 and ADR-008: metadata-first AI retention, 90-day default metadata retention, no raw content by default, tenant/actor isolation, secret exclusion, and reversible organization usage ceilings. S024 is a decision sprint; S025 owns later persistence implementation.
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S007-S012, S014, S018, S019, S021, and S024 are complete with merged evidence. No numbered-sprint implementation lane is active; S015 is the lowest-numbered planned candidate requiring readiness promotion; S016 is unblocked by S014; S020's decision blocker is resolved but implementation is not started; S022 remains dependency-blocked; and S027 remains separately blocked on authenticated rendered Costbook browser evidence.
+Prioritize existing authorized work before inventing new scope. S026 and S028 are DONE with merged evidence. S027 remains BLOCKED on authenticated rendered Costbook browser evidence; S030 is the lowest dependency-safe planned candidate awaiting governance readiness.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -190,7 +190,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, and S010 through PR #276. S011 is `DONE` through PR #283 and completion evidence #284. S012 is `DONE` through readiness #285, implementation #286, and completion evidence #288. S014 is `DONE` through founder-decision PR #301 and ADR-006. S018 implementation PR #290 and completion evidence #292 are merged. S019 implementation PR #296 and separate completion evidence #297 are merged. S021 implementation PR #299 and completion-evidence PR #300 are merged. S024 is `DONE` through founder-decision PR #301 and ADR-008. Rerun the canonical selector; the next implementation candidate is expected to be S015, subject to live readiness promotion.
+S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, and S010 through PR #276. S011 is `DONE` through PR #283 and completion evidence #284. S012 is `DONE` through readiness #285, implementation #286, and completion evidence #288. S014 is `DONE` through founder-decision PR #301 and ADR-006. S015 implementation PR #310 and completion-evidence PR #312 are merged. S016 implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; its separate completion-evidence lane records the exact-head checks, review disposition, and residual production/browser evidence limitation. S017 implementation PR #317 and corrective PR #319 are merged; its separate completion evidence is recorded. S018 implementation PR #290 and completion evidence #292 are merged. S019 implementation PR #296 and separate completion evidence #297 are merged. S020 implementation PR #322 and completion evidence #323 are merged. S021 implementation PR #299 and completion-evidence PR #300 are merged. S024 is `DONE` through founder-decision PR #301 and ADR-008. S022 readiness PR #324, implementation PR #325, focused coverage PR #328, and completion evidence PR #329 are merged. S025 implementation PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44, with completion evidence recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md. S026 and S028 are DONE with merged evidence. S030 is READY through a separate governance-only promotion; implement only S030.
 
 ## Source-of-truth links
 
@@ -211,3 +211,17 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
+
+
+## S026 completion
+
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 remains blocked on authenticated rendered Costbook browser evidence.
+
+
+## S028 completion
+
+S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f8303062103c8e8c4690c; completion evidence is recorded in docs/architecture/S028_COMPLETION_EVIDENCE.md. S030 is the next dependency-safe readiness candidate.
+
+## S030 readiness
+
+S030 is READY through docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. The sole lane verifies the existing Dispatcher Workspace across scheduling, assignment, rescheduling, conflicts, lifecycle actions, responsive states, and organization/RLS boundaries. S027 remains independently blocked on authenticated Costbook browser evidence.

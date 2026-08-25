@@ -169,3 +169,17 @@ Athena may summarize or route on that input, but it may not:
 ## A12.1 transactional event security invariant
 
 For the six required canonical business events, event persistence now participates in the same database transaction as the authorized business mutation. This does not move authorization into the event layer: identity, organization scope, permissions, object-scope checks, approval policy, service validation, and forced RLS remain authoritative before and during the mutation. A required event-persistence failure rolls the authorized business mutation back; it never creates a permission bypass or cross-tenant fallback. Subscriber delivery remains asynchronous after commit.
+
+## S025 generation metadata invariant
+
+Generation records are organization- and actor-scoped with forced RLS and
+server-derived request context. Allowlisted metadata is redacted before
+persistence, raw AI content is omitted by default, and review provenance is
+append-only. No generation record can authorize a business mutation outside
+the existing authenticated, permission-checked, review-first application
+service path.
+
+
+## S028 security boundary
+
+The S028 implementation in PR #338 preserves server-derived organization context, existing permission checks, forced PostgreSQL RLS, direct-object denial, and secret-free audit/event payloads. No authentication bypass or autonomous AI write path is introduced.

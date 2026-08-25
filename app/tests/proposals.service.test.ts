@@ -461,6 +461,14 @@ describe("ProposalsService", () => {
       companyName: "Acme Co",
       showLineItemDetail: true,
       termsAndConditions: "Custom terms",
+      scopeOfWork: undefined,
+      assumptions: undefined,
+      exclusions: undefined,
+      timeline: undefined,
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: null,
+      paymentScheduleJson: undefined,
     });
     mockProposalGenerator.generateProposal.mockResolvedValue({ buffer: Buffer.from("pdf"), filename: "p.pdf", contentType: "application/pdf" });
 
@@ -473,6 +481,14 @@ describe("ProposalsService", () => {
       companyName: "Acme Co",
       showLineItemDetail: true,
       termsAndConditions: "Custom terms",
+      scopeOfWork: undefined,
+      assumptions: undefined,
+      exclusions: undefined,
+      timeline: undefined,
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: null,
+      paymentScheduleJson: undefined,
     });
   });
 
@@ -661,4 +677,3 @@ describe("ProposalsService", () => {
     );
   });
 });
-

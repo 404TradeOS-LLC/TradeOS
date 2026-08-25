@@ -144,6 +144,12 @@ Estimate lifecycle behavior:
 - Historical `rejected` values normalize to `declined`; canonical `sent` remains distinct from `ready` and is accepted by the estimate queue status filter.
 - The currently implemented Estimate Engine mutation path remains draft-only until `POST /api/v1/estimates/:id/finalize` transitions the estimate to `ready`. This S008 slice does not add customer-facing send/view/approve/expire/supersede routes.
 
+Estimate deliverability additions:
+
+- `POST /api/v1/estimates/:id/line-items` accepts either an organization-scoped Costbook `costItemId`/`assemblyId` or a custom line with `description`, `unitOfMeasure`, and `unitCost`. Optional `section`, `costType` (`labor`, `material`, `equipment`, `disposal`, `subcontractor`, `other`), and `taxable` fields are snapshotted on the line.
+- `PATCH /api/v1/estimates/:id/line-items/:lineItemId` edits draft line descriptions, sections, cost types, units, quantities, unit costs, and taxable state. The nested estimate ID is validated.
+- `PATCH /api/v1/estimates/:id` updates draft `overheadPct` and `taxPct`. Tax is allocated to taxable scope by direct-cost share and included in `totalPrice`; DTOs expose `taxAmount`, `costAfterOverhead`, and `preTaxTotalPrice`.
+
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
 `POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
@@ -328,6 +334,17 @@ Settings asset storage metadata routes under `/api/v1/settings`:
 
 These endpoints never touch Supabase Storage themselves — they only read/write the application's own `settings_asset_uploads` table. The web app's server-only service_role Supabase client (never the anon/publishable key) performs the actual Storage upload/download/delete, calling these endpoints before and after to keep metadata and storage bytes consistent. See [modules/settings-and-operations.md](modules/settings-and-operations.md).
 
+S015's Settings compatibility adapter preserves the existing `GET`/`PATCH
+/api/v1/settings` shape while resolving mapped branding fields from the
+organization's canonical `BrandProfile` first. Legacy Settings JSON and
+organization-shell values are used only for missing canonical fields, and
+legacy-only values are adopted lazily inside the existing request-scoped
+transaction. PATCH preserves unrelated Settings JSON keys and synchronizes the
+mapped canonical profile fields without changing the existing permission,
+organization-context, or forced-RLS boundary. This behavior is on the S015
+implementation branch until its implementation and completion-evidence PRs
+merge.
+
 Project task routes under `/api/v1/projects`:
 
 - `GET /api/v1/projects/tasks`
@@ -363,6 +380,19 @@ the client is trusted for tenancy.
 
 PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes Contract lifecycle responses under `/api/v1/contracts/*` to canonical `sent` in place of stored `pending_signature`. The `contracts.status` check constraint, its default, and the `sign()`/`void()` transition guards are unchanged and still operate on raw `pending_signature`; only the DTO the API returns is normalized. No route, schema, or permission change.
 
+S020's implementation lane now makes sign and void transitions status-conditional
+and organization-scoped so a stale concurrent request fails closed before its
+contract event is recorded. Repeated voiding is rejected; route shape and
+authenticated `documents.manage` authorization are unchanged.
+
+Document PDF responses for proposals, invoices, and contracts retain their
+existing authenticated routes, content type, and organization checks while
+resolving presentation from the canonical Brand Studio profile and
+BrandDocumentSettings for the server-derived organization. Company identity,
+contact details, safe colors, and configured trust-signal visibility are
+presentation inputs only; caller-supplied company names cannot override
+persisted organization branding when authenticated context is available.
+
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
@@ -396,3 +426,7 @@ bounded response as a complete catalog.
 - [modules/customer-portal.md](modules/customer-portal.md)
 - [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
 - [modules/settings-and-operations.md](modules/settings-and-operations.md)
+
+## S022 document rendering reliability
+
+Existing proposal, contract, invoice, and document-frame endpoints retain their current routes, organization scoping, authentication, authorization, and `application/pdf` content types. S022 hardens presentation output with deterministic UTC dates, finite numeric fallbacks, canonical status labels, and explicit empty line-item states; it adds no routes or domain semantics.

@@ -4,6 +4,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, legacyInvoiceStatusMap, normalizeInvoiceStatus } from "../../domain/contracts";
 import { renderInvoicePdf } from "./pdf";
+import { getDocumentBrand } from "../documents/branding";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import {
@@ -206,10 +207,11 @@ export class InvoicesService {
   async getPdf(id: string, orgId?: string): Promise<InvoiceDocument> {
     const row = await prisma.invoice.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
-      include: { lineItems: { orderBy: { sortOrder: "asc" } }, project: { include: { customer: true } } },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } }, project: { include: { customer: true, organization: true } } },
     });
     if (!row) throw new ApiError(404, `Invoice ${id} not found`);
 
+    const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
     const buffer = await renderInvoicePdf(
       {
         invoiceNumber: row.invoiceNumber,
@@ -228,7 +230,7 @@ export class InvoicesService {
           lineCost: Number(li.lineCost),
         })),
       },
-      { companyName: "Your Company Name" }
+      { brand }
     );
 
     return {
