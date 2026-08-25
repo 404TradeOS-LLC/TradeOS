@@ -149,15 +149,17 @@ async function verifySupabaseToken(token: string): Promise<AuthClaims> {
       audience: audience || undefined,
     });
 
-    if (!payload.sub) throw new ApiError(401, "JWT payload is missing required claims");
+    if (!payload.sub || !isFiniteInteger(payload.exp) || !isFiniteInteger(payload.iat)) {
+      throw new ApiError(401, "JWT payload is missing required claims");
+    }
 
     return {
       sub: payload.sub,
       email: typeof payload.email === "string" ? payload.email : undefined,
       iss: typeof payload.iss === "string" ? payload.iss : undefined,
       aud: Array.isArray(payload.aud) ? payload.aud.filter((value): value is string => typeof value === "string") : typeof payload.aud === "string" ? payload.aud : undefined,
-      exp: typeof payload.exp === "number" ? payload.exp : undefined,
-      iat: typeof payload.iat === "number" ? payload.iat : undefined,
+      exp: payload.exp,
+      iat: payload.iat,
     };
   } catch (error) {
     if (error instanceof ApiError) throw error;

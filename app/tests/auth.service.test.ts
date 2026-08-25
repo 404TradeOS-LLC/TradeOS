@@ -19,6 +19,7 @@ const mockTransactionClient = {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   passwordResetToken: {
     create: jest.fn(),
@@ -153,8 +154,31 @@ describe("AuthService", () => {
     const result = await service.refresh({ refreshToken: "refresh-token" });
 
     expect(result.role).toBe("dispatcher");
-    expect(mockTransactionClient.authRefreshToken.update).toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ revokedAt: null }) }));
     expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a refresh when another request already won the conditional rotation", async () => {
+    mockTransactionClient.authRefreshToken.findUnique.mockResolvedValue({
+      id: "rt-1", orgId: "org-1", userId: "user-1", membershipId: "membership-1",
+      expiresAt: new Date(Date.now() + 60_000), revokedAt: null,
+    });
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({ id: "user-1", isActive: true });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", orgId: "org-1", userId: "user-1", role: "dispatcher", status: "active" });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+    mockTransactionClient.authRefreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new AuthService().refresh({ refreshToken: "refresh-token" })).rejects.toMatchObject({ statusCode: 401 });
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("revokes all local refresh sessions on logout", async () => {
+    await new AuthService().logout("user-1");
+
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: expect.objectContaining({ revokedAt: expect.any(Date), lastUsedAt: expect.any(Date) }),
+    });
   });
 
   it("rejects refresh for an inactive application user", async () => {

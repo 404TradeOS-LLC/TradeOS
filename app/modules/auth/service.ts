@@ -133,14 +133,15 @@ export class AuthService {
       const replacementHash = hashOpaqueToken(replacementToken);
       const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-      await transaction.authRefreshToken.update({
-        where: { id: existing.id },
+      const rotation = await transaction.authRefreshToken.updateMany({
+        where: { id: existing.id, revokedAt: null },
         data: {
           revokedAt: new Date(),
           lastUsedAt: new Date(),
           replacedById: replacementHash,
         },
       });
+      if (rotation.count !== 1) throw new ApiError(401, "Invalid refresh token");
 
       await transaction.authRefreshToken.create({
         data: {
@@ -217,9 +218,23 @@ export class AuthService {
         where: { id: row.id },
         data: { consumedAt: new Date() },
       });
+      await transaction.authRefreshToken.updateMany({
+        where: { userId: row.userId, revokedAt: null },
+        data: { revokedAt: new Date(), lastUsedAt: new Date() },
+      });
     });
 
     return { success: true };
+  }
+
+  async logout(userId: string): Promise<void> {
+    await basePrisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+      await transaction.authRefreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date(), lastUsedAt: new Date() },
+      });
+    });
   }
 
   async inviteTeamMember(input: InviteTeamMemberInput): Promise<InviteTeamMemberResult> {

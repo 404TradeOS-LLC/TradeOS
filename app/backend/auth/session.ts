@@ -23,6 +23,13 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
       select: { id: true, isActive: true, email: true },
     });
     if (!user || !user.isActive) {
+      if (user) {
+        await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+        await transaction.authRefreshToken.updateMany({
+          where: { userId: user.id, revokedAt: null },
+          data: { revokedAt: new Date(), lastUsedAt: new Date() },
+        });
+      }
       throw new ApiError(403, "Authenticated user is not provisioned in this organization");
     }
 

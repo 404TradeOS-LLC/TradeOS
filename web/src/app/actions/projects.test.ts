@@ -18,6 +18,19 @@ function readCreateSiteVisitActionSource(): string {
   return source.slice(start, end);
 }
 
+test("storage-mutating project actions require a server-side session before side effects", () => {
+  const source = readProjectsActionsSource();
+  for (const action of ["createSiteVisitAction", "uploadProjectDocumentAction", "deleteProjectFileAction"]) {
+    const start = source.indexOf(`export async function ${action}`);
+    assert.notEqual(start, -1, `expected ${action} to exist`);
+    const next = source.indexOf("export async function ", start + 1);
+    const actionSource = source.slice(start, next === -1 ? undefined : next);
+    assert.match(actionSource, /const token = await getSessionToken\(\);/);
+    assert.match(actionSource, /if \(!token\)/);
+    assert.ok(actionSource.indexOf("if (!token)") < actionSource.indexOf("storage"), `${action} must guard before storage access`);
+  }
+});
+
 test("site-photo intake tracks persisted metadata ids so partial writes can be compensated", () => {
   const source = readCreateSiteVisitActionSource();
 
