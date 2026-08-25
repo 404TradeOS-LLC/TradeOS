@@ -48,6 +48,6 @@ describe("organization RLS migration", () => {
     expect(idempotencyMigration).toContain("create table athena_action_idempotency");
     expect(idempotencyMigration).toContain("alter table athena_action_idempotency enable row level security");
     expect(idempotencyMigration).toContain("alter table athena_action_idempotency force row level security");
-    expect(idempotencyMigration).toContain("org_id = current_app_org_id()");
+    expect(idempotencyMigration).toContain("org_id = (select current_app_org_id())");
   });
 });
