@@ -27,7 +27,7 @@ function makeLineItem(overrides: Partial<EstimateLineItemDTO> = {}): EstimateLin
 }
 
 function makeEstimate(overrides: Partial<EstimateDTO> = {}, lineItems: EstimateLineItemDTO[] = [makeLineItem()]): EstimateDTO & { lineItems: EstimateLineItemDTO[] } {
-  const estimate = {
+  const estimate: EstimateDTO & { lineItems: EstimateLineItemDTO[] } = {
     id: VALID_ESTIMATE_ID,
     orgId: "org-1",
     projectId: "project-1",
