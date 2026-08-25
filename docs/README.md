@@ -226,6 +226,8 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 
 ## Source-of-truth files
 
+S041 is the current bounded implementation lane through PR #351; its readiness contract and RLS inventory are recorded in `architecture/S041_RLS_POLICY_COVERAGE_PLAN.md` and `architecture/S041_RLS_POLICY_COVERAGE_INVENTORY.md`. Keep S027 browser evidence independent and do not begin S042.
+
 - [CURRENT_STATE.md](CURRENT_STATE.md)
 - [ENGINEERING_COMMAND_CENTER.md](ENGINEERING_COMMAND_CENTER.md)
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
