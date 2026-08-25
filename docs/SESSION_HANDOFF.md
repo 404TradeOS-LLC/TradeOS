@@ -45,12 +45,12 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-Implement S042 only through `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`. Preserve the existing provider, token tables, roles, permissions, request-scoped sessions, forced RLS, and finite stateless access-token boundary. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
+Reconcile S042 completion evidence through `docs/architecture/S042_COMPLETION_EVIDENCE.md`. S042 implementation PR #354 is merged; do not reopen its implementation lane. Preserve the existing provider, token tables, roles, permissions, request-scoped sessions, forced RLS, and finite stateless access-token boundary. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
 
 ## Next Eligible Sprint
 
-Sprint ID: S042
-Eligibility: READY; S018 is DONE and the S042 readiness contract is recorded in `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: No open S042 implementation PR, branch, or worktree exists; no open S041 PR remains. Create one isolated S042 implementation lane.
-Startup prompt: Implement only S042. Do not begin S043 or combine S027 browser evidence with S042.
+Sprint ID: NONE
+Eligibility: No numbered sprint is READY; S043 depends on PLANNED S037 and S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Dependencies: S042 is DONE with merged completion evidence.
+Overlap check: No open S042 PR remains. Do not reopen S042 or begin S043.
+Startup prompt: Follow NEXT_SPRINT_PROTOCOL.md for read-only eligibility reconciliation only. Keep S027 browser evidence independent.
