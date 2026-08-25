@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -150,6 +150,8 @@ The expensive App and Web verification work is additionally split into independe
 The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions.
 
 The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. As of 2026-08-18, checkout call sites are maintained on the v7.0.1 patch release; this action-runtime maintenance does not change the explicit Node versions used for TradeOS workload testing or deployment.
+
+PR #308 updates the existing artifact publication steps in `.github/workflows/rc-smoke.yml` and `.github/workflows/s027-browser-evidence.yml` from `actions/upload-artifact@v6` to `@v7`. The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
