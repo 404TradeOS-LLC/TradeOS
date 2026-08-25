@@ -45,12 +45,12 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-S041 is DONE through implementation PR #351 and completion evidence; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated, and S027 remains separate.
+Implement S042 only through `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`. Preserve the existing provider, token tables, roles, permissions, request-scoped sessions, forced RLS, and finite stateless access-token boundary. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S041 is DONE. Recompute the next numbered sprint under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
+Sprint ID: S042
+Eligibility: READY; S018 is DONE and the S042 readiness contract is recorded in `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: No open S041 implementation or completion PR remains; no authoritative S041 branch/worktree remains after reconciliation.
-Startup prompt: Inspect next-sprint eligibility only. Do not begin S042 automatically or combine S027 browser evidence with another sprint.
+Overlap check: No open S042 implementation PR, branch, or worktree exists; no open S041 PR remains. Create one isolated S042 implementation lane.
+Startup prompt: Implement only S042. Do not begin S043 or combine S027 browser evidence with S042.
