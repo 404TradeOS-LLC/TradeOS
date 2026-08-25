@@ -130,6 +130,7 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 - team invites are currently limited to `dispatcher` and `technician` roles
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
 - legacy `estimator` retains existing compatibility permissions and has read-only Costbook access through `costbook.read`; it does not receive `costbook.write` or `costbook.manage`
+- S042 adds no role or permission. Logout uses the caller's resolved user identity to revoke that user's local refresh sessions; password reset and inactive-account rejection apply the same lifecycle revocation without widening organization access.
 
 ## A12.1 transactional event authorization
 
