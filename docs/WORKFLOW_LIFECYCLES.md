@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -270,7 +270,7 @@ Compatibility persistence:
 
 Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
 
-- `paidAmount`/`balanceDue` are not stored columns; the queue derives them per invoice from the sum of that invoice's `Payment` rows with `status = "recorded"` (pending/failed payments do not count), then `balanceDue = amount - paidAmount`, computed in the database so filtering and pagination stay exact
+- `paidAmount` is derived from recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative `amount - paidAmount` remainder; persisted `paid` is authoritative for a zero queue `balanceDue` even when manual `mark-paid` created no Payment row
 - `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
 - `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
 - `unpaid` = `balanceDue > 0` AND status is neither persisted `paid` nor voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
@@ -288,7 +288,7 @@ Payment reconciliation:
 - `POST /api/v1/invoices/:id/payments` serializes reconciliation on the target Invoice row inside the existing request-scoped transaction, inserts the Payment, and recomputes the recorded-payment total from the database
 - only an eligible persisted `sent` Invoice, or an existing raw `overdue` Invoice for historical compatibility, transitions automatically to `paid`; partial payments remain derived and non-recorded payments do not count
 - the payment, persisted status change, and `invoice.paid` delivery/activity event commit together; a concurrent final payment observes the serialized status and does not emit a duplicate transition event
-- the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for follow-up exclusion
+- the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for both follow-up exclusion and zero queue balance presentation
 
 ## Transactional canonical-event invariant (A12.1)
 
