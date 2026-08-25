@@ -50,11 +50,12 @@ async function persistGenerationWithinDeadline(
   }
 
   let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
-  let onAbort: (() => void) | undefined;
+  let rejectCancellation: ((reason?: unknown) => void) | undefined;
+  const onAbort = () => rejectCancellation?.(new AthenaAbortedError(getCancellationReason() ?? "shutdown"));
   const cancellationPromise = new Promise<never>((_, reject) => {
-    onAbort = () => reject(new AthenaAbortedError(getCancellationReason() ?? "shutdown"));
-    signal.addEventListener("abort", onAbort, { once: true });
+    rejectCancellation = reject;
   });
+  signal.addEventListener("abort", onAbort, { once: true });
   const deadlinePromise = new Promise<never>((_, reject) => {
     const remainingMs = Math.max(0, deadline.getTime() - Date.now());
     timeoutTimer = setTimeout(() => {
