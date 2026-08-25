@@ -74,7 +74,7 @@ describe("Estimate Costbook historical pricing contract", () => {
     expect(mockAssembliesDatabase.getAssemblyUnitCost).not.toHaveBeenCalled();
     expect(mockPrisma.estimate.update).toHaveBeenCalledWith({
       where: { id: "estimate-1" },
-      data: { subtotalCost: 55, totalPrice: 72.6 },
+      data: { subtotalCost: 55, totalPrice: 72.6, taxAmount: 0 },
     });
   });
 

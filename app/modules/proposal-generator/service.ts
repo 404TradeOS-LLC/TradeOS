@@ -34,6 +34,14 @@ export class ProposalGeneratorService {
       brand,
       showLineItemDetail: input.showLineItemDetail ?? false,
       termsAndConditions: input.termsAndConditions ?? DEFAULT_TERMS,
+      scopeOfWork: input.scopeOfWork,
+      assumptions: input.assumptions,
+      exclusions: input.exclusions,
+      timeline: input.timeline,
+      priceLow: input.priceLow,
+      priceHigh: input.priceHigh,
+      finalPrice: input.finalPrice,
+      paymentScheduleJson: input.paymentScheduleJson,
     });
 
     return {
@@ -102,7 +110,7 @@ interface ProposalWithRelations {
 
 function renderEstimateProposalPdf(
   estimate: EstimateWithRelations,
-  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string }
+  opts: { brand: DocumentFrameBrand; showLineItemDetail: boolean; termsAndConditions: string; scopeOfWork?: string; assumptions?: string; exclusions?: string; timeline?: string; priceLow?: number | null; priceHigh?: number | null; finalPrice?: number | null; paymentScheduleJson?: unknown }
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 46, size: "LETTER" });
@@ -125,12 +133,17 @@ function renderEstimateProposalPdf(
       dateLabel: `Issued ${formatDocumentDate(estimate.createdAt)}`,
       statusLabel: `Estimate v${estimate.version}`,
     });
+    const overridePrice = opts.finalPrice ?? opts.priceHigh ?? opts.priceLow ?? null;
     drawMoneyPanel(doc, {
       title: "Investment",
-      primary: formatCurrency(toNullableNumber(estimate.totalPrice)),
-      secondary: "Lump-sum project price",
+      primary: formatCurrency(overridePrice ?? toNullableNumber(estimate.totalPrice)),
+      secondary: overridePrice != null ? "Proposal price" : "Lump-sum project price",
     });
-    writeTextSection(doc, "Scope of Work", projectSummary);
+    writeTextSection(doc, "Scope of Work", opts.scopeOfWork ?? projectSummary);
+    writeTextSection(doc, "Assumptions", opts.assumptions ?? "This proposal assumes currently documented site conditions and available access.");
+    writeTextSection(doc, "Exclusions", opts.exclusions ?? "Exclusions will be finalized before issue.");
+    writeTextSection(doc, "Estimated Timeline", opts.timeline ?? "Scheduling to be confirmed after scope approval.");
+    writePaymentScheduleSection(doc, opts.paymentScheduleJson);
     writeTextSection(doc, "Pricing Notes", "This estimate is presented as a client-facing proposal and may be refined if field conditions or selections change.");
     writeTextSection(doc, "Terms & Conditions", opts.termsAndConditions);
     writeAcceptanceBlock(doc);

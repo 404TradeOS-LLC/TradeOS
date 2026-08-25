@@ -95,7 +95,8 @@ export const proposalsController = {
     requirePermissions(req, ["billing.read"]);
     const doc = await service.getPdf(req.params.id, requireOrgId(req));
     res.setHeader("Content-Type", doc.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
+    const disposition = req.query.disposition === "inline" ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${disposition}; filename="${doc.filename}"`);
     res.send(doc.buffer);
   },
   async send(req: Request, res: Response) {

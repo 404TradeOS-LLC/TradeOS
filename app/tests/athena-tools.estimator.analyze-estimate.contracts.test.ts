@@ -2,6 +2,7 @@ import { describeAthenaToolContract } from "../modules/athena-tool-sdk";
 import { createEstimateAnalyzeTool } from "../modules/athena-tools/estimator/analyzeEstimate.tool";
 import type { EstimateAnalyzeToolDeps } from "../modules/athena-tools/estimator/analyzeEstimate.tool";
 import type { EstimateDTO, EstimateLineItemDTO } from "../modules/estimate-engine/types";
+import { applyOverhead } from "../modules/estimate-engine/formulas";
 
 const VALID_ESTIMATE_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -18,12 +19,15 @@ function makeLineItem(overrides: Partial<EstimateLineItemDTO> = {}): EstimateLin
     lineCost: 50,
     sortOrder: 1,
     sourceKey: null,
+    section: "General",
+    costType: "other",
+    taxable: false,
     ...overrides,
   };
 }
 
 function makeEstimate(overrides: Partial<EstimateDTO> = {}, lineItems: EstimateLineItemDTO[] = [makeLineItem()]): EstimateDTO & { lineItems: EstimateLineItemDTO[] } {
-  return {
+  const estimate: EstimateDTO & { lineItems: EstimateLineItemDTO[] } = {
     id: VALID_ESTIMATE_ID,
     orgId: "org-1",
     projectId: "project-1",
@@ -34,8 +38,17 @@ function makeEstimate(overrides: Partial<EstimateDTO> = {}, lineItems: EstimateL
     targetMarginPct: null,
     subtotalCost: 50,
     totalPrice: 100,
+    taxPct: 0,
+    taxAmount: 0,
+    costAfterOverhead: 50,
+    preTaxTotalPrice: 100,
     lineItems,
     ...overrides,
+  };
+  return {
+    ...estimate,
+    costAfterOverhead: overrides.costAfterOverhead ?? applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct),
+    preTaxTotalPrice: overrides.preTaxTotalPrice ?? estimate.totalPrice - estimate.taxAmount,
   };
 }
 

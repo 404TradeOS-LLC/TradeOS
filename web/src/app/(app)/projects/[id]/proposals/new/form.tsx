@@ -16,10 +16,12 @@ export function NewProposalForm({
   projectId,
   estimates,
   draft,
+  initialEstimateId,
 }: {
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
+  initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
   const hasEstimates = estimates.length > 0;
@@ -37,6 +39,7 @@ export function NewProposalForm({
             <select
               id="estimateId"
               name="estimateId"
+              defaultValue={initialEstimateId ?? ""}
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="">{hasEstimates ? "Use project intake only" : "No estimates yet. Use project intake only."}</option>

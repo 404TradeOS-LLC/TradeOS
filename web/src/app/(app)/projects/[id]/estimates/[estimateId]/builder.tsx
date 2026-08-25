@@ -21,6 +21,9 @@ interface LineItem {
   unitOfMeasure: string;
   unitCost: number;
   lineCost: number;
+  section: string;
+  costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
+  taxable: boolean;
 }
 
 interface EstimateDetail extends Estimate {
@@ -39,7 +42,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
 
-  const { data: estimate, isLoading } = useQuery({
+  const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
     queryFn: () => clientFetch<EstimateDetail>(`/estimates/${estimateId}`),
     staleTime: 15_000,
@@ -60,14 +63,19 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
   const runningTotals = useMemo(() => {
     if (!estimate) return null;
     const subtotalCost = estimate.subtotalCost;
+    const costAfterOverhead = estimate.costAfterOverhead ?? subtotalCost * (1 + estimate.overheadPct / 100);
+    const preTaxTotalPrice = estimate.preTaxTotalPrice ?? estimate.totalPrice - (estimate.taxAmount ?? 0);
     const totalPrice = estimate.totalPrice;
-    const grossProfit = totalPrice - subtotalCost;
-    const markupPct = subtotalCost > 0 ? (grossProfit / subtotalCost) * 100 : 0;
-    const marginPct = totalPrice > 0 ? (grossProfit / totalPrice) * 100 : 0;
+    const grossProfit = preTaxTotalPrice - costAfterOverhead;
+    const markupPct = costAfterOverhead > 0 ? (grossProfit / costAfterOverhead) * 100 : 0;
+    const marginPct = preTaxTotalPrice > 0 ? (grossProfit / preTaxTotalPrice) * 100 : 0;
 
     return {
       subtotalCost,
+      costAfterOverhead,
+      preTaxTotalPrice,
       totalPrice,
+      taxAmount: estimate.taxAmount ?? 0,
       grossProfit,
       markupPct,
       marginPct,
@@ -75,7 +83,9 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
     };
   }, [estimate]);
 
-  if (isLoading || !estimate || !runningTotals) return <p className="text-sm text-muted-foreground">Loading estimate…</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Loading estimate…</p>;
+  if (isError) return <p className="text-sm text-destructive">Unable to load this estimate. {error instanceof Error ? error.message : "Check your session and try again."}</p>;
+  if (!estimate || !runningTotals) return <p className="text-sm text-muted-foreground">Estimate not found.</p>;
 
   const isDraft = estimate.status === "draft";
   const pricingModeLabel = estimate.targetMarginPct != null ? "Target margin" : "Markup";
@@ -95,6 +105,9 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
             <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
               AI assist
             </Link>
+            <Link href={`/projects/${projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "outline" })}>
+              Create proposal
+            </Link>
             <StatusBadge status={estimate.status} />
           </div>
         }
@@ -104,7 +117,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
         <CardContent className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricTile label="Line items" value={runningTotals.lineItemCount.toString()} detail="Counted in the running total" />
           <MetricTile label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} detail="Cost basis from line items" />
-          <MetricTile label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} detail="Before overhead" accent={runningTotals.grossProfit >= 0} />
+          <MetricTile label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} detail="After overhead, before tax" accent={runningTotals.grossProfit >= 0} />
           <MetricTile label="Total price" value={formatCurrency(runningTotals.totalPrice)} detail="Customer-facing price" highlight />
         </CardContent>
       </Card>
@@ -116,7 +129,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <CardTitle>Line items</CardTitle>
-                  <CardDescription>Search assemblies first, then cost items. Use the keyboard to move faster.</CardDescription>
+                  <CardDescription>Use Costbook items where useful, or add a custom labor/material/disposal line for one-off scope.</CardDescription>
                 </div>
                 {isDraft && <Badge variant="outline">{estimate.lineItems.length} saved</Badge>}
               </div>
@@ -130,24 +143,14 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {estimate.lineItems.map((li) => (
-                    <li key={li.id} className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-1">
-                          <div className="font-medium">{li.description}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {li.quantity} {li.unitOfMeasure} × {formatCurrency(li.unitCost)} unit cost
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
-                          <span className="text-base font-semibold">{formatCurrency(li.lineCost)}</span>
-                          {isDraft && (
-                            <Button variant="ghost" size="sm" onClick={() => removeLineItem.mutate(li.id)} disabled={removeLineItem.isPending}>
-                              Remove
-                            </Button>
-                          )}
-                        </div>
-                      </div>
+                  {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
+                    <li key={section} className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{section}</div>
+                      <ul className="space-y-3">
+                        {sectionItems.map((li) => (
+                          <EditableLineItem key={li.id} estimateId={estimateId} lineItem={li} isDraft={isDraft} onUpdated={invalidate} onRemove={() => removeLineItem.mutate(li.id)} removing={removeLineItem.isPending} />
+                        ))}
+                      </ul>
                     </li>
                   ))}
                 </ul>
@@ -165,7 +168,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
         </div>
 
         <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-          <PricingPanel estimateId={estimateId} estimate={estimate} pricingModeLabel={pricingModeLabel} onUpdated={invalidate} />
+          <PricingPanel estimateId={estimateId} estimate={estimate} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
           <Card className="border-border/70 bg-muted/10">
             <CardHeader>
@@ -175,6 +178,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <StatBlock label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
+                <StatBlock label="Cost + overhead" value={formatCurrency(runningTotals.costAfterOverhead)} />
                 <StatBlock label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} valueClassName={runningTotals.grossProfit >= 0 ? "text-foreground" : "text-destructive"} />
                 <StatBlock label="Markup" value={formatPercent(runningTotals.markupPct)} />
                 <StatBlock label="Margin" value={formatPercent(runningTotals.marginPct)} />
@@ -186,7 +190,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
                 </div>
                 <div className="mt-2 text-3xl font-semibold">{formatCurrency(runningTotals.totalPrice)}</div>
                 <div className="mt-2 text-sm text-muted-foreground">
-                  {estimate.overheadPct}% overhead included · {formatPercent(runningTotals.marginPct)} gross margin
+                  {formatCurrency(runningTotals.preTaxTotalPrice)} pre-tax + {formatCurrency(runningTotals.taxAmount)} tax · {formatPercent(runningTotals.marginPct)} gross margin
                 </div>
               </div>
             </CardContent>
@@ -218,6 +222,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const [selected, setSelected] = useState<PickerResult | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [quantity, setQuantity] = useState("1");
+  const [section, setSection] = useState("Demolition");
+  const [costType, setCostType] = useState<LineItem["costType"]>("labor");
+  const [taxable, setTaxable] = useState(false);
+  const [custom, setCustom] = useState({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor" as LineItem["costType"], taxable: false });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -279,16 +287,19 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setError("Quantity must be a positive number");
       return;
     }
-    addLineItem.mutate({ item: target, quantity: qty });
+    addLineItem.mutate({ item: target, quantity: qty, section, costType, taxable });
   };
 
   const addLineItem = useMutation({
-    mutationFn: ({ item, quantity }: { item: PickerResult; quantity: number }) => {
+    mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable }: { item: PickerResult; quantity: number; section: string; costType: LineItem["costType"]; taxable: boolean }) => {
       return clientFetch(`/estimates/${estimateId}/line-items`, {
         method: "POST",
         body: JSON.stringify({
           [item.kind === "costItem" ? "costItemId" : "assemblyId"]: item.id,
           quantity,
+          section: itemSection,
+          costType: itemCostType,
+          taxable: itemTaxable,
         }),
       });
     },
@@ -296,6 +307,8 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setSelected(null);
       setQuery("");
       setQuantity("1");
+      setSection("Demolition");
+      setTaxable(false);
       setError(null);
       setActiveIndex(0);
       quantityInputRef.current?.blur();
@@ -303,6 +316,16 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       onAdded();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to add line item"),
+  });
+
+  const customAdd = useMutation({
+    mutationFn: (payload: { description: string; unitOfMeasure: string; quantity: number; unitCost: number; section: string; costType: LineItem["costType"]; taxable: boolean }) => clientFetch(`/estimates/${estimateId}/line-items`, { method: "POST", body: JSON.stringify(payload) }),
+    onSuccess: () => {
+      setCustom({ description: "", unitOfMeasure: "EA", unitCost: "", quantity: "1", section: "Reconstruction / Finish", costType: "labor", taxable: false });
+      setError(null);
+      onAdded();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Failed to add custom line item"),
   });
 
   return (
@@ -314,7 +337,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         <div className="text-xs text-muted-foreground">Search assemblies first, then cost items</div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_auto] md:items-end">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_180px_auto] md:items-end">
         <div className="space-y-2">
           <Input
             ref={searchInputRef}
@@ -368,6 +391,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="costbook-section">Section</Label>
+          <Input id="costbook-section" value={section} onChange={(e) => setSection(e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="quantity" className="text-sm font-medium">
             Quantity{selected ? ` (${selected.unitOfMeasure})` : ""}
           </Label>
@@ -396,6 +424,50 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         <Button type="button" onClick={() => commitLineItem(selected ?? activeResult)} disabled={addLineItem.isPending || (!selected && !activeResult)}>
           {addLineItem.isPending ? "Adding…" : "Add"}
         </Button>
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+        <div className="sm:col-span-2 lg:col-span-2">
+          <Label htmlFor="custom-description">Custom line item</Label>
+          <Input id="custom-description" placeholder="e.g. debris handling" value={custom.description} onChange={(e) => setCustom({ ...custom, description: e.target.value })} />
+        </div>
+        <div>
+          <Label htmlFor="custom-quantity">Qty</Label>
+          <Input id="custom-quantity" type="number" min="0" step="any" value={custom.quantity} onChange={(e) => setCustom({ ...custom, quantity: e.target.value })} />
+        </div>
+        <div>
+          <Label htmlFor="custom-unit-cost">Unit cost</Label>
+          <Input id="custom-unit-cost" type="number" min="0" step="0.01" value={custom.unitCost} onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })} />
+        </div>
+        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending}>
+          {customAdd.isPending ? "Adding…" : "Add custom"}
+        </Button>
+        <div>
+          <Label htmlFor="custom-unit">Unit</Label>
+          <Input id="custom-unit" value={custom.unitOfMeasure} onChange={(e) => setCustom({ ...custom, unitOfMeasure: e.target.value })} />
+        </div>
+        <div>
+          <Label htmlFor="custom-section">Section</Label>
+          <Input id="custom-section" value={custom.section} onChange={(e) => setCustom({ ...custom, section: e.target.value })} />
+        </div>
+        <div>
+          <Label htmlFor="custom-cost-type">Cost type</Label>
+          <select id="custom-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={custom.costType} onChange={(e) => setCustom({ ...custom, costType: e.target.value as LineItem["costType"] })}>
+            {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={custom.taxable} onChange={(e) => setCustom({ ...custom, taxable: e.target.checked })} /> Taxable</label>
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+        <div>
+          <Label htmlFor="costbook-cost-type">Costbook cost type</Label>
+          <select id="costbook-cost-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={costType} onChange={(e) => setCostType(e.target.value as LineItem["costType"])}>
+            {costTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} /> Costbook item is taxable</label>
+        <p className="text-xs text-muted-foreground">These settings apply to the selected Costbook item.</p>
       </div>
 
       {!selected && orderedResults.length > 0 && (
@@ -465,25 +537,84 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
+
+  function addCustomLineItem() {
+    const qty = Number(custom.quantity);
+    const unitCost = Number(custom.unitCost);
+    if (!custom.description.trim() || !custom.unitOfMeasure.trim() || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+      setError("Custom lines need a description, unit, positive quantity, and non-negative unit cost.");
+      return;
+    }
+    customAdd.mutate({ description: custom.description.trim(), unitOfMeasure: custom.unitOfMeasure.trim(), quantity: qty, unitCost, section: custom.section.trim() || "General", costType: custom.costType, taxable: custom.taxable });
+  }
+
+}
+
+const costTypes: LineItem["costType"][] = ["labor", "material", "equipment", "disposal", "subcontractor", "other"];
+
+function groupLineItems(items: LineItem[]) {
+  const grouped = new Map<string, LineItem[]>();
+  for (const item of items) grouped.set(item.section || "General", [...(grouped.get(item.section || "General") ?? []), item]);
+  return Array.from(grouped.entries());
+}
+
+function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, removing }: { estimateId: string; lineItem: LineItem; isDraft: boolean; onUpdated: () => void; onRemove: () => void; removing: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ description: lineItem.description, quantity: String(lineItem.quantity), unitCost: String(lineItem.unitCost), unitOfMeasure: lineItem.unitOfMeasure, section: lineItem.section, costType: lineItem.costType, taxable: lineItem.taxable });
+  const [error, setError] = useState<string | null>(null);
+  const update = useMutation({
+    mutationFn: () => {
+      const quantity = Number(form.quantity);
+      const unitCost = Number(form.unitCost);
+      if (!form.description.trim() || !form.unitOfMeasure.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitCost) || unitCost < 0) {
+        throw new Error("Description and unit are required; quantity must be positive and unit cost cannot be negative.");
+      }
+      return clientFetch(`/estimates/${estimateId}/line-items/${lineItem.id}`, { method: "PATCH", body: JSON.stringify({ ...form, quantity, unitCost }) });
+    },
+    onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
+    onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
+  });
+  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+    {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
+      <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
+      <Input type="number" min="0" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} aria-label="Quantity" />
+      <Input type="number" min="0" step="0.01" value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} aria-label="Unit cost" />
+      <Input value={form.unitOfMeasure} onChange={(e) => setForm({ ...form, unitOfMeasure: e.target.value })} aria-label="Unit" />
+      <select className="flex h-10 rounded-md border border-input bg-background px-3 text-sm" value={form.costType} onChange={(e) => setForm({ ...form, costType: e.target.value as LineItem["costType"] })}>{costTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable</label>
+      <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
+      {error && <p className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
+    </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
+      <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>
+    </div>}
+  </li>;
 }
 
 function PricingPanel({
   estimateId,
   estimate,
   pricingModeLabel,
+  isDraft,
   onUpdated,
 }: {
   estimateId: string;
   estimate: Estimate;
   pricingModeLabel: string;
+  isDraft: boolean;
   onUpdated: () => void;
 }) {
   const [mode, setMode] = useState<"markup" | "targetMargin">(estimate.targetMarginPct != null ? "targetMargin" : "markup");
   const [value, setValue] = useState(String(estimate.targetMarginPct ?? estimate.profitPct ?? 0));
+  const [overhead, setOverhead] = useState(String(estimate.overheadPct ?? 0));
+  const [tax, setTax] = useState(String(estimate.taxPct ?? 0));
   const [error, setError] = useState<string | null>(null);
-  const grossProfit = estimate.totalPrice - estimate.subtotalCost;
-  const currentMarkupPct = estimate.subtotalCost > 0 ? (grossProfit / estimate.subtotalCost) * 100 : 0;
-  const currentMarginPct = estimate.totalPrice > 0 ? (grossProfit / estimate.totalPrice) * 100 : 0;
+  const grossProfit = (estimate.preTaxTotalPrice ?? estimate.totalPrice - (estimate.taxAmount ?? 0)) - (estimate.costAfterOverhead ?? estimate.subtotalCost * (1 + estimate.overheadPct / 100));
+  const costAfterOverhead = estimate.costAfterOverhead ?? estimate.subtotalCost * (1 + estimate.overheadPct / 100);
+  const preTaxTotalPrice = estimate.preTaxTotalPrice ?? estimate.totalPrice - (estimate.taxAmount ?? 0);
+  const currentMarkupPct = costAfterOverhead > 0 ? (grossProfit / costAfterOverhead) * 100 : 0;
+  const currentMarginPct = preTaxTotalPrice > 0 ? (grossProfit / preTaxTotalPrice) * 100 : 0;
 
   const setPricingMode = useMutation({
     mutationFn: () => {
@@ -503,6 +634,17 @@ function PricingPanel({
       onUpdated();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update pricing"),
+  });
+
+  const updateSettings = useMutation({
+    mutationFn: () => {
+      const overheadPct = Number(overhead);
+      const taxPct = Number(tax);
+      if (!Number.isFinite(overheadPct) || overheadPct < 0 || !Number.isFinite(taxPct) || taxPct < 0 || taxPct > 100) throw new Error("Enter valid overhead and tax percentages");
+      return clientFetch(`/estimates/${estimateId}`, { method: "PATCH", body: JSON.stringify({ overheadPct, taxPct }) });
+    },
+    onSuccess: () => { setError(null); onUpdated(); },
+    onError: (err) => setError(err instanceof Error ? err.message : "Failed to update estimate settings"),
   });
 
   return (
@@ -530,10 +672,15 @@ function PricingPanel({
             <Label htmlFor="pricing-value">Percentage</Label>
             <Input id="pricing-value" type="number" min="0" step="any" value={value} onChange={(e) => setValue(e.target.value)} />
           </div>
-          <Button type="button" variant="outline" onClick={() => setPricingMode.mutate()} disabled={setPricingMode.isPending}>
+            <Button type="button" variant="outline" onClick={() => setPricingMode.mutate()} disabled={!isDraft || setPricingMode.isPending}>
             {setPricingMode.isPending ? "Applying…" : "Apply"}
           </Button>
         </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2"><Label htmlFor="overhead-value">Overhead %</Label><Input id="overhead-value" type="number" min="0" step="any" value={overhead} onChange={(e) => setOverhead(e.target.value)} disabled={!isDraft} /></div>
+          <div className="space-y-2"><Label htmlFor="tax-value">Tax %</Label><Input id="tax-value" type="number" min="0" max="100" step="any" value={tax} onChange={(e) => setTax(e.target.value)} disabled={!isDraft} /></div>
+        </div>
+        <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
         <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Current gross profit</span>
@@ -549,7 +696,7 @@ function PricingPanel({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          The saved estimate still uses the same backend pricing endpoints; this panel only makes the current setting easier to edit and understand.
+          Tax is allocated across taxable scope using the same estimate-wide pricing basis. Finalized estimates are read-only; duplicate the version from the project history to revise it.
         </p>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
