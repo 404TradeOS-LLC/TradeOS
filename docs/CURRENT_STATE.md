@@ -107,7 +107,7 @@ related_code:
 
 # Current State
 
-Last reconciled against origin/main commit b53510eff86899261134f957377e1ba65b60dbe2 on 2026-08-25 for merged S026 PR #334 and completion-evidence reconciliation.
+Last reconciled against origin/main commit cc2d6371aa29520dffc1f83bf86118c17f7b840c on 2026-08-25 after S028 completion evidence.
 
 ## Current milestone
 
@@ -292,15 +292,6 @@ PR #325 and focused coverage PR #328 harden existing proposal, contract, invoice
 
 PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44 from final implementation head 6c71d33e4cca4bdd95b2b226da8c458e2fabd5d6. The implementation persists metadata-first, tenant/actor-scoped AI generation records and append-only review provenance behind forced RLS, binds review provenance to the originating estimate, and extends bounded retention cleanup with zero-progress protection. Required app, integration/migration/RLS, web, docs, governance, dependency, branch-currency, live-reconciliation, and CodeQL verification passed. Completion evidence is recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md.
 
-## S026 Estimate line-item ordering concurrency (ready)
-
-S026 is the sole READY numbered-sprint candidate. It addresses the existing EstimateEngineService.addLineItem aggregate-then-insert ordering race while preserving persisted EstimateLineItem.sortOrder, draft-only writes, pricing snapshots, source-key idempotency, organization scoping, and forced RLS. Implementation must follow docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md; S027 remains blocked on authenticated rendered Costbook evidence.
-
-## S026 implementation in progress
-
-S026 is DONE after implementation PR #334 and completion evidence; S028 is DONE after implementation PR #338. S027 remains blocked on authenticated rendered Costbook browser evidence, and S030 is the lowest dependency-safe planned candidate.
-
-
 ## S026 Estimate line-item ordering concurrency (done)
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
@@ -313,3 +304,8 @@ S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f83030621
 ## S028 estimate-to-proposal reconciliation
 
 S028 is DONE through implementation PR #338 and completion evidence. S027 remains separately blocked on authenticated rendered Costbook evidence; S030 is the next dependency-safe candidate.
+
+
+## S030 readiness promotion
+
+S030 is READY through the governance-only promotion recorded in docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. S012 and S029 are DONE, no competing implementation exists, and the contract preserves existing Job lifecycle, organization authorization, forced RLS, responsive states, and exact-head evidence.

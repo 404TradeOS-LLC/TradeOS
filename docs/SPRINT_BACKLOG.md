@@ -323,10 +323,17 @@ Evidence: PR #20 merged.
 
 ### S030 — Dispatcher workspace end-to-end verification
 
-Status: PLANNED
+Status: READY
 Dependencies: S012
 Objective: Verify scheduled/unscheduled work, assignment, rescheduling, conflicts, and job state transitions.
 Acceptance: dispatcher critical path works across UI, API, and persistence.
+Readiness evidence: S012 and S029 are DONE; the existing Dispatcher Workspace, organization-scoped Job routes, named lifecycle actions, and dispatch-summary contract are the verified baseline. No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found.
+Readiness contract: Verify and narrowly repair the existing Dispatcher Workspace across scheduled/unscheduled queues, assignment, unassignment, rescheduling, deterministic conflicts, dispatch-summary scope, canonical S012 actions, refresh consistency, data states, responsive behavior, and organization/RLS boundaries. See docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md.
+Founder-decision boundary: NO under existing lifecycle, RBAC, RLS, route, and workspace semantics.
+Required implementation validation: git diff --check; npm run pr:preflight -- --base origin/main; npm run pr:test; npm run docs:test; npm run docs:check -- --base origin/main; app and web tests/lint/build; PostgreSQL/RLS integration; focused browser evidence; exact-head CI.
+Forbidden in S030: new statuses, generic status mutation, new dispatch persistence, route optimization/GPS/notifications, automatic invoice creation, billing/payment changes, new roles or permission/RLS redesign, broad UI rewrites, unrelated concurrency/idempotency repairs, unreviewed migrations, and S031/S032/S034/S035 work.
+Implementation status: NOT STARTED; this governance-only promotion authorizes the sole S030 implementation lane after merge.
+
 
 ### S031 — Scheduling conflict rules
 
@@ -494,15 +501,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S026 is DONE through implementation PR #334 and completion evidence is pending this governance merge. S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S027 remains environment-evidence blocked.
-Protected boundary: No numbered-sprint implementation lane is active while S027 remains blocked; do not bypass its authenticated browser-evidence gate.
+Active Sprint: S030
+Completion status: S028 is DONE through implementation PR #338 and completion-evidence PR #339; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S030 depends on S012, which is DONE; S029 is DONE; S027 is independent.
+Protected boundary: S030 is the sole numbered-sprint implementation lane after this governance-only readiness promotion.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S030 is the lowest dependency-safe PLANNED candidate and S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S030 depends on S012, which is DONE; S027's remaining browser evidence is unavailable.
-Overlap check: S028 is DONE through merged PR #338; no numbered-sprint implementation lane is active and no S030 implementation writes are authorized before readiness promotion.
-Startup prompt: Promote S030 through a governance-only readiness lane, then create its sole implementation branch and verify the dispatcher workspace contract.
+Sprint ID: S030
+Eligibility: S030 is READY; S012 and S029 are DONE and no competing S030 implementation exists.
+Dependencies: S030 depends on S012 and the S029 baseline; S027 remains blocked but does not block S030.
+Overlap check: No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found; this branch is governance-only.
+Startup prompt: Create or reconcile the sole S030 implementation branch/worktree and verify docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. Do not implement another numbered sprint concurrently.
