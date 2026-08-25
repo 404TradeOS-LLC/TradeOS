@@ -3,6 +3,7 @@ import {
   applyOverhead,
   burdenedLaborRate,
   equipmentCost,
+  estimateTaxAmount,
   laborCost,
   laborHours,
   marginFromMarkup,
@@ -102,5 +103,11 @@ describe("Estimate Engine — Overhead & Profit formulas", () => {
 
   it("rejects a target margin of 100% or more (division by zero/negative)", () => {
     expect(() => sellPrice({ totalCost: 1000, mode: "targetMargin", targetMarginPct: 100 })).toThrow();
+  });
+
+  it("allocates tax to taxable scope after overhead and markup", () => {
+    // $100 direct cost, 10% overhead, 20% markup => $132 pre-tax.
+    // Half taxable => $66 taxable selling price, 10% tax => $6.60.
+    expect(estimateTaxAmount({ preTaxTotalPrice: 132, jobCost: 100, taxableJobCost: 50, taxPct: 10 })).toBe(6.6);
   });
 });

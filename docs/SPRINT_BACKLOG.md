@@ -302,13 +302,18 @@ Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolve
 
 ### S028 — Estimate-to-proposal workflow verification
 
-Status: PLANNED
+Status: DONE
 Dependencies: S008, S009
 Objective: Verify the full estimate approval and proposal generation path.
 Acceptance: totals, statuses, documents, and audit events remain consistent.
+Evidence: PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`.
 
 ## Phase 6 — Scheduling, Dispatch, and Field Work
 
+Implementation status: DONE after implementation PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`. Repository completion evidence is recorded in `docs/architecture/S028_COMPLETION_EVIDENCE.md`.
+Readiness contract: Verify end-to-end draft estimate creation, custom and Costbook-backed line items, section/cost-type/tax semantics, editable draft persistence/reload, deterministic totals, finalize/approval transition, proposal generation/PDF handoff, organization/RLS boundaries, audit events, and failure/retry behavior. Preserve finalized-estimate immutability and existing review-first AI boundaries. No new payment, accounting, legal-signature, customer identity, or S027 Costbook scope.
+Founder-decision boundary: NO under existing estimate/proposal semantics. Stop only if implementation requires a new pricing/accounting/legal policy, destructive migration, or materially different customer-visible workflow.
+Evidence: PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`.
 ### S029 — Scheduling engine baseline verification
 
 Status: DONE
@@ -318,10 +323,17 @@ Evidence: PR #20 merged.
 
 ### S030 — Dispatcher workspace end-to-end verification
 
-Status: PLANNED
+Status: READY
 Dependencies: S012
 Objective: Verify scheduled/unscheduled work, assignment, rescheduling, conflicts, and job state transitions.
 Acceptance: dispatcher critical path works across UI, API, and persistence.
+Readiness evidence: S012 and S029 are DONE; the existing Dispatcher Workspace, organization-scoped Job routes, named lifecycle actions, and dispatch-summary contract are the verified baseline. No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found.
+Readiness contract: Verify and narrowly repair the existing Dispatcher Workspace across scheduled/unscheduled queues, assignment, unassignment, rescheduling, deterministic conflicts, dispatch-summary scope, canonical S012 actions, refresh consistency, data states, responsive behavior, and organization/RLS boundaries. See docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md.
+Founder-decision boundary: NO under existing lifecycle, RBAC, RLS, route, and workspace semantics.
+Required implementation validation: git diff --check; npm run pr:preflight -- --base origin/main; npm run pr:test; npm run docs:test; npm run docs:check -- --base origin/main; app and web tests/lint/build; PostgreSQL/RLS integration; focused browser evidence; exact-head CI.
+Forbidden in S030: new statuses, generic status mutation, new dispatch persistence, route optimization/GPS/notifications, automatic invoice creation, billing/payment changes, new roles or permission/RLS redesign, broad UI rewrites, unrelated concurrency/idempotency repairs, unreviewed migrations, and S031/S032/S034/S035 work.
+Implementation status: NOT STARTED; this governance-only promotion authorizes the sole S030 implementation lane after merge.
+
 
 ### S031 — Scheduling conflict rules
 
@@ -489,15 +501,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S026 is DONE through implementation PR #334 and completion evidence is pending this governance merge. S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S027 remains environment-evidence blocked.
-Protected boundary: No numbered-sprint implementation lane is active while S027 remains blocked; do not bypass its authenticated browser-evidence gate.
+Active Sprint: S030
+Completion status: S028 is DONE through implementation PR #338 and completion-evidence PR #339; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S030 depends on S012, which is DONE; S029 is DONE; S027 is independent.
+Protected boundary: S030 is the sole numbered-sprint implementation lane after this governance-only readiness promotion.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S026 is DONE; S027's required external evidence is unavailable.
-Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
-Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.
+Sprint ID: S030
+Eligibility: S030 is READY; S012 and S029 are DONE and no competing S030 implementation exists.
+Dependencies: S030 depends on S012 and the S029 baseline; S027 remains blocked but does not block S030.
+Overlap check: No open or draft S030 implementation/readiness PR, branch, or worktree overlap was found; this branch is governance-only.
+Startup prompt: Create or reconcile the sole S030 implementation branch/worktree and verify docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md. Do not implement another numbered sprint concurrently.

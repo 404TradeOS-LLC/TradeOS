@@ -418,6 +418,10 @@ export interface Estimate {
   overheadPct: number;
   profitPct: number;
   targetMarginPct: number | null;
+  taxPct: number;
+  taxAmount: number;
+  costAfterOverhead: number;
+  preTaxTotalPrice: number;
   subtotalCost: number;
   totalPrice: number;
   createdAt?: string;
@@ -434,6 +438,9 @@ export interface EstimateLineItem {
   unitCost: number;
   lineCost: number;
   sortOrder: number;
+  section: string;
+  costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
+  taxable: boolean;
 }
 
 export type EstimateDetail = Estimate & { lineItems: EstimateLineItem[] };

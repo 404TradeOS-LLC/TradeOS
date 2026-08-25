@@ -178,3 +178,8 @@ persistence, raw AI content is omitted by default, and review provenance is
 append-only. No generation record can authorize a business mutation outside
 the existing authenticated, permission-checked, review-first application
 service path.
+
+
+## S028 security boundary
+
+The S028 implementation in PR #338 preserves server-derived organization context, existing permission checks, forced PostgreSQL RLS, direct-object denial, and secret-free audit/event payloads. No authentication bypass or autonomous AI write path is introduced.

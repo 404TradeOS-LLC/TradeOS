@@ -4,6 +4,7 @@ import { defineTool } from "../../athena-tool-sdk/defineTool";
 import { successResult } from "../../athena-tool-sdk/results";
 import type { AthenaToolDefinition, AthenaWarning } from "../../athena-tool-sdk/types";
 import { warning } from "../../athena-tool-sdk/warnings";
+import { applyOverhead } from "../../estimate-engine/formulas";
 
 // A12 Estimator tool (docs/athena/roadmap/
 // A12-business-tool-rollout-implementation-plan.md section 4 "Estimator").
@@ -47,7 +48,9 @@ export function createEstimateAnalyzeTool(deps: EstimateAnalyzeToolDeps): Athena
       const telemetry = { traceId: execution.traceId, executionId: execution.executionId };
       const estimate = await deps.estimateEngine.getById(input.estimateId, execution.orgId);
 
-      const realizedMarginPct = estimate.totalPrice === 0 ? 0 : ((estimate.totalPrice - estimate.subtotalCost) / estimate.totalPrice) * 100;
+      const preTaxTotalPrice = estimate.preTaxTotalPrice ?? estimate.totalPrice - (estimate.taxAmount ?? 0);
+      const costAfterOverhead = estimate.costAfterOverhead ?? applyOverhead(estimate.subtotalCost, 0, estimate.overheadPct);
+      const realizedMarginPct = preTaxTotalPrice <= 0 ? 0 : ((preTaxTotalPrice - costAfterOverhead) / preTaxTotalPrice) * 100;
 
       const warnings: AthenaWarning[] = [];
       if (estimate.lineItems.length === 0) {
