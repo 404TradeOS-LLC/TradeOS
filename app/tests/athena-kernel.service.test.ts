@@ -187,6 +187,21 @@ describe("AthenaKernelService", () => {
   });
 
 
+  it.each(["0.5", "0", "-1", "not-a-number"])("falls back to the default retention window for invalid value %s", async (retentionDays) => {
+    const before = Date.now();
+    const service = new AthenaKernelService();
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project this week?", requestSource: "http" },
+      actor: actor(),
+      requestId: `req-invalid-retention-${retentionDays}`,
+      env: { ...baseEnv, ATHENA_DRAFT_RESPONSES_ENABLED: "true", ATHENA_GENERATION_RETENTION_DAYS: retentionDays } as NodeJS.ProcessEnv,
+    });
+
+    expect(result.success).toBe(true);
+    const retentionExpiresAt = generationRows[0]?.retentionExpiresAt.getTime();
+    expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 90 * 24 * 60 * 60 * 1000);
+  });
+
   it("denies a mutation-shaped request without ever calling the provider", async () => {
     const provider: AthenaProviderAdapter = { generateDraft: jest.fn() };
     const service = new AthenaKernelService();

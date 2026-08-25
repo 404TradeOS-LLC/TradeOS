@@ -89,6 +89,7 @@ const generationA = "10000000-0000-0000-0000-000000000123";
 const generationB = "20000000-0000-0000-0000-000000000124";
 const generationReviewA = "10000000-0000-0000-0000-000000000125";
 const generationReviewB = "20000000-0000-0000-0000-000000000126";
+const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -548,6 +549,14 @@ describe("live organization row-level security", () => {
           outcome: "rejected",
           reviewedAt: new Date("2026-07-01T00:01:00.000Z"),
         },
+        {
+          id: generationReviewViewer,
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: viewerUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:30.000Z"),
+        },
       ],
     });
   });
@@ -623,6 +632,11 @@ describe("live organization row-level security", () => {
     );
     expect(hiddenPeer).toBeNull();
 
+    const reviewerOwned = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewViewer } })
+    );
+    expect(reviewerOwned?.reviewerUserId).toBe(viewerUser);
+
     const inserted = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().athenaGenerationReview.create({
         data: {
@@ -646,6 +660,20 @@ describe("live organization row-level security", () => {
             reviewerUserId: viewerUser,
             outcome: "accepted",
             reviewedAt: new Date("2026-07-01T00:03:00.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().athenaGenerationReview.create({
+          data: {
+            orgId: orgA,
+            generationId: generationA,
+            reviewerUserId: viewerUser,
+            outcome: "amended",
+            reviewedAt: new Date("2026-07-01T00:03:30.000Z"),
           },
         })
       )

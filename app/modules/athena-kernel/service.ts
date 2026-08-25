@@ -35,7 +35,7 @@ const DEFAULT_PROVIDER_DEADLINE_MS = 8_000;
 function parsePositiveIntEnv(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 // Internal-only marker distinguishing "the kernel-owned AbortController
