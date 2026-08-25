@@ -278,7 +278,8 @@ Completion evidence: docs/architecture/S025_COMPLETION_EVIDENCE.md records the s
 
 ### S026 — Estimate line-item ordering concurrency
 
-Status: READY
+Status: DONE
+Evidence: PR #334 merged 2026-08-25 as `b53510eff86899261134f957377e1ba65b60dbe2`; final implementation head was `ea531d0df830c227d1a1fdc8ec3296c971a08941`.
 Dependencies: S023
 Objective: Eliminate remaining manual/AI line-item sort-order races.
 Acceptance: concurrent inserts produce deterministic order without collisions.
@@ -486,17 +487,17 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 ## Active Sprint and Next Eligibility
 
-Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
+Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S026
-Completion status: S025 is DONE through implementation PR #331 and completion evidence. S026 is READY and owns the sole numbered implementation lane; S027 remains environment-evidence blocked.
-Dependencies: S023 is DONE. S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. S026 owns the sole active lane; no S027 implementation may begin concurrently.
+Active Sprint: NONE
+Completion status: S026 is DONE through implementation PR #334 and completion evidence is pending this governance merge. S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S027 remains environment-evidence blocked.
+Protected boundary: No numbered-sprint implementation lane is active while S027 remains blocked; do not bypass its authenticated browser-evidence gate.
 
 ## Next Eligible Sprint
 
-Sprint ID: S026
-Eligibility: READY; S023 is DONE and the S026 concurrency-readiness contract is recorded.
-Dependencies: S023 is DONE.
-Overlap check: S026 is the sole numbered-sprint implementation lane; no S026 implementation branch or PR exists, and S027 remains blocked.
-Startup prompt: Implement S026 deterministic concurrent sort-order allocation, preserve existing estimate/AI/RLS semantics, and stop at the repository PR-only boundary if a migration becomes necessary.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S026 is DONE; S027's required external evidence is unavailable.
+Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
+Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.

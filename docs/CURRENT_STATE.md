@@ -107,7 +107,7 @@ related_code:
 
 # Current State
 
-Last reconciled against origin/main commit cffc92697196fea22b144424fd9fec4d8865aa44 on 2026-08-25 for merged S025 PR #331 and S026 readiness promotion. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against origin/main commit b53510eff86899261134f957377e1ba65b60dbe2 on 2026-08-25 for merged S026 PR #334 and completion-evidence reconciliation.
 
 ## Current milestone
 
@@ -299,3 +299,8 @@ S026 is the sole READY numbered-sprint candidate. It addresses the existing Esti
 ## S026 implementation in progress
 
 S026 is the active numbered-sprint lane. Its bounded backend change serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row, preserving organization/RLS, draft-only mutation, pricing snapshots, source-key idempotency, and public API shapes. Runtime verification is in PR #334; completion evidence will be recorded only after merge.
+
+
+## S026 Estimate line-item ordering concurrency (done)
+
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.

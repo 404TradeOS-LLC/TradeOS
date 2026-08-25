@@ -37,8 +37,8 @@ Create/reconcile the isolated S026 implementation branch/worktree and implement 
 
 ## Next Eligible Sprint
 
-Sprint ID: S026
-Eligibility: READY; S023 is DONE and the readiness contract is recorded in docs/architecture/S026_ESTIMATE_LINE_ITEM_ORDERING_CONCURRENCY_PLAN.md.
-Dependencies: S023 is DONE.
-Overlap check: S026 is the sole numbered-sprint implementation lane; no S026 implementation branch or PR exists, and S027 remains blocked.
-Startup prompt: Implement S026 deterministic concurrent sort-order allocation, preserve all existing estimate/AI/RLS semantics, and stop at the repository PR-only boundary if a migration becomes necessary.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S026 is DONE and S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S026 is DONE; S027's required external evidence is unavailable.
+Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
+Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.
