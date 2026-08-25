@@ -433,7 +433,7 @@ Evidence: implementation PR #351 merged as `3f7c263f324911911f734cd29ce1ed6879dc
 
 ### S042 — Authentication/session hardening
 
-Status: READY
+Status: DONE
 Dependencies: S018
 Objective: Verify session creation, refresh, revocation, expiry, and server-action enforcement.
 Acceptance: fail-closed authentication behavior across web and API.
@@ -442,6 +442,7 @@ Allowed implementation paths: existing local auth/JWT/session, auth middleware/c
 Forbidden paths: schema or migration changes, RLS-policy redesign, new roles or permissions, authentication-provider replacement, new token persistence model, broad authorization refactors, production credentials/data/deployment, S027 browser evidence, S043+ work, and unrelated UI/billing/payment changes.
 Founder-decision boundary: RESOLVED for this bounded lane — refresh rotation is single-use; local refresh sessions are revoked on logout, password reset, and deactivation; finite access JWTs remain stateless until expiry; Supabase `exp`/`iat` are mandatory; server actions authenticate before side effects.
 Required implementation validation: focused auth/JWT/session/server-action/RLS tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and `(cd web && npm test && npm run lint && npm run build)`.
+Evidence: readiness PR #353 merged as `b63f1a51281e19b64c1bdcbdff4163f954f789e0`; implementation PR #354 merged as `8415c913cd0e596e0e2e18e33a8536f7257b6769`; completion evidence is recorded in `docs/architecture/S042_COMPLETION_EVIDENCE.md`.
 
 ### S043 — Security event audit trail
 
@@ -519,15 +520,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S042
-Completion status: S028, S030, S040, and S041 are DONE with merged implementation and completion evidence; S042 is READY through its governed readiness contract; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S018 is DONE; S042 implementation must remain in one authoritative lane; S027 remains independent and blocked on browser evidence.
-Protected boundary: Exactly one numbered implementation lane may exist for S042; do not begin S043 or combine S027 browser evidence with S042.
+Active Sprint: NONE
+Completion status: S028, S030, S040, S041, and S042 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S018 is DONE; S042 implementation and evidence are merged; S027 remains independent and blocked on browser evidence.
+Protected boundary: Do not begin S043 while its S037 dependency is PLANNED; do not combine S027 browser evidence with S042.
 
 ## Next Eligible Sprint
 
-Sprint ID: S042
-Eligibility: READY; S018 is DONE and the S042 readiness contract is recorded in `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
-Overlap check: No open S042 implementation PR, branch, or worktree exists; no open S041 PR remains. Create exactly one isolated S042 implementation lane.
-Startup prompt: Implement only the S042 authentication/session hardening contract. Do not begin S043 or combine S027 browser evidence with S042.
+Sprint ID: NONE
+Eligibility: No numbered sprint is `READY`. S043 depends on S037, which remains PLANNED; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Dependencies: S042 is DONE with merged completion evidence; S037 is not DONE, so S043 is not eligible.
+Overlap check: No open S042 PR remains; completion evidence is the authoritative final lane.
+Startup prompt: Re-read NEXT_SPRINT_PROTOCOL.md and prepare only governance/read-only work until a numbered sprint becomes eligible. Do not mix S027 browser evidence into completed S042.
