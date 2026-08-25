@@ -488,17 +488,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S025
-Completion status: S017 is `DONE` after implementation PR #317 and corrective PR #319 merged; S020 is `DONE` after implementation PR #322 and completion evidence merged. S022 is `DONE` after implementation PR #325, focused coverage PR #328, and completion evidence PR #329. S025 implementation PR #331 is open.
-Dependencies: S016, S019, S020, and S021 are DONE. S027 remains environment-evidence blocked.
-Protected boundary: Exactly one numbered implementation lane may exist. S025 PR #331 is the sole active lane; no S027 implementation may begin concurrently.
+Active Sprint: S026
+Completion status: S025 is DONE through implementation PR #331 and completion evidence. S026 is READY and owns the sole numbered implementation lane; S027 remains environment-evidence blocked.
+Dependencies: S023 is DONE. S027 remains environment-evidence blocked.
+Protected boundary: Exactly one numbered implementation lane may exist. S026 owns the sole active lane; no S027 implementation may begin concurrently.
 
 ## Next Eligible Sprint
 
-No numbered sprint is currently `READY`; S025 is `IN_REVIEW` in the sole implementation lane.
-
-Sprint ID: NONE
-Eligibility: S025 is `IN_REVIEW`; no later numbered sprint may receive implementation writes.
-Dependencies: S024 is DONE; S025 is the sole active implementation lane.
-Overlap check: S025 PR #331 is the sole numbered implementation lane; S027 remains blocked and receives no implementation writes.
-Startup prompt: Drive PR #331 through migration/RLS review and required CI; do not implement S027 concurrently.
+Sprint ID: S026
+Eligibility: READY; S023 is DONE and the S026 concurrency-readiness contract is recorded.
+Dependencies: S023 is DONE.
+Overlap check: S026 is the sole numbered-sprint implementation lane; no S026 implementation branch or PR exists, and S027 remains blocked.
+Startup prompt: Implement S026 deterministic concurrent sort-order allocation, preserve existing estimate/AI/RLS semantics, and stop at the repository PR-only boundary if a migration becomes necessary.
