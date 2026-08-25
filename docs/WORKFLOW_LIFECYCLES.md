@@ -308,3 +308,8 @@ S022 rendering is presentation-only: proposal, contract, and invoice lifecycle v
 ## Estimate line-item ordering concurrency
 
 Estimate line-item append order is persisted and remains deterministic under concurrent manual or AI/replay-shaped inserts. The implementation serializes allocation on the parent Estimate row without changing estimate lifecycle states.
+
+
+## S028 estimate-to-proposal workflow
+
+S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.
