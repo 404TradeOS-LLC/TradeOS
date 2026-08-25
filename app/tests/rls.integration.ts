@@ -90,6 +90,8 @@ const generationB = "20000000-0000-0000-0000-000000000124";
 const generationReviewA = "10000000-0000-0000-0000-000000000125";
 const generationReviewB = "20000000-0000-0000-0000-000000000126";
 const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
+const generationTechnician = "10000000-0000-0000-0000-000000000128";
+const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -529,6 +531,18 @@ describe("live organization row-level security", () => {
           latencyMs: 1,
           retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
         },
+        {
+          id: generationTechnician,
+          orgId: orgA,
+          actorUserId: technicianUser,
+          requestId: "rls-generation-technician",
+          traceId: "rls-trace-technician",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
       ],
     });
     await adminClient.athenaGenerationReview.createMany({
@@ -556,6 +570,14 @@ describe("live organization row-level security", () => {
           reviewerUserId: viewerUser,
           outcome: "accepted",
           reviewedAt: new Date("2026-07-01T00:01:30.000Z"),
+        },
+        {
+          id: generationReviewTechnician,
+          orgId: orgA,
+          generationId: generationTechnician,
+          reviewerUserId: viewerUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:45.000Z"),
         },
       ],
     });
@@ -597,6 +619,23 @@ describe("live organization row-level security", () => {
     );
     expect(hiddenPeerActor).toBeNull();
 
+    const viewerInserted = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.create({
+        data: {
+          orgId: orgA,
+          actorUserId: viewerUser,
+          requestId: "rls-generation-viewer-owned",
+          traceId: "rls-trace-viewer-owned",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      })
+    );
+    expect(viewerInserted.actorUserId).toBe(viewerUser);
+
     await expect(
       inSession(viewerUser, orgA, "viewer", async () =>
         currentTransaction().athenaGenerationRun.create({
@@ -636,6 +675,11 @@ describe("live organization row-level security", () => {
       currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewViewer } })
     );
     expect(reviewerOwned?.reviewerUserId).toBe(viewerUser);
+
+    const actorOwned = await inSession(technicianUser, orgA, "technician", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewTechnician } })
+    );
+    expect(actorOwned?.generationId).toBe(generationTechnician);
 
     const inserted = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().athenaGenerationReview.create({

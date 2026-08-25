@@ -165,11 +165,17 @@ export async function listAthenaGenerationReviews(orgId: string, generationId: s
   return rows.map(toReviewRecord);
 }
 
-export async function deleteExpiredAthenaGenerationRecords(orgId: string, now = new Date(), batchSize = 500): Promise<{ scannedBatches: number; deletedCount: number }> {
+export async function deleteExpiredAthenaGenerationRecords(
+  orgId: string,
+  now = new Date(),
+  batchSize = 500,
+  maxBatches = 10
+): Promise<{ scannedBatches: number; deletedCount: number }> {
   if (!Number.isInteger(batchSize) || batchSize <= 0) throw new Error("batchSize must be a positive integer");
+  if (!Number.isInteger(maxBatches) || maxBatches <= 0) throw new Error("maxBatches must be a positive integer");
   let deleted = 0;
   let scannedBatches = 0;
-  for (;;) {
+  while (scannedBatches < maxBatches) {
     const rows = await prisma.athenaGenerationRun.findMany({
       where: { orgId, retentionExpiresAt: { lt: now } },
       orderBy: [{ retentionExpiresAt: "asc" }, { id: "asc" }],
@@ -180,6 +186,7 @@ export async function deleteExpiredAthenaGenerationRecords(orgId: string, now = 
     if (rows.length === 0) return { scannedBatches, deletedCount: deleted };
     const result = await prisma.athenaGenerationRun.deleteMany({ where: { orgId, id: { in: rows.map((row) => row.id) } } });
     deleted += result.count;
-    if (rows.length < batchSize) return { scannedBatches, deletedCount: deleted };
+    if (result.count === 0 || rows.length < batchSize) return { scannedBatches, deletedCount: deleted };
   }
+  return { scannedBatches, deletedCount: deleted };
 }

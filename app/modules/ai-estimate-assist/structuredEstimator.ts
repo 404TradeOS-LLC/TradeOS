@@ -10,7 +10,7 @@ import { ActivityTimelineService } from "../intelligence/service";
 import { KnowledgeRuntimeService } from "../knowledge-runtime/service";
 import { CostDatabaseService } from "../cost-database/service";
 import { AssembliesDatabaseService } from "../assemblies-database/service";
-import { createAthenaGenerationRecord, createAthenaGenerationReview } from "../athena-generation/store";
+import { createAthenaGenerationRecord, createAthenaGenerationReview, findAthenaGenerationRecord } from "../athena-generation/store";
 import {
   AIEstimateSuggestionKind,
   AIEstimateSuggestionTarget,
@@ -126,6 +126,7 @@ export class StructuredAIEstimatorService {
           provenance: {
             source: "ai_estimate_assist",
             engineVersion: ENGINE_VERSION,
+            estimateId: estimate.id,
             validationStatus,
           },
           retentionExpiresAt: new Date(Date.now() + resolveGenerationRetentionDays() * 24 * 60 * 60 * 1000),
@@ -189,6 +190,20 @@ export class StructuredAIEstimatorService {
   }> {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
+
+    if (input.generationId) {
+      if (!input.actorUserId) throw new ApiError(401, "Authenticated reviewer is required");
+      const generation = await findAthenaGenerationRecord(input.orgId, input.generationId);
+      const generationEstimateId = typeof generation?.provenance.estimateId === "string" ? generation.provenance.estimateId : null;
+      if (
+        !generation ||
+        generation.provenance.source !== "ai_estimate_assist" ||
+        generationEstimateId !== input.estimateId
+      ) {
+        throw new ApiError(400, "Generation record does not match the reviewed estimate");
+      }
+    }
+
     const hasAcceptedLines = input.lineItems.some((lineItem) => lineItem.status === "accepted");
     if (hasAcceptedLines && normalizeEstimateStatus(estimate.status) !== "draft") {
       throw new ApiError(409, `Estimate ${input.estimateId} is not in draft status and can no longer be modified`);

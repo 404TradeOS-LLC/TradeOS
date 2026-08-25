@@ -22,6 +22,7 @@ jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: {} }));
 jest.mock("../db/requestSession", () => ({ runWithBackgroundDatabaseSession }));
 
 import { runAthenaObservabilityRetention } from "../modules/athena-observability/retention";
+import { deleteExpiredAthenaGenerationRecords } from "../modules/athena-generation/store";
 
 const ORG_A = "org-a";
 const ORG_B = "org-b";
@@ -116,6 +117,25 @@ describe("runAthenaObservabilityRetention", () => {
     expect(mockPrisma.athenaGenerationRun.deleteMany).toHaveBeenNthCalledWith(2, {
       where: { orgId: ORG_A, id: { in: ["g3", "g4"] } },
     });
+  });
+
+  it("stops generation cleanup when RLS deletes no rows and caps full batches", async () => {
+    mockPrisma.athenaGenerationRun.findMany.mockResolvedValue([{ id: "g1" }]);
+    mockPrisma.athenaGenerationRun.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(deleteExpiredAthenaGenerationRecords(ORG_A, new Date("2026-08-10T12:00:00.000Z"), 1, 2)).resolves.toEqual({
+      scannedBatches: 1,
+      deletedCount: 0,
+    });
+    expect(mockPrisma.athenaGenerationRun.findMany).toHaveBeenCalledTimes(1);
+
+    mockPrisma.athenaGenerationRun.findMany.mockClear();
+    mockPrisma.athenaGenerationRun.deleteMany.mockResolvedValue({ count: 1 });
+    await expect(deleteExpiredAthenaGenerationRecords(ORG_A, new Date("2026-08-10T12:00:00.000Z"), 1, 2)).resolves.toEqual({
+      scannedBatches: 2,
+      deletedCount: 2,
+    });
+    expect(mockPrisma.athenaGenerationRun.findMany).toHaveBeenCalledTimes(2);
   });
 
   it("is idempotent: running again after everything old is already deleted deletes nothing", async () => {

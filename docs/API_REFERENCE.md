@@ -432,3 +432,15 @@ persists only organization/actor-scoped generation metadata through the
 application service; raw prompts, model output, tool arguments, and tool
 results remain excluded by default. Review provenance does not bypass existing
 review-first application-service writes.
+
+The existing AI Estimate Assist routes expose this contract:
+
+- `POST /api/v1/estimates/:id/ai-estimator/draft` returns `generationId` for
+  successful authenticated structured draft generation. The identifier points
+  to metadata only; raw prompt and model content are not persisted.
+- `POST /api/v1/estimates/:id/ai-estimator/apply` accepts an optional root
+  `generationId` UUID. When present, the authenticated owner/admin review is
+  bound to the same estimate and persists append-only generation provenance
+  (reviewer, outcome, and bounded apply counts). The organization is derived
+  server-side, and accepted business writes still use the existing
+  review-first Estimate Engine path.

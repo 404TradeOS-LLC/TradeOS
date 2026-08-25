@@ -1,6 +1,6 @@
 # S025 — AI generation persistence plan
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S024 (`DONE` through ADR-008 and founder-decision PR #301)
 Founder decision required: NO — ADR-008 is the accepted product/privacy/cost boundary.
 
@@ -46,8 +46,8 @@ default.
 
 Authenticated structured draft generation returns the persisted metadata record
 identifier without exposing raw prompt or model content. The existing structured
-review/apply request accepts that identifier and records the administrator reviewer, outcome, and bounded
-apply counts through the existing transaction. The business write
+review/apply request accepts that identifier and records the owner/admin reviewer,
+outcome, and bounded apply counts through the existing transaction. The business write
 still occurs only through the existing Estimate Engine review-first path.
 
 ## Explicit non-goals

@@ -200,6 +200,7 @@ describe("AthenaKernelService", () => {
     expect(result.success).toBe(true);
     const retentionExpiresAt = generationRows[0]?.retentionExpiresAt.getTime();
     expect(retentionExpiresAt).toBeGreaterThanOrEqual(before + 90 * 24 * 60 * 60 * 1000);
+    expect(retentionExpiresAt).toBeLessThanOrEqual(Date.now() + 90 * 24 * 60 * 60 * 1000 + 1_000);
   });
 
   it("expires instead of succeeding when generation persistence exceeds the request deadline", async () => {

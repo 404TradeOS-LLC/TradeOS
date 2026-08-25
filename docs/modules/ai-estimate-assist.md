@@ -48,7 +48,7 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 
 - assist output is advisory only
 - accepted suggestions still flow through the ordinary estimate line-item paths
-- authenticated structured estimator draft generation also persists an addressable, tenant/actor-scoped metadata record without raw prompt or model content; it does not create estimate line items
+- successful authenticated structured estimator draft generation also persists an addressable, tenant/actor-scoped metadata record without raw prompt or model content; it does not create estimate line items
 - accepted reviewed lines call the existing Estimate Engine line-item path and never write estimate lines directly from generated output
 - structured estimator draft lines with resolved targets include server-signed review tokens binding the estimate, organization, draft line, target kind, target ID, engine version, and issue time
 - structured estimator apply validates accepted targets against org-scoped active cost items or assemblies before writing, requires accepted lines to present matching unexpired review tokens, skips fabricated or foreign targets with the same safe reason, serializes concurrent apply attempts per estimate, and uses server-built `sourceKey` values plus existing-line reconciliation for retry protection
