@@ -23,7 +23,7 @@ S028 is DONE after implementation PR #338, completion-evidence PR #339, and PT-0
 
 ## Current truth
 
-- Main is reconciled through S040 readiness merge `fb4e8938f07f05997258039a37dd8905de1553f8`; S030 implementation merge is `d8e07606737de561b7cbed4e0be72ce875fae73c` and completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 implementation is in review through PR #346 at head `138ed9f2703bf50c9c210b75cdf892439a21743e3`.
+- Main is reconciled through S040 implementation merge `6fb0596c6a865923627e621c0933033dad3c636b`; S030 implementation merge is `d8e07606737de561b7cbed4e0be72ce875fae73c` and completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. S040 completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`.
 - PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; persisted paid invoices now present queue `balanceDue: 0` consistently with invoice detail without fabricating Payment rows.
 - PR #332 is closed superseded; #338/#339/#342 are merged and no stale #332 implementation lane remains.
 - S012 and S029 are DONE and satisfy S030 dependencies.
@@ -41,12 +41,12 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-Verify and merge the sole S040 implementation lane, PR #346, through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; then record completion evidence before evaluating S041. Keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated.
+S040 is complete through PR #346 and its completion-evidence lane. Prepare S041 only through `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; keep authenticated browser evidence explicitly environment-blocked unless an authorized proof can proceed. The estimate-to-proposal mutation proof is not fabricated.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S040 implementation is IN_REVIEW through PR #346 and no competing implementation PR or worktree is authorized.
+Eligibility: No numbered sprint is currently `READY`; S041 is the next security-leverage candidate but remains PLANNED pending its own governed readiness promotion.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: PR #346 and `feature/s040-tenant-boundary-regressions` are the sole S040 implementation lane.
-Startup prompt: Verify and merge PR #346 only after exact-head checks pass, then reconcile S040 completion evidence before evaluating S041. Do not combine S027 browser evidence with S040.
+Overlap check: S040 implementation PR #346 and completion evidence are merged; no competing S041 lane exists.
+Startup prompt: Prepare S041 through the governed readiness flow only. Do not begin S041 implementation or combine S027 browser evidence with S041.
