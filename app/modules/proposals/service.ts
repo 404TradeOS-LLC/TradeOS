@@ -7,7 +7,7 @@ import { ProposalDocument } from "../proposal-generator/types";
 import { ProjectIntakeService } from "../project-intake/service";
 import { ActivityTimelineService } from "../intelligence/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
-import { legacyProposalStatusMap, normalizeProposalStatus } from "../../domain";
+import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStatus } from "../../domain";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
 import { expandCanonicalStatusFilter } from "../shared/statusFilter";
 import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
@@ -392,6 +392,10 @@ export class ProposalsService {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
+    const estimateStatus = normalizeEstimateStatus(estimate.status);
+    const finalizedEstimatePrice = estimateStatus === "draft" ? null : estimate.totalPrice;
+    const hasExplicitRange = input.priceLow != null || input.priceHigh != null;
+
     const proposal = await prisma.proposal.create({
       data: {
         projectId: estimate.projectId,
@@ -404,7 +408,7 @@ export class ProposalsService {
         timeline: input.timeline,
         priceLow: input.priceLow,
         priceHigh: input.priceHigh,
-        finalPrice: input.finalPrice,
+        finalPrice: input.finalPrice ?? (hasExplicitRange ? null : finalizedEstimatePrice),
         paymentScheduleJson: this.normalizePaymentSchedule(input.paymentScheduleJson) as object | undefined,
         termsAndConditions: input.termsAndConditions,
       },

@@ -305,3 +305,7 @@ S026 is the active numbered-sprint lane. Its bounded backend change serializes p
 ## S026 Estimate line-item ordering concurrency (done)
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
+
+## S028 estimate-to-proposal reconciliation
+
+Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 is the bounded follow-up that closes the persisted proposal-price gap.

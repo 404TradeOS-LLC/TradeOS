@@ -308,3 +308,7 @@ S022 rendering is presentation-only: proposal, contract, and invoice lifecycle v
 ## Estimate line-item ordering concurrency
 
 Estimate line-item append order is persisted and remains deterministic under concurrent manual or AI/replay-shaped inserts. The implementation serializes allocation on the parent Estimate row without changing estimate lifecycle states.
+
+## S028 estimate-to-proposal workflow
+
+Estimate-backed proposal creation persists the finalized estimate's existing `totalPrice` as the proposal's `finalPrice` when no explicit proposal price is supplied. Draft estimates remain unpriced, and explicit proposal ranges remain ranges rather than being combined with a contradictory derived fixed price.
