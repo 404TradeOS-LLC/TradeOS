@@ -304,3 +304,8 @@ S026 is the active numbered-sprint lane. Its bounded backend change serializes p
 ## S026 Estimate line-item ordering concurrency (done)
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
+
+
+## S028 Estimate-to-proposal workflow (in review)
+
+S028 is the active numbered-sprint lane through existing implementation PR #332, which covers the estimate deliverability path into proposal generation. The branch is currently behind origin/main and has deterministic app/docs/governance failures; no duplicate S028 implementation may be created. The bounded contract preserves estimate totals/statuses, proposal documents, audit events, authorization/RLS, and finalized-estimate immutability.

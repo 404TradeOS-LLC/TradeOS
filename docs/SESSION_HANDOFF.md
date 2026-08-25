@@ -37,8 +37,8 @@ Create/reconcile the isolated S026 implementation branch/worktree and implement 
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S026 is DONE and S027 remains BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S026 is DONE; S027's required external evidence is unavailable.
-Overlap check: No numbered-sprint implementation lane is active; no S027 implementation writes are authorized.
-Startup prompt: Obtain the authenticated rendered Costbook evidence required by the existing S027 readiness contract, then perform a fresh readiness reconciliation before any promotion.
+Sprint ID: S028
+Eligibility: IN_REVIEW through existing implementation PR #332; S008 and S009 are DONE.
+Dependencies: S008 and S009 are DONE.
+Overlap check: PR #332 is the sole S028 implementation lane; no competing S028 implementation branch may be created. S027 remains BLOCKED on authenticated rendered Costbook evidence.
+Startup prompt: Reconcile PR #332 onto current main, repair deterministic CI and review findings, verify the S028 acceptance contract, and merge only after all required checks and migration/RLS evidence pass.
