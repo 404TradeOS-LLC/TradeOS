@@ -7,7 +7,7 @@ import { getRolePermissions, normalizeRole, SupportedRole } from "../../domain";
 import { getDatabaseTransactionMaxWait } from "../../db/requestSession";
 
 export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContext> {
-  return basePrisma.$transaction(async (transaction) => {
+  const auth = await basePrisma.$transaction(async (transaction) => {
     await transaction.$queryRaw(Prisma.sql`select set_config('app.auth_subject', ${claims.sub}, true)`);
 
     // Explicit select, not a bare findUnique: Prisma's default is to select
@@ -30,7 +30,7 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
           data: { revokedAt: new Date(), lastUsedAt: new Date() },
         });
       }
-      throw new ApiError(403, "Authenticated user is not provisioned in this organization");
+      return null;
     }
 
     await transaction.$queryRaw(Prisma.sql`
@@ -62,4 +62,7 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
       email: user.email,
     };
   }, { maxWait: getDatabaseTransactionMaxWait() });
+
+  if (!auth) throw new ApiError(403, "Authenticated user is not provisioned in this organization");
+  return auth;
 }

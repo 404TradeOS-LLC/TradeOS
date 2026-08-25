@@ -13,5 +13,5 @@ authRouter.post("/refresh", authRateLimit, asyncHandler(authController.refresh))
 authRouter.post("/bootstrap", authRateLimit, asyncHandler(authController.bootstrap));
 authRouter.post("/password-reset/request", authRateLimit, asyncHandler(authController.requestPasswordReset));
 authRouter.post("/password-reset/confirm", authRateLimit, asyncHandler(authController.resetPassword));
-authRouter.post("/logout", requireAuth, databaseSession, asyncHandler(authController.logout));
+authRouter.post("/logout", authRateLimit, requireAuth, databaseSession, asyncHandler(authController.logout));
 authRouter.post("/invites/accept", authRateLimit, asyncHandler(authController.acceptInvite));

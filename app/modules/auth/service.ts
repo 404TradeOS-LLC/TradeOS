@@ -19,6 +19,7 @@ import {
   SupabaseBootstrapInput,
 } from "./types";
 import { normalizeRole } from "../../domain";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -228,7 +229,7 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await basePrisma.$transaction(async (transaction) => {
+    await runInDatabaseTransaction(basePrisma, async (transaction) => {
       await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
       await transaction.authRefreshToken.updateMany({
         where: { userId, revokedAt: null },
