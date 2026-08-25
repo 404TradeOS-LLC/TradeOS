@@ -1,8 +1,20 @@
-import { Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
+import { z } from "zod";
 import { jobsController, scheduleController } from "../controllers/jobsTransactional.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
+const uuidPathParam = (_req: Request, _res: Response, next: NextFunction, value: string) => {
+  try {
+    z.string().uuid().parse(value);
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const jobsRouter = Router();
+jobsRouter.param("jobId", uuidPathParam);
+jobsRouter.param("assignmentId", uuidPathParam);
 jobsRouter.post("/", asyncHandler(jobsController.create));
 jobsRouter.get("/", asyncHandler(jobsController.list));
 jobsRouter.get("/dispatch-summary", asyncHandler(jobsController.dispatchSummary));

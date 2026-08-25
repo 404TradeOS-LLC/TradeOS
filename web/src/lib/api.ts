@@ -1054,6 +1054,7 @@ export function getContract(token: string, id: string) {
 // technician context the project-scoped summary does not.
 
 export interface DispatchJobTechnician {
+  assignmentId?: string;
   userId: string;
   name: string;
 }

@@ -64,7 +64,7 @@ const jobDetailInclude = {
   customer: true,
   serviceAddress: true,
   assignments: {
-    where: { removedAt: null },
+    where: { removedAt: null, declinedAt: null },
     include: { user: true },
     orderBy: [{ isLead: "desc" }, { createdAt: "asc" }],
   },
@@ -92,8 +92,9 @@ const jobListInclude = {
     select: { id: true, name: true },
   },
   assignments: {
-    where: { removedAt: null },
+    where: { removedAt: null, declinedAt: null },
     select: {
+      id: true,
       userId: true,
       user: { select: { id: true, fullName: true, email: true } },
     },
@@ -274,7 +275,7 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       await this.assertJobContext(tx, input.orgId, input.projectId, input.customerId, input.serviceAddressId);
       const technicianIds = uniqueValues(input.technicianIds);
-      await this.assertAssignableTechnicians(tx, input.orgId, technicianIds);
+      await this.assertAssignableTechnicians(tx, input.orgId, technicianIds, true);
       validateScheduleRange(input.scheduledStart ?? null, input.scheduledEnd ?? null, input.arrivalWindowStart ?? null, input.arrivalWindowEnd ?? null);
       validateDuration(input.estimatedDurationMinutes ?? null);
 
@@ -480,7 +481,7 @@ export class JobsService {
   async listAssignments(jobId: string, orgId: string, actor: { userId: string; role: string }): Promise<JobAssignmentDTO[]> {
     await this.findJobOrThrow(this.db, jobId, orgId, actor, false);
     const rows = await this.db.jobAssignment.findMany({
-      where: { jobId, orgId, removedAt: null },
+      where: { jobId, orgId, removedAt: null, declinedAt: null },
       include: { user: true },
       orderBy: [{ isLead: "desc" }, { createdAt: "asc" }],
     });
@@ -508,17 +509,40 @@ export class JobsService {
       this.assertConflictsAllowed(conflicts, input.actor.role, input.overrideConflict, input.overrideReason);
 
       try {
-        const row = await tx.jobAssignment.create({
-          data: {
+        const declinedAssignment = await tx.jobAssignment.findFirst({
+          where: {
             orgId: input.orgId,
             jobId: job.id,
             userId: input.userId,
-            assignmentRole: input.assignmentRole,
-            isLead,
-            assignedById: input.actor.userId,
+            removedAt: null,
+            declinedAt: { not: null },
           },
           include: { user: true },
         });
+        const row = declinedAssignment
+          ? await tx.jobAssignment.update({
+              where: { id: declinedAssignment.id },
+              data: {
+                assignmentRole: input.assignmentRole,
+                isLead,
+                assignedById: input.actor.userId,
+                assignedAt: new Date(),
+                acceptedAt: null,
+                declinedAt: null,
+              },
+              include: { user: true },
+            })
+          : await tx.jobAssignment.create({
+              data: {
+                orgId: input.orgId,
+                jobId: job.id,
+                userId: input.userId,
+                assignmentRole: input.assignmentRole,
+                isLead,
+                assignedById: input.actor.userId,
+              },
+              include: { user: true },
+            });
 
         await this.recordJobEvent(tx, {
           orgId: input.orgId,
@@ -1130,7 +1154,7 @@ export class JobsService {
     return { project, customer, serviceAddress };
   }
 
-  private async assertAssignableTechnicians(tx: Prisma.TransactionClient, orgId: string, userIds: string[]) {
+  private async assertAssignableTechnicians(tx: Prisma.TransactionClient, orgId: string, userIds: string[], requireTechnicianRole = false) {
     if (userIds.length === 0) return [];
     const rows = await tx.organizationMembership.findMany({
       where: {
@@ -1143,7 +1167,7 @@ export class JobsService {
     if (rows.length !== userIds.length) {
       throw new ApiError(409, "Assigned technicians must be active users in the same organization");
     }
-    if (!rows.every((row) => row.user.isActive)) {
+    if (!rows.every((row) => row.user.isActive && (!requireTechnicianRole || row.role === "technician"))) {
       throw new ApiError(409, "Assigned technicians must be active users in the same organization");
     }
     return rows;
@@ -1279,6 +1303,7 @@ function scopedJobAccessWhere(orgId: string, actor: { userId: string; role: stri
         some: {
           userId: actor.userId,
           removedAt: null,
+          declinedAt: null,
         },
       },
     };
@@ -1300,7 +1325,7 @@ function buildNeedsAttentionWhere(now: Date): Prisma.JobWhereInput {
   return {
     OR: [
       { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
-      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },
+      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null, declinedAt: null } } },
       { status: "unscheduled" },
     ],
   };
@@ -1330,6 +1355,7 @@ function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput
         some: {
           userId: filters.technicianId,
           removedAt: null,
+          declinedAt: null,
         },
       },
     });
@@ -1341,9 +1367,9 @@ function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput
   // would treat `false` the same as `undefined` and silently return every
   // job for an explicit "assigned" filter request.
   if (filters.unassigned === true) {
-    conditions.push({ assignments: { none: { removedAt: null } } });
+    conditions.push({ assignments: { none: { removedAt: null, declinedAt: null } } });
   } else if (filters.unassigned === false) {
-    conditions.push({ assignments: { some: { removedAt: null } } });
+    conditions.push({ assignments: { some: { removedAt: null, declinedAt: null } } });
   }
 
   if (filters.needsAttention === true) {
@@ -1484,7 +1510,7 @@ function toDispatchAwareJobSummaryDTO(
     archivedAt: Date | null;
     project: { id: string; name: string; siteAddress: string | null } | null;
     customer: { id: string; name: string } | null;
-    assignments: { userId: string; user: { id: string; fullName: string | null; email: string } }[];
+    assignments: { id: string; userId: string; user: { id: string; fullName: string | null; email: string } }[];
   },
   now: Date
 ): JobSummaryDTO {
@@ -1496,6 +1522,7 @@ function toDispatchAwareJobSummaryDTO(
       : null,
     customer: row.customer ? { id: row.customer.id, name: row.customer.name } : null,
     assignedTechnicians: row.assignments.map((assignment) => ({
+      assignmentId: assignment.id,
       userId: assignment.userId,
       name: assignment.user.fullName ?? assignment.user.email,
     })),

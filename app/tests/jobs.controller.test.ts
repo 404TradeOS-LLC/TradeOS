@@ -196,6 +196,32 @@ describe("jobsController", () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it("parses archived=false strictly as the unarchived filter", async () => {
+    list.mockResolvedValue({ items: [], page: 1, pageSize: 25, total: 0 });
+    const req = {
+      query: { archived: "false" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await jobsController.list(req, res);
+
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ archived: false }));
+  });
+
+  it("rejects malformed archived values instead of truthy-coercing them", async () => {
+    const req = {
+      query: { archived: "nope" },
+      orgId: "org-1",
+      auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    } as any;
+    const res = responseDouble();
+
+    await expect(jobsController.list(req, res)).rejects.toThrow();
+    expect(list).not.toHaveBeenCalled();
+  });
+
   it("returns the dispatch summary for the authenticated org, requiring no elevated role", async () => {
     const summary = {
       activeJobs: 3,

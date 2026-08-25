@@ -318,3 +318,13 @@ default. Business mutations remain owned by existing review-first services.
 ## S028 estimate deliverability
 
 The S028 lane preserves the existing Estimate and Proposal entities while adding additive estimate metadata for tax percentage/amount and line-item section, cost type, and taxable semantics. These fields remain organization-scoped through the existing relationships and do not introduce a new identity, payment, or accounting model.
+
+## S030 dispatcher workspace
+
+S030 uses the existing Job and JobAssignment entities as the dispatcher work queue; it does not introduce a replacement dispatch model.
+
+- Job remains organization-owned through orgId and retains the existing project, customer, service-address, scheduling, lifecycle, and archive relationships.
+- JobAssignment is the active technician relationship when both removedAt and declinedAt are null. Declined assignments remain provenance/history but are not active dispatch ownership, technician job access, queue assignment, or conflict participation.
+- Dispatcher mutations continue to use the established manager authorization and owner/admin conflict-override rules. The browser surface calls the authenticated same-origin proxy; it does not hold backend bearer credentials.
+- The S030 RLS hardening migration aligns the forced jobs and job_equipment policies with the active-assignment invariant. It changes existing policy predicates only and does not add entities or alter tenant ownership.
+- S030 does not introduce persisted derived lifecycle states, route optimization, GPS, notifications, billing behavior, or concurrency semantics.

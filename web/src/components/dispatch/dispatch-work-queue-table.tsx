@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DispatchJobActions } from "@/components/dispatch/dispatch-job-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
 import type { DispatchJob } from "@/lib/api";
@@ -75,7 +76,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
   return (
     <>
       <TableSection
-        className="hidden md:block"
+        className="hidden lg:block"
         title="Work queue"
         description={`${total} job${total === 1 ? "" : "s"} matching the current filters.`}
       >
@@ -89,6 +90,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
             <th scope="col" className="px-3 py-2">Assigned</th>
             <th scope="col" className="px-3 py-2">Priority</th>
             <th scope="col" className="px-3 py-2">Attention</th>
+            <th scope="col" className="px-3 py-2">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -129,13 +131,16 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
               <td className="px-3 py-3">
                 <AttentionIndicator job={job} />
               </td>
+              <td className="px-3 py-3">
+                <DispatchJobActions job={job} />
+              </td>
             </tr>
           ))}
         </tbody>
         </table>
       </TableSection>
 
-      <div className="grid gap-3 md:hidden">
+      <div className="grid gap-3 lg:hidden">
         {jobs.map((job) => (
           <article key={job.id} className="rounded-2xl border border-border/60 bg-background/80 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -177,6 +182,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
               {job.priority ? <StatusBadge status={job.priority} /> : null}
               <AttentionIndicator job={job} />
             </div>
+            <DispatchJobActions job={job} />
           </article>
         ))}
       </div>

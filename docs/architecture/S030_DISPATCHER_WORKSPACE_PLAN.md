@@ -55,4 +55,4 @@ For UI changes use stable semantic locators and repository-required desktop/tabl
 
 ## Readiness evidence
 
-S012 and S029 are DONE; S028 is DONE and non-overlapping; no open or draft S030 PR, branch, or worktree was found; S027 is independently blocked on authenticated rendered Costbook evidence; no external credential or founder decision is required to begin repository verification. Implementation status is NOT STARTED until this governance-only promotion lands.
+S012 and S029 are DONE; S028 is DONE and non-overlapping; no open or draft S030 PR, branch, or worktree was found; S027 is independently blocked on authenticated rendered Costbook evidence; no external credential or founder decision is required to begin repository verification. Implementation status: ACTIVE on the sole `feature/s030-dispatcher-verification` lane. The lane is repairing the existing read-only workspace to expose the existing mutation routes without adding schema, roles, or policy changes.

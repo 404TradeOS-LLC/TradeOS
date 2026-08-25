@@ -120,3 +120,8 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 ## Last verified date
 
 2026-08-12
+
+
+## S030 dispatcher verification (active)
+
+The `/dispatch` workspace now exposes the existing organization-scoped assignment, schedule/reschedule, conflict-check, and named lifecycle endpoints through a same-origin authenticated client proxy. Active assignments exclude both removed and declined rows in application predicates and detail/list includes, matching technician visibility policy. Job creation also requires assigned users to hold the canonical `technician` membership role; no new status, role, permission, migration, or RLS policy was introduced.

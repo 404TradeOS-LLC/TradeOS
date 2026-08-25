@@ -132,3 +132,8 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 ## A12.1 transactional event authorization
 
 A12.1 changes transaction semantics, not permissions. The six required canonical event publishers continue to use the same authenticated organization, actor, service-level authorization, and shared permission boundaries described above. Making business mutation plus durable canonical-event persistence atomic does not grant a new role, permission, bypass, or cross-tenant capability; subscriber delivery remains asynchronous and outside the authorization-sensitive business transaction.
+
+
+## S030 dispatcher verification (active)
+
+Dispatcher actions continue to use the existing bearer authentication, organization membership, service authorization, and forced-RLS boundaries. Active technician visibility excludes declined assignments, and job creation rejects non-technician membership rows; conflict overrides remain enforced by the existing owner/admin service policy.

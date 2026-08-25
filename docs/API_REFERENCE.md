@@ -453,3 +453,7 @@ The existing AI Estimate Assist routes expose this contract:
 ## Estimate line-item ordering
 
 Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.
+
+## S030 dispatcher verification (active)
+
+The dispatcher API contract remains additive over `/api/v1/jobs`: list/summary reads plus existing schedule, reschedule, assignment, conflict, and lifecycle routes. The web workspace uses the authenticated `/api/proxy/*` bridge for mutations, so bearer tokens remain server-side. Assignment summaries include an optional assignment identifier for safe unassignment.

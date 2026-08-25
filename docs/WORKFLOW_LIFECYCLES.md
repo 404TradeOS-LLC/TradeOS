@@ -312,3 +312,9 @@ Estimate line-item append order is persisted and remains deterministic under con
 ## S028 estimate-to-proposal workflow
 
 Estimate-backed proposal creation persists the finalized estimate's existing `totalPrice` as the proposal's `finalPrice` when no explicit proposal price is supplied. Draft estimates remain unpriced, and explicit proposal ranges remain ranges rather than being combined with a contradictory derived fixed price.
+S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.
+
+
+## S030 dispatcher verification (active)
+
+The dispatcher workspace invokes only the existing canonical Job actions and schedule/assignment routes. It does not add statuses or generic status mutation. Scheduling and rescheduling preserve the existing conflict/override and lifecycle transition rules, and successful mutations refresh the rendered queue and summary.
