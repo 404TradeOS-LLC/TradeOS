@@ -74,6 +74,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
+- **Artifact upload runtime maintenance:** PR #308 updates the authenticated RC smoke and S027 browser-evidence artifact publication steps from `actions/upload-artifact@v6` to `@v7`. Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
 
 These changes improve evidence for low-risk automated repair. They do not grant autonomous authority over migrations, auth/RLS policy, destructive data operations, secrets, billing, major architecture, or other protected decisions.
 
@@ -212,11 +213,9 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
 
-
 ## S026 completion
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 remains blocked on authenticated rendered Costbook browser evidence.
-
 
 ## S028 completion
 
