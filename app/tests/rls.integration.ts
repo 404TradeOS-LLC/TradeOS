@@ -1883,6 +1883,9 @@ describe("live organization row-level security", () => {
 
       const invoiceA3 = result.items.find((item) => item.id === invoiceQueueA3);
       expect(invoiceA3).toMatchObject({ amount: 500, paidAmount: 500, balanceDue: 0 });
+
+      const invoiceA5 = result.items.find((item) => item.id === invoiceQueueA5);
+      expect(invoiceA5).toMatchObject({ amount: 750, paidAmount: 0, balanceDue: 0 });
     });
 
     it("invoices queue: overdue/partiallyPaid/unpaid predicates match the documented semantics, excluding voided invoices", async () => {

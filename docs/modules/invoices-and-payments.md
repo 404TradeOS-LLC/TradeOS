@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: false
 related_code:
   - app/modules/invoices
@@ -54,8 +54,8 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 
 - **Scope:** organization-wide (scoped through the invoice's project, since `Invoice` has no direct `orgId` column); every authenticated organization member with `billing.read` may call it. Organization scope is derived from the authenticated request context, never a caller-supplied id, and is enforced both in the query and by forced RLS on the `invoices`/`projects` tables.
 - **Filters:** `status` (comma-separated, multiple statuses, legacy-synonym-aware), `sent` (`sentAt` non-null), `overdue`, `partiallyPaid`, `unpaid` (see semantics below), `updatedAfter`, `updatedBefore`.
-- **paidAmount/balanceDue derivation:** `Invoice` has no stored balance column — it only carries its own `amount`; payments are recorded separately on `Payment` rows (the same rows the Revenue-This-Week ledger reads). The queue computes `paidAmount` as the sum of that invoice's `Payment` rows with `status = "recorded"` and `balanceDue = amount - paidAmount`, evaluated in the database (via `$queryRaw`, still routed through the same request-scoped RLS session every other service call uses) so `overdue`/`partiallyPaid`/`unpaid` can filter and paginate exactly instead of loading every invoice into memory to filter client-side.
-- **Semantics:** `overdue` = due date passed AND `balanceDue > 0` AND status is neither persisted `paid` nor voided. `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is neither persisted `paid` nor voided. `unpaid` = `balanceDue > 0` AND status is neither persisted `paid` nor voided (so partially-paid invoices are included, per the locked product decision). The voided exclusion checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`) rather than the canonical display spelling `voided`; the void mutation now persists that same raw `void` value. The queue also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap`), even though no currently-reachable write path can produce that value — the constraint has never allowed it either. Persisted `paid` is authoritative for follow-up exclusion even when the manual `mark-paid` path has no Payment row.
+- **paidAmount/balanceDue derivation:** `Invoice` has no stored balance column — it only carries its own `amount`; payments are recorded separately on `Payment` rows (the same rows the Revenue-This-Week ledger reads). The queue computes `paidAmount` as the sum of that invoice's `Payment` rows with `status = "recorded"`. For non-paid invoices, `balanceDue` is the non-negative remainder `amount - paidAmount`; when persisted invoice status is `paid`, `balanceDue` is forced to zero even if the supported manual `mark-paid` path created no Payment row. The calculation remains database-side (via `$queryRaw`, still routed through the same request-scoped RLS session every other service call uses) so `overdue`/`partiallyPaid`/`unpaid` can filter and paginate exactly instead of loading every invoice into memory to filter client-side.
+- **Semantics:** `overdue` = due date passed AND `balanceDue > 0` AND status is neither persisted `paid` nor voided. `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is neither persisted `paid` nor voided. `unpaid` = `balanceDue > 0` AND status is neither persisted `paid` nor voided (so partially-paid invoices are included, per the locked product decision). The voided exclusion checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`) rather than the canonical display spelling `voided`; the void mutation now persists that same raw `void` value. The queue also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap`), even though no currently-reachable write path can produce that value — the constraint has never allowed it either. Persisted `paid` is authoritative for both follow-up exclusion and a displayed zero queue balance even when the manual `mark-paid` path has no Payment row.
 - **Pagination:** opaque cursor, default 25 / max 50, `updatedAt desc, id desc` with a stable id tie-breaker, invalid cursor -> `400`. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
 - **Response fields:** `id`, `documentNumber` (the existing `invoiceNumber`), `projectId`, `projectName`, `customerName`, `status`, `amount`, `paidAmount`, `balanceDue`, `dueDate`, `updatedAt`. No `orgId` on individual items.
 
@@ -101,7 +101,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 - `app/tests/invoices.void.test.ts` — regression coverage for raw `void` persistence plus canonical `invoice.voided` delivery/activity metadata
 - `app/tests/payments.service.test.ts`
 - `app/tests/invoice-contract-history.migration.test.ts`
-- `app/tests/invoices.queue.test.ts`, `app/tests/invoices.controller.queue.test.ts` — organization work-queue filter/SQL wiring, DTO mapping, and authorization
+- `app/tests/invoices.queue.test.ts`, `app/tests/invoices.queue.paid-balance.test.ts`, `app/tests/invoices.controller.queue.test.ts` — organization work-queue filter/SQL wiring, authoritative persisted-paid balance behavior, DTO mapping, and authorization
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and real Payment-aggregate balance computation (overdue/partiallyPaid/unpaid, voided exclusion) for the queue read
 - `app/tests/rls.integration.ts` — live PostgreSQL concurrent-payment serialization, one paid event, payment durability, cross-organization denial, and voided-invoice non-revival
 - `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
@@ -119,7 +119,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Last verified date
 
-2026-08-24
+2026-08-25
 
 ## S022 rendering boundary
 

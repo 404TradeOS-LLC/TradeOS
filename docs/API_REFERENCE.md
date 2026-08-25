@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -118,14 +118,18 @@ Mounted route groups from `app/backend/server.ts`:
 
 `POST /api/v1/invoices/:id/payments` remains the existing backend payment-recording boundary. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. No payment-entry UI or payment-processor contract is introduced by S011.
 
+`GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
+
 `GET /api/v1/invoices/:id` and `GET /api/v1/invoices/by-project/:projectId`
 require `billing.read` and return the organization-scoped invoice projection.
 The projection includes `paidAmount` and `balanceDue` derived from `Payment`
 rows whose status is `recorded`, plus a sanitized `payments` array containing
 amount, payment date, method, and creation time. Pending/failed payment rows,
 internal notes, and payment-entry actions are not exposed through this
-presentation projection. The organization remains derived from authenticated
-membership context and forced RLS.
+presentation projection. Persisted `paid` remains authoritative for a zero
+`balanceDue` even when manual mark-paid has no corresponding Payment row. The
+organization remains derived from authenticated membership context and forced
+RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
@@ -143,12 +147,6 @@ Estimate lifecycle behavior:
 - Estimate responses and organization-queue results use the canonical states `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`.
 - Historical `rejected` values normalize to `declined`; canonical `sent` remains distinct from `ready` and is accepted by the estimate queue status filter.
 - The currently implemented Estimate Engine mutation path remains draft-only until `POST /api/v1/estimates/:id/finalize` transitions the estimate to `ready`. This S008 slice does not add customer-facing send/view/approve/expire/supersede routes.
-
-Estimate deliverability additions:
-
-- `POST /api/v1/estimates/:id/line-items` accepts either an organization-scoped Costbook `costItemId`/`assemblyId` or a custom line with `description`, `unitOfMeasure`, and `unitCost`. Optional `section`, `costType` (`labor`, `material`, `equipment`, `disposal`, `subcontractor`, `other`), and `taxable` fields are snapshotted on the line.
-- `PATCH /api/v1/estimates/:id/line-items/:lineItemId` edits draft line descriptions, sections, cost types, units, quantities, unit costs, and taxable state. The nested estimate ID is validated.
-- `PATCH /api/v1/estimates/:id` updates draft `overheadPct` and `taxPct`. Tax is allocated to taxable scope by direct-cost share and included in `totalPrice`; DTOs expose `taxAmount`, `costAfterOverhead`, and `preTaxTotalPrice`.
 
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
@@ -430,3 +428,28 @@ bounded response as a complete catalog.
 ## S022 document rendering reliability
 
 Existing proposal, contract, invoice, and document-frame endpoints retain their current routes, organization scoping, authentication, authorization, and `application/pdf` content types. S022 hardens presentation output with deterministic UTC dates, finite numeric fallbacks, canonical status labels, and explicit empty line-item states; it adds no routes or domain semantics.
+
+## S025 AI generation persistence
+
+S025 adds no public endpoint. The existing authenticated Athena draft path
+persists only organization/actor-scoped generation metadata through the
+application service; raw prompts, model output, tool arguments, and tool
+results remain excluded by default. Review provenance does not bypass existing
+review-first application-service writes.
+
+The existing AI Estimate Assist routes expose this contract:
+
+- `POST /api/v1/estimates/:id/ai-estimator/draft` returns `generationId` for
+  successful authenticated structured draft generation. The identifier points
+  to metadata only; raw prompt and model content are not persisted.
+- `POST /api/v1/estimates/:id/ai-estimator/apply` accepts an optional root
+  `generationId` UUID. When present, the authenticated owner/admin review is
+  bound to the same estimate and persists append-only generation provenance
+  (reviewer, outcome, and bounded apply counts). The organization is derived
+  server-side, and accepted business writes still use the existing
+  review-first Estimate Engine path.
+
+
+## Estimate line-item ordering
+
+Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.
