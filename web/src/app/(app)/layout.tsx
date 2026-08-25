@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/api";
 import { isAthenaOperatorRole } from "@/lib/athena-state";
 import { getSession, getSessionToken } from "@/lib/session";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
+import { handleAthenaNavLookupFailure } from "./layout-athena-error.mjs";
 
 // Bounds how long AppLayout waits on the organization-settings lookup below.
 // The request is explicitly aborted when this deadline expires so a stalled
@@ -37,8 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }
     }
   } catch (error) {
-    console.error("AppLayout: failed to resolve Athena nav visibility", error);
-    canViewAthena = false;
+    canViewAthena = handleAthenaNavLookupFailure(error);
   }
 
   return (
