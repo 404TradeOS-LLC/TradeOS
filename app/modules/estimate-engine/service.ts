@@ -404,7 +404,7 @@ export class EstimateEngineService {
     await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT id
       FROM estimates
-      WHERE id = CAST(${estimateId} AS uuid) AND org_id = CAST(${orgId} AS uuid)
+      WHERE id = ${estimateId} AND org_id = ${orgId}
       FOR UPDATE
     `);
   }
