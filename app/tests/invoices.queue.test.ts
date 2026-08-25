@@ -120,8 +120,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
     await service.listOrganizationQueue({ orgId: "org-a" });
 
     const sql = sqlOf(queryRawMock.mock.calls[0][0]);
-    expect(sql).toMatch(/case\s+when i\.status = \? then 0\s+else greatest\(i\.amount - coalesce\(pt\.paid_amount, 0\), 0\)\s+end as balance_due/i);
-    expect(valuesOf(queryRawMock.mock.calls[0][0])).toContain("paid");
+    expect(sql).toMatch(/case\s+when i\.status = 'paid' then 0\s+else greatest\(i\.amount - coalesce\(pt\.paid_amount, 0\), 0\)\s+end as balance_due/i);
   });
 
   it("expands a requested canonical status to include its legacy raw synonyms", async () => {
