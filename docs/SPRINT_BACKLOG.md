@@ -433,10 +433,15 @@ Evidence: implementation PR #351 merged as `3f7c263f324911911f734cd29ce1ed6879dc
 
 ### S042 — Authentication/session hardening
 
-Status: PLANNED
+Status: READY
 Dependencies: S018
 Objective: Verify session creation, refresh, revocation, expiry, and server-action enforcement.
 Acceptance: fail-closed authentication behavior across web and API.
+Readiness contract: `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`.
+Allowed implementation paths: existing local auth/JWT/session, auth middleware/controller/route, existing web Supabase session/server-action seams, focused auth/RLS tests, and required owner documentation.
+Forbidden paths: schema or migration changes, RLS-policy redesign, new roles or permissions, authentication-provider replacement, new token persistence model, broad authorization refactors, production credentials/data/deployment, S027 browser evidence, S043+ work, and unrelated UI/billing/payment changes.
+Founder-decision boundary: RESOLVED for this bounded lane — refresh rotation is single-use; local refresh sessions are revoked on logout, password reset, and deactivation; finite access JWTs remain stateless until expiry; Supabase `exp`/`iat` are mandatory; server actions authenticate before side effects.
+Required implementation validation: focused auth/JWT/session/server-action/RLS tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `(cd app && npm test && npm run lint && npm run build && npm run test:integration)`; and `(cd web && npm test && npm run lint && npm run build)`.
 
 ### S043 — Security event audit trail
 
@@ -514,15 +519,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S028, S030, S040, and S041 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S041 implementation PR #351 and completion evidence are merged; S027 remains independent and blocked on browser evidence.
-Protected boundary: No numbered implementation lane is active; do not begin S042 until next-sprint eligibility is recomputed.
+Active Sprint: S042
+Completion status: S028, S030, S040, and S041 are DONE with merged implementation and completion evidence; S042 is READY through its governed readiness contract; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S018 is DONE; S042 implementation must remain in one authoritative lane; S027 remains independent and blocked on browser evidence.
+Protected boundary: Exactly one numbered implementation lane may exist for S042; do not begin S043 or combine S027 browser evidence with S042.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S041 is DONE with implementation PR #351 and completion evidence. Recompute the next numbered sprint under the Next Sprint Protocol.
+Sprint ID: S042
+Eligibility: READY; S018 is DONE and the S042 readiness contract is recorded in `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`.
 Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S027 remains blocked independently on authenticated rendered Costbook evidence.
-Overlap check: No open S041 implementation or completion PR remains; no authoritative S041 branch/worktree remains after reconciliation.
-Startup prompt: Inspect Next Sprint Protocol eligibility only. Do not begin S042 automatically or combine S027 browser evidence with another sprint.
+Overlap check: No open S042 implementation PR, branch, or worktree exists; no open S041 PR remains. Create exactly one isolated S042 implementation lane.
+Startup prompt: Implement only the S042 authentication/session hardening contract. Do not begin S043 or combine S027 browser evidence with S042.

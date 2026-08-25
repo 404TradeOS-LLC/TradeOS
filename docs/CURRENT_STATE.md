@@ -312,3 +312,7 @@ S040 is `DONE`: implementation PR #346 merged on 2026-08-25 as `6fb0596c6a865923
 ## S041 bounded implementation
 
 S041 readiness PR #350 merged as `9fde03effd679f63c36790f37ddfade2913247ed`; implementation PR #351 merged as `3f7c263f324911911f734cd29ce1ed6879dc8ccc`; completion evidence is recorded in `docs/architecture/S041_COMPLETION_EVIDENCE.md`. S041 is DONE. The shipped bounded hardening preserves raw legacy SQL role semantics, adds the approved change-order and supplier permission gates, and records the complete forced-RLS inventory.
+
+## S042 authentication/session hardening
+
+S042 is READY through `docs/architecture/S042_AUTHENTICATION_SESSION_HARDENING_PLAN.md`. The bounded contract covers single-use refresh rotation, local refresh-session revocation on logout/password reset/deactivation, explicit Supabase token expiry claims, and pre-side-effect server-action authentication. It preserves the existing provider, token tables, roles, permissions, request-scoped sessions, forced RLS, and finite stateless access-token boundary. No implementation or production/browser evidence is claimed yet.
