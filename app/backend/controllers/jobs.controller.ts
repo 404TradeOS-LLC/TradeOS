@@ -94,7 +94,7 @@ const listJobsQuerySchema = z.object({
   technicianId: z.string().uuid().optional(),
   scheduledFrom: z.string().datetime().optional(),
   scheduledTo: z.string().datetime().optional(),
-  archived: z.coerce.boolean().optional(),
+  archived: strictOptionalBooleanParam,
   search: z.string().trim().optional(),
   unassigned: strictOptionalBooleanParam,
   needsAttention: strictOptionalBooleanParam,

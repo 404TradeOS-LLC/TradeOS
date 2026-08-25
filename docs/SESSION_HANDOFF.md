@@ -23,7 +23,7 @@ S028 is DONE after implementation PR #338, completion-evidence PR #339, and PT-0
 
 ## Current truth
 
-- Main is reconciled through PT-003 merge `164fe63867dceb265d80a0a61098c4c99315a3f3`.
+- Main is reconciled through docs queue merge `24fef89df509331119e2fc2cad81286cfa1a729b`; PR #341 is rebased onto this current base.
 - PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; persisted paid invoices now present queue `balanceDue: 0` consistently with invoice detail without fabricating Payment rows.
 - PR #332 is closed superseded; #338/#339/#342 are merged and no stale #332 implementation lane remains.
 - S012 and S029 are DONE and satisfy S030 dependencies.
@@ -37,7 +37,7 @@ Read docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md before editing. Preserv
 
 ## Next action
 
-Reconcile PR #341 onto live main, repair deterministic assignment/conflict findings, complete governed RLS review, and keep authenticated browser evidence explicitly environment-blocked unless the authorized live-workspace proof can proceed.
+Run exact-head verification for PR #341 after the declined-assignment reactivation repair, complete governed RLS review, and keep authenticated browser evidence explicitly environment-blocked unless the authorized live-workspace proof can proceed.
 
 ## Next Eligible Sprint
 

@@ -118,7 +118,7 @@ export interface JobSummaryDTO {
   // declarations remain assignable without any change to JobDTO itself.
   project?: { id: string; name: string; siteAddress?: string | null; status?: string } | null;
   customer?: { id: string; name: string; email?: string | null; phone?: string | null } | null;
-  assignedTechnicians?: { userId: string; name: string }[];
+  assignedTechnicians?: { assignmentId?: string; userId: string; name: string }[];
   isOverdue?: boolean;
   isUnassigned?: boolean;
   needsAttention?: boolean;

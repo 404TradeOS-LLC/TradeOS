@@ -39,6 +39,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   return handle(request, (await params).path);
 }
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  return handle(request, (await params).path);
+}
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   return handle(request, (await params).path);
 }

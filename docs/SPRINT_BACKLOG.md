@@ -327,12 +327,12 @@ Status: IN_REVIEW
 Dependencies: S012
 Objective: Verify scheduled/unscheduled work, assignment, rescheduling, conflicts, and job state transitions.
 Acceptance: dispatcher critical path works across UI, API, and persistence.
-Readiness evidence: S012 and S029 are DONE; readiness promotion PR #340 is merged and PR #341 is the sole S030 implementation lane. PR #341 is currently behind live `main` at `164fe63867dceb265d80a0a61098c4c99315a3f3`; it also contains a governed RLS migration requiring human review and needs deterministic declined-assignment reactivation, schedule-conflict concurrency, and authenticated browser evidence reconciliation.
+Readiness evidence: S012 and S029 are DONE; readiness promotion PR #340 is merged and PR #341 is the sole S030 implementation lane. PR #341 is reconciled onto live `main` at `24fef89df509331119e2fc2cad81286cfa1a729b`; its bounded repair reactivates declined non-removed assignments in place, while schedule-conflict concurrency remains a documented non-goal. The governed RLS migration still requires human review and authenticated browser evidence remains outstanding.
 Readiness contract: Verify and narrowly repair the existing Dispatcher Workspace across scheduled/unscheduled queues, assignment, unassignment, rescheduling, deterministic conflicts, dispatch-summary scope, canonical S012 actions, refresh consistency, data states, responsive behavior, and organization/RLS boundaries. See docs/architecture/S030_DISPATCHER_WORKSPACE_PLAN.md.
 Founder-decision boundary: NO under existing lifecycle, RBAC, RLS, route, and workspace semantics.
 Required implementation validation: git diff --check; npm run pr:preflight -- --base origin/main; npm run pr:test; npm run docs:test; npm run docs:check -- --base origin/main; app and web tests/lint/build; PostgreSQL/RLS integration; focused browser evidence; exact-head CI.
 Forbidden in S030: new statuses, generic status mutation, new dispatch persistence, route optimization/GPS/notifications, automatic invoice creation, billing/payment changes, new roles or permission/RLS redesign, broad UI rewrites, unrelated concurrency/idempotency repairs, unreviewed migrations, and S031/S032/S034/S035 work.
-Implementation status: IN_REVIEW through PR #341; do not create a competing numbered lane.
+Implementation status: IN_REVIEW through PR #341; declined-assignment reactivation is covered by a focused regression test; do not create a competing numbered lane.
 
 
 ### S031 — Scheduling conflict rules
