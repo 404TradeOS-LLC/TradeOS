@@ -465,11 +465,12 @@ The existing AI Estimate Assist routes expose this contract:
 ## Estimate-backed invoice value transfer
 
 When `POST /api/v1/invoices` is created with an `estimateId`, the persisted
-final customer-facing `Estimate.totalPrice` is the invoice amount. The service
-allocates the estimate's pre-tax sell value and persisted `taxAmount` across
-the existing estimate lines so the invoice remains itemized while reconciling
-to the estimate total. Progress invoices scale that sell total by
-`percentComplete`. When explicit non-empty `lineItems` are supplied, they
+final customer-facing `Estimate.totalPrice` is the invoice amount, including
+persisted tax. The service allocates that total across the existing estimate
+lines in proportion to each persisted line `lineCost` share of
+`Estimate.subtotalCost`, rounds each allocation to cents, and assigns any
+rounding residual to the largest line. Progress invoices scale that sell total
+by `percentComplete`. When explicit non-empty `lineItems` are supplied, they
 override estimate resolution and retain their supplied values; estimate-backed
 allocation applies only when `lineItems` are absent or empty.
 

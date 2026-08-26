@@ -311,9 +311,12 @@ Payment reconciliation:
 When an invoice is created from an estimate, the invoice amount is the
 persisted customer-facing `Estimate.totalPrice`, including persisted tax.
 The existing estimate line items remain the invoice scope; their customer
-line totals receive a proportional allocation of pre-tax sell value and tax so
-the itemized invoice reconciles exactly to the estimate. Progress invoices
-scale that value by completion percentage. If explicit non-empty `lineItems` are
+line totals receive a proportional allocation based on each persisted
+`lineCost` share of `Estimate.subtotalCost`; persisted tax is already included
+in `Estimate.totalPrice` and is not re-derived in the invoice module. Each line
+is rounded to cents and any residual is assigned to the largest line so the
+itemized invoice reconciles exactly to the estimate. Progress invoices scale
+that value by completion percentage. If explicit non-empty `lineItems` are
 provided, they override estimate resolution and keep their supplied values;
 custom invoice line items do not use this transfer path.
 

@@ -63,13 +63,16 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 
 Creating an invoice with `estimateId` transfers the persisted customer-facing
 `Estimate.totalPrice` into `Invoice.amount`; it does not sum the estimate's
-raw direct `unitCost` values. The persisted estimate tax is allocated across
-the existing itemized invoice lines, and progress invoices scale the sell total
-by `percentComplete`. Explicit non-empty `lineItems` override estimate
-resolution and retain their supplied values; estimate allocation applies only
-when `lineItems` are absent or empty. Custom `lineItems` remain an explicit
-direct-input path and retain their existing behavior. This value-transfer rule
-changes no permission, payment-ledger, tax-formula, or schema contract.
+raw direct `unitCost` values. The total, including persisted tax, is allocated
+across the existing itemized invoice lines in proportion to each line's
+persisted `lineCost` share of `Estimate.subtotalCost`; each allocation is
+rounded to cents and any residual is assigned to the largest line. Progress
+invoices scale the sell total by `percentComplete`. Explicit non-empty
+`lineItems` override estimate resolution and retain their supplied values;
+estimate allocation applies only when `lineItems` are absent or empty. Custom
+`lineItems` remain an explicit direct-input path and retain their existing
+behavior. This value-transfer rule changes no permission, payment-ledger,
+tax-formula, or schema contract.
 
 ## Permissions
 
@@ -131,7 +134,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Last verified date
 
-2026-08-25
+2026-08-26
 
 ## S022 rendering boundary
 

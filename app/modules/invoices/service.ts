@@ -395,9 +395,7 @@ export class InvoicesService {
       description: li.description,
       quantity: Number(li.quantity) * scale,
       unitOfMeasure: li.unitOfMeasure,
-      unitCost: Number(li.unitCost),
       directCost: Number(li.lineCost),
-      taxable: li.taxable === true,
     }));
 
     // Estimate.totalPrice is the customer-facing sell total. Do not rebuild an
@@ -405,51 +403,21 @@ export class InvoicesService {
     // tax. Allocate the persisted sell total back across the existing scope so
     // the invoice remains itemized while its amount matches the estimate.
     const estimateTotal = Number(estimate.totalPrice);
-    if (!Number.isFinite(estimateTotal)) {
-      return lines.map(({ directCost: _directCost, taxable: _taxable, ...line }) => ({
-        ...line,
-        lineCost: roundCurrency(line.quantity * line.unitCost),
-      }));
+    const subtotalCost = Number(estimate.subtotalCost);
+    if (!Number.isFinite(estimateTotal) || !Number.isFinite(subtotalCost)) {
+      throw new ApiError(500, `Estimate ${input.estimateId} has invalid persisted pricing totals`);
     }
 
-    const persistedTax = Number(estimate.taxAmount);
-    const taxTotal = Number.isFinite(persistedTax) ? persistedTax : 0;
-    const preTaxTotal = Math.max(0, estimateTotal - taxTotal);
-    const totalDirectCost = lines.reduce((sum, line) => sum + line.directCost, 0);
-    const taxableDirectCost = lines.reduce((sum, line) => sum + (line.taxable ? line.directCost : 0), 0);
-    const taxAllocationCost = taxableDirectCost > 0 ? taxableDirectCost : totalDirectCost;
-    const scaledInvoiceTotal = roundCurrency(estimateTotal * scale);
-    let allocated = 0;
-
-    return lines.map(({ directCost, taxable, ...line }, index) => {
-      const isLast = index === lines.length - 1;
-      const preTaxShare = totalDirectCost > 0 ? (preTaxTotal * directCost) / totalDirectCost : 0;
-      const taxShare = taxAllocationCost > 0 && (taxableDirectCost > 0 ? taxable : true)
-        ? (taxTotal * directCost) / taxAllocationCost
-        : 0;
-      const requestedLineCost = roundCurrency((preTaxShare + taxShare) * scale);
-      const lineCost = isLast ? roundCurrency(scaledInvoiceTotal - allocated) : requestedLineCost;
-      allocated = roundCurrency(allocated + lineCost);
-
-      return {
-        ...line,
-        unitCost: line.quantity > 0 ? roundUnitCost(lineCost / line.quantity) : 0,
-        lineCost,
-      };
-    }).map((line, index, all) => {
-      // Keep the persisted totals authoritative even when a zero-cost or
-      // fractional-quantity scope causes unit-cost rounding to lose a cent.
-      if (index === all.length - 1 && all.length > 1) {
-        const prior = all.slice(0, -1).reduce((sum, item) => sum + (item.lineCost ?? 0), 0);
-        const corrected = roundCurrency(scaledInvoiceTotal - prior);
-        return {
-          ...line,
-          lineCost: corrected,
-          unitCost: line.quantity > 0 ? roundUnitCost(corrected / line.quantity) : 0,
-        };
-      }
-      return line;
-    });
+    const amount = roundCurrency(estimateTotal * scale);
+    const allocations = allocateInvoiceLineCosts(lines.map((line) => line.directCost), subtotalCost, amount);
+    return lines.map((line, index) => ({
+      description: line.description,
+      quantity: line.quantity,
+      unitOfMeasure: line.unitOfMeasure,
+      // InvoiceLineItem.unitCost/lineCost now carry selling price, not direct cost.
+      unitCost: line.quantity > 0 ? roundUnitCost(allocations[index] / line.quantity) : 0,
+      lineCost: allocations[index],
+    }));
   }
 }
 
@@ -459,6 +427,31 @@ function roundCurrency(value: number): number {
 
 function roundUnitCost(value: number): number {
   return Math.round((value + Number.EPSILON) * 10000) / 10000;
+}
+
+function allocateInvoiceLineCosts(sourceLineCosts: number[], subtotalCost: number, amount: number): number[] {
+  if (sourceLineCosts.length === 0) {
+    if (amount !== 0) throw new ApiError(500, "Invoice line-item allocation requires at least one estimate line");
+    return [];
+  }
+  if (subtotalCost <= 0) {
+    if (amount !== 0) throw new ApiError(422, "Estimate cannot allocate a nonzero invoice without direct cost");
+    return sourceLineCosts.map(() => 0);
+  }
+
+  const allocations = sourceLineCosts.map((lineCost) => roundCurrency((amount * lineCost) / subtotalCost));
+  const largestLineIndex = sourceLineCosts.reduce(
+    (largestIndex, lineCost, index, costs) => (lineCost > costs[largestIndex] ? index : largestIndex),
+    0
+  );
+  const allocatedBeforeResidual = roundCurrency(allocations.reduce((sum, lineCost) => sum + lineCost, 0));
+  allocations[largestLineIndex] = roundCurrency(allocations[largestLineIndex] + roundCurrency(amount - allocatedBeforeResidual));
+
+  const allocatedTotal = roundCurrency(allocations.reduce((sum, lineCost) => sum + lineCost, 0));
+  if (allocatedTotal !== amount) {
+    throw new ApiError(500, "Invoice line-item allocation does not equal the invoice amount");
+  }
+  return allocations;
 }
 
 interface InvoiceQueueRawRow {
