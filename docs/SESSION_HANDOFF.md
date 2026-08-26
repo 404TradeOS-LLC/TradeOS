@@ -98,4 +98,16 @@ Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
 Dependencies: S035 is DONE with representative plan evidence; S027 is independently BLOCKED on authenticated rendered Costbook evidence.
 Overlap check: No open S035 PR remains; S035 completion evidence PR #383 is merged. Do not create an S036 implementation lane.
-Startup prompt: Resolve S027, then promote S036 through the readiness protocol before creating its single implementation lane.
+Startup prompt: Read `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md`, then create exactly one `feature/s037-implementation` lane. Keep S027 browser evidence and S036 index work independent.
+
+## S037 readiness
+
+S037 is READY under `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md`. The existing structured logging, request correlation, health/readiness, error handling, and operational event foundation is bounded for safe redaction, event-shape hardening, regression coverage, and operator documentation. No providers, durable telemetry, schema, permissions, S036, S027, or S038 work is in scope.
+
+## Next Eligible Sprint
+
+Sprint ID: S037
+Eligibility: S037 is READY with no numbered-sprint dependencies and one authoritative implementation lane.
+Dependencies: Existing observability foundation is on main; S036 is separately blocked by S027.
+Overlap check: No open or draft S037 PR or remote S037 branch was found.
+Startup prompt: Read `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md` before editing. Create only `feature/s037-implementation`; preserve secrets, request context, forced RLS, and existing response contracts.

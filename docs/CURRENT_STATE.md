@@ -397,6 +397,15 @@ The synthetic staging fixture was deleted after capture. No production latency,
 frequency, or planner claim is made. S036 remains ineligible because S027 is
 independently blocked on authenticated rendered Costbook evidence.
 
+## S037 application observability baseline readiness
+
+S037 is READY under `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md`.
+The repository already has structured JSON logging, request IDs, request
+completion events, `/health`, `/ready`, and centralized error handling. The
+bounded implementation owns safe-field redaction, correlation/event-shape
+hardening, regression coverage, and operator documentation only. S036 remains
+blocked by S027; S027 browser evidence remains independent.
+
 ## Transactional email frontend routes
 
 The frontend now exposes the existing transactional-auth flows at `/forgot-password`, `/reset-password?token=...`, and `/invite/accept?token=...`. Server actions call the backend password-reset and invite-accept endpoints, preserve enumeration-safe reset responses, and hand accepted invites a backend-issued local session in HTTP-only cookies. The existing Supabase login path remains primary, with local backend login fallback for accounts created through the local auth boundary. Production delivery remains environment-dependent on a verified Resend sender/domain, `RESEND_API_KEY`, and `APP_BASE_URL`; live browser verification is external follow-up.

@@ -404,11 +404,13 @@ Acceptance: improved plans without excessive write/index cost.
 
 ### S037 — Application observability baseline
 
-Status: PLANNED
+Status: READY
 Dependencies: none
 Objective: Define and extend structured logs, correlation IDs, error boundaries, health/readiness signals, and operational events.
 Acceptance: critical request flows are traceable without leaking secrets.
-Current foundation: PR #178 merged 2026-08-12 as `834fb3433604045a46dfe377df47fa08cee499d8`, adding separate `/health` liveness and `/ready` database-readiness signals; S037 remains broader than that foundation and is not implicitly `READY`.
+Current foundation: PR #178 merged 2026-08-12 as `834fb3433604045a46dfe377df47fa08cee499d8`, adding separate `/health` liveness and `/ready` database-readiness signals; S037 is now explicitly READY under the bounded contract below.
+Readiness contract: `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md` bounds S037 to safe-field redaction, correlation/event-shape hardening, regression tests, and operator documentation over existing logging, health, readiness, error, and request middleware. No providers, durable telemetry, schema, migrations, permissions, auth changes, S036, S027, or S038 scope.
+Readiness evidence: `docs/architecture/S037_READINESS_EVIDENCE.md`.
 
 ### S038 — Background and retry semantics
 
@@ -542,15 +544,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S034 and S035 are DONE with merged evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 representative staging plans are recorded and the synthetic fixture was removed.
-Protected boundary: S036 remains blocked by S027; keep S027 browser evidence separate.
+Active Sprint: S037
+Completion status: S034 and S035 are DONE with merged evidence. S037 is READY under its bounded observability contract. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S037 has no numbered-sprint dependencies; S036 remains separately blocked by S027.
+Protected boundary: S037 owns one observability write lane; do not mix S027 browser evidence, S036 index work, or S038 retry work.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
-Dependencies: S035 is DONE with inventory and representative plan evidence; S027 remains independently BLOCKED.
-Overlap check: No open S035 PR remains; S035 completion evidence PR #383 is merged. Do not start S036 until S027 is resolved and S036 is promoted through readiness.
-Startup prompt: Resolve S027, then follow the readiness protocol for S036. Keep S027 browser evidence independent.
+Sprint ID: S037
+Eligibility: S037 is `READY` with no numbered-sprint dependencies and no competing S037 lane.
+Dependencies: Existing health, readiness, request-ID, structured logging, and error middleware are on main; S036 remains blocked by S027 and is separate.
+Overlap check: No open or draft S037 PR or remote S037 branch was found; do not mix S027, S036, or S038 work.
+Startup prompt: Read `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md`, then create exactly one `feature/s037-implementation` lane. Preserve secrets, request context, forced RLS, and existing response contracts.
