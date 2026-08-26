@@ -121,6 +121,9 @@ A billing document stored in `Invoice`.
 - belongs to one project
 - may reference an estimate and proposal
 - owns invoice line items, payments, and delivery history
+- invoice line items store the issued selling-price allocation as `unitPrice`
+  and `lineTotal`; estimate and change-order line items retain their separate
+  cost-oriented `unitCost`/`lineCost` fields
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment

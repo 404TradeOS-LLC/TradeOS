@@ -308,6 +308,10 @@ invoice lines in proportion to each persisted line `lineCost` share of
 largest line. Progress invoices scale the same total. Explicit non-empty
 `lineItems` continue to override estimate resolution. Custom
 line-item invoice creation and existing invoice/payment records are unchanged.
+Invoice rows expose the accurate selling-price names `unitPrice` and
+`lineTotal`; the legacy persisted column names were renamed without changing
+values or payment behavior by migration
+`20260826140000_rename_invoice_line_price_columns`.
 
 ## S028 estimate-to-proposal reconciliation
 

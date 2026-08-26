@@ -474,6 +474,10 @@ by `percentComplete`. When explicit non-empty `lineItems` are supplied, they
 override estimate resolution and retain their supplied values; estimate-backed
 allocation applies only when `lineItems` are absent or empty.
 
+Invoice line-item payloads use `unitPrice` and `lineTotal`. The former
+`unitCost` and `lineCost` names are retired for `InvoiceLineItem` payloads;
+similarly named fields on estimate and change-order line items are unchanged.
+
 ## Estimate line-item ordering
 
 Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.

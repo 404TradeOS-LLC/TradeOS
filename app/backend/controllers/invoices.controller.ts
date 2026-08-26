@@ -23,7 +23,7 @@ const lineItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.coerce.number().positive(),
   unitOfMeasure: z.string().min(1),
-  unitCost: z.coerce.number().nonnegative(),
+  unitPrice: z.coerce.number().nonnegative(),
 });
 
 const createSchema = z.object({

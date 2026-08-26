@@ -66,7 +66,7 @@ describe("InvoicesService", () => {
       sentAt: null,
       paidAt: null,
       createdAt: new Date(),
-      lineItems: [{ id: "li-1", description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitCost: 50, lineCost: 500, sortOrder: 0 }],
+      lineItems: [{ id: "li-1", description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitPrice: 50, lineTotal: 500, sortOrder: 0 }],
       deliveries: [{ id: "delivery-1", eventType: "invoice.created", deliveryChannel: "app", recipientEmail: null, actorUserId: "user-1", metadataJson: { amount: 500 }, occurredAt: new Date(), createdAt: new Date() }],
     });
 
@@ -76,7 +76,7 @@ describe("InvoicesService", () => {
       actorUserId: "user-1",
       actorRole: "admin",
       projectId: "project-1",
-      lineItems: [{ description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitCost: 50 }],
+      lineItems: [{ description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitPrice: 50 }],
     });
 
     expect(invoice.invoiceNumber).toBe(2);
@@ -128,7 +128,7 @@ describe("InvoicesService", () => {
       sentAt: null,
       paidAt: null,
       createdAt: new Date(),
-      lineItems: [{ id: "li-1", description: "Driveway", quantity: 50, unitOfMeasure: "sqft", unitCost: 12, lineCost: 600, sortOrder: 0 }],
+      lineItems: [{ id: "li-1", description: "Driveway", quantity: 50, unitOfMeasure: "sqft", unitPrice: 12, lineTotal: 600, sortOrder: 0 }],
       deliveries: [],
     });
 
@@ -139,7 +139,7 @@ describe("InvoicesService", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           amount: 600,
-          lineItems: { create: [expect.objectContaining({ quantity: 50, lineCost: 600 })] },
+          lineItems: { create: [expect.objectContaining({ quantity: 50, lineTotal: 600 })] },
         }),
       })
     );
@@ -189,8 +189,8 @@ describe("InvoicesService", () => {
       paidAt: null,
       createdAt: new Date(),
       lineItems: [
-        { id: "li-1", description: "Labor", quantity: 100, unitOfMeasure: "hr", unitCost: 274.2857, lineCost: 27428.57, sortOrder: 0 },
-        { id: "li-2", description: "Materials", quantity: 100, unitOfMeasure: "sqft", unitCost: 229.7143, lineCost: 22971.43, sortOrder: 1 },
+        { id: "li-1", description: "Labor", quantity: 100, unitOfMeasure: "hr", unitPrice: 274.2857, lineTotal: 27428.57, sortOrder: 0 },
+        { id: "li-2", description: "Materials", quantity: 100, unitOfMeasure: "sqft", unitPrice: 229.7143, lineTotal: 22971.43, sortOrder: 1 },
       ],
       deliveries: [],
     });
@@ -204,8 +204,8 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(50400);
-    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([28800, 21600]);
-    expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(50400);
+    expect(created.lineItems.create.map((line: { lineTotal: number }) => line.lineTotal)).toEqual([28800, 21600]);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(50400);
   });
 
   it("scales the persisted sell total for progress invoices", async () => {
@@ -252,8 +252,8 @@ describe("InvoicesService", () => {
       paidAt: null,
       createdAt: new Date(),
       lineItems: [
-        { id: "li-1", description: "Labor", quantity: 50, unitOfMeasure: "hr", unitCost: 288, lineCost: 14400, sortOrder: 0 },
-        { id: "li-2", description: "Materials", quantity: 50, unitOfMeasure: "sqft", unitCost: 216, lineCost: 10800, sortOrder: 1 },
+        { id: "li-1", description: "Labor", quantity: 50, unitOfMeasure: "hr", unitPrice: 288, lineTotal: 14400, sortOrder: 0 },
+        { id: "li-2", description: "Materials", quantity: 50, unitOfMeasure: "sqft", unitPrice: 216, lineTotal: 10800, sortOrder: 1 },
       ],
       deliveries: [],
     });
@@ -269,7 +269,7 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(25200);
-    expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(25200);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(25200);
   });
 
   it("bills a target-margin estimate from its persisted sell total", async () => {
@@ -305,7 +305,7 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(1250);
-    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([750, 500]);
+    expect(created.lineItems.create.map((line: { lineTotal: number }) => line.lineTotal)).toEqual([750, 500]);
   });
 
   it("allocates rounding residual to the largest direct-cost line", async () => {
@@ -333,8 +333,8 @@ describe("InvoicesService", () => {
     await new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" });
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
-    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([40.01, 40, 20]);
-    expect(Math.round(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0) * 100)).toBe(10001);
+    expect(created.lineItems.create.map((line: { lineTotal: number }) => line.lineTotal)).toEqual([40.01, 40, 20]);
+    expect(Math.round(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0) * 100)).toBe(10001);
   });
 
   it("rejects a progress invoice without percentComplete", async () => {
@@ -354,7 +354,7 @@ describe("InvoicesService", () => {
         orgId: "org-1",
         actorRole: "technician",
         projectId: "project-1",
-        lineItems: [{ description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitCost: 50 }],
+        lineItems: [{ description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitPrice: 50 }],
       })
     ).rejects.toThrow("manage invoices");
   });
@@ -440,7 +440,7 @@ describe("InvoicesService", () => {
       paidAt: null,
       createdAt: new Date(),
       lineItems: [
-        { id: "li-1", description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitCost: 50, lineCost: 500, sortOrder: 0 },
+        { id: "li-1", description: "Concrete pour", quantity: 10, unitOfMeasure: "sqft", unitPrice: 50, lineTotal: 500, sortOrder: 0 },
       ],
       deliveries: [{ id: "delivery-1", eventType: "invoice.created", deliveryChannel: "app", recipientEmail: null, actorUserId: null, metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
     });
@@ -449,7 +449,7 @@ describe("InvoicesService", () => {
     const invoice = await service.getById("invoice-1", "org-1");
 
     expect(invoice.lineItems).toHaveLength(1);
-    expect(invoice.lineItems[0]).toMatchObject({ description: "Concrete pour", quantity: 10, lineCost: 500 });
+    expect(invoice.lineItems[0]).toMatchObject({ description: "Concrete pour", quantity: 10, lineTotal: 500 });
     expect(invoice.deliveries[0]?.eventType).toBe("invoice.created");
   });
 

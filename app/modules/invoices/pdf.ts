@@ -13,7 +13,7 @@ interface InvoiceForPdf {
   createdAt: Date;
   percentComplete: number | null;
   project: { name: string; siteAddress: string | null; customer: { name: string; email: string | null } | null };
-  lineItems: { description: string; quantity: number; unitOfMeasure: string; unitCost: number; lineCost: number }[];
+  lineItems: { description: string; quantity: number; unitOfMeasure: string; unitPrice: number; lineTotal: number }[];
 }
 
 export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: DocumentFrameBrand }): Promise<Buffer> {
@@ -59,7 +59,7 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
       doc.text("No line items recorded.");
     } else {
       for (const li of invoice.lineItems) {
-        doc.text(`${li.description}  —  ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}  —  ${formatDocumentCurrency(li.lineCost)}`);
+        doc.text(`${li.description}  —  ${formatDocumentNumber(li.quantity)} ${li.unitOfMeasure}  —  ${formatDocumentCurrency(li.lineTotal)}`);
       }
     }
     doc.moveDown(1.5);
