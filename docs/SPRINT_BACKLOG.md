@@ -535,7 +535,7 @@ Protected boundary: S032 is complete. Keep S027 browser evidence separate and do
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY after S032 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Eligibility: No numbered sprint is currently `READY` after S032 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
 Dependencies: S032 implementation and completion evidence are merged.
 Overlap check: S032 PR #361 is merged and no open S032 PR remains authoritative.
 Startup prompt: Reconcile live truth and follow `NEXT_SPRINT_PROTOCOL.md` before selecting another numbered sprint. Keep S027 browser evidence separate.

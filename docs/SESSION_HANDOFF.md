@@ -62,7 +62,7 @@ S032 implementation PR #361 merged as `f10fe02bd8e1161476b530b6cfb5c5a45facfd05`
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY. S032 is DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Eligibility: No numbered sprint is currently `READY`. S032 is DONE; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
 Dependencies: S032 implementation and completion evidence are merged.
 Overlap check: S032 PR #361 is merged and no open S032 PR remains authoritative.
 Startup prompt: Reconcile live truth and follow `NEXT_SPRINT_PROTOCOL.md` before selecting another numbered sprint. Keep S027 browser evidence independent.
