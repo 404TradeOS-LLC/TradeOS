@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { LOCAL_ACCESS_TOKEN_COOKIE, LOCAL_REFRESH_TOKEN_COOKIE, isUsableLocalAccessToken } from "@/lib/local-auth";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -24,6 +25,21 @@ export async function updateSession(request: NextRequest) {
       },
     }
   );
+
+  const localToken = request.cookies.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
+  if (localToken) {
+    if (isUsableLocalAccessToken(localToken)) {
+      return response;
+    }
+
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    response = NextResponse.redirect(loginUrl);
+    response.cookies.delete(LOCAL_ACCESS_TOKEN_COOKIE);
+    response.cookies.delete(LOCAL_REFRESH_TOKEN_COOKIE);
+    return response;
+  }
 
   const { data } = await supabase.auth.getClaims();
 
