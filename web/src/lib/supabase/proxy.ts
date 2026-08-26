@@ -29,12 +29,18 @@ export async function updateSession(request: NextRequest) {
   );
 
   const localToken = request.cookies.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
-  if (localToken) {
-    if (isUsableLocalAccessToken(localToken)) {
-      return response;
-    }
+  const refreshToken = request.cookies.get(LOCAL_REFRESH_TOKEN_COOKIE)?.value;
 
-    const refreshToken = request.cookies.get(LOCAL_REFRESH_TOKEN_COOKIE)?.value;
+  if (localToken && isUsableLocalAccessToken(localToken)) {
+    return response;
+  }
+
+  // The access-token cookie intentionally expires with the JWT. Once the
+  // browser removes it, the refresh cookie is the only remaining local-session
+  // signal, so refresh must not depend on the expired access cookie still being
+  // present. Otherwise invited/local users are forced back to login at normal
+  // access-token expiry despite holding a valid 30-day refresh token.
+  if (localToken || refreshToken) {
     const refreshed = refreshToken ? await refreshLocalSession(refreshToken) : null;
     const refreshedClaims = refreshed ? decodeLocalAccessToken(refreshed.token) : null;
     const now = Math.floor(Date.now() / 1000);
