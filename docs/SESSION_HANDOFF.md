@@ -97,5 +97,5 @@ S036 remains blocked by S027's authenticated rendered Costbook browser evidence.
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
 Dependencies: S035 is DONE with representative plan evidence; S027 is independently BLOCKED on authenticated rendered Costbook evidence.
-Overlap check: No open S035 PR remains; completion evidence is being reconciled in the current governance lane. Do not create an S036 implementation lane.
+Overlap check: No open S035 PR remains; S035 completion evidence PR #383 is merged. Do not create an S036 implementation lane.
 Startup prompt: Resolve S027, then promote S036 through the readiness protocol before creating its single implementation lane.
