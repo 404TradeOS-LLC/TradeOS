@@ -312,8 +312,9 @@ persisted customer-facing `Estimate.totalPrice`, including persisted tax.
 The existing estimate line items remain the invoice scope; their customer
 line totals receive a proportional allocation of pre-tax sell value and tax so
 the itemized invoice reconciles exactly to the estimate. Progress invoices
-scale that value by completion percentage. Custom invoice line items do not use
-this transfer path.
+scale that value by completion percentage. If explicit non-empty `lineItems` are
+provided, they override estimate resolution and keep their supplied values;
+custom invoice line items do not use this transfer path.
 
 ## Transactional canonical-event invariant (A12.1)
 
