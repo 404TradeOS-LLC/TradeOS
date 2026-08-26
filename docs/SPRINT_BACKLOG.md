@@ -360,6 +360,7 @@ Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, 
 ### S033 — Ready-to-invoice handoff
 
 Status: DONE
+Evidence: readiness PR #363 (`03e83382850841c50de910dfa9440ebb6d0bbe92`); implementation PR #365 (`422634cbaaedd4ec49692c399f3d9290bbcfed1a`); completion evidence PR #366 (`docs/architecture/S033_COMPLETION_EVIDENCE.md`).
 Dependencies: S011, S012, S032
 Objective: Make field completion reliably produce invoice-ready work with audit evidence.
 Acceptance: no silent gap between completed job and invoice preparation.
