@@ -3,12 +3,14 @@ import { DispatchFilterBar } from "@/components/dispatch/dispatch-filter-bar";
 import { DispatchPagination } from "@/components/dispatch/dispatch-pagination";
 import { DispatchSummaryStrip } from "@/components/dispatch/dispatch-summary-strip";
 import { DispatchWorkQueueTable } from "@/components/dispatch/dispatch-work-queue-table";
+import { DispatchObservabilityPanel } from "@/components/dispatch/dispatch-observability-panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   ApiClientError,
   getDispatchSummary,
   getOrganizationSettings,
+  listActivityEvents,
   listJobsForDispatch,
   toInclusiveEndBoundary,
   type DispatchJobListParams,
@@ -59,6 +61,8 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   let summary: DispatchSummary | null = null;
   let loadError: string | null = null;
   let canManageInvoiceReadiness = false;
+  let activity: Awaited<ReturnType<typeof listActivityEvents>> = [];
+  let activityError: string | null = null;
 
   if (!token) {
     loadError = "You need to be signed in to view the dispatch workspace.";
@@ -67,6 +71,11 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
       const [dispatchSummary, settings] = await Promise.all([getDispatchSummary(token), getOrganizationSettings(token)]);
       summary = dispatchSummary;
       canManageInvoiceReadiness = ["owner", "admin", "dispatcher"].includes(settings.currentRole);
+      try {
+        activity = await listActivityEvents(token, { entityType: "job", limit: 8 });
+      } catch (error) {
+        activityError = toErrorMessage(error, "Unable to load recent dispatch activity.");
+      }
     } catch (error) {
       loadError = toErrorMessage(error, "Unable to load the dispatch summary from the backend.");
     }
@@ -155,6 +164,8 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
       ) : (
         <>
           {summary ? <DispatchSummaryStrip summary={summary} /> : null}
+
+          {summary ? <DispatchObservabilityPanel summary={summary} activity={activity} activityError={activityError} /> : null}
 
           <DispatchFilterBar view={view} status={query.status} scheduled={query.scheduled} assigned={query.assigned} q={query.q} />
 

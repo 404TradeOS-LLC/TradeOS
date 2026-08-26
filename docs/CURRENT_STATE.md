@@ -377,3 +377,9 @@ queue filters, and organization/RLS scope. It does not add durable failed-action
 telemetry, alerting, notifications, schema/migrations, roles, permissions,
 statuses, RLS redesign, or S027 browser evidence. S030 and S031 are DONE; no
 competing S034 implementation lane was found.
+
+The single S034 implementation lane now adds a read-only Dispatch diagnostics
+panel over the existing dispatch summary and organization-scoped job activity
+routes. It preserves the existing queue filters, scope labeling, conflict
+action boundaries, and truthful empty/error states. Implementation is not
+DONE until its PR and separate completion evidence are merged.
