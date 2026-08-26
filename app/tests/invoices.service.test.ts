@@ -94,7 +94,9 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
-      lineItems: [{ description: "Driveway", quantity: 100, unitOfMeasure: "sqft", unitCost: 10 }],
+      subtotalCost: 1000,
+      totalPrice: 1200,
+      lineItems: [{ description: "Driveway", quantity: 100, unitOfMeasure: "sqft", unitCost: 10, lineCost: 1000 }],
     });
     mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
     mockPrisma.invoice.create.mockResolvedValue({
@@ -106,7 +108,7 @@ describe("InvoicesService", () => {
       type: "progress",
       status: "draft",
       percentComplete: 50,
-      amount: 500,
+      amount: 600,
       dueDate: null,
       sentAt: null,
       paidAt: null,
@@ -121,12 +123,12 @@ describe("InvoicesService", () => {
       type: "progress",
       status: "draft",
       percentComplete: 50,
-      amount: 500,
+      amount: 600,
       dueDate: null,
       sentAt: null,
       paidAt: null,
       createdAt: new Date(),
-      lineItems: [{ id: "li-1", description: "Driveway", quantity: 50, unitOfMeasure: "sqft", unitCost: 10, lineCost: 500, sortOrder: 0 }],
+      lineItems: [{ id: "li-1", description: "Driveway", quantity: 50, unitOfMeasure: "sqft", unitCost: 12, lineCost: 600, sortOrder: 0 }],
       deliveries: [],
     });
 
@@ -136,7 +138,8 @@ describe("InvoicesService", () => {
     expect(mockPrisma.invoice.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          lineItems: { create: [expect.objectContaining({ quantity: 50, lineCost: 500 })] },
+          amount: 600,
+          lineItems: { create: [expect.objectContaining({ quantity: 50, lineCost: 600 })] },
         }),
       })
     );
@@ -147,6 +150,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      subtotalCost: 35000,
       totalPrice: 50400,
       taxAmount: 2400,
       lineItems: [
@@ -200,7 +204,7 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(50400);
-    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([27428.57, 22971.43]);
+    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([28800, 21600]);
     expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(50400);
   });
 
@@ -209,6 +213,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      subtotalCost: 35000,
       totalPrice: 50400,
       taxAmount: 2400,
       lineItems: [
@@ -247,8 +252,8 @@ describe("InvoicesService", () => {
       paidAt: null,
       createdAt: new Date(),
       lineItems: [
-        { id: "li-1", description: "Labor", quantity: 50, unitOfMeasure: "hr", unitCost: 274.2857, lineCost: 13714.29, sortOrder: 0 },
-        { id: "li-2", description: "Materials", quantity: 50, unitOfMeasure: "sqft", unitCost: 229.7143, lineCost: 11485.71, sortOrder: 1 },
+        { id: "li-1", description: "Labor", quantity: 50, unitOfMeasure: "hr", unitCost: 288, lineCost: 14400, sortOrder: 0 },
+        { id: "li-2", description: "Materials", quantity: 50, unitOfMeasure: "sqft", unitCost: 216, lineCost: 10800, sortOrder: 1 },
       ],
       deliveries: [],
     });
@@ -265,6 +270,71 @@ describe("InvoicesService", () => {
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(25200);
     expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(25200);
+  });
+
+  it("bills a target-margin estimate from its persisted sell total", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      subtotalCost: 1000,
+      totalPrice: 1250,
+      targetMarginPct: 20,
+      overheadPct: 0,
+      profitPct: 0,
+      taxPct: 0,
+      taxAmount: 0,
+      lineItems: [
+        { description: "Labor", quantity: 10, unitOfMeasure: "hr", unitCost: 60, lineCost: 600 },
+        { description: "Materials", quantity: 10, unitOfMeasure: "ea", unitCost: 40, lineCost: 400 },
+      ],
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: null,
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 1250,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: null,
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 1250,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(), lineItems: [], deliveries: [],
+    });
+
+    await new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" });
+
+    const created = mockPrisma.invoice.create.mock.calls[0][0].data;
+    expect(created.amount).toBe(1250);
+    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([750, 500]);
+  });
+
+  it("allocates rounding residual to the largest direct-cost line", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", subtotalCost: 5, totalPrice: 100.01,
+      lineItems: [
+        { description: "Largest (tie winner)", quantity: 1, unitOfMeasure: "ea", unitCost: 2, lineCost: 2 },
+        { description: "Second largest", quantity: 1, unitOfMeasure: "ea", unitCost: 2, lineCost: 2 },
+        { description: "Third", quantity: 1, unitOfMeasure: "ea", unitCost: 1, lineCost: 1 },
+      ],
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: null,
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 100.01,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: null,
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 100.01,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(), lineItems: [], deliveries: [],
+    });
+
+    await new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" });
+
+    const created = mockPrisma.invoice.create.mock.calls[0][0].data;
+    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([40.01, 40, 20]);
+    expect(Math.round(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0) * 100)).toBe(10001);
   });
 
   it("rejects a progress invoice without percentComplete", async () => {
