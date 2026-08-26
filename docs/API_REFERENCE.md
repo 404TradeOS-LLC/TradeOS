@@ -455,6 +455,17 @@ The existing AI Estimate Assist routes expose this contract:
   review-first Estimate Engine path.
 
 
+## Estimate-backed invoice value transfer
+
+When `POST /api/v1/invoices` is created with an `estimateId`, the persisted
+final customer-facing `Estimate.totalPrice` is the invoice amount. The service
+allocates the estimate's pre-tax sell value and persisted `taxAmount` across
+the existing estimate lines so the invoice remains itemized while reconciling
+to the estimate total. Progress invoices scale that sell total by
+`percentComplete`. When explicit non-empty `lineItems` are supplied, they
+override estimate resolution and retain their supplied values; estimate-backed
+allocation applies only when `lineItems` are absent or empty.
+
 ## Estimate line-item ordering
 
 Estimate line-item writes allocate the next persisted `sortOrder` within an estimate-scoped transaction lock. This changes concurrency safety only; route shapes and response fields remain unchanged.
