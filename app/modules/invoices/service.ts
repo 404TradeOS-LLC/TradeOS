@@ -396,7 +396,7 @@ export class InvoicesService {
       quantity: Number(li.quantity) * scale,
       unitOfMeasure: li.unitOfMeasure,
       unitCost: Number(li.unitCost),
-      directCost: Number.isFinite(Number(li.lineCost)) ? Number(li.lineCost) : Number(li.quantity) * Number(li.unitCost),
+      directCost: Number(li.lineCost),
       taxable: li.taxable === true,
     }));
 
