@@ -20,6 +20,8 @@ import {
 } from "./types";
 import { normalizeRole } from "../../domain";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { logError } from "../../backend/logging";
+import { emailService } from "../email/service";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -173,7 +175,7 @@ export class AuthService {
   async requestPasswordReset(input: RequestPasswordResetInput): Promise<PasswordResetRequestResult> {
     const normalizedEmail = input.email.toLowerCase();
 
-    const token = await basePrisma.$transaction(async (transaction) => {
+    const reset = await basePrisma.$transaction(async (transaction) => {
       await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
 
       const user = await transaction.appUser.findUnique({ where: { email: normalizedEmail } });
@@ -183,22 +185,30 @@ export class AuthService {
 
       await transaction.$queryRaw(Prisma.sql`select set_config('app.user_id', ${user.id}, true)`);
       const rawToken = createOpaqueToken();
+      const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
       await transaction.passwordResetToken.create({
         data: {
           userId: user.id,
           tokenHash: hashOpaqueToken(rawToken),
-          expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS),
+          expiresAt,
         },
       });
-      return rawToken;
+      return { token: rawToken, email: user.email, expiresAt };
     });
+
+    if (reset) {
+      try {
+        await emailService.sendPasswordReset(reset);
+      } catch (error) {
+        logError("auth.password_reset_email_failed", { error: errorName(error) });
+      }
+    }
 
     return {
       success: true,
-      ...(token && process.env.NODE_ENV !== "production" ? { resetToken: token } : {}),
+      ...(reset && process.env.NODE_ENV !== "production" ? { resetToken: reset.token } : {}),
     };
   }
-
   async resetPassword(input: ResetPasswordInput): Promise<{ success: true }> {
     const tokenHash = hashOpaqueToken(input.token);
     const passwordHash = await hashPassword(input.password);
@@ -254,6 +264,17 @@ export class AuthService {
         expiresAt: new Date(Date.now() + INVITE_TTL_MS),
       },
     });
+
+    try {
+      await emailService.sendTeamInvite({
+        to: invite.email,
+        role: invite.role as "dispatcher" | "technician",
+        token: rawToken,
+        expiresAt: invite.expiresAt,
+      });
+    } catch (error) {
+      logError("auth.team_invite_email_failed", { error: errorName(error) });
+    }
 
     return {
       inviteId: invite.id,
@@ -533,4 +554,8 @@ function createOpaqueToken(): string {
 
 function hashOpaqueToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : "UnknownError";
 }
