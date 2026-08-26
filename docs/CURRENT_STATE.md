@@ -298,6 +298,14 @@ PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44 from fi
 
 S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2 from final implementation head ea531d0df830c227d1a1fdc8ec3296c971a08941. EstimateEngineService now serializes persisted sortOrder allocation on the organization-scoped parent Estimate row within the existing request-aware transaction. App unit/integration, typecheck, build, docs, governance, dependency, branch-currency, live-evidence, and CodeQL verification passed. Completion evidence is being recorded in docs/architecture/S026_COMPLETION_EVIDENCE.md.
 
+## PT-001 estimate-to-invoice value transfer
+
+Estimate-backed invoice creation now consumes the persisted customer-facing
+`Estimate.totalPrice` rather than rebuilding the invoice from raw direct
+line costs. Persisted tax is allocated with the estimate sell value across the
+existing invoice lines, and progress invoices scale the same total. Custom
+line-item invoice creation and existing invoice/payment records are unchanged.
+
 ## S028 estimate-to-proposal reconciliation
 
 Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 PR #342 is merged as `164fe63867dceb265d80a0a61098c4c99315a3f3` and closes the persisted proposal-price gap.
