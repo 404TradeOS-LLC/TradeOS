@@ -534,12 +534,12 @@ Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after chec
 Active Sprint: S033
 Completion status: S032 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
 Dependencies: S011, S012, and S032 are DONE; S033 has one readiness contract and no competing implementation lane.
-Protected boundary: Implement only `docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md`. Keep S027 browser evidence separate and do not begin S034/S037/S047.
+Protected boundary: Complete S033 evidence reconciliation only. Keep S027 browser evidence separate and do not begin S034/S037/S047.
 
 ## Next Eligible Sprint
 
 Sprint ID: S033
-Eligibility: S033 is `READY`; S011, S012, and S032 are DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S011, S012, and S032 are DONE; no S033 implementation lane is active.
-Overlap check: No open or draft S033 PR, remote branch, competing implementation, or worktree was found during readiness promotion.
-Startup prompt: Create exactly one S033 implementation lane from the merged readiness commit; preserve completed-only invoice readiness, manager authorization, organization/RLS, and existing invoice semantics. Do not begin S034/S037/S047 or mix S027 browser evidence.
+Eligibility: S033 remains READY until completion-evidence PR #366 merges. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S011, S012, and S032 are DONE; implementation PR #365 is merged.
+Overlap check: Completion-evidence PR #366 is the sole remaining S033 governance lane.
+Startup prompt: Merge completion evidence, then reconcile S033 to DONE in a follow-up governance commit. Do not mix S027 browser evidence.

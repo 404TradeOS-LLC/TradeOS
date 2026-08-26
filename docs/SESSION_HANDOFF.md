@@ -63,12 +63,12 @@ S032 implementation PR #361 merged as `f10fe02bd8e1161476b530b6cfb5c5a45facfd05`
 
 ## Readiness contract — S033
 
-Read `docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md` before editing. Preserve completed-only readiness, manager authorization, organization/RLS scoping, readiness activity, WorkCompleted separation, and existing invoice semantics. Implement only the visible completed-but-not-ready handoff and explicit manager acknowledgement. Do not add automatic invoice creation, billing/payment/pricing/tax behavior, statuses, roles, permissions, persistence, RLS redesign, S027 browser evidence, or S034/S037/S047 scope.
+S033 implementation PR #365 is merged. Completion evidence is prepared in PR #366; merge that evidence while S033 remains READY, then land the final governance-only DONE reconciliation. Preserve completed-only readiness, manager authorization, organization/RLS scoping, readiness activity, WorkCompleted separation, and existing invoice semantics. No production/browser evidence is claimed.
 
 ## Next Eligible Sprint
 
 Sprint ID: S033
-Eligibility: S033 is READY with S011, S012, and S032 DONE; no competing S033 implementation lane exists.
+Eligibility: S033 is READY pending completion-evidence PR #366.
 Dependencies: S011, S012, and S032 are DONE with merged evidence.
-Overlap check: No open S033 PR or implementation branch was found; S027 remains independently blocked.
-Startup prompt: Create exactly one S033 implementation lane from the merged readiness commit and follow the S033 plan. Keep S027 browser evidence independent and do not begin S034/S037/S047.
+Overlap check: PR #366 is the sole remaining S033 governance lane; S027 remains independently blocked.
+Startup prompt: Merge PR #366, then reconcile S033 to DONE in a final governance-only update.

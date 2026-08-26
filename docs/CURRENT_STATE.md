@@ -347,17 +347,14 @@ GPS/routing, offline, messaging, voice/photo, billing, or later-sprint scope.
 S012 and S030 are DONE; S027 remains independently blocked on authenticated
 rendered Costbook browser evidence.
 
-The implementation lane is active after readiness PR #363 merged as
-`03e83382850841c50de910dfa9440ebb6d0bbe92`; implementation and completion
-evidence remain pending.
+S033 implementation PR #365 is merged; completion evidence is being reconciled
+in PR #366 before final DONE status. The shipped handoff preserves the existing
+completed-only manager action, organization/RLS scoping, activity attribution,
+and invoice semantics; no production/browser evidence is claimed.
 
 ## S033 ready-to-invoice handoff
 
-S033 is READY under
-`docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md`. The existing Jobs
-service already enforces completed-only, manager-authorized invoice readiness
-with organization/RLS scoping and attributable `job.ready_for_invoice`
-activity. The bounded implementation adds the visible completed-but-not-ready
-handoff and explicit manager acknowledgement without automatic invoice
-creation or billing-policy change. S011, S012, and S032 are DONE; S027 remains
-independently blocked on authenticated rendered Costbook browser evidence.
+S033 is READY pending completion-evidence PR #366 under
+`docs/architecture/S033_COMPLETION_EVIDENCE.md`. S011, S012, and S032 are DONE;
+S027 remains independently blocked on authenticated rendered Costbook browser
+evidence.
