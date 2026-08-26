@@ -360,7 +360,7 @@ Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, 
 ### S033 — Ready-to-invoice handoff
 
 Status: DONE
-Evidence: readiness PR #363 (`03e83382850841c50de910dfa9440ebb6d0bbe92`); implementation PR #365 (`422634cbaaedd4ec49692c399f3d9290bbcfed1a`); completion evidence PR #366 (`0f6faf0cfbe27c06c53d95b4c2eaac605e50eb35`).
+Evidence: Implementation PR #365 merged as `422634cbaaedd4ec49692c399f3d9290bbcfed1a`; completion evidence PR #366 merged as `0f6faf0cfbe27c06c53d95b4c2eaac605e50eb35`; readiness PR #363 is merged; evidence is recorded in `docs/architecture/S033_COMPLETION_EVIDENCE.md`.
 Dependencies: S011, S012, S032
 Objective: Make field completion reliably produce invoice-ready work with audit evidence.
 Acceptance: no silent gap between completed job and invoice preparation.
@@ -540,7 +540,7 @@ Protected boundary: S033 is complete; keep S027 browser evidence separate and do
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is READY after S033 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Eligibility: No numbered sprint is `READY` after S033 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
 Dependencies: S033 readiness, implementation, and completion evidence are merged.
 Overlap check: No open or draft S033 PR remains authoritative; no S033 implementation lane remains.
 Startup prompt: Reconcile the next numbered sprint under NEXT_SPRINT_PROTOCOL.md before any new implementation. Do not mix S027 browser evidence.
