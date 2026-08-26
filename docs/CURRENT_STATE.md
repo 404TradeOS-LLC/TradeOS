@@ -330,3 +330,14 @@ reason; tenant scoping, forced RLS, lifecycle statuses, activity attribution,
 and the existing route surface remain unchanged. Final DONE status and merge
 evidence are recorded only after the implementation and completion-evidence PRs
 are merged.
+
+## S032 field technician daily workflow
+
+S032 is READY under `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md`.
+The existing backend provides organization-scoped assigned-job reads,
+technician-safe job context, actor-attributed notes, and field-worker lifecycle
+actions. The bounded implementation is a responsive technician workspace over
+those contracts, with no new status, role, permission, schema, RLS policy,
+GPS/routing, offline, messaging, voice/photo, billing, or later-sprint scope.
+S012 and S030 are DONE; S027 remains independently blocked on authenticated
+rendered Costbook browser evidence.

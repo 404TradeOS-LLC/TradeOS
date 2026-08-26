@@ -95,7 +95,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-Prioritize existing authorized work before inventing new scope. S025, S026, S028, S030, S031, S040, S041, and S042 are DONE with merged evidence; S031 completion evidence is recorded in `docs/architecture/S031_COMPLETION_EVIDENCE.md`; PR #311 and PT-003 PR #342 are also merged. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. No numbered sprint is currently READY; reconcile live truth before selecting another lane.
+Prioritize existing authorized work before inventing new scope. S025, S026, S028, S030, S031, S040, S041, and S042 are DONE with merged evidence; S031 completion evidence is recorded in `docs/architecture/S031_COMPLETION_EVIDENCE.md`; PR #311 and PT-003 PR #342 are also merged. S032 is READY under `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md` with S012/S030 DONE. S027 remains BLOCKED on authenticated rendered Costbook browser evidence. Keep exactly one S032 implementation writer and do not begin S033/S034/S037.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
