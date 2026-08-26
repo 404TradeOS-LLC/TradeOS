@@ -62,8 +62,8 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout` — requires the authenticated request context and revokes the caller's active local refresh sessions.
-- `POST /api/v1/auth/password-reset/request` — keeps the response enumeration-safe, persists a hashed short-lived token, and dispatches the raw token through the server-side Resend adapter when configured.
-- `POST /api/v1/account/invites` — persists a hashed invitation token and dispatches the raw token through the server-side Resend adapter when configured; owner/admin authorization remains unchanged.
+- `POST /api/v1/auth/password-reset/request` — keeps the response enumeration-safe, persists a hashed short-lived token, and schedules the raw token for post-response delivery through the server-side Resend adapter when configured.
+- `POST /api/v1/account/invites` — persists a hashed invitation token and schedules the raw token for post-response delivery through the server-side Resend adapter when configured; owner/admin authorization remains unchanged.
 - `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
 
@@ -88,7 +88,7 @@ The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API dir
 - deterministic `Idempotency-Key` values derived from a SHA-256 digest of the opaque token
 - no raw token in logs or provider-error messages
 
-Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record.
+Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. Delivery is scheduled after the HTTP response rather than awaited by the auth routes, which keeps password-reset timing uniform for known and unknown addresses. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record. Auth controllers register delivery after the response finishes; the scheduler keeps provider latency out of public auth responses and gives the authenticated request transaction a chance to commit before invite delivery starts.
 
 The email links currently target `/reset-password` and `/invite/accept`. Those frontend surfaces are a separate follow-up and must be present on the configured `APP_BASE_URL` before production sends are enabled.
 
