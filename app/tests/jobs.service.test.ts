@@ -220,6 +220,69 @@ describe("JobsService", () => {
     );
   });
 
+  it("uses half-open interval bounds for technician conflicts", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await service.create({
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      projectId: "project-1",
+      customerId: "customer-1",
+      serviceAddressId: "address-1",
+      title: "Boundary job",
+      jobType: "HVAC Service",
+      scheduledStart: new Date("2026-07-16T15:00:00.000Z"),
+      scheduledEnd: new Date("2026-07-16T16:00:00.000Z"),
+      technicianIds: ["tech-1"],
+    });
+
+    const conflictQuery = mockDb.jobAssignment.findMany.mock.calls
+      .map(([query]) => query)
+      .find((query) => query?.where?.job?.scheduledStart);
+    expect(conflictQuery).toBeDefined();
+    expect(conflictQuery.where.job.scheduledStart).toEqual({ lt: new Date("2026-07-16T16:00:00.000Z") });
+    expect(conflictQuery.where.job.scheduledEnd).toEqual({ gt: new Date("2026-07-16T15:00:00.000Z") });
+  });
+
+  it("rejects invalid direct-service schedule dates before persistence", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.create({
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        title: "Invalid date",
+        jobType: "HVAC Service",
+        scheduledStart: new Date("invalid"),
+        scheduledEnd: new Date("2026-07-16T16:00:00.000Z"),
+        technicianIds: ["tech-1"],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, message: "scheduledStart must be a valid date" });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects fractional direct-service durations before persistence", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.create({
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        title: "Fractional duration",
+        jobType: "HVAC Service",
+        estimatedDurationMinutes: 30.5,
+        technicianIds: ["tech-1"],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, message: "estimatedDurationMinutes must be a positive integer" });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
   it("blocks dispatcher conflict overrides without owner/admin permission", async () => {
     mockDb.jobAssignment.findMany.mockResolvedValue([
       {

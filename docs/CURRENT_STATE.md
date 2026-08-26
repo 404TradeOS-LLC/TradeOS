@@ -320,4 +320,13 @@ S042 is DONE through readiness PR #353, implementation PR #354, and `docs/archit
 
 ## S031 scheduling conflict rules
 
-S031 is READY under `docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md`. The bounded implementation will verify and harden the existing Jobs conflict seam across technician/time overlap, duration and arrival-window validation, override authorization, tenant scoping, and focused regression evidence. No new statuses, scheduling persistence, provider integration, schema/migration, billing, or later-sprint scope is implied.
+S031 is implemented on the single authoritative lane under
+`docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md`. The bounded change
+preserves the existing Jobs conflict seam while enforcing valid dates and
+positive integer durations, documenting half-open overlap semantics, and
+serializing conflict checks plus writes with organization/technician-scoped
+transaction advisory locks. Owner/admin overrides still require a nonempty
+reason; tenant scoping, forced RLS, lifecycle statuses, activity attribution,
+and the existing route surface remain unchanged. Final DONE status and merge
+evidence are recorded only after the implementation and completion-evidence PRs
+are merged.

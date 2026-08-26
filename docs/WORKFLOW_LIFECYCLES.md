@@ -242,6 +242,20 @@ Operational role note:
 - A12.1: `JobsService.schedule()` + `JobScheduled`, `addAssignment()` + `TechnicianAssigned`, and `complete()` + `WorkCompleted` each commit atomically. Required canonical event-persistence failure rolls back the corresponding schedule/assignment/completion mutation, leaving the prior lifecycle state intact. `reschedule()` and every other transition above remain unchanged. Subscriber delivery is not part of the transaction.
 - S012: `app/modules/jobs/lifecycle.ts` is the backend transition source of truth for the existing Job actions. It preserves the eight persisted statuses, current role/assignment checks, schedule/conflict validation, activity events, completion/readiness metadata, request-scoped transactions, and tenant/RLS boundaries. Dispatch attention remains derived and no schema migration is introduced.
 
+### Scheduling conflict semantics (S031)
+
+Scheduling and rescheduling use half-open time intervals, so work ending at the
+exact instant another job starts is allowed. A conflict requires the same
+organization and technician plus an overlap between `[scheduledStart,
+scheduledEnd)` intervals. Only active scheduled statuses participate; archived
+jobs, removed or declined assignments, and the job being rescheduled are
+excluded. Invalid schedule dates and non-positive, fractional, or non-finite
+durations fail before persistence.
+
+The conflict read and the following mutation are serialized per
+organization/technician inside the existing request-scoped transaction. Owners
+and admins may override with a nonempty reason; all other roles fail closed.
+
 ## Invoices
 
 Canonical display states:

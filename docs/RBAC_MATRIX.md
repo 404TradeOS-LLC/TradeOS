@@ -88,6 +88,9 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - technicians can accept or decline only their own assignments
 - technicians may move assigned jobs through field states that the service permits
 - owners and admins can override schedule conflicts
+- a conflict override requires a nonempty reason and is recorded with the normal
+  activity attribution; dispatcher and technician callers fail closed when they
+  attempt to override
 - only owners and admins can reopen completed jobs
 - the centralized Job lifecycle contract in `app/modules/jobs/lifecycle.ts` preserves the existing action graph: completion is `on_site -> completed`, cancellation is limited to `scheduled|dispatched|paused`, and owner/admin reopen is `completed -> unscheduled|scheduled`; no role receives generic status-write access
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
@@ -140,3 +143,9 @@ A12.1 changes transaction semantics, not permissions. The six required canonical
 ## S030 dispatcher verification (active)
 
 Dispatcher actions continue to use the existing bearer authentication, organization membership, service authorization, and forced-RLS boundaries. Active technician visibility excludes declined assignments, and job creation rejects non-technician membership rows; conflict overrides remain enforced by the existing owner/admin service policy.
+
+S031 preserves those boundaries while making the schedule check concurrency-safe:
+the authenticated organization and technician identifiers form the transaction
+lock scope, and the lock covers both conflict reads and the schedule/assignment
+write. This does not widen dispatcher permissions or allow a caller to select a
+different organization through request input.

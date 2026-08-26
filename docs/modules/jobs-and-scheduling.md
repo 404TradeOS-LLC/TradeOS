@@ -64,6 +64,30 @@ Important job-specific rules:
 - schedule conflict overrides are owner/admin only
 - dispatcher workflows are in scope today; only advanced optimization and route-planning features remain deferred
 
+## Scheduling conflict rules
+
+The existing schedule, reschedule, and assignment paths enforce technician
+availability within the authenticated organization. A candidate interval
+overlaps an active scheduled job only when the existing start is before the
+candidate end and the existing end is after the candidate start. The intervals
+are therefore half-open: adjacent appointments with equal end/start times are
+allowed. The current job is excluded during rescheduling, and archived jobs plus
+removed or declined assignments do not create conflicts.
+
+`GET /api/v1/schedule/conflicts` provides a conflict preview for a technician and
+time window. Mutation paths reject conflicts with `409` unless an owner or admin
+supplies an explicit nonempty override reason. Dispatchers retain ordinary
+schedule and assignment management but cannot override; technicians retain only
+their existing field-scoped access. Dates must be valid and supplied durations
+must be positive integers before any write occurs.
+
+Conflict reads and their subsequent writes use transaction-scoped PostgreSQL
+advisory locks keyed by organization and technician. This closes the race where
+two concurrent requests could both observe a free interval, while preserving
+request authentication, forced RLS, activity attribution, and the existing
+schema. No scheduling table, status, role, provider integration, or route
+optimization behavior is added.
+
 ## Lifecycle and statuses
 
 See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). The backend transition
