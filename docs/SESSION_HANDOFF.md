@@ -65,7 +65,7 @@ S032 implementation PR #361 merged as `f10fe02bd8e1161476b530b6cfb5c5a45facfd05`
 
 S033 is DONE after readiness PR #363, implementation PR #365, and completion-evidence PR #366 merged. The shipped handoff preserves completed-only readiness, manager authorization, organization/RLS scoping, readiness activity, WorkCompleted separation, and existing invoice semantics. Evidence is recorded in `docs/architecture/S033_COMPLETION_EVIDENCE.md`; no production/browser evidence is claimed.
 
-## S034 readiness
+## S034 completion
 
 S034 is DONE under `docs/architecture/S034_COMPLETION_EVIDENCE.md` after
 readiness PR #372 and implementation PR #373 merged. The shipped panel uses
@@ -82,7 +82,23 @@ redesign, S027 browser evidence, and S035/S037 work remain out of scope.
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S034 is DONE with readiness, implementation, and completion evidence pending only this reconciliation; S035 remains PLANNED until separate readiness promotion. S027 remains independently blocked.
+Eligibility: S034 is DONE with readiness, implementation, and completion evidence merged; S035 is READY under its separate readiness contract. S027 remains independently blocked.
 Dependencies: S030 and S031 are DONE with merged evidence.
 Overlap check: No open S034 PR remains; implementation PR #373 is merged and no authoritative S034 implementation lane remains after cleanup.
-Startup prompt: Reconcile and promote S035 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`; keep S027 browser evidence independent.
+Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Keep S027 browser evidence independent.
+
+## S035 readiness
+
+S035 is READY under `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md`.
+It is bounded to static query-path mapping, authorized isolated PostgreSQL
+plans, redacted evidence, and a prioritized optimization inventory. No indexes,
+migrations, query rewrites, production instrumentation, load testing, S036,
+S037, or S027 browser evidence is in scope.
+
+## Next Eligible Sprint
+
+Sprint ID: S035
+Eligibility: S035 is READY with all dependencies DONE and no competing implementation lane.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE.
+Overlap check: No open or draft S035 PR remains authoritative; S034 is fully reconciled.
+Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Keep S027 browser evidence independent.

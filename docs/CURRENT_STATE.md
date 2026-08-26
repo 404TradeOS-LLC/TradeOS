@@ -384,3 +384,11 @@ preserves the existing queue filters, scope labeling, conflict action
 boundaries, and truthful empty/error states. Readiness PR #372 and
 implementation PR #373 are merged; completion evidence records the exact
 verification and deferred telemetry boundary.
+
+## S035 query performance inventory readiness
+
+S035 is READY under `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md`.
+The next bounded lane is an evidence-only inventory of high-frequency query
+paths and representative authorized isolated PostgreSQL plans. It adds no
+indexes, migrations, query rewrites, production instrumentation, or load
+testing; S036 and S037 remain separate.
