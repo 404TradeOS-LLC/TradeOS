@@ -49,8 +49,16 @@ const mockPrisma = {
 };
 
 const mockProvision = jest.fn();
+const mockSendPasswordReset = jest.fn().mockResolvedValue({ sent: true });
+const mockSendTeamInvite = jest.fn().mockResolvedValue({ sent: true });
 
 jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrisma }));
+jest.mock("../modules/email/service", () => ({
+  emailService: {
+    sendPasswordReset: mockSendPasswordReset,
+    sendTeamInvite: mockSendTeamInvite,
+  },
+}));
 jest.mock("../modules/organization-provisioning/service", () => ({
   OrganizationProvisioningService: jest.fn().mockImplementation(() => ({ provision: mockProvision })),
 }));
@@ -228,6 +236,13 @@ describe("AuthService", () => {
 
     expect(result.success).toBe(true);
     expect(mockTransactionClient.passwordResetToken.create).toHaveBeenCalled();
+    expect(mockSendPasswordReset).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@example.com",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
   });
 
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
@@ -372,5 +387,13 @@ describe("AuthService", () => {
 
     expect(result.role).toBe("technician");
     expect(mockPrisma.organizationInvite.create).toHaveBeenCalled();
+    expect(mockSendTeamInvite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "tech@example.com",
+        role: "technician",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
   });
 });
