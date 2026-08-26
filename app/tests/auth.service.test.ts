@@ -51,12 +51,14 @@ const mockPrisma = {
 const mockProvision = jest.fn();
 const mockSendPasswordReset = jest.fn().mockResolvedValue({ sent: true });
 const mockSendTeamInvite = jest.fn().mockResolvedValue({ sent: true });
+const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => setImmediate(() => void send()));
 
 jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrisma }));
 jest.mock("../modules/email/service", () => ({
   emailService: {
     sendPasswordReset: mockSendPasswordReset,
     sendTeamInvite: mockSendTeamInvite,
+    scheduleEmailInBackground: mockScheduleEmailInBackground,
   },
 }));
 jest.mock("../modules/organization-provisioning/service", () => ({
