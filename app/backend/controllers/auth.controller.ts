@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { AuthService } from "../../modules/auth/service";
+import { scheduleEmailAfterResponse } from "../../modules/email/service";
 import { verifyAnyAuthToken } from "../auth/jwt";
 import { ApiError } from "../middleware/errorHandler";
 import { requireAuthContext, requireOrgId, requireRoles } from "../requestContext";
@@ -102,7 +103,11 @@ export const authController = {
     );
   },
   async requestPasswordReset(req: Request, res: Response) {
-    res.json(await service.requestPasswordReset(requestResetSchema.parse(req.body)));
+    const result = await service.requestPasswordReset(
+      requestResetSchema.parse(req.body),
+      (send) => scheduleEmailAfterResponse(res, send)
+    );
+    res.json(result);
   },
   async resetPassword(req: Request, res: Response) {
     res.json(await service.resetPassword(resetPasswordSchema.parse(req.body)));
@@ -115,14 +120,16 @@ export const authController = {
   async invite(req: Request, res: Response) {
     const auth = requireRoles(req, ["owner"]);
     const input = inviteSchema.parse(req.body);
-    res.status(201).json(
-      await service.inviteTeamMember({
+    const result = await service.inviteTeamMember(
+      {
         orgId: requireOrgId(req),
         invitedByUserId: auth.userId,
         email: input.email,
         role: input.role,
-      })
+      },
+      (send) => scheduleEmailAfterResponse(res, send)
     );
+    res.status(201).json(result);
   },
   async acceptInvite(req: Request, res: Response) {
     res.status(201).json(await service.acceptInvite(acceptInviteSchema.parse(req.body)));
