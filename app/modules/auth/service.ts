@@ -21,7 +21,7 @@ import {
 import { normalizeRole } from "../../domain";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { logError } from "../../backend/logging";
-import { emailService } from "../email/service";
+import { emailService, EmailDispatchScheduler, scheduleEmailInBackground } from "../email/service";
 
 const INVALID_CREDENTIALS = "Invalid email or password";
 const REFRESH_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 30;
@@ -172,7 +172,10 @@ export class AuthService {
     });
   }
 
-  async requestPasswordReset(input: RequestPasswordResetInput): Promise<PasswordResetRequestResult> {
+  async requestPasswordReset(
+    input: RequestPasswordResetInput,
+    scheduleDelivery: EmailDispatchScheduler = scheduleEmailInBackground
+  ): Promise<PasswordResetRequestResult> {
     const normalizedEmail = input.email.toLowerCase();
 
     const reset = await basePrisma.$transaction(async (transaction) => {
@@ -197,11 +200,13 @@ export class AuthService {
     });
 
     if (reset) {
-      try {
-        await emailService.sendPasswordReset(reset);
-      } catch (error) {
-        logError("auth.password_reset_email_failed", { error: errorName(error) });
-      }
+      scheduleDelivery(async () => {
+        try {
+          await emailService.sendPasswordReset(reset);
+        } catch (error) {
+          logError("auth.password_reset_email_failed", { error: errorName(error) });
+        }
+      });
     }
 
     return {
@@ -248,7 +253,10 @@ export class AuthService {
     });
   }
 
-  async inviteTeamMember(input: InviteTeamMemberInput): Promise<InviteTeamMemberResult> {
+  async inviteTeamMember(
+    input: InviteTeamMemberInput,
+    scheduleDelivery: EmailDispatchScheduler = scheduleEmailInBackground
+  ): Promise<InviteTeamMemberResult> {
     if (!["dispatcher", "technician"].includes(input.role)) {
       throw new ApiError(400, "Invites are limited to Dispatcher and Technician roles in this sprint");
     }
@@ -265,16 +273,18 @@ export class AuthService {
       },
     });
 
-    try {
-      await emailService.sendTeamInvite({
-        to: invite.email,
-        role: invite.role as "dispatcher" | "technician",
-        token: rawToken,
-        expiresAt: invite.expiresAt,
-      });
-    } catch (error) {
-      logError("auth.team_invite_email_failed", { error: errorName(error) });
-    }
+    scheduleDelivery(async () => {
+      try {
+        await emailService.sendTeamInvite({
+          to: invite.email,
+          role: invite.role as "dispatcher" | "technician",
+          token: rawToken,
+          expiresAt: invite.expiresAt,
+        });
+      } catch (error) {
+        logError("auth.team_invite_email_failed", { error: errorName(error) });
+      }
+    });
 
     return {
       inviteId: invite.id,
