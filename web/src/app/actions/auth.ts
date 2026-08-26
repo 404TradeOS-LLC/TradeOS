@@ -151,16 +151,17 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
     // Invited/local accounts use the backend's existing local auth contract.
     // Keep Supabase as the primary path for current accounts, then fall back
     // without changing the public error shape.
+    let localSession: LocalAuthSession;
     try {
-      const localSession = await apiFetch<LocalAuthSession>("/api/v1/auth/login", {
+      localSession = await apiFetch<LocalAuthSession>("/api/v1/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      await setLocalSession(localSession.token, localSession.refreshToken);
-      redirect("/dashboard");
     } catch {
       return { error: error.message };
     }
+    await setLocalSession(localSession.token, localSession.refreshToken);
+    redirect("/dashboard");
   }
 
   const accessToken = data.session?.access_token;
