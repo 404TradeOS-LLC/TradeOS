@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
-import { clearSessionCookie, setLocalSession } from "@/lib/session";
+import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = { error?: string; success?: string } | undefined;
@@ -171,6 +171,11 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
     // just produce 401s from every backend call, so fail loudly instead.
     return { error: "Sign-in did not return a session. Please try again." };
   }
+
+  // A successful Supabase login must not coexist with a previous local
+  // backend session: local cookies are intentionally preferred by the
+  // frontend session helpers.
+  await clearLocalSessionCookies();
 
   // Idempotent server-side (looks up an existing membership before creating
   // anything), so safe to call on every login — this is what actually
