@@ -135,3 +135,30 @@ test("signupAction, loginAction, and finishSetupAction all call the same idempot
   const occurrences = source.match(/await bootstrapOrganization\(/g) ?? [];
   assert.equal(occurrences.length, 3, "expected exactly three call sites: signupAction, loginAction, and finishSetupAction");
 });
+
+
+function readSource(relativePath: string): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", relativePath), "utf8");
+}
+
+test("transactional auth routes and actions exist for the delivered email links", () => {
+  const source = readAuthActionsSource();
+  assert.match(source, /requestPasswordResetAction/);
+  assert.match(source, /resetPasswordAction/);
+  assert.match(source, /acceptInviteAction/);
+
+  const resetPage = readSource("reset-password/page.tsx");
+  const invitePage = readSource("invite/accept/page.tsx");
+  assert.match(resetPage, /ResetPasswordForm/);
+  assert.match(invitePage, /InviteAcceptForm/);
+});
+
+test("invite acceptance establishes the backend local session before entering the app", () => {
+  const source = readAuthActionsSource();
+  const inviteStart = source.indexOf("export async function acceptInviteAction");
+  const loginStart = source.indexOf("export async function loginAction");
+  const inviteSource = source.slice(inviteStart, loginStart);
+  assert.match(inviteSource, /setLocalSession\(session\.token, session\.refreshToken\)/);
+  assert.match(inviteSource, /redirect\(["']\/dashboard["']\)/);
+});
