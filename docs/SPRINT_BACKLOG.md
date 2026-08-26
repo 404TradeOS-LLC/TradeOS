@@ -359,10 +359,14 @@ Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, 
 
 ### S033 — Ready-to-invoice handoff
 
-Status: PLANNED
+Status: READY
 Dependencies: S011, S012, S032
 Objective: Make field completion reliably produce invoice-ready work with audit evidence.
 Acceptance: no silent gap between completed job and invoice preparation.
+Readiness contract: `docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md` bounds S033 to a manager-facing completed-but-not-ready queue and explicit acknowledgement over the existing `ready-for-invoice` route. It preserves completed-only eligibility, manager authorization, organization/RLS scoping, readiness activity, WorkCompleted separation, and existing invoice semantics. No automatic invoice creation, billing/payment/pricing/tax change, new status/role/permission/schema/RLS policy, S027, S034, S037, or S047 scope.
+Founder-decision boundary: NO under existing Job lifecycle, RBAC, route, organization, RLS, activity, and invoice-readiness semantics.
+Required implementation validation: `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; Jobs/controller/RLS tests; web queue tests, lint, build; adversarial authorization and tenant tests; exact-head CI.
+Forbidden in S033: automatic invoice creation or sending, payment/ledger/pricing/tax changes, new statuses/roles/permissions/persistence/RLS, technician action widening, S027 browser evidence, and S034/S037/S047 work.
 
 ### S034 — Dispatch observability
 
@@ -527,15 +531,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
+Active Sprint: S033
 Completion status: S032 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S012 and S030 are DONE; S032 implementation and completion evidence are merged.
-Protected boundary: S032 is complete. Keep S027 browser evidence separate and do not begin S033/S034/S037 without a new eligible READY sprint.
+Dependencies: S011, S012, and S032 are DONE; S033 has one readiness contract and no competing implementation lane.
+Protected boundary: Implement only `docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md`. Keep S027 browser evidence separate and do not begin S034/S037/S047.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY` after S032 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S032 implementation and completion evidence are merged.
-Overlap check: S032 PR #361 is merged and no open S032 PR remains authoritative.
-Startup prompt: Reconcile live truth and follow `NEXT_SPRINT_PROTOCOL.md` before selecting another numbered sprint. Keep S027 browser evidence separate.
+Sprint ID: S033
+Eligibility: S033 is `READY`; S011, S012, and S032 are DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S011, S012, and S032 are DONE; no S033 implementation lane is active.
+Overlap check: No open or draft S033 PR, remote branch, competing implementation, or worktree was found during readiness promotion.
+Startup prompt: Create exactly one S033 implementation lane from the merged readiness commit; preserve completed-only invoice readiness, manager authorization, organization/RLS, and existing invoice semantics. Do not begin S034/S037/S047 or mix S027 browser evidence.
