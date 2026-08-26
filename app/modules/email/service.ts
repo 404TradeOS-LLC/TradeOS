@@ -58,10 +58,11 @@ export function scheduleEmailAfterResponse(response: ResponseLifecycle, send: ()
     response.once("finish", resolve);
   });
 
+  const delivery = afterResponse.then(send);
   try {
-    waitUntil(afterResponse.then(send));
+    waitUntil(delivery);
   } catch {
-    void afterResponse.then(send);
+    void delivery;
   }
 }
 
