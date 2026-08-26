@@ -49,8 +49,8 @@ Public routes are limited to:
 
 ## Transactional email behavior
 
-- `POST /api/v1/auth/password-reset/request` always returns the same success shape for known and unknown addresses. For an active local user it stores a hashed token and asks the Resend adapter to deliver a short-lived link; the raw token is returned only outside production for local/test workflows.
-- `POST /api/v1/account/invites` remains owner/admin-gated and stores a hashed invitation token before asking the Resend adapter to deliver the invitation. The raw token is returned only outside production.
+- `POST /api/v1/auth/password-reset/request` always returns the same success shape for known and unknown addresses. For an active local user it stores a hashed token and schedules the Resend adapter to deliver a short-lived link after the response; the raw token is returned only outside production for local/test workflows.
+- `POST /api/v1/account/invites` remains owner/admin-gated and stores a hashed invitation token before scheduling the Resend adapter to deliver the invitation after the response; The raw token is returned only outside production.
 - Email delivery is server-side only and uses `RESEND_API_KEY`, `EMAIL_FROM`, and `APP_BASE_URL`. Provider failures are not returned to callers and raw tokens are not logged.
 - The adapter's links target `/reset-password` and `/invite/accept`; the corresponding frontend pages must be deployed at the configured web origin before enabling production delivery.
 
