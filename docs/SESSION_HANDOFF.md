@@ -79,11 +79,7 @@ redesign, S027 browser evidence, and S035/S037 work remain out of scope.
 ## Next Eligible Sprint
 
 Sprint ID: S034
-Eligibility: S034 is READY; its readiness contract is the sole authorized S034
-write boundary. S027 remains independently blocked.
+Eligibility: S034 is READY; its readiness contract is the sole authorized S034 write boundary. S027 remains independently blocked.
 Dependencies: S030 and S031 are DONE with merged evidence.
-Overlap check: No open or draft S034 PR or implementation branch remains
-authoritative; unrelated PR #371 is outside S034.
-Startup prompt: Read `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md`
-before creating the single implementation lane. Keep S027 browser evidence
-independent.
+Overlap check: No open or draft S034 PR or implementation branch remains authoritative; unrelated PR #371 is outside S034.
+Startup prompt: Read `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md` before creating the single implementation lane. Keep S027 browser evidence independent.
