@@ -103,6 +103,14 @@ Controllers own request validation and HTTP shaping. Services take `orgId` expli
 
 Route groups are mounted centrally in `app/backend/server.ts`.
 
+Transactional email is an external adapter boundary owned by `app/modules/email/service.ts`:
+
+- the API key is read only at send time on the server and is never included in browser bundles
+- Resend is called over HTTPS with a verified sender, plain-text plus escaped HTML bodies, and deterministic idempotency keys
+- password-reset and team-invite services create the hashed token transactionally before delivery
+- provider errors never include response bodies or raw tokens; auth routes preserve their existing public response contracts
+- this adapter does not add database tables, RLS policies, permissions, or a background worker
+
 ## Frontend data paths
 
 Preferred frontend paths:
