@@ -142,6 +142,131 @@ describe("InvoicesService", () => {
     );
   });
 
+  it("bills the persisted estimate sell total instead of raw direct cost", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      totalPrice: 50400,
+      taxAmount: 2400,
+      lineItems: [
+        { description: "Labor", quantity: 100, unitOfMeasure: "hr", unitCost: 200, lineCost: 20000, taxable: false },
+        { description: "Materials", quantity: 100, unitOfMeasure: "sqft", unitCost: 150, lineCost: 15000, taxable: true },
+      ],
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "draft",
+      percentComplete: null,
+      amount: 50400,
+      dueDate: null,
+      sentAt: null,
+      paidAt: null,
+      createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "draft",
+      percentComplete: null,
+      amount: 50400,
+      dueDate: null,
+      sentAt: null,
+      paidAt: null,
+      createdAt: new Date(),
+      lineItems: [
+        { id: "li-1", description: "Labor", quantity: 100, unitOfMeasure: "hr", unitCost: 274.2857, lineCost: 27428.57, sortOrder: 0 },
+        { id: "li-2", description: "Materials", quantity: 100, unitOfMeasure: "sqft", unitCost: 229.7143, lineCost: 22971.43, sortOrder: 1 },
+      ],
+      deliveries: [],
+    });
+
+    await new InvoicesService().create({
+      orgId: "org-1",
+      actorRole: "admin",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+    });
+
+    const created = mockPrisma.invoice.create.mock.calls[0][0].data;
+    expect(created.amount).toBe(50400);
+    expect(created.lineItems.create.map((line: { lineCost: number }) => line.lineCost)).toEqual([27428.57, 22971.43]);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(50400);
+  });
+
+  it("scales the persisted sell total for progress invoices", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      totalPrice: 50400,
+      taxAmount: 2400,
+      lineItems: [
+        { description: "Labor", quantity: 100, unitOfMeasure: "hr", unitCost: 200, lineCost: 20000, taxable: false },
+        { description: "Materials", quantity: 100, unitOfMeasure: "sqft", unitCost: 150, lineCost: 15000, taxable: true },
+      ],
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      proposalId: "estimate-1",
+      invoiceNumber: 1,
+      type: "progress",
+      status: "draft",
+      percentComplete: 50,
+      amount: 25200,
+      dueDate: null,
+      sentAt: null,
+      paidAt: null,
+      createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "progress",
+      status: "draft",
+      percentComplete: 50,
+      amount: 25200,
+      dueDate: null,
+      sentAt: null,
+      paidAt: null,
+      createdAt: new Date(),
+      lineItems: [
+        { id: "li-1", description: "Labor", quantity: 50, unitOfMeasure: "hr", unitCost: 274.2857, lineCost: 13714.29, sortOrder: 0 },
+        { id: "li-2", description: "Materials", quantity: 50, unitOfMeasure: "sqft", unitCost: 229.7143, lineCost: 11485.71, sortOrder: 1 },
+      ],
+      deliveries: [],
+    });
+
+    await new InvoicesService().create({
+      orgId: "org-1",
+      actorRole: "admin",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      type: "progress",
+      percentComplete: 50,
+    });
+
+    const created = mockPrisma.invoice.create.mock.calls[0][0].data;
+    expect(created.amount).toBe(25200);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineCost: number }) => sum + line.lineCost, 0)).toBe(25200);
+  });
+
   it("rejects a progress invoice without percentComplete", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
 

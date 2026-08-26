@@ -32,6 +32,8 @@ export interface InvoiceLineItemInput {
   quantity: number;
   unitOfMeasure: string;
   unitCost: number;
+  /** Customer-facing allocated line total when created from an estimate. */
+  lineCost?: number;
 }
 
 export interface CreateInvoiceInput {
