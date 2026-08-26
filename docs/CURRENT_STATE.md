@@ -397,3 +397,7 @@ workspace has no `psql`, Docker, or authorized isolated `DATABASE_URL`. No
 production latency, frequency, or planner claim is made. See
 `docs/architecture/S035_BLOCKED_EVIDENCE.md`. S036 is not eligible; S027
 remains independently blocked on authenticated rendered Costbook evidence.
+
+## Transactional email frontend routes
+
+The frontend now exposes the existing transactional-auth flows at `/forgot-password`, `/reset-password?token=...`, and `/invite/accept?token=...`. Server actions call the backend password-reset and invite-accept endpoints, preserve enumeration-safe reset responses, and hand accepted invites a backend-issued local session in HTTP-only cookies. The existing Supabase login path remains primary, with local backend login fallback for accounts created through the local auth boundary. Production delivery remains environment-dependent on a verified Resend sender/domain, `RESEND_API_KEY`, and `APP_BASE_URL`; live browser verification is external follow-up.
