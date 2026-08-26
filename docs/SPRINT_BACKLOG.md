@@ -347,13 +347,14 @@ Evidence: Implementation PR #358 merged as `aa421606968f8a83fe0932ab0010131ea962
 
 ### S032 — Field technician daily workflow
 
-Status: READY
+Status: DONE
 Dependencies: S012, S030
 Objective: Harden technician day view, job details, status updates, notes, and completion.
 Acceptance: mobile workflow supports the permitted job lifecycle.
 Readiness contract: `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md` bounds S032 to a responsive technician-facing workspace over existing assigned-job, detail, note, and named field-lifecycle contracts. It preserves technician assignment scoping, organization authorization, forced RLS, activity/events, and existing statuses. No new route family, schema, migration, role, permission, GPS, routing, offline sync, messaging, voice, photo upload, inventory, billing, S033, S034, S037, or S027 scope.
 Founder-decision boundary: NO under existing Job lifecycle, RBAC, route, organization, and RLS semantics.
-Required implementation validation: `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; app Jobs/controller tests, lint, build, integration; web tests, lint, build; adversarial technician tenant/assignment/status tests; exact-head CI.
+Evidence: readiness PR #360 merged as `1b5df35ad7a1ef4ab3c168762ff928045b22e8b6`; implementation PR #361 merged as `f10fe02bd8e1161476b530b6cfb5c5a45facfd05`; completion evidence is recorded in `docs/architecture/S032_COMPLETION_EVIDENCE.md`.
+Required implementation validation: `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; web tests, lint, build; exact-head CI.
 Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, GPS/routing, offline sync, push notifications, customer messaging, voice/photo workflows, inventory/material usage, billing/invoice policy, broad dispatcher redesign, S033/S034/S037 work, and S027 browser evidence.
 
 ### S033 — Ready-to-invoice handoff
@@ -526,15 +527,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S032
-Completion status: S031 is DONE with merged implementation and completion evidence; S028, S030, S040, S041, and S042 are also DONE; PT-003 #342 and invoice reconciliation #311 are merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S012 and S030 are DONE; S032 has one readiness contract and no competing implementation lane.
-Protected boundary: Implement only `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md`. Keep S027 browser evidence separate and do not begin S033/S034/S037.
+Active Sprint: NONE
+Completion status: S032 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S012 and S030 are DONE; S032 implementation and completion evidence are merged.
+Protected boundary: S032 is complete. Keep S027 browser evidence separate and do not begin S033/S034/S037 without a new eligible READY sprint.
 
 ## Next Eligible Sprint
 
-Sprint ID: S032
-Eligibility: S032 is `READY`; S012 and S030 are DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S012 and S030 are DONE; no S032 implementation PR or competing lane exists.
-Overlap check: No open or draft S032 PR, remote branch, recent competing implementation, or worktree was found during readiness promotion.
-Startup prompt: Create exactly one S032 implementation lane from the merged readiness commit; preserve Job lifecycle, technician assignment scoping, organization authorization, forced RLS, and existing dispatcher contracts. Do not begin S033/S034/S037 or mix S027 browser evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY` after S032 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S032 implementation and completion evidence are merged.
+Overlap check: S032 PR #361 is merged and no open S032 PR remains authoritative.
+Startup prompt: Reconcile live truth and follow `NEXT_SPRINT_PROTOCOL.md` before selecting another numbered sprint. Keep S027 browser evidence separate.
