@@ -462,3 +462,25 @@ Estimate line-item writes allocate the next persisted `sortOrder` within an esti
 ## S030 dispatcher verification (active)
 
 The dispatcher API contract remains additive over `/api/v1/jobs`: list/summary reads plus existing schedule, reschedule, assignment, conflict, and lifecycle routes. The web workspace uses the authenticated `/api/proxy/*` bridge for mutations, so bearer tokens remain server-side. Assignment summaries include an optional assignment identifier for safe unassignment.
+
+## Scheduling conflict rules (S031)
+
+`PUT /api/v1/jobs/:jobId/schedule`, `POST /api/v1/jobs/:jobId/reschedule`, and
+the schedule-bearing job/assignment mutations reject overlapping active work for
+the same technician with `409 Schedule conflict detected`. Overlap uses
+half-open intervals: a candidate `[scheduledStart, scheduledEnd)` conflicts only
+when the existing start is before the candidate end and the existing end is
+after the candidate start; jobs that touch at a boundary do not conflict.
+
+`GET /api/v1/schedule/conflicts?technicianId=<uuid>&scheduledFrom=<datetime>&scheduledTo=<datetime>`
+provides the organization-scoped conflict preview. Archived jobs and removed or
+declined assignments are excluded, as are the job currently being rescheduled
+and jobs outside active scheduled statuses. Schedule timestamps must be valid,
+and `estimatedDurationMinutes`, when supplied, must be a positive integer.
+
+An owner or admin may explicitly override a detected conflict only by supplying
+`overrideConflict=true` and a nonempty `overrideReason`. Dispatchers may manage
+ordinary scheduling and assignments but cannot override conflicts. Conflict
+checks and the subsequent mutation run under transaction-scoped,
+organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
+attempts cannot both pass the check for the same technician.

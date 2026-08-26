@@ -281,6 +281,7 @@ export class JobsService {
 
       const jobNumber = await this.generateJobNumber(tx, input.orgId);
       const status = input.scheduledStart && input.scheduledEnd ? "scheduled" : "unscheduled";
+      await this.lockTechnicianSchedules(tx, input.orgId, technicianIds);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds,
@@ -499,6 +500,7 @@ export class JobsService {
         throw new ApiError(409, `User ${input.userId} is not an active technician`);
       }
 
+      await this.lockTechnicianSchedules(tx, input.orgId, [input.userId]);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: [input.userId],
@@ -598,6 +600,7 @@ export class JobsService {
 
       const nextRole = input.assignmentRole ?? existing.assignmentRole;
       const nextIsLead = input.isLead ?? existing.isLead;
+      await this.lockTechnicianSchedules(tx, input.orgId, [existing.userId]);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: [existing.userId],
@@ -913,6 +916,7 @@ export class JobsService {
         where: { jobId: job.id, orgId: input.orgId, removedAt: null, declinedAt: null },
         select: { userId: true },
       });
+      await this.lockTechnicianSchedules(tx, input.orgId, assignments.map((assignment) => assignment.userId));
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: assignments.map((assignment) => assignment.userId),
@@ -1257,6 +1261,24 @@ export class JobsService {
     }));
   }
 
+  /**
+   * Serialize schedule conflict check plus the following mutation for each
+   * technician. Without a transaction-scoped lock, two concurrent requests
+   * can both observe a free interval and then create overlapping work.
+   * Sorting the keys makes multi-technician operations acquire locks in a
+   * stable order and avoids introducing a lock-order deadlock.
+   */
+  private async lockTechnicianSchedules(
+    tx: Prisma.TransactionClient | PrismaClient,
+    orgId: string,
+    technicianIds: string[],
+  ): Promise<void> {
+    for (const technicianId of [...new Set(technicianIds)].sort()) {
+      const lockKey = `job-schedule:${orgId}:${technicianId}`;
+      await tx.$queryRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    }
+  }
+
   private assertConflictsAllowed(
     conflicts: ScheduleConflictDTO[],
     role: string,
@@ -1419,6 +1441,16 @@ function validateScheduleRange(
   arrivalWindowStart: Date | null,
   arrivalWindowEnd: Date | null
 ) {
+  for (const [label, value] of [
+    ["scheduledStart", scheduledStart],
+    ["scheduledEnd", scheduledEnd],
+    ["arrivalWindowStart", arrivalWindowStart],
+    ["arrivalWindowEnd", arrivalWindowEnd],
+  ] as const) {
+    if (value && Number.isNaN(value.getTime())) {
+      throw new ApiError(400, `${label} must be a valid date`);
+    }
+  }
   if ((scheduledStart && !scheduledEnd) || (!scheduledStart && scheduledEnd)) {
     throw new ApiError(400, "scheduledStart and scheduledEnd must both be provided");
   }
@@ -1439,8 +1471,8 @@ function validateScheduleRange(
 }
 
 function validateDuration(estimatedDurationMinutes: number | null) {
-  if (estimatedDurationMinutes !== null && estimatedDurationMinutes <= 0) {
-    throw new ApiError(400, "estimatedDurationMinutes must be positive");
+  if (estimatedDurationMinutes !== null && (!Number.isFinite(estimatedDurationMinutes) || !Number.isInteger(estimatedDurationMinutes) || estimatedDurationMinutes <= 0)) {
+    throw new ApiError(400, "estimatedDurationMinutes must be a positive integer");
   }
 }
 
