@@ -59,6 +59,16 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - **Pagination:** opaque cursor, default 25 / max 50, `updatedAt desc, id desc` with a stable id tie-breaker, invalid cursor -> `400`. Response is `{ items, total, nextCursor }` with an exact filtered `total`.
 - **Response fields:** `id`, `documentNumber` (the existing `invoiceNumber`), `projectId`, `projectName`, `customerName`, `status`, `amount`, `paidAmount`, `balanceDue`, `dueDate`, `updatedAt`. No `orgId` on individual items.
 
+## Estimate-backed invoice creation
+
+Creating an invoice with `estimateId` transfers the persisted customer-facing
+`Estimate.totalPrice` into `Invoice.amount`; it does not sum the estimate's
+raw direct `unitCost` values. The persisted estimate tax is allocated across
+the existing itemized invoice lines, and progress invoices scale the sell total
+by `percentComplete`. Custom `lineItems` remain an explicit direct-input
+path and retain their existing behavior. This value-transfer rule changes no
+permission, payment-ledger, tax-formula, or schema contract.
+
 ## Permissions
 
 The organization payment-ledger read endpoint and the organization invoice work-queue read both require the canonical `billing.read` permission and still run under the existing authenticated organization/database-session stack. See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
