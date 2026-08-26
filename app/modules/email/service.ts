@@ -100,7 +100,7 @@ export class EmailService {
       return { sent: false, skipped: true };
     }
 
-    const senderUrl = new URL(baseUrl);
+    if (!baseUrl) {\n      throw new Error("APP_BASE_URL is not configured");\n    }\n\n    const senderUrl = new URL(baseUrl);
     if (process.env.NODE_ENV === "production" && senderUrl.protocol !== "https:") {
       throw new Error("APP_BASE_URL must use HTTPS in production");
     }
