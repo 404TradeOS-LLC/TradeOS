@@ -107,9 +107,9 @@ Transactional email is an external adapter boundary owned by `app/modules/email/
 
 - the API key is read only at send time on the server and is never included in browser bundles
 - Resend is called over HTTPS with a verified sender, plain-text plus escaped HTML bodies, and deterministic idempotency keys
-- password-reset and team-invite services create the hashed token transactionally before delivery
+- password-reset and team-invite services create the hashed token transactionally, then schedule delivery after the HTTP response
 - provider errors never include response bodies or raw tokens; auth routes preserve their existing public response contracts
-- this adapter does not add database tables, RLS policies, permissions, or a background worker
+- this adapter does not add database tables, RLS policies, permissions, or a background worker; the current post-response scheduler is intentionally bounded and non-durable
 
 ## Frontend data paths
 
