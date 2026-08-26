@@ -51,10 +51,14 @@ Read `docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md` before editing. 
 
 S031 implementation PR #358 merged as `aa421606968f8a83fe0932ab0010131ea9625940`; completion evidence is recorded in `docs/architecture/S031_COMPLETION_EVIDENCE.md`. The scheduling conflict contract, tests, CI, and security boundaries are reconciled. S027 remains separate and authenticated browser evidence remains explicitly environment-blocked.
 
+## Readiness contract — S032
+
+Read `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md` before editing. Preserve the existing Job lifecycle, technician assignment scoping, request-scoped transactions, organization authorization, forced RLS, activity/events, and dispatcher contracts. Implement only the responsive technician daily workspace, assigned-job detail/context, permitted field status actions, and job notes. Do not add statuses, roles, permissions, persistence, GPS/routing, offline sync, messaging, voice/photo workflows, billing, S027 browser evidence, or S033/S034/S037 scope.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY. S031 is DONE with merged implementation and completion evidence; S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
-Dependencies: S030, S031, S040, S041, and S042 are DONE with merged evidence.
-Overlap check: S031 PR #358 is merged and no open S031 PR remains. Do not reopen S031 or mix S027 browser evidence into another sprint.
-Startup prompt: Reconcile live truth and follow NEXT_SPRINT_PROTOCOL.md before selecting any next numbered sprint.
+Sprint ID: S032
+Eligibility: S032 is READY with S012 and S030 DONE; no competing implementation lane exists. S027 remains independently BLOCKED on authenticated rendered Costbook evidence.
+Dependencies: S012 and S030 are DONE with merged evidence.
+Overlap check: No open or draft S032 PR, remote branch, recent competing implementation, or worktree was found at readiness promotion. Do not reopen S031 or mix S027 browser evidence into S032.
+Startup prompt: Create exactly one S032 implementation lane from the merged readiness commit and follow the S032 plan. Keep S027 browser evidence independent and do not begin S033/S034/S037.

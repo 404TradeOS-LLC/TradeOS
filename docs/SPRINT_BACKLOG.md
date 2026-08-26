@@ -347,10 +347,14 @@ Evidence: Implementation PR #358 merged as `aa421606968f8a83fe0932ab0010131ea962
 
 ### S032 — Field technician daily workflow
 
-Status: PLANNED
+Status: READY
 Dependencies: S012, S030
 Objective: Harden technician day view, job details, status updates, notes, and completion.
 Acceptance: mobile workflow supports the permitted job lifecycle.
+Readiness contract: `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md` bounds S032 to a responsive technician-facing workspace over existing assigned-job, detail, note, and named field-lifecycle contracts. It preserves technician assignment scoping, organization authorization, forced RLS, activity/events, and existing statuses. No new route family, schema, migration, role, permission, GPS, routing, offline sync, messaging, voice, photo upload, inventory, billing, S033, S034, S037, or S027 scope.
+Founder-decision boundary: NO under existing Job lifecycle, RBAC, route, organization, and RLS semantics.
+Required implementation validation: `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; app Jobs/controller tests, lint, build, integration; web tests, lint, build; adversarial technician tenant/assignment/status tests; exact-head CI.
+Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, GPS/routing, offline sync, push notifications, customer messaging, voice/photo workflows, inventory/material usage, billing/invoice policy, broad dispatcher redesign, S033/S034/S037 work, and S027 browser evidence.
 
 ### S033 — Ready-to-invoice handoff
 
@@ -522,15 +526,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
+Active Sprint: S032
 Completion status: S031 is DONE with merged implementation and completion evidence; S028, S030, S040, S041, and S042 are also DONE; PT-003 #342 and invoice reconciliation #311 are merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S031 dependency S030 is DONE. S027 remains independent and blocked on browser evidence.
-Protected boundary: S031 is complete. Do not combine S027 browser evidence with S031 or begin another numbered sprint until NEXT_SPRINT_PROTOCOL.md selects an eligible READY sprint.
+Dependencies: S012 and S030 are DONE; S032 has one readiness contract and no competing implementation lane.
+Protected boundary: Implement only `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md`. Keep S027 browser evidence separate and do not begin S033/S034/S037.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`. S031 is DONE; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S031 implementation and completion evidence are merged.
-Overlap check: S031 PR #358 is merged; no open S031 PR remains authoritative.
-Startup prompt: Reconcile live truth and follow NEXT_SPRINT_PROTOCOL.md before selecting the next numbered sprint. Do not mix S027 browser evidence into another sprint.
+Sprint ID: S032
+Eligibility: S032 is `READY`; S012 and S030 are DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S012 and S030 are DONE; no S032 implementation PR or competing lane exists.
+Overlap check: No open or draft S032 PR, remote branch, recent competing implementation, or worktree was found during readiness promotion.
+Startup prompt: Create exactly one S032 implementation lane from the merged readiness commit; preserve Job lifecycle, technician assignment scoping, organization authorization, forced RLS, and existing dispatcher contracts. Do not begin S033/S034/S037 or mix S027 browser evidence.
