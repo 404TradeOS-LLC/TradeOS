@@ -338,11 +338,12 @@ Implementation status: DONE through PR #341; declined-assignment reactivation is
 
 ### S031 — Scheduling conflict rules
 
-Status: READY
+Status: DONE
 Dependencies: S030
 Objective: Define and enforce technician, time, duration, and overlap conflicts.
 Acceptance: conflicts are deterministic, visible, and tested.
 Readiness contract: `docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md` bounds S031 to the existing Jobs scheduling/assignment conflict seam, deterministic interval and time validation, role-gated overrides, tenant/RLS proof, and focused regression coverage. No new statuses, scheduling persistence, provider/calendar integration, route optimization, notifications, schema/migrations, billing, S027, S032, S034, or S037 scope.
+Evidence: Implementation PR #358 merged as `aa421606968f8a83fe0932ab0010131ea9625940`; completion evidence is recorded in `docs/architecture/S031_COMPLETION_EVIDENCE.md`.
 
 ### S032 — Field technician daily workflow
 
@@ -521,15 +522,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S031
-Completion status: S028, S030, S040, S041, and S042 are DONE with merged implementation and completion evidence; PT-003 #342 and invoice reconciliation #311 are merged; S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S030 is DONE and S031 has no competing PR or implementation lane; S027 remains independent and blocked on browser evidence.
-Protected boundary: Implement only the merged S031 readiness contract. Do not begin S032, S034, or S037, and do not combine S027 browser evidence with S031.
+Active Sprint: NONE
+Completion status: S031 is DONE with merged implementation and completion evidence; S028, S030, S040, S041, and S042 are also DONE; PT-003 #342 and invoice reconciliation #311 are merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S031 dependency S030 is DONE. S027 remains independent and blocked on browser evidence.
+Protected boundary: S031 is complete. Do not combine S027 browser evidence with S031 or begin another numbered sprint until NEXT_SPRINT_PROTOCOL.md selects an eligible READY sprint.
 
 ## Next Eligible Sprint
 
-Sprint ID: S031
-Eligibility: S031 is `READY`; its S030 dependency is DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S030 is DONE; S031 readiness plan must merge before implementation begins.
-Overlap check: No open S031 PR or competing S031 branch/worktree exists at readiness promotion.
-Startup prompt: Implement only `docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md`; preserve Job lifecycle, assignment roles, organization scoping, forced RLS, and existing dispatcher contracts. Do not begin S032/S034/S037 or mix S027 browser evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`. S031 is DONE; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S031 implementation and completion evidence are merged.
+Overlap check: S031 PR #358 is merged; no open S031 PR remains authoritative.
+Startup prompt: Reconcile live truth and follow NEXT_SPRINT_PROTOCOL.md before selecting the next numbered sprint. Do not mix S027 browser evidence into another sprint.
