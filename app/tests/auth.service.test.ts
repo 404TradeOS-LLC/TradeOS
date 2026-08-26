@@ -245,6 +245,23 @@ describe("AuthService", () => {
     );
   });
 
+  it("preserves the generic password-reset response when email delivery fails", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "owner@example.com",
+      fullName: "Owner",
+      isActive: true,
+    });
+    mockSendPasswordReset.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.requestPasswordReset({ email: "owner@example.com" });
+
+    expect(result.success).toBe(true);
+    expect(result.resetToken).toEqual(expect.any(String));
+  });
+
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
     mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
@@ -366,6 +383,32 @@ describe("AuthService", () => {
     expect(result.role).toBe("owner");
     expect(mockProvision).toHaveBeenCalledWith(
       expect.objectContaining({ organizationName: "New Co", owner: expect.objectContaining({ authSubject: "supabase:new-user" }) })
+    );
+  });
+
+  it("keeps the persisted invitation response when email delivery fails", async () => {
+    mockPrisma.organizationInvite.create.mockResolvedValue({
+      id: "invite-1",
+      email: "tech@example.com",
+      role: "technician",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockSendTeamInvite.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.inviteTeamMember({
+      orgId: "org-1",
+      invitedByUserId: "owner-1",
+      email: "tech@example.com",
+      role: "technician",
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        inviteId: "invite-1",
+        email: "tech@example.com",
+        role: "technician",
+      })
     );
   });
 
