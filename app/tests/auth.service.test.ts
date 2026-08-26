@@ -49,8 +49,18 @@ const mockPrisma = {
 };
 
 const mockProvision = jest.fn();
+const mockSendPasswordReset = jest.fn().mockResolvedValue({ sent: true });
+const mockSendTeamInvite = jest.fn().mockResolvedValue({ sent: true });
+const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => setImmediate(() => void send()));
 
 jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrisma }));
+jest.mock("../modules/email/service", () => ({
+  emailService: {
+    sendPasswordReset: mockSendPasswordReset,
+    sendTeamInvite: mockSendTeamInvite,
+  },
+  scheduleEmailInBackground: mockScheduleEmailInBackground,
+}));
 jest.mock("../modules/organization-provisioning/service", () => ({
   OrganizationProvisioningService: jest.fn().mockImplementation(() => ({ provision: mockProvision })),
 }));
@@ -225,9 +235,35 @@ describe("AuthService", () => {
 
     const service = new AuthService();
     const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
 
     expect(result.success).toBe(true);
     expect(mockTransactionClient.passwordResetToken.create).toHaveBeenCalled();
+    expect(mockSendPasswordReset).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@example.com",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
+  });
+
+  it("preserves the generic password-reset response when email delivery fails", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "owner@example.com",
+      fullName: "Owner",
+      isActive: true,
+    });
+    mockSendPasswordReset.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
+
+    expect(result.success).toBe(true);
+    expect(result.resetToken).toEqual(expect.any(String));
   });
 
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
@@ -354,6 +390,33 @@ describe("AuthService", () => {
     );
   });
 
+  it("keeps the persisted invitation response when email delivery fails", async () => {
+    mockPrisma.organizationInvite.create.mockResolvedValue({
+      id: "invite-1",
+      email: "tech@example.com",
+      role: "technician",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockSendTeamInvite.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.inviteTeamMember({
+      orgId: "org-1",
+      invitedByUserId: "owner-1",
+      email: "tech@example.com",
+      role: "technician",
+    });
+    await waitForScheduledEmail();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        inviteId: "invite-1",
+        email: "tech@example.com",
+        role: "technician",
+      })
+    );
+  });
+
   it("allows owners to create dispatcher and technician invites", async () => {
     mockPrisma.organizationInvite.create.mockResolvedValue({
       id: "invite-1",
@@ -369,8 +432,22 @@ describe("AuthService", () => {
       email: "tech@example.com",
       role: "technician",
     });
+    await waitForScheduledEmail();
 
     expect(result.role).toBe("technician");
     expect(mockPrisma.organizationInvite.create).toHaveBeenCalled();
+    expect(mockSendTeamInvite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "tech@example.com",
+        role: "technician",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
   });
 });
+
+
+function waitForScheduledEmail(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
