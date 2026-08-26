@@ -36,6 +36,26 @@ interface ResendSendResponse {
   id?: unknown;
 }
 
+export type EmailDispatchScheduler = (send: () => Promise<void>) => void;
+
+interface ResponseLifecycle {
+  once(event: "finish", listener: () => void): unknown;
+}
+
+export function scheduleEmailInBackground(send: () => Promise<void>): void {
+  setImmediate(() => {
+    void send();
+  });
+}
+
+export function scheduleEmailAfterResponse(response: ResponseLifecycle, send: () => Promise<void>): void {
+  response.once("finish", () => {
+    setImmediate(() => {
+      void send();
+    });
+  });
+}
+
 export class EmailService {
   async sendPasswordReset(input: PasswordResetEmailInput): Promise<EmailSendResult> {
     const resetUrl = buildActionUrl(PASSWORD_RESET_PATH, input.token);
