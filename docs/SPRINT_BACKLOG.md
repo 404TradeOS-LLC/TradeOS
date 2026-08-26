@@ -393,7 +393,7 @@ Readiness contract: `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md`
 Founder-decision boundary: NO for repository and isolated-fixture evidence. Production database access, a latency budget/SLO, or real customer workload capture requires separate authorization and must not be inferred.
 Required validation: query-path and tenant/RLS review; reproducible isolated plan evidence where available; redaction review; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app/database verification.
 Forbidden in S035: schema/migrations, new indexes, query rewrites, ORM replacement, runtime tracing, slow-query logging, production instrumentation, load testing, provider work, S036 implementation, S037 scope, and S027 browser evidence.
-Evidence: Static inventory merged in PR #377 (`34a079bdd45aaf73c144682b6650a59a8d513d91`) and recorded in `docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md`; S035 is BLOCKED because this workspace lacks `psql`, Docker, and an authorized isolated PostgreSQL database for representative plans. See `docs/architecture/S035_BLOCKED_EVIDENCE.md`.
+Evidence: Inventory PR #377 merged as `34a079bdd45aaf73c144682b6650a59a8d513d91`; representative isolated staging plans and completion evidence are recorded in `docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md` and `docs/architecture/S035_COMPLETION_EVIDENCE.md`.
 
 ### S036 — Database index hardening
 
@@ -543,14 +543,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S034 is DONE with readiness, implementation, and completion evidence merged. S035 is BLOCKED on unavailable authorized isolated PostgreSQL plan evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 static inventory is merged, but its representative-plan acceptance gate is unmet.
-Protected boundary: Resolve the S035 external evidence blocker before any S036 or other numbered-sprint implementation; keep S027 browser evidence separate.
+Completion status: S034 and S035 are DONE with merged evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 representative staging plans are recorded and the synthetic fixture was removed.
+Protected boundary: S036 remains blocked by S027; keep S027 browser evidence separate.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S035 is `BLOCKED` because representative PostgreSQL plans require an unavailable authorized isolated runtime; S036 also depends on S027.
-Dependencies: S035 static inventory PR #377 is merged; representative plan evidence is outstanding. S027 remains independently BLOCKED.
-Overlap check: No open S035 PR remains; PR #377 is merged and the inventory lane is reconciled. No S036 implementation lane may start.
-Startup prompt: Provide or authorize an isolated PostgreSQL runtime with synthetic data, then resume S035 plan capture. Do not use production credentials or mix S027 browser evidence.
+Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
+Dependencies: S035 is DONE with inventory and representative plan evidence; S027 remains independently BLOCKED.
+Overlap check: No open S035 PR remains; S035 completion evidence is pending this governance PR. Do not start S036 until S027 is resolved and S036 is promoted through readiness.
+Startup prompt: Reconcile S035 completion evidence, then follow the readiness protocol for S036 only after S027 is complete. Keep S027 browser evidence independent.
