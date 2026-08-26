@@ -233,6 +233,7 @@ describe("AuthService", () => {
 
     const service = new AuthService();
     const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
 
     expect(result.success).toBe(true);
     expect(mockTransactionClient.passwordResetToken.create).toHaveBeenCalled();
@@ -257,6 +258,7 @@ describe("AuthService", () => {
 
     const service = new AuthService();
     const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
 
     expect(result.success).toBe(true);
     expect(result.resetToken).toEqual(expect.any(String));
@@ -402,6 +404,7 @@ describe("AuthService", () => {
       email: "tech@example.com",
       role: "technician",
     });
+    await waitForScheduledEmail();
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -427,6 +430,7 @@ describe("AuthService", () => {
       email: "tech@example.com",
       role: "technician",
     });
+    await waitForScheduledEmail();
 
     expect(result.role).toBe("technician");
     expect(mockPrisma.organizationInvite.create).toHaveBeenCalled();
@@ -440,3 +444,8 @@ describe("AuthService", () => {
     );
   });
 });
+
+
+function waitForScheduledEmail(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
