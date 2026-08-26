@@ -368,9 +368,9 @@ S033 is DONE under
 S027 remains independently blocked on authenticated rendered Costbook browser
 evidence.
 
-## S034 dispatch observability readiness
+## S034 dispatch observability
 
-S034 is READY under `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md`.
+S034 is DONE under `docs/architecture/S034_COMPLETION_EVIDENCE.md`.
 The authorized implementation is a read-only Dispatch surface over existing
 attention counts, conflict preview/override behavior, attributed job activity,
 queue filters, and organization/RLS scope. It does not add durable failed-action
@@ -378,8 +378,9 @@ telemetry, alerting, notifications, schema/migrations, roles, permissions,
 statuses, RLS redesign, or S027 browser evidence. S030 and S031 are DONE; no
 competing S034 implementation lane was found.
 
-The single S034 implementation lane now adds a read-only Dispatch diagnostics
-panel over the existing dispatch summary and organization-scoped job activity
-routes. It preserves the existing queue filters, scope labeling, conflict
-action boundaries, and truthful empty/error states. Implementation is not
-DONE until its PR and separate completion evidence are merged.
+The shipped implementation adds a read-only Dispatch diagnostics panel over
+the existing dispatch summary and organization-scoped job activity routes. It
+preserves the existing queue filters, scope labeling, conflict action
+boundaries, and truthful empty/error states. Readiness PR #372 and
+implementation PR #373 are merged; completion evidence records the exact
+verification and deferred telemetry boundary.
