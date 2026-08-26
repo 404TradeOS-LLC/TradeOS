@@ -317,3 +317,7 @@ S041 readiness PR #350 merged as `9fde03effd679f63c36790f37ddfade2913247ed`; imp
 ## S042 authentication/session hardening
 
 S042 is DONE through readiness PR #353, implementation PR #354, and `docs/architecture/S042_COMPLETION_EVIDENCE.md`. The shipped contract covers single-use refresh rotation, local refresh-session revocation on logout/password reset/deactivation, explicit Supabase token expiry claims, and pre-side-effect server-action authentication. No production/browser evidence is claimed. No numbered sprint is currently READY because S043 depends on PLANNED S037; S027 remains independently blocked on authenticated rendered Costbook evidence.
+
+## S031 scheduling conflict rules
+
+S031 is READY under `docs/architecture/S031_SCHEDULING_CONFLICT_RULES_PLAN.md`. The bounded implementation will verify and harden the existing Jobs conflict seam across technician/time overlap, duration and arrival-window validation, override authorization, tenant scoping, and focused regression evidence. No new statuses, scheduling persistence, provider integration, schema/migration, billing, or later-sprint scope is implied.
