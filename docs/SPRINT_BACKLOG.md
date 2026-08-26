@@ -553,4 +553,4 @@ Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
 Dependencies: S035 is DONE with inventory and representative plan evidence; S027 remains independently BLOCKED.
 Overlap check: No open S035 PR remains; S035 completion evidence PR #383 is merged. Do not start S036 until S027 is resolved and S036 is promoted through readiness.
-Startup prompt: Reconcile S035 completion evidence, then follow the readiness protocol for S036 only after S027 is complete. Keep S027 browser evidence independent.
+Startup prompt: Resolve S027, then follow the readiness protocol for S036. Keep S027 browser evidence independent.
