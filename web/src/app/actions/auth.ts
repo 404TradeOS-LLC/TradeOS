@@ -2,10 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
-import { clearSessionCookie } from "@/lib/session";
+import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
-export type AuthActionState = { error?: string } | undefined;
+export type AuthActionState = { error?: string; success?: string } | undefined;
+
+interface LocalAuthSession {
+  token: string;
+  refreshToken: string;
+}
 
 // Falls back to localhost for local dev. In Preview/Production this must be
 // set to this deployment's real origin (e.g. https://app.404tradeos.com) —
@@ -64,6 +69,74 @@ export async function signupAction(_prev: AuthActionState, formData: FormData): 
   redirect("/dashboard");
 }
 
+export async function requestPasswordResetAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { error: "Enter the email address for your TradeOS account." };
+  }
+
+  try {
+    await apiFetch("/api/v1/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // Keep this response enumeration-safe. The backend intentionally returns
+    // the same success shape for known and unknown addresses.
+    return { error: "We couldn't process that request. Please try again." };
+  }
+
+  return {
+    success: "If an account exists for that address, you'll receive a reset link shortly.",
+  };
+}
+
+export async function resetPasswordAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const token = String(formData.get("token") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!token) return { error: "This password-reset link is missing its token." };
+  if (password.length < 8) return { error: "Your password must be at least 8 characters." };
+  if (password !== confirmPassword) return { error: "The passwords do not match." };
+
+  try {
+    await apiFetch("/api/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+  }
+
+  return { success: "Your password has been updated. You can sign in now." };
+}
+
+export async function acceptInviteAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  const token = String(formData.get("token") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
+
+  if (!token) return { error: "This invitation link is missing its token." };
+  if (password.length < 8) return { error: "Your password must be at least 8 characters." };
+  if (password !== confirmPassword) return { error: "The passwords do not match." };
+
+  let session: LocalAuthSession;
+  try {
+    session = await apiFetch<LocalAuthSession>("/api/v1/auth/invites/accept", {
+      method: "POST",
+      body: JSON.stringify({ token, password, fullName: fullName || undefined }),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Unable to accept this invitation. Please try again." };
+  }
+
+  await setLocalSession(session.token, session.refreshToken);
+  redirect("/dashboard");
+}
+
 export async function loginAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -75,7 +148,20 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    return { error: error.message };
+    // Invited/local accounts use the backend's existing local auth contract.
+    // Keep Supabase as the primary path for current accounts, then fall back
+    // without changing the public error shape.
+    let localSession: LocalAuthSession;
+    try {
+      localSession = await apiFetch<LocalAuthSession>("/api/v1/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      return { error: error.message };
+    }
+    await setLocalSession(localSession.token, localSession.refreshToken);
+    redirect("/dashboard");
   }
 
   const accessToken = data.session?.access_token;
@@ -85,6 +171,11 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
     // just produce 401s from every backend call, so fail loudly instead.
     return { error: "Sign-in did not return a session. Please try again." };
   }
+
+  // A successful Supabase login must not coexist with a previous local
+  // backend session: local cookies are intentionally preferred by the
+  // frontend session helpers.
+  await clearLocalSessionCookies();
 
   // Idempotent server-side (looks up an existing membership before creating
   // anything), so safe to call on every login — this is what actually

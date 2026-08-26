@@ -90,7 +90,7 @@ The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API dir
 
 Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. Delivery is scheduled after the HTTP response rather than awaited by the auth routes, which keeps password-reset timing uniform for known and unknown addresses. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record. Auth controllers register delivery after the response finishes; the scheduler keeps provider latency out of public auth responses and gives the authenticated request transaction a chance to commit before invite delivery starts. On Vercel, the scheduler registers the post-response promise with `waitUntil` before the response finishes so the function invocation remains alive through provider delivery; non-Vercel runtimes use a best-effort fallback. A durable transactional outbox remains the follow-up for retryable delivery across runtime termination.
 
-The email links currently target `/reset-password` and `/invite/accept`. Those frontend surfaces are a separate follow-up and must be present on the configured `APP_BASE_URL` before production sends are enabled.
+The email links target the implemented `/reset-password?token=...` and `/invite/accept?token=...` frontend flows. Password reset preserves the generic response contract; invitation acceptance establishes the backend local session in secure HTTP-only cookies and enters the authenticated app. The separate `/forgot-password` screen starts reset delivery. Production sends still require a verified sender domain and the configured `APP_BASE_URL`.
 
 ## Database security invariants
 
@@ -111,6 +111,9 @@ The email links currently target `/reset-password` and `/invite/accept`. Those f
 - `/login`
 - `/signup`
 - `/finish-setup`
+- `/forgot-password`
+- `/reset-password?token=...`
+- `/invite/accept?token=...`
 - `web/src/app/actions/auth.ts`
 
 `signupAction` passes `emailRedirectTo: ${NEXT_PUBLIC_APP_URL}/login` to Supabase's `signUp()` and stores the typed organization name in Supabase's own user metadata (`options.data.organization_name`) so it survives the signup → email-confirmation → first-login round trip, where no application-side state exists yet to hold it. `NEXT_PUBLIC_APP_URL` must be set to this deployment's real origin in every environment (falls back to `http://localhost:3000` for local dev) — Supabase only honors `emailRedirectTo` when the same URL is also present in that Supabase project's Auth → URL Configuration → Redirect URLs allowlist; setting the env var alone does not change Supabase's own dashboard config, which must be updated separately (see `web/.env.example`).
