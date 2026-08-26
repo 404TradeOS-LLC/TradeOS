@@ -385,7 +385,7 @@ Forbidden in S034: failed-attempt persistence, alerting, notifications, email, e
 
 ### S035 — Query performance inventory
 
-Status: BLOCKED
+Status: DONE
 Dependencies: S007, S008, S009, S010, S011, S012
 Objective: Capture slow/high-frequency query paths and representative plans.
 Acceptance: prioritized evidence-based optimization list, including authorized representative PostgreSQL plan evidence.
@@ -552,5 +552,5 @@ Protected boundary: S036 remains blocked by S027; keep S027 browser evidence sep
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027.
 Dependencies: S035 is DONE with inventory and representative plan evidence; S027 remains independently BLOCKED.
-Overlap check: No open S035 PR remains; S035 completion evidence is pending this governance PR. Do not start S036 until S027 is resolved and S036 is promoted through readiness.
-Startup prompt: Reconcile S035 completion evidence, then follow the readiness protocol for S036 only after S027 is complete. Keep S027 browser evidence independent.
+Overlap check: No open S035 PR remains; S035 completion evidence PR #383 is merged. Do not start S036 until S027 is resolved and S036 is promoted through readiness.
+Startup prompt: Resolve S027, then follow the readiness protocol for S036. Keep S027 browser evidence independent.

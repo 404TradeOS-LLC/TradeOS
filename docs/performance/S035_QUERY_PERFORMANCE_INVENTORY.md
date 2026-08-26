@@ -37,6 +37,9 @@ Captured against the isolated staging fixture after `ANALYZE`:
 | Invoice queue | Redacted `EXPLAIN (FORMAT JSON)` for invoice/payment aggregation, organization project join, and updated/id ordering | Sequential scans for the 100-invoice/empty-payment fixture, hash join, aggregate, then sort | P1: validate payment cardinality and cursor/count behavior before S036 changes. |
 | Activity timeline | Redacted `EXPLAIN (FORMAT JSON)` for org/entity filtering and occurred/created ordering | Sequential scan of 1,000 events followed by sort for the requested 50 rows | P2: evaluate tie-breaker/index coverage under larger event cardinalities. |
 
+The committed redacted planner artifacts are in
+`docs/performance/S035_REDACTED_PLAN_EVIDENCE.md`.
+
 These are planner-cost observations from synthetic staging only. They are not
 production performance measurements, SLOs, or proof that an index change is
 beneficial without a write-cost and rollback review.

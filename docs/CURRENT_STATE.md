@@ -387,7 +387,7 @@ verification and deferred telemetry boundary.
 
 ## S035 query performance inventory — complete
 
-S035 is DONE after its static inventory merged in PR #377 as
+S035 is DONE after its static inventory merged in PR #377 and final status reconciliation PR #384 as
 `34a079bdd45aaf73c144682b6650a59a8d513d91` and representative isolated
 staging plans were captured. The source/query/index inventory and redacted plan
 evidence are recorded in `docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md`
