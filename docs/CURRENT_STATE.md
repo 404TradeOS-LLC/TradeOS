@@ -397,14 +397,9 @@ The synthetic staging fixture was deleted after capture. No production latency,
 frequency, or planner claim is made. S036 remains ineligible because S027 is
 independently blocked on authenticated rendered Costbook evidence.
 
-## S037 application observability baseline readiness
+## S037 application observability baseline completion
 
-S037 is READY under `docs/architecture/S037_APPLICATION_OBSERVABILITY_BASELINE_PLAN.md`.
-The repository already has structured JSON logging, request IDs, request
-completion events, `/health`, `/ready`, and centralized error handling. The
-bounded implementation owns safe-field redaction, correlation/event-shape
-hardening, regression coverage, and operator documentation only. S036 remains
-blocked by S027; S027 browser evidence remains independent.
+S037 is DONE after readiness PR #385 merged as `a762ba715e9bc889922a7b94288c59720940c3ee`, implementation PR #386 merged as `7edca075b425809ba6a872490d8568bd6a8e0605`, and completion evidence merged. The implementation adds recursive safe-field redaction for structured logs, bearer values, and sensitive query values while preserving request IDs, health/readiness, error handling, authorization, tenant, and forced-RLS boundaries. Full app verification passed 220 suites and 1,928 tests; no production/browser evidence is claimed. S036 remains blocked by S027; S027 browser evidence remains independent.
 
 ## Transactional email frontend routes
 
