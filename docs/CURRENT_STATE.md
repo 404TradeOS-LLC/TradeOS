@@ -347,14 +347,14 @@ GPS/routing, offline, messaging, voice/photo, billing, or later-sprint scope.
 S012 and S030 are DONE; S027 remains independently blocked on authenticated
 rendered Costbook browser evidence.
 
-S033 implementation PR #365 is merged; completion evidence is being reconciled
-in PR #366 before final DONE status. The shipped handoff preserves the existing
+S033 is DONE after readiness PR #363, implementation PR #365, and
+completion-evidence PR #366 merged. The shipped handoff preserves the existing
 completed-only manager action, organization/RLS scoping, activity attribution,
 and invoice semantics; no production/browser evidence is claimed.
 
 ## S033 ready-to-invoice handoff
 
-S033 is READY pending completion-evidence PR #366 under
+S033 is DONE under
 `docs/architecture/S033_COMPLETION_EVIDENCE.md`. S011, S012, and S032 are DONE;
 S027 remains independently blocked on authenticated rendered Costbook browser
 evidence.
