@@ -4,8 +4,8 @@
 
 - Readiness PR: #363; merge `03e83382850841c50de910dfa9440ebb6d0bbe92`
 - Implementation PR: #365; head `1880f09e89a90aa6e6cab376378f2fcb5257b823`; merge `422634cbaaedd4ec49692c399f3d9290bbcfed1a`
-- Completion-evidence PR: #366 (this reconciliation)
-- S033 status: DONE only after this evidence PR merges
+- Completion-evidence PR: #366; merge `0f6faf0cfbe27c06c53d95b4c2eaac605e50eb35`
+- Final governance reconciliation: this follow-up records S033 as DONE
 
 ## Objective and shipped behavior
 
