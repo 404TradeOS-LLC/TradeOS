@@ -109,7 +109,7 @@ Transactional email is an external adapter boundary owned by `app/modules/email/
 - Resend is called over HTTPS with a verified sender, plain-text plus escaped HTML bodies, and deterministic idempotency keys
 - password-reset and team-invite services create the hashed token transactionally, then schedule delivery after the HTTP response
 - provider errors never include response bodies or raw tokens; auth routes preserve their existing public response contracts
-- this adapter does not add database tables, RLS policies, permissions, or a background worker; the current post-response scheduler is intentionally bounded and non-durable
+- this adapter does not add database tables, RLS policies, permissions, or a background worker; Vercel registers the post-response promise with `waitUntil`, while non-Vercel runtimes use a best-effort fallback until a durable transactional outbox is introduced
 
 ## Frontend data paths
 
