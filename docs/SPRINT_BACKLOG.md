@@ -385,10 +385,14 @@ Forbidden in S034: failed-attempt persistence, alerting, notifications, email, e
 
 ### S035 — Query performance inventory
 
-Status: PLANNED
+Status: READY
 Dependencies: S007, S008, S009, S010, S011, S012
 Objective: Capture slow/high-frequency query paths and representative plans.
 Acceptance: prioritized evidence-based optimization list.
+Readiness contract: `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` bounds S035 to static query-path mapping, authorized isolated PostgreSQL `EXPLAIN` evidence, redacted plan/source artifacts, and a prioritized optimization inventory. No indexes, migrations, query rewrites, runtime tracing, production instrumentation, load testing, S036 implementation, or S037 scope.
+Founder-decision boundary: NO for repository and isolated-fixture evidence. Production database access, a latency budget/SLO, or real customer workload capture requires separate authorization and must not be inferred.
+Required validation: query-path and tenant/RLS review; reproducible isolated plan evidence where available; redaction review; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app/database verification.
+Forbidden in S035: schema/migrations, new indexes, query rewrites, ORM replacement, runtime tracing, slow-query logging, production instrumentation, load testing, provider work, S036 implementation, S037 scope, and S027 browser evidence.
 
 ### S036 — Database index hardening
 
@@ -537,15 +541,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S034 implementation PR #373 is merged; completion evidence is being reconciled in the current governance lane. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S030 and S031 are DONE; S034 readiness and implementation are merged.
-Protected boundary: S034 is complete pending merged completion evidence; keep S027 browser evidence separate and do not begin another numbered sprint until this reconciliation lands.
+Active Sprint: S035
+Completion status: S034 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 has one readiness contract and no competing implementation lane.
+Protected boundary: S035 is READY in its governed readiness lane; keep S027 browser evidence separate and do not begin another numbered sprint.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is `READY` while S034 completion evidence is being reconciled; S035 remains PLANNED. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S034 readiness and implementation are merged; completion evidence is the current governance lane.
-Overlap check: No open S034 implementation PR remains; unrelated PR #371 is outside S034.
-Startup prompt: Merge S034 completion evidence, then reconcile and promote S035 under NEXT_SPRINT_PROTOCOL.md. Do not mix S027 browser evidence.
+Sprint ID: S035
+Eligibility: S035 is `READY`; all dependencies are DONE and no conflicting S035 PR, branch, or worktree was found. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE.
+Overlap check: No open or draft S035 PR or authoritative implementation lane exists; S034 is fully reconciled.
+Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Do not mix S027 browser evidence.
