@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible product, API, data, or workflow bug.
+title: "bug: "
+labels: ["type:bug", "status:needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for confirmed or suspected defects. Security-sensitive bugs should use a private advisory.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide exact steps, route, command, or data needed to reproduce.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - backend
+        - frontend
+        - database
+        - auth-tenancy
+        - estimating
+        - costbook
+        - jobs-scheduling
+        - customer-portal
+        - docs-governance
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "P0: production outage, data loss, or security exposure"
+        - "P1: release blocker or major workflow break"
+        - "P2: important defect with workaround"
+        - "P3: low-risk polish or edge case"
+    validations:
+      required: true
+  - type: textarea
+    id: tenant
+    attributes:
+      label: Tenant, auth, or data-isolation impact
+      description: Note any org isolation, authorization, RLS, or customer data concern.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, screenshots, failing tests, request IDs, or command output.
+    validations:
+      required: false

@@ -1,0 +1,62 @@
+name: Engineering task
+description: Plan a bounded implementation, hardening, or verification task.
+title: "task: "
+labels: ["type:task", "status:needs-triage"]
+body:
+  - type: textarea
+    id: mission
+    attributes:
+      label: Mission
+      description: What exact outcome should this task produce?
+    validations:
+      required: true
+  - type: textarea
+    id: allowed
+    attributes:
+      label: Allowed paths
+      description: List the paths this task may touch.
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden
+    attributes:
+      label: Forbidden paths and exclusions
+      description: List paths, product areas, cleanup, refactors, or ownership zones that must not be touched.
+    validations:
+      required: true
+  - type: dropdown
+    id: workstream
+    attributes:
+      label: Workstream
+      multiple: true
+      options:
+        - backend
+        - frontend
+        - database
+        - documentation
+        - governance
+        - security
+        - release
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Required verification
+      description: Commands, manual checks, integration checks, and environment blockers to report.
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Documentation impact
+      description: Which source-of-truth docs must change with this task?
+    validations:
+      required: true
+  - type: textarea
+    id: stop
+    attributes:
+      label: Stop conditions
+      description: Conditions that should make the implementer pause and ask before proceeding.
+    validations:
+      required: true

@@ -1,0 +1,29 @@
+{
+  "trades": [
+    { "category": "Cabinetry", "itemCount": 42, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Concrete", "itemCount": 95, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Countertops", "itemCount": 22, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Deck", "itemCount": 92, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Doors", "itemCount": 34, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Drywall", "itemCount": 85, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Electrical", "itemCount": 88, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Excavation", "itemCount": 89, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Fence", "itemCount": 100, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Flatwork", "itemCount": 97, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Flooring", "itemCount": 89, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Framing", "itemCount": 90, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "General Conditions", "itemCount": 98, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Hardscaping", "itemCount": 27, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Hardware", "itemCount": 36, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "HVAC", "itemCount": 87, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Insulation", "itemCount": 97, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Landscaping", "itemCount": 54, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Painting", "itemCount": 85, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Plumbing", "itemCount": 92, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Roofing", "itemCount": 88, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Siding", "itemCount": 90, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Trim", "itemCount": 87, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Windows", "itemCount": 31, "status": "Stable", "coverage": "100%", "notes": "Baseline set complete" },
+    { "category": "Tree Service", "itemCount": 25, "status": "Staged Items", "coverage": "75%", "notes": "Assemblies and Cost Items (Batch 1) generated and staged for review" }
+  ]
+}

@@ -1,0 +1,32 @@
+name: Governance or docs task
+description: Update repository rules, source-of-truth docs, templates, or contributor workflow.
+title: "docs: "
+labels: ["type:docs", "area:governance", "status:needs-triage"]
+body:
+  - type: textarea
+    id: change
+    attributes:
+      label: Requested governance or documentation change
+    validations:
+      required: true
+  - type: textarea
+    id: source_of_truth
+    attributes:
+      label: Source-of-truth files affected
+      description: Name the canonical docs or `.github/` files that must stay aligned.
+    validations:
+      required: true
+  - type: textarea
+    id: policy
+    attributes:
+      label: Policy impact
+      description: Does this alter branch policy, required checks, docs ownership, worktree lifecycle, or handoff rules?
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Usually `npm run docs:check`, `npm run docs:test`, and `git diff --check`.
+    validations:
+      required: true

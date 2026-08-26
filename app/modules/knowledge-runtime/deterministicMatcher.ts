@@ -1,0 +1,1 @@
+export { matchScopeDeterministically } from "./matcher";

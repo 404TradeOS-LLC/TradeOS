@@ -1,0 +1,130 @@
+---
+status: current
+owner: platform
+last_verified: 2026-08-14
+source_of_truth: true
+related_code:
+  - packages/knowledge-engine/README.md
+  - packages/knowledge-engine/path-manifest.json
+  - packages/knowledge-engine/pipelines/package_root.py
+  - packages/knowledge-engine/scripts/assembly_pipeline_common.py
+  - app/modules/knowledge-runtime/loader.ts
+  - app/modules/trainingless-estimate-demo/knowledgeLoader.ts
+---
+
+# TradeOS Knowledge Engine — Canonical Path Contract
+
+Phase B of the `packages/knowledge-engine/` cleanup established this file as the single,
+authoritative definition of what "canonical" means for every path under this package. The
+2026-08-14 technical-debt repair additionally corrected the assembly-specific pipeline helper to
+use the canonical runtime knowledge root. See [`README.md`](README.md) for narrative context and
+known risks; [`path-manifest.json`](path-manifest.json) for the machine-readable version of this
+same contract.
+
+**If any script, doc, or path construction anywhere disagrees with this file about what is
+canonical, this file wins.**
+
+## Canonical roots
+
+| Role | Canonical path | Notes |
+|---|---|---|
+| Package root | `packages/knowledge-engine/` | No `package.json`/manifest at this level; identified by containing the `exports/`, `knowledge/`, `schemas/` roots below. |
+| Runtime knowledge root | `packages/knowledge-engine/knowledge/knowledge/` | **Doubled segment is intentional and correct** — this is the real, on-disk, loader-consumed path. `packages/knowledge-engine/knowledge/` (shallow, one level up) only contains `Data/` and this `knowledge/` subdirectory; it is not itself a data root. |
+| Exports root | `packages/knowledge-engine/exports/` | Generated output. The only export root any live consumer reads. |
+| Schemas root | `packages/knowledge-engine/schemas/` | Canonical JSON Schema contracts. |
+| Vendor/skill root | `packages/knowledge-engine/agent-skills/skills/` | Vendored third-party content (`antigravity-awesome-skills`), not TradeOS domain knowledge. See README §4. |
+
+## Prohibited / non-canonical paths
+
+| Path | Status | Why |
+|---|---|---|
+| `packages/knowledge-engine/knowledge-engine/**` | **Removed — founder-approved cleanup, 2026-08-24** | Former self-nested duplicate of the canonical package tree. A fresh full re-hash, repo-wide reference grep, and loader/path-resolution test pass found no unique runtime or build dependency before removal. |
+| `packages/knowledge-engine/pipelines/exports/**` | Deprecated — stale generated output | Byproduct of running `pipelines/master_pipeline.py` / `pipelines/export/sync_manager.py` with `cwd` set to `pipelines/` instead of the package root. Zero confirmed consumers anywhere in the repo. Phase B's path fix (see below) stops this from happening for *future* runs; the existing stale files are left untouched. |
+| `packages/knowledge-engine/pipelines/knowledge/cost-items/costbook.json` | Deprecated — stale generated output | Same root cause and same wrong-`cwd` run as above; byte-identical to `pipelines/exports/json/costbook.json`. |
+
+## Working-directory-independent resolution rule
+
+Any code that needs to locate this package's canonical roots **must not** rely on the
+invoking process's current working directory (`cwd`) or on a single `__file__`-relative
+offset alone when the resolved path could be ambiguous. Both of those break the moment a
+script is invoked from an unexpected directory or a deep nested data directory.
+
+The canonical algorithm (implemented twice, once per language, both required to agree):
+
+1. **TypeScript** — `app/modules/knowledge-runtime/loader.ts`'s `resolveKnowledgeEnginePaths()`.
+   Builds a small, fixed set of `__dirname`-anchored and `process.cwd()`-anchored candidate
+   roots, and accepts the first one that satisfies **both** `REPO_MARKERS`:
+   `packages/knowledge-engine/exports/json/costbook.json` **and** `app/package.json` existing
+   under the same candidate directory. A non-canonical nested candidate has no `app/` sibling,
+   so it can never satisfy both markers — this is what makes `loader.ts` safe (confirmed by the
+   loader/resolver audit).
+
+2. **Python** — `packages/knowledge-engine/pipelines/package_root.py`'s
+   `resolve_repo_root()` / `resolve_package_root()` / `resolve_export_root()` (added in Phase
+   B). Same dual-marker safety property, implemented as a bounded upward directory walk
+   (max 8 levels) anchored to the helper module's own file location rather than the caller's
+   — so every consumer gets the same trustworthy starting point regardless of how it was
+   invoked (imported vs. run standalone as a subprocess). Verified to converge on the true
+   repo root even when the walk is started from a deep nested package directory. Markers:
+   `packages/knowledge-engine/README.md` **and** `app/package.json` — deliberately *not*
+   `exports/json/costbook.json` like `loader.ts` uses, because this resolver backs
+   `master_pipeline.py`, which *writes* that file; requiring it as a marker would make it
+   impossible to resolve a root to regenerate it into after a deliberate clean/rebuild. Both
+   markers are stable, hand-authored, committed source content, never touched by any pipeline
+   write path.
+
+The assembly-specific helper `scripts/assembly_pipeline_common.py` is anchored directly to its
+canonical package parent (`Path(__file__).resolve().parents[1]`) and now resolves
+`KNOWLEDGE_DIR` to `knowledge/knowledge/`, matching this contract. Callers must use the
+canonical script path rather than stale/generated paths.
+
+Any new path-resolution code added to this package (Python or otherwise) should call into
+`package_root.py` rather than reimplementing cwd- or `__file__`-relative logic unless a bounded,
+canonical-package-only helper has an explicit reason not to.
+
+### Canonical export root override (advanced use only)
+
+`resolve_export_root()` honors an optional `KNOWLEDGE_ENGINE_EXPORT_ROOT` environment
+variable. If unset, output always targets the canonical `packages/knowledge-engine/exports/`
+regardless of `cwd`. If set to anything else, a warning is printed identifying the
+noncanonical location — this exists so a deliberately noncanonical run is loud, never
+silent, per the Phase B requirement that path construction defects must not be fixed by
+adding a broad, hidden search.
+
+## What Phase B fixed, and later bounded repairs
+
+**Phase B fixed:** `pipelines/master_pipeline.py`, `pipelines/export/sync_manager.py`, and
+`pipelines/export/publish_to_supabase.py` now anchor every `costbook.json` / `sync_final.sql`
+/ `sync.sql` read and write through `package_root.py`, instead of bare `cwd`-relative string
+literals. This makes their output location deterministic and cwd-independent going forward.
+It does **not** touch, migrate, or delete any existing tracked output (including the stale
+`pipelines/exports/**` and `pipelines/knowledge/cost-items/costbook.json` copies), and it does
+not change output *content* or format — only where future runs write it.
+
+**2026-08-14 bounded technical-debt repair:** `scripts/assembly_pipeline_common.py` now points
+`KNOWLEDGE_DIR` at the canonical `knowledge/knowledge/` root instead of shallow `knowledge/`.
+That restores existing-assembly discovery for `audit-assemblies.py` and its five dependent
+assembly scripts. Focused regression coverage lives at
+`scripts/tests/test_assembly_pipeline_common.py` and asserts both the canonical path and that the
+committed roofing corpus is visible through `load_existing_assemblies("roofing")`.
+
+**Still deliberately unresolved** (see README's known-risks / external-uncertainty sections for
+full detail — these remain documented, not silently ignored):
+
+- `approve-assembly-batch.py` and `validate_batch.py` disagree with each other on the
+  location of `Data/working/costbook_pending.json`, and neither currently exists. This requires
+  reproduction of the intended approval/validation workflow before behavior is changed.
+- The task-queue/batch-runner family (`run-next-task.py`, `complete-task.py`, `fail-task.py`,
+  `approve-batch.py`, `next-batch.py`, `reject-batch.py`, `start-trade-run.py`,
+  `scripts/orchestrator/knowledge-orchestrator.py`) still use bare `cwd`-relative
+  `runtime/*.json` paths. None of them write to `exports/**`; hardening all eight remains a
+  separate behavior-characterization task.
+- `app/modules/trainingless-estimate-demo/knowledgeLoader.ts` is `cwd`-relative and
+  unguarded (no dual-marker check), but the Phase B reference audit confirmed it cannot
+  currently resolve into a non-canonical package path (its hardcoded path segments do not match
+  that shape) — it is fragile (crashes on wrong `cwd`) rather than dangerous (silently wrong).
+  Recommended hardening (reuse `loader.ts`'s marker logic) remains separate because no proven
+  non-canonical path reference justifies an unrelated `app/**` change here.
+- The former `packages/knowledge-engine/knowledge-engine/**` duplicate was removed on 2026-08-24
+  after founder approval and fresh reference/path-resolution evidence; the canonical top-level
+  package tree remains unchanged.

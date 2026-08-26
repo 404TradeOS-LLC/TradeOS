@@ -1,0 +1,20 @@
+{
+  "activeTradeFocus": "Tree Service",
+  "currentPriority": 5,
+  "queuedTasks": [
+    "Verify Tree Service Cost Items Batch 1 linkage",
+    "Run Roofing Assembly Batch 1 generation",
+    "Run Deck Assembly Batch 1 generation",
+    "Run Concrete Assembly Batch 1 generation"
+  ],
+  "blockedTasks": [],
+  "pendingReviews": [
+    "review/pending/tree_service_batch_1.json",
+    "review/pending/tree_service_cost_items_batch_1.json"
+  ],
+  "approvedBatches": [],
+  "rejectedBatches": [],
+  "nextRecommendedTask": "Verify Tree Service Cost Items Batch 1 linkage",
+  "lastRunAt": "2026-07-02T17:42:00Z",
+  "notes": "Staged assemblies and cost items for Tree Service are ready for final relational alignment."
+}

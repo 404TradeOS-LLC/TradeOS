@@ -1,0 +1,67 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      docs-tooling:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      prisma-stack:
+        patterns:
+          - "prisma"
+          - "@prisma/client"
+      api-runtime:
+        dependency-type: "production"
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@prisma/client"
+      api-development:
+        dependency-type: "development"
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "prisma"
+
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      web-runtime:
+        dependency-type: "production"
+        patterns:
+          - "*"
+      web-development:
+        dependency-type: "development"
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:30"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3

@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CostItemSchema",
+  "description": "Schema for individual TradeOS cost items",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the cost item"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic versioning tag (e.g. 1.0.0)"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of creation"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of last update"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descriptive title of the cost item in Title Case"
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Standard trade category matching the trade taxonomy"
+    },
+    "unit": {
+      "type": "string",
+      "enum": ["SF", "LF", "EA", "HR", "CY", "SQ", "CF"],
+      "description": "Standardized unit of measurement"
+    },
+    "laborCost": {
+      "type": ["number", "string"],
+      "minimum": 0.0,
+      "description": "Labor cost component per unit"
+    },
+    "materialCost": {
+      "type": ["number", "string"],
+      "minimum": 0.0,
+      "description": "Material cost component per unit"
+    },
+    "equipmentCost": {
+      "type": ["number", "string"],
+      "minimum": 0.0,
+      "description": "Equipment cost component per unit"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional contractor or production notes"
+    },
+    "slug": {
+      "type": "string"
+    },
+    "trade": {
+      "type": "string"
+    },
+    "subcategory": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "pricingStatus": {
+      "type": "string"
+    },
+    "requiredInputs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "productionNotes": {
+      "type": "string"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "futurePricingHooks": {
+      "type": "string"
+    },
+    "confidenceScore": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "name",
+    "category",
+    "unit",
+    "laborCost",
+    "materialCost",
+    "equipmentCost"
+  ],
+  "additionalProperties": false,
+  "x-future-extensions": {
+    "regional_modifiers": "Hook to apply geographic multipliers to labor and material rates",
+    "index_indexing": "Binds cost components to external indices like BLS or commodity feeds"
+  }
+}

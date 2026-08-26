@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a product capability without skipping scope and governance review.
+title: "feat: "
+labels: ["type:feature", "status:needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Contractor problem
+      description: What real contractor workflow or operator problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the smallest production-grade outcome, not an MVP shortcut.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Product area
+      multiple: true
+      options:
+        - CRM
+        - projects
+        - costbook
+        - estimating
+        - AI estimate assist
+        - proposals
+        - contracts
+        - invoices
+        - jobs and scheduling
+        - customer portal
+        - settings and operations
+        - platform governance
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and dependencies
+      description: Include auth, tenancy, migrations, design ownership, and external service dependencies.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true

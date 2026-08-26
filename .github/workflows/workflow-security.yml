@@ -1,0 +1,201 @@
+name: Workflow security
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-security-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+          ACTIONLINT_SHA256: "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757"
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          release_base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 "$release_base/$archive" --output "$RUNNER_TEMP/$archive"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Run actionlint
+        shell: bash
+        run: actionlint
+
+  policy:
+    name: Enforce workflow security policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Identify changed workflow and composite-action files
+        id: changed
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")"
+          workflow_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            '.github/workflows/*.yml' '.github/workflows/*.yaml')"
+          action_changes="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '.github/actions/**')"
+          action_manifests=""
+
+          while IFS= read -r changed_file; do
+            [ -n "$changed_file" ] || continue
+            dir="$(dirname "$changed_file")"
+            manifest=""
+
+            while [[ "$dir" == .github/actions* ]]; do
+              if [ -f "$dir/action.yml" ]; then
+                manifest="$dir/action.yml"
+                break
+              fi
+              if [ -f "$dir/action.yaml" ]; then
+                manifest="$dir/action.yaml"
+                break
+              fi
+              parent="$(dirname "$dir")"
+              [ "$parent" != "$dir" ] || break
+              dir="$parent"
+            done
+
+            if [ -z "$manifest" ]; then
+              echo "::error file=$changed_file::Changed file under .github/actions is not contained by an action.yml or action.yaml manifest."
+              exit 1
+            fi
+            action_manifests="${action_manifests}${manifest}"$'\n'
+          done <<< "$action_changes"
+
+          files="$(printf '%s\n%s\n' "$workflow_files" "$action_manifests" | sed '/^[[:space:]]*$/d' | sort -u)"
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "$files"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Reject unsafe workflow patterns
+        if: steps.changed.outputs.files != ''
+        shell: bash
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          set -euo pipefail
+          ruby <<'RUBY'
+          require "yaml"
+
+          files = ENV.fetch("FILES", "").lines.map(&:strip).reject(&:empty?).select { |file| File.file?(file) }
+          failed = false
+          expression_pattern = /\$\{\{.*?\}\}/m
+          event_reference = /github\.event\.(issue|pull_request|comment|review|discussion)\b/
+
+          def prohibited_trigger?(value)
+            case value
+            when String
+              value == "pull_request_target"
+            when Array
+              value.any? { |entry| prohibited_trigger?(entry) }
+            when Hash
+              value.keys.any? { |key| key.to_s == "pull_request_target" }
+            else
+              false
+            end
+          end
+
+          def inspect_permissions(value, file, scope)
+            return false if value.nil?
+            if value.to_s == "write-all"
+              puts "::error file=#{file}::#{scope} permissions: write-all is prohibited."
+              return true
+            end
+            return false unless value.is_a?(Hash)
+
+            failed = false
+            { "actions" => "actions: write", "id-token" => "id-token: write" }.each do |key, label|
+              next unless value[key].to_s == "write"
+              puts "::error file=#{file}::#{scope} #{label} is prohibited by the default workflow policy."
+              failed = true
+            end
+            failed
+          end
+
+          def inspect_commands(node, file, expression_pattern, event_reference, path = [])
+            failed = false
+            case node
+            when Hash
+              node.each do |key, value|
+                if %w[run script].include?(key.to_s) && value.is_a?(String)
+                  unsafe_expression = value.scan(expression_pattern).find { |expression| expression.match?(event_reference) }
+                  if unsafe_expression
+                    puts "::error file=#{file}::Untrusted github.event content is interpolated directly into #{(path + [key]).join('.')} command text."
+                    failed = true
+                  end
+                end
+                failed = true if inspect_commands(value, file, expression_pattern, event_reference, path + [key])
+              end
+            when Array
+              node.each_with_index do |value, index|
+                failed = true if inspect_commands(value, file, expression_pattern, event_reference, path + [index])
+              end
+            end
+            failed
+          end
+
+          files.each do |file|
+            puts "Checking #{file}"
+            data = YAML.safe_load(File.read(file), aliases: false) || {}
+            unless data.is_a?(Hash)
+              puts "::error file=#{file}::Expected a YAML mapping at the document root."
+              failed = true
+              next
+            end
+
+            if file.start_with?(".github/workflows/")
+              trigger = data.key?("on") ? data["on"] : data[true]
+              if prohibited_trigger?(trigger)
+                puts "::error file=#{file}::pull_request_target is prohibited without an explicit security exception."
+                failed = true
+              end
+
+              failed = true if inspect_permissions(data["permissions"], file, "workflow")
+              jobs = data["jobs"]
+              if jobs.is_a?(Hash)
+                jobs.each do |job_name, job|
+                  next unless job.is_a?(Hash)
+                  failed = true if inspect_permissions(job["permissions"], file, "job #{job_name}")
+                end
+              end
+            end
+
+            failed = true if inspect_commands(data, file, expression_pattern, event_reference)
+          rescue Psych::Exception => error
+            puts "::error file=#{file}::Invalid YAML: #{error.message.lines.first.to_s.strip}"
+            failed = true
+          end
+
+          exit(failed ? 1 : 0)
+          RUBY

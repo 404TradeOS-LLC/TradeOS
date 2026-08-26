@@ -1,0 +1,717 @@
+{
+  "metadata": {
+    "batchId": "639d4191-d16e-4b65-b1a2-d9aef67ee95b",
+    "trade": "Tree Service",
+    "worker": "AssemblyArchitect",
+    "timestamp": "2026-07-02T17:24:43.376060",
+    "recordCount": 10
+  },
+  "data": [
+    {
+      "id": "7f83364b-6425-44e7-9d50-4136ba54e50f",
+      "slug": "basic-tree-removal",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Basic Tree Removal",
+      "description": "Standard removal of small to medium trees up to 12 inches DBH without safety rigging obstructions.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "8f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        },
+        {
+          "costBookItemId": "bf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Basic Tree Removal.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "8b423c23-fc76-42f0-9653-83db446fccdc",
+      "slug": "large-tree-removal",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Large Tree Removal",
+      "description": "Removal of large trees exceeding 24 inches DBH requiring crane support or extensive rigging.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 16.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 16.0
+        },
+        {
+          "costBookItemId": "cf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        },
+        {
+          "costBookItemId": "bf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 2.0
+        },
+        {
+          "costBookItemId": "df8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Large Tree Removal.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "3e71c0ed-8d9a-49c2-8261-42a398940dec",
+      "slug": "hazard-tree-removal",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Hazard Tree Removal",
+      "description": "Hazardous tree removals close to residential properties, power lines, or structural hazards.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 12.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 12.0
+        },
+        {
+          "costBookItemId": "cf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        },
+        {
+          "costBookItemId": "df8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        },
+        {
+          "costBookItemId": "ef8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Hazard Tree Removal.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "53e3ff1f-3d90-410c-a167-dc15ecb6d75b",
+      "slug": "emergency-storm-cleanup",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Emergency Storm Cleanup",
+      "description": "Priority emergency clearing of fallen trees, hanging hazard limbs, and storm hazard debris.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 8.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 16.0
+        },
+        {
+          "costBookItemId": "8f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 2.0
+        },
+        {
+          "costBookItemId": "bf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 2.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Emergency Storm Cleanup.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "e3d2c758-4506-4d35-8a52-0f19aa927471",
+      "slug": "stump-grinding",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Stump Grinding",
+      "description": "Grinding tree stumps below grade, including backfilling with chips and topsoil prep.",
+      "lineItems": [
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 2.0
+        },
+        {
+          "costBookItemId": "af8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Stump Grinding.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "f589140e-1e04-4824-91fd-02009b8fe6af",
+      "slug": "brush-chipping",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Brush Chipping",
+      "description": "On-site chipping of brush, twigs, and small tree limbs into organic mulch.",
+      "lineItems": [
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "9f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Brush Chipping.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "db319d33-3a3f-4deb-8d36-cbde67be8bde",
+      "slug": "limbing-pruning",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Limbing and Pruning",
+      "description": "Standard ANSI-compliant structural pruning, limb removal, and crown reduction.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 6.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 6.0
+        },
+        {
+          "costBookItemId": "cf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Limbing and Pruning.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "d62394f7-a0e4-4c10-bc4f-51aaf3c0b526",
+      "slug": "deadwood-removal",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Deadwood Removal",
+      "description": "Removing dead, dying, or diseased branches from tree canopy to improve safety and health.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "df8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Deadwood Removal.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "34e4d4bf-193b-40bc-aec1-06269dc8b99f",
+      "slug": "lot-clearing",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Lot Clearing",
+      "description": "Clearing all trees, brush, and ground vegetation on residential or commercial lots.",
+      "lineItems": [
+        {
+          "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 24.0
+        },
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 48.0
+        },
+        {
+          "costBookItemId": "9f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        },
+        {
+          "costBookItemId": "bf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Lot Clearing.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    },
+    {
+      "id": "19cebc61-0967-41ef-a153-86b91b3af02f",
+      "slug": "haul-away-only",
+      "version": "1.0.0",
+      "created": "2026-07-02T17:24:43.376060",
+      "updated": "2026-07-02T17:24:43.376060",
+      "trade": "Tree Service",
+      "category": "Tree Service",
+      "name": "Haul-Away Only",
+      "description": "Loading, hauling, and tipping pre-cut logs, trunks, wood chips, and branch debris.",
+      "lineItems": [
+        {
+          "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 4.0
+        },
+        {
+          "costBookItemId": "bf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+          "quantity": 1.0
+        }
+      ],
+      "projectTypes": [
+        "Residential",
+        "Commercial"
+      ],
+      "constructionPhase": "Site Preparation",
+      "requiredInputs": [
+        "Access limits",
+        "Tree DBH count"
+      ],
+      "optionalInputs": [
+        "Soil condition"
+      ],
+      "materialCategories": [
+        "Safety rigging material"
+      ],
+      "laborCategories": [
+        "Climber Arborist",
+        "Ground Loader"
+      ],
+      "equipmentCategories": [
+        "Chainsaws",
+        "Trucks",
+        "Chippers"
+      ],
+      "safetyRequirements": [
+        "OSHA head protective gear",
+        "Rigging harnesses"
+      ],
+      "riskFactors": [
+        "Power line overhead proximity",
+        "Structural property risk"
+      ],
+      "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+      "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+      "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+      "dependencies": [
+        "Utility line drops if power lines interfere"
+      ],
+      "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+      "proposalScopeOfWork": "Provide professional tree service for Haul-Away Only.",
+      "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+      "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+      "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+      "productionNotes": "Review local weather alerts. Avoid high wind executions."
+    }
+  ]
+}

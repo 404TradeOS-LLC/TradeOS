@@ -1,0 +1,33 @@
+:root {
+    /* TradeOS Brand Palette - Updated to Match Brand Colors */
+    --trade-bg: #24294C; /* tradeSecondary */
+    --trade-surface: #1E3A8A; /* tradePrimary */
+    --trade-card: #2D325A; /* Darker variant */
+    
+    /* Core Accents */
+    --trade-accent: #3B82F6; /* tradeAccent */
+    --trade-accent-alpha: rgba(59, 130, 246, 0.15);
+    
+    --trade-secondary: #1E3A8A; /* tradePrimary */
+    --trade-secondary-alpha: rgba(30, 58, 138, 0.15);
+    
+    /* Typography & UI Defaults */
+    --trade-text-primary: #ffffff;
+    --trade-text-secondary: #353942; /* tradeText */
+    --trade-radius: 12px;
+    --trade-padding: 16px;
+    
+    /* Animation Timing */
+    --trade-transition: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Light Mode (Optional Fallback) */
+@media (prefers-color-scheme: light) {
+    :root {
+        --trade-bg: #f5f5f7;
+        --trade-surface: #ffffff;
+        --trade-card: #ffffff;
+        --trade-text-primary: #1d1d1f;
+        --trade-text-secondary: rgba(0, 0, 0, 0.5);
+    }
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReasoningSchema",
+  "description": "Schema mapping logical parameter-based constraints for AI decision making",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trade": {
+      "type": "string"
+    },
+    "decisionKey": {
+      "type": "string",
+      "description": "Unique key matching specific estimator decision flow (e.g., tree_removal_size)"
+    },
+    "logicalRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "condition": {
+            "type": "string",
+            "description": "Logical expression (e.g. 'DBH > 24')"
+          },
+          "targetAssemblyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": ["condition", "targetAssemblyId", "explanation"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "trade",
+    "decisionKey",
+    "logicalRules"
+  ],
+  "additionalProperties": false
+}

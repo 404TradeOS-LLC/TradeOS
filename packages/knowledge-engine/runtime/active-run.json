@@ -1,0 +1,9 @@
+{
+  "trade": "drywall",
+  "target_total": 500,
+  "batch_size": 10,
+  "started_at": "2026-07-02T18:46:36.033201",
+  "batch_counter": 0,
+  "approved_batches": [],
+  "auto_approved": false
+}

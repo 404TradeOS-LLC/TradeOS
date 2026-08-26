@@ -1,0 +1,53 @@
+name: Security review
+description: Request hardening or review without disclosing exploitable secrets publicly.
+title: "security: "
+labels: ["type:security", "status:needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste secrets, credentials, private keys, exploit payloads, or customer data into a public issue.
+        Use a private security advisory for exploitable vulnerabilities.
+  - type: textarea
+    id: concern
+    attributes:
+      label: Security concern
+      description: Describe the risk at a high level.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      multiple: true
+      options:
+        - authentication
+        - authorization
+        - tenant isolation
+        - RLS
+        - input validation
+        - secrets
+        - dependency
+        - logging
+        - data retention
+        - deployment
+    validations:
+      required: true
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected paths or workflows
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected hardening outcome
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification expectation
+    validations:
+      required: true

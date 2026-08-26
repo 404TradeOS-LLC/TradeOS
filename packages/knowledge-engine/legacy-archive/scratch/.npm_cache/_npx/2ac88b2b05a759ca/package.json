@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "antigravity-awesome-skills": "^10.5.0"
+  },
+  "_npx": {
+    "packages": [
+      "antigravity-awesome-skills"
+    ]
+  }
+}

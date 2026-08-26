@@ -1,0 +1,16 @@
+{
+  "lastScan": "2026-07-02T17:44:00Z",
+  "criticalGaps": [
+    { "trade": "Tree Service", "area": "cost-items", "details": "Staged items in review queue are pending final merge approval to costbook.json" },
+    { "trade": "Tree Service", "area": "assemblies", "details": "Staged assemblies in review queue are pending final merge approval" }
+  ],
+  "partialGaps": [
+    { "trade": "Concrete", "area": "supplier-mappings", "details": "Supplier SKU matches cover only 30% of items" },
+    { "trade": "Drywall", "area": "permit-guidelines", "details": "Zoning rules and permit awareness not mapped" },
+    { "trade": "Electrical", "area": "inspections", "details": "Electrical inspections checklist missing reference links" }
+  ],
+  "missingGaps": [
+    { "trade": "Roofing", "area": "assemblies", "details": "No dedicated assemblies exist in knowledge base (Batch 1 pending)" },
+    { "trade": "Deck", "area": "assemblies", "details": "No dedicated assemblies exist in knowledge base (Batch 1 pending)" }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProposalLanguageSchema",
+  "description": "Schema for standardized contractual, scope, and exclusion language templates for proposals",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "assemblyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Linked assembly reference"
+    },
+    "scopeOfWorkTemplate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inclusions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warrantyTerms": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "assemblyId",
+    "scopeOfWorkTemplate"
+  ],
+  "additionalProperties": false
+}

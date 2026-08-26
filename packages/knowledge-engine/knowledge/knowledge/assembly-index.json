@@ -1,0 +1,32 @@
+{
+  "assemblies": [
+    {
+      "group": "Bathroom",
+      "category": "Assemblies - Bathroom",
+      "count": 4,
+      "source": "pipelines/generation/seeds/assemblies/assembly_agents.py",
+      "description": "Standard plumbing, electrical, and finishing assemblies for full and half bathrooms."
+    },
+    {
+      "group": "Kitchen",
+      "category": "Assemblies - Kitchen",
+      "count": 4,
+      "source": "pipelines/generation/seeds/assemblies/assembly_agents.py",
+      "description": "Electrical, plumbing, and layout packages for residential kitchens."
+    },
+    {
+      "group": "Basement",
+      "category": "Assemblies - Basement",
+      "count": 4,
+      "source": "pipelines/generation/seeds/assemblies/assembly_agents.py",
+      "description": "Structural insulation, steel framing, drywall, and complete finished basement packages."
+    },
+    {
+      "group": "Tree Service",
+      "category": "Tree Service",
+      "count": 10,
+      "source": "knowledge/assemblies/tree-service/batch_1.json",
+      "description": "ANSI-compliant tree removals, trimming, stump grinding, and soil fertilization packages."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "33333333-4444-5555-6666-777777777777",
+    "slug": "architectural-shingle-roofing-system",
+    "name": "Architectural Shingle Roofing System",
+    "category": "Roofing",
+    "subcategory": "Shingle",
+    "description": "Premium 30-year architectural shingle roof installation, including leak barriers, underlayment, drip edges, and valley linings. This assembly is designed to provide high-wind resistance and architectural depth to residential structures.",
+    "contractorNotes": "Verify roof pitch before climbing. Use safety harness tied off to certified anchor points. Ensure drip edges overlap by 2 inches.",
+    "typicalUseCase": "Standard residential replacement or new construction roof installation.",
+    "projectTypes": ["Residential"],
+    "constructionPhase": "Roofing",
+    "requiredInputs": ["Roof Area (SQ)", "Roof Pitch"],
+    "proposalScopeOfWork": "Furnish all labor, material, and equipment to install architectural shingles on designated roof surface.",
+    "proposalAssumptions": "Assuming roof deck is structurally sound and requires no plywood sheet replacement.",
+    "proposalExclusions": "Excludes gutter replacement and chimney structural repointing.",
+    "warrantyLanguage": "10-year contractor workmanship warranty plus manufacturer lifetime limited shingle warranty.",
+    "safetyRequirements": ["OSHA personal fall arrest system", "Roof brackets and planks", "Hard hats on ground"],
+    "lineItems": [
+      {
+        "costBookItemId": "11111111-2222-3333-4444-555555555555",
+        "quantity": 1.10
+      }
+    ]
+  }
+]

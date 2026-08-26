@@ -1,0 +1,202 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Assembly 1",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000001", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "name": "Assembly 2",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000002", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "name": "Assembly 3",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000003", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "name": "Assembly 4",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000004", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "name": "Assembly 5",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000005", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "name": "Assembly 6",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000006", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "name": "Assembly 7",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000007", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "name": "Assembly 8",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000008", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000009",
+    "name": "Assembly 9",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000009", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "name": "Assembly 10",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000010", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000011",
+    "name": "Assembly 11",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000011", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000012",
+    "name": "Assembly 12",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000012", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000013",
+    "name": "Assembly 13",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000013", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000014",
+    "name": "Assembly 14",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000014", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000015",
+    "name": "Assembly 15",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000015", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000016",
+    "name": "Assembly 16",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000016", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000017",
+    "name": "Assembly 17",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000017", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000018",
+    "name": "Assembly 18",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000018", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000019",
+    "name": "Assembly 19",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000019", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000020",
+    "name": "Assembly 20",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000020", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000021",
+    "name": "Assembly 21",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000021", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000022",
+    "name": "Assembly 22",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000022", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000023",
+    "name": "Assembly 23",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000023", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000024",
+    "name": "Assembly 24",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000024", "quantity": 1 }
+    ]
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000025",
+    "name": "Assembly 25",
+    "category": "generic",
+    "lineItems": [
+      { "costBookItemId": "00000000-0000-0000-0000-000000000025", "quantity": 1 }
+    ]
+  }
+]

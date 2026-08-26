@@ -1,0 +1,31 @@
+{
+  "id": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+  "slug": "ground-crew-loader-labor",
+  "version": "1.0.0",
+  "created": "2026-07-02T17:30:48.816001",
+  "updated": "2026-07-02T17:30:48.816001",
+  "trade": "Tree Service",
+  "category": "Tree Service",
+  "subcategory": "Labor",
+  "name": "Ground Crew Loader Labor Rate",
+  "unit": "HR",
+  "description": "Standard hourly rate for ground loaders, brush handlers, and helper crew.",
+  "laborCost": "45.00",
+  "materialCost": "0.00",
+  "equipmentCost": "0.00",
+  "notes": "Responsible for debris collection, staging, and feeding the wood chipper.",
+  "pricingStatus": "PLACEHOLDER",
+  "requiredInputs": [
+    "Access width constraints",
+    "Crew sizes"
+  ],
+  "productionNotes": "Double-check overhead electric lines before rigging.",
+  "assumptions": [
+    "Standard access permitted within 50 feet of job location."
+  ],
+  "exclusions": [
+    "Municipal permit filing fees (unless explicitly selected)."
+  ],
+  "futurePricingHooks": "Link to diesel price indexes.",
+  "confidenceScore": 0.95
+}

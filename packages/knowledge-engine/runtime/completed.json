@@ -1,0 +1,35 @@
+[
+  {
+    "trade": "Tree Service",
+    "worker": "CostbookArchitect",
+    "priority": 3,
+    "status": "COMPLETED",
+    "created": "2026-07-02T17:05:00Z",
+    "started": "2026-07-02T17:04:16.314349",
+    "completed": "2026-07-02T17:04:16.314984",
+    "retryCount": 0,
+    "qualityScore": {
+      "completeness": 1.0,
+      "confidence": 0.9,
+      "validationScore": 1.0,
+      "coverageScore": 0.85,
+      "duplicateRisk": 0.05,
+      "pricingConfidence": 0.92,
+      "assemblyConfidence": 0.95,
+      "overallQuality": 0.94
+    }
+  },
+  {
+    "trade": "Tree Service",
+    "worker": "ReviewAgent",
+    "priority": 5,
+    "status": "completed",
+    "created": "2026-07-02T17:43:00Z",
+    "started": "2026-07-02T17:47:40.529062",
+    "completed": "2026-07-02T17:48:07.411916",
+    "retryCount": 0,
+    "qualityScore": null,
+    "notes": "Verify Tree Service assemblies linkage to cost items staged in review/pending/",
+    "id": "b6bb2946"
+  }
+]

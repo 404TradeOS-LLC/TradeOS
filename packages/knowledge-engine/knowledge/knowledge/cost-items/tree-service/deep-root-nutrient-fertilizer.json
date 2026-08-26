@@ -1,0 +1,31 @@
+{
+  "id": "2a8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+  "slug": "deep-root-nutrient-fertilizer",
+  "version": "1.0.0",
+  "created": "2026-07-02T17:30:48.816001",
+  "updated": "2026-07-02T17:30:48.816001",
+  "trade": "Tree Service",
+  "category": "Tree Service",
+  "subcategory": "Materials",
+  "name": "Deep Root Nutrient Liquid Fertilizer",
+  "unit": "CY",
+  "description": "Nutrient fertilizer mix injected per cubic yard of dry soil area.",
+  "laborCost": "0.00",
+  "materialCost": "12.50",
+  "equipmentCost": "0.00",
+  "notes": "Slow-release custom arborist nutrient mix.",
+  "pricingStatus": "PLACEHOLDER",
+  "requiredInputs": [
+    "Access width constraints",
+    "Crew sizes"
+  ],
+  "productionNotes": "Double-check overhead electric lines before rigging.",
+  "assumptions": [
+    "Standard access permitted within 50 feet of job location."
+  ],
+  "exclusions": [
+    "Municipal permit filing fees (unless explicitly selected)."
+  ],
+  "futurePricingHooks": "Link to diesel price indexes.",
+  "confidenceScore": 0.95
+}

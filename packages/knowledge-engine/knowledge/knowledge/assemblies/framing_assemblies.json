@@ -1,0 +1,43 @@
+{
+  "assemblies": [
+    {
+      "id": "a1e2f3c4-1111-2222-3333-444455556666",
+      "name": "Interior Wall Framing Assembly",
+      "category": "Framing",
+      "lineItems": [
+        { "costBookItemId": "c080e931-39a4-4f3b-b7a4-5d03617eb58e", "quantity": 1.10 },
+        { "costBookItemId": "04c4e0c7-01ee-47a9-9f9b-5bc6950b91e3", "quantity": 1.10 },
+        { "costBookItemId": "88f9aaff-3eb1-4465-902b-2b91c5929b94", "quantity": 1.10 }
+      ]
+    },
+    {
+      "id": "b2f3e4d5-2222-3333-4444-555566667777",
+      "name": "Exterior Sheathing Assembly",
+      "category": "Framing",
+      "lineItems": [
+        { "costBookItemId": "af93ecad-d19a-415f-96c2-425029ad2f21", "quantity": 1.10 },
+        { "costBookItemId": "0bfb3294-9607-4722-b2f5-a6d267cd191b", "quantity": 1.10 },
+        { "costBookItemId": "dc496609-20d3-4bad-8241-d934c1b8e383", "quantity": 1.10 }
+      ]
+    },
+    {
+      "id": "c3d4e5f6-3333-4444-5555-666677778888",
+      "name": "Roof Rafter Assembly",
+      "category": "Framing",
+      "lineItems": [
+        { "costBookItemId": "f7f2bea4-219e-4dc5-9b02-38b57f71c2bd", "quantity": 1.10 },
+        { "costBookItemId": "616d305c-3688-4238-9075-e4fe8c521392", "quantity": 1.10 }
+      ]
+    },
+    {
+      "id": "d4e5f6a7-4444-5555-6666-777788889999",
+      "name": "Floor Joist Assembly",
+      "category": "Framing",
+      "lineItems": [
+        { "costBookItemId": "d4e6c184-6f36-41e9-a46f-5d37c48fb517", "quantity": 1.10 },
+        { "costBookItemId": "28375682-9ed0-44d9-a4be-f865382da4c9", "quantity": 1.10 },
+        { "costBookItemId": "8aa4e501-0533-465e-8b0b-ddf0a8370de3", "quantity": 1.10 }
+      ]
+    }
+  ]
+}

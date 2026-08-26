@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SupplierSchema",
+  "description": "Schema mapping costbook items to supplier catalog products and external links",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "costItemId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Linked internal cost item reference"
+    },
+    "supplierName": {
+      "type": "string"
+    },
+    "supplierSku": {
+      "type": "string"
+    },
+    "supplierUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "unitPrice": {
+      "type": "number",
+      "minimum": 0.0
+    },
+    "currency": {
+      "type": "string",
+      "default": "USD"
+    },
+    "lastChecked": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "costItemId",
+    "supplierName",
+    "supplierSku",
+    "unitPrice",
+    "lastChecked"
+  ],
+  "additionalProperties": false
+}

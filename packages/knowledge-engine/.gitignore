@@ -1,0 +1,20 @@
+# Phase A guardrail (2026-07-16): prevents recurrence of the tooling debris documented in
+# packages/knowledge-engine/README.md §5/§8. This does NOT untrack anything already committed —
+# the existing .npm_cache/ under legacy-archive/scratch/ (and its duplicate under
+# knowledge-engine/legacy-archive/scratch/) remain tracked pending a later, evidence-backed
+# migration decision. This only stops *new* copies of the same noise from being committed again.
+
+# npm/npx cache artifacts (e.g. from `npx antigravity-awesome-skills` or similar tooling runs)
+.npm_cache/
+.npm/
+npm-debug.log*
+
+# Python cache/build artifacts from the generation pipeline scripts
+__pycache__/
+*.pyc
+*.pyo
+
+# Local temporary/scratch files
+*.tmp
+*.temp
+.DS_Store

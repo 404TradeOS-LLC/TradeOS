@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "ignoreCommand": "sh vercel-ignore-build.sh",
+  "functions": {
+    "index.ts": {
+      "includeFiles": "vendor/knowledge-engine/**"
+    }
+  }
+}

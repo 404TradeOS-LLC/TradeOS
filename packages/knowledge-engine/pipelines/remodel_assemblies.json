@@ -1,0 +1,7571 @@
+[
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 1",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 59
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 2",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 69
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 61
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 3",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 71
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 17
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 4",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 29
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 5",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 41
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 6",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 7",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 8",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 9",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 94
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 25
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 10",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 11
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 50
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 11",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 49
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 72
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 12",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 13",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 85
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 14",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 31
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 55
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 15",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 8
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 94
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 16",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 76
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 17",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 31
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 88
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 18",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 2
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 19",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 37
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 20",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 59
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 21",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 59
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 37
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 22",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 10
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 92
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 23",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 85
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 24",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 25",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 26",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 15
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 27",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 8
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 72
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 75
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 28",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 81
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 29",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 68
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 73
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 30",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 31
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 31",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 32",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 41
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 33",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 70
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 34",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 35",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 56
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 47
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 57
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 36",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 17
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 56
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 37",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 94
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 67
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 45
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 44
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 38",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 37
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 52
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 54
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 88
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 39",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 24
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 58
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 40",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 41",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 42",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 43",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 88
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 78
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 44",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 89
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 45",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 46",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 15
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 15
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 47",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 48",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 49",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 88
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 89
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 50",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 55
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 51",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 15
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 79
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 52",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 78
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 78
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 53",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 59
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 54",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 71
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 55",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 27
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 56",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 71
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 96
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 57",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 48
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 58",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 59",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 89
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 99
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 60",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 32
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 53
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 49
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 61",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 87
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 62",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 94
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 51
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 63",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 19
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 64",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 17
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 65",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 95
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 66",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 68
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 67",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 92
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 68",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 69",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 91
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 70",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 80
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 71",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 72",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 72
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 73",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 38
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 31
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 74",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 69
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 75",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 76",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 72
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 77",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 53
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 35
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 76
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 78",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 3
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 86
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 79",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 69
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 80",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 54
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 11
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 85
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 81",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 66
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 34
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 87
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 82",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 76
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 83",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 84",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 58
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 85",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 86",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 17
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 68
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 9
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 89
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 87",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 25
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 94
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 88",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 2
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 3
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 89",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 9
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 62
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 90",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 91",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 20
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 92",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 10
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 35
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 91
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 93",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 45
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 94",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 15
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 18
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 95",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 32
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 28
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 96",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 68
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 41
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 97",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 50
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 98",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 20
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 67
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 46
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 99",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 100",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 88
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 88
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 101",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 61
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 102",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 70
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 103",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 17
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 104",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 8
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 105",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 25
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 106",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 107",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 59
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 108",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 18
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 109",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 52
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 110",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 29
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 111",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 38
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 112",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 47
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 113",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 41
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 83
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 114",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 78
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 115",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 116",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 84
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 117",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 20
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 55
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 118",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 119",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 79
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 120",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 121",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 122",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 31
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 78
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 17
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 84
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 123",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 38
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 124",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 83
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 125",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 84
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 126",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 127",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 128",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 129",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 41
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 130",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 49
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 92
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 131",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 132",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 37
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 41
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 39
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 133",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 66
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 134",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 8
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 49
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 135",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 136",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 59
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 137",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 29
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 98
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 138",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 99
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 139",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 140",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 95
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 141",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 142",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 79
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 143",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 81
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 144",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 52
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 57
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 145",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 49
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 32
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 146",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 56
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 84
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 147",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 74
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 67
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 10
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 148",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 90
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 149",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 32
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 66
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 150",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 87
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 33
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 98
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 151",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 152",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 25
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 43
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 153",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 26
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 56
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 95
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 154",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 75
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 62
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 155",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 20
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 84
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 156",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 36
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 4
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 157",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 67
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 72
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 74
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 158",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 70
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 9
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 68
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 41
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 159",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 160",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 12
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 51
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 161",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 25
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 162",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 93
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 163",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 73
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 164",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 98
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 165",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 47
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 52
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 38
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 166",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 81
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 32
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 167",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 80
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 168",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 63
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 83
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 169",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 29
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 170",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 9
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 71
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 171",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 43
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 54
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 13
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 172",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 77
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 173",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 51
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 174",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 15
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 175",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 36
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 24
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 82
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 176",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 27
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 177",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 75
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 90
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 178",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 11
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 45
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 37
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 179",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 180",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 25
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 45
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 181",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 91
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 37
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 85
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 182",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 76
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 183",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 88
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 55
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 184",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 87
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 45
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 185",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 47
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 51
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 186",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 36
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 187",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 88
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 188",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 52
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 2
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 189",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 56
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 87
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 58
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 190",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 92
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 80
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 23
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "engineered wood"
+        ],
+        "quantity": 71
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 191",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 53
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 192",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 69
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 193",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 66
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 194",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 20
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 54
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 195",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 36
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 41
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 196",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 59
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 17
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 197",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 62
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 38
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 75
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 198",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 90
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 199",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 24
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 9
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 200",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 26
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 201",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 86
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 202",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 203",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 35
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 11
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 93
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 204",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "hardwood"
+        ],
+        "quantity": 71
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 91
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 205",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 83
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 76
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 67
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 206",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 72
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 2
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 35
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 207",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 7
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 16
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 50
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 208",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 22
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 43
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 209",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 66
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "mulch"
+        ],
+        "quantity": 15
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 210",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 94
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 90
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 211",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 38
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 51
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 14
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 212",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 94
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 100
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 46
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 213",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 77
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 214",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 14
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 215",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 66
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 65
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 216",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 64
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 10
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 1
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 37
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 217",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 31
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 87
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 66
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 218",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 15
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 53
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 42
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 219",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 69
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 31
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 220",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 26
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 46
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Flooring \u2013 221",
+    "category": "Assemblies - Flooring",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 52
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 41
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 222",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 223",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 19
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 36
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 224",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 17
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 225",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "deck"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 17
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 226",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 83
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 227",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 42
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "stucco"
+        ],
+        "quantity": 73
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 23
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 228",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 85
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 229",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 45
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 39
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 230",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 30
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 97
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 93
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 231",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "paint"
+        ],
+        "quantity": 28
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 79
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 232",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "drip edge"
+        ],
+        "quantity": 84
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 47
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 79
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 233",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 48
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 234",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 18
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 50
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 40
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 21
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "granite"
+        ],
+        "quantity": 70
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 235",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 27
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 236",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "trim paint"
+        ],
+        "quantity": 37
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 93
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 237",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 98
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 238",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 25
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 5
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 39
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "underlayment"
+        ],
+        "quantity": 15
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 239",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 61
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 93
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "paver patio"
+        ],
+        "quantity": 33
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 240",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 58
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Exterior \u2013 241",
+    "category": "Assemblies - Exterior",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 27
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 2
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 79
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 71
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Misc \u2013 242",
+    "category": "Assemblies - Misc",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "drawer"
+        ],
+        "quantity": 60
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 57
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "wall cabinet"
+        ],
+        "quantity": 35
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 19
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 243",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 82
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 49
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 97
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 244",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 32
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "site cleanup"
+        ],
+        "quantity": 11
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 245",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 95
+      },
+      {
+        "category": "Siding",
+        "keywords": [
+          "fiber cement"
+        ],
+        "quantity": 55
+      },
+      {
+        "category": "Countertops",
+        "keywords": [
+          "quartz"
+        ],
+        "quantity": 50
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 246",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Painting",
+        "keywords": [
+          "primer"
+        ],
+        "quantity": 99
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 8
+      },
+      {
+        "category": "General Conditions",
+        "keywords": [
+          "inspection"
+        ],
+        "quantity": 6
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "shrub"
+        ],
+        "quantity": 26
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Painting \u2013 247",
+    "category": "Assemblies - Painting",
+    "lineItems": [
+      {
+        "category": "Siding",
+        "keywords": [
+          "vinyl"
+        ],
+        "quantity": 14
+      },
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "sink cabinet"
+        ],
+        "quantity": 49
+      },
+      {
+        "category": "Flooring",
+        "keywords": [
+          "laminate"
+        ],
+        "quantity": 89
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Roofing \u2013 248",
+    "category": "Assemblies - Roofing",
+    "lineItems": [
+      {
+        "category": "Cabinetry",
+        "keywords": [
+          "base cabinet"
+        ],
+        "quantity": 65
+      },
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "sod"
+        ],
+        "quantity": 41
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Bathroom \u2013 249",
+    "category": "Assemblies - Bathroom",
+    "lineItems": [
+      {
+        "category": "Flooring",
+        "keywords": [
+          "tile"
+        ],
+        "quantity": 96
+      },
+      {
+        "category": "Roofing",
+        "keywords": [
+          "shingle"
+        ],
+        "quantity": 34
+      }
+    ]
+  },
+  {
+    "name": "Remodel \u2013 Kitchen \u2013 250",
+    "category": "Assemblies - Kitchen",
+    "lineItems": [
+      {
+        "category": "Landscaping",
+        "keywords": [
+          "tree"
+        ],
+        "quantity": 44
+      },
+      {
+        "category": "Hardscaping",
+        "keywords": [
+          "retaining wall"
+        ],
+        "quantity": 34
+      }
+    ]
+  }
+]

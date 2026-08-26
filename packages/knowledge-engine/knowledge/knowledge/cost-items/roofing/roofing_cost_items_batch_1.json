@@ -1,0 +1,12 @@
+[
+  {
+    "id": "11111111-2222-3333-4444-555555555555",
+    "name": "30-Year Architectural Shingle Installation",
+    "category": "Roofing",
+    "unit": "SQ",
+    "laborCost": 120.00,
+    "materialCost": 95.00,
+    "equipmentCost": 15.00,
+    "notes": "Includes starter shingles and ridge caps"
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InspectionSchema",
+  "description": "Schema defining code and municipal inspections triggered by assemblies",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "inspectionName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trade": {
+      "type": "string"
+    },
+    "municipalAuthority": {
+      "type": "string",
+      "description": "Entity requiring inspection (e.g., Building Department, Environmental Protection Agency)"
+    },
+    "associatedAssemblyIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "inspectionTriggers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Actions or thresholds triggering this inspection (e.g. 'removal of protected species')"
+    },
+    "requirementsChecklist": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "inspectionName",
+    "trade",
+    "municipalAuthority",
+    "requirementsChecklist"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductionRateSchema",
+  "description": "Schema for defining crew production rates and output factors",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "costItemId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The linked cost item being installed"
+    },
+    "crewRecipeId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The linked crew recipe performing the installation"
+    },
+    "outputPerWorkerHour": {
+      "type": "number",
+      "minimum": 0.0,
+      "description": "The average installation output quantity per single worker hour"
+    },
+    "outputUnit": {
+      "type": "string",
+      "description": "The measurement unit (e.g., SF, LF, EA)"
+    },
+    "complexityMultipliers": {
+      "type": "object",
+      "properties": {
+        "easy": { "type": "number", "minimum": 0.1 },
+        "standard": { "type": "number", "minimum": 0.1 },
+        "difficult": { "type": "number", "minimum": 0.1 }
+      },
+      "required": ["easy", "standard", "difficult"],
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "costItemId",
+    "crewRecipeId",
+    "outputPerWorkerHour",
+    "outputUnit",
+    "complexityMultipliers"
+  ],
+  "additionalProperties": false
+}

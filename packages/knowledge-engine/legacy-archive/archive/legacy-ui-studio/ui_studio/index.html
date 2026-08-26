@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeOS UI Studio | Liquid Glass</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar: Component Palette -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                TRADEOS STUDIO
+            </div>
+
+            <div class="stat-label">Views</div>
+            <ul class="nav-list" style="margin-bottom: 32px;">
+                <li class="nav-item active" data-page="dashboard">Dashboard</li>
+                <li class="nav-item" data-page="crm">CRM / Projects</li>
+                <li class="nav-item" data-page="items">Cost Library</li>
+                <li class="nav-item" data-page="docs">Documents</li>
+                <li class="nav-item" data-page="notes">Daily Notes</li>
+            </ul>
+
+            <div class="stat-label">Precision Tools</div>
+            <div class="component-palette" id="palette">
+                <div class="palette-item" data-type="hero">
+                    <span>Weather Hero</span>
+                </div>
+                <div class="palette-item" data-type="stat">
+                    <span>Stat Card</span>
+                </div>
+                <div class="palette-item" data-type="radar">
+                    <span>Doppler Radar</span>
+                </div>
+                <div class="palette-item" data-type="preciph">
+                    <span>Precip Chart</span>
+                </div>
+            </div>
+
+            <div class="stat-label" style="margin-top: 32px;">Design Tokens</div>
+            <div class="control-group">
+                <label>Primary Accent</label>
+                <input type="color" id="accent-color" value="#3B82F6">
+            </div>
+            <div class="control-group">
+                <label>Vibe Material</label>
+                <select id="vibe-mode" style="width: 100%; background: #1f2937; color: white; border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 8px;">
+                    <option value="liquid">Liquid Glass (Active)</option>
+                    <option value="frosted">Frosted Minimal</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Main Workspace: Visual Canvas -->
+        <main class="main-workspace">
+            <div class="canvas" id="canvas">
+                <div class="hero-header">
+                    <div id="greeting-area">
+                        <h1 id="page-title">Good Morning</h1>
+                        <p id="page-subtitle">Apr 21, 2026 • 72°F & Rain</p>
+                    </div>
+                </div>
+                <div id="content-area">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+            
+            <!-- Floating Navigation Bar -->
+            <nav class="floating-nav">
+                <div class="nav-btn" data-page="crm">
+                    <span>👤</span>
+                    CRM
+                </div>
+                <div class="nav-btn special" data-action="new-estimate">
+                    <div class="icon-circle">+</div>
+                    Estimate
+                </div>
+                <div class="nav-btn" data-page="items">
+                    <span>📚</span>
+                    Costbook
+                </div>
+                <div class="nav-btn" data-page="docs">
+                    <span>📄</span>
+                    Docs
+                </div>
+                <div class="nav-btn" data-page="notes">
+                    <span>✏️</span>
+                    Notes
+                </div>
+            </nav>
+        </main>
+
+        <!-- Inspector / Code Panel -->
+        <aside class="inspector">
+            <div class="stat-label">SwiftUI Export</div>
+            <div class="code-container">
+                <div class="code-header">
+                    <span>DashboardView.swift</span>
+                    <span class="copy-btn" id="copy-code">Copy</span>
+                </div>
+                <div class="code-view" id="swift-code">
+                    // Generating...
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="components.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

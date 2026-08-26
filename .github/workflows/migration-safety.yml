@@ -1,0 +1,48 @@
+name: Migration safety
+
+on:
+  pull_request:
+    paths:
+      - "app/prisma/**"
+      - "app/db/**"
+      - "app/**/*.sql"
+      - "app/scripts/test-integration-db.sh"
+      - ".github/workflows/migration-safety.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-safety:
+    name: Database migration and RLS safety
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - run: npm ci
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://tradeos_ci:tradeos_ci@127.0.0.1:5432/tradeos_ci?schema=public
+        run: npx prisma validate
+      - name: Run PostgreSQL integration, migration rehearsal, and RLS coverage
+        run: npm run test:integration
+      - name: Ensure migration/test tooling leaves source clean
+        working-directory: .
+        run: git diff --check && git diff --exit-code

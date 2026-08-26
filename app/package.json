@@ -1,0 +1,64 @@
+{
+  "name": "tradeos-costbook-api",
+  "version": "0.1.0",
+  "description": "TradeOS Cost Book — MVP backend API (estimating and pricing platform for trade contractors)",
+  "main": "dist/backend/start.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "prisma generate",
+    "build": "node scripts/vendor-knowledge-engine.js && tsc -p tsconfig.json",
+    "start": "node dist/backend/start.js",
+    "dev": "nodemon --watch src --watch modules --watch backend --watch db --ext ts --exec ts-node backend/start.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "db:deploy": "bash scripts/deploy-migrations.sh",
+    "db:provision-role": "bash scripts/provision-app-role.sh",
+    "db:seed": "prisma db seed",
+    "admin:bootstrap": "ts-node scripts/bootstrap-admin.ts",
+    "jobs:supplier-price-sync": "ts-node scripts/run-supplier-price-sync.ts",
+    "jobs:athena-observability-retention": "ts-node scripts/run-athena-observability-retention.ts",
+    "jobs:athena-observability-export": "ts-node scripts/run-athena-observability-export.ts",
+    "jobs:athena-observability-alerts": "ts-node scripts/run-athena-observability-alerts.ts",
+    "demo:trainingless-estimate": "ts-node modules/trainingless-estimate-demo/demo.ts",
+    "test": "jest --runInBand",
+    "test:integration": "bash scripts/test-integration-db.sh",
+    "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|tools\\.[a-z.-]+)\\.contracts\\.test\\.ts$\"",
+    "athena:smoke": "jest --runInBand --testPathPatterns \"athena-kernel\\.smoke\\.test\\.ts$\"",
+    "lint": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "ts-node db/seed/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.6.2",
+    "jose": "^4.15.9",
+    "node-cron": "^4.6.0",
+    "pdfkit": "^0.19.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.2.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/pdfkit": "^0.17.6",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.4",
+    "playwright": "^1.62.1",
+    "prisma": "^6.19.3",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.0"
+  }
+}

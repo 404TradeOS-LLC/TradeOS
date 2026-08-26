@@ -1,0 +1,69 @@
+{
+  "id": "db319d33-3a3f-4deb-8d36-cbde67be8bde",
+  "slug": "limbing-pruning",
+  "version": "1.0.0",
+  "created": "2026-07-02T17:24:43.376060",
+  "updated": "2026-07-02T17:24:43.376060",
+  "trade": "Tree Service",
+  "category": "Tree Service",
+  "name": "Limbing and Pruning",
+  "description": "Standard ANSI-compliant structural pruning, limb removal, and crown reduction.",
+  "lineItems": [
+    {
+      "costBookItemId": "6f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+      "quantity": 6.0
+    },
+    {
+      "costBookItemId": "7f8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+      "quantity": 6.0
+    },
+    {
+      "costBookItemId": "cf8e7d2c-1a3b-4c5d-6e7f-8a9b0c1d2e3f",
+      "quantity": 1.0
+    }
+  ],
+  "projectTypes": [
+    "Residential",
+    "Commercial"
+  ],
+  "constructionPhase": "Site Preparation",
+  "requiredInputs": [
+    "Access limits",
+    "Tree DBH count"
+  ],
+  "optionalInputs": [
+    "Soil condition"
+  ],
+  "materialCategories": [
+    "Safety rigging material"
+  ],
+  "laborCategories": [
+    "Climber Arborist",
+    "Ground Loader"
+  ],
+  "equipmentCategories": [
+    "Chainsaws",
+    "Trucks",
+    "Chippers"
+  ],
+  "safetyRequirements": [
+    "OSHA head protective gear",
+    "Rigging harnesses"
+  ],
+  "riskFactors": [
+    "Power line overhead proximity",
+    "Structural property risk"
+  ],
+  "permitAwareness": "Arborist permits required in municipal boundaries for trees exceeding 8 inches DBH.",
+  "inspectionAwareness": "Post-removal ground inspection for disease vectors.",
+  "codeConsiderations": "Conforms to ANSI A300 Pruning Standards.",
+  "dependencies": [
+    "Utility line drops if power lines interfere"
+  ],
+  "wasteDisposal": "All brush chipped on site. Large logs hauled to municipal bio-mass dump sites.",
+  "proposalScopeOfWork": "Provide professional tree service for Limbing and Pruning.",
+  "proposalAssumptions": "Assumes standard truck access within 50 feet of tree base.",
+  "proposalExclusions": "Excludes soil grading, stump removal (unless selected), and turf seeding.",
+  "warrantyLanguage": "30-day health assessment warranty on pruning. No warranty on complete removals.",
+  "productionNotes": "Review local weather alerts. Avoid high wind executions."
+}

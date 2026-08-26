@@ -1,0 +1,22 @@
+[
+  {
+    "id": "A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C",
+    "name": "Drywall - 1/2 inch Agent Suggested",
+    "category": "Interiors",
+    "unit": "SF",
+    "laborCost": 1.50,
+    "materialCost": 0.85,
+    "equipmentCost": 0.0,
+    "notes": "Agent scanned this from the local Home Depot API."
+  },
+  {
+    "id": "F5E4D3C2-B1A0-9F8E-7D6C-5B4A3928170F",
+    "name": "HVAC Filter 16x20x1",
+    "category": "HVAC",
+    "unit": "Ea",
+    "laborCost": 0.0,
+    "materialCost": 12.99,
+    "equipmentCost": 0.0,
+    "notes": "Identified from a recent invoice by the agent."
+  }
+]

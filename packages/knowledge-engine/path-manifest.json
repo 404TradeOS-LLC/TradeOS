@@ -1,0 +1,151 @@
+{
+  "_comment": "Machine-readable companion to PATHS.md. Phase B (path-canonicalization and reference-hardening), 2026-07-16, followed by the founder-approved duplicate-tree cleanup on 2026-08-24. If this file and PATHS.md ever disagree, PATHS.md is authoritative -- update this file to match, not the reverse.",
+  "lastVerified": "2026-08-24",
+  "canonicalRoots": {
+    "packageRoot": "packages/knowledge-engine",
+    "runtimeKnowledgeRoot": "packages/knowledge-engine/knowledge/knowledge",
+    "exportsRoot": "packages/knowledge-engine/exports",
+    "schemasRoot": "packages/knowledge-engine/schemas",
+    "vendorSkillRoot": "packages/knowledge-engine/agent-skills/skills"
+  },
+  "runtimeCriticalAssets": [
+    {
+      "path": "packages/knowledge-engine/exports/json/costbook.json",
+      "required": true,
+      "contentParsed": true,
+      "consumedBy": [
+        "app/modules/knowledge-runtime/loader.ts",
+        "app/modules/trainingless-estimate-demo/knowledgeLoader.ts"
+      ],
+      "failureBehavior": "throws if missing"
+    },
+    {
+      "path": "packages/knowledge-engine/knowledge/knowledge/assembly-index.json",
+      "required": false,
+      "contentParsed": true,
+      "consumedBy": [
+        "app/modules/knowledge-runtime/loader.ts",
+        "app/modules/trainingless-estimate-demo/knowledgeLoader.ts"
+      ],
+      "failureBehavior": "degrades gracefully with a load warning if missing"
+    },
+    {
+      "path": "packages/knowledge-engine/knowledge/knowledge/trade-progress.json",
+      "required": false,
+      "contentParsed": true,
+      "consumedBy": ["app/modules/knowledge-runtime/loader.ts"],
+      "failureBehavior": "degrades gracefully with a load warning if missing"
+    },
+    {
+      "path": "packages/knowledge-engine/knowledge/knowledge/trade-taxonomy/taxonomy.md",
+      "required": false,
+      "contentParsed": true,
+      "consumedBy": ["app/modules/knowledge-runtime/loader.ts"],
+      "failureBehavior": "degrades gracefully with a load warning if missing"
+    },
+    {
+      "path": "packages/knowledge-engine/knowledge/knowledge/assemblies",
+      "required": false,
+      "contentParsed": false,
+      "note": "filenames/count only, file contents are never opened",
+      "consumedBy": ["app/modules/knowledge-runtime/loader.ts"]
+    },
+    {
+      "path": "packages/knowledge-engine/knowledge/knowledge/cost-items",
+      "required": false,
+      "contentParsed": false,
+      "note": "filenames/count only, file contents are never opened",
+      "consumedBy": ["app/modules/knowledge-runtime/loader.ts"]
+    },
+    {
+      "path": "packages/knowledge-engine/schemas",
+      "required": false,
+      "contentParsed": false,
+      "note": "filenames only, used to build schemaRefs metadata strings",
+      "consumedBy": ["app/modules/knowledge-runtime/loader.ts"]
+    }
+  ],
+  "knownGeneratedRoots": [
+    {
+      "path": "packages/knowledge-engine/exports",
+      "canonical": true,
+      "producedBy": [
+        "packages/knowledge-engine/pipelines/master_pipeline.py",
+        "packages/knowledge-engine/pipelines/export/sync_manager.py",
+        "packages/knowledge-engine/pipelines/export/publish_to_supabase.py"
+      ],
+      "pathResolutionFixedInPhaseB": true,
+      "resolverImplementation": "packages/knowledge-engine/pipelines/package_root.py"
+    }
+  ],
+  "deprecatedRoots": [
+    {
+      "path": "packages/knowledge-engine/pipelines/exports",
+      "reason": "near-duplicate of exports/ caused by invoking pipelines/master_pipeline.py or pipelines/export/sync_manager.py with cwd set to pipelines/ instead of the package root",
+      "status": "stale generated output, zero confirmed consumers",
+      "evidence": "2026-07-16 audit: pipelines/exports/json/costbook.json has 1795 items / 39 assemblies vs. the canonical exports/json/costbook.json's 1795 items / 289 assemblies; no CI, app, or doc reference found anywhere except this package's own README describing the problem",
+      "futureRecurrencePreventedBy": "packages/knowledge-engine/pipelines/package_root.py (Phase B)",
+      "existingFilesTouchedInPhaseB": false,
+      "removalPrerequisites": ["founder sign-off", "confirm no external/manual consumer per README known-risks section"]
+    },
+    {
+      "path": "packages/knowledge-engine/pipelines/knowledge/cost-items/costbook.json",
+      "reason": "byte-identical to pipelines/exports/json/costbook.json; same root cause and same wrong-cwd run",
+      "status": "stale generated output, zero confirmed consumers",
+      "futureRecurrencePreventedBy": "packages/knowledge-engine/pipelines/package_root.py (Phase B)",
+      "existingFilesTouchedInPhaseB": false,
+      "removalPrerequisites": ["founder sign-off"]
+    }
+  ],
+  "compatibilityFallback": {
+    "status": "not_needed",
+    "evidence": "The canonical TypeScript and Python resolvers use stable repository markers and do not require a duplicate-tree fallback. The former nested duplicate was removed on 2026-08-24 after a fresh full re-hash, repo-wide reference grep, and green loader/path-resolution evidence."
+  },
+  "unresolvedRisks": [
+    {
+      "id": "assembly-pipeline-shallow-knowledge-dir",
+      "description": "packages/knowledge-engine/scripts/assembly_pipeline_common.py's KNOWLEDGE_DIR constant resolves to the shallow knowledge/ path, which does not contain assemblies/ or trade-progress.json in the current tree; the canonical data lives one level deeper at knowledge/knowledge/. This makes audit-assemblies.py and its dependents silently report zero existing assemblies for every trade.",
+      "affectedScripts": [
+        "packages/knowledge-engine/scripts/assembly_pipeline_common.py",
+        "packages/knowledge-engine/scripts/audit-assemblies.py",
+        "packages/knowledge-engine/scripts/start-assembly-run.py",
+        "packages/knowledge-engine/scripts/next-assembly-batch.py",
+        "packages/knowledge-engine/scripts/validate-assembly-batch.py",
+        "packages/knowledge-engine/scripts/approve-assembly-batch.py",
+        "packages/knowledge-engine/scripts/reject-assembly-batch.py"
+      ],
+      "whyNotFixedInPhaseB": "Fixing this changes observable script output/business behavior (from reporting zero assemblies to reporting real counts), which Phase B's stop conditions reserve for explicit founder review rather than an in-flight path-canonicalization pass.",
+      "status": "documented, not fixed - founder decision required"
+    },
+    {
+      "id": "data-working-path-disagreement",
+      "description": "approve-assembly-batch.py and validate_batch.py disagree with each other on the location of Data/working/costbook_pending.json (package-root-anchored vs. cwd-relative), and neither location currently exists on disk.",
+      "affectedScripts": [
+        "packages/knowledge-engine/scripts/approve-assembly-batch.py",
+        "packages/knowledge-engine/scripts/validate_batch.py"
+      ],
+      "status": "documented, not fixed - founder decision required"
+    },
+    {
+      "id": "task-queue-family-unhardened",
+      "description": "The task-queue/batch-runner family and the orchestrator script still use bare cwd-relative runtime/*.json paths with no marker validation. None of them write to exports/** or cause the specific duplicate-output defect Phase B was scoped to fix, so hardening all of them was judged out of scope for this narrow pass.",
+      "affectedScripts": [
+        "packages/knowledge-engine/scripts/run-next-task.py",
+        "packages/knowledge-engine/scripts/complete-task.py",
+        "packages/knowledge-engine/scripts/fail-task.py",
+        "packages/knowledge-engine/scripts/approve-batch.py",
+        "packages/knowledge-engine/scripts/next-batch.py",
+        "packages/knowledge-engine/scripts/reject-batch.py",
+        "packages/knowledge-engine/scripts/start-trade-run.py",
+        "packages/knowledge-engine/scripts/orchestrator/knowledge-orchestrator.py"
+      ],
+      "status": "documented, not fixed - candidate for a future phase"
+    },
+    {
+      "id": "trainingless-demo-loader-fragile",
+      "description": "app/modules/trainingless-estimate-demo/knowledgeLoader.ts is cwd-relative with no dual-marker guard. Confirmed it cannot currently resolve into a non-canonical package path (its hardcoded segments do not match that shape), so it is fragile (crashes on wrong cwd) rather than dangerous (silently wrong). No proven non-canonical path reference exists to justify an app/** change in this phase.",
+      "affectedScripts": ["app/modules/trainingless-estimate-demo/knowledgeLoader.ts"],
+      "status": "documented, not fixed - recommended hardening for a future phase"
+    }
+  ]
+}

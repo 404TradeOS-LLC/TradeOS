@@ -1,0 +1,177 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono-base);
+  --font-heading: var(--font-heading-base);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* Keep the named font variables stable without making production builds
+     depend on external Google Fonts availability. Installed fonts are used
+     when present; otherwise the stacks fall back to platform-native faces. */
+  --font-inter: "Inter", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-ibm-plex-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-ibm-plex-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
+  --font-manrope: "Manrope", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-space-grotesk: "Space Grotesk", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-cormorant-garamond: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", georgia, serif;
+  --font-dm-sans: "DM Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-oswald: "Oswald", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-source-serif-4: "Source Serif 4", "Iowan Old Style", georgia, serif;
+  --font-source-sans-3: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
+
+  /* Blueprint register: the quiet, data-dense product theme. Space Grotesk
+     is reserved for headings/display moments; body/UI text stays on system
+     sans. The accent moved from warm copper to a cooler electric blue so
+     the dashboard and navigation read cleaner at RC1 density, while amber
+     remains reserved for meaningful attention states. */
+  --font-sans: var(--font-inter);
+  --font-heading-base: var(--font-space-grotesk);
+  --font-mono-base: var(--font-ibm-plex-mono);
+  --copper: oklch(0.61 0.17 257);
+  --copper-foreground: oklch(0.99 0.01 255);
+  --background: oklch(0.975 0.004 247);
+  --foreground: oklch(0.24 0.014 255);
+  --card: oklch(0.995 0.003 255);
+  --card-foreground: oklch(0.24 0.014 255);
+  --popover: oklch(0.995 0.003 255);
+  --popover-foreground: oklch(0.24 0.014 255);
+  --primary: var(--copper);
+  --primary-foreground: var(--copper-foreground);
+  --secondary: oklch(0.95 0.007 252);
+  --secondary-foreground: oklch(0.28 0.015 255);
+  --muted: oklch(0.958 0.005 252);
+  --muted-foreground: oklch(0.5 0.013 256);
+  --accent: oklch(0.92 0.023 248);
+  --accent-foreground: oklch(0.33 0.055 257);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.01 255);
+  --input: oklch(0.9 0.01 255);
+  --ring: var(--copper);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.965 0.006 248);
+  --sidebar-foreground: oklch(0.24 0.014 255);
+  --sidebar-primary: var(--copper);
+  --sidebar-primary-foreground: var(--copper-foreground);
+  --sidebar-accent: oklch(0.93 0.02 248);
+  --sidebar-accent-foreground: oklch(0.34 0.05 257);
+  --sidebar-border: oklch(0.89 0.01 255);
+  --sidebar-ring: var(--copper);
+}
+
+.dark {
+  --copper: oklch(0.72 0.14 257);
+  --copper-foreground: oklch(0.18 0.01 255);
+  --background: oklch(0.18 0.01 255);
+  --foreground: oklch(0.95 0.003 255);
+  --card: oklch(0.22 0.012 255);
+  --card-foreground: oklch(0.95 0.003 255);
+  --popover: oklch(0.22 0.012 255);
+  --popover-foreground: oklch(0.95 0.003 255);
+  --primary: var(--copper);
+  --primary-foreground: var(--copper-foreground);
+  --secondary: oklch(0.27 0.013 255);
+  --secondary-foreground: oklch(0.95 0.003 255);
+  --muted: oklch(0.25 0.01 255);
+  --muted-foreground: oklch(0.72 0.01 255);
+  --accent: oklch(0.31 0.03 252);
+  --accent-foreground: oklch(0.9 0.03 250);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: var(--copper);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.2 0.012 255);
+  --sidebar-foreground: oklch(0.95 0.003 255);
+  --sidebar-primary: var(--copper);
+  --sidebar-primary-foreground: var(--copper-foreground);
+  --sidebar-accent: oklch(0.3 0.03 252);
+  --sidebar-accent-foreground: oklch(0.9 0.03 250);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: var(--copper);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklch, var(--accent) 28%, transparent) 0, transparent 30%),
+      linear-gradient(180deg, color-mix(in oklch, var(--background) 94%, white 6%) 0%, var(--background) 18rem);
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

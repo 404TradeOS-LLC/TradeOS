@@ -1,0 +1,333 @@
+rules:
+  - paths:
+      - app/prisma/schema.prisma
+      - app/prisma/migrations/**
+    requires:
+      - docs/DOMAIN_MODEL.md
+      - docs/CURRENT_STATE.md
+    explanation: Schema changes alter canonical entities and implementation status.
+
+  - paths:
+      - app/domain/contracts.ts
+    requires:
+      - docs/DOMAIN_MODEL.md
+      - docs/RBAC_MATRIX.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Shared contracts define canonical roles, permissions, labels, and lifecycle vocabulary.
+
+  - paths:
+      - app/backend/middleware/auth.ts
+      - app/backend/middleware/databaseSession.ts
+      - app/db/requestSession.ts
+      - app/modules/auth/**
+      - app/backend/routes/auth.routes.ts
+      - app/backend/routes/account.routes.ts
+      - app/backend/routes/organizationProvisioning.routes.ts
+    requires:
+      - docs/modules/auth-and-tenancy.md
+      - docs/API_REFERENCE.md
+      - docs/RBAC_MATRIX.md
+      - docs/ARCHITECTURE.md
+    explanation: Auth and tenancy changes affect security, API behavior, and request-scoped RLS documentation.
+
+  - paths:
+      - app/modules/crm/**
+      - app/backend/routes/crm.routes.ts
+    requires:
+      - docs/modules/crm.md
+      - docs/API_REFERENCE.md
+      - docs/DOMAIN_MODEL.md
+      - docs/CURRENT_STATE.md
+    explanation: CRM changes affect current customer, address, and service-agreement truth.
+
+  - paths:
+      - app/modules/cost-database/**
+      - app/modules/labor-database/**
+      - app/modules/material-database/**
+      - app/modules/equipment-database/**
+      - app/modules/assemblies-database/**
+      - app/backend/routes/costDatabase.routes.ts
+      - app/backend/routes/laborDatabase.routes.ts
+      - app/backend/routes/materialDatabase.routes.ts
+      - app/backend/routes/equipmentDatabase.routes.ts
+      - app/backend/routes/assembliesDatabase.routes.ts
+    requires:
+      - docs/modules/cost-book.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Cost-book changes alter estimating inputs and route groups.
+
+  - paths:
+      - app/modules/estimate-engine/**
+      - app/backend/routes/estimateEngine.routes.ts
+    requires:
+      - docs/modules/estimating.md
+      - docs/API_REFERENCE.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Estimate lifecycle or contract changes must update estimating docs.
+
+  - paths:
+      - app/modules/ai-estimate-assist/**
+      - app/modules/knowledge-runtime/**
+      - app/backend/controllers/aiEstimateAssist.controller.ts
+      - app/backend/middleware/aiEstimateRateLimit.ts
+      - app/backend/routes/aiEstimateAssist.routes.ts
+      - app/backend/routes/knowledgeRuntime.routes.ts
+    requires:
+      - docs/modules/ai-estimate-assist.md
+      - docs/modules/activity-and-intelligence.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: AI-assist and knowledge-runtime changes affect advisory behavior and route documentation.
+
+  - paths:
+      - app/modules/proposals/**
+      - app/modules/proposal-generator/**
+      - app/backend/routes/proposals.routes.ts
+      - app/backend/routes/proposalGenerator.routes.ts
+    requires:
+      - docs/modules/proposals.md
+      - docs/API_REFERENCE.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Proposal routes and lifecycle behavior are source-of-truth concerns.
+
+  - paths:
+      - app/modules/contracts/**
+      - app/backend/routes/contracts.routes.ts
+    requires:
+      - docs/modules/contracts.md
+      - docs/API_REFERENCE.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Contract workflows and compatibility lifecycle behavior must stay documented.
+
+  - paths:
+      - app/modules/invoices/**
+      - app/backend/routes/invoices.routes.ts
+    requires:
+      - docs/modules/invoices-and-payments.md
+      - docs/API_REFERENCE.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Invoice and payment-state changes affect commercial workflow truth.
+
+  - paths:
+      - app/modules/jobs/**
+      - app/backend/routes/jobs.routes.ts
+    requires:
+      - docs/modules/jobs-and-scheduling.md
+      - docs/API_REFERENCE.md
+      - docs/RBAC_MATRIX.md
+      - docs/WORKFLOW_LIFECYCLES.md
+      - docs/CURRENT_STATE.md
+    explanation: Jobs combine lifecycle, permissions, and route behavior.
+
+  - paths:
+      - app/modules/project-intake/**
+      - app/modules/project-tasks/**
+      - app/backend/routes/projects.routes.ts
+    requires:
+      - docs/modules/projects.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Project workspace changes affect project-centered workflow truth.
+
+  - paths:
+      - app/modules/intelligence/**
+      - app/backend/routes/intelligence.routes.ts
+    requires:
+      - docs/modules/activity-and-intelligence.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Shared activity and intelligence primitives feed multiple product surfaces.
+
+  - paths:
+      - app/modules/brand-studio/**
+      - app/modules/documents/**
+      - app/backend/routes/brandStudio.routes.ts
+    requires:
+      - docs/modules/brand-studio.md
+      - docs/CURRENT_STATE.md
+    explanation: Brand Studio drives document presentation and branding surfaces.
+
+  - paths:
+      - app/modules/settings/**
+      - app/modules/admin-dashboard/**
+      - app/modules/supplier-integration/**
+      - app/modules/supplier-database/**
+      - app/backend/routes/settings.routes.ts
+      - app/backend/routes/adminDashboard.routes.ts
+      - app/backend/routes/supplierIntegration.routes.ts
+      - app/backend/routes/supplierDatabase.routes.ts
+    requires:
+      - docs/modules/settings-and-operations.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Settings, internal operations, and supplier review flows need dedicated operational docs.
+
+  - paths:
+      - app/backend/controllers/changeOrders.controller.ts
+    requires:
+      - docs/API_REFERENCE.md
+      - docs/RBAC_MATRIX.md
+      - docs/CURRENT_STATE.md
+    explanation: Change-order authorization and route behavior must remain documented with billing permission boundaries.
+
+  - paths:
+      - web/src/app/(app)/portal/**
+    requires:
+      - docs/modules/customer-portal.md
+      - docs/CURRENT_STATE.md
+    explanation: Portal changes affect customer-facing implementation status.
+
+  - paths:
+      - app/modules/athena-approvals/**
+      - app/modules/athena-audit/**
+      - app/modules/athena-kernel/**
+      - app/modules/athena-context-engine/**
+      - app/modules/athena-permissions/**
+      - app/modules/athena-action-engine/**
+      - app/modules/athena-tool-registry/**
+      - app/modules/athena-tool-sdk/**
+      - app/modules/athena-tools/**
+      - app/backend/controllers/athena.controller.ts
+      - app/backend/routes/athena.routes.ts
+    requires:
+      - docs/athena/README.md
+      - docs/athena/07-context-engine/README.md
+      - docs/athena/SECURITY_MODEL.md
+      - docs/API_REFERENCE.md
+      - docs/CURRENT_STATE.md
+    explanation: Athena runtime, approval, permission, audit, and tool-surface changes must keep the Athena docs and public endpoint references aligned.
+
+  - paths:
+      - web/src/app/**
+      - web/src/components/**
+      - web/src/lib/**
+      - web/proxy.ts
+    requires:
+      - docs/CURRENT_STATE.md
+    explanation: Frontend implementation changes may affect current-state truth; add module docs when the change is module-specific.
+
+  - paths:
+      - .github/workflows/**
+    requires:
+      - docs/README.md
+      - docs/REPOSITORY_GOVERNANCE.md
+      - docs/ENGINEERING_COMMAND_CENTER.md
+    explanation: Workflow changes that affect documentation governance must update the docs entrypoint when behavior changes.
+
+  - paths:
+      - .github/pull_request_template.md
+      - .github/PULL_REQUEST_TEMPLATE/**
+      - .github/ISSUE_TEMPLATE/**
+      - .github/labels.yml
+    requires:
+      - docs/README.md
+      - docs/REPOSITORY_GOVERNANCE.md
+      - docs/ENGINEERING_COMMAND_CENTER.md
+    explanation: PR templates, issue templates, and label taxonomy affect contributor workflow and should stay aligned with the docs entrypoint, governance policy, and command-center operating rules.
+
+  - paths:
+      - scripts/docs-check*.mjs
+      - scripts/__tests__/docs-check.test.mjs
+    requires:
+      - docs/DOC_OWNERSHIP.yml
+      - docs/ENGINEERING_COMMAND_CENTER.md
+    explanation: Docs-checker changes must stay aligned with the ownership rules and current source-of-truth operating model.
+
+  - paths:
+      - AGENTS.md
+      - README.md
+      - docs/agent-prompts/AGENT_STARTUP_CHECKLIST.md
+      - docs/agent-prompts/AGENT_COMPLETION_CHECKLIST.md
+      - docs/agent-prompts/BACKEND_WORKTREE_CONTRACT.md
+      - docs/agent-prompts/DOCS_WORKTREE_CONTRACT.md
+      - docs/agent-prompts/FRONTEND_WORKTREE_CONTRACT.md
+      - docs/agent-prompts/RECOVERY_WORKTREE_CONTRACT.md
+      - docs/decisions/ADR-004-worktree-policy.md
+    requires:
+      - docs/REPOSITORY_GOVERNANCE.md
+      - docs/ENGINEERING_COMMAND_CENTER.md
+    explanation: Worktree contracts, repository workflow guidance, and top-level contributor instructions must stay aligned with repository governance and the current engineering startup protocol.
+
+  - paths:
+      - docs/TRADEOS_BIBLE.md
+      - docs/SPRINT_BACKLOG.md
+      - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+    requires:
+      - docs/TRADEOS_BIBLE.md
+      - docs/SPRINT_BACKLOG.md
+      - docs/ENGINEERING_COMMAND_CENTER.md
+      - docs/SESSION_HANDOFF.md
+    explanation: The TradeOS Bible, canonical sprint queue, and autonomous startup protocol must stay aligned with the Command Center and current handoff.
+
+  - paths:
+      - docs/ROADMAP.md
+    requires:
+      - docs/ENGINEERING_COMMAND_CENTER.md
+    explanation: Milestone and roadmap changes must update the shared engineering mission summary.
+
+  - paths:
+      - docs/README.md
+      - docs/DOC_OWNERSHIP.yml
+    requires:
+      - docs/README.md
+      - docs/ENGINEERING_COMMAND_CENTER.md
+      - docs/REPOSITORY_GOVERNANCE.md
+    explanation: Source-of-truth hierarchy and operating-system documentation changes must keep the docs entrypoint, command center, and governance policy aligned.
+
+  # --- packages/knowledge-engine ownership (Phase A guardrails, 2026-07-16) ---
+  # Added after a read-only audit found this package had zero DOC_OWNERSHIP.yml coverage.
+  # Rules are scoped to the canonical top-level tree. The former self-nested duplicate was
+  # removed through the founder-approved evidence-backed cleanup on 2026-08-24.
+
+  - paths:
+      - packages/knowledge-engine/exports/**
+      - packages/knowledge-engine/knowledge/knowledge/**
+      - packages/knowledge-engine/schemas/**
+    requires:
+      - packages/knowledge-engine/README.md
+      - app/modules/knowledge-runtime/README.md
+    explanation: These are the runtime-critical data files app/modules/knowledge-runtime/loader.ts reads to serve /api/v1/knowledge/*; changes must stay reflected in both the package root README and the consumer's own README.
+
+  - paths:
+      - packages/knowledge-engine/agent-skills/**
+    requires:
+      - packages/knowledge-engine/README.md
+    explanation: agent-skills/skills/ is largely vendored third-party content; the package root README is the single place tracking its provenance and license status, so changes here must stay reflected there.
+
+  - paths:
+      - packages/knowledge-engine/pipelines/**
+      - packages/knowledge-engine/scripts/**
+    requires:
+      - packages/knowledge-engine/README.md
+    explanation: The generation/export pipeline and its CLI tooling produce the runtime-critical exports; changes to the tooling must stay reflected in the package root README's generated-output and offline-tooling notes.
+
+  - paths:
+      - packages/knowledge-engine/docs/**
+      - packages/knowledge-engine/runtime/README.md
+      - packages/knowledge-engine/review/runtime/README.md
+      - packages/knowledge-engine/legacy-archive/**
+    requires:
+      - packages/knowledge-engine/README.md
+    explanation: Package-level documentation and historical/legacy guidance must stay internally consistent with the package root README, which is the canonical entry point and historical-guidance index.
+
+  - paths:
+      - packages/knowledge-engine/package.json
+      - packages/knowledge-engine/manifest.json
+      - packages/knowledge-engine/manifest.yml
+      - packages/knowledge-engine/manifest.yaml
+    requires:
+      - packages/knowledge-engine/README.md
+    explanation: No package manifest exists at the time this rule was added; if one is introduced later, it must stay reflected in the package root README.
+
+exemptions:
+  - paths:
+      - app/tests/**
+      - web/public/**
+      - docs/archive/**
+    reason: Changes in these paths do not automatically imply live implementation doc impact, but contributors may still update docs when content changes behavior.

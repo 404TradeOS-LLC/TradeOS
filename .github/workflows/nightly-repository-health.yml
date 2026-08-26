@@ -1,0 +1,119 @@
+name: Nightly repository health
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-repository-health
+  cancel-in-progress: true
+
+jobs:
+  app-health:
+    name: App dependency and schema health
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://tradeos_health:tradeos_health@127.0.0.1:5432/tradeos_health?schema=public
+        run: npx prisma validate
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Athena kernel contracts
+        run: npm run athena:contracts
+
+      - name: Athena kernel smoke
+        run: npm run athena:smoke
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify tracked source remains clean
+        working-directory: .
+        run: git diff --check && git diff --exit-code
+
+  web-health:
+    name: Web dependency and build health
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint .
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify tracked source remains clean
+        working-directory: .
+        run: git diff --check && git diff --exit-code
+
+  workflow-drift:
+    name: Workflow drift checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reject broad write-all permissions
+        run: |
+          if grep -RInE '^[[:space:]]*permissions:[[:space:]]*write-all[[:space:]]*$' .github/workflows; then
+            echo "::error::A workflow grants permissions: write-all"
+            exit 1
+          fi
+
+      - name: Report privileged workflow triggers
+        run: |
+          if grep -RInE '^[[:space:]]*pull_request_target:' .github/workflows; then
+            echo "::warning::pull_request_target is present; verify the workflow never executes untrusted PR code with elevated permissions."
+          fi
+
+      - name: Verify workflow YAML is parseable
+        run: |
+          ruby -e 'require "yaml"; Dir[".github/workflows/*.{yml,yaml}"].each { |f| YAML.safe_load_file(f, aliases: true); puts "ok: #{f}" }'

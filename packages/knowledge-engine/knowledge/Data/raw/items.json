@@ -1,0 +1,12 @@
+[
+  {
+    "id": "example-uuid",
+    "name": "Example Item",
+    "category": "Example Category",
+    "unit": "EA",
+    "laborCost": 1.00,
+    "materialCost": 2.00,
+    "equipmentCost": 0.50,
+    "notes": "Optional note"
+  }
+]

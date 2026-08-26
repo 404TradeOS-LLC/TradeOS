@@ -1,0 +1,127 @@
+[
+  {
+    "gap": "Tree Service Database Merge",
+    "trade": "Tree Service",
+    "recommendedWorker": "ReviewAgent",
+    "priorityScore": 95,
+    "businessValue": "High",
+    "aiValue": "High",
+    "customerValue": "Critical",
+    "difficulty": "Low",
+    "estimatedEffort": "1 hour",
+    "dependencies": [
+      "review/pending/tree_service_batch_1.json",
+      "review/pending/tree_service_cost_items_batch_1.json"
+    ]
+  },
+  {
+    "gap": "Roofing Assembly Batch 1",
+    "trade": "Roofing",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 85,
+    "businessValue": "High",
+    "aiValue": "Medium",
+    "customerValue": "High",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Deck Assembly Batch 1",
+    "trade": "Deck",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 80,
+    "businessValue": "High",
+    "aiValue": "Medium",
+    "customerValue": "High",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Concrete Assembly Batch 1",
+    "trade": "Concrete",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 75,
+    "businessValue": "Medium",
+    "aiValue": "Medium",
+    "customerValue": "High",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Cabinetry Assembly Batch 1",
+    "trade": "Cabinetry",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 70,
+    "businessValue": "Medium",
+    "aiValue": "Medium",
+    "customerValue": "Medium",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Countertops Assembly Batch 1",
+    "trade": "Countertops",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 65,
+    "businessValue": "Medium",
+    "aiValue": "Medium",
+    "customerValue": "Medium",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Hardscaping & Landscaping Assembly Batch 1",
+    "trade": "Landscaping",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 60,
+    "businessValue": "Medium",
+    "aiValue": "Medium",
+    "customerValue": "Medium",
+    "difficulty": "Medium",
+    "estimatedEffort": "6 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Windows & Doors Assembly Batch 1",
+    "trade": "Windows",
+    "recommendedWorker": "AssemblyArchitect",
+    "priorityScore": 55,
+    "businessValue": "Medium",
+    "aiValue": "Medium",
+    "customerValue": "Medium",
+    "difficulty": "Medium",
+    "estimatedEffort": "4 hours",
+    "dependencies": []
+  },
+  {
+    "gap": "Concrete Supplier Mappings",
+    "trade": "Concrete",
+    "recommendedWorker": "SupplierMappingArchitect",
+    "priorityScore": 50,
+    "businessValue": "Medium",
+    "aiValue": "High",
+    "customerValue": "Low",
+    "difficulty": "High",
+    "estimatedEffort": "8 hours",
+    "dependencies": [
+      "Live supplier price feeds connected"
+    ]
+  },
+  {
+    "gap": "Prevailing Wage Rates Mapping",
+    "trade": "General Conditions",
+    "recommendedWorker": "WageMappingArchitect",
+    "priorityScore": 45,
+    "businessValue": "Low",
+    "aiValue": "High",
+    "customerValue": "Low",
+    "difficulty": "Medium",
+    "estimatedEffort": "6 hours",
+    "dependencies": []
+  }
+]

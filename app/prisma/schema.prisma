@@ -1,0 +1,1788 @@
+// Prisma schema for TradeOS Cost Book.
+// Mirrors db/migrations/0001_init_schema.sql (the source of truth for the SQL DDL).
+// Run `npm run prisma:migrate` to apply this schema to a fresh database, or
+// `npm run prisma:generate` to regenerate the client after editing this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id                   String    @id @default(uuid())
+  name                 String
+  regionCode           String?   @map("region_code")
+  logoUrl              String?   @map("logo_url")
+  phone                String?
+  email                String?
+  address              String?
+  defaultLaborRate     Decimal?  @map("default_labor_rate") @db.Decimal(10, 2)
+  defaultMarkupPercent Decimal?  @map("default_markup_percent") @db.Decimal(5, 2)
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  memberships    OrganizationMembership[]
+  membershipAudits OrganizationMembershipAudit[]
+  materialPriceAudits MaterialPriceAudit[]
+  supplierPriceUpdates SupplierPriceUpdate[]
+  divisions      Division[]
+  regions        Region[]
+  suppliers      Supplier[]
+  materials      Material[]
+  laborRates     LaborRate[]
+  equipment      Equipment[]
+  subcontractors Subcontractor[]
+  costItems      CostItem[]
+  assemblies     Assembly[]
+  customers      Customer[]
+  serviceAddresses ServiceAddress[]
+  customerEquipment CustomerEquipment[]
+  projects       Project[]
+  jobs           Job[]
+  jobAssignments JobAssignment[]
+  estimates      Estimate[]
+  serviceAgreements ServiceAgreement[]
+  payments       Payment[]
+  settings       OrganizationSettings?
+  costbookWorkspace CostbookWorkspace?
+  costbookWorkspaceEvents CostbookWorkspaceEvent[]
+  settingsAssetUploads SettingsAssetUpload[]
+  brandProfile   BrandProfile?
+  brandAssets    BrandAsset[]
+  brandDocumentSettings BrandDocumentSettings?
+  activityEvents ActivityEvent[]
+  proposalDeliveries ProposalDelivery[]
+  invoiceDeliveries InvoiceDelivery[]
+  contractEvents  ContractEvent[]
+  notifications  Notification[]
+  attachments    Attachment[]
+  comments       Comment[]
+  tags           Tag[]
+  tagAssignments TagAssignment[]
+  savedViews     SavedView[]
+  recentItems    RecentItem[]
+  featureFlags   FeatureFlag[]
+  invites        OrganizationInvite[]
+  refreshTokens  AuthRefreshToken[]
+  athenaExecutions AthenaExecution[]
+  athenaExecutionTransitions AthenaExecutionTransition[]
+  athenaTelemetryRecords AthenaTelemetryRecordRow[]
+  athenaGenerationRuns AthenaGenerationRun[]
+  athenaGenerationReviews AthenaGenerationReview[]
+  athenaMemories AthenaMemory[]
+  athenaEvents AthenaEvent[]
+  athenaEventDeliveries AthenaEventDelivery[]
+  athenaEventDeadLetters AthenaEventDeadLetter[]
+  athenaAlerts AthenaAlert[]
+  athenaApprovals AthenaApproval[]
+  athenaAuditEvents AthenaAuditEvent[]
+
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id           String   @id @default(uuid())
+  orgId        String   @unique @map("org_id")
+  settingsJson Json     @map("settings_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model CostbookWorkspace {
+  id             String   @id @default(uuid())
+  organizationId String   @unique @map("organization_id")
+  status         String   @default("foundation")
+  setupState     Json     @default("{}") @map("setup_state")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       CostbookWorkspaceEvent[]
+
+  @@map("costbook_workspaces")
+}
+
+model CostbookWorkspaceEvent {
+  id                  String   @id @default(uuid())
+  organizationId      String   @map("organization_id")
+  costbookWorkspaceId String   @map("costbook_workspace_id")
+  eventType           String   @map("event_type")
+  actorUserId         String?  @map("actor_user_id")
+  actorRole           String?  @map("actor_role")
+  metadataJson        Json     @default("{}") @map("metadata_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace    CostbookWorkspace @relation(fields: [costbookWorkspaceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([costbookWorkspaceId, createdAt])
+  @@map("costbook_workspace_events")
+}
+
+model SettingsAssetUpload {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  assetKey      String   @map("asset_key")
+  storageBucket String   @map("storage_bucket")
+  storagePath   String   @map("storage_path")
+  contentType   String   @map("content_type")
+  sizeBytes     Int      @map("size_bytes")
+  uploadedBy    String?  @map("uploaded_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploader     AppUser?     @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, assetKey])
+  @@index([orgId])
+  @@map("settings_asset_uploads")
+}
+
+model BrandProfile {
+  id                   String   @id @default(uuid())
+  organizationId       String   @unique @map("organization_id")
+  companyDisplayName   String?  @map("company_display_name")
+  tagline              String?
+  primaryColor         String?  @map("primary_color")
+  secondaryColor       String?  @map("secondary_color")
+  accentColor          String?  @map("accent_color")
+  logoUrl              String?  @map("logo_url")
+  logoDarkUrl          String?  @map("logo_dark_url")
+  logoLightUrl         String?  @map("logo_light_url")
+  iconUrl              String?  @map("icon_url")
+  watermarkUrl         String?  @map("watermark_url")
+  coverImageUrl        String?  @map("cover_image_url")
+  typographyStyle      String?  @map("typography_style")
+  defaultDocumentTheme String?  @map("default_document_theme")
+  proposalStyle        String?  @map("proposal_style")
+  invoiceStyle         String?  @map("invoice_style")
+  contractStyle        String?  @map("contract_style")
+  emailSignature       String?  @map("email_signature")
+  websiteUrl           String?  @map("website_url")
+  phone                String?
+  email                String?
+  addressLine1         String?  @map("address_line_1")
+  addressLine2         String?  @map("address_line_2")
+  city                 String?
+  state                String?
+  postalCode           String?  @map("postal_code")
+  licenseNumber        String?  @map("license_number")
+  insuranceSummary     String?  @map("insurance_summary")
+  bondingSummary       String?  @map("bonding_summary")
+  yearsInBusiness      Int?     @map("years_in_business")
+  serviceAreasJson     Json?    @map("service_areas_json")
+  certificationsJson   Json?    @map("certifications_json")
+  socialLinksJson      Json?    @map("social_links_json")
+  reviewLinksJson      Json?    @map("review_links_json")
+  financingLinksJson   Json?    @map("financing_links_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assets           BrandAsset[]
+  documentSettings BrandDocumentSettings?
+
+  @@map("brand_profiles")
+}
+
+model BrandAsset {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  brandProfileId String   @map("brand_profile_id")
+  type           String
+  label          String?
+  url            String
+  mimeType       String?  @map("mime_type")
+  sizeBytes      Int?     @map("size_bytes")
+  width          Int?
+  height         Int?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brandProfile BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, type])
+  @@index([brandProfileId])
+  @@map("brand_assets")
+}
+
+model BrandDocumentSettings {
+  id                  String   @id @default(uuid())
+  organizationId      String   @unique @map("organization_id")
+  brandProfileId      String   @unique @map("brand_profile_id")
+  showPoweredByTradeOS Boolean @default(false) @map("show_powered_by_tradeos")
+  showLicenseNumber   Boolean  @default(true) @map("show_license_number")
+  showInsuranceSummary Boolean @default(true) @map("show_insurance_summary")
+  showGoogleRating    Boolean  @default(false) @map("show_google_rating")
+  showSocialLinks     Boolean  @default(true) @map("show_social_links")
+  defaultCoverMode    String?  @map("default_cover_mode")
+  defaultHeaderStyle  String?  @map("default_header_style")
+  defaultFooterStyle  String?  @map("default_footer_style")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brandProfile BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+
+  @@map("brand_document_settings")
+}
+
+model AppUser {
+  id           String   @id @default(uuid())
+  authSubject  String   @unique @map("auth_subject")
+  email        String   @unique
+  fullName     String?  @map("full_name")
+  passwordHash String?  @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  memberships  OrganizationMembership[]
+  reviewedSupplierPriceUpdates SupplierPriceUpdate[]
+  settingsAssetUploads SettingsAssetUpload[]
+  activityEvents ActivityEvent[]
+  proposalDeliveries ProposalDelivery[]
+  invoiceDeliveries InvoiceDelivery[]
+  contractEvents  ContractEvent[]
+  notifications Notification[]
+  attachments   Attachment[]
+  comments      Comment[]
+  savedViews    SavedView[]
+  recentItems   RecentItem[]
+  tagAssignments TagAssignment[]
+  passwordResetTokens PasswordResetToken[]
+  refreshTokens AuthRefreshToken[]
+  totpCredential UserTotpCredential?
+  sentInvites   OrganizationInvite[] @relation("InviteSender")
+  createdJobs   Job[]                @relation("JobCreatedBy")
+  completedJobs Job[]                @relation("JobCompletedBy")
+  assignedJobs  JobAssignment[]      @relation("JobAssignmentUser")
+  assignedJobActions JobAssignment[] @relation("JobAssignedBy")
+  athenaExecutions AthenaExecution[]
+  athenaGenerationRuns AthenaGenerationRun[]
+  athenaGenerationReviews AthenaGenerationReview[]
+  athenaApprovals AthenaApproval[]
+  athenaAuditEvents AthenaAuditEvent[]
+
+  @@map("users")
+}
+
+model OrganizationMembership {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  userId     String   @map("user_id")
+  role       String   @default("owner")
+  status     String   @default("active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         AppUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+model OrganizationMembershipAudit {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  membershipId String  @map("membership_id")
+  userId      String   @map("user_id")
+  action      String
+  actorUserId String?  @map("actor_user_id")
+  actorRole   String?  @map("actor_role")
+  beforeState Json?    @map("before_state")
+  afterState  Json?    @map("after_state")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, membershipId, createdAt])
+  @@index([userId, createdAt])
+  @@map("organization_membership_audits")
+}
+
+model Division {
+  id        String   @id @default(uuid())
+  orgId     String?  @map("org_id")
+  code      String
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  categories   Category[]
+
+  @@unique([orgId, code])
+  @@map("divisions")
+}
+
+model Category {
+  id         String   @id @default(uuid())
+  divisionId String   @map("division_id")
+  code       String
+  name       String
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  division      Division      @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  subcategories Subcategory[]
+
+  @@unique([divisionId, code])
+  @@map("categories")
+}
+
+model Subcategory {
+  id         String   @id @default(uuid())
+  categoryId String   @map("category_id")
+  code       String
+  name       String
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category  Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  costItems CostItem[]
+
+  @@unique([categoryId, code])
+  @@map("subcategories")
+}
+
+model Region {
+  id            String   @id @default(uuid())
+  orgId         String?  @map("org_id")
+  code          String
+  name          String
+  laborIndex    Decimal  @default(1.0000) @map("labor_index") @db.Decimal(6, 4)
+  materialIndex Decimal  @default(1.0000) @map("material_index") @db.Decimal(6, 4)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  laborRates   LaborRate[]
+  projects     Project[]
+
+  @@unique([orgId, code])
+  @@map("regions")
+}
+
+model Supplier {
+  id                 String   @id @default(uuid())
+  orgId              String?  @map("org_id")
+  name               String
+  contactEmail       String?  @map("contact_email")
+  contactPhone       String?  @map("contact_phone")
+  website            String?
+  apiIntegrationKey  String?  @map("api_integration_key")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  materials    Material[]
+  priceUpdates SupplierPriceUpdate[]
+
+  @@map("suppliers")
+}
+
+model Material {
+  id               String    @id @default(uuid())
+  orgId            String?   @map("org_id")
+  sku              String?
+  name             String
+  unitOfMeasure    String    @map("unit_of_measure")
+  unitCost         Decimal   @map("unit_cost") @db.Decimal(12, 4)
+  wasteFactorPct   Decimal   @default(0) @map("waste_factor_pct") @db.Decimal(5, 2)
+  supplierId       String?   @map("supplier_id")
+  lastPriceUpdate  DateTime? @map("last_price_update")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  costItems    CostItem[]
+  priceAudits  MaterialPriceAudit[]
+  supplierPriceUpdates SupplierPriceUpdate[]
+
+  @@index([orgId])
+  @@index([supplierId])
+  @@map("materials")
+}
+
+model MaterialPriceAudit {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  materialId   String   @map("material_id")
+  materialName String   @map("material_name")
+  oldUnitCost  Decimal  @map("old_unit_cost") @db.Decimal(12, 4)
+  newUnitCost  Decimal  @map("new_unit_cost") @db.Decimal(12, 4)
+  source       String   @default("manual")
+  actorUserId  String?  @map("actor_user_id")
+  actorRole    String?  @map("actor_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, createdAt])
+  @@index([materialId, createdAt])
+  @@map("material_price_audits")
+}
+
+// Queued-review staging area for supplier-fed price proposals: a sync job
+// (run via runWithBackgroundDatabaseSession) enqueues rows here rather than
+// writing straight to Material, so a human reviews/approves before any price
+// actually changes. Approval writes the same MaterialPriceAudit trail a
+// manual edit would.
+model SupplierPriceUpdate {
+  id                String   @id @default(uuid())
+  orgId             String   @map("org_id")
+  supplierId        String   @map("supplier_id")
+  materialId        String   @map("material_id")
+  currentUnitCost   Decimal  @map("current_unit_cost") @db.Decimal(12, 4)
+  proposedUnitCost  Decimal  @map("proposed_unit_cost") @db.Decimal(12, 4)
+  status            String   @default("pending")
+  source            String   @default("supplier-feed")
+  requestedByJob    String?  @map("requested_by_job")
+  reviewedByUserId  String?  @map("reviewed_by_user_id")
+  reviewedAt        DateTime? @map("reviewed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier     Supplier     @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  material     Material     @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  reviewedBy   AppUser?     @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, createdAt])
+  @@index([materialId])
+  @@index([supplierId])
+  @@map("supplier_price_updates")
+}
+
+model LaborRate {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+  role            String
+  description     String?
+  hourlyCost      Decimal  @map("hourly_cost") @db.Decimal(10, 2)
+  billRate        Decimal  @map("bill_rate") @db.Decimal(10, 2)
+  active          Boolean  @default(true)
+  trade           String
+  baseHourlyRate  Decimal  @map("base_hourly_rate") @db.Decimal(10, 2)
+  burdenPct       Decimal  @default(0) @map("burden_pct") @db.Decimal(5, 2)
+  regionId        String?  @map("region_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  region       Region?      @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  costItems    CostItem[]
+
+  @@index([orgId])
+  @@index([orgId, active, role], map: "idx_labor_rates_org_active_role")
+  @@map("labor_rates")
+}
+
+model Equipment {
+  id                    String   @id @default(uuid())
+  orgId                 String?  @map("org_id")
+  name                  String
+  ownershipCostPerHour  Decimal  @default(0) @map("ownership_cost_per_hour") @db.Decimal(10, 2)
+  operatingCostPerHour  Decimal  @default(0) @map("operating_cost_per_hour") @db.Decimal(10, 2)
+  dailyRate             Decimal? @map("daily_rate") @db.Decimal(10, 2)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costItems    CostItem[]
+
+  @@index([orgId])
+  @@map("equipment")
+}
+
+model Subcontractor {
+  id                String   @id @default(uuid())
+  orgId             String?  @map("org_id")
+  name              String
+  trade             String?
+  contactEmail      String?  @map("contact_email")
+  contactPhone      String?  @map("contact_phone")
+  defaultMarkupPct  Decimal  @default(0) @map("default_markup_pct") @db.Decimal(5, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  costItems    CostItem[]
+
+  @@map("subcontractors")
+}
+
+model CostItem {
+  id               String   @id @default(uuid())
+  orgId            String?  @map("org_id")
+  subcategoryId    String   @map("subcategory_id")
+  code             String
+  name             String
+  unitOfMeasure    String   @map("unit_of_measure")
+  productionRate   Decimal? @map("production_rate") @db.Decimal(12, 4)
+  laborRateId      String?  @map("labor_rate_id")
+  materialId       String?  @map("material_id")
+  equipmentId      String?  @map("equipment_id")
+  subcontractorId  String?  @map("subcontractor_id")
+  notes            String?
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization     Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  subcategory      Subcategory      @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+  laborRate        LaborRate?       @relation(fields: [laborRateId], references: [id], onDelete: SetNull)
+  material         Material?        @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  equipment        Equipment?       @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+  subcontractor    Subcontractor?   @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  assemblyItems    AssemblyItem[]
+  estimateLineItems EstimateLineItem[]
+  changeOrderLineItems ChangeOrderLineItem[]
+
+  @@unique([orgId, code])
+  @@index([subcategoryId])
+  @@map("cost_items")
+}
+
+model Assembly {
+  id            String   @id @default(uuid())
+  orgId         String?  @map("org_id")
+  code          String
+  name          String
+  unitOfMeasure String   @map("unit_of_measure")
+  description   String?
+  // Marks a reusable starting-point assembly (e.g. "Standard Bathroom
+  // Remodel") that an org's estimators browse for quick adds, as distinct
+  // from one-off assemblies built for a specific job. Org-scoped, not a
+  // cross-tenant catalog — forced RLS would hide a NULL-org_id row from
+  // every tenant anyway (NULL = current_app_org_id() is never true), so a
+  // shared system-wide template library isn't possible under the current
+  // RLS model without a separate mechanism.
+  isTemplate    Boolean  @default(false) @map("is_template")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization      Organization?      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  items             AssemblyItem[]      @relation("AssemblyToItems")
+  usedAsChildIn     AssemblyItem[]      @relation("ChildAssembly")
+  estimateLineItems EstimateLineItem[]
+
+  @@unique([orgId, code])
+  @@index([orgId, isTemplate], map: "idx_assemblies_org_template")
+  @@map("assemblies")
+}
+
+model AssemblyItem {
+  id               String  @id @default(uuid())
+  assemblyId       String  @map("assembly_id")
+  costItemId       String? @map("cost_item_id")
+  childAssemblyId  String? @map("child_assembly_id")
+  quantityPerUnit  Decimal @map("quantity_per_unit") @db.Decimal(12, 4)
+  sortOrder        Int     @default(0) @map("sort_order")
+
+  assembly      Assembly  @relation("AssemblyToItems", fields: [assemblyId], references: [id], onDelete: Cascade)
+  costItem      CostItem? @relation(fields: [costItemId], references: [id], onDelete: Cascade)
+  childAssembly Assembly? @relation("ChildAssembly", fields: [childAssemblyId], references: [id], onDelete: Cascade)
+
+  @@index([assemblyId])
+  @@map("assembly_items")
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  orgId           String?  @map("org_id")
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  billingAddress  String?  @map("billing_address")
+  notes           String?
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  projects     Project[]
+  serviceAddresses ServiceAddress[]
+  equipmentAssets CustomerEquipment[]
+  serviceAgreements ServiceAgreement[]
+  jobs          Job[]
+
+  @@map("customers")
+}
+
+model ServiceAddress {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  customerId   String    @map("customer_id")
+  label        String?
+  addressLine1 String    @map("address_line_1")
+  addressLine2 String?   @map("address_line_2")
+  city         String
+  state        String
+  postalCode   String    @map("postal_code")
+  country      String?   @default("US")
+  isPrimary    Boolean   @default(false) @map("is_primary")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer     Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  equipmentAssets CustomerEquipment[]
+  serviceAgreements ServiceAgreement[]
+  jobs         Job[]
+
+  @@index([orgId, customerId])
+  @@map("service_addresses")
+}
+
+model CustomerEquipment {
+  id               String    @id @default(uuid())
+  orgId            String    @map("org_id")
+  customerId       String    @map("customer_id")
+  serviceAddressId String?   @map("service_address_id")
+  name             String
+  manufacturer     String?
+  model            String?
+  serialNumber     String?   @map("serial_number")
+  installedAt      DateTime? @map("installed_at")
+  status           String    @default("active")
+  notes            String?
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization   Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceAddress ServiceAddress? @relation(fields: [serviceAddressId], references: [id], onDelete: SetNull)
+  jobs           JobEquipment[]
+
+  @@index([orgId, customerId])
+  @@index([serviceAddressId])
+  @@map("customer_equipment")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  orgId       String?  @map("org_id")
+  customerId  String?  @map("customer_id")
+  name        String
+  jobType     String?  @map("job_type")
+  siteAddress String?  @map("site_address")
+  simpleScope String?  @map("simple_scope")
+  regionId    String?  @map("region_id")
+  status      String   @default("lead")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization?  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer     Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  region       Region?        @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  estimates    Estimate[]
+  changeOrders ChangeOrder[]
+  proposals    Proposal[]
+  invoices     Invoice[]
+  contracts    Contract[]
+  siteVisits   SiteVisit[]
+  projectFiles ProjectFile[]
+  tasks        ProjectTask[]
+  jobs         Job[]
+  serviceAgreements ServiceAgreement[]
+
+  @@index([orgId])
+  @@index([customerId])
+  @@map("projects")
+}
+
+model Estimate {
+  id               String   @id @default(uuid())
+  orgId            String?  @map("org_id")
+  projectId        String   @map("project_id")
+  version          Int      @default(1)
+  status           String   @default("draft")
+  overheadPct      Decimal  @default(0) @map("overhead_pct") @db.Decimal(5, 2)
+  profitPct        Decimal  @default(0) @map("profit_pct") @db.Decimal(5, 2)
+  targetMarginPct  Decimal? @map("target_margin_pct") @db.Decimal(5, 2)
+  subtotalCost     Decimal  @default(0) @map("subtotal_cost") @db.Decimal(14, 2)
+  totalPrice       Decimal  @default(0) @map("total_price") @db.Decimal(14, 2)
+  taxPct           Decimal  @default(0) @map("tax_pct") @db.Decimal(5, 2)
+  taxAmount        Decimal  @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization?       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lineItems    EstimateLineItem[]
+  changeOrders ChangeOrder[]
+  proposals    Proposal[]
+  invoices     Invoice[]
+
+  @@index([projectId])
+  @@map("estimates")
+}
+
+model EstimateLineItem {
+  id            String   @id @default(uuid())
+  estimateId    String   @map("estimate_id")
+  costItemId    String?  @map("cost_item_id")
+  assemblyId    String?  @map("assembly_id")
+  description   String
+  quantity      Decimal  @db.Decimal(12, 4)
+  unitOfMeasure String   @map("unit_of_measure")
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(12, 4)
+  lineCost      Decimal  @map("line_cost") @db.Decimal(14, 2)
+  sortOrder     Int      @default(0) @map("sort_order")
+  sourceKey     String?  @map("source_key")
+  section       String   @default("General")
+  costType      String   @default("other") @map("cost_type")
+  taxable       Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  estimate Estimate  @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  costItem CostItem? @relation(fields: [costItemId], references: [id], onDelete: SetNull)
+  assembly Assembly? @relation(fields: [assemblyId], references: [id], onDelete: SetNull)
+
+  @@unique([estimateId, sourceKey])
+  @@index([estimateId])
+  @@map("estimate_line_items")
+}
+
+model ChangeOrder {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  estimateId   String?  @map("estimate_id")
+  coNumber     Int      @map("co_number")
+  description  String
+  status       String   @default("draft")
+  amount       Decimal  @default(0) @db.Decimal(14, 2)
+  scheduleImpactDays Int? @map("schedule_impact_days")
+  approvedAt   DateTime? @map("approved_at")
+  rejectedAt   DateTime? @map("rejected_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate  Estimate?             @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  lineItems ChangeOrderLineItem[]
+
+  @@unique([projectId, coNumber])
+  @@map("change_orders")
+}
+
+model ChangeOrderLineItem {
+  id            String  @id @default(uuid())
+  changeOrderId String  @map("change_order_id")
+  costItemId    String? @map("cost_item_id")
+  description   String
+  quantity      Decimal @db.Decimal(12, 4)
+  unitCost      Decimal @map("unit_cost") @db.Decimal(12, 4)
+  lineCost      Decimal @map("line_cost") @db.Decimal(14, 2)
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  changeOrder ChangeOrder @relation(fields: [changeOrderId], references: [id], onDelete: Cascade)
+  costItem    CostItem?   @relation(fields: [costItemId], references: [id], onDelete: SetNull)
+
+  @@index([changeOrderId])
+  @@map("change_order_line_items")
+}
+
+model Proposal {
+  id                 String    @id @default(uuid())
+  projectId          String    @map("project_id")
+  estimateId         String?   @map("estimate_id")
+  status             String    @default("draft")
+  companyName        String?   @map("company_name")
+  showLineItemDetail Boolean   @default(false) @map("show_line_item_detail")
+  scopeOfWork        String?   @map("scope_of_work")
+  assumptions        String? 
+  exclusions         String?
+  timeline           String?
+  priceLow           Decimal?  @map("price_low") @db.Decimal(14, 2)
+  priceHigh          Decimal?  @map("price_high") @db.Decimal(14, 2)
+  finalPrice         Decimal?  @map("final_price") @db.Decimal(14, 2)
+  paymentScheduleJson Json?    @map("payment_schedule_json")
+  pdfUrl             String?   @map("pdf_url")
+  termsAndConditions String?   @map("terms_and_conditions")
+  sentAt             DateTime? @map("sent_at")
+  viewedAt           DateTime? @map("viewed_at")
+  respondedAt        DateTime? @map("responded_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate  Estimate?  @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  invoices  Invoice[]
+  contracts Contract[]
+  deliveries ProposalDelivery[]
+
+  @@index([projectId])
+  @@index([estimateId])
+  @@map("proposals")
+}
+
+model SiteVisit {
+  id               String   @id @default(uuid())
+  projectId        String   @map("project_id")
+  jobId            String?  @map("job_id")
+  transcript       String?
+  notes            String?
+  detailsJson      Json?    @map("details_json")
+  measurementsJson Json?    @map("measurements_json")
+  aiQuestionsJson  Json?    @map("ai_questions_json")
+  missingInfoJson  Json?    @map("missing_info_json")
+  confidenceScore  Decimal? @map("confidence_score") @db.Decimal(5, 2)
+  intakeResultJson Json?    @map("intake_result_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([jobId, createdAt])
+  @@map("site_visits")
+}
+
+model ProjectTask {
+  id          String    @id @default(uuid())
+  projectId   String    @map("project_id")
+  jobId       String?   @map("job_id")
+  title       String
+  status      String    @default("todo")
+  assignedTo  String?   @map("assigned_to")
+  dueDate     DateTime? @map("due_date")
+  priority    String    @default("medium")
+  notes       String?
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job     Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([projectId, dueDate])
+  @@index([jobId, status])
+  @@map("project_tasks")
+}
+
+model Job {
+  id                       String   @id @default(uuid())
+  orgId                    String   @map("org_id")
+  projectId                String   @map("project_id")
+  customerId               String   @map("customer_id")
+  serviceAddressId         String   @map("service_address_id")
+  jobNumber                String   @map("job_number")
+  title                    String
+  description              String   @default("")
+  jobType                  String   @map("job_type")
+  status                   String   @default("unscheduled")
+  priority                 String   @default("medium")
+  scheduledStart           DateTime? @map("scheduled_start")
+  scheduledEnd             DateTime? @map("scheduled_end")
+  arrivalWindowStart       DateTime? @map("arrival_window_start")
+  arrivalWindowEnd         DateTime? @map("arrival_window_end")
+  estimatedDurationMinutes Int?     @map("estimated_duration_minutes")
+  actualStart              DateTime? @map("actual_start")
+  actualEnd                DateTime? @map("actual_end")
+  completedAt              DateTime? @map("completed_at")
+  completedById            String?   @map("completed_by_id")
+  readyForInvoiceAt        DateTime? @map("ready_for_invoice_at")
+  createdById              String    @map("created_by_id")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @default(now()) @updatedAt @map("updated_at")
+  archivedAt               DateTime? @map("archived_at")
+
+  organization   Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer       Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceAddress ServiceAddress @relation(fields: [serviceAddressId], references: [id], onDelete: Cascade)
+  createdBy      AppUser        @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  completedBy    AppUser?       @relation("JobCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  assignments    JobAssignment[]
+  equipmentLinks JobEquipment[]
+  tasks          ProjectTask[]
+  siteVisits     SiteVisit[]
+
+  @@unique([orgId, jobNumber])
+  @@index([orgId, status])
+  @@index([projectId])
+  @@index([customerId])
+  @@index([serviceAddressId])
+  @@index([scheduledStart])
+  @@index([orgId, archivedAt])
+  @@map("jobs")
+}
+
+model JobAssignment {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  jobId          String   @map("job_id")
+  userId         String   @map("user_id")
+  assignmentRole String   @map("assignment_role")
+  isLead         Boolean  @default(false) @map("is_lead")
+  assignedAt     DateTime @default(now()) @map("assigned_at")
+  assignedById   String   @map("assigned_by_id")
+  acceptedAt     DateTime? @map("accepted_at")
+  declinedAt     DateTime? @map("declined_at")
+  removedAt      DateTime? @map("removed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  job          Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user         AppUser      @relation("JobAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy   AppUser      @relation("JobAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, jobId])
+  @@index([orgId, userId, removedAt])
+  @@map("job_assignments")
+}
+
+model JobEquipment {
+  jobId       String   @map("job_id")
+  equipmentId String   @map("equipment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  equipment CustomerEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, equipmentId])
+  @@index([equipmentId])
+  @@map("job_equipment")
+}
+
+model ProjectFile {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  fileType    String   @map("file_type")
+  fileUrl     String   @map("file_url")
+  fileName    String   @map("file_name")
+  storagePath String?  @map("storage_path")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, fileType])
+  @@map("project_files")
+}
+
+model Invoice {
+  id              String    @id @default(uuid())
+  projectId       String    @map("project_id")
+  estimateId      String?   @map("estimate_id")
+  proposalId      String?   @map("proposal_id")
+  invoiceNumber   Int       @map("invoice_number")
+  type            String    @default("full")
+  status          String    @default("draft")
+  percentComplete Decimal?  @map("percent_complete") @db.Decimal(5, 2)
+  amount          Decimal   @default(0) @db.Decimal(14, 2)
+  dueDate         DateTime? @map("due_date")
+  sentAt          DateTime? @map("sent_at")
+  paidAt          DateTime? @map("paid_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estimate  Estimate?         @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  proposal  Proposal?         @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  lineItems InvoiceLineItem[]
+  payments  Payment[]
+  deliveries InvoiceDelivery[]
+
+  @@unique([projectId, invoiceNumber])
+  @@index([estimateId])
+  @@index([proposalId])
+  @@map("invoices")
+}
+
+model Payment {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  invoiceId      String    @map("invoice_id")
+  amount         Decimal   @db.Decimal(14, 2)
+  paymentDate    DateTime  @map("payment_date")
+  method         String
+  status         String    @default("recorded")
+  reference      String?
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, invoiceId])
+  @@map("payments")
+}
+
+model ServiceAgreement {
+  id               String    @id @default(uuid())
+  orgId            String    @map("org_id")
+  customerId       String    @map("customer_id")
+  serviceAddressId String?   @map("service_address_id")
+  projectId        String?   @map("project_id")
+  name             String
+  status           String    @default("draft")
+  startDate        DateTime? @map("start_date")
+  endDate          DateTime? @map("end_date")
+  billingCadence   String?   @map("billing_cadence")
+  amount           Decimal?  @db.Decimal(14, 2)
+  terms            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization   Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceAddress ServiceAddress? @relation(fields: [serviceAddressId], references: [id], onDelete: SetNull)
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, customerId])
+  @@index([projectId])
+  @@map("service_agreements")
+}
+
+model OrganizationInvite {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  email           String
+  role            String
+  tokenHash       String    @unique @map("token_hash")
+  invitedByUserId String    @map("invited_by_user_id")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  status          String    @default("pending")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedBy    AppUser      @relation("InviteSender", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, email, status])
+  @@map("organization_invites")
+}
+
+model AuthRefreshToken {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  userId         String    @map("user_id")
+  membershipId   String    @map("membership_id")
+  tokenHash      String    @unique @map("token_hash")
+  expiresAt      DateTime  @map("expires_at")
+  lastUsedAt     DateTime? @map("last_used_at")
+  revokedAt      DateTime? @map("revoked_at")
+  replacedById   String?   @map("replaced_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         AppUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, orgId])
+  @@index([membershipId])
+  @@map("auth_refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model UserTotpCredential {
+  id              String    @id @default(uuid())
+  userId          String    @unique @map("user_id")
+  secretEncrypted String    @map("secret_encrypted")
+  enabledAt       DateTime? @map("enabled_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_totp_credentials")
+}
+
+model InvoiceLineItem {
+  id            String   @id @default(uuid())
+  invoiceId     String   @map("invoice_id")
+  description   String
+  quantity      Decimal  @db.Decimal(12, 4)
+  unitOfMeasure String   @map("unit_of_measure")
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(12, 4)
+  lineCost      Decimal  @map("line_cost") @db.Decimal(14, 2)
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model Contract {
+  id               String    @id @default(uuid())
+  projectId        String    @map("project_id")
+  proposalId       String    @map("proposal_id")
+  status           String    @default("pending_signature")
+  termsText        String    @map("terms_text")
+  signerName       String?   @map("signer_name")
+  signerEmail      String?   @map("signer_email")
+  signatureDataUrl String?   @map("signature_data_url")
+  signatureIp      String?   @map("signature_ip")
+  signedAt         DateTime? @map("signed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  events   ContractEvent[]
+
+  @@index([projectId])
+  @@index([proposalId])
+  @@map("contracts")
+}
+
+model ProposalDelivery {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  proposalId     String   @map("proposal_id")
+  eventType      String   @map("event_type")
+  deliveryChannel String  @default("app") @map("delivery_channel")
+  recipientEmail String?  @map("recipient_email")
+  actorUserId    String?  @map("actor_user_id")
+  metadataJson   Json?    @map("metadata_json")
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  proposal     Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  actorUser    AppUser?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, proposalId, occurredAt])
+  @@index([orgId, eventType, occurredAt])
+  @@map("proposal_deliveries")
+}
+
+model InvoiceDelivery {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+  invoiceId       String   @map("invoice_id")
+  eventType       String   @map("event_type")
+  deliveryChannel String   @default("app") @map("delivery_channel")
+  recipientEmail  String?  @map("recipient_email")
+  actorUserId     String?  @map("actor_user_id")
+  metadataJson    Json?    @map("metadata_json")
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  actorUser    AppUser?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, invoiceId, occurredAt])
+  @@index([orgId, eventType, occurredAt])
+  @@map("invoice_deliveries")
+}
+
+model ContractEvent {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+  contractId      String   @map("contract_id")
+  eventType       String   @map("event_type")
+  actorUserId     String?  @map("actor_user_id")
+  recipientEmail  String?  @map("recipient_email")
+  metadataJson    Json?    @map("metadata_json")
+  occurredAt      DateTime @default(now()) @map("occurred_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  actorUser    AppUser?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, contractId, occurredAt])
+  @@index([orgId, eventType, occurredAt])
+  @@map("contract_events")
+}
+
+model ActivityEvent {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  eventType    String   @map("event_type")
+  title        String
+  description  String?
+  actorUserId  String?  @map("actor_user_id")
+  metadataJson Json?    @map("metadata_json")
+  occurredAt   DateTime @default(now()) @map("occurred_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actorUser    AppUser?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  notifications Notification[]
+
+  @@index([orgId, entityType, entityId, occurredAt])
+  @@index([orgId, eventType, occurredAt])
+  @@map("activity_events")
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  entityType      String    @map("entity_type")
+  entityId        String    @map("entity_id")
+  category        String
+  title           String
+  body            String
+  priority        String    @default("medium")
+  actionUrl       String?   @map("action_url")
+  activityEventId String?   @map("activity_event_id")
+  createdByUserId String?   @map("created_by_user_id")
+  readAt          DateTime? @map("read_at")
+  archivedAt      DateTime? @map("archived_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  activityEvent ActivityEvent? @relation(fields: [activityEventId], references: [id], onDelete: SetNull)
+  createdByUser AppUser? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, readAt, archivedAt])
+  @@index([orgId, entityType, entityId])
+  @@map("notifications")
+}
+
+model Attachment {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id")
+  kind             String
+  fileName         String   @map("file_name")
+  mimeType         String?  @map("mime_type")
+  fileUrl          String   @map("file_url")
+  previewUrl       String?  @map("preview_url")
+  storagePath      String?  @map("storage_path")
+  sizeBytes        Int?     @map("size_bytes")
+  durationSeconds  Int?     @map("duration_seconds")
+  metadataJson     Json?    @map("metadata_json")
+  uploadedByUserId String?  @map("uploaded_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedByUser AppUser? @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, entityType, entityId, createdAt])
+  @@index([orgId, kind, createdAt])
+  @@map("attachments")
+}
+
+model Comment {
+  id              String    @id @default(uuid())
+  orgId           String    @map("org_id")
+  entityType      String    @map("entity_type")
+  entityId        String    @map("entity_id")
+  parentCommentId String?   @map("parent_comment_id")
+  body            String
+  authorUserId    String?   @map("author_user_id")
+  mentionsJson    Json?     @map("mentions_json")
+  reactionsJson   Json?     @map("reactions_json")
+  resolvedAt      DateTime? @map("resolved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parentComment Comment? @relation("CommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       Comment[] @relation("CommentThread")
+  authorUser    AppUser? @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, entityType, entityId, createdAt])
+  @@index([orgId, parentCommentId])
+  @@map("comments")
+}
+
+model Tag {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  slug        String
+  color       String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assignments  TagAssignment[]
+
+  @@unique([orgId, slug])
+  @@index([orgId, name])
+  @@map("tags")
+}
+
+model TagAssignment {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  tagId            String   @map("tag_id")
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id")
+  assignedByUserId String?  @map("assigned_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  assignedByUser AppUser?   @relation(fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, tagId, entityType, entityId])
+  @@index([orgId, entityType, entityId])
+  @@map("tag_assignments")
+}
+
+model SavedView {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+  entityType      String   @map("entity_type")
+  name            String
+  description     String?
+  filterJson      Json     @map("filter_json")
+  sortJson        Json?    @map("sort_json")
+  isShared        Boolean  @default(false) @map("is_shared")
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdByUser AppUser? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, entityType, updatedAt])
+  @@map("saved_views")
+}
+
+model RecentItem {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  userId      String   @map("user_id")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  title       String
+  subtitle    String?
+  href        String
+  keywordsJson Json?   @map("keywords_json")
+  metadataJson Json?   @map("metadata_json")
+  updatedAtIso String? @map("updated_at_iso")
+  lastViewedAt DateTime @default(now()) @map("last_viewed_at")
+  viewCount   Int      @default(1) @map("view_count")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         AppUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId, entityType, entityId])
+  @@index([orgId, userId, lastViewedAt])
+  @@map("recent_items")
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  key         String
+  description String?
+  enabled     Boolean  @default(false)
+  scopeType   String   @default("org") @map("scope_type")
+  scopeKey    String?  @map("scope_key")
+  metadataJson Json?   @map("metadata_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key, scopeType, scopeKey])
+  @@index([orgId, key])
+  @@map("feature_flags")
+}
+
+// A1 kernel execution persistence (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
+// "A1 Execution Persistence Decision"). Deliberately holds no raw prompt,
+// message body, or model output - only safe summaries, error codes, and
+// lifecycle metadata (docs/athena/09-security/README.md redaction rules).
+model AthenaExecution {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  requestId     String    @map("request_id")
+  traceId       String    @map("trace_id")
+  actorUserId   String    @map("actor_user_id")
+  actorType     String    @default("user") @map("actor_type")
+  canonicalRole String    @map("canonical_role")
+  requestSource String    @map("request_source")
+  state         String    @default("created")
+  roundTrips    Int       @default(0) @map("round_trips")
+  safeSummary   String?   @map("safe_summary")
+  safeErrorCode String?   @map("safe_error_code")
+  redactionMode String    @default("metadata_only") @map("redaction_mode")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  completedAt   DateTime? @map("completed_at")
+
+  organization Organization                @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser                     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  transitions  AthenaExecutionTransition[]
+  telemetry    AthenaTelemetryRecordRow[]
+  generationRuns AthenaGenerationRun[]
+
+  @@index([orgId, state])
+  @@index([orgId, actorUserId, createdAt])
+  // A10 observability (docs/athena/roadmap/A10-observability-implementation-plan.md):
+  // trace/request lookup and bounded time-range search both filter by these
+  // pairs, and neither was indexed before A10 - the two pre-existing indexes
+  // above only ever supported state/actor listing, not trace reconstruction.
+  @@index([orgId, traceId])
+  @@index([orgId, requestId])
+  @@index([orgId, createdAt])
+  @@map("athena_executions")
+}
+
+model AthenaExecutionTransition {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  executionId  String   @map("execution_id")
+  fromState    String?  @map("from_state")
+  toState      String   @map("to_state")
+  reasonCode   String   @map("reason_code")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, executionId, createdAt])
+  @@map("athena_execution_transitions")
+}
+
+// C011 telemetry records (docs/athena/contracts/README.md). Redacted by
+// construction: metadataJson never carries raw prompts, chain-of-thought,
+// secrets, or unnecessary PII (see telemetry.ts).
+model AthenaTelemetryRecordRow {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  executionId  String   @map("execution_id")
+  requestId    String   @map("request_id")
+  traceId      String   @map("trace_id")
+  spanType     String   @map("span_type")
+  status       String
+  durationMs   Int      @map("duration_ms")
+  redaction    String
+  costJson     Json?    @map("cost_json")
+  metadataJson Json     @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, executionId, createdAt])
+  // A10 observability: trace lookup by traceId (spans span multiple
+  // executionIds are not expected today, but traceId is still the primary
+  // external lookup key), span/status filtering for metrics aggregation, and
+  // retention cleanup all need their own index rather than reusing the
+  // executionId-scoped one above.
+  @@index([orgId, traceId])
+  @@index([orgId, spanType, createdAt])
+  @@index([orgId, status, createdAt])
+  @@map("athena_telemetry_records")
+}
+
+// S025 metadata-first AI generation persistence. This record deliberately
+// excludes raw prompts, model output, tool arguments, and tool results.
+model AthenaGenerationRun {
+  id                String    @id @default(uuid())
+  orgId             String    @map("org_id")
+  actorUserId       String    @map("actor_user_id")
+  executionId       String?   @map("execution_id")
+  requestId         String    @map("request_id")
+  traceId           String    @map("trace_id")
+  provider          String
+  model             String
+  providerVersion   String?   @map("provider_version")
+  status            String
+  failureCode       String?   @map("failure_code")
+  inputTokens       Int?     @map("input_tokens")
+  outputTokens      Int?     @map("output_tokens")
+  estimatedUsd      Decimal? @map("estimated_usd") @db.Decimal(12, 6)
+  latencyMs         Int       @map("latency_ms")
+  toolNamesJson     Json      @default("[]") @map("tool_names_json")
+  provenanceJson    Json      @default("{}") @map("provenance_json")
+  retentionExpiresAt DateTime @map("retention_expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  completedAt       DateTime? @map("completed_at")
+
+  organization Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser                  @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  execution    AthenaExecution?         @relation(fields: [executionId], references: [id], onDelete: SetNull)
+  reviews      AthenaGenerationReview[]
+
+  @@index([orgId, actorUserId, createdAt])
+  @@index([orgId, executionId, createdAt])
+  @@index([orgId, retentionExpiresAt])
+  @@map("athena_generation_runs")
+}
+
+// Reviews are append-only provenance records. Business mutations remain in
+// the existing review-first application-service paths.
+model AthenaGenerationReview {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  generationId String   @map("generation_id")
+  reviewerUserId String @map("reviewer_user_id")
+  outcome      String
+  provenanceJson Json   @default("{}") @map("provenance_json")
+  reviewedAt   DateTime @map("reviewed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  generation   AthenaGenerationRun @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  reviewer     AppUser             @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, generationId, reviewedAt])
+  @@index([orgId, reviewerUserId, reviewedAt])
+  @@map("athena_generation_reviews")
+}
+
+// A7 memory persistence (docs/athena/roadmap/A7-memory-implementation-plan.md,
+// C006 in docs/athena/contracts/README.md). subjectId is intentionally not a
+// foreign key: depending on scope it addresses a user, the organization
+// itself, a job/project, or a conversation - a polymorphic reference, same
+// posture as AthenaResourceRequest.entityId elsewhere in Athena. A partial
+// unique index enforcing at most one active row per (orgId, scope,
+// subjectId, kind) and the tenant/actor-isolation RLS policies are defined
+// only in the migration SQL (Prisma schema language cannot express either),
+// per AGENTS.md's migration conventions.
+model AthenaMemory {
+  id                 String    @id @default(uuid())
+  orgId              String    @map("org_id")
+  scope              String
+  subjectId          String    @map("subject_id")
+  kind               String
+  valueJson          Json?     @map("value_json")
+  sourceKind         String    @map("source_kind")
+  sourceId           String?   @map("source_id")
+  sourceTrusted      Boolean   @default(false) @map("source_trusted")
+  sourceDescription  String?   @map("source_description")
+  confidence         Float
+  retentionTier      String    @default("standard") @map("retention_tier")
+  retentionExpiresAt DateTime? @map("retention_expires_at")
+  retentionLegalHold Boolean   @default(false) @map("retention_legal_hold")
+  status             String    @default("active")
+  supersedes         String?
+  visibility         String
+  createdByActorType String    @map("created_by_actor_type")
+  createdByActorId   String    @map("created_by_actor_id")
+  updatedByActorType String    @map("updated_by_actor_type")
+  updatedByActorId   String    @map("updated_by_actor_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+  lastAccessedAt     DateTime? @map("last_accessed_at")
+  metadataJson       Json      @default("{}") @map("metadata_json")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, scope, subjectId, status])
+  @@index([orgId, scope, subjectId, kind, status])
+  @@map("athena_memories")
+}
+
+// A8 canonical business event persistence
+// (docs/athena/roadmap/A8-event-integration-implementation-plan.md, C008 in
+// docs/athena/contracts/README.md). entityId/actorId are intentionally not
+// foreign keys: entity is polymorphic across business object types and
+// actor may be a user, "system", or "athena" - the same polymorphic-reference
+// posture AthenaMemory.subjectId already uses. The (orgId, idempotencyKey)
+// unique index is the publication-dedupe key described in the plan doc's
+// "Versioning, Retries, Deduplication, Replay" table.
+model AthenaEvent {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  type             String
+  version          String
+  entityType       String   @map("entity_type")
+  entityId         String   @map("entity_id")
+  actorType        String   @map("actor_type")
+  actorId          String?  @map("actor_id")
+  occurredAt       DateTime @map("occurred_at")
+  payloadJson      Json     @map("payload_json")
+  correlationId    String   @map("correlation_id")
+  idempotencyKey   String   @map("idempotency_key")
+  causationId      String?  @map("causation_id")
+  isReplay         Boolean  @default(false) @map("is_replay")
+  replayedAt       DateTime? @map("replayed_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deliveries   AthenaEventDelivery[]
+
+  @@unique([orgId, idempotencyKey])
+  @@index([orgId, type, occurredAt])
+  @@index([orgId, entityType, entityId])
+  @@map("athena_events")
+}
+
+// One row per (event, subscriber). attemptCount/nextAttemptAt back
+// retryPolicy.ts's bounded exponential backoff; a delivery that exhausts its
+// retry budget transitions to 'dead_letter' and gets a corresponding
+// AthenaEventDeadLetter row rather than being deleted, per the plan doc's
+// "Dead-letter" section.
+model AthenaEventDelivery {
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  eventId        String    @map("event_id")
+  subscriberId   String    @map("subscriber_id")
+  status         String    @default("pending")
+  attemptCount   Int       @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at")
+  lastError      String?   @map("last_error")
+  lastAttemptAt  DateTime? @map("last_attempt_at")
+  succeededAt    DateTime? @map("succeeded_at")
+  isReplay       Boolean   @default(false) @map("is_replay")
+  replayedFromId String?   @map("replayed_from_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  event        AthenaEvent               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  deadLetter   AthenaEventDeadLetter?
+
+  @@unique([eventId, subscriberId])
+  @@index([orgId, status, nextAttemptAt])
+  @@map("athena_event_deliveries")
+}
+
+// Safe payload snapshot + failure reason for a delivery that exhausted its
+// retry budget (10-events/README.md: "Exhausted events enter a dead-letter
+// queue with safe payload and failure reason"). payloadSnapshotJson is a
+// copy of the originating event's own already-C008-validated payload - never
+// a raw error stack, prompt, or secret.
+model AthenaEventDeadLetter {
+  id                  String   @id @default(uuid())
+  orgId               String   @map("org_id")
+  deliveryId          String   @unique @map("delivery_id")
+  eventId             String   @map("event_id")
+  subscriberId        String   @map("subscriber_id")
+  failureReason        String   @map("failure_reason")
+  payloadSnapshotJson Json     @map("payload_snapshot_json")
+  attemptCount        Int      @map("attempt_count")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  delivery     AthenaEventDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, eventId])
+  // A10 observability: Event/DLQ Health lists recent dead letters org-wide,
+  // not scoped to one event.
+  @@index([orgId, createdAt])
+  @@map("athena_event_dead_letters")
+}
+
+// A10 observability persisted alert state
+// (docs/athena/roadmap/A10-observability-implementation-plan.md). Alerts are
+// derived entirely from existing C011 telemetry / A8 event tables - this
+// table holds only the alert's own active/resolved lifecycle and dedupe
+// state, never a copy of the underlying records. dedupeKey is a stable,
+// rule-owned identity (e.g. "tool_failure_spike:tradeos.estimate.prepareDraft")
+// so re-evaluating the same rule against the same target updates the
+// existing row (and its firstSeenAt/lastSeenAt) instead of creating
+// duplicate alerts every evaluation cycle.
+model AthenaAlert {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  ruleId       String    @map("rule_id")
+  dedupeKey    String    @map("dedupe_key")
+  severity     String
+  status       String    @default("active")
+  summary      String
+  metadataJson Json      @default("{}") @map("metadata_json")
+  firstSeenAt  DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at")
+  resolvedAt   DateTime? @map("resolved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, dedupeKey])
+  @@index([orgId, status, lastSeenAt])
+  @@map("athena_alerts")
+}
+
+model AthenaApproval {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  userId         String   @map("user_id")
+  actionId       String   @map("action_id")
+  toolId         String   @map("tool_id")
+  toolVersion    String   @map("tool_version")
+  riskLevel      String   @map("risk_level")
+  approvedAt     DateTime? @map("approved_at")
+  approvedBy     String?  @map("approved_by")
+  expiresAt      DateTime @map("expires_at")
+  status         String   @default("pending")
+  idempotencyKey String   @map("idempotency_key")
+  inputHash      String   @map("input_hash")
+  planId         String   @map("plan_id")
+  stepId         String   @map("step_id")
+  metadataJson   Json     @default("{}") @map("metadata_json")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser       @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, actionId])
+  @@index([orgId, userId, status])
+  @@index([orgId, expiresAt])
+  @@map("athena_approvals")
+}
+
+model AthenaAuditEvent {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  actorUserId String?  @map("actor_user_id")
+  actorRole   String?  @map("actor_role")
+  requestId   String?  @map("request_id")
+  traceId     String?  @map("trace_id")
+  executionId String?  @map("execution_id")
+  actionId    String?  @map("action_id")
+  approvalId  String?  @map("approval_id")
+  eventType   String   @map("event_type")
+  metadataJson Json    @default("{}") @map("metadata_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        AppUser?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, createdAt])
+  @@index([orgId, eventType, createdAt])
+  @@index([orgId, executionId, createdAt])
+  @@index([orgId, approvalId, createdAt])
+  @@index([orgId, actionId, createdAt])
+  @@map("athena_audit_events")
+}

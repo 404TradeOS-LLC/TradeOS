@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrewSchema",
+  "description": "Schema for defining construction crew recipes, including labor roles and equipment",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trade": {
+      "type": "string"
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "roleName": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["roleName", "count"],
+        "additionalProperties": false
+      }
+    },
+    "defaultEquipment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "equipmentName": { "type": "string" },
+          "quantity": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["equipmentName", "quantity"],
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "name",
+    "trade",
+    "roles"
+  ],
+  "additionalProperties": false
+}

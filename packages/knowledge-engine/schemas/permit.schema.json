@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PermitSchema",
+  "description": "Schema defining permit regulations, requirements, and estimated fees linked to assemblies",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "permitName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "municipalAuthority": {
+      "type": "string"
+    },
+    "associatedAssemblyIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "averageApprovalDays": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "permitFeeType": {
+      "type": "string",
+      "enum": ["FIXED", "VALUATION_PERCENTAGE", "UNIT_BASED"]
+    },
+    "feeFormula": {
+      "type": "string"
+    },
+    "requiredDocumentation": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "created",
+    "updated",
+    "permitName",
+    "municipalAuthority",
+    "requiredDocumentation"
+  ],
+  "additionalProperties": false
+}

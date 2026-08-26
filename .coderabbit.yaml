@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  review_details: true
+  fail_commit_status: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - "main"
+      - "feat/.*"
+      - "feature/.*"
+      - "chore/.*"
+      - "docs/.*"
+      - "dependabot/.*"
+    ignore_title_keywords:
+      - "WIP"
+      - "[skip review]"
+    labels:
+      - "!do-not-review"
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.next/**"
+    - "!**/coverage/**"
+    - "!**/vendor/**"
+    - "!**/package-lock.json"
+  path_instructions:
+    - path: "app/backend/**"
+      instructions: |
+        Focus on authentication, authorization, tenant isolation, request validation, error handling, and service boundary preservation. Flag direct data access that bypasses established services or RLS-aware checks.
+    - path: "app/modules/athena-*/**"
+      instructions: |
+        Preserve the Athena boundary: Athena -> Tool -> Application Service -> Domain Logic -> Infrastructure. Flag direct database access, direct infrastructure calls, autonomous writes, fake model output, and missing deterministic permission/risk/approval/result validation.
+    - path: "app/tests/**"
+      instructions: |
+        Check that tests cover tenant isolation, auth/RLS behavior, malformed payloads, error envelopes, and meaningful regression cases instead of only happy paths. Prefer executing the real behavior or mocked failure path over source-text matching unless the test is deliberately enforcing a static repository convention.
+    - path: "web/src/**"
+      instructions: |
+        Review Next.js code for server/client boundary correctness, accessible UI, truthful product states, robust loading/error handling, and avoidance of secret exposure in NEXT_PUBLIC variables. For regression tests, prefer executing behavior and failure paths over static source-text matching unless a source-shape convention is the explicit contract.
+    - path: "docs/**"
+      instructions: |
+        Verify docs distinguish shipped implementation from planned roadmap, keep source-of-truth references current, and avoid claiming runtime readiness without validation evidence.
+
+chat:
+  auto_reply: true
