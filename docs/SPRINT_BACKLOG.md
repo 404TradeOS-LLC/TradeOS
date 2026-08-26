@@ -359,7 +359,7 @@ Forbidden in S032: new statuses, roles, permissions, persistence, RLS redesign, 
 
 ### S033 — Ready-to-invoice handoff
 
-Status: READY
+Status: DONE
 Dependencies: S011, S012, S032
 Objective: Make field completion reliably produce invoice-ready work with audit evidence.
 Acceptance: no silent gap between completed job and invoice preparation.
@@ -531,15 +531,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S033
+Active Sprint: NONE
 Completion status: S032 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
 Dependencies: S011, S012, and S032 are DONE; S033 has one readiness contract and no competing implementation lane.
-Protected boundary: Implement only `docs/architecture/S033_READY_TO_INVOICE_HANDOFF_PLAN.md`. Keep S027 browser evidence separate and do not begin S034/S037/S047.
+Protected boundary: S033 is complete; keep S027 browser evidence separate and do not begin another numbered sprint in this reconciliation.
 
 ## Next Eligible Sprint
 
-Sprint ID: S033
-Eligibility: S033 is `READY`; S011, S012, and S032 are DONE. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S011, S012, and S032 are DONE; no S033 implementation lane is active.
-Overlap check: No open or draft S033 PR, remote branch, competing implementation, or worktree was found during readiness promotion.
-Startup prompt: Create exactly one S033 implementation lane from the merged readiness commit; preserve completed-only invoice readiness, manager authorization, organization/RLS, and existing invoice semantics. Do not begin S034/S037/S047 or mix S027 browser evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is READY after S033 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S033 readiness, implementation, and completion evidence are merged.
+Overlap check: No open or draft S033 PR remains authoritative; no S033 implementation lane remains.
+Startup prompt: Reconcile the next numbered sprint under NEXT_SPRINT_PROTOCOL.md before any new implementation. Do not mix S027 browser evidence.
