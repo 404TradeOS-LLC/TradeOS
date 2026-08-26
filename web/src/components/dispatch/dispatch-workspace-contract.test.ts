@@ -47,3 +47,17 @@ test("dispatcher actions preserve security and conflict boundaries in the client
   assert.match(actions, /disabled=\{!technician\.assignmentId/);
   assert.match(actions, /UUID from organization membership/);
 });
+
+test("dispatch observability uses existing scoped summary and activity contracts", async () => {
+  const page = await readSource("../../app/(app)/dispatch/page.tsx");
+  const panel = await readSource("./dispatch-observability-panel.tsx");
+  const api = await readSource("../../lib/api.ts");
+
+  assert.match(page, /listActivityEvents\(token, \{ entityType: "job", limit: 8 \}\)/);
+  assert.match(page, /activityError/);
+  assert.match(panel, /summary\.scope\.source/);
+  assert.match(panel, /status=unscheduled/);
+  assert.match(panel, /No dispatch activity yet/);
+  assert.match(panel, /Activity is temporarily unavailable/);
+  assert.match(api, /entityType\?: string/);
+});
