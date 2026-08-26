@@ -367,3 +367,13 @@ S033 is DONE under
 `docs/architecture/S033_COMPLETION_EVIDENCE.md`. S011, S012, and S032 are DONE;
 S027 remains independently blocked on authenticated rendered Costbook browser
 evidence.
+
+## S034 dispatch observability readiness
+
+S034 is READY under `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md`.
+The authorized implementation is a read-only Dispatch surface over existing
+attention counts, conflict preview/override behavior, attributed job activity,
+queue filters, and organization/RLS scope. It does not add durable failed-action
+telemetry, alerting, notifications, schema/migrations, roles, permissions,
+statuses, RLS redesign, or S027 browser evidence. S030 and S031 are DONE; no
+competing S034 implementation lane was found.

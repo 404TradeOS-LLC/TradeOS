@@ -65,10 +65,25 @@ S032 implementation PR #361 merged as `f10fe02bd8e1161476b530b6cfb5c5a45facfd05`
 
 S033 is DONE after readiness PR #363, implementation PR #365, and completion-evidence PR #366 merged. The shipped handoff preserves completed-only readiness, manager authorization, organization/RLS scoping, readiness activity, WorkCompleted separation, and existing invoice semantics. Evidence is recorded in `docs/architecture/S033_COMPLETION_EVIDENCE.md`; no production/browser evidence is claimed.
 
+## S034 readiness
+
+S034 is READY under `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md`.
+S030 and S031 are DONE, and no competing S034 implementation lane or open
+S034 PR was found during reconciliation. The bounded contract is a read-only
+Dispatch observability surface over existing attention counts, conflict
+preview/override behavior, attributed job activity, queue filters, and
+organization/RLS scope. Durable failed-attempt history, alerting,
+notifications, new statuses/roles/permissions, schema/migrations, RLS
+redesign, S027 browser evidence, and S035/S037 work remain out of scope.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is READY after S033 completion.
-Dependencies: S011, S012, and S032 are DONE with merged evidence.
-Overlap check: No open S033 PR or implementation branch remains; S027 remains independently blocked.
-Startup prompt: Reconcile the next numbered sprint under the protocol; keep S027 browser evidence independent.
+Sprint ID: S034
+Eligibility: S034 is READY; its readiness contract is the sole authorized S034
+write boundary. S027 remains independently blocked.
+Dependencies: S030 and S031 are DONE with merged evidence.
+Overlap check: No open or draft S034 PR or implementation branch remains
+authoritative; unrelated PR #371 is outside S034.
+Startup prompt: Read `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md`
+before creating the single implementation lane. Keep S027 browser evidence
+independent.

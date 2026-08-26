@@ -371,10 +371,14 @@ Forbidden in S033: automatic invoice creation or sending, payment/ledger/pricing
 
 ### S034 — Dispatch observability
 
-Status: PLANNED
+Status: READY
 Dependencies: S030, S031
 Objective: Add operational visibility for assignment failures, conflicts, and stale work.
 Acceptance: owners can identify and diagnose dispatch issues.
+Readiness contract: `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md` bounds S034 to a read-only Dispatch surface over existing dispatch-attention counts, conflict-preview/override behavior, attributed job activity, queue filters, and organization/RLS scope. “Assignment failures” means current actionable pressure and surfaced action errors; durable failed-attempt history, alerting, notifications, new statuses/roles/permissions, schema/migrations, RLS redesign, providers, route optimization, billing, S027, S035, and S037 are explicitly out of scope.
+Founder-decision boundary: NO for the bounded current-state contract. Durable failure retention, alert thresholds, recipients, or external telemetry require a later product/security-policy decision.
+Required implementation validation: focused Jobs/activity/controller tests; PostgreSQL/RLS tenant-boundary coverage for any new backend read; Dispatch workspace contract/render tests; adversarial authorization and malformed-input tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app/web lint, build, unit, and integration checks.
+Forbidden in S034: failed-attempt persistence, alerting, notifications, email, external metrics, background workers, retries, new Job statuses, roles, permissions, schema/migrations, RLS redesign, route optimization, GPS, provider/calendar integration, billing, S027 browser evidence, and S035/S037 work.
 
 ## Phase 7 — Performance, Observability, and Database Reliability
 
@@ -532,15 +536,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S032 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S011, S012, and S032 are DONE; S033 has one readiness contract and no competing implementation lane.
-Protected boundary: S033 is complete; keep S027 browser evidence separate and do not begin another numbered sprint in this reconciliation.
+Active Sprint: S034
+Completion status: S033 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
+Dependencies: S030 and S031 are DONE; S034 has one readiness contract and no competing implementation lane.
+Protected boundary: S034 is READY in its governed readiness lane; keep S027 browser evidence separate and do not begin another numbered sprint.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is `READY` after S033 completion. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S033 readiness, implementation, and completion evidence are merged.
-Overlap check: No open or draft S033 PR remains authoritative; no S033 implementation lane remains.
-Startup prompt: Reconcile the next numbered sprint under NEXT_SPRINT_PROTOCOL.md before any new implementation. Do not mix S027 browser evidence.
+Sprint ID: S034
+Eligibility: S034 is `READY`; S030 and S031 are DONE and no conflicting S034 PR, branch, or worktree was found during readiness reconciliation. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S030 and S031 are DONE.
+Overlap check: No open or draft S034 PR or authoritative implementation lane exists; unrelated PR #371 is not S034 overlap.
+Startup prompt: Read `docs/architecture/S034_DISPATCH_OBSERVABILITY_PLAN.md` before creating the single implementation lane. Do not mix S027 browser evidence.
