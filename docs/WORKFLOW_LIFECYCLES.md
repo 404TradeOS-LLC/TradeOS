@@ -305,6 +305,16 @@ Payment reconciliation:
 - the payment, persisted status change, and `invoice.paid` delivery/activity event commit together; a concurrent final payment observes the serialized status and does not emit a duplicate transition event
 - the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for both follow-up exclusion and zero queue balance presentation
 
+## Estimate-backed invoice pricing invariant
+
+When an invoice is created from an estimate, the invoice amount is the
+persisted customer-facing `Estimate.totalPrice`, including persisted tax.
+The existing estimate line items remain the invoice scope; their customer
+line totals receive a proportional allocation of pre-tax sell value and tax so
+the itemized invoice reconciles exactly to the estimate. Progress invoices
+scale that value by completion percentage. Custom invoice line items do not use
+this transfer path.
+
 ## Transactional canonical-event invariant (A12.1)
 
 For the six required A12 canonical mutation events — `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent` — the business mutation and durable canonical-event persistence share one database transaction. A required event-persistence failure therefore leaves the corresponding business/lifecycle mutation uncommitted. This atomicity applies to persistence only; event delivery, subscribers, retries, dead-lettering, and replay remain separate asynchronous A8 concerns.
