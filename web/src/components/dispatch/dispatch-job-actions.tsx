@@ -26,7 +26,7 @@ function toIso(value: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-export function DispatchJobActions({ job }: { job: DispatchJob }) {
+export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: DispatchJob; canManageInvoiceReadiness: boolean }) {
   const [open, setOpen] = useState(false);
   const [assignmentUserId, setAssignmentUserId] = useState("");
   const [assignmentRole, setAssignmentRole] = useState<"lead" | "technician" | "helper">("technician");
@@ -175,6 +175,16 @@ export function DispatchJobActions({ job }: { job: DispatchJob }) {
                 onClick={() => run("Dispatching", () => clientFetch("/jobs/" + job.id + "/dispatch", { method: "POST", body: JSON.stringify({}) }))}
               >
                 {busy === "Dispatching" ? "Dispatching…" : "Mark dispatched"}
+              </button>
+            ) : null}
+            {canManageInvoiceReadiness && job.status === "completed" && !job.readyForInvoiceAt ? (
+              <button
+                type="button"
+                disabled={busy !== null}
+                className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                onClick={() => run("Marking ready", () => clientFetch("/jobs/" + job.id + "/ready-for-invoice", { method: "POST", body: JSON.stringify({}) }))}
+              >
+                {busy === "Marking ready" ? "Marking ready…" : "Mark ready for invoice"}
               </button>
             ) : null}
           </div>

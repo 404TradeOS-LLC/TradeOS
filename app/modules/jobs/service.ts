@@ -492,7 +492,7 @@ export class JobsService {
   async addAssignment(jobId: string, input: AddJobAssignmentInput): Promise<JobAssignmentDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertManager(input.actor.role);
     const assignment = await runInDatabaseTransaction(this.db, async (tx) => {
-      const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
+      const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
       if (job.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
       const [membership] = await this.assertAssignableTechnicians(tx, input.orgId, [input.userId]);
       const isLead = input.isLead ?? input.assignmentRole === "lead";
@@ -807,6 +807,9 @@ export class JobsService {
       const currentStatus = normalizeJobStatus(job.status);
       if (!isAllowedJobAction("readyForInvoice", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} must be completed before it is ready for invoice`);
+      }
+      if (job.readyForInvoiceAt) {
+        return this.hydrateJobDTO(tx, input.orgId, job);
       }
       const row = await tx.job.update({
         where: { id: job.id },
@@ -1398,6 +1401,12 @@ function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput
     conditions.push(buildNeedsAttentionWhere(now));
   }
 
+  if (filters.readyForInvoice === true) {
+    conditions.push({ readyForInvoiceAt: { not: null } });
+  } else if (filters.readyForInvoice === false) {
+    conditions.push({ readyForInvoiceAt: null });
+  }
+
   if (search) {
     conditions.push({
       OR: [
@@ -1510,6 +1519,8 @@ function toJobSummaryDTO(row: {
   scheduledStart: Date | null;
   scheduledEnd: Date | null;
   archivedAt: Date | null;
+  completedAt: Date | null;
+  readyForInvoiceAt: Date | null;
 }): JobSummaryDTO {
   return {
     id: row.id,
@@ -1521,6 +1532,8 @@ function toJobSummaryDTO(row: {
     scheduledStart: row.scheduledStart?.toISOString() ?? null,
     scheduledEnd: row.scheduledEnd?.toISOString() ?? null,
     archivedAt: row.archivedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    readyForInvoiceAt: row.readyForInvoiceAt?.toISOString() ?? null,
   };
 }
 
@@ -1540,6 +1553,8 @@ function toDispatchAwareJobSummaryDTO(
     scheduledStart: Date | null;
     scheduledEnd: Date | null;
     archivedAt: Date | null;
+    completedAt: Date | null;
+    readyForInvoiceAt: Date | null;
     project: { id: string; name: string; siteAddress: string | null } | null;
     customer: { id: string; name: string } | null;
     assignments: { id: string; userId: string; user: { id: string; fullName: string | null; email: string } }[];

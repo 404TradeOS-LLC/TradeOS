@@ -23,6 +23,7 @@ interface DispatchWorkQueueTableProps {
    * "today"/"this week" filters above it.
    */
   timezone: string;
+  canManageInvoiceReadiness: boolean;
 }
 
 // Attention flags reuse the shared STATUS_TONES palette (via StatusBadge)
@@ -49,7 +50,7 @@ function AttentionIndicator({ job }: { job: DispatchJob }) {
   );
 }
 
-export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: DispatchWorkQueueTableProps) {
+export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canManageInvoiceReadiness }: DispatchWorkQueueTableProps) {
   if (jobs.length === 0) {
     return (
       <TableSection title="Work queue" description="Jobs needing dispatcher attention.">
@@ -132,7 +133,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
                 <AttentionIndicator job={job} />
               </td>
               <td className="px-3 py-3">
-                <DispatchJobActions job={job} />
+                <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
               </td>
             </tr>
           ))}
@@ -182,7 +183,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
               {job.priority ? <StatusBadge status={job.priority} /> : null}
               <AttentionIndicator job={job} />
             </div>
-            <DispatchJobActions job={job} />
+            <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
           </article>
         ))}
       </div>

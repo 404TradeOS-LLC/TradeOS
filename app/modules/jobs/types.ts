@@ -21,6 +21,7 @@ export interface JobListFilters {
   search?: string;
   unassigned?: boolean;
   needsAttention?: boolean;
+  readyForInvoice?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -122,6 +123,8 @@ export interface JobSummaryDTO {
   isOverdue?: boolean;
   isUnassigned?: boolean;
   needsAttention?: boolean;
+  completedAt?: string | null;
+  readyForInvoiceAt?: string | null;
 }
 
 export interface JobAssignmentDTO {

@@ -494,6 +494,26 @@ describe("JobsService", () => {
     expect(mockDb.job.update).not.toHaveBeenCalled();
   });
 
+  it("treats repeated invoice-readiness acknowledgement as an idempotent read", async () => {
+    const readyJob = {
+      ...scheduledJob,
+      status: "completed",
+      completedAt: new Date("2026-07-16T15:00:00.000Z"),
+      readyForInvoiceAt: new Date("2026-07-16T15:05:00.000Z"),
+    };
+    mockDb.job.findFirst.mockResolvedValue(readyJob);
+    const service = new JobsService(mockDb as never);
+
+    const result = await service.readyForInvoice("job-1", {
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    });
+
+    expect(result.readyForInvoiceAt).toBe(readyJob.readyForInvoiceAt.toISOString());
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+    expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+  });
+
   describe("list", () => {
     // buildJobWhere composes optional predicates as separate entries in a
     // shared `AND` array (rather than spreading each one directly onto the
@@ -581,6 +601,21 @@ describe("JobsService", () => {
           { status: "unscheduled" },
         ])
       );
+    });
+
+    it("filters the invoice handoff to completed jobs that have not been acknowledged", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        status: "completed",
+        readyForInvoice: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.status).toBe("completed");
+      expect(andConditions(findManyWhere)).toContainEqual({ readyForInvoiceAt: null });
     });
 
     it("does not add a needsAttention filter when omitted or explicitly false", async () => {

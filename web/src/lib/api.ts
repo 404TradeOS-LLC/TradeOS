@@ -1073,6 +1073,8 @@ export interface DispatchJob {
   isOverdue: boolean;
   isUnassigned: boolean;
   needsAttention: boolean;
+  completedAt?: string | null;
+  readyForInvoiceAt?: string | null;
 }
 
 export interface DispatchJobListResponse {
@@ -1088,6 +1090,7 @@ export interface DispatchJobListParams {
   technicianId?: string;
   unassigned?: boolean;
   needsAttention?: boolean;
+  readyForInvoice?: boolean;
   scheduledFrom?: string;
   scheduledTo?: string;
   projectId?: string;
@@ -1104,6 +1107,7 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
   if (params.technicianId) query.set("technicianId", params.technicianId);
   if (params.unassigned != null) query.set("unassigned", String(params.unassigned));
   if (params.needsAttention != null) query.set("needsAttention", String(params.needsAttention));
+  if (params.readyForInvoice != null) query.set("readyForInvoice", String(params.readyForInvoice));
   if (params.scheduledFrom) query.set("scheduledFrom", params.scheduledFrom);
   if (params.scheduledTo) query.set("scheduledTo", params.scheduledTo);
   if (params.projectId) query.set("projectId", params.projectId);

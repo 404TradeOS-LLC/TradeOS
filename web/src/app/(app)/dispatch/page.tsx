@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import {
   ApiClientError,
   getDispatchSummary,
+  getOrganizationSettings,
   listJobsForDispatch,
   toInclusiveEndBoundary,
   type DispatchJobListParams,
@@ -57,12 +58,15 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
 
   let summary: DispatchSummary | null = null;
   let loadError: string | null = null;
+  let canManageInvoiceReadiness = false;
 
   if (!token) {
     loadError = "You need to be signed in to view the dispatch workspace.";
   } else {
     try {
-      summary = await getDispatchSummary(token);
+      const [dispatchSummary, settings] = await Promise.all([getDispatchSummary(token), getOrganizationSettings(token)]);
+      summary = dispatchSummary;
+      canManageInvoiceReadiness = ["owner", "admin", "dispatcher"].includes(settings.currentRole);
     } catch (error) {
       loadError = toErrorMessage(error, "Unable to load the dispatch summary from the backend.");
     }
@@ -79,10 +83,14 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   // the full queue: the View select itself, and the empty state's "Clear
   // filters" action, which points at ?view=all rather than looping back to
   // this same default.
-  const view = query.view === "all" ? "all" : "attention";
+  const view = query.view === "all" || query.view === "invoice-ready" ? query.view : "attention";
 
   const params: DispatchJobListParams = { page, pageSize: PAGE_SIZE };
   if (view === "attention") params.needsAttention = true;
+  if (view === "invoice-ready") {
+    params.status = "completed";
+    params.readyForInvoice = false;
+  }
   if (query.status) params.status = query.status;
   if (query.q) params.search = query.q;
   if (query.assigned === "unassigned") params.unassigned = true;
@@ -124,7 +132,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   }
 
   const isFiltered = Boolean(
-    view === "attention" ||
+      view !== "all" ||
       query.status ||
       query.q ||
       (query.assigned && query.assigned !== "all") ||
@@ -150,7 +158,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
 
           <DispatchFilterBar view={view} status={query.status} scheduled={query.scheduled} assigned={query.assigned} q={query.q} />
 
-          <DispatchWorkQueueTable jobs={jobs} isFiltered={isFiltered} total={total} timezone={summary?.timezone.value ?? "UTC"} />
+          <DispatchWorkQueueTable jobs={jobs} isFiltered={isFiltered} total={total} timezone={summary?.timezone.value ?? "UTC"} canManageInvoiceReadiness={canManageInvoiceReadiness} />
 
           <DispatchPagination page={page} pageSize={PAGE_SIZE} total={total} buildHref={(targetPage) => buildDispatchHref(query, { page: String(targetPage) })} />
         </>
