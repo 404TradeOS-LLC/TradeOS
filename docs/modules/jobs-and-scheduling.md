@@ -141,6 +141,16 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 
 - advanced dispatch optimization and route planning
 
+## S033 implementation contract
+
+The Dispatcher Workspace includes a `Ready-to-invoice handoff` view backed by
+`GET /api/v1/jobs?status=completed&readyForInvoice=false`. It exposes completed
+jobs whose nullable `readyForInvoiceAt` marker is still empty. Owner, admin, and
+dispatcher users can acknowledge a row through
+`POST /api/v1/jobs/:jobId/ready-for-invoice`; the completed-only, organization/RLS
+scoping, activity attribution, and idempotent repeat behavior remain enforced by
+`JobsService`. This marker does not create, send, or post an invoice.
+
 ## Last verified date
 
 2026-08-12

@@ -463,6 +463,16 @@ Estimate line-item writes allocate the next persisted `sortOrder` within an esti
 
 The dispatcher API contract remains additive over `/api/v1/jobs`: list/summary reads plus existing schedule, reschedule, assignment, conflict, and lifecycle routes. The web workspace uses the authenticated `/api/proxy/*` bridge for mutations, so bearer tokens remain server-side. Assignment summaries include an optional assignment identifier for safe unassignment.
 
+## S033 ready-to-invoice handoff
+
+`GET /api/v1/jobs?readyForInvoice=false` selects completed jobs that have not
+received the separate invoice-readiness acknowledgement; `true` selects rows
+already acknowledged. Job summaries expose additive `completedAt` and
+`readyForInvoiceAt` timestamps. `POST /api/v1/jobs/:jobId/ready-for-invoice` is
+limited to owner/admin/dispatcher actors, accepts only completed jobs, records
+`job.ready_for_invoice`, and is idempotent on repeat. It does not create or send
+invoices.
+
 ## Scheduling conflict rules (S031)
 
 `PUT /api/v1/jobs/:jobId/schedule`, `POST /api/v1/jobs/:jobId/reschedule`, and

@@ -347,6 +347,10 @@ GPS/routing, offline, messaging, voice/photo, billing, or later-sprint scope.
 S012 and S030 are DONE; S027 remains independently blocked on authenticated
 rendered Costbook browser evidence.
 
+The implementation lane is active after readiness PR #363 merged as
+`03e83382850841c50de910dfa9440ebb6d0bbe92`; implementation and completion
+evidence remain pending.
+
 ## S033 ready-to-invoice handoff
 
 S033 is READY under

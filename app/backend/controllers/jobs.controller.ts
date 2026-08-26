@@ -98,6 +98,7 @@ const listJobsQuerySchema = z.object({
   search: z.string().trim().optional(),
   unassigned: strictOptionalBooleanParam,
   needsAttention: strictOptionalBooleanParam,
+  readyForInvoice: strictOptionalBooleanParam,
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
@@ -158,6 +159,7 @@ export const jobsController = {
         search: query.search,
         unassigned: query.unassigned,
         needsAttention: query.needsAttention,
+        readyForInvoice: query.readyForInvoice,
         page: query.page,
         pageSize: query.pageSize,
       })
