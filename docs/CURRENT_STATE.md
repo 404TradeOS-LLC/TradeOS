@@ -333,7 +333,10 @@ are merged.
 
 ## S032 field technician daily workflow
 
-S032 is READY under `docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md`.
+S032 is in implementation under the single authoritative lane after readiness
+PR #360 merged as `1b5df35ad7a1ef4ab3c168762ff928045b22e8b6`, with the
+implementation PR pending. The governing contract is
+`docs/architecture/S032_FIELD_TECHNICIAN_DAILY_WORKFLOW_PLAN.md`.
 The existing backend provides organization-scoped assigned-job reads,
 technician-safe job context, actor-attributed notes, and field-worker lifecycle
 actions. The bounded implementation is a responsive technician workspace over

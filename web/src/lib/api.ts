@@ -1116,6 +1116,77 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
   return apiFetch<DispatchJobListResponse>(`/api/v1/jobs${qs ? `?${qs}` : ""}`, { token });
 }
 
+export interface FieldJobDetail extends DispatchJob {
+  description: string;
+  jobType: string;
+  arrivalWindowStart: string | null;
+  arrivalWindowEnd: string | null;
+  estimatedDurationMinutes: number | null;
+  actualStart: string | null;
+  actualEnd: string | null;
+  completedAt: string | null;
+  readyForInvoiceAt: string | null;
+  serviceAddress: {
+    id: string;
+    label: string | null;
+    addressLine1: string;
+    addressLine2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string | null;
+  } | null;
+  equipment: Array<{
+    id: string;
+    name: string;
+    manufacturer: string | null;
+    model: string | null;
+    serialNumber: string | null;
+    status: string;
+  }>;
+  notes: Array<{
+    id: string;
+    body: string;
+    authorUserId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    eventType: string;
+    title: string;
+    description: string | null;
+    actorUserId: string | null;
+    occurredAt: string;
+    metadata: Record<string, unknown> | null;
+  }>;
+}
+
+export function getFieldJob(token: string, jobId: string) {
+  return apiFetch<FieldJobDetail>(`/api/v1/jobs/${jobId}`, { token });
+}
+
+export async function listFieldJobs(token: string, todayRange: { start: string; end: string }) {
+  const scheduledTo = toInclusiveEndBoundary(todayRange.end);
+  const [scheduled, unscheduled] = await Promise.all([
+    listJobsForDispatch(token, {
+      scheduledFrom: todayRange.start,
+      scheduledTo,
+      page: 1,
+      pageSize: 100,
+    }),
+    listJobsForDispatch(token, { status: "unscheduled", page: 1, pageSize: 100 }),
+  ]);
+
+  const byId = new Map([...scheduled.items, ...unscheduled.items].map((job) => [job.id, job]));
+  return [...byId.values()].sort((left, right) => {
+    if (!left.scheduledStart && !right.scheduledStart) return left.jobNumber.localeCompare(right.jobNumber);
+    if (!left.scheduledStart) return 1;
+    if (!right.scheduledStart) return -1;
+    return left.scheduledStart.localeCompare(right.scheduledStart);
+  });
+}
+
 export interface DispatchSummary {
   activeJobs: number;
   unscheduledJobs: number;
