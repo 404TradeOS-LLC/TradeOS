@@ -419,8 +419,6 @@ export class InvoicesService {
     const taxableDirectCost = lines.reduce((sum, line) => sum + (line.taxable ? line.directCost : 0), 0);
     const taxAllocationCost = taxableDirectCost > 0 ? taxableDirectCost : totalDirectCost;
     const scaledInvoiceTotal = roundCurrency(estimateTotal * scale);
-    const scaledPreTaxTotal = roundCurrency(preTaxTotal * scale);
-    const scaledTaxTotal = roundCurrency(taxTotal * scale);
     let allocated = 0;
 
     return lines.map(({ directCost, taxable, ...line }, index) => {
