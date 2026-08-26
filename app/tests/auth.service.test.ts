@@ -58,8 +58,8 @@ jest.mock("../modules/email/service", () => ({
   emailService: {
     sendPasswordReset: mockSendPasswordReset,
     sendTeamInvite: mockSendTeamInvite,
-    scheduleEmailInBackground: mockScheduleEmailInBackground,
   },
+  scheduleEmailInBackground: mockScheduleEmailInBackground,
 }));
 jest.mock("../modules/organization-provisioning/service", () => ({
   OrganizationProvisioningService: jest.fn().mockImplementation(() => ({ provision: mockProvision })),
