@@ -462,8 +462,9 @@ final customer-facing `Estimate.totalPrice` is the invoice amount. The service
 allocates the estimate's pre-tax sell value and persisted `taxAmount` across
 the existing estimate lines so the invoice remains itemized while reconciling
 to the estimate total. Progress invoices scale that sell total by
-`percentComplete`; direct custom line-item invoices retain their supplied
-values.
+`percentComplete`. When explicit non-empty `lineItems` are supplied, they
+override estimate resolution and retain their supplied values; estimate-backed
+allocation applies only when `lineItems` are absent or empty.
 
 ## Estimate line-item ordering
 
