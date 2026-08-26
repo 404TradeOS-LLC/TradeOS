@@ -82,23 +82,22 @@ redesign, S027 browser evidence, and S035/S037 work remain out of scope.
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S034 is DONE with readiness, implementation, and completion evidence merged; S035 is READY under its separate readiness contract. S027 remains independently blocked.
+Eligibility: S034 is DONE; S035 static inventory is merged but BLOCKED on representative PostgreSQL plan evidence; S027 remains independently blocked.
 Dependencies: S030 and S031 are DONE with merged evidence.
 Overlap check: No open S034 PR remains; implementation PR #373 is merged and no authoritative S034 implementation lane remains after cleanup.
-Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Keep S027 browser evidence independent.
+Startup prompt: Provide or authorize an isolated PostgreSQL runtime with synthetic data, then resume S035 plan capture. Keep S027 browser evidence independent.
 
-## S035 readiness
+## S035 blocked evidence
 
-S035 is READY under `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md`.
-It is bounded to static query-path mapping, authorized isolated PostgreSQL
-plans, redacted evidence, and a prioritized optimization inventory. No indexes,
-migrations, query rewrites, production instrumentation, load testing, S036,
-S037, or S027 browser evidence is in scope.
+S035 static inventory PR #377 is merged as `34a079bdd45aaf73c144682b6650a59a8d513d91` and is recorded in `docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md`.
+S035 remains BLOCKED because representative PostgreSQL plans require an authorized isolated runtime; this workspace has no `psql`, Docker, or authorized isolated `DATABASE_URL`.
+S035 blocked evidence and resolution options are recorded in `docs/architecture/S035_BLOCKED_EVIDENCE.md`.
+S036 must not start because it depends on S035 and S027; S027 browser evidence remains independent.
 
 ## Next Eligible Sprint
 
-Sprint ID: S035
-Eligibility: S035 is READY with all dependencies DONE and no competing implementation lane.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE.
-Overlap check: No open or draft S035 PR remains authoritative; S034 is fully reconciled.
-Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Keep S027 browser evidence independent.
+Sprint ID: NONE
+Eligibility: No numbered sprint is eligible; S035 is BLOCKED on unavailable authorized isolated PostgreSQL plan evidence.
+Dependencies: S035 static inventory is merged; representative plans remain outstanding. S027 is independently BLOCKED on authenticated rendered Costbook evidence.
+Overlap check: No open S035 PR remains; PR #377 is merged and reconciled. Do not create an S036 implementation lane.
+Startup prompt: Provide or authorize an isolated PostgreSQL runtime with synthetic data, then resume S035 plan capture. Keep S027 browser evidence independent.

@@ -385,10 +385,15 @@ boundaries, and truthful empty/error states. Readiness PR #372 and
 implementation PR #373 are merged; completion evidence records the exact
 verification and deferred telemetry boundary.
 
-## S035 query performance inventory readiness
+## S035 query performance inventory — blocked evidence
 
-S035 is READY under `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md`.
-The next bounded lane is an evidence-only inventory of high-frequency query
-paths and representative authorized isolated PostgreSQL plans. It adds no
-indexes, migrations, query rewrites, production instrumentation, or load
-testing; S036 and S037 remain separate.
+S035 is BLOCKED after its static inventory merged in PR #377 as
+`34a079bdd45aaf73c144682b6650a59a8d513d91`. The source/query/index inventory
+and redacted plan-capture protocol are recorded in
+`docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md`.
+
+Representative executed PostgreSQL plans remain unavailable because this
+workspace has no `psql`, Docker, or authorized isolated `DATABASE_URL`. No
+production latency, frequency, or planner claim is made. See
+`docs/architecture/S035_BLOCKED_EVIDENCE.md`. S036 is not eligible; S027
+remains independently blocked on authenticated rendered Costbook evidence.
