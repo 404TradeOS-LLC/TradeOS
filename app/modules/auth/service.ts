@@ -193,7 +193,7 @@ export class AuthService {
           expiresAt,
         },
       });
-      return { token: rawToken, email: user.email, expiresAt };
+      return { token: rawToken, to: user.email, expiresAt };
     });
 
     if (reset) {
