@@ -303,7 +303,8 @@ S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e
 Estimate-backed invoice creation now consumes the persisted customer-facing
 `Estimate.totalPrice` rather than rebuilding the invoice from raw direct
 line costs. Persisted tax is allocated with the estimate sell value across the
-existing invoice lines, and progress invoices scale the same total. Custom
+existing invoice lines, and progress invoices scale the same total. Explicit
+non-empty `lineItems` continue to override estimate resolution. Custom
 line-item invoice creation and existing invoice/payment records are unchanged.
 
 ## S028 estimate-to-proposal reconciliation
