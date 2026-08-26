@@ -40,7 +40,7 @@ export class InvoicesService {
       if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     }
 
-    const amount = lineItems.reduce((sum, li) => sum + li.quantity * li.unitCost, 0);
+    const amount = roundCurrency(lineItems.reduce((sum, li) => sum + (li.lineCost ?? li.quantity * li.unitCost), 0));
     const nextNumber = (await prisma.invoice.aggregate({ where: { projectId: input.projectId }, _max: { invoiceNumber: true } }))._max
       .invoiceNumber ?? 0;
 
@@ -60,7 +60,7 @@ export class InvoicesService {
             quantity: li.quantity,
             unitOfMeasure: li.unitOfMeasure,
             unitCost: li.unitCost,
-            lineCost: li.quantity * li.unitCost,
+            lineCost: li.lineCost ?? roundCurrency(li.quantity * li.unitCost),
             sortOrder: index,
           })),
         },
@@ -391,13 +391,76 @@ export class InvoicesService {
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
     const scale = type === "progress" ? (input.percentComplete ?? 0) / 100 : 1;
-    return estimate.lineItems.map((li) => ({
+    const lines = estimate.lineItems.map((li) => ({
       description: li.description,
       quantity: Number(li.quantity) * scale,
       unitOfMeasure: li.unitOfMeasure,
       unitCost: Number(li.unitCost),
+      directCost: Number.isFinite(Number(li.lineCost)) ? Number(li.lineCost) : Number(li.quantity) * Number(li.unitCost),
+      taxable: li.taxable === true,
     }));
+
+    // Estimate.totalPrice is the customer-facing sell total. Do not rebuild an
+    // invoice from raw direct costs: that silently drops overhead, profit, and
+    // tax. Allocate the persisted sell total back across the existing scope so
+    // the invoice remains itemized while its amount matches the estimate.
+    const estimateTotal = Number(estimate.totalPrice);
+    if (!Number.isFinite(estimateTotal)) {
+      return lines.map(({ directCost: _directCost, taxable: _taxable, ...line }) => ({
+        ...line,
+        lineCost: roundCurrency(line.quantity * line.unitCost),
+      }));
+    }
+
+    const persistedTax = Number(estimate.taxAmount);
+    const taxTotal = Number.isFinite(persistedTax) ? persistedTax : 0;
+    const preTaxTotal = Math.max(0, estimateTotal - taxTotal);
+    const totalDirectCost = lines.reduce((sum, line) => sum + line.directCost, 0);
+    const taxableDirectCost = lines.reduce((sum, line) => sum + (line.taxable ? line.directCost : 0), 0);
+    const taxAllocationCost = taxableDirectCost > 0 ? taxableDirectCost : totalDirectCost;
+    const scaledInvoiceTotal = roundCurrency(estimateTotal * scale);
+    const scaledPreTaxTotal = roundCurrency(preTaxTotal * scale);
+    const scaledTaxTotal = roundCurrency(taxTotal * scale);
+    let allocated = 0;
+
+    return lines.map(({ directCost, taxable, ...line }, index) => {
+      const isLast = index === lines.length - 1;
+      const preTaxShare = totalDirectCost > 0 ? (preTaxTotal * directCost) / totalDirectCost : 0;
+      const taxShare = taxAllocationCost > 0 && (taxableDirectCost > 0 ? taxable : true)
+        ? (taxTotal * directCost) / taxAllocationCost
+        : 0;
+      const requestedLineCost = roundCurrency((preTaxShare + taxShare) * scale);
+      const lineCost = isLast ? roundCurrency(scaledInvoiceTotal - allocated) : requestedLineCost;
+      allocated = roundCurrency(allocated + lineCost);
+
+      return {
+        ...line,
+        unitCost: line.quantity > 0 ? roundUnitCost(lineCost / line.quantity) : 0,
+        lineCost,
+      };
+    }).map((line, index, all) => {
+      // Keep the persisted totals authoritative even when a zero-cost or
+      // fractional-quantity scope causes unit-cost rounding to lose a cent.
+      if (index === all.length - 1 && all.length > 1) {
+        const prior = all.slice(0, -1).reduce((sum, item) => sum + (item.lineCost ?? 0), 0);
+        const corrected = roundCurrency(scaledInvoiceTotal - prior);
+        return {
+          ...line,
+          lineCost: corrected,
+          unitCost: line.quantity > 0 ? roundUnitCost(corrected / line.quantity) : 0,
+        };
+      }
+      return line;
+    });
   }
+}
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function roundUnitCost(value: number): number {
+  return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
 
 interface InvoiceQueueRawRow {
