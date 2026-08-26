@@ -385,14 +385,15 @@ Forbidden in S034: failed-attempt persistence, alerting, notifications, email, e
 
 ### S035 — Query performance inventory
 
-Status: READY
+Status: BLOCKED
 Dependencies: S007, S008, S009, S010, S011, S012
 Objective: Capture slow/high-frequency query paths and representative plans.
-Acceptance: prioritized evidence-based optimization list.
+Acceptance: prioritized evidence-based optimization list, including authorized representative PostgreSQL plan evidence.
 Readiness contract: `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` bounds S035 to static query-path mapping, authorized isolated PostgreSQL `EXPLAIN` evidence, redacted plan/source artifacts, and a prioritized optimization inventory. No indexes, migrations, query rewrites, runtime tracing, production instrumentation, load testing, S036 implementation, or S037 scope.
 Founder-decision boundary: NO for repository and isolated-fixture evidence. Production database access, a latency budget/SLO, or real customer workload capture requires separate authorization and must not be inferred.
 Required validation: query-path and tenant/RLS review; reproducible isolated plan evidence where available; redaction review; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app/database verification.
 Forbidden in S035: schema/migrations, new indexes, query rewrites, ORM replacement, runtime tracing, slow-query logging, production instrumentation, load testing, provider work, S036 implementation, S037 scope, and S027 browser evidence.
+Evidence: Static inventory merged in PR #377 (`34a079bdd45aaf73c144682b6650a59a8d513d91`) and recorded in `docs/performance/S035_QUERY_PERFORMANCE_INVENTORY.md`; S035 is BLOCKED because this workspace lacks `psql`, Docker, and an authorized isolated PostgreSQL database for representative plans. See `docs/architecture/S035_BLOCKED_EVIDENCE.md`.
 
 ### S036 — Database index hardening
 
@@ -541,15 +542,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S035
-Completion status: S034 is DONE with readiness, implementation, and completion evidence merged. S027 remains BLOCKED only on authenticated rendered Costbook browser evidence.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 has one readiness contract and no competing implementation lane.
-Protected boundary: S035 is READY in its governed readiness lane; keep S027 browser evidence separate and do not begin another numbered sprint.
+Active Sprint: NONE
+Completion status: S034 is DONE with readiness, implementation, and completion evidence merged. S035 is BLOCKED on unavailable authorized isolated PostgreSQL plan evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
+Dependencies: S007, S008, S009, S010, S011, and S012 are DONE; S035 static inventory is merged, but its representative-plan acceptance gate is unmet.
+Protected boundary: Resolve the S035 external evidence blocker before any S036 or other numbered-sprint implementation; keep S027 browser evidence separate.
 
 ## Next Eligible Sprint
 
-Sprint ID: S035
-Eligibility: S035 is `READY`; all dependencies are DONE and no conflicting S035 PR, branch, or worktree was found. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S007, S008, S009, S010, S011, and S012 are DONE.
-Overlap check: No open or draft S035 PR or authoritative implementation lane exists; S034 is fully reconciled.
-Startup prompt: Read `docs/architecture/S035_QUERY_PERFORMANCE_INVENTORY_PLAN.md` before creating the single implementation lane. Do not mix S027 browser evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S035 is `BLOCKED` because representative PostgreSQL plans require an unavailable authorized isolated runtime; S036 also depends on S027.
+Dependencies: S035 static inventory PR #377 is merged; representative plan evidence is outstanding. S027 remains independently BLOCKED.
+Overlap check: No open S035 PR remains; PR #377 is merged and the inventory lane is reconciled. No S036 implementation lane may start.
+Startup prompt: Provide or authorize an isolated PostgreSQL runtime with synthetic data, then resume S035 plan capture. Do not use production credentials or mix S027 browser evidence.
