@@ -47,6 +47,13 @@ Public routes are limited to:
 
 `POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id (`bootstrapSchema` is a Zod `.strict()` object accepting only `organizationName`/`regionCode`/`fullName` — any other field is a `400`). A `400` for a brand-new identity with no `organizationName` carries `details: { code: "organization_name_required" }`, a stable discriminator the frontend uses to route to `/finish-setup` rather than parsing the error message text. A `409` means the identity has an `AppUser` record but no active `OrganizationMembership` (a genuinely rare data-integrity edge case, not a normal path). See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle, including a previously-fixed production bug where every already-provisioned identity's second-and-later call falsely hit that `409`.
 
+## Transactional email behavior
+
+- `POST /api/v1/auth/password-reset/request` always returns the same success shape for known and unknown addresses. For an active local user it stores a hashed token and asks the Resend adapter to deliver a short-lived link; the raw token is returned only outside production for local/test workflows.
+- `POST /api/v1/account/invites` remains owner/admin-gated and stores a hashed invitation token before asking the Resend adapter to deliver the invitation. The raw token is returned only outside production.
+- Email delivery is server-side only and uses `RESEND_API_KEY`, `EMAIL_FROM`, and `APP_BASE_URL`. Provider failures are not returned to callers and raw tokens are not logged.
+- The adapter's links target `/reset-password` and `/invite/accept`; the corresponding frontend pages must be deployed at the configured web origin before enabling production delivery.
+
 ## Request and response conventions
 
 - controllers own Zod validation and HTTP shaping
