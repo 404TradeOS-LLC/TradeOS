@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { waitUntil } from "@vercel/functions";
 import { logWarn } from "../../backend/logging";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
@@ -43,17 +44,25 @@ interface ResponseLifecycle {
 }
 
 export function scheduleEmailInBackground(send: () => Promise<void>): void {
-  setImmediate(() => {
-    void send();
-  });
-}
-
-export function scheduleEmailAfterResponse(response: ResponseLifecycle, send: () => Promise<void>): void {
-  response.once("finish", () => {
+  try {
+    waitUntil(send());
+  } catch {
     setImmediate(() => {
       void send();
     });
+  }
+}
+
+export function scheduleEmailAfterResponse(response: ResponseLifecycle, send: () => Promise<void>): void {
+  const afterResponse = new Promise<void>((resolve) => {
+    response.once("finish", resolve);
   });
+
+  try {
+    waitUntil(afterResponse.then(send));
+  } catch {
+    void afterResponse.then(send);
+  }
 }
 
 export class EmailService {
