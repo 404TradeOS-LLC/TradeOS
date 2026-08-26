@@ -16,6 +16,19 @@ describe("web auth proxy", () => {
     assert.match(proxySource, /NextResponse\.redirect\(loginUrl\)/);
   });
 
+  it("refreshes a local session when the access cookie has expired out of the browser but the refresh cookie remains", () => {
+    const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
+    const refreshCookieRead = proxySource.indexOf("const refreshToken = request.cookies.get(LOCAL_REFRESH_TOKEN_COOKIE)?.value;");
+    const localSessionBranch = proxySource.indexOf("if (localToken || refreshToken)");
+    const refreshCall = proxySource.indexOf("await refreshLocalSession(refreshToken)");
+
+    assert.notEqual(refreshCookieRead, -1);
+    assert.notEqual(localSessionBranch, -1);
+    assert.notEqual(refreshCall, -1);
+    assert.ok(refreshCookieRead < localSessionBranch, "refresh cookie must be read independently of the access cookie");
+    assert.ok(localSessionBranch < refreshCall, "either local cookie must be sufficient to enter the refresh path");
+  });
+
   it("runs on every protected app route family", () => {
     const proxySource = readFileSync(resolve(root, "src/proxy.ts"), "utf8");
 
