@@ -25,7 +25,7 @@ S036 remains blocked by S027.
 
 ## Current truth
 
-- `origin/main` is `a09a4b2e2b4bacd6b5750507e4caf06e7450640a`; S038 implementation
+- `origin/main` is `4cb906525179992de929bc2b8dba67ba4a4294f7`; S038 implementation
   PR #393 is merged and its completion evidence is recorded.
 - S043 is the sole promoted READY sprint. Its readiness contract is
   `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`.
@@ -34,6 +34,11 @@ S036 remains blocked by S027.
   retention policy, role/permission, or RLS redesign is authorized by S043.
 - Production scheduler configuration and live S038 failure rehearsal remain
   external evidence only; they do not block S038 completion.
+
+S043 implementation is now being executed on the sole `feature/s043-implementation`
+lane. It reuses `AthenaAuditEvent` and its forced-RLS store, adds fixed safe
+security-event records and bounded owner/admin queryability, and preserves
+existing authentication, permission, approval, transaction, and RLS semantics.
 
 ## S043 readiness contract
 

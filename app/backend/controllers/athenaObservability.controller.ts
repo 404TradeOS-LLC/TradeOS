@@ -4,6 +4,8 @@ import { isAthenaObservabilityEnabled } from "../../modules/athena-kernel/flags"
 import { getCostSummary, getEventHealth, getModelMetrics, getOverviewMetrics, getToolMetrics } from "../../modules/athena-observability/metricsService";
 import { getTrace, getTraceByRequest, searchTraces } from "../../modules/athena-observability/traceService";
 import { listAthenaAlerts } from "../../modules/athena-observability/alerts";
+import { athenaSecurityAuditEventTypes } from "../../modules/athena-audit/types";
+import { createPrismaAthenaAuditStore } from "../../modules/athena-audit/store";
 import { requireOrgId, requireRoles } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
 
@@ -64,6 +66,18 @@ function resolveWindow(query: { from?: string; to?: string }): { from: string; t
   const from = query.from ?? new Date(new Date(to).getTime() - 24 * 60 * 60 * 1000).toISOString();
   return { from, to };
 }
+
+const auditStore = createPrismaAthenaAuditStore();
+const securityEventQuerySchema = z
+  .object({
+    eventType: z.enum(athenaSecurityAuditEventTypes).optional(),
+    actorUserId: z.string().uuid().optional(),
+    outcome: z.enum(["allowed", "denied", "attempted", "succeeded", "failed"]).optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+  })
+  .superRefine(validateWindowBounds);
 
 const athenaKernelStateSchema = z.enum([
   "created",
@@ -166,5 +180,20 @@ export const athenaObservabilityController = {
     const { orgId } = requireObservabilityAccess(req);
     const status = z.enum(["active", "resolved"]).optional().parse(req.query.status);
     res.json(await listAthenaAlerts({ orgId, status }));
+  },
+
+  async securityEvents(req: Request, res: Response): Promise<void> {
+    const { orgId } = requireObservabilityAccess(req);
+    const query = securityEventQuerySchema.parse(req.query);
+    const events = await auditStore.listSecurityEvents({
+      organizationId: orgId,
+      eventTypes: query.eventType ? [query.eventType] : undefined,
+      actorUserId: query.actorUserId,
+      outcome: query.outcome,
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+      limit: query.limit,
+    });
+    res.json(events);
   },
 };

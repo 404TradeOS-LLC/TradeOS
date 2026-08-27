@@ -40,6 +40,7 @@ import { AthenaKernelService } from "../modules/athena-kernel/service";
 import { AthenaActorContext } from "../modules/athena-kernel/types";
 import { createAthenaToolRegistry } from "../modules/athena-tool-registry/registry";
 import { createEchoFixtureTool } from "../modules/athena-tool-registry/fixtures/echoFixtureTool";
+import { createInMemoryAthenaAuditStore } from "../modules/athena-audit/store";
 
 // A11 integration regression: proves athena-security/riskEngine.ts's gate
 // (wired into athena-kernel/service.ts between the A4 permission decision
@@ -144,5 +145,32 @@ describe("AthenaKernelService A11 security risk gate", () => {
     expect(securitySpan).toBeDefined();
     expect(securitySpan?.status).toBe("denied");
     expect(JSON.stringify(securitySpan?.metadataJson)).not.toContain(SYNTHETIC_STRIPE_KEY);
+  });
+
+  it("records correlated security events for an authorized sensitive action", async () => {
+    const toolRegistry = createAthenaToolRegistry();
+    toolRegistry.register(createEchoFixtureTool({ id: "tradeos.athena.fixture.a11-audit", permissions: [], risk: "low" }));
+    const auditStore = createInMemoryAthenaAuditStore();
+    const service = new AthenaKernelService();
+
+    const result = await service.handleRequest({
+      request: { message: "What is the status of this project?", requestSource: "http" },
+      actor: actor(),
+      requestId: "req-a11-audit",
+      env: actionEnv,
+      toolRegistry,
+      auditStore,
+      candidateTools: [{ toolId: "tradeos.athena.fixture.a11-audit", toolVersion: "1.0.0", summary: "Safe tool.", input: { message: "hi" } }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(auditStore.events.map((event) => event.eventType)).toEqual(expect.arrayContaining([
+      "security_decision",
+      "sensitive_action_attempted",
+      "sensitive_action_completed",
+    ]));
+    const securityEvent = auditStore.events.find((event) => event.eventType === "security_decision");
+    expect(securityEvent).toMatchObject({ organization: "org-1", actor: { userId: "user-1" }, traceId: expect.any(String), executionId: expect.any(String) });
+    expect(securityEvent?.metadata).not.toHaveProperty("message");
   });
 });

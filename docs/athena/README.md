@@ -116,6 +116,18 @@ override TradeOS canonical docs.
 
 A12.1 strengthens decision 11 without introducing another event system: the six required production canonical events reuse the existing A8 event store and now persist atomically with their corresponding estimate, job, or proposal mutation. Subscriber dispatch, retry, dead-letter, and replay remain asynchronous concerns after commit. This is a service transaction-boundary repair, not a new Athena framework, permission model, tool registry, or event bus.
 
+## Security event audit trail
+
+The S043 implementation reuses `AthenaAuditEvent` for fixed security events:
+authenticated Athena requests, security decisions, tenant-boundary denials,
+privilege denials, and sensitive action attempts/completions. Records carry
+server-derived organization and actor context, request/trace/execution/action
+correlation when available, and an allowlisted outcome/reason vocabulary. The
+operator query at `/api/v1/athena/observability/security-events` is restricted
+to existing owner/admin observability access and organization scope; raw
+prompts, model output, customer payloads, secrets, and stack traces are not
+representable in its metadata.
+
 ## Approval expiry read normalization
 
 Before organization-scoped approval list or detail reads, the approval application service atomically transitions only overdue approvals that are still persisted as `pending` to `expired`; concurrent terminal changes and approvals from other organizations are not overwritten.

@@ -6,6 +6,13 @@ export const athenaAuditEventTypes = [
   "approval_requested",
   "execution_completed",
   "failure",
+  "authentication_succeeded",
+  "authentication_failed",
+  "security_decision",
+  "tenant_access_denied",
+  "privilege_denied",
+  "sensitive_action_attempted",
+  "sensitive_action_completed",
 ] as const;
 
 export type AthenaAuditEventType = (typeof athenaAuditEventTypes)[number];
@@ -35,8 +42,36 @@ export interface AthenaAuditApprovalQuery {
   limit: number;
 }
 
+export const athenaSecurityAuditEventTypes = [
+  "authentication_succeeded",
+  "authentication_failed",
+  "security_decision",
+  "tenant_access_denied",
+  "privilege_denied",
+  "sensitive_action_attempted",
+  "sensitive_action_completed",
+] as const satisfies readonly AthenaAuditEventType[];
+
+export type AthenaSecurityAuditEventType = (typeof athenaSecurityAuditEventTypes)[number];
+
+export type AthenaSecurityAuditOutcome = "allowed" | "denied" | "attempted" | "succeeded" | "failed";
+
+export interface AthenaSecurityAuditQuery {
+  organizationId: string;
+  eventTypes?: readonly AthenaSecurityAuditEventType[];
+  actorUserId?: string;
+  outcome?: AthenaSecurityAuditOutcome;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+}
+
 export interface AthenaAuditReader {
   listForApproval(query: AthenaAuditApprovalQuery): Promise<AthenaAuditEvent[]>;
 }
 
-export type AthenaAuditRepository = AthenaAuditStore & AthenaAuditReader;
+export interface AthenaSecurityAuditReader {
+  listSecurityEvents(query: AthenaSecurityAuditQuery): Promise<AthenaAuditEvent[]>;
+}
+
+export type AthenaAuditRepository = AthenaAuditStore & AthenaAuditReader & AthenaSecurityAuditReader;

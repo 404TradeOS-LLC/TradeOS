@@ -5,6 +5,39 @@ import { AuthClaims } from "./jwt";
 import { ApiError } from "../middleware/errorHandler";
 import { getRolePermissions, normalizeRole, SupportedRole } from "../../domain";
 import { getDatabaseTransactionMaxWait } from "../../db/requestSession";
+import { buildAthenaSecurityAuditEvent } from "../../modules/athena-audit/securityEvents";
+import { createPrismaAthenaAuditStore } from "../../modules/athena-audit/store";
+
+type KnownMembership = { orgId: string; role: string };
+
+async function recordAuthenticationFailure(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+  membership: KnownMembership | null,
+  reasonCode: "inactive_identity" | "organization_membership_denied"
+): Promise<void> {
+  if (!membership) return;
+  try {
+    await transaction.$queryRaw(Prisma.sql`
+      select
+        set_config('app.user_id', ${userId}, true),
+        set_config('app.org_id', ${membership.orgId}, true),
+        set_config('app.role', ${membership.role}, true)
+    `);
+    await createPrismaAthenaAuditStore(transaction).record(
+      buildAthenaSecurityAuditEvent({
+        eventType: "authentication_failed",
+        organization: membership.orgId,
+        actor: { userId, role: membership.role },
+        outcome: "denied",
+        metadata: { eventSource: "auth_session", reasonCode },
+      })
+    );
+  } catch {
+    // Authentication remains fail-closed even if best-effort audit storage is
+    // unavailable.
+  }
+}
 
 export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContext> {
   const auth = await basePrisma.$transaction(async (transaction) => {
@@ -25,6 +58,14 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
     if (!user || !user.isActive) {
       if (user) {
         await transaction.$queryRaw(Prisma.sql`select set_config('app.login_lookup', 'true', true)`);
+        const membership = claims.orgId
+          ? await transaction.organizationMembership.findFirst({
+              where: { userId: user.id, orgId: claims.orgId },
+              orderBy: { createdAt: "asc" },
+              select: { orgId: true, role: true },
+            })
+          : null;
+        await recordAuthenticationFailure(transaction, user.id, membership, "inactive_identity");
         await transaction.authRefreshToken.updateMany({
           where: { userId: user.id, revokedAt: null },
           data: { revokedAt: new Date(), lastUsedAt: new Date() },
@@ -48,6 +89,12 @@ export async function resolveAuthContext(claims: AuthClaims): Promise<AuthContex
       orderBy: { createdAt: "asc" },
     });
     if (!membership) {
+      const knownMembership = await transaction.organizationMembership.findFirst({
+        where: { userId: user.id, status: "active" },
+        orderBy: { createdAt: "asc" },
+        select: { orgId: true, role: true },
+      });
+      await recordAuthenticationFailure(transaction, user.id, knownMembership, "organization_membership_denied");
       throw new ApiError(403, "Authenticated user does not belong to the requested organization");
     }
 
