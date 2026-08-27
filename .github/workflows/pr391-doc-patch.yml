@@ -1,0 +1,71 @@
+name: PR391 docs patch
+
+on:
+  push:
+    branches:
+      - fix/local-session-refresh-cookie
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr391-doc-patch
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'chore: stage self-cleaning PR391 docs patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Merge current main without rewriting branch history
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge --no-commit --no-ff origin/main
+
+      - name: Insert bounded current-state note
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('docs/CURRENT_STATE.md')
+          text = path.read_text(encoding='utf-8')
+          needle = '- Auth and tenancy\n'
+          addition = (
+              '- Local-session proxy refresh hardening: protected routes treat either local auth cookie as local-session intent; '
+              'when the short-lived access cookie has expired from the browser but the 30-day refresh cookie remains, the proxy '
+              'uses the existing local refresh flow instead of falling through to Supabase/login. Refresh-only failures remain '
+              'fail-closed to `/login`; a concurrent single-use refresh-rotation loser intentionally emits no local-cookie '
+              'deletions that could overwrite a sibling response\'s rotated replacement cookies, while stale requests that still '
+              'carry a local access cookie retain explicit cleanup. Cookie lifetimes, backend refresh-token policy, auth/permission/RLS '
+              'boundaries, schema, secrets, billing, and architecture are unchanged.\n'
+          )
+
+          if addition not in text:
+              if text.count(needle) != 1:
+                  raise SystemExit(f'expected exactly one auth anchor, found {text.count(needle)}')
+              text = text.replace(needle, needle + addition, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Remove temporary workflow and validate final PR diff
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/pr391-doc-patch.yml
+          git add docs/CURRENT_STATE.md
+          git diff --cached --check
+          changed="$(git diff --cached --name-only origin/main)"
+          printf '%s\n' "$changed"
+          test "$changed" = $'docs/CURRENT_STATE.md\nweb/src/lib/supabase/proxy.test.ts\nweb/src/lib/supabase/proxy.ts'
+
+      - name: Commit and push final branch state
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(auth): record refresh-cookie session recovery'
+          git push origin HEAD:fix/local-session-refresh-cookie
