@@ -12,3 +12,4 @@ athenaObservabilityRouter.get("/models", asyncHandler(athenaObservabilityControl
 athenaObservabilityRouter.get("/cost", asyncHandler(athenaObservabilityController.costSummary));
 athenaObservabilityRouter.get("/events", asyncHandler(athenaObservabilityController.eventHealth));
 athenaObservabilityRouter.get("/alerts", asyncHandler(athenaObservabilityController.alerts));
+athenaObservabilityRouter.get("/security-events", asyncHandler(athenaObservabilityController.securityEvents));

@@ -180,6 +180,9 @@ of Friday, August 14, 2026, it:
   available, with raw-role fallback only for older compatibility call paths;
 - can record Athena audit events for request receipt, context gathering, tool
   consideration, action attempt, approval request, completion, and failure;
+- records safe, correlated security events for authenticated Athena requests,
+  privilege and tenant-boundary denials, and sensitive action attempts and
+  completions in the existing organization-scoped audit store;
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
   hash, plan id, and step id;
@@ -201,8 +204,15 @@ same key for different validated input fails closed. The durable store runs
 inside the authenticated request-scoped RLS transaction, while the process-local
 store remains a test/local fixture.
 
-Approval and audit persistence for Athena are internal implementation details,
-not new public REST resources. Before organization-scoped approval list/detail
+Approval persistence for Athena remains an internal implementation detail.
+Owner/admin operators may query the bounded security-event view at
+`GET /api/v1/athena/observability/security-events` when Athena observability is
+enabled. The endpoint accepts optional `eventType`, `actorUserId`, `outcome`,
+`from`, `to`, and `limit` filters, derives organization scope from the active
+session, and returns only the fixed security-event taxonomy. It never returns
+raw prompts, model output, secrets, customer payloads, or stack traces.
+
+Before organization-scoped approval list/detail
 reads, overdue rows still persisted as `pending` are conditionally and atomically
 transitioned to `expired`; the update is scoped to the authenticated organization
 and current `pending` status so concurrent terminal changes are preserved. Their

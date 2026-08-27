@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { normalizeRole } from "../../domain";
 import type { DomainPermission } from "../../domain";
 import type { AthenaAuditStore } from "../athena-audit/types";
+import { buildAthenaSecurityAuditEvent } from "../athena-audit/securityEvents";
+import type { AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
 import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
@@ -187,7 +189,7 @@ export class AthenaKernelService {
     let state: AthenaKernelState = "created";
     let roundTrips = 0;
     const recordAudit = async (
-      eventType: "request_received" | "context_gathered" | "tools_considered" | "action_attempted" | "approval_requested" | "execution_completed" | "failure",
+      eventType: AthenaAuditEventType,
       metadata: Record<string, unknown>,
       extras: { actionId?: string; approvalId?: string } = {}
     ) => {
@@ -208,6 +210,34 @@ export class AthenaKernelService {
         });
       } catch {
         // Audit must never flip the business result.
+      }
+    };
+
+    const recordSecurityAudit = async (
+      eventType: AthenaSecurityAuditEventType,
+      outcome: AthenaSecurityAuditOutcome,
+      metadata: Record<string, unknown> = {},
+      extras: { actionId?: string; approvalId?: string } = {}
+    ) => {
+      if (!input.auditStore) return;
+      try {
+        await input.auditStore.record(
+          buildAthenaSecurityAuditEvent({
+            eventType,
+            organization: actor.orgId,
+            actor: { userId: actor.userId, role: actor.role },
+            outcome,
+            metadata,
+            requestId: input.requestId,
+            traceId,
+            executionId,
+            actionId: extras.actionId,
+            approvalId: extras.approvalId,
+          })
+        );
+      } catch {
+        // Security-audit persistence is best effort and must not alter the
+        // already-authoritative authorization or business result.
       }
     };
 
@@ -332,6 +362,11 @@ export class AthenaKernelService {
         });
 
         if (decision.decision !== "allow") {
+          await recordSecurityAudit("privilege_denied", "denied", {
+            capability,
+            decision: decision.decision,
+            reasonCode: decision.reasonCode,
+          });
           await applyTransition("denied", decision.reasonCode);
           const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
           await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -392,6 +427,12 @@ export class AthenaKernelService {
             deniedFields: decision.deniedFields,
             planId: plan.planId,
           });
+          await recordSecurityAudit("privilege_denied", "denied", {
+            capability: decision.capability,
+            decision: decision.decision,
+            reasonCode: decision.reasonCode,
+            planId: plan.planId,
+          });
           await applyTransition("denied", decision.reasonCode);
           const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
           await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -416,6 +457,13 @@ export class AthenaKernelService {
             // (removed, or an injected registry whose discover()/resolve()
             // diverge) must never fall back to a permissive default.
             const reasonCode = "athena_tool_call_step_unresolvable";
+            await recordSecurityAudit("privilege_denied", "denied", {
+              reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              toolVersion: step.toolVersion,
+            });
             await emitSpan("approval", "denied", Date.now() - policyStart, { planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, reasonCode });
             await applyTransition("denied", reasonCode);
             const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
@@ -453,6 +501,13 @@ export class AthenaKernelService {
           });
 
           if (stepDecision.decision === "deny") {
+            await recordSecurityAudit("privilege_denied", "denied", {
+              decision: stepDecision.decision,
+              reasonCode: stepDecision.reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+            });
             await emitSpan("approval", "denied", Date.now() - policyStart, {
               planId: plan.planId,
               stepId: step.stepId,
@@ -485,6 +540,15 @@ export class AthenaKernelService {
                 decision: stepDecision.decision,
                 reasonCode,
               });
+              await recordSecurityAudit("sensitive_action_attempted", "denied", {
+                decision: stepDecision.decision,
+                reasonCode,
+                planId: plan.planId,
+                stepId: step.stepId,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                riskLevel: tool.risk,
+              }, { approvalId: input.approvalId });
               await applyTransition("denied", reasonCode);
               const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
               await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -538,9 +602,30 @@ export class AthenaKernelService {
             layer: "athena_security_risk_engine",
             ...buildAthenaSecurityAuditMetadata(securityDecision),
           });
+          await recordSecurityAudit("security_decision", securityDecision.decision === "allow" ? "allowed" : "denied", {
+            decision: securityDecision.decision,
+            layer: "athena_security_risk_engine",
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: securityDecision.riskLevel,
+            securityDecision: securityDecision.decision,
+            securityReasons: securityDecision.reasons,
+            securityRequiredControls: securityDecision.requiredControls,
+          });
 
           if (securityDecision.decision === "deny") {
             const reasonCode = securityDecision.reasons[0];
+            const securityEventType = reasonCode === "athena_security_denied_cross_tenant_reference" ? "tenant_access_denied" : "sensitive_action_attempted";
+            await recordSecurityAudit(securityEventType, "denied", {
+              reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              toolVersion: step.toolVersion,
+              riskLevel: securityDecision.riskLevel,
+            });
             await recordAudit("failure", {
               toolId: step.toolId,
               planId: plan.planId,
@@ -568,6 +653,15 @@ export class AthenaKernelService {
             },
             { actionId: actionAuditId, approvalId: input.approvalId }
           );
+          await recordSecurityAudit("sensitive_action_attempted", "attempted", {
+            decision: stepDecision.decision,
+            reasonCode: stepDecision.reasonCode,
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: tool.risk,
+          }, { actionId: actionAuditId, approvalId: input.approvalId });
           const actionStart = Date.now();
           const actionOutcome = await executeAthenaAction(
             { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
@@ -653,6 +747,14 @@ export class AthenaKernelService {
             stepId: step.stepId,
             summary: actionOutcome.result.toolResult.summary,
           });
+          await recordSecurityAudit("sensitive_action_completed", "succeeded", {
+            decision: stepDecision.decision,
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: tool.risk,
+          }, { actionId: actionAuditId, approvalId: input.approvalId });
 
           // A7 memory-candidate hook (Step 12) - a no-op unless a caller
           // supplied both DI seams (never true in production today). Wrapped

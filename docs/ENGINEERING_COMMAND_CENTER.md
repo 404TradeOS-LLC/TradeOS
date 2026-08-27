@@ -95,6 +95,8 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
+S043 is the active implementation lane under `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`; its bounded security-event coverage requires no founder decision or external dependency.
+
 Prioritize existing authorized work before inventing new scope. S025, S026, S028, S030, S031, S032, S033, S034, S035, S037, S038, S040, S041, and S042 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`. S043 is now the sole promoted READY sprint through `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence and S036 remains blocked by S027.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.

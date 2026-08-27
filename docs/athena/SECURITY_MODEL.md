@@ -49,7 +49,9 @@ authentication, membership, and database-session model as the rest of the app.
   presented;
 - audit trail: request, context, tool consideration, action attempt, approval
   request, completion, and failure can be recorded with actor and organization
-  metadata;
+  metadata. S043 adds fixed security events for authenticated requests,
+  security decisions, tenant-boundary and privilege denials, and sensitive
+  action attempts/completions over the same store;
 - action idempotency: dedup-eligible production actions use a durable
   organization/tool/version/key claim inside the same request-scoped RLS
   transaction as tool execution rather than process-local memory.
@@ -105,6 +107,16 @@ The durable boundary enforces:
 The in-memory idempotency store remains a unit-test/local fixture and is not
 injected by the production Athena controller. This repair does not implement or
 alter approval-bound action resume/execution.
+
+## S043 security-event boundary
+
+Security-event records are built from server-derived actor and organization
+context and a fixed event/outcome vocabulary. Metadata is allowlisted and
+bounded, so prompts, model output, customer payloads, secrets, and stack traces
+cannot be persisted through this path. Owner/admin operators may query the
+organization-scoped records through the existing observability authorization
+surface; the query does not introduce a new permission, role, table, or RLS
+policy.
 
 ## Audit events
 

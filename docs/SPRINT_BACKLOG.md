@@ -553,15 +553,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S038 — Background and retry semantics
-Completion status: S037 is DONE with readiness, implementation, and completion evidence merged. S038 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence and S036 remains blocked by S027.
-Dependencies: S037 is DONE; no external credential or founder decision is required for the bounded S038 contract.
-Protected boundary: Do not mix S027 browser evidence, S036 index work, S043 security-event work, schema/migration work, or production scheduler configuration into the S038 readiness or implementation lane.
+Active Sprint: S043 — Security event audit trail
+Completion status: S038 is DONE with implementation and completion evidence merged. S043 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence and S036 remains blocked by S027.
+Dependencies: S037 and S040 are DONE; no external credential or founder decision is required for the bounded S043 contract.
+Protected boundary: Do not mix S027 browser evidence, S036 index work, S038 follow-up evidence, S044/S045 deployment work, new audit providers, retention-policy decisions, or auth/RBAC/RLS redesign into the S043 implementation lane.
 
 ## Next Eligible Sprint
 
-Sprint ID: S038
-Eligibility: S038 is READY; S037 is DONE and no open or remote S038 overlap exists in the live reconciliation. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
-Dependencies: S037 is DONE with merged evidence; no founder decision or external credential is required for the bounded contract.
-Overlap check: No open PR or remote S038 branch exists; S037 implementation PR #386 and completion evidence are merged. Create only one `feature/s038-implementation` lane after this readiness record lands.
-Startup prompt: Read `docs/architecture/S038_BACKGROUND_RETRY_SEMANTICS_PLAN.md`, create exactly one `feature/s038-implementation` lane from current `origin/main`, and keep S027 browser evidence, S036, and S043 independent.
+Sprint ID: S043
+Eligibility: S043 is READY; S037 and S040 are DONE, and no open or remote S043 implementation overlap exists in the live reconciliation. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
+Dependencies: S037 and S040 are DONE with merged evidence; no founder decision or external credential is required for the bounded contract.
+Overlap check: No open PR or remote S043 implementation branch exists; S038 implementation PR #393 and completion evidence are merged. Create only one `feature/s043-implementation` lane from current `origin/main`.
+Startup prompt: Read `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S043 on its isolated branch/worktree while keeping S027 browser evidence, S036, S038, S039, and S045 independent.

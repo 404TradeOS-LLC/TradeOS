@@ -6,6 +6,7 @@ import { getRolePermissions, normalizeRole } from "../../domain";
 import { athenaActionIdempotencyConflictError } from "../../modules/athena-action-engine/errors";
 import { AthenaIdempotencyConflictError, type AthenaIdempotencyStore } from "../../modules/athena-action-engine/idempotency";
 import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } from "../../modules/athena-audit/store";
+import { buildAthenaSecurityAuditEvent } from "../../modules/athena-audit/securityEvents";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
@@ -141,6 +142,19 @@ export const athenaController = {
 
     try {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
+      try {
+        await requestAuditStore.record(buildAthenaSecurityAuditEvent({
+          eventType: "authentication_succeeded",
+          organization: orgId,
+          actor: { userId: auth.userId, role: canonicalRole },
+          outcome: "allowed",
+          metadata: { eventSource: "athena_controller" },
+          requestId,
+        }));
+      } catch {
+        // Security-audit persistence is best effort and must not change the
+        // authenticated request's business result.
+      }
       const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
       const result = await service.handleRequest({
         request: {
