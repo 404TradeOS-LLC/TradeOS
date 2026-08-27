@@ -21,10 +21,10 @@ S036 remains blocked by S027; S044/S045 remain blocked on production access.
 
 ## Current truth
 
-- `origin/main` is `ca042c3a282b03d26f5f5fa389b7b49b9aa02e85`; S043 implementation
+- `origin/main` is `abf89c1af9a40005a6e2010fcea8f5214763e25a`; S043 implementation
   PR #395 is merged and its completion evidence is recorded in
   `docs/architecture/S043_COMPLETION_EVIDENCE.md`.
-- S047 is the sole promoted READY sprint. Its readiness contract is
+- S047 is the sole promoted sprint and is IN_REVIEW in PR #397. Its readiness contract is
   `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`.
 - Existing RC Playwright route and golden-workflow seams are the implementation
   baseline. No new product behavior, credential storage, schema, migration,
@@ -45,8 +45,8 @@ schema/migrations, RLS/RBAC redesign, S027, S036, S044, S045, S046, S048, or
 destructive data work.
 
 ## Next Eligible Sprint
-Sprint ID: S047
-Eligibility: READY; S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently READY; S047 is IN_REVIEW in PR #397. S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
 Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane; no PR is open yet. Continue only on this branch from current `origin/main` and keep S027, S036, S044, S045, S046, and S048 independent.
+Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane and PR #397 is the only open S047 PR. Keep S027, S036, S044, S045, S046, and S048 independent while PR #397 completes.
 Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S047 on its isolated branch/worktree.

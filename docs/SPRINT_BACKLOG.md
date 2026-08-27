@@ -513,7 +513,7 @@ Acceptance: production migration runbook exercised.
 
 ### S047 — Release candidate smoke suite
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S022, S028, S033, S040
 Objective: Automate and document founder-critical end-to-end flows.
 Acceptance: repeatable RC smoke evidence for auth, customer, estimate, proposal, contract, job, invoice, and portal.
@@ -559,14 +559,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: S047 — Release candidate smoke suite
-Completion status: S043 is DONE with implementation PR #395 and completion evidence merged. S047 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
+Completion status: S043 is DONE with implementation PR #395 and completion evidence merged. S047 implementation is under review in PR #397; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
 Dependencies: S022, S028, S033, and S040 are DONE; no founder decision or external credential is required to implement the bounded smoke-suite contract.
 Protected boundary: Do not mix S027 browser evidence, S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, or launch approval into the S047 implementation lane.
 
 ## Next Eligible Sprint
 
-Sprint ID: S047
-Eligibility: S047 is READY; S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045, so neither overlaps this lane.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S047 is IN_REVIEW in PR #397. S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
 Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane; no PR is open yet. Continue only on this branch from current `origin/main`; keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
+Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane and PR #397 is the only open S047 PR. Keep S027 browser evidence, S036, S044, S045, S046, and S048 independent while PR #397 completes.
 Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, reconcile the active `feature/s047-implementation` lane, then implement S047 in its isolated worktree with the existing RC smoke seams.
