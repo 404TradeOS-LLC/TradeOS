@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 source_of_truth: false
 related_code:
   - app/modules/settings
@@ -72,6 +72,8 @@ The existing SupplierIntegrationService queue/review/worker/scheduler remains ca
 - approved proposals continue through the existing transactional material update plus `MaterialPriceAudit` path
 - duplicate pending-proposal suppression remains in the existing service
 - the review queue collection read uses the shared Costbook catalog contract: organization-scoped server-side search/filter/sort, bounded keyset pages, full filtered totals, and opaque cursors; approval/rejection claim semantics remain unchanged
+- each organization/supplier feed transaction takes a PostgreSQL advisory lock before checking pending proposals, so overlapping scheduler ticks cannot race into duplicate pending rows; this lock does not bypass RLS or auto-apply a price
+- the scheduler returns `succeeded`, `retryable_failure`, or `terminal_failure` with a safe failure code, attempt number, correlation ID, and optional next-attempt timestamp; the one-shot operator script logs that metadata without raw exception text
 
 There is no supplier-SKU matching layer in this slice; feed rows must already identify a TradeOS Material by `materialId`.
 

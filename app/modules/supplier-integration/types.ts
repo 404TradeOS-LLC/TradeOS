@@ -65,6 +65,11 @@ export interface SupplierPriceSyncJobSpec {
 
 export interface SupplierPriceSyncJobOutcome {
   spec: SupplierPriceSyncJobSpec;
+  status: "succeeded" | "retryable_failure" | "terminal_failure";
+  attempt: number;
+  correlationId: string;
+  failureCode?: string;
+  nextAttemptAt?: string | null;
   result?: SyncFromFeedResult;
   error?: string;
 }

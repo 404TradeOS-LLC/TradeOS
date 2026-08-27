@@ -19,11 +19,11 @@ async function main() {
   let failed = 0;
   for (const outcome of outcomes) {
     const label = outcome.spec.label ?? outcome.spec.supplierId;
-    if (outcome.error) {
+    if (outcome.status !== "succeeded") {
       failed += 1;
-      console.error(`[supplier-price-sync] ${label} failed: ${outcome.error}`);
+      console.error(`[supplier-price-sync] ${label} ${outcome.status} code=${outcome.failureCode} attempt=${outcome.attempt} correlationId=${outcome.correlationId} nextAttemptAt=${outcome.nextAttemptAt ?? "none"}`);
     } else {
-      console.log(`[supplier-price-sync] ${label}: proposed ${outcome.result?.proposed}, skipped ${outcome.result?.skipped}`);
+      console.log(`[supplier-price-sync] ${label}: proposed ${outcome.result?.proposed ?? 0}, skipped ${outcome.result?.skipped ?? 0} attempt=${outcome.attempt} correlationId=${outcome.correlationId}`);
     }
   }
 

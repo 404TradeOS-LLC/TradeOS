@@ -125,6 +125,16 @@ Mounted route groups from `app/backend/server.ts`:
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
 
+Background scheduler jobs are not REST endpoints. The existing one-shot supplier
+price-sync and Athena observability scripts run each configured organization
+and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
+serializes one organization/supplier pair per transaction, and scheduler
+outcomes expose a safe status, attempt number, correlation ID, failure code,
+and bounded next-attempt timestamp. Event subscribers receive an
+organization-scoped stable idempotency key and attempt metadata. These
+contracts do not claim that production scheduling or live failure rehearsal has
+been configured.
+
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
 `POST /api/v1/invoices/:id/payments` remains the existing backend payment-recording boundary. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. No payment-entry UI or payment-processor contract is introduced by S011.

@@ -129,7 +129,7 @@ describe("createWebhookExporter", () => {
 
     expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(1);
-    expect(result.errors[0]).toMatch(/ECONNREFUSED/);
+    expect(result.errors).toEqual(["webhook_request_failed"]);
   });
 
   it("aborts and reports a timeout failure when the request exceeds timeoutMs", async () => {
@@ -148,7 +148,7 @@ describe("createWebhookExporter", () => {
 
     expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(1);
-    expect(result.errors[0]).toMatch(/timed out/);
+    expect(result.errors).toEqual(["webhook_timeout"]);
   });
 
   it("never calls fetch for an empty batch", async () => {
@@ -196,7 +196,7 @@ describe("runAthenaObservabilityExport", () => {
     expect(result.exporterId).toBe("boom");
     expect(result.succeeded).toBe(0);
     expect(result.failed).toBe(1);
-    expect(result.errors[0]).toMatch(/exporter exploded/);
+    expect(result.errors).toEqual(["background_job_failed"]);
   });
 
   it("never lets a background-session bootstrap failure propagate either", async () => {
@@ -212,7 +212,7 @@ describe("runAthenaObservabilityExport", () => {
     });
 
     expect(result.attempted).toBe(0);
-    expect(result.errors[0]).toMatch(/no active organization membership/);
+    expect(result.errors).toEqual(["background_identity_invalid"]);
     expect(exporter.export).not.toHaveBeenCalled();
   });
 });
