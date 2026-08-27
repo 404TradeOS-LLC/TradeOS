@@ -568,5 +568,5 @@ Protected boundary: Do not mix S027 browser evidence, S036 index work, S044/S045
 Sprint ID: S047
 Eligibility: S047 is READY; S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045, so neither overlaps this lane.
 Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: No open or remote S047 implementation branch exists in the live reconciliation. Create only one `feature/s047-implementation` lane from current `origin/main`; keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
-Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, run canonical startup and autonomy reconciliation, then implement S047 on its isolated branch/worktree with the existing RC smoke seams.
+Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane; no PR is open yet. Continue only on this branch from current `origin/main`; keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
+Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, reconcile the active `feature/s047-implementation` lane, then implement S047 in its isolated worktree with the existing RC smoke seams.
