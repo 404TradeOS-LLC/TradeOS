@@ -71,8 +71,17 @@ export async function updateSession(request: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.search = "";
     response = NextResponse.redirect(loginUrl);
-    response.cookies.delete(LOCAL_ACCESS_TOKEN_COOKIE);
-    response.cookies.delete(LOCAL_REFRESH_TOKEN_COOKIE);
+
+    // When only the refresh cookie remains, a failed refresh can be the losing
+    // half of two concurrent requests racing a single-use refresh-token
+    // rotation. Emitting deletion cookies from that loser can overwrite a
+    // successful sibling response that already installed the replacement
+    // tokens. Still fail closed to login, but only clear cookies when this
+    // request also carried an access token (the non-race stale-session path).
+    if (localToken) {
+      response.cookies.delete(LOCAL_ACCESS_TOKEN_COOKIE);
+      response.cookies.delete(LOCAL_REFRESH_TOKEN_COOKIE);
+    }
     return response;
   }
 
