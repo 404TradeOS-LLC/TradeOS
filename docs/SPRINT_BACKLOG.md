@@ -415,7 +415,7 @@ Evidence: Readiness PR #385 merged as `a762ba715e9bc889922a7b94288c59720940c3ee`
 
 ### S038 — Background and retry semantics
 
-Status: READY
+Status: DONE
 Dependencies: S037
 Objective: Standardize retries, idempotency, and failure recording for asynchronous work.
 Acceptance: no duplicate side effects under retry.
@@ -423,6 +423,7 @@ Readiness evidence: S037 is DONE with merged implementation and completion evide
 Readiness contract: `docs/architecture/S038_BACKGROUND_RETRY_SEMANTICS_PLAN.md` bounds S038 to standardizing and verifying retry outcomes, idempotency, safe failure recording, tenant-scoped background execution, and focused recovery tests over existing asynchronous seams. No new queue/provider/scheduler platform, schema or migration, billing/payment, customer messaging, auth/RBAC/RLS redesign, production credential/deployment, S027, S036, or S043 work.
 Founder-decision boundary: NO for the bounded existing-architecture contract. Stop only if a new provider, materially different customer-visible retry behavior, durable retention policy, schema/migration, or production trust-boundary change is unavoidable.
 Required implementation validation: focused Athena event retry/dead-letter/replay, supplier-job, and observability-job tests; tenant/RLS and inactive-worker denial evidence; safe redaction/correlation assertions; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable app typecheck, lint, build, migration, integration, and PostgreSQL/RLS checks.
+Evidence: Implementation PR #393 merged as `a09a4b2e2b4bacd6b5750507e4caf06e7450640a`; completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`. Hosted required checks and disposable PostgreSQL integration passed; production scheduler configuration and live failure rehearsal remain external evidence.
 
 ### S039 — Backup and recovery verification
 
@@ -475,10 +476,13 @@ Evidence: readiness PR #353 merged as `b63f1a51281e19b64c1bdcbdff4163f954f789e0`
 
 ### S043 — Security event audit trail
 
-Status: PLANNED
+Status: READY
 Dependencies: S037, S040
 Objective: Record meaningful auth, tenant, privilege, and sensitive workflow events.
 Acceptance: security-relevant actions are attributable and queryable.
+Readiness contract: `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md` bounds S043 to coverage and queryability over existing Athena audit, security decision, activity, membership-audit, auth, and kernel seams. Preserve server-derived actor/org context, fixed reason vocabularies, safe metadata, forced RLS, existing permissions, route shapes, transactions, and approval semantics. No new audit store/provider, role/permission, RLS redesign, retention policy, production data/credential work, S027, S036, S038, S044, or S045 scope.
+Founder-decision boundary: NO for the bounded existing-store contract. Stop only if a new retention policy, SIEM/provider, role/permission, RLS redesign, or customer/legal audit promise is unavoidable.
+Required implementation validation: focused audit/security/auth tests; safe-redaction and correlation assertions; same-organization/cross-organization and inactive-identity evidence; disposable PostgreSQL/RLS regression; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable app typecheck, lint, build, migration, integration, and PostgreSQL/RLS checks.
 
 ### S044 — Secrets and environment posture
 

@@ -334,7 +334,7 @@ S041 readiness PR #350 merged as `9fde03effd679f63c36790f37ddfade2913247ed`; imp
 
 ## S042 authentication/session hardening
 
-S042 is DONE through readiness PR #353, implementation PR #354, and `docs/architecture/S042_COMPLETION_EVIDENCE.md`. The shipped contract covers single-use refresh rotation, local refresh-session revocation on logout/password reset/deactivation, explicit Supabase token expiry claims, and pre-side-effect server-action authentication. No production/browser evidence is claimed. No numbered sprint is currently READY because S043 depends on PLANNED S037; S027 remains independently blocked on authenticated rendered Costbook evidence.
+S042 is DONE through readiness PR #353, implementation PR #354, and `docs/architecture/S042_COMPLETION_EVIDENCE.md`. The shipped contract covers single-use refresh rotation, local refresh-session revocation on logout/password reset/deactivation, explicit Supabase token expiry claims, and pre-side-effect server-action authentication. No production/browser evidence is claimed. S038 is DONE through implementation PR #393 and `docs/architecture/S038_COMPLETION_EVIDENCE.md`. S043 is the sole promoted READY sprint; S027 remains independently blocked on authenticated rendered Costbook evidence and S036 remains blocked by S027.
 
 ## S031 scheduling conflict rules
 
