@@ -61,6 +61,13 @@ current scope; it does not itself promote S027 to `READY`.
 
 The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 has now merged the standardized server-side catalog pagination/search/filter/sort contract. S027 remains `PARTIAL/BLOCKED` only until authenticated rendered Costbook browser evidence is captured. Re-read live GitHub state before any later promotion.
 
+Live queue reconciliation on 2026-08-27: S037 is DONE and S038 is the sole
+promoted READY sprint. The S038 readiness contract is recorded in
+`docs/architecture/S038_BACKGROUND_RETRY_SEMANTICS_PLAN.md` and is limited to
+existing asynchronous delivery/job seams, bounded retry/idempotency behavior,
+safe failure recording, and tenant-scoped background execution. S027 browser
+evidence and S036 remain independent blockers; S043 has not been promoted.
+
 ## Volume I — Vision
 
 Canonical doctrine: `docs/bible/VOLUME_1_VISION.md`
