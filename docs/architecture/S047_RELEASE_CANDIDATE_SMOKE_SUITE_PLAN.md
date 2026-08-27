@@ -37,8 +37,12 @@ contracts, domain services, forced RLS, and existing lifecycle semantics.
 - the smoke suite runs deterministically against an explicitly supplied
   deployment URL and authenticated storage state without committing cookies or
   credentials;
+- an authentication scenario exercises successful login, rejected credentials,
+  logout, and session refresh/expiry behavior using a dedicated non-production
+  account or equivalent sanitized fixture, without persisting secrets;
 - route smoke covers founder-critical authenticated workspace routes and
-  records status, final URL, body presence, and screenshots;
+  records status, final URL, body presence, and screenshots only for a
+  sanitized non-production tenant;
 - the golden workflow exercises the existing customer → project → estimate →
   proposal path with persisted edits, finalization, and PDF availability;
 - business-flow scenarios cover contract, job, invoice, and portal boundaries
@@ -66,6 +70,8 @@ checks, and an operator-triggered RC smoke run when an authenticated storage
 state and deployment URL are available. The repository can prove script
 contracts and artifact safety without production access; live authenticated
 execution requires the existing scoped `RC_E2E_STORAGE_STATE_B64` secret and
-an explicitly selected deployment URL. No founder decision is required for
+an explicitly selected non-production deployment URL and test tenant.
+Production URLs must disable screenshot publication or apply an explicit
+redaction control before any artifact upload. No founder decision is required for
 this bounded verification contract. Founder approval of remaining product
 risk belongs to later release/deployment governance and is not inferred here.
