@@ -67,7 +67,7 @@ Every authenticated API request depends on three layers:
 
 The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers.
 
-The S018/S042 hardening keeps this three-layer boundary intact: locally issued access JWTs expire after a finite default lifetime and reject malformed registered claims, refresh rotation is single-use under concurrency, local refresh sessions are revoked at logout/password reset/inactive-account rejection, and inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path with finite `exp`/`iat` required; captured access JWTs remain valid until expiry by policy.
+The S018/S042 hardening keeps this three-layer boundary intact: locally issued access JWTs expire after a finite default lifetime and reject malformed registered claims, refresh rotation is single-use under concurrency, local refresh sessions are revoked at logout/password reset/inactive-account rejection, and inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path with finite `exp`/`iat` required; captured access JWTs remain valid until expiry by policy. S043 records server-derived authentication outcomes, authorization denials, security decisions, and sensitive-action terminal outcomes in the durable Athena audit trail when a verified organization context exists; malformed tokens without trustworthy tenant context remain fail-closed and are never enriched from client input.
 
 The request-scoped database session sets:
 
@@ -137,6 +137,9 @@ than a separate package extraction. The implemented boundary now includes:
 
 - durable approval persistence and review routes under `app/modules/athena-approvals/**` and `app/backend/routes/athena.routes.ts`;
 - durable audit persistence under `app/modules/athena-audit/**`;
+- security audit events for authentication, authorization, security decisions,
+  and sensitive-action outcomes, with allowlisted metadata and owner/admin
+  review through the observability API;
 - operator-facing approval review at `web/src/app/(app)/athena/approvals/page.tsx`;
 - first-party context providers for customers, estimates, and costbook, all of
   which still call existing application services instead of reaching Prisma

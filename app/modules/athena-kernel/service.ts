@@ -701,6 +701,20 @@ export class AthenaKernelService {
 
           if (actionState !== "succeeded") {
             const toolError = actionOutcome.result.toolResult.error ?? normalizeAthenaError(new Error("athena_action_failed"), traceId);
+            await recordSecurityAudit(
+              "sensitive_action_completed",
+              actionState === "denied" || actionState === "awaiting_approval" ? "denied" : "failed",
+              {
+                decision: stepDecision.decision,
+                reasonCode: toolError.code,
+                planId: plan.planId,
+                stepId: step.stepId,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                riskLevel: tool.risk,
+              },
+              { actionId: actionAuditId, approvalId: input.approvalId }
+            );
             if (actionState === "denied" || actionState === "awaiting_approval") {
               if (actionState === "awaiting_approval") {
                 await recordAudit(

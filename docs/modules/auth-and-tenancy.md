@@ -17,6 +17,8 @@ related_code:
   - app/backend/routes/auth.routes.ts
   - app/backend/routes/account.routes.ts
   - app/backend/routes/organizationProvisioning.routes.ts
+  - app/modules/athena-audit/securityEvents.ts
+  - app/modules/athena-audit/store.ts
   - web/src/app/actions/auth.ts
   - web/src/app/finish-setup/page.tsx
   - web/src/app/finish-setup/finish-setup-form.tsx
@@ -90,6 +92,14 @@ The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API dir
 
 Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. Delivery is scheduled after the HTTP response rather than awaited by the auth routes, which keeps password-reset timing uniform for known and unknown addresses. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record. Auth controllers register delivery after the response finishes; the scheduler keeps provider latency out of public auth responses and gives the authenticated request transaction a chance to commit before invite delivery starts. On Vercel, the scheduler registers the post-response promise with `waitUntil` before the response finishes so the function invocation remains alive through provider delivery; non-Vercel runtimes use a best-effort fallback. A durable transactional outbox remains the follow-up for retryable delivery across runtime termination.
 
+Authentication success and failure outcomes are also emitted to the durable
+Athena security audit trail when the server has a verified actor and
+organization context. The event builder allowlists metadata and never stores
+bearer tokens, raw prompts, secrets, request bodies, or stack traces. A token
+that cannot establish trustworthy tenant context remains fail-closed; it is
+reported through the existing safe application log path rather than being
+attributed to a client-supplied organization.
+
 The email links target the implemented `/reset-password?token=...` and `/invite/accept?token=...` frontend flows. Password reset preserves the generic response contract; invitation acceptance establishes the backend local session in secure HTTP-only cookies and enters the authenticated app. The separate `/forgot-password` screen starts reset delivery. Production sends still require a verified sender domain and the configured `APP_BASE_URL`.
 
 ## Database security invariants
@@ -105,6 +115,9 @@ The email links target the implemented `/reset-password?token=...` and `/invite/
   review actions are then narrowed further by API role checks and by
   `athena_approvals` RLS updates that restrict row mutation to
   `owner`/`admin`/`dispatcher`.
+- Security audit persistence uses the same transaction client when the
+  authentication seam has a verified membership, preserving `app.user_id`,
+  `app.org_id`, and `app.role` without widening lookup scope.
 
 ## Frontend surfaces
 

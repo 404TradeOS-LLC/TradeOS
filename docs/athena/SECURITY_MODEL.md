@@ -129,6 +129,13 @@ Current event types:
 - `approval_requested`
 - `execution_completed`
 - `failure`
+- `authentication_succeeded`
+- `authentication_failed`
+- `security_decision`
+- `tenant_access_denied`
+- `privilege_denied`
+- `sensitive_action_attempted`
+- `sensitive_action_completed`
 
 Audit metadata must stay safe for logs and operator review. Secrets, raw model
 prompts, bearer tokens, and unrestricted record payloads are forbidden.

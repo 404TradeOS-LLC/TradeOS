@@ -7,6 +7,7 @@ export const athenaAuditEventTypes = [
   "execution_completed",
   "failure",
   "authentication_succeeded",
+  "authentication_failed",
   "security_decision",
   "tenant_access_denied",
   "privilege_denied",
@@ -43,6 +44,7 @@ export interface AthenaAuditApprovalQuery {
 
 export const athenaSecurityAuditEventTypes = [
   "authentication_succeeded",
+  "authentication_failed",
   "security_decision",
   "tenant_access_denied",
   "privilege_denied",

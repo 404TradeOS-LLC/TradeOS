@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { athenaSecurityAuditEventTypes, type AthenaAuditEvent, type AthenaAuditRepository, type AthenaAuditStore, type AthenaSecurityAuditQuery } from "./types";
 
@@ -121,12 +121,14 @@ export function createInMemoryAthenaAuditStore(events: AthenaAuditEvent[] = []):
   };
 }
 
-export function createPrismaAthenaAuditStore(): AthenaAuditRepository {
+type AthenaAuditDatabase = Pick<PrismaClient, "athenaAuditEvent">;
+
+export function createPrismaAthenaAuditStore(database: AthenaAuditDatabase = prisma): AthenaAuditRepository {
   return {
     async record(event) {
       const priorAction =
         event.eventType === "execution_completed" && (!event.actionId || !event.approvalId)
-          ? await prisma.athenaAuditEvent.findFirst({
+          ? await database.athenaAuditEvent.findFirst({
               where: {
                 orgId: event.organization,
                 executionId: event.executionId,
@@ -138,7 +140,7 @@ export function createPrismaAthenaAuditStore(): AthenaAuditRepository {
           : null;
       const correlatedEvent = withInheritedActionCorrelation(event, priorAction);
 
-      await prisma.athenaAuditEvent.create({
+      await database.athenaAuditEvent.create({
         data: {
           id: correlatedEvent.id,
           orgId: correlatedEvent.organization,
@@ -156,7 +158,7 @@ export function createPrismaAthenaAuditStore(): AthenaAuditRepository {
       });
     },
     async listForApproval(query) {
-      const rows = await prisma.athenaAuditEvent.findMany({
+      const rows = await database.athenaAuditEvent.findMany({
         where: {
           orgId: query.organizationId,
           OR: [{ approvalId: query.approvalId }, { actionId: query.actionId }],
@@ -167,18 +169,20 @@ export function createPrismaAthenaAuditStore(): AthenaAuditRepository {
       return rows.map(toAuditEvent);
     },
     async listSecurityEvents(query) {
-      const rows = await prisma.athenaAuditEvent.findMany({
+      const rows = await database.athenaAuditEvent.findMany({
         where: {
           orgId: query.organizationId,
           eventType: { in: [...(query.eventTypes ?? athenaSecurityAuditEventTypes)] },
           actorUserId: query.actorUserId,
           createdAt: { gte: query.from, lte: query.to },
+          metadataJson: query.outcome
+            ? { path: ["outcome"], equals: query.outcome }
+            : undefined,
         },
         orderBy: { createdAt: "desc" },
         take: securityEventLimit(query.limit),
       });
-      const events = rows.map(toAuditEvent);
-      return query.outcome ? events.filter((event) => event.metadata.outcome === query.outcome) : events;
+      return rows.map(toAuditEvent);
     },
   };
 }

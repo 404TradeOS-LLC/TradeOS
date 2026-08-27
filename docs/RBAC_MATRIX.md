@@ -126,6 +126,11 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 - Athena audit/event review in the operator console is also owner/admin only,
   even though the underlying audit table keeps actor-scoped visibility for
   non-operator callers.
+- S043 security audit events use server-derived actor and organization context;
+  authentication failures, authorization denials, security decisions, and
+  sensitive-action outcomes do not add a role or permission. The security-event
+  review endpoint remains owner/admin only and accepts bounded filters for
+  event type, actor, outcome, and time range.
 
 ## Current auth-specific constraints
 
