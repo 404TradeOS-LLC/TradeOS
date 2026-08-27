@@ -67,7 +67,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {invoice.lineItems.map((li) => (
-            <LineItemRow key={li.id} description={li.description} amount={formatInvoiceCurrency(li.lineCost)} className="border-none p-0" />
+            <LineItemRow key={li.id} description={li.description} amount={formatInvoiceCurrency(li.lineTotal)} className="border-none p-0" />
           ))}
           <div className="flex items-center justify-between gap-3 border-t pt-2 text-base font-semibold">
             <span className="min-w-0 truncate">Total</span>

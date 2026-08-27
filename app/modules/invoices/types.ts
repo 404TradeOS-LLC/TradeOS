@@ -31,9 +31,9 @@ export interface InvoiceLineItemInput {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
+  unitPrice: number;
   /** Customer-facing allocated line total when created from an estimate. */
-  lineCost?: number;
+  lineTotal?: number;
 }
 
 export interface CreateInvoiceInput {
@@ -54,8 +54,8 @@ export interface InvoiceLineItemDTO {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
-  lineCost: number;
+  unitPrice: number;
+  lineTotal: number;
   sortOrder: number;
 }
 

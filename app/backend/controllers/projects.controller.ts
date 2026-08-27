@@ -225,8 +225,8 @@ export const projectsController = {
         lineItems: (invoice.lineItems ?? []).map((lineItem) => ({
           ...lineItem,
           quantity: toNullableNumber(lineItem.quantity) ?? 0,
-          unitCost: toNullableNumber(lineItem.unitCost) ?? 0,
-          lineCost: toNullableNumber(lineItem.lineCost) ?? 0,
+          unitPrice: toNullableNumber(lineItem.unitPrice) ?? 0,
+          lineTotal: toNullableNumber(lineItem.lineTotal) ?? 0,
         })),
       })),
       jobs: (row.jobs ?? []).map((job) => ({

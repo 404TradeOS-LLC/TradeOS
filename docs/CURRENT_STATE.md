@@ -118,6 +118,7 @@ The repository is no longer organized around MVP planning documents. The active 
 ## Implemented modules
 
 - Auth and tenancy
+- Local-session proxy refresh hardening: protected routes treat either local auth cookie as local-session intent; when the short-lived access cookie has expired from the browser but the 30-day refresh cookie remains, the proxy uses the existing local refresh flow instead of falling through to Supabase/login. Refresh-only failures remain fail-closed to `/login`; a concurrent single-use refresh-rotation loser intentionally emits no local-cookie deletions that could overwrite a sibling response's rotated replacement cookies, while stale requests that still carry a local access cookie retain explicit cleanup. Cookie lifetimes, backend refresh-token policy, auth/permission/RLS boundaries, schema, secrets, billing, and architecture are unchanged.
 - CRM: customers, service addresses, customer equipment, service agreements, notes, company profile
 - Projects and project workspace
 - Site visit intake: intake saves can capture notes, measurements, and project photos; if a later photo-metadata write fails after earlier metadata rows were persisted, the action compensates those persisted rows before storage cleanup. If metadata compensation itself fails, the corresponding storage object is preserved so surviving metadata never points at an object the action deleted, and cleanup failures do not mask the original intake error.
@@ -308,6 +309,10 @@ invoice lines in proportion to each persisted line `lineCost` share of
 largest line. Progress invoices scale the same total. Explicit non-empty
 `lineItems` continue to override estimate resolution. Custom
 line-item invoice creation and existing invoice/payment records are unchanged.
+Invoice rows expose the accurate selling-price names `unitPrice` and
+`lineTotal`; the legacy persisted column names were renamed without changing
+values or payment behavior by migration
+`20260826140000_rename_invoice_line_price_columns`.
 
 ## S028 estimate-to-proposal reconciliation
 

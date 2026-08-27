@@ -74,6 +74,15 @@ estimate allocation applies only when `lineItems` are absent or empty. Custom
 behavior. This value-transfer rule changes no permission, payment-ledger,
 tax-formula, or schema contract.
 
+`InvoiceLineItem` uses the selling-price names `unitPrice` and `lineTotal`.
+These replace the legacy `unitCost` and `lineCost` names for invoice rows only;
+estimate, change-order, and Costbook line items retain their cost-oriented
+names. Migration `20260826140000_rename_invoice_line_price_columns` renames the
+persisted columns without changing values or invoice/payment behavior. Its
+rollback plan is the reverse pair of column renames: `unit_price` to
+`unit_cost` and `line_total` to `line_cost`, before redeploying the prior
+application version.
+
 ## Permissions
 
 The organization payment-ledger read endpoint and the organization invoice work-queue read both require the canonical `billing.read` permission and still run under the existing authenticated organization/database-session stack. See [RBAC_MATRIX.md](../RBAC_MATRIX.md).

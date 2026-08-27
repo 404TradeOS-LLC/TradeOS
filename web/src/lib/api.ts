@@ -910,8 +910,8 @@ export interface InvoiceLineItem {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
-  lineCost: number;
+  unitPrice: number;
+  lineTotal: number;
 }
 
 export interface InvoiceDelivery {

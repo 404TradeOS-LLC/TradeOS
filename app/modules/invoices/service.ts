@@ -40,7 +40,7 @@ export class InvoicesService {
       if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     }
 
-    const amount = roundCurrency(lineItems.reduce((sum, li) => sum + (li.lineCost ?? li.quantity * li.unitCost), 0));
+    const amount = roundCurrency(lineItems.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
     const nextNumber = (await prisma.invoice.aggregate({ where: { projectId: input.projectId }, _max: { invoiceNumber: true } }))._max
       .invoiceNumber ?? 0;
 
@@ -59,8 +59,8 @@ export class InvoicesService {
             description: li.description,
             quantity: li.quantity,
             unitOfMeasure: li.unitOfMeasure,
-            unitCost: li.unitCost,
-            lineCost: li.lineCost ?? roundCurrency(li.quantity * li.unitCost),
+            unitPrice: li.unitPrice,
+            lineTotal: li.lineTotal ?? roundCurrency(li.quantity * li.unitPrice),
             sortOrder: index,
           })),
         },
@@ -228,8 +228,8 @@ export class InvoicesService {
           description: li.description,
           quantity: Number(li.quantity),
           unitOfMeasure: li.unitOfMeasure,
-          unitCost: Number(li.unitCost),
-          lineCost: Number(li.lineCost),
+          unitPrice: Number(li.unitPrice),
+          lineTotal: Number(li.lineTotal),
         })),
       },
       { brand }
@@ -414,9 +414,9 @@ export class InvoicesService {
       description: line.description,
       quantity: line.quantity,
       unitOfMeasure: line.unitOfMeasure,
-      // InvoiceLineItem.unitCost/lineCost now carry selling price, not direct cost.
-      unitCost: line.quantity > 0 ? roundUnitCost(allocations[index] / line.quantity) : 0,
-      lineCost: allocations[index],
+      // InvoiceLineItem.unitPrice/lineTotal carry selling price, not direct cost.
+      unitPrice: line.quantity > 0 ? roundUnitCost(allocations[index] / line.quantity) : 0,
+      lineTotal: allocations[index],
     }));
   }
 }
@@ -544,8 +544,8 @@ function toLineItemDTO(row: {
   description: string;
   quantity: unknown;
   unitOfMeasure: string;
-  unitCost: unknown;
-  lineCost: unknown;
+  unitPrice: unknown;
+  lineTotal: unknown;
   sortOrder: number;
 }): InvoiceLineItemDTO {
   return {
@@ -553,8 +553,8 @@ function toLineItemDTO(row: {
     description: row.description,
     quantity: Number(row.quantity),
     unitOfMeasure: row.unitOfMeasure,
-    unitCost: Number(row.unitCost),
-    lineCost: Number(row.lineCost),
+    unitPrice: Number(row.unitPrice),
+    lineTotal: Number(row.lineTotal),
     sortOrder: row.sortOrder,
   };
 }

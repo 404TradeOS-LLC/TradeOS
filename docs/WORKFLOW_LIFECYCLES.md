@@ -320,6 +320,13 @@ that value by completion percentage. If explicit non-empty `lineItems` are
 provided, they override estimate resolution and keep their supplied values;
 custom invoice line items do not use this transfer path.
 
+Invoice line-item field names reflect that invariant: `unitPrice` is the
+selling-price unit value and `lineTotal` is the customer-facing allocated line
+total. Migration `20260826140000_rename_invoice_line_price_columns` renames the
+legacy persisted columns only; it does not alter pricing, invoice states,
+payment reconciliation, or tenant/RLS behavior. The documented rollback is the
+reverse column rename before redeploying the prior application version.
+
 ## Transactional canonical-event invariant (A12.1)
 
 For the six required A12 canonical mutation events — `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent` — the business mutation and durable canonical-event persistence share one database transaction. A required event-persistence failure therefore leaves the corresponding business/lifecycle mutation uncommitted. This atomicity applies to persistence only; event delivery, subscribers, retries, dead-lettering, and replay remain separate asynchronous A8 concerns.
