@@ -561,7 +561,7 @@ Protected boundary: Do not mix S027 browser evidence, S036 index work, S038 foll
 ## Next Eligible Sprint
 
 Sprint ID: S043
-Eligibility: S043 is READY; S037 and S040 are DONE, and no open or remote S043 implementation overlap exists in the live reconciliation. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
+Eligibility: S043 is READY and its sole implementation lane is active in PR #395; S037 and S040 are DONE. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
 Dependencies: S037 and S040 are DONE with merged evidence; no founder decision or external credential is required for the bounded contract.
-Overlap check: No open PR or remote S043 implementation branch exists; S038 implementation PR #393 and completion evidence are merged. Create only one `feature/s043-implementation` lane from current `origin/main`.
-Startup prompt: Read `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S043 on its isolated branch/worktree while keeping S027 browser evidence, S036, S038, S039, and S045 independent.
+Overlap check: PR #395 is the sole remote S043 implementation lane; S038 implementation PR #393 and completion evidence are merged. Continue only on `feature/s043-implementation` from current `origin/main`.
+Startup prompt: Read `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`, reconcile PR #395 and its checks, then complete or repair S043 on its isolated branch/worktree while keeping S027 browser evidence, S036, S038, S039, and S045 independent.

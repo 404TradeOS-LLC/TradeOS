@@ -181,7 +181,7 @@ of Friday, August 14, 2026, it:
 - can record Athena audit events for request receipt, context gathering, tool
   consideration, action attempt, approval request, completion, and failure;
 - records safe, correlated security events for authenticated Athena requests,
-  privilege and tenant-boundary denials, and sensitive action attempts and
+  security decisions, privilege and tenant-boundary denials, and sensitive action attempts and
   completions in the existing organization-scoped audit store;
 - enforces fail-closed approval verification for medium/high-risk actions by
   binding approval to org, user, tool, risk, idempotency key, canonical input
