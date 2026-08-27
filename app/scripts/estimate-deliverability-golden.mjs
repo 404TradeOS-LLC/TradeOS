@@ -8,10 +8,23 @@ const baseUrl = process.env.ESTIMATE_BASE_URL;
 const storageState = process.env.ESTIMATE_STORAGE_STATE_PATH;
 const outDir = process.env.ESTIMATE_EVIDENCE_DIR || "../artifacts/estimate-deliverability";
 const runs = Number(process.env.ESTIMATE_RELIABILITY_RUNS || 10);
+const targetEnvironment = process.env.RC_TARGET_ENVIRONMENT;
+const smokeTenantLabel = process.env.RC_SMOKE_TENANT_LABEL;
+const allowMutations = process.env.RC_ALLOW_MUTATIONS === "true";
 
 if (!baseUrl) throw new Error("ESTIMATE_BASE_URL is required.");
 if (!storageState) throw new Error("ESTIMATE_STORAGE_STATE_PATH is required.");
 if (!Number.isInteger(runs) || runs < 1) throw new Error("ESTIMATE_RELIABILITY_RUNS must be a positive integer.");
+if (!["preview", "staging"].includes(targetEnvironment)) {
+  throw new Error("RC_TARGET_ENVIRONMENT must be preview or staging for the mutating golden workflow.");
+}
+if (!smokeTenantLabel) throw new Error("RC_SMOKE_TENANT_LABEL is required for mutating smoke evidence.");
+if (!allowMutations) throw new Error("RC_ALLOW_MUTATIONS=true is required for the mutating golden workflow.");
+
+const parsedBaseUrl = new URL(baseUrl);
+if (!/^https?:$/.test(parsedBaseUrl.protocol) || parsedBaseUrl.username || parsedBaseUrl.password) {
+  throw new Error("ESTIMATE_BASE_URL must be an HTTP(S) URL without embedded credentials.");
+}
 
 await fs.mkdir(outDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -24,8 +37,8 @@ async function fillAndSubmit(page, fields, submitName) {
 
 async function runWorkflow(page, runNumber) {
   const suffix = `${Date.now()}-${runNumber}`;
-  const customerName = `Estimate Deliverability Test Customer ${suffix}`;
-  const projectName = `Condo Remodel Deliverability Test ${suffix}`;
+  const customerName = `${smokeTenantLabel} Estimate Deliverability Test Customer ${suffix}`;
+  const projectName = `${smokeTenantLabel} Condo Remodel Deliverability Test ${suffix}`;
   const scope = "Demolition: remove carpet, glued-down linoleum, damaged bedroom ceiling, bathroom demolition, appliance removal, closet/shelving demolition, debris handling. Reconstruction / Finish: drywall repair/replacement, flooring, painting, trim, miscellaneous carpentry, cleanup.";
 
   const consoleErrors = [];
@@ -105,9 +118,26 @@ async function runWorkflow(page, runNumber) {
   await page.locator("select[name=estimateId]").selectOption(estimateId);
   await page.getByRole("button", { name: "Create proposal" }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/[^/]+$`));
+  const proposalId = page.url().match(/\/proposals\/([^/?]+)$/)?.[1];
+  if (!proposalId) throw new Error(`Could not resolve proposal URL: ${page.url()}`);
+  await page.getByRole("button", { name: "Send to customer" }).click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`));
+  await page.getByRole("button", { name: "Mark accepted" }).click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/${proposalId}$`));
+  await page.getByRole("button", { name: "Create contract" }).click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}/contracts/[^/]+$`));
+  const contractId = page.url().match(/\/contracts\/([^/?]+)/)?.[1];
+  if (!contractId) throw new Error(`Could not resolve contract URL: ${page.url()}`);
+
+  await page.goto(new URL(`/projects/${projectId}/invoices/new`, baseUrl), { waitUntil: "networkidle" });
+  await page.locator("select[name=estimateId]").selectOption(estimateId);
+  await page.getByRole("button", { name: "Create invoice" }).click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`));
+  const invoiceId = page.url().match(/\/invoices\/([^/?]+)/)?.[1];
+  if (!invoiceId) throw new Error(`Could not resolve invoice URL: ${page.url()}`);
   await page.getByRole("link", { name: /preview pdf|download pdf/i }).first().waitFor();
 
-  return { runNumber, customerName, projectName, projectId, estimateId, consoleErrors, failedRequests, passed: consoleErrors.length === 0 && failedRequests.length === 0 };
+  return { runNumber, projectId, estimateId, proposalId, contractId, invoiceId, consoleErrors, failedRequests, passed: consoleErrors.length === 0 && failedRequests.length === 0 };
 }
 
 let workflowError = null;
@@ -129,7 +159,7 @@ try {
 } finally {
   if (context) await context.close();
   await browser.close();
-  await fs.writeFile(path.join(outDir, "report.json"), JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, runs, results, error: workflowError instanceof Error ? workflowError.message : workflowError }, null, 2));
+  await fs.writeFile(path.join(outDir, "report.json"), JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, targetEnvironment, smokeTenantLabel, runs, results, error: workflowError instanceof Error ? workflowError.message : workflowError }, null, 2));
 }
 
 if (workflowError) throw workflowError;

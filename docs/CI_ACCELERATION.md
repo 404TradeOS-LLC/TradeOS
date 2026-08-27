@@ -51,7 +51,21 @@ The value must be a base64-encoded Playwright storage-state JSON file for a non-
 
 `RC_E2E_STORAGE_STATE_B64`
 
-It accepts a base URL and route list, performs authenticated route-level smoke checks, and uploads screenshots/report artifacts. This is an RC evidence foundation; workflow-specific business mutations still require purpose-built E2E scenarios before S047 can be considered complete.
+It accepts an explicitly selected Preview or Staging URL, a dedicated sanitized
+smoke-tenant label, and route list. The workflow requires separate
+`RC_E2E_AUTH_EMAIL`, `RC_E2E_AUTH_PASSWORD`, and deliberately invalid
+`RC_E2E_AUTH_REJECTED_PASSWORD` secrets to exercise rejected credentials,
+successful login, refresh, logout, and protected-route denial. It then runs
+route smoke, the customer → project → estimate → proposal golden workflow,
+contract/invoice creation, portal resource checks, and the Dispatch/Field job
+surfaces. Golden-workflow mutations require `RC_ALLOW_MUTATIONS=true` inside
+the script and are fail-closed outside Preview or Staging.
+
+Screenshots are opt-in. They require `sanitized_tenant=true` and are refused
+for production-targeted direct script runs; the workflow itself only offers
+Preview and Staging. Without that confirmation, uploaded artifacts contain
+machine-readable reports only. The workflow does not commit credentials or
+storage state, and the generated reports never include authentication secrets.
 
 Do not place credentials or raw cookies in workflow YAML, repository files, PR comments, or uploaded artifacts.
 

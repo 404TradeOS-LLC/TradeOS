@@ -67,6 +67,13 @@ completion evidence. S038 implementation evidence is recorded in
 READY sprint through `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`;
 S027 browser evidence and S036 remain independent blockers.
 
+S047 implementation evidence is constrained to the existing Playwright seams:
+the operator-triggered workflow now requires dedicated Preview/Staging auth
+fixtures, exercises authentication lifecycle and resource-backed business
+flows, and fail-closes mutating golden runs outside non-production or
+screenshot capture without sanitized-tenant confirmation. It does not change
+product auth, authorization, schema, RLS, or customer-data policy.
+
 ## Volume I — Vision
 
 Canonical doctrine: `docs/bible/VOLUME_1_VISION.md`

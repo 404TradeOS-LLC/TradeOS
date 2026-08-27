@@ -73,6 +73,14 @@ Use these files first:
 
 `docs/CI_ACCELERATION.md` is supporting operational documentation for the CI throughput/evidence workflows. It does not replace Repository Governance or the numbered-sprint protocol.
 
+The manual `Release candidate authenticated smoke` workflow is the governed
+S047 evidence path. It is restricted to explicitly selected Preview or Staging
+deployments and a dedicated smoke tenant; it runs authentication lifecycle,
+resource-backed customer/estimate/proposal/contract/invoice/portal checks, and
+Dispatch/Field job-surface checks. Screenshots are opt-in only for an explicitly
+confirmed sanitized tenant. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for
+the required secrets and artifact boundary.
+
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
 The `PR maintenance` workflow is also manual-only. It accepts an explicit open same-repository PR number targeting `main` and requests GitHub to rebase that branch onto current `main`; it must not bypass branch protection, required checks, review requirements, fork restrictions, or merge-conflict handling.

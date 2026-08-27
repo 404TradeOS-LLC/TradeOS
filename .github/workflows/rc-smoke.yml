@@ -10,7 +10,34 @@ on:
       routes:
         description: Comma-separated authenticated routes
         required: true
-        default: /dashboard,/customers,/projects,/estimates,/proposals,/contracts,/jobs,/invoices,/costbook
+        default: /dashboard,/customers,/projects,/dispatch,/field,/costbook
+        type: string
+      target_environment:
+        description: Non-production deployment environment used by the smoke tenant
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - staging
+      smoke_tenant_label:
+        description: Label for the dedicated non-production smoke tenant
+        required: true
+        type: string
+      capture_screenshots:
+        description: Capture screenshots only when the tenant is sanitized
+        required: true
+        default: false
+        type: boolean
+      sanitized_tenant:
+        description: Confirm the selected tenant contains sanitized test data
+        required: true
+        default: false
+        type: boolean
+      estimate_runs:
+        description: Number of isolated golden-workflow repetitions
+        required: true
+        default: "1"
         type: string
 
 permissions:
@@ -30,7 +57,15 @@ jobs:
     env:
       RC_BASE_URL: ${{ inputs.base_url }}
       RC_ROUTES: ${{ inputs.routes }}
+      RC_TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+      RC_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
+      RC_CAPTURE_SCREENSHOTS: ${{ inputs.capture_screenshots }}
+      RC_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      ESTIMATE_RELIABILITY_RUNS: ${{ inputs.estimate_runs }}
       RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
+      RC_AUTH_EMAIL: ${{ secrets.RC_E2E_AUTH_EMAIL }}
+      RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_AUTH_PASSWORD }}
+      RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_AUTH_REJECTED_PASSWORD }}
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
     steps:
@@ -54,7 +89,33 @@ jobs:
           printf '%s' "$RC_STORAGE_STATE_B64" | base64 --decode > "$RC_STORAGE_STATE_PATH"
           chmod 600 "$RC_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
+      - name: Require non-production smoke configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$RC_SMOKE_TENANT_LABEL" ]; then
+            echo "::error::A dedicated non-production smoke tenant label is required."
+            exit 1
+          fi
+          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ]; then
+            echo "::error::RC_E2E_AUTH_EMAIL, RC_E2E_AUTH_PASSWORD, and RC_E2E_AUTH_REJECTED_PASSWORD are required."
+            exit 1
+          fi
+          if [ "$RC_CAPTURE_SCREENSHOTS" = "true" ] && [ "$RC_SANITIZED_TENANT" != "true" ]; then
+            echo "::error::Screenshots require explicit sanitized-tenant confirmation."
+            exit 1
+          fi
+      - run: node scripts/authenticated-auth-smoke.mjs
       - run: node scripts/authenticated-route-smoke.mjs
+      - run: node scripts/estimate-deliverability-golden.mjs
+        env:
+          ESTIMATE_BASE_URL: ${{ inputs.base_url }}
+          ESTIMATE_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
+          ESTIMATE_EVIDENCE_DIR: ../artifacts/estimate-deliverability
+          RC_ALLOW_MUTATIONS: "true"
+      - run: node scripts/rc-business-flow-smoke.mjs
+        env:
+          RC_GOLDEN_REPORT_PATH: ../artifacts/estimate-deliverability/report.json
       - uses: actions/upload-artifact@v7
         with:
           name: rc-authenticated-smoke
