@@ -476,13 +476,14 @@ Evidence: readiness PR #353 merged as `b63f1a51281e19b64c1bdcbdff4163f954f789e0`
 
 ### S043 — Security event audit trail
 
-Status: READY
+Status: DONE
 Dependencies: S037, S040
 Objective: Record meaningful auth, tenant, privilege, and sensitive workflow events.
 Acceptance: security-relevant actions are attributable and queryable.
 Readiness contract: `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md` bounds S043 to coverage and queryability over existing Athena audit, security decision, activity, membership-audit, auth, and kernel seams. Preserve server-derived actor/org context, fixed reason vocabularies, safe metadata, forced RLS, existing permissions, route shapes, transactions, and approval semantics. No new audit store/provider, role/permission, RLS redesign, retention policy, production data/credential work, S027, S036, S038, S044, or S045 scope.
 Founder-decision boundary: NO for the bounded existing-store contract. Stop only if a new retention policy, SIEM/provider, role/permission, RLS redesign, or customer/legal audit promise is unavoidable.
 Required implementation validation: focused audit/security/auth tests; safe-redaction and correlation assertions; same-organization/cross-organization and inactive-identity evidence; disposable PostgreSQL/RLS regression; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable app typecheck, lint, build, migration, integration, and PostgreSQL/RLS checks.
+Implementation status: DONE after implementation PR #395 merged on 2026-08-27 as `ca042c3a282b03d26f5f5fa389b7b49b9aa02e85`; completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`.
 
 ### S044 — Secrets and environment posture
 
@@ -511,10 +512,13 @@ Acceptance: production migration runbook exercised.
 
 ### S047 — Release candidate smoke suite
 
-Status: PLANNED
+Status: READY
 Dependencies: S022, S028, S033, S040
 Objective: Automate and document founder-critical end-to-end flows.
 Acceptance: repeatable RC smoke evidence for auth, customer, estimate, proposal, contract, job, invoice, and portal.
+Readiness contract: `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md` reuses the existing Playwright route smoke, estimate-deliverability golden workflow, artifact publication, deployment URL, and authenticated storage-state seams. It preserves existing product/API/lifecycle/auth/RLS behavior and requires no schema, migration, role, permission, provider, or product-scope change.
+Founder-decision boundary: NO for the bounded smoke-suite implementation. Live authenticated execution requires the existing scoped RC storage-state secret and an explicitly selected deployment URL; founder approval of remaining product risk is a later release-governance gate, not an implementation dependency.
+Required implementation validation: focused script/config tests; app/web typecheck, lint, and builds; relevant integration/RLS evidence; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; and `npm run docs:check -- --base origin/main`.
 
 ### S048 — Beta tenant onboarding
 
@@ -553,15 +557,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S043 — Security event audit trail
-Completion status: S038 is DONE with implementation and completion evidence merged. S043 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence and S036 remains blocked by S027.
-Dependencies: S037 and S040 are DONE; no external credential or founder decision is required for the bounded S043 contract.
-Protected boundary: Do not mix S027 browser evidence, S036 index work, S038 follow-up evidence, S044/S045 deployment work, new audit providers, retention-policy decisions, or auth/RBAC/RLS redesign into the S043 implementation lane.
+Active Sprint: S047 — Release candidate smoke suite
+Completion status: S043 is DONE with implementation PR #395 and completion evidence merged. S047 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
+Dependencies: S022, S028, S033, and S040 are DONE; no founder decision or external credential is required to implement the bounded smoke-suite contract.
+Protected boundary: Do not mix S027 browser evidence, S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, or launch approval into the S047 implementation lane.
 
 ## Next Eligible Sprint
 
-Sprint ID: S043
-Eligibility: S043 is READY and its sole implementation lane is active in PR #395; S037 and S040 are DONE. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
-Dependencies: S037 and S040 are DONE with merged evidence; no founder decision or external credential is required for the bounded contract.
-Overlap check: PR #395 is the sole remote S043 implementation lane; S038 implementation PR #393 and completion evidence are merged. Continue only on `feature/s043-implementation` from current `origin/main`.
-Startup prompt: Read `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`, reconcile PR #395 and its checks, then complete or repair S043 on its isolated branch/worktree while keeping S027 browser evidence, S036, S038, S039, and S045 independent.
+Sprint ID: S047
+Eligibility: S047 is READY; S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045, so neither overlaps this lane.
+Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
+Overlap check: No open or remote S047 implementation branch exists in the live reconciliation. Create only one `feature/s047-implementation` lane from current `origin/main`; keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
+Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, run canonical startup and autonomy reconciliation, then implement S047 on its isolated branch/worktree with the existing RC smoke seams.
