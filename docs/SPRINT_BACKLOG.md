@@ -415,10 +415,14 @@ Evidence: Readiness PR #385 merged as `a762ba715e9bc889922a7b94288c59720940c3ee`
 
 ### S038 — Background and retry semantics
 
-Status: PLANNED
+Status: READY
 Dependencies: S037
 Objective: Standardize retries, idempotency, and failure recording for asynchronous work.
 Acceptance: no duplicate side effects under retry.
+Readiness evidence: S037 is DONE with merged implementation and completion evidence. The live repository already contains durable Athena event deliveries, bounded exponential retry/dead-letter handling, replay authorization checks, organization-scoped idempotency keys, tenant-scoped background database sessions, and scheduler-facing supplier/observability job entrypoints. No open PR or remote S038 branch overlaps this lane as of 2026-08-27.
+Readiness contract: `docs/architecture/S038_BACKGROUND_RETRY_SEMANTICS_PLAN.md` bounds S038 to standardizing and verifying retry outcomes, idempotency, safe failure recording, tenant-scoped background execution, and focused recovery tests over existing asynchronous seams. No new queue/provider/scheduler platform, schema or migration, billing/payment, customer messaging, auth/RBAC/RLS redesign, production credential/deployment, S027, S036, or S043 work.
+Founder-decision boundary: NO for the bounded existing-architecture contract. Stop only if a new provider, materially different customer-visible retry behavior, durable retention policy, schema/migration, or production trust-boundary change is unavoidable.
+Required implementation validation: focused Athena event retry/dead-letter/replay, supplier-job, and observability-job tests; tenant/RLS and inactive-worker denial evidence; safe redaction/correlation assertions; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable app typecheck, lint, build, migration, integration, and PostgreSQL/RLS checks.
 
 ### S039 — Backup and recovery verification
 
@@ -545,15 +549,15 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S037 is DONE with readiness, implementation, and completion evidence merged. S036 remains separately PLANNED and blocked by S027; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence.
-Dependencies: S037 had no numbered-sprint dependencies; S038 and S043 remain downstream PLANNED work.
-Protected boundary: Do not mix S027 browser evidence, S036 index work, or a downstream sprint into the completed S037 lane.
+Active Sprint: S038 — Background and retry semantics
+Completion status: S037 is DONE with readiness, implementation, and completion evidence merged. S038 is the sole promoted READY lane; S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence and S036 remains blocked by S027.
+Dependencies: S037 is DONE; no external credential or founder decision is required for the bounded S038 contract.
+Protected boundary: Do not mix S027 browser evidence, S036 index work, S043 security-event work, schema/migration work, or production scheduler configuration into the S038 readiness or implementation lane.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S036 is PLANNED but blocked by S027, and downstream S038/S043 remain PLANNED.
-Dependencies: S037 is DONE with merged evidence; S027 remains independently blocked on authenticated rendered Costbook browser evidence.
-Overlap check: No open S037 PR remains; implementation PR #386 and completion evidence are merged. Do not create another S037 lane.
-Startup prompt: Do not start another numbered sprint until NEXT_SPRINT_PROTOCOL.md confirms readiness and dependencies. Keep S027 browser evidence independent.
+Sprint ID: S038
+Eligibility: S038 is READY; S037 is DONE and no open or remote S038 overlap exists in the live reconciliation. S027 remains independently blocked on authenticated rendered Costbook browser evidence.
+Dependencies: S037 is DONE with merged evidence; no founder decision or external credential is required for the bounded contract.
+Overlap check: No open PR or remote S038 branch exists; S037 implementation PR #386 and completion evidence are merged. Create only one `feature/s038-implementation` lane after this readiness record lands.
+Startup prompt: Read `docs/architecture/S038_BACKGROUND_RETRY_SEMANTICS_PLAN.md`, create exactly one `feature/s038-implementation` lane from current `origin/main`, and keep S027 browser evidence, S036, and S043 independent.
