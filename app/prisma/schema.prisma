@@ -352,7 +352,7 @@ model Subcategory {
   name       String
   sortOrder  Int      @default(0) @map("sort_order")
   isActive   Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   category  Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   costItems CostItem[]
@@ -567,6 +567,13 @@ model Assembly {
   name          String
   unitOfMeasure String   @map("unit_of_measure")
   description   String?
+  // Marks a reusable starting-point assembly (e.g. "Standard Bathroom
+  // Remodel") that an org's estimators browse for quick adds, as distinct
+  // from one-off assemblies built for a specific job. Org-scoped, not a
+  // cross-tenant catalog — forced RLS would hide a NULL-org_id row from
+  // every tenant anyway (NULL = current_app_org_id() is never true), so a
+  // shared system-wide template library isn't possible under the current
+  // RLS model without a separate mechanism.
   isTemplate    Boolean  @default(false) @map("is_template")
   isActive      Boolean  @default(true) @map("is_active")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -805,7 +812,7 @@ model Proposal {
   companyName        String?   @map("company_name")
   showLineItemDetail Boolean   @default(false) @map("show_line_item_detail")
   scopeOfWork        String?   @map("scope_of_work")
-  assumptions        String?
+  assumptions        String? 
   exclusions         String?
   timeline           String?
   priceLow           Decimal?  @map("price_low") @db.Decimal(14, 2)
@@ -1211,7 +1218,7 @@ model ContractEvent {
   recipientEmail  String?  @map("recipient_email")
   metadataJson    Json?    @map("metadata_json")
   occurredAt      DateTime @default(now()) @map("occurred_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   contract     Contract     @relation(fields: [contractId], references: [id], onDelete: Cascade)
@@ -1416,6 +1423,10 @@ model FeatureFlag {
   @@map("feature_flags")
 }
 
+// A1 kernel execution persistence (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
+// "A1 Execution Persistence Decision"). Deliberately holds no raw prompt,
+// message body, or model output - only safe summaries, error codes, and
+// lifecycle metadata (docs/athena/09-security/README.md redaction rules).
 model AthenaExecution {
   id            String    @id @default(uuid())
   orgId         String    @map("org_id")
@@ -1442,6 +1453,10 @@ model AthenaExecution {
 
   @@index([orgId, state])
   @@index([orgId, actorUserId, createdAt])
+  // A10 observability (docs/athena/roadmap/A10-observability-implementation-plan.md):
+  // trace/request lookup and bounded time-range search both filter by these
+  // pairs, and neither was indexed before A10 - the two pre-existing indexes
+  // above only ever supported state/actor listing, not trace reconstruction.
   @@index([orgId, traceId])
   @@index([orgId, requestId])
   @@index([orgId, createdAt])
@@ -1465,6 +1480,9 @@ model AthenaExecutionTransition {
   @@map("athena_execution_transitions")
 }
 
+// C011 telemetry records (docs/athena/contracts/README.md). Redacted by
+// construction: metadataJson never carries raw prompts, chain-of-thought,
+// secrets, or unnecessary PII (see telemetry.ts).
 model AthenaTelemetryRecordRow {
   id           String   @id @default(uuid())
   orgId        String   @map("org_id")
@@ -1483,12 +1501,19 @@ model AthenaTelemetryRecordRow {
   execution    AthenaExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([orgId, executionId, createdAt])
+  // A10 observability: trace lookup by traceId (spans span multiple
+  // executionIds are not expected today, but traceId is still the primary
+  // external lookup key), span/status filtering for metrics aggregation, and
+  // retention cleanup all need their own index rather than reusing the
+  // executionId-scoped one above.
   @@index([orgId, traceId])
   @@index([orgId, spanType, createdAt])
   @@index([orgId, status, createdAt])
   @@map("athena_telemetry_records")
 }
 
+// S025 metadata-first AI generation persistence. This record deliberately
+// excludes raw prompts, model output, tool arguments, and tool results.
 model AthenaGenerationRun {
   id                String    @id @default(uuid())
   orgId             String    @map("org_id")
@@ -1522,6 +1547,8 @@ model AthenaGenerationRun {
   @@map("athena_generation_runs")
 }
 
+// Reviews are append-only provenance records. Business mutations remain in
+// the existing review-first application-service paths.
 model AthenaGenerationReview {
   id           String   @id @default(uuid())
   orgId        String   @map("org_id")
@@ -1541,6 +1568,15 @@ model AthenaGenerationReview {
   @@map("athena_generation_reviews")
 }
 
+// A7 memory persistence (docs/athena/roadmap/A7-memory-implementation-plan.md,
+// C006 in docs/athena/contracts/README.md). subjectId is intentionally not a
+// foreign key: depending on scope it addresses a user, the organization
+// itself, a job/project, or a conversation - a polymorphic reference, same
+// posture as AthenaResourceRequest.entityId elsewhere in Athena. A partial
+// unique index enforcing at most one active row per (orgId, scope,
+// subjectId, kind) and the tenant/actor-isolation RLS policies are defined
+// only in the migration SQL (Prisma schema language cannot express either),
+// per AGENTS.md's migration conventions.
 model AthenaMemory {
   id                 String    @id @default(uuid())
   orgId              String    @map("org_id")
@@ -1575,6 +1611,14 @@ model AthenaMemory {
   @@map("athena_memories")
 }
 
+// A8 canonical business event persistence
+// (docs/athena/roadmap/A8-event-integration-implementation-plan.md, C008 in
+// docs/athena/contracts/README.md). entityId/actorId are intentionally not
+// foreign keys: entity is polymorphic across business object types and
+// actor may be a user, "system", or "athena" - the same polymorphic-reference
+// posture AthenaMemory.subjectId already uses. The (orgId, idempotencyKey)
+// unique index is the publication-dedupe key described in the plan doc's
+// "Versioning, Retries, Deduplication, Replay" table.
 model AthenaEvent {
   id               String   @id @default(uuid())
   orgId            String   @map("org_id")
@@ -1602,6 +1646,11 @@ model AthenaEvent {
   @@map("athena_events")
 }
 
+// One row per (event, subscriber). attemptCount/nextAttemptAt back
+// retryPolicy.ts's bounded exponential backoff; a delivery that exhausts its
+// retry budget transitions to 'dead_letter' and gets a corresponding
+// AthenaEventDeadLetter row rather than being deleted, per the plan doc's
+// "Dead-letter" section.
 model AthenaEventDelivery {
   id             String    @id @default(uuid())
   orgId          String    @map("org_id")
@@ -1627,6 +1676,11 @@ model AthenaEventDelivery {
   @@map("athena_event_deliveries")
 }
 
+// Safe payload snapshot + failure reason for a delivery that exhausted its
+// retry budget (10-events/README.md: "Exhausted events enter a dead-letter
+// queue with safe payload and failure reason"). payloadSnapshotJson is a
+// copy of the originating event's own already-C008-validated payload - never
+// a raw error stack, prompt, or secret.
 model AthenaEventDeadLetter {
   id                  String   @id @default(uuid())
   orgId               String   @map("org_id")
@@ -1642,10 +1696,21 @@ model AthenaEventDeadLetter {
   delivery     AthenaEventDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
 
   @@index([orgId, eventId])
+  // A10 observability: Event/DLQ Health lists recent dead letters org-wide,
+  // not scoped to one event.
   @@index([orgId, createdAt])
   @@map("athena_event_dead_letters")
 }
 
+// A10 observability persisted alert state
+// (docs/athena/roadmap/A10-observability-implementation-plan.md). Alerts are
+// derived entirely from existing C011 telemetry / A8 event tables - this
+// table holds only the alert's own active/resolved lifecycle and dedupe
+// state, never a copy of the underlying records. dedupeKey is a stable,
+// rule-owned identity (e.g. "tool_failure_spike:tradeos.estimate.prepareDraft")
+// so re-evaluating the same rule against the same target updates the
+// existing row (and its firstSeenAt/lastSeenAt) instead of creating
+// duplicate alerts every evaluation cycle.
 model AthenaAlert {
   id           String    @id @default(uuid())
   orgId        String    @map("org_id")
