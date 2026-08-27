@@ -72,10 +72,10 @@ function loadProxyModule(fetchImpl) {
     }
   }
 
-  const module = { exports: {} };
+  const runtimeModule = { exports: {} };
   const context = vm.createContext({
-    module,
-    exports: module.exports,
+    module: runtimeModule,
+    exports: runtimeModule.exports,
     console,
     URL,
     fetch: fetchImpl,
@@ -125,7 +125,7 @@ function loadProxyModule(fetchImpl) {
   });
 
   new vm.Script(transpiled, { filename: "proxy.test-runtime.js" }).runInContext(context);
-  return module.exports;
+  return runtimeModule.exports;
 }
 
 describe("web auth proxy", () => {
