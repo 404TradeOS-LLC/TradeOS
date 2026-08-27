@@ -44,7 +44,7 @@ describe("branded PDF renderers", () => {
         createdAt: new Date("2026-08-24T00:00:00.000Z"),
         percentComplete: null,
         project: { name: "Main Street", siteAddress: "1 Main St", customer: { name: "Customer", email: "customer@example.com" } },
-        lineItems: [{ description: "Labor", quantity: 1, unitOfMeasure: "job", unitCost: 1250, lineCost: 1250 }],
+        lineItems: [{ description: "Labor", quantity: 1, unitOfMeasure: "job", unitPrice: 1250, lineTotal: 1250 }],
       },
       { brand }
     );

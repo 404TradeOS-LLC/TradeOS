@@ -1504,7 +1504,7 @@ describe("live organization row-level security", () => {
         new InvoicesService().create({
           orgId: orgA,
           projectId: projectA,
-          lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitCost: 1000 }],
+          lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitPrice: 1000 }],
         })
       )
     ).rejects.toThrow();
@@ -1516,7 +1516,7 @@ describe("live organization row-level security", () => {
         actorUserId: adminUser,
         actorRole: "admin",
         proposalId: proposal.id,
-        lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitCost: 1000 }],
+        lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitPrice: 1000 }],
       })
     );
     expect(invoice.amount).toBe(1000);

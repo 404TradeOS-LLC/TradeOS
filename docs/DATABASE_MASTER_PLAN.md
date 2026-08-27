@@ -32,7 +32,7 @@ No duplicate or dead tables were found. `db/migrations/` (the old hand-written S
 Generally 3NF and appropriate for an OLTP system — this is not a case of premature denormalization.
 
 **Deliberate, well-justified denormalization** (each is a snapshot, not a sync bug waiting to happen):
-- `EstimateLineItem.unitCost` / `ChangeOrderLineItem.unitCost` / `InvoiceLineItem.unitCost` snapshot the computed cost at time of use, not a live reference to `CostItem`/`Material`. Correct: an estimate must not silently reprice when a material cost changes later.
+- `EstimateLineItem.unitCost` / `ChangeOrderLineItem.unitCost` snapshot computed cost at time of use, not a live reference to `CostItem`/`Material`. `InvoiceLineItem.unitPrice` and `InvoiceLineItem.lineTotal` snapshot the customer-facing selling-price allocation written to an invoice. Estimates must not silently reprice when a material cost changes later, and invoices must retain their issued selling price.
 - `MaterialPriceAudit.materialName` snapshots the name at audit time, independent of `Material.name`, so the audit trail reads correctly even after a rename.
 - `OrganizationMembershipAudit.beforeState`/`afterState` (JSONB) intentionally denormalize a full row snapshot for audit-trail purposes — appropriate use of JSON here (see §7).
 
