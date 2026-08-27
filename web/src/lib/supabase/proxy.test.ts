@@ -12,6 +12,7 @@ const root = resolve(dirname, "../../..");
 function createCookieStore(initial = {}) {
   const values = new Map(Object.entries(initial));
   const options = new Map();
+  const deleted = new Set();
 
   return {
     get(name) {
@@ -24,13 +25,29 @@ function createCookieStore(initial = {}) {
     set(name, value, cookieOptions) {
       values.set(name, value);
       options.set(name, cookieOptions);
+      deleted.delete(name);
     },
     delete(name) {
       values.delete(name);
       options.delete(name);
+      deleted.add(name);
     },
     value(name) {
       return values.get(name);
+    },
+    wasDeleted(name) {
+      return deleted.has(name);
+    },
+  };
+}
+
+function createRequest(cookies) {
+  return {
+    cookies: createCookieStore(cookies),
+    nextUrl: {
+      clone() {
+        return new URL("https://app.404tradeos.com/dashboard");
+      },
     },
   };
 }
@@ -135,11 +152,7 @@ describe("web auth proxy", () => {
       };
     });
 
-    const request = {
-      cookies: createCookieStore({ tradeos_refresh_token: "refresh-only-token" }),
-      nextUrl: new URL("https://app.404tradeos.com/dashboard"),
-    };
-
+    const request = createRequest({ tradeos_refresh_token: "refresh-only-token" });
     const response = await updateSession(request);
 
     assert.equal(refreshCalls.length, 1);
@@ -151,6 +164,23 @@ describe("web auth proxy", () => {
     assert.equal(response.kind, "next");
     assert.equal(response.cookies.value("tradeos_access_token"), "fresh-access-token");
     assert.equal(response.cookies.value("tradeos_refresh_token"), "fresh-refresh-token");
+  });
+
+  it("fails closed without deleting replacement cookies when a refresh-only request loses a rotation race", async () => {
+    const { updateSession } = loadProxyModule(async () => ({
+      ok: false,
+      async json() {
+        return {};
+      },
+    }));
+
+    const request = createRequest({ tradeos_refresh_token: "single-use-token" });
+    const response = await updateSession(request);
+
+    assert.equal(response.kind, "redirect");
+    assert.equal(response.url.pathname, "/login");
+    assert.equal(response.cookies.wasDeleted("tradeos_access_token"), false);
+    assert.equal(response.cookies.wasDeleted("tradeos_refresh_token"), false);
   });
 
   it("runs on every protected app route family", () => {
