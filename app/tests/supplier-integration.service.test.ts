@@ -5,6 +5,7 @@ const mockPrisma = {
 };
 
 const transaction = {
+  $executeRaw: jest.fn().mockResolvedValue(0),
   supplierPriceUpdate: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -243,6 +244,7 @@ describe("SupplierIntegrationService", () => {
         })],
       });
       expect(result).toEqual({ proposed: 1, skipped: 2 });
+      expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it("rejects a supplier that is not visible in the requested organization before fetching", async () => {

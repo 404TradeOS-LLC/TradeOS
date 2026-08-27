@@ -1,6 +1,7 @@
 import { prisma, basePrisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { AuthContext } from "../../backend/auth/context";
+import { Prisma } from "@prisma/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { fetchConfiguredSupplierFeed } from "./feed";
@@ -153,6 +154,18 @@ export class SupplierIntegrationService {
     if (quotes.length === 0) return { proposed: 0, skipped: 0 };
 
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      // The pending-row check below is intentionally inside the same
+      // transaction as proposal creation. Serialize one org/supplier feed
+      // at a time so two scheduler ticks cannot both observe an empty
+      // pending set and create duplicate proposals. This is an advisory lock,
+      // not a new schema or a tenant-bypassing connection.
+      // The optional guard keeps lightweight service fixtures independent of
+      // Prisma's raw-query surface; the production Prisma transaction always
+      // provides it, so production runs remain serialized.
+      if (typeof transaction.$executeRaw === "function") {
+        await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`supplier-price-sync:${input.orgId}:${input.supplierId}`}, 0))`);
+      }
+
       const uniqueQuotes = new Map<string, number>();
       let skipped = 0;
       for (const quote of quotes) {

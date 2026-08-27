@@ -41,6 +41,13 @@ describe("athena-events dispatch", () => {
 
     expect(outcome.status).toBe("succeeded");
     expect(subscriber.handler).toHaveBeenCalledTimes(1);
+    expect(subscriber.handler).toHaveBeenCalledWith(expect.objectContaining({ id: expect.any(String) }), {
+      orgId: ORG_ID,
+      correlationId: "corr-1",
+      idempotencyKey: expect.stringContaining("event:"),
+      attempt: 1,
+      actor: { type: "system", id: "sub-ok" },
+    });
     // A succeeded delivery must no longer show up as due.
     expect(await repository.findDuePendingDeliveries(ORG_ID, 10)).toHaveLength(0);
   });
@@ -62,6 +69,7 @@ describe("athena-events dispatch", () => {
     expect(rescheduled).toBeDefined();
     expect(rescheduled.attemptCount).toBe(1);
     expect(rescheduled.status).toBe("failed");
+    expect(subscriber.handler).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ attempt: 1, correlationId: "corr-1" }));
   });
 
   it("dead-letters a delivery once it exhausts its retry budget, persisting a dead-letter row", async () => {

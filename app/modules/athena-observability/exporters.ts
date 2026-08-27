@@ -2,6 +2,7 @@ import { basePrisma, prisma } from "../../db/client";
 import { runWithBackgroundDatabaseSession } from "../../db/requestSession";
 import { AthenaTelemetryCost, AthenaTelemetryRedaction, AthenaTelemetryStatus, AthenaTelemetrySpanType } from "../athena-kernel/types";
 import { AthenaObservabilityExportBatch, AthenaObservabilityExportResult, AthenaObservabilityExporter, AthenaTelemetrySpan } from "./types";
+import { classifyBackgroundFailure } from "../background/retry";
 
 // A10 exporters (docs/athena/roadmap/A10-observability-implementation-plan.md
 // "Exporters and retention"). An exporter's job is to ship already-redacted
@@ -52,7 +53,7 @@ export function createConsoleExporter(): AthenaObservabilityExporter {
           // already-persisted, already-validated span) - counted as a
           // per-span failure rather than aborting the whole batch.
           failed += 1;
-          errors.push(error instanceof Error ? error.message : String(error));
+          errors.push(classifyBackgroundFailure(error, { orgId: span.orgId, jobName: "athena-observability-export", workerId: "console", correlationId: span.traceId, attempt: 1 }).code);
         }
       }
 
@@ -123,17 +124,16 @@ export function createWebhookExporter(config: WebhookExporterConfig): AthenaObse
         });
 
         if (!response.ok) {
-          return { succeeded: 0, failed: batch.spans.length, errors: [`webhook ${config.id} (${config.url}) responded with status ${response.status}`] };
+          return { succeeded: 0, failed: batch.spans.length, errors: [`webhook_response_${response.status}`] };
         }
 
         return { succeeded: batch.spans.length, failed: 0, errors: [] };
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         const isAbort = error instanceof Error && error.name === "AbortError";
         return {
           succeeded: 0,
           failed: batch.spans.length,
-          errors: [isAbort ? `webhook ${config.id} (${config.url}) timed out after ${timeoutMs}ms` : `webhook ${config.id} (${config.url}) failed: ${message}`],
+          errors: [isAbort ? "webhook_timeout" : "webhook_request_failed"],
         };
       } finally {
         clearTimeout(timer);
@@ -150,7 +150,8 @@ async function safeExport(exporter: AthenaObservabilityExporter, batch: AthenaOb
   try {
     return await exporter.export(batch);
   } catch (error) {
-    return { succeeded: 0, failed: batch.spans.length, errors: [`exporter ${exporter.id} threw instead of returning a result: ${error instanceof Error ? error.message : String(error)}`] };
+    const orgId = batch.spans[0]?.orgId ?? "unknown";
+    return { succeeded: 0, failed: batch.spans.length, errors: [classifyBackgroundFailure(error, { orgId, jobName: "athena-observability-export", workerId: exporter.id, correlationId: batch.windowFrom, attempt: 1 }).code] };
   }
 }
 
@@ -234,7 +235,7 @@ export async function runAthenaObservabilityExport(params: RunAthenaObservabilit
       attempted: 0,
       succeeded: 0,
       failed: 0,
-      errors: [error instanceof Error ? error.message : String(error)],
+      errors: [classifyBackgroundFailure(error, { orgId: params.orgId, jobName: "athena-observability-export", workerId: params.exporter.id, correlationId: params.windowFrom, attempt: 1 }).code],
       durationMs: Date.now() - start,
     };
   }
