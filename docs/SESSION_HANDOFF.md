@@ -3,15 +3,11 @@ status: current
 owner: platform
 last_verified: 2026-08-27
 source_of_truth: false
-related_code:
-  - app/modules/athena-audit
-  - app/modules/athena-security
-  - app/modules/athena-kernel
-  - app/backend/middleware/auth.ts
 related_docs:
   - docs/SPRINT_BACKLOG.md
   - docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md
-  - docs/architecture/S038_COMPLETION_EVIDENCE.md
+  - docs/architecture/S043_COMPLETION_EVIDENCE.md
+  - docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -19,42 +15,38 @@ related_docs:
 
 ## Mission
 
-S038 is DONE. The next bounded mission is S043 — Security event audit trail.
+S043 is DONE. The next bounded mission is S047 — Release candidate smoke suite.
 S027 remains independently BLOCKED on authenticated rendered Costbook evidence;
-S036 remains blocked by S027.
+S036 remains blocked by S027; S044/S045 remain blocked on production access.
 
 ## Current truth
 
-- `origin/main` is `4cb906525179992de929bc2b8dba67ba4a4294f7`; S038 implementation
-  PR #393 is merged and its completion evidence is recorded.
-- S043 is the sole promoted READY sprint. Its readiness contract is
-  `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`.
-- Existing Athena audit/security decision, activity, membership-audit, auth,
-  and forced-RLS seams are the implementation baseline. No new audit provider,
-  retention policy, role/permission, or RLS redesign is authorized by S043.
-- Production scheduler configuration and live S038 failure rehearsal remain
-  external evidence only; they do not block S038 completion.
+- `origin/main` is `ca042c3a282b03d26f5f5fa389b7b49b9aa02e85`; S043 implementation
+  PR #395 is merged and its completion evidence is recorded in
+  `docs/architecture/S043_COMPLETION_EVIDENCE.md`.
+- S047 is the sole promoted READY sprint. Its readiness contract is
+  `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`.
+- Existing RC Playwright route and golden-workflow seams are the implementation
+  baseline. No new product behavior, credential storage, schema, migration,
+  role, permission, RLS redesign, or launch approval is authorized by S047.
+- S044/S045 require production control-plane access; S046 is blocked by S045.
+  S048 requires a later founder decision for beta tenants and rollout date.
 
-S043 implementation is now being executed on the sole `feature/s043-implementation`
-lane. It reuses `AthenaAuditEvent` and its forced-RLS store, adds fixed safe
-security-event records and bounded owner/admin queryability, and preserves
-existing authentication, permission, approval, transaction, and RLS semantics.
+## S047 readiness contract
 
-## S043 readiness contract
+Automate and document repeatable release-candidate smoke evidence over existing
+authenticated auth, customer, estimate, proposal, contract, job, invoice, and
+portal flows. Reuse the existing Playwright and artifact seams without changing
+product behavior, credentials, schema, migrations, RLS, or RBAC.
 
-Record and query meaningful authentication, tenant-boundary, privilege, and
-sensitive-workflow security events over existing audit/activity seams. Preserve
-server-derived actor/org context, safe metadata, forced RLS, current
-permissions, route shapes, transactions, and approval semantics.
-
-Forbidden: new audit store/provider, SIEM wiring, retention-policy decisions,
-auth/RBAC/RLS redesign, new roles/permissions, production data/credentials,
-S027, S036, S038, S044, S045, or destructive data work.
+Forbidden: production credentials in the repository, live customer-data
+mutation outside an explicitly selected smoke environment, product behavior,
+schema/migrations, RLS/RBAC redesign, S027, S036, S044, S045, S046, S048, or
+destructive data work.
 
 ## Next Eligible Sprint
-
-Sprint ID: S043
-Eligibility: READY; S037 and S040 are DONE and the readiness contract is merged into the canonical backlog.
-Dependencies: S037 and S040 are DONE with merged completion evidence; no founder decision or external credential is required for the bounded contract.
-Overlap check: Create only one `feature/s043-implementation` lane from current `origin/main`; keep S027 browser evidence, S036, and S038 follow-up evidence independent.
-Startup prompt: Read `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S043 on its isolated branch/worktree.
+Sprint ID: S047
+Eligibility: READY; S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
+Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
+Overlap check: No open or remote S047 implementation branch exists; create only one `feature/s047-implementation` lane from current `origin/main` and keep S027, S036, S044, S045, S046, and S048 independent.
+Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S047 on its isolated branch/worktree.
