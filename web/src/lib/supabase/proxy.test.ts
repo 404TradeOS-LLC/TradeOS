@@ -2,10 +2,114 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import vm from "node:vm";
 import { describe, it } from "node:test";
+import ts from "typescript";
 
 const dirname = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(dirname, "../../..");
+
+function createCookieStore(initial = {}) {
+  const values = new Map(Object.entries(initial));
+  const options = new Map();
+
+  return {
+    get(name) {
+      const value = values.get(name);
+      return value === undefined ? undefined : { name, value };
+    },
+    getAll() {
+      return [...values].map(([name, value]) => ({ name, value }));
+    },
+    set(name, value, cookieOptions) {
+      values.set(name, value);
+      options.set(name, cookieOptions);
+    },
+    delete(name) {
+      values.delete(name);
+      options.delete(name);
+    },
+    value(name) {
+      return values.get(name);
+    },
+  };
+}
+
+function loadProxyModule(fetchImpl) {
+  const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
+  const transpiled = ts.transpileModule(proxySource, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+
+  class FakeNextResponse {
+    static next({ request }) {
+      return { kind: "next", request, cookies: createCookieStore() };
+    }
+
+    static redirect(url) {
+      return { kind: "redirect", url, cookies: createCookieStore() };
+    }
+  }
+
+  const module = { exports: {} };
+  const context = vm.createContext({
+    module,
+    exports: module.exports,
+    console,
+    URL,
+    fetch: fetchImpl,
+    process: {
+      env: {
+        BACKEND_API_URL: "http://backend.test",
+        NEXT_PUBLIC_SUPABASE_URL: "https://supabase.test",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "test-key",
+        NODE_ENV: "test",
+      },
+    },
+    require(specifier) {
+      if (specifier === "next/server") {
+        return { NextResponse: FakeNextResponse };
+      }
+      if (specifier === "@supabase/ssr") {
+        return {
+          createServerClient() {
+            return {
+              auth: {
+                async getClaims() {
+                  return { data: { claims: {} } };
+                },
+              },
+            };
+          },
+        };
+      }
+      if (specifier === "@/lib/local-auth") {
+        return {
+          LOCAL_ACCESS_TOKEN_COOKIE: "tradeos_access_token",
+          LOCAL_REFRESH_TOKEN_COOKIE: "tradeos_refresh_token",
+          isUsableLocalAccessToken() {
+            return false;
+          },
+          decodeLocalAccessToken(token) {
+            if (token !== "fresh-access-token") return null;
+            return {
+              sub: "user-1",
+              exp: Math.floor(Date.now() / 1000) + 3600,
+            };
+          },
+        };
+      }
+      throw new Error(`Unexpected module request: ${specifier}`);
+    },
+  });
+
+  new vm.Script(transpiled, { filename: "proxy.test-runtime.js" }).runInContext(context);
+  return module.exports;
+}
 
 describe("web auth proxy", () => {
   it("redirects unauthenticated requests before app routes render", () => {
@@ -16,17 +120,37 @@ describe("web auth proxy", () => {
     assert.match(proxySource, /NextResponse\.redirect\(loginUrl\)/);
   });
 
-  it("refreshes a local session when the access cookie has expired out of the browser but the refresh cookie remains", () => {
-    const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
-    const refreshCookieRead = proxySource.indexOf("const refreshToken = request.cookies.get(LOCAL_REFRESH_TOKEN_COOKIE)?.value;");
-    const localSessionBranch = proxySource.indexOf("if (localToken || refreshToken)");
-    const refreshCall = proxySource.indexOf("await refreshLocalSession(refreshToken)");
+  it("refreshes a local session when only the refresh cookie remains", async () => {
+    const refreshCalls = [];
+    const { updateSession } = loadProxyModule(async (url, init) => {
+      refreshCalls.push({ url, init });
+      return {
+        ok: true,
+        async json() {
+          return {
+            token: "fresh-access-token",
+            refreshToken: "fresh-refresh-token",
+          };
+        },
+      };
+    });
 
-    assert.notEqual(refreshCookieRead, -1);
-    assert.notEqual(localSessionBranch, -1);
-    assert.notEqual(refreshCall, -1);
-    assert.ok(refreshCookieRead < localSessionBranch, "refresh cookie must be read independently of the access cookie");
-    assert.ok(localSessionBranch < refreshCall, "either local cookie must be sufficient to enter the refresh path");
+    const request = {
+      cookies: createCookieStore({ tradeos_refresh_token: "refresh-only-token" }),
+      nextUrl: new URL("https://app.404tradeos.com/dashboard"),
+    };
+
+    const response = await updateSession(request);
+
+    assert.equal(refreshCalls.length, 1);
+    assert.equal(refreshCalls[0].url, "http://backend.test/api/v1/auth/refresh");
+    assert.equal(refreshCalls[0].init.method, "POST");
+    assert.deepEqual(JSON.parse(refreshCalls[0].init.body), {
+      refreshToken: "refresh-only-token",
+    });
+    assert.equal(response.kind, "next");
+    assert.equal(response.cookies.value("tradeos_access_token"), "fresh-access-token");
+    assert.equal(response.cookies.value("tradeos_refresh_token"), "fresh-refresh-token");
   });
 
   it("runs on every protected app route family", () => {
