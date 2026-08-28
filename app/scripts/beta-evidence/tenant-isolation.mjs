@@ -61,7 +61,17 @@ if (probes.length === 0) {
 }
 
 const results = [];
-const browser = await chromium.launch({ headless: true });
+// A missing browser is a setup problem, not a product failure; say so
+// instead of surfacing a raw stack trace.
+let browser;
+try {
+  browser = await chromium.launch({ headless: true });
+} catch (error) {
+  startupFailure(
+    `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
+      "Run `npx playwright install --with-deps chromium` first.",
+  );
+}
 let failure = null;
 
 try {

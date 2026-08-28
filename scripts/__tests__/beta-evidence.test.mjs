@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+
+import {
+  StorageStatePathError,
+  assertStorageStatePathOutsideRepo,
+} from "../../app/scripts/beta-evidence/lib/storage-state-path.mjs";
 
 import {
   PRODUCTION_SUPABASE_REF,
@@ -264,6 +271,57 @@ test("validation can be scoped to a viewport subset without demanding the full m
   assert.equal(validateEvidenceSet(captured).ok, false);
 });
 
+test("storage state may not be written inside the repository, even through a symlink", async () => {
+  const repoRoot = process.cwd();
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "beta-evidence-symlink-"));
+
+  try {
+    // A genuinely external path is fine.
+    const external = path.join(scratch, "state.json");
+    assert.equal(typeof (await assertStorageStatePathOutsideRepo(external, repoRoot)), "string");
+
+    // A directly-inside path is refused.
+    await assert.rejects(
+      () => assertStorageStatePathOutsideRepo(path.join(repoRoot, "app", "state.json"), repoRoot),
+      (error) => error instanceof StorageStatePathError,
+    );
+
+    // path.resolve is lexical, so a symlinked directory pointing back into the
+    // repository looks external but writes into the working tree. It must be
+    // refused on the real location, not the lexical one.
+    const link = path.join(scratch, "into-repo");
+    await fsp.symlink(path.join(repoRoot, "app"), link, "dir");
+    const throughSymlink = path.join(link, "leaked-state.json");
+
+    // Confirm the naive lexical check would have allowed it, so this test keeps
+    // testing the thing it is named after.
+    const lexical = path.resolve(throughSymlink);
+    assert.ok(!lexical.startsWith(`${repoRoot}${path.sep}`), "expected the lexical path to look external");
+
+    await assert.rejects(
+      () => assertStorageStatePathOutsideRepo(throughSymlink, repoRoot),
+      (error) => {
+        assert.ok(error instanceof StorageStatePathError);
+        assert.match(error.message, /symbolic link into the repository/);
+        return true;
+      },
+    );
+  } finally {
+    await fsp.rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test("a storage state path whose parent does not exist yet is still checked", async () => {
+  const repoRoot = process.cwd();
+  // Nothing along this path exists; the nearest existing ancestor is what
+  // decides, and it is outside the repository.
+  const resolved = await assertStorageStatePathOutsideRepo(
+    path.join(os.tmpdir(), "beta-evidence-missing", "deeper", "state.json"),
+    repoRoot,
+  );
+  assert.ok(!resolved.startsWith(`${repoRoot}${path.sep}`));
+});
+
 // ---------------------------------------------------------------------------
 // Workflow and script contract — these keep the guarantees from silently
 // regressing the way rc-smoke-contract.test.mjs does for the RC smoke lane.
@@ -318,8 +376,12 @@ test("session state is written outside the repository and removed afterwards", (
   assert.match(workflow, /BETA_STORAGE_STATE_PATH=\$\{RUNNER_TEMP\}/);
   assert.match(workflow, /Remove runtime storage state/);
   assert.match(workflow, /Scan evidence bundle for credential material/);
-  assert.match(authSetup, /is inside the repository/);
+  assert.match(authSetup, /assertStorageStatePathOutsideRepo/);
   assert.match(authSetup, /chmod\(resolvedStatePath, 0o600\)/);
+  // The containment check must not be purely lexical.
+  const storageStatePath = read("app/scripts/beta-evidence/lib/storage-state-path.mjs");
+  assert.match(storageStatePath, /realpath/);
+  assert.match(storageStatePath, /symbolic link into the repository/);
 });
 
 test("evidence capture fails closed without explicit mutation consent", () => {

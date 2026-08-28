@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
+import { assertStorageStatePathOutsideRepo } from "./lib/storage-state-path.mjs";
 
 const baseUrlInput = process.env.BETA_RC_BASE_URL_RESOLVED;
 const email = process.env.BETA_SMOKE_EMAIL;
@@ -54,17 +55,17 @@ try {
 }
 
 // A storage state written inside the working tree would be one `git add -A`
-// away from committing a live session. Refuse outright.
+// away from committing a live session. Refuse outright — including when the
+// path only reaches the repository through a symbolic link.
 const resolvedStatePath = path.resolve(storageStatePath);
 // Derive the repository root from this file's own location
 // (<repo>/app/scripts/beta-evidence/auth-setup.mjs) rather than from cwd, so
 // the check is correct no matter which directory the script is invoked from.
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-if (resolvedStatePath === repoRoot || resolvedStatePath.startsWith(`${repoRoot}${path.sep}`)) {
-  startupFailure(
-    `BETA_STORAGE_STATE_PATH (${resolvedStatePath}) is inside the repository. ` +
-      "Authenticated session material must be written outside the working tree.",
-  );
+try {
+  await assertStorageStatePathOutsideRepo(resolvedStatePath, repoRoot);
+} catch (error) {
+  startupFailure(error.message);
 }
 
 await fs.mkdir(outDir, { recursive: true });
@@ -74,7 +75,17 @@ function record(name, passed, detail) {
   steps.push({ name, passed, ...(detail ? { detail } : {}) });
 }
 
-const browser = await chromium.launch({ headless: true });
+// A missing browser is a setup problem, not a product failure; say so
+// instead of surfacing a raw stack trace.
+let browser;
+try {
+  browser = await chromium.launch({ headless: true });
+} catch (error) {
+  startupFailure(
+    `Could not launch Chromium: ${error instanceof Error ? error.message.split("\n")[0] : error}. ` +
+      "Run `npx playwright install --with-deps chromium` first.",
+  );
+}
 let failure = null;
 
 try {
