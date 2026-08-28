@@ -12,11 +12,8 @@ import type { Estimate, Proposal } from "@/lib/api";
 export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId: string; estimates: Estimate[]; proposals: Proposal[] }) {
   const [state, formAction, isPending] = useActionState(createInvoiceAction, undefined);
   const [type, setType] = useState<"full" | "progress">("full");
-  const [estimateId, setEstimateId] = useState("");
   const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
-  const acceptedProposals = proposals.filter(
-    (proposal) => proposal.status === "accepted" && proposal.finalPrice !== null && proposal.estimateId === estimateId
-  );
+  const acceptedProposals = proposals.filter((proposal) => proposal.status === "accepted" && proposal.finalPrice !== null);
 
   return (
     <Card className="max-w-md">
@@ -26,7 +23,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
       <CardContent>
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="projectId" value={projectId} />
-          <SelectField label="Estimate" name="estimateId" required value={estimateId} onChange={(event) => setEstimateId(event.target.value)}>
+          <SelectField label="Estimate" name="estimateId" required defaultValue="">
             <option value="">Select an estimate…</option>
             {eligibleEstimates.map((estimate) => (
               <option key={estimate.id} value={estimate.id}>

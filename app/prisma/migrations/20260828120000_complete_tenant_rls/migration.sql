@@ -14,6 +14,8 @@ begin
   loop
     execute format('alter table %I enable row level security', tenant_table);
     execute format('alter table %I force row level security', tenant_table);
+    execute format('drop policy if exists %I on %I', tenant_table || '_select_policy', tenant_table);
+    execute format('drop policy if exists %I on %I', tenant_table || '_write_policy', tenant_table);
     execute format(
       'create policy %I on %I for select using (org_id = (select current_app_org_id()))',
       tenant_table || '_select_policy', tenant_table
