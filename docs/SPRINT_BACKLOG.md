@@ -39,7 +39,7 @@ Evidence: PR #27 merged 2026-07-16 as `279bdae26e2fc1856c7cc28e6756529c0ec508e7`
 Status: DONE
 Dependencies: none
 Objective: Document and verify the solo-maintainer ruleset posture without weakening repository controls.
-Evidence: PR #73 merged 2026-08-04 as `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. Verification established mandatory PRs, zero required approvals, review-thread resolution, strict up-to-date required checks, and deletion/non-fast-forward protection.
+Evidence: PR #73 merged 2026-08-04 as `9b3ebb24233cd69d5961d3c1f3c1ea6d017e15ef`. Verification established mandatory PRs, zero required approvals, review-thread resolution, strict up-to-date required checks, and deletion/non-fast-forward protection. ADR-009 (accepted 2026-08-28) adds a founder-authorized solo-maintainer merge-review exception when no qualified independent reviewer exists; it preserves every technical protection and removes only the implicit extra-approval deadlock.
 
 ### S004 — Session handoff normalization
 

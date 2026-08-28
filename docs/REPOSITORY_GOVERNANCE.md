@@ -124,7 +124,27 @@ TradeOS is currently operated by one repository maintainer. The intended solo-ma
 - self-review may be recorded as a comment or audit, but it is not treated as independent approval;
 - approval requirements may be raised when another qualified maintainer or reviewer joins.
 
-Do not weaken CI, up-to-date requirements, deletion protection, force-push protection, or PR requirements to compensate for the zero-approval setting.
+The founder-only merge exception is now an accepted governance path under
+[ADR-009](decisions/ADR-009-solo-maintainer-founder-merge-exception.md): when
+there is no qualified independent reviewer, the founder may authorize a
+founder/administrator merge after the PR records the exception and all
+technical gates pass. The record must state the authorization, unavailable
+reviewer, risk boundaries, rollback/recovery plan, final-head validation,
+required-check evidence, and the trigger for restoring independent review.
+It must not claim that self-review is independent approval.
+
+The live ruleset must express this posture without a broad protection bypass:
+`required_approving_review_count: 0`,
+`require_extra_approval_for_unattributed_changes: false`, and no bypass actor
+that can skip required checks, branch freshness, conversation resolution,
+linear history, deletion protection, or non-fast-forward protection. The
+second setting is the specific solo-maintainer deadlock repair; it removes an
+implicit approval requirement while preserving the technical gates. A later
+qualified maintainer should cause the approving-review requirement to be raised.
+
+Do not weaken CI, up-to-date requirements, deletion protection, force-push
+protection, linear history, conversation resolution, or pull-request
+requirements to compensate for the zero-approval setting.
 
 ## Verified default-branch controls
 
@@ -141,6 +161,13 @@ The active `TradeOS Main Branch Protection` ruleset ([ID 18958081](https://githu
 - allowed pull-request merge methods of **squash and rebase**;
 - no configured bypass actors; and
 - `current_user_can_bypass: never` for the connected user during verification.
+
+The desired solo-maintainer policy above is not yet fully reflected in this
+live snapshot: the verified ruleset still reports
+`require_extra_approval_for_unattributed_changes: true` and no bypass actor.
+The repository policy is changed by ADR-009, but an administrator must apply
+the narrow ruleset configuration change before auto-merge can use it. No broad
+ruleset bypass is authorized.
 
 Copilot review is not part of ruleset 18958081 at all — it lives entirely in the separate `Code Quality Copilot review for default branch` ruleset ([ID 19465256](https://github.com/404TradeOS-LLC/TradeOS/rules/19465256)), which is configured for `review_on_push`/`review_draft_pull_requests` but currently shows `enforcement: "disabled"`. Confirmed empirically too: no `Copilot` check run appears in recent PRs' status-check rollups. It must not be described as an active enforcement layer, nor listed alongside ruleset 18958081's controls, unless a later live verification shows it enabled again.
 
@@ -173,9 +200,24 @@ PR maintenance does not grant merge authority. After a successful rebase, normal
 
 `AGENTS.md` defines the repository-specific execution contract for autonomous maintenance agents. That contract may make low-risk repairs more action-oriented, but it cannot weaken the repository controls in this document.
 
-Autonomous agents may diagnose, repair, test, publish, and merge bounded low-risk work only when the live branch rules permit it and the final head satisfies every required check, up-to-date requirement, review-thread requirement, ownership requirement, and merge-readiness condition. A maintenance agent must prefer advancing an existing overlapping PR over creating a competing implementation.
+Autonomous agents may diagnose, repair, test, publish, and merge bounded work
+when the live branch rules permit it and the final head satisfies every
+required check, up-to-date requirement, review-thread requirement, ownership
+requirement, and merge-readiness condition. The ADR-009 founder-only exception
+may authorize a protected merge when independent review is unavailable, but it
+does not waive technical gates or permit an unrecorded administrator bypass. A
+maintenance agent must prefer advancing an existing overlapping PR over
+creating a competing implementation.
 
-The following remain human-decision or PR-only boundaries unless a narrower approved runbook explicitly authorizes the exact operation: new or materially changed database migrations, destructive data operations, authentication or authorization policy changes, RLS redesign, production secrets or credential rotation, billing or money movement, major architecture or repository-boundary changes, and new production trust boundaries. Agents must never bypass branch protection, disable tests to obtain green CI, push directly to `main`, or convert an unverified result into a pass.
+The following remain founder-decision or PR-only boundaries unless a narrower
+approved runbook explicitly authorizes the exact operation: new or materially
+changed database migrations, destructive data operations, authentication or
+authorization policy changes, RLS redesign, production secrets or credential
+rotation, billing or money movement, major architecture or repository-boundary
+changes, and new production trust boundaries. ADR-009 changes who may complete
+the merge review in the solo-maintainer case; it does not silently approve
+those product or operational decisions. Agents must never bypass required
+checks, push directly to `main`, or convert an unverified result into a pass.
 
 Athena approval/audit hardening is an example of this protected class: even when the implementation is narrow, any change that adds approval-backed tables, changes RLS policies, or tightens operator review boundaries must stop at a reviewable PR and may not be autonomously merged.
 
@@ -317,7 +359,7 @@ Every contributor uses the [Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PR
 
 ## Pull request readiness
 
-A PR is ready for human review only when:
+A PR is ready for required review or founder-authorized merge only when:
 
 - work stayed within its approved scope;
 - `npm run pr:preflight -- --base origin/main` has been run after the final scope is known;
@@ -330,6 +372,11 @@ A PR is ready for human review only when:
 - deterministic automated-review findings are either repaired or explicitly classified as inapplicable/protected;
 - review threads are resolved only after corresponding fixes are verified on the current head;
 - the PR description accurately states current scope, validation, limitations, and remaining risks.
+
+If no independent reviewer exists, the PR must also contain the complete
+founder-only exception record from ADR-009 before an administrator enables or
+uses the merge path. The exception record is not an approval and must not be
+used to conceal unresolved findings.
 
 For an otherwise-safe low-risk PR, enabling auto-merge is preferred to waiting for a second manual merge action after the ruleset becomes satisfied. Auto-merge does not waive any required status, freshness, or conversation-resolution condition.
 
