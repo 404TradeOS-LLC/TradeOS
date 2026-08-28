@@ -21,7 +21,7 @@ export class ContractsService {
       include: { contracts: { select: { id: true }, take: 1 } },
     });
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
-    if (proposal.contracts.length > 0) {
+    if (proposal.contracts?.length) {
       throw new ApiError(409, `Proposal ${input.proposalId} already has contract ${proposal.contracts[0].id}`);
     }
     if (normalizeProposalStatus(proposal.status) !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
