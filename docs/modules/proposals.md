@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - app/modules/proposals
@@ -105,7 +105,7 @@ absent.
 
 ## Last verified date
 
-2026-08-24
+2026-08-28
 
 Exact-head GitHub verification for the earlier lifecycle PR #267 passed on
 2026-08-22; the S016 document-brand rendering verification was completed on
@@ -122,3 +122,7 @@ Proposal PDF and document-frame rendering preserve the existing organization-sco
 Estimate-backed proposal creation persists the finalized Estimate `totalPrice` into `Proposal.finalPrice` at creation time when the caller supplies no explicit price. Draft estimates retain null pricing, and explicit low/high proposal ranges are preserved without a second derived fixed price.
 
 PR #338 carries the verified estimate state through the existing proposal creation and document/PDF handoff path, preserving proposal authorization, lifecycle semantics, audit events, and organization scoping.
+
+The pre-beta repair closes both UI orderings: draft-estimate proposal creation is rejected and hidden from the estimate picker, while estimate finalization backfills `finalPrice` only for proposals that have no explicit fixed or ranged price. Proposal document generation no longer falls back to a live estimate total when the stored proposal price is null.
+
+Accepted proposals and proposals linked to a contract are immutable through the normal update path. Amendments require the separate change-order or replacement-contract workflow; the current repair does not invent a new amendment status.

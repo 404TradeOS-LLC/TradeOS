@@ -435,10 +435,14 @@ export class CrmService {
 
   async createPayment(orgId: string, invoiceId: string, input: PaymentInput, actorUserId?: string, actorRole?: string) {
     assertPositiveFinitePaymentAmount(input.amount);
+    assertInvoiceWriteAccess(actorRole);
 
     return runInDatabaseTransaction(prisma, async (transaction) => {
       const invoice = await lockInvoiceForPaymentReconciliation(transaction, orgId, invoiceId);
       if (!invoice) throw new ApiError(404, `Invoice ${invoiceId} not found`);
+      if (invoice.status === "draft") {
+        throw new ApiError(409, `Invoice ${invoiceId} must be sent before a payment can be recorded`);
+      }
 
       const payment = await transaction.payment.create({
         data: {
@@ -461,7 +465,6 @@ export class CrmService {
       const invoiceAmount = toDecimal(invoice.amount);
 
       if (["sent", "overdue"].includes(invoice.status) && recordedPaymentTotal.gte(invoiceAmount)) {
-        assertInvoiceWriteAccess(actorRole);
         await transaction.invoice.update({
           where: { id: invoice.id },
           data: { status: "paid", paidAt: new Date() },

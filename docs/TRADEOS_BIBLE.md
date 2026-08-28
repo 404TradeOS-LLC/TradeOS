@@ -210,7 +210,9 @@ When two documents conflict, the agent must stop and identify which truth layer 
   `docs/REPOSITORY_GOVERNANCE.md`.
 - A zero-approval solo-maintainer posture must not weaken pull-request,
   required-check, up-to-date-branch, conversation-resolution, deletion, or
-  non-fast-forward protections.
+  non-fast-forward protections. ADR-009 permits a founder-authorized merge
+  review when no independent maintainer exists, but it does not waive those
+  technical gates or convert self-review into independent approval.
 - Broad roadmap priorities do not override the numbered sprint queue.
 - Agents may not invent replacement architecture when an existing source-of-truth contract applies.
 - Destructive documentation consolidation requires an audit, preservation plan, and founder approval.

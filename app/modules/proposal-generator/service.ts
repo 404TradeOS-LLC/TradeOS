@@ -134,7 +134,7 @@ function renderEstimateProposalPdf(
       statusLabel: `Estimate v${estimate.version}`,
     });
     const priceRange = opts.finalPrice == null && (opts.priceLow != null || opts.priceHigh != null) ? formatPriceRange(opts.priceLow, opts.priceHigh) : null;
-    const primaryPrice = opts.finalPrice != null ? formatCurrency(opts.finalPrice) : priceRange ?? formatCurrency(toNullableNumber(estimate.totalPrice));
+    const primaryPrice = opts.finalPrice != null ? formatCurrency(opts.finalPrice) : priceRange ?? "Pricing in progress";
     drawMoneyPanel(doc, {
       title: "Investment",
       primary: primaryPrice,

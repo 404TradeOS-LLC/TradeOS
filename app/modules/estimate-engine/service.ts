@@ -37,6 +37,15 @@ export class EstimateEngineService {
     const project = await prisma.project.findFirst({ where: { id: input.projectId, orgId: input.orgId } });
     if (!project) throw new ApiError(404, `Project ${input.projectId} not found`);
 
+    if (input.orgId && typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        select id
+        from projects
+        where id = cast(${input.projectId} as uuid)
+          and org_id = cast(${input.orgId} as uuid)
+        for update
+      `);
+    }
     const priorVersions = await prisma.estimate.count({ where: { projectId: input.projectId } });
     const row = await prisma.estimate.create({
       data: {
@@ -134,6 +143,15 @@ export class EstimateEngineService {
     });
     if (!source) throw new ApiError(404, `Estimate ${sourceEstimateId} not found`);
 
+    if (orgId && typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        select id
+        from projects
+        where id = cast(${source.projectId} as uuid)
+          and org_id = cast(${orgId} as uuid)
+        for update
+      `);
+    }
     const priorVersions = await prisma.estimate.count({ where: { projectId: source.projectId } });
     const row = await prisma.estimate.create({
       data: {
@@ -394,6 +412,10 @@ export class EstimateEngineService {
       throw new ApiError(409, `Estimate ${estimateId} cannot transition from ${currentStatus} to ready`);
     }
     const row = await prisma.estimate.update({ where: { id: estimateId }, data: { status: "ready" } });
+    await prisma.proposal.updateMany({
+      where: { estimateId: row.id, finalPrice: null, priceLow: null, priceHigh: null },
+      data: { finalPrice: row.totalPrice },
+    });
     const dto = toEstimateDTO(row);
     const athenaEvent = await this.publishEstimateEvent(orgId, "EstimateCompleted", row.id, `estimate:${row.id}:completed:v1`, { projectId: row.projectId, totalPrice: dto.totalPrice });
     return { ...dto, athenaEvent };

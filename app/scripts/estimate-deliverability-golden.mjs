@@ -106,8 +106,8 @@ async function runWorkflow(page, runNumber) {
   if (await page.getByLabel("Overhead %").inputValue() !== "10" || await page.getByLabel("Tax %").inputValue() !== "7") {
     throw new Error("Saved overhead/tax settings did not persist after reload.");
   }
-  await page.getByText("$310.63", { exact: true }).waitFor();
-  await page.getByText("$5,920.63", { exact: true }).waitFor();
+  await page.getByText("$310.89", { exact: true }).waitFor();
+  await page.getByText("$5,920.89", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -57,6 +57,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - equipment assets use a free-form `status` field
 - service agreements default to `draft`
 - payment reconciliation does not persist `partially_paid` or a new overdue state; a fully covered eligible `sent` or existing `overdue` Invoice is advanced to persisted `paid`, while persisted `paid` remains authoritative for follow-up exclusion
+- the authenticated invoice detail surface records partial or full payments with amount, date, method, reference, and notes; draft invoices are rejected and displayed balances never become negative
 
 ## Emitted activity events
 
@@ -71,6 +72,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - `/customers`
 - `/customers/new`
 - `/customers/[id]`
+- `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
 ## Tests
 
@@ -88,4 +90,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-24
+2026-08-28

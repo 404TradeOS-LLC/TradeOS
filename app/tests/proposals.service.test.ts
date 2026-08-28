@@ -16,6 +16,9 @@ const mockPrisma = {
   proposalDelivery: {
     create: jest.fn(),
   },
+  contract: {
+    findFirst: jest.fn(),
+  },
 };
 
 const mockProposalGenerator = {
@@ -79,30 +82,12 @@ describe("ProposalsService", () => {
     });
   });
 
-  it("creates a draft proposal scoped to the estimate's project without inventing a price", async () => {
+  it("rejects proposal creation from a draft estimate", async () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", totalPrice: 0 });
-    mockPrisma.proposal.create.mockResolvedValue({
-      id: "proposal-1",
-      projectId: "project-1",
-      estimateId: "estimate-1",
-      status: "draft",
-      companyName: null,
-      showLineItemDetail: false,
-      termsAndConditions: null,
-      sentAt: null,
-      viewedAt: null,
-      respondedAt: null,
-      createdAt: new Date(),
-      deliveries: [],
-    });
 
     const service = new ProposalsService();
-    const proposal = await service.create({ orgId: "org-1", estimateId: "estimate-1" });
-
-    expect(proposal.status).toBe("draft");
-    expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ projectId: "project-1", estimateId: "estimate-1", finalPrice: null }) })
-    );
+    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
   });
 
   it("persists a finalized estimate total as the proposal final price", async () => {
@@ -158,6 +143,21 @@ describe("ProposalsService", () => {
         data: expect.objectContaining({ priceLow: 10000, priceHigh: 15000, finalPrice: null }),
       })
     );
+  });
+
+  it("rejects edits to an accepted proposal", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("accepted"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      new ProposalsService().update("proposal-1", { finalPrice: 7200 }, "org-1")
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { not: "accepted" }, contracts: { none: {} } }),
+      })
+    );
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
   });
 
   it("sends a draft proposal and stamps sentAt", async () => {

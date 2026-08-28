@@ -1,12 +1,14 @@
 import PDFDocument from "pdfkit";
 import type { DocumentFrameBrand } from "../documents/frame";
-import { formatDocumentDate } from "../documents/format";
+import { formatDocumentCurrency, formatDocumentDate } from "../documents/format";
 
 const DOCUMENT_INK = "#0f172a";
 
 interface ContractForPdf {
   status: string;
   termsText: string;
+  contractAmount?: number | null;
+  scopeOfWork?: string | null;
   signerName: string | null;
   signedAt: Date | null;
   createdAt: Date;
@@ -40,7 +42,15 @@ export function renderContractPdf(contract: ContractForPdf, opts: { brand: Docum
     if (contract.project.siteAddress) doc.text(`Site Address: ${contract.project.siteAddress}`);
     if (contract.project.customer) doc.text(`Customer: ${contract.project.customer.name}`);
     doc.text(`Contract Date: ${formatDocumentDate(contract.createdAt)}`);
+    if (contract.contractAmount != null) doc.text(`Agreed amount: ${formatDocumentCurrency(contract.contractAmount)}`);
     doc.moveDown(1);
+
+    if (contract.scopeOfWork?.trim()) {
+      doc.fontSize(12).fillColor(brand.colors.accent).text("Scope of work", { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor(DOCUMENT_INK).text(contract.scopeOfWork.trim());
+      doc.moveDown(1);
+    }
 
     doc.fontSize(12).fillColor(brand.colors.accent).text("Terms", { underline: true });
     doc.moveDown(0.5);

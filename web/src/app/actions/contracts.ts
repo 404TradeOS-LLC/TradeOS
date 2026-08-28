@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { apiFetch, ApiClientError, Contract } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
@@ -34,6 +35,10 @@ export async function signContractAction(_prev: FormActionState, formData: FormD
   const signerEmail = String(formData.get("signerEmail") ?? "").trim();
   const signatureDataUrl = String(formData.get("signatureDataUrl") ?? "").trim();
   const portal = String(formData.get("portal") ?? "") === "true";
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const signatureIpReported = forwardedFor || requestHeaders.get("x-real-ip") || undefined;
+  const signatureUserAgentReported = requestHeaders.get("user-agent") || undefined;
 
   if (!signerName) return { error: "Signer name is required." };
 
@@ -41,7 +46,13 @@ export async function signContractAction(_prev: FormActionState, formData: FormD
     await apiFetch(`/api/v1/contracts/${id}/sign`, {
       method: "POST",
       token: token ?? undefined,
-      body: JSON.stringify({ signerName, signerEmail: signerEmail || undefined, signatureDataUrl: signatureDataUrl || undefined }),
+      body: JSON.stringify({
+        signerName,
+        signerEmail: signerEmail || undefined,
+        signatureDataUrl: signatureDataUrl || undefined,
+        signatureIpReported,
+        signatureUserAgentReported,
+      }),
     });
   } catch (err) {
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };

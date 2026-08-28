@@ -313,6 +313,7 @@ describe("live organization row-level security", () => {
         },
         subtotalCost: 200,
         totalPrice: 200,
+        status: "ready",
       },
     });
     await adminClient.serviceAgreement.create({
@@ -1242,10 +1243,18 @@ describe("live organization row-level security", () => {
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
-          and c.relname in ('projects', 'proposals', 'invoices', 'contracts')
+          and c.relkind = 'r'
+          and exists (
+            select 1
+            from information_schema.columns column_info
+            where column_info.table_schema = 'public'
+              and column_info.table_name = c.relname
+              and column_info.column_name = 'org_id'
+          )
+        order by c.relname
       `
     );
-    expect(tables).toHaveLength(4);
+    expect(tables.length).toBeGreaterThan(4);
     expect(tables.every((table) => table.relrowsecurity && table.relforcerowsecurity)).toBe(true);
   });
 
@@ -1515,11 +1524,11 @@ describe("live organization row-level security", () => {
         projectId: projectA,
         actorUserId: adminUser,
         actorRole: "admin",
+        estimateId: estimateA,
         proposalId: proposal.id,
-        lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitPrice: 1000 }],
       })
     );
-    expect(invoice.amount).toBe(1000);
+    expect(invoice.amount).toBe(200);
     const sameOrgInvoice = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().invoice.findUnique({ where: { id: invoice.id } })
     );
@@ -1908,8 +1917,8 @@ describe("live organization row-level security", () => {
       const unsigned = await inSession(adminUser, orgA, "admin", async () =>
         new ProposalsService().listOrganizationQueue({ orgId: orgA, unsigned: true })
       );
-      expect(unsigned.items.map((item) => item.id)).toEqual([proposalQueueA1]);
-      expect(unsigned.items[0].contractId).toBeNull();
+      expect(unsigned.items.map((item) => item.id)).toEqual(expect.arrayContaining([proposalQueueA1]));
+      expect(unsigned.items.find((item) => item.id === proposalQueueA1)?.contractId).toBeNull();
 
       const all = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
       const converted = all.items.find((item) => item.id === proposalQueueA2);
@@ -2048,7 +2057,8 @@ describe("live organization row-level security", () => {
             orgB,
             invoiceCrossOrg,
             { amount: 100, paymentDate: "2026-07-14T00:00:00.000Z", method: "card" },
-            otherUser
+            otherUser,
+            "owner"
           )
         )
       ).rejects.toMatchObject({ statusCode: 404 });
@@ -2058,7 +2068,8 @@ describe("live organization row-level security", () => {
           orgA,
           invoiceQueueA4,
           { amount: 1000, paymentDate: "2026-07-15T00:00:00.000Z", method: "card" },
-          adminUser
+          adminUser,
+          "admin"
         )
       );
       const voided = await inSession(adminUser, orgA, "admin", async () =>

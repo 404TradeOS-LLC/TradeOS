@@ -8,6 +8,7 @@ related_docs:
   - docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md
   - docs/architecture/S043_COMPLETION_EVIDENCE.md
   - docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md
+  - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -33,6 +34,12 @@ S036 remains blocked by S027; S044/S045 remain blocked on production access.
   role, permission, RLS redesign, or launch approval is authorized by S047.
 - S044/S045 require production control-plane access; S046 is blocked by S045.
   S048 requires a later founder decision for beta tenants and rollout date.
+- The founder accepted ADR-009 on 2026-08-28: with no qualified independent
+  reviewer available, a PR may use the documented founder-only merge-review
+  exception after all required technical gates pass. The exception does not
+  waive CI, branch freshness, thread resolution, linear history, deletion or
+  non-fast-forward protection, and the live ruleset still needs its narrow
+  extra-approval setting updated before auto-merge can use the policy.
 
 ## S047 readiness contract
 

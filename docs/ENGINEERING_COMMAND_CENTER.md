@@ -14,6 +14,7 @@ related_code:
   - docs/CI_ACCELERATION.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
+  - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
   - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
@@ -185,7 +186,7 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - Settings/Brand Studio asset persistence must keep service-role access server-only and organization-scoped.
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
-- CODEOWNERS currently provides routing/visibility. Requiring code-owner approval in live branch rules needs separate solo-maintainer compatibility review to avoid deadlocking self-authored PRs.
+- CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
 
 ## Session execution
 

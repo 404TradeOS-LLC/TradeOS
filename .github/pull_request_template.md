@@ -78,6 +78,7 @@ Exact final `git status --short --branch`:
 - [ ] Required checks match the branch protection target in `docs/REPOSITORY_GOVERNANCE.md`.
 - [ ] Automated review findings were classified; deterministic scoped findings were repaired, and protected/ambiguous decisions were not auto-applied.
 - [ ] Resolved review threads correspond to verified fixes on the current head.
+- [ ] Founder-only merge exception is N/A, or its ADR-009 authorization, unavailable-reviewer reason, risk/rollback record, required-check evidence, and restoration trigger are documented below; self-review is not described as independent approval.
 - [ ] Auto-merge is enabled only when the PR is otherwise safe and branch protection remains the final gate.
 - [ ] Known limitations and deferred work are documented below.
 

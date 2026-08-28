@@ -736,6 +736,7 @@ model Estimate {
   invoices     Invoice[]
 
   @@index([projectId])
+  @@unique([projectId, version])
   @@map("estimates")
 }
 
@@ -995,6 +996,9 @@ model Invoice {
   status          String    @default("draft")
   percentComplete Decimal?  @map("percent_complete") @db.Decimal(5, 2)
   amount          Decimal   @default(0) @db.Decimal(14, 2)
+  subtotal        Decimal   @default(0) @db.Decimal(14, 2)
+  taxPct          Decimal   @default(0) @map("tax_pct") @db.Decimal(5, 2)
+  taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(14, 2)
   dueDate         DateTime? @map("due_date")
   sentAt          DateTime? @map("sent_at")
   paidAt          DateTime? @map("paid_at")
@@ -1150,10 +1154,13 @@ model Contract {
   proposalId       String    @map("proposal_id")
   status           String    @default("pending_signature")
   termsText        String    @map("terms_text")
+  contractAmount   Decimal?  @map("contract_amount") @db.Decimal(14, 2)
+  snapshotJson     Json?     @map("snapshot_json")
   signerName       String?   @map("signer_name")
   signerEmail      String?   @map("signer_email")
   signatureDataUrl String?   @map("signature_data_url")
-  signatureIp      String?   @map("signature_ip")
+  signatureIpReported      String?   @map("signature_ip_reported")
+  signatureUserAgentReported String? @map("signature_user_agent_reported")
   signedAt         DateTime? @map("signed_at")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at")

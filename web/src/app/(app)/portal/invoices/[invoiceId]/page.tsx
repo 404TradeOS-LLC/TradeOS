@@ -47,6 +47,14 @@ export default async function CustomerPortalInvoicePage({ params }: { params: Pr
               <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.amount)}</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subtotal</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.subtotal)}</div>
+            </div>
+            {invoice.taxAmount > 0 ? <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tax{invoice.taxPct > 0 ? ` (${invoice.taxPct}%)` : ""}</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.taxAmount)}</div>
+            </div> : null}
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Paid to date</div>
               <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.paidAmount)}</div>
             </div>

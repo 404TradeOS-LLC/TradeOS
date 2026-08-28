@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
-import { hasPermission, legacyInvoiceStatusMap, normalizeInvoiceStatus } from "../../domain/contracts";
+import { hasPermission, legacyInvoiceStatusMap, normalizeEstimateStatus, normalizeInvoiceStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderInvoicePdf } from "./pdf";
 import { getDocumentBrand } from "../documents/branding";
 import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, QueuePage } from "../shared/pagination";
@@ -32,15 +32,14 @@ export class InvoicesService {
       throw new ApiError(400, "percentComplete (0-100] is required for progress invoices");
     }
 
-    const lineItems = await this.resolveLineItems(input, type);
+    const pricingProposal = await this.resolvePricingProposal(input);
+    const pricing = await this.resolveLineItems(input, type, pricingProposal?.finalPrice);
+    const lineItems = pricing.lineItems;
     if (lineItems.length === 0) throw new ApiError(400, "Invoice requires lineItems or an estimateId");
 
-    if (input.proposalId) {
-      const proposal = await prisma.proposal.findFirst({ where: { id: input.proposalId, projectId: input.projectId } });
-      if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
-    }
-
-    const amount = roundCurrency(lineItems.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
+    const amount = roundCurrency(pricing.amount);
+    const taxAmount = roundCurrency(pricing.taxAmount);
+    const subtotal = roundCurrency(amount - taxAmount);
     const nextNumber = (await prisma.invoice.aggregate({ where: { projectId: input.projectId }, _max: { invoiceNumber: true } }))._max
       .invoiceNumber ?? 0;
 
@@ -48,11 +47,14 @@ export class InvoicesService {
       data: {
         projectId: input.projectId,
         estimateId: input.estimateId,
-        proposalId: input.proposalId,
+        proposalId: pricingProposal?.id ?? input.proposalId,
         invoiceNumber: nextNumber + 1,
         type,
         percentComplete: type === "progress" ? input.percentComplete : undefined,
         amount,
+        subtotal,
+        taxPct: pricing.taxPct,
+        taxAmount,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
         lineItems: {
           create: lineItems.map((li, index) => ({
@@ -209,17 +211,25 @@ export class InvoicesService {
   async getPdf(id: string, orgId?: string): Promise<InvoiceDocument> {
     const row = await prisma.invoice.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
-      include: { lineItems: { orderBy: { sortOrder: "asc" } }, project: { include: { customer: true, organization: true } } },
+      include: {
+        lineItems: { orderBy: { sortOrder: "asc" } },
+        payments: { where: { status: "recorded" }, orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }] },
+        project: { include: { customer: true, organization: true } },
+      },
     });
     if (!row) throw new ApiError(404, `Invoice ${id} not found`);
 
     const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
+    const financials = calculateInvoiceFinancials(row.amount, row.status, row.payments);
     const buffer = await renderInvoicePdf(
       {
         invoiceNumber: row.invoiceNumber,
         type: row.type,
         status: row.status,
         amount: Number(row.amount),
+        subtotal: Number(row.subtotal),
+        taxPct: Number(row.taxPct),
+        taxAmount: Number(row.taxAmount),
         dueDate: row.dueDate,
         createdAt: row.createdAt,
         percentComplete: row.percentComplete ? Number(row.percentComplete) : null,
@@ -231,6 +241,8 @@ export class InvoicesService {
           unitPrice: Number(li.unitPrice),
           lineTotal: Number(li.lineTotal),
         })),
+        paidAmount: financials.paidAmount,
+        balanceDue: financials.balanceDue,
       },
       { brand }
     );
@@ -380,15 +392,47 @@ export class InvoicesService {
     });
   }
 
-  private async resolveLineItems(input: CreateInvoiceInput, type: string): Promise<InvoiceLineItemInput[]> {
-    if (input.lineItems && input.lineItems.length > 0) return input.lineItems;
-    if (!input.estimateId) return [];
+  private async resolvePricingProposal(input: CreateInvoiceInput) {
+    if (input.lineItems && input.lineItems.length > 0 && !input.proposalId) return null;
+
+    const proposal = await prisma.proposal.findFirst({
+      where: input.proposalId
+        ? { id: input.proposalId, projectId: input.projectId, project: { orgId: input.orgId } }
+        : {
+            projectId: input.projectId,
+            estimateId: input.estimateId,
+            status: "accepted",
+            project: { orgId: input.orgId },
+          },
+      orderBy: input.proposalId ? undefined : { createdAt: "desc" },
+    });
+    if (input.proposalId && !proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
+    if (!proposal) return null;
+    if (input.proposalId && proposal.estimateId !== input.estimateId) {
+      throw new ApiError(409, `Proposal ${proposal.id} is not linked to estimate ${input.estimateId}`);
+    }
+    if (normalizeProposalStatus(proposal.status) !== "accepted") {
+      throw new ApiError(409, `Proposal ${proposal.id} must be accepted before it can price an invoice`);
+    }
+    if (proposal.finalPrice == null) throw new ApiError(409, `Proposal ${proposal.id} does not have a final price`);
+    return proposal;
+  }
+
+  private async resolveLineItems(input: CreateInvoiceInput, type: string, proposalFinalPrice?: unknown): Promise<InvoicePricing> {
+    if (input.lineItems && input.lineItems.length > 0) {
+      const amount = roundCurrency(input.lineItems.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
+      return { lineItems: input.lineItems, amount, taxPct: 0, taxAmount: 0 };
+    }
+    if (!input.estimateId) return { lineItems: [], amount: 0, taxPct: 0, taxAmount: 0 };
 
     const estimate = await prisma.estimate.findFirst({
       where: { id: input.estimateId, orgId: input.orgId, projectId: input.projectId },
       include: { lineItems: { orderBy: { sortOrder: "asc" } } },
     });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
+
+    const estimateStatus = normalizeEstimateStatus(estimate.status);
+    if (estimateStatus === "draft") throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating an invoice`);
 
     const scale = type === "progress" ? (input.percentComplete ?? 0) / 100 : 1;
     const lines = estimate.lineItems.map((li) => ({
@@ -400,25 +444,44 @@ export class InvoicesService {
 
     // Estimate.totalPrice is the customer-facing sell total. Do not rebuild an
     // invoice from raw direct costs: that silently drops overhead, profit, and
-    // tax. Allocate the persisted sell total back across the existing scope so
-    // the invoice remains itemized while its amount matches the estimate.
-    const estimateTotal = Number(estimate.totalPrice);
+    // tax. Allocate the persisted pre-tax subtotal back across the existing
+    // scope so the itemized lines reconcile with the financial summary while
+    // the invoice amount retains its tax-inclusive sell total.
+    const estimateTotal = Number(proposalFinalPrice ?? estimate.totalPrice);
     const subtotalCost = Number(estimate.subtotalCost);
     if (!Number.isFinite(estimateTotal) || !Number.isFinite(subtotalCost)) {
       throw new ApiError(500, `Estimate ${input.estimateId} has invalid persisted pricing totals`);
     }
 
     const amount = roundCurrency(estimateTotal * scale);
-    const allocations = allocateInvoiceLineCosts(lines.map((line) => line.directCost), subtotalCost, amount);
-    return lines.map((line, index) => ({
-      description: line.description,
-      quantity: line.quantity,
-      unitOfMeasure: line.unitOfMeasure,
-      // InvoiceLineItem.unitPrice/lineTotal carry selling price, not direct cost.
-      unitPrice: line.quantity > 0 ? roundUnitCost(allocations[index] / line.quantity) : 0,
-      lineTotal: allocations[index],
-    }));
+    const sourceTotal = Number(estimate.totalPrice);
+    const sourceTaxAmount = Number(estimate.taxAmount ?? 0);
+    const taxPct = Number(estimate.taxPct ?? 0);
+    const taxAmount = sourceTotal > 0 && sourceTaxAmount > 0 ? roundCurrency(sourceTaxAmount * (estimateTotal / sourceTotal) * scale) : 0;
+    const subtotal = roundCurrency(amount - taxAmount);
+    const allocations = allocateInvoiceLineCosts(lines.map((line) => line.directCost), subtotalCost, subtotal);
+
+    return {
+      amount,
+      lineItems: lines.map((line, index) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitOfMeasure: line.unitOfMeasure,
+        // InvoiceLineItem.unitPrice/lineTotal carry selling price, not direct cost.
+        unitPrice: line.quantity > 0 ? roundUnitCost(allocations[index] / line.quantity) : 0,
+        lineTotal: allocations[index],
+      })),
+      taxPct,
+      taxAmount,
+    };
   }
+}
+
+interface InvoicePricing {
+  lineItems: InvoiceLineItemInput[];
+  amount: number;
+  taxPct: number;
+  taxAmount: number;
 }
 
 function roundCurrency(value: number): number {
@@ -469,16 +532,18 @@ interface InvoiceQueueRawRow {
 }
 
 function toInvoiceQueueItemDTO(row: InvoiceQueueRawRow): InvoiceQueueItemDTO {
+  const paidAmount = Number(row.paid_amount);
+  const balanceDue = Number(row.balance_due);
   return {
     id: row.id,
     documentNumber: row.invoice_number,
     projectId: row.project_id,
     projectName: row.project_name,
     customerName: row.customer_name,
-    status: normalizeInvoiceStatus(row.status),
+    status: deriveInvoiceStatus(row.status, row.due_date, balanceDue),
     amount: Number(row.amount),
-    paidAmount: Number(row.paid_amount),
-    balanceDue: Number(row.balance_due),
+    paidAmount,
+    balanceDue,
     dueDate: row.due_date ? row.due_date.toISOString() : null,
     updatedAt: row.updated_at.toISOString(),
   };
@@ -494,6 +559,9 @@ export function toInvoiceDTO(row: {
   status: string;
   percentComplete: unknown;
   amount: unknown;
+  subtotal?: unknown;
+  taxPct?: unknown;
+  taxAmount?: unknown;
   dueDate: Date | null;
   sentAt: Date | null;
   paidAt: Date | null;
@@ -526,9 +594,12 @@ export function toInvoiceDTO(row: {
     proposalId: row.proposalId,
     invoiceNumber: row.invoiceNumber,
     type: row.type,
-    status: normalizeInvoiceStatus(row.status),
+    status: deriveInvoiceStatus(row.status, row.dueDate, financials.balanceDue),
     percentComplete: row.percentComplete != null ? Number(row.percentComplete) : null,
     amount: Number(row.amount),
+    subtotal: row.subtotal != null ? Number(row.subtotal) : Number(row.amount),
+    taxPct: row.taxPct != null ? Number(row.taxPct) : 0,
+    taxAmount: row.taxAmount != null ? Number(row.taxAmount) : 0,
     dueDate: row.dueDate,
     sentAt: row.sentAt,
     paidAt: row.paidAt,
@@ -537,6 +608,14 @@ export function toInvoiceDTO(row: {
     payments,
     deliveries: (row.deliveries ?? []).map(toDeliveryDTO),
   };
+}
+
+function deriveInvoiceStatus(status: string, dueDate: Date | null, balanceDue: number): ReturnType<typeof normalizeInvoiceStatus> {
+  const normalized = normalizeInvoiceStatus(status);
+  if (["sent", "viewed", "partially_paid"].includes(normalized) && dueDate && dueDate < new Date() && balanceDue > 0) {
+    return "overdue";
+  }
+  return normalized;
 }
 
 function toLineItemDTO(row: {

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - app/modules/estimate-engine
@@ -56,6 +56,9 @@ Current enforced rule:
 
 - estimate mutations are draft-only until the estimate is finalized to `ready`
 - `ready` is the internally finalized state; this slice does not add customer delivery, viewing, or approval endpoints
+- proposal creation is refused for draft estimates; finalization backfills the stored price on any legacy proposal that was created without one
+- `Estimate(projectId, version)` is unique and estimate creation serializes on the project row before allocating the next version
+- reviewed Costbook line-item replay may supply `sourceKey` for idempotency; the Costbook picker generates a key for each catalog add request
 
 ## Costbook provenance and pricing snapshots
 
@@ -100,6 +103,7 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 - downstream commercial workflows still rely on compatibility status normalization in some paths
 - Costbook pricing preview remains calculation-only; it is not a saved organization pricing-policy system
+- when a tax rate is entered without any taxable line, the builder warns that the tax total will be zero; the estimate tax basis remains the marked-up taxable share
 - S008 closes the prior `sent -> ready` normalization defect. `sent` now remains `sent` in API/DTO/UI normalization and is independently accepted by the organization queue filter. Historical `rejected -> declined` compatibility remains. Customer delivery, viewing, approval, expiration, and supersession workflows remain outside this bounded normalization slice.
 
 ## Deferred work
@@ -109,7 +113,7 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Last verified date
 
-2026-08-21
+2026-08-28
 
 
 ## S026 ordering concurrency
@@ -120,3 +124,7 @@ Estimate line-item append allocation remains persisted through `EstimateLineItem
 ## S028 estimate deliverability
 
 PR #338 verifies draft persistence/reload for custom and Costbook-backed lines, sections and cost types, taxable flags, deterministic overhead/tax totals, revision-safe updates, and finalized-estimate immutability. The additive migration does not rewrite existing data.
+
+## Pre-beta handoff safeguards
+
+The estimate builder keeps proposal creation behind finalization, surfaces an actionable empty Costbook state, announces search results with combobox/listbox semantics, and preserves partial search results when one catalog query fails. Finalization backfills an unpriced legacy proposal only when no explicit proposal price or range exists. The proposal and invoice handoff paths consume persisted customer-facing prices rather than direct costs.
