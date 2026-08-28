@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -15,17 +15,19 @@ related_docs:
 
 ## Mission
 
-S043 is DONE. The next bounded mission is S047 — Release candidate smoke suite.
+S043 and S047 are DONE. S047's implementation PR #397 and completion evidence
+are merged; the next bounded mission is not currently eligible.
 S027 remains independently BLOCKED on authenticated rendered Costbook evidence;
 S036 remains blocked by S027; S044/S045 remain blocked on production access.
 
 ## Current truth
 
-- `origin/main` is `abf89c1af9a40005a6e2010fcea8f5214763e25a`; S043 implementation
+- `origin/main` is `49f6e729b4b23b26b2b43ebd784107fc8bc19661`; S043 implementation
   PR #395 is merged and its completion evidence is recorded in
   `docs/architecture/S043_COMPLETION_EVIDENCE.md`.
-- S047 is the sole promoted sprint and is IN_REVIEW in PR #397. Its readiness contract is
-  `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`.
+- S047 implementation PR #397 is merged and its completion evidence is recorded
+  in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. Its readiness contract is
+  retained in `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`.
 - Existing RC Playwright route and golden-workflow seams are the implementation
   baseline. No new product behavior, credential storage, schema, migration,
   role, permission, RLS redesign, or launch approval is authorized by S047.
@@ -46,7 +48,7 @@ destructive data work.
 
 ## Next Eligible Sprint
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY; S047 is IN_REVIEW in PR #397. S022, S028, S033, and S040 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
+Eligibility: No numbered sprint is currently READY; S022, S028, S033, S040, and S047 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
 Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: `feature/s047-implementation` is the sole remote S047 implementation lane and PR #397 is the only open S047 PR. Keep S027, S036, S044, S045, S046, and S048 independent while PR #397 completes.
-Startup prompt: Read `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`, run the canonical startup and autonomy reconciliation flows, then implement S047 on its isolated branch/worktree.
+Overlap check: PR #397 is merged and no open S047 implementation lane remains. Keep S027, S036, S044, S045, S046, and S048 independent.
+Startup prompt: No numbered sprint is currently eligible. Resume only after a lower-numbered READY sprint is promoted under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` or after external evidence blockers are removed.
