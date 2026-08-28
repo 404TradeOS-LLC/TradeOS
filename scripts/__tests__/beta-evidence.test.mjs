@@ -353,6 +353,36 @@ test("the workflow is least privilege, serialized, and never continues on error"
   assert.doesNotMatch(workflow, /set -x/);
 });
 
+test("a failed run still clears session state, so cleanup is not truncated", () => {
+  const run = read("app/scripts/beta-evidence/run.mjs");
+  // process.exit() terminates before an awaited finally completes, which would
+  // leave an authenticated session on disk after a failed run.
+  assert.doesNotMatch(run, /process\.exit\(1\)/);
+  assert.match(run, /process\.exitCode = 1/);
+  assert.match(run, /rm\(storageStatePath, \{ force: true \}\)/);
+});
+
+test("a capture report without a run id is not trusted", () => {
+  const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
+  // Requiring equality (rather than `report.runId && ...`) means a missing id
+  // is stale too, instead of bypassing the check.
+  assert.match(validator, /expectedRunId && report\.runId !== expectedRunId/);
+  assert.doesNotMatch(validator, /report\.runId && report\.runId !== expectedRunId/);
+});
+
+test("the documented secret names map to the runtime names the scripts read", () => {
+  const doc = read("docs/testing/BETA_EVIDENCE.md");
+  const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
+  const workflow = read(".github/workflows/beta-evidence.yml");
+
+  // The scripts read the unprefixed names; the workflow maps the secrets onto
+  // them. The doc must show both so neither side is set by mistake.
+  assert.match(isolation, /process\.env\.BETA_FOREIGN_PROJECT_ID/);
+  assert.match(workflow, /BETA_FOREIGN_PROJECT_ID: \$\{\{ secrets\.BETA_RC_FOREIGN_PROJECT_ID \}\}/);
+  assert.match(doc, /\| GitHub secret \/ variable \| Runtime variable \|/);
+  assert.match(doc, /`BETA_RC_FOREIGN_PROJECT_ID` \| `BETA_FOREIGN_PROJECT_ID`/);
+});
+
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
   // An unset organization label previously recorded the tenant check as passed.
   assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);

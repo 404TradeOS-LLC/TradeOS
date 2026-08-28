@@ -139,14 +139,25 @@ step. Storage state is never uploaded as an artifact.
 Names and ownership only. Never record values in documentation, logs, or
 artifacts.
 
-| Name | Kind | Consumed by | Required |
-| --- | --- | --- | --- |
-| `BETA_RC_SMOKE_EMAIL` | secret | `auth-setup.mjs` | full runs |
-| `BETA_RC_SMOKE_PASSWORD` | secret | `auth-setup.mjs` | full runs |
-| `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
-| `BETA_RC_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
-| `BETA_RC_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+**Two namespaces.** The GitHub secret names are `BETA_RC_*`; the workflow maps
+them to the `BETA_*` environment variables the scripts actually read. Set the
+secret name in GitHub and the runtime name when running locally. The mapping is
+listed below because getting it wrong silently leaves a value unset — which for
+the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
+
+| GitHub secret / variable | Runtime variable | Kind | Consumed by | Required |
+| --- | --- | --- | --- | --- |
+| `BETA_RC_SMOKE_EMAIL` | `BETA_SMOKE_EMAIL` | secret | `auth-setup.mjs` | full runs |
+| `BETA_RC_SMOKE_PASSWORD` | `BETA_SMOKE_PASSWORD` | secret | `auth-setup.mjs` | full runs |
+| `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
+| `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
+| `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+
+`BETA_RC_SUPABASE_PROJECT_REF` is deliberately the same on both sides; the others
+drop the `RC_` prefix at runtime. The smoke-tenant label reaches the scripts as
+`BETA_SMOKE_ORG_LABEL` and `BETA_SMOKE_TENANT_LABEL`, both fed from the
+workflow's `smoke_tenant_label` input.
 
 An estimate id on its own is not probeable, because the estimate route is nested
 under a project. Supplying only `BETA_RC_FOREIGN_ESTIMATE_ID` fails the run
@@ -165,7 +176,6 @@ role for the beta operator workflow.
 ```bash
 export BETA_RC_BASE_URL="https://tradeos-costbook-web-<preview>.vercel.app"
 export BETA_EXPECTED_ENVIRONMENT=preview
-export BETA_ACTUAL_ENVIRONMENT=preview
 export BETA_SMOKE_EMAIL="<rc smoke identity>"
 export BETA_SMOKE_PASSWORD="<rc smoke password>"
 export BETA_SMOKE_ORG_LABEL="TradeOS Beta Smoke"

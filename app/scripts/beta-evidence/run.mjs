@@ -37,7 +37,6 @@ if (hasFlag("help")) {
       "Required environment:",
       "  BETA_RC_BASE_URL              Approved non-production RC URL",
       "  BETA_EXPECTED_ENVIRONMENT     preview | staging",
-      "  BETA_ACTUAL_ENVIRONMENT       must equal BETA_EXPECTED_ENVIRONMENT",
       "  BETA_SMOKE_EMAIL              RC smoke identity",
       "  BETA_SMOKE_PASSWORD           RC smoke identity password",
       "  BETA_SMOKE_ORG_LABEL          Organization the session must belong to",
@@ -132,7 +131,10 @@ try {
   console.log("\nBeta evidence run complete.");
 } catch (error) {
   console.error(`\nBeta evidence run FAILED: ${error.message}`);
-  process.exit(1);
+  // Set the exit code rather than calling process.exit(): process.exit()
+  // terminates immediately and the awaited cleanup in `finally` never runs,
+  // which would leave an authenticated session on disk after a failed run.
+  process.exitCode = 1;
 } finally {
   // Never leave a reusable session lying around after a local run.
   if (!process.env.BETA_KEEP_STORAGE_STATE) {

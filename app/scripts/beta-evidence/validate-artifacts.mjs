@@ -77,12 +77,13 @@ const captured = await collectScreenshots();
 const validation = validateEvidenceSet(captured, { viewports });
 
 // A report left over from an earlier run must not be counted as this run's
-// evidence.
+// evidence. A report carrying no run id at all is equally untrustworthy once a
+// run id is expected, so absence is treated as stale rather than waved through.
 const staleViewports = [];
 for (const viewport of viewports) {
   const report = viewportReports[viewport.name];
   if (!report) continue;
-  if (expectedRunId && report.runId && report.runId !== expectedRunId) {
+  if (expectedRunId && report.runId !== expectedRunId) {
     staleViewports.push(viewport.name);
   }
 }
