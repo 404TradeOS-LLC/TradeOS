@@ -37,7 +37,7 @@ export class InvoicesService {
     const lineItems = pricing.lineItems;
     if (lineItems.length === 0) throw new ApiError(400, "Invoice requires lineItems or an estimateId");
 
-    const amount = roundCurrency(lineItems.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
+    const amount = roundCurrency(pricing.amount);
     const taxAmount = roundCurrency(pricing.taxAmount);
     const subtotal = roundCurrency(amount - taxAmount);
     const nextNumber = (await prisma.invoice.aggregate({ where: { projectId: input.projectId }, _max: { invoiceNumber: true } }))._max
@@ -408,6 +408,9 @@ export class InvoicesService {
     });
     if (input.proposalId && !proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     if (!proposal) return null;
+    if (input.proposalId && proposal.estimateId !== input.estimateId) {
+      throw new ApiError(409, `Proposal ${proposal.id} is not linked to estimate ${input.estimateId}`);
+    }
     if (normalizeProposalStatus(proposal.status) !== "accepted") {
       throw new ApiError(409, `Proposal ${proposal.id} must be accepted before it can price an invoice`);
     }
@@ -416,8 +419,11 @@ export class InvoicesService {
   }
 
   private async resolveLineItems(input: CreateInvoiceInput, type: string, proposalFinalPrice?: unknown): Promise<InvoicePricing> {
-    if (input.lineItems && input.lineItems.length > 0) return { lineItems: input.lineItems, taxPct: 0, taxAmount: 0 };
-    if (!input.estimateId) return { lineItems: [], taxPct: 0, taxAmount: 0 };
+    if (input.lineItems && input.lineItems.length > 0) {
+      const amount = roundCurrency(input.lineItems.reduce((sum, li) => sum + (li.lineTotal ?? li.quantity * li.unitPrice), 0));
+      return { lineItems: input.lineItems, amount, taxPct: 0, taxAmount: 0 };
+    }
+    if (!input.estimateId) return { lineItems: [], amount: 0, taxPct: 0, taxAmount: 0 };
 
     const estimate = await prisma.estimate.findFirst({
       where: { id: input.estimateId, orgId: input.orgId, projectId: input.projectId },
@@ -438,8 +444,9 @@ export class InvoicesService {
 
     // Estimate.totalPrice is the customer-facing sell total. Do not rebuild an
     // invoice from raw direct costs: that silently drops overhead, profit, and
-    // tax. Allocate the persisted sell total back across the existing scope so
-    // the invoice remains itemized while its amount matches the estimate.
+    // tax. Allocate the persisted pre-tax subtotal back across the existing
+    // scope so the itemized lines reconcile with the financial summary while
+    // the invoice amount retains its tax-inclusive sell total.
     const estimateTotal = Number(proposalFinalPrice ?? estimate.totalPrice);
     const subtotalCost = Number(estimate.subtotalCost);
     if (!Number.isFinite(estimateTotal) || !Number.isFinite(subtotalCost)) {
@@ -447,13 +454,15 @@ export class InvoicesService {
     }
 
     const amount = roundCurrency(estimateTotal * scale);
-    const allocations = allocateInvoiceLineCosts(lines.map((line) => line.directCost), subtotalCost, amount);
     const sourceTotal = Number(estimate.totalPrice);
     const sourceTaxAmount = Number(estimate.taxAmount ?? 0);
     const taxPct = Number(estimate.taxPct ?? 0);
     const taxAmount = sourceTotal > 0 && sourceTaxAmount > 0 ? roundCurrency(sourceTaxAmount * (estimateTotal / sourceTotal) * scale) : 0;
+    const subtotal = roundCurrency(amount - taxAmount);
+    const allocations = allocateInvoiceLineCosts(lines.map((line) => line.directCost), subtotalCost, subtotal);
 
     return {
+      amount,
       lineItems: lines.map((line, index) => ({
         description: line.description,
         quantity: line.quantity,
@@ -470,6 +479,7 @@ export class InvoicesService {
 
 interface InvoicePricing {
   lineItems: InvoiceLineItemInput[];
+  amount: number;
   taxPct: number;
   taxAmount: number;
 }

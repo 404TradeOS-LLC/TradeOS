@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { LineItemRow } from "@/components/shared/line-item-row";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getInvoice, getProject } from "@/lib/api";
+import { getInvoice, getOrganizationSettings, getProject } from "@/lib/api";
 import { buildInvoiceTimeline, formatDate, formatInvoiceCurrency, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 import { RecordPaymentForm } from "./record-payment-form";
@@ -14,7 +14,8 @@ import { RecordPaymentForm } from "./record-payment-form";
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string; invoiceId: string }> }) {
   const { id: projectId, invoiceId } = await params;
   const token = await getSessionToken();
-  const [project, invoice] = await Promise.all([getProject(token ?? "", projectId), getInvoice(token ?? "", invoiceId)]);
+  const [project, invoice, settings] = await Promise.all([getProject(token ?? "", projectId), getInvoice(token ?? "", invoiceId), getOrganizationSettings(token ?? "")]);
+  const canRecordPayment = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const timeline = buildInvoiceTimeline(invoice);
   const displayStatus = getInvoiceDisplayStatus(invoice);
   const runningBalance = getInvoiceRunningBalance(invoice);
@@ -134,7 +135,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <>
-              {invoice.balanceDue > 0 ? <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} /> : null}
+              {canRecordPayment && invoice.balanceDue > 0 ? <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} /> : null}
               <form action={markInvoicePaidAction}>
                 <input type="hidden" name="invoiceId" value={invoice.id} />
                 <input type="hidden" name="projectId" value={projectId} />

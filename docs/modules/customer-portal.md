@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - web/src/app/(app)/portal
@@ -56,6 +56,12 @@ generators resolve canonical organization branding before producing the binary
 response; no public link, client-selected organization, or portal identity
 model is introduced.
 
+The approved pre-beta direction is an expiring customer-scoped magic-link
+principal with a dedicated public route group, but that identity boundary is
+not implemented on this repair branch. Until it lands, `/portal/*` remains an
+authenticated staff-session surface and must not be represented as customer
+self-service access.
+
 ## Proposal review actions
 
 `/portal/proposals/[proposalId]` uses the existing server-side session-token
@@ -74,6 +80,7 @@ is unchanged.
 ## Known limitations
 
 - S018 shipped the bounded hardening of the existing boundary: local access tokens expire and reject malformed claims, inactive users cannot refresh or bootstrap a session, and the PostgreSQL/RLS test suite asserts same-organization access plus cross-organization denial for portal resources. Exact-head Verify repository #1332 and the associated governance checks passed before implementation merge. There is still no separate customer identity, portal token, or immediate bearer-revocation model.
+- Contract portal presentation now includes the frozen agreed amount and snapshot-backed scope when available; it does not change the staff-session gate.
 
 ## Deferred work
 
@@ -81,4 +88,4 @@ is unchanged.
 
 ## Last verified date
 
-2026-08-24 (S018 implementation and exact-head CI evidence)
+2026-08-28 (S018 implementation and pre-beta branch reconciliation)

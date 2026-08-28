@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-08-28
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -309,14 +309,16 @@ Payment reconciliation:
 ## Estimate-backed invoice pricing invariant
 
 When an invoice is created from an estimate, the invoice amount is the
-persisted customer-facing `Estimate.totalPrice`, including persisted tax.
+persisted customer-facing `Estimate.totalPrice`, including persisted tax; an
+accepted proposal tied to the estimate supplies the agreed sell total instead.
 The existing estimate line items remain the invoice scope; their customer
-line totals receive a proportional allocation based on each persisted
-`lineCost` share of `Estimate.subtotalCost`; persisted tax is already included
-in `Estimate.totalPrice` and is not re-derived in the invoice module. Each line
-is rounded to cents and any residual is assigned to the largest line so the
-itemized invoice reconciles exactly to the estimate. Progress invoices scale
-that value by completion percentage. If explicit non-empty `lineItems` are
+line totals receive a proportional allocation of the pre-tax subtotal based on
+each persisted `lineCost` share of `Estimate.subtotalCost`. Persisted tax is
+carried separately into the invoice financial breakdown and is not re-derived
+in the invoice module. Each line is rounded to cents and any residual is
+assigned to the largest line so itemized lines reconcile exactly to subtotal.
+Progress invoices scale the sell total and tax composition by completion
+percentage. If explicit non-empty `lineItems` are
 provided, they override estimate resolution and keep their supplied values;
 custom invoice line items do not use this transfer path.
 
@@ -350,6 +352,17 @@ Estimate line-item append order is persisted and remains deterministic under con
 
 Estimate-backed proposal creation persists the finalized estimate's existing `totalPrice` as the proposal's `finalPrice` when no explicit proposal price is supplied. Draft estimates remain unpriced, and explicit proposal ranges remain ranges rather than being combined with a contradictory derived fixed price.
 S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.
+
+Pre-beta handoff safeguards reject draft-estimate proposal creation, backfill
+an unpriced legacy proposal when its estimate is finalized, and remove the PDF
+fallback to a live estimate total. Accepted or contract-linked proposals are
+not editable through the normal update path. Invoice creation rejects draft
+estimates and prefers the accepted proposal's persisted final price.
+
+Contracts capture the accepted proposal amount and a frozen snapshot at
+creation. The current product posture is bounded in-app acceptance rather than
+certified legal e-signature; any later scope change must use the existing
+change-order or replacement-contract decision path.
 
 
 ## S030 dispatcher verification (active)

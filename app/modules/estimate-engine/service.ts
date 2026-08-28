@@ -143,6 +143,15 @@ export class EstimateEngineService {
     });
     if (!source) throw new ApiError(404, `Estimate ${sourceEstimateId} not found`);
 
+    if (orgId && typeof prisma.$queryRaw === "function") {
+      await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        select id
+        from projects
+        where id = cast(${source.projectId} as uuid)
+          and org_id = cast(${orgId} as uuid)
+        for update
+      `);
+    }
     const priorVersions = await prisma.estimate.count({ where: { projectId: source.projectId } });
     const row = await prisma.estimate.create({
       data: {

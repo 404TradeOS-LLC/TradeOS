@@ -64,12 +64,12 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 Creating an invoice with `estimateId` transfers the persisted customer-facing
 `Estimate.totalPrice` into `Invoice.amount`; an accepted proposal tied to the
 estimate overrides that source with its non-null `finalPrice`. The service does
-not sum the estimate's
-raw direct `unitCost` values. The total, including persisted tax, is allocated
-across the existing itemized invoice lines in proportion to each line's
-persisted `lineCost` share of `Estimate.subtotalCost`; each allocation is
-rounded to cents and any residual is assigned to the largest line. Progress
-invoices scale the sell total by `percentComplete`. Explicit non-empty
+not sum the estimate's raw direct `unitCost` values. The persisted pre-tax
+subtotal is allocated across the existing itemized invoice lines in proportion
+to each line's persisted `lineCost` share of `Estimate.subtotalCost`; each
+allocation is rounded to cents and any residual is assigned to the largest
+line. Progress invoices scale the sell total and tax composition by
+`percentComplete`. Explicit non-empty
 `lineItems` override estimate resolution and retain their supplied values;
 estimate allocation applies only when `lineItems` are absent or empty. Custom
 `lineItems` remain an explicit direct-input path and retain their existing

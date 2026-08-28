@@ -204,8 +204,9 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(50400);
-    expect(created.lineItems.create.map((line: { lineTotal: number }) => line.lineTotal)).toEqual([28800, 21600]);
-    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(50400);
+    expect(created.lineItems.create.map((line: { lineTotal: number }) => line.lineTotal)).toEqual([27428.57, 20571.43]);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(48000);
+    expect(created).toEqual(expect.objectContaining({ amount: 50400, subtotal: 48000, taxAmount: 2400 }));
   });
 
   it("bills the accepted proposal price when it differs from the estimate", async () => {
@@ -256,6 +257,20 @@ describe("InvoicesService", () => {
 
     await expect(
       new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" })
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a proposal that belongs to a different estimate", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-1", projectId: "project-1", estimateId: "estimate-other", status: "accepted", finalPrice: 6800,
+    });
+
+    await expect(
+      new InvoicesService().create({
+        orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1", proposalId: "proposal-1",
+      })
     ).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
   });
@@ -321,7 +336,8 @@ describe("InvoicesService", () => {
 
     const created = mockPrisma.invoice.create.mock.calls[0][0].data;
     expect(created.amount).toBe(25200);
-    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(25200);
+    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(24000);
+    expect(created).toEqual(expect.objectContaining({ amount: 25200, subtotal: 24000, taxAmount: 1200 }));
   });
 
   it("bills a target-margin estimate from its persisted sell total", async () => {

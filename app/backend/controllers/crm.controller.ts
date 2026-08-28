@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { CrmService } from "../../modules/crm/service";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
-import { requireAuthContext, requireOrgAdmin, requireOrgId, requireRoles } from "../requestContext";
+import { requireAuthContext, requireOrgAdmin, requireOrgId, requirePermissions, requireRoles } from "../requestContext";
 
 const service = new CrmService();
 const activityService = new ActivityTimelineService();
@@ -245,7 +245,7 @@ export const paymentsController = {
     res.json(await service.listPayments(requireOrgId(req), req.params.id));
   },
   async create(req: Request, res: Response) {
-    const auth = requireRoles(req, ["owner", "dispatcher"]);
+    const auth = requirePermissions(req, ["billing.write"]);
     res
       .status(201)
       .json(await service.createPayment(requireOrgId(req), req.params.id, paymentSchema.parse(req.body), auth.userId, auth.role));

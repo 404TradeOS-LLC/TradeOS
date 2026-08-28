@@ -209,7 +209,7 @@ describe("CrmService", () => {
       amount: 150,
       paymentDate: "2026-07-01T00:00:00.000Z",
       method: "card",
-    });
+    }, undefined, "admin");
 
     expect(result.id).toBe("payment-1");
     expect(mockPrisma.payment.create).toHaveBeenCalledWith(
@@ -229,7 +229,7 @@ describe("CrmService", () => {
         amount: 150,
         paymentDate: "2026-07-01T00:00:00.000Z",
         method: "card",
-      })
+      }, undefined, "admin")
     ).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.payment.create).not.toHaveBeenCalled();
   });
@@ -245,7 +245,7 @@ describe("CrmService", () => {
       amount: 200,
       paymentDate: "2026-07-01T00:00:00.000Z",
       method: "card",
-    });
+    }, undefined, "admin");
 
     expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
     expect(recordPaidEventMock).not.toHaveBeenCalled();
@@ -300,7 +300,7 @@ describe("CrmService", () => {
       paymentDate: "2026-07-03T00:00:00.000Z",
       method: "card",
       status: "pending",
-    });
+    }, undefined, "admin");
 
     expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
   });
