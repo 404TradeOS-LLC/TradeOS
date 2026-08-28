@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { signAuthToken } from "../../backend/auth/jwt";
 import { basePrisma } from "../client";
+import { assertSeedTargetIsNotProduction } from "./productionGuard";
 
 const IDS = {
   orgPrimary: "00000000-0000-0000-0000-000000000001",
@@ -840,6 +841,8 @@ async function main() {
     console.log("Dev bearer token:", token);
   }
 }
+
+assertSeedTargetIsNotProduction();
 
 main()
   .catch((err) => {

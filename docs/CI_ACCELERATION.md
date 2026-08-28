@@ -81,6 +81,45 @@ Preview and Staging. Without that confirmation, uploaded artifacts contain
 machine-readable reports only. The workflow does not commit credentials or
 storage state, and the generated reports never include authentication secrets.
 
+### Beta evidence
+
+`Beta Evidence` (`.github/workflows/beta-evidence.yml`) is the release-candidate
+evidence lane. It is operator-dispatched in one of two modes: `preflight`, which
+verifies configuration, guards, and credential availability and reports
+readiness without capturing anything or claiming a PASS; and `full`, which
+captures real evidence and therefore creates records in the release-candidate
+tenant.
+
+Unlike the S027 and RC lanes, it does not consume a pre-baked storage-state
+secret. It generates authenticated storage state at runtime by driving the real
+login form, validates that the resulting session is genuinely authenticated and
+scoped to the expected smoke organization, writes that state outside the working
+tree with owner-only permissions, and deletes it in an `always()` step. Session
+state is never uploaded, and the evidence bundle is scanned for cookie jars,
+Supabase auth tokens, TradeOS session cookies, and bearer tokens before
+publication.
+
+It drives the canonical customer -> project -> estimate -> line items -> pricing
+-> save/reload -> finalize -> proposal -> contract -> invoice workflow at 1440,
+1024, 768, and 390 pixels, capturing a truth-checked screenshot checkpoint at
+each product state, and proves tenant isolation with a negative probe against a
+foreign resource. Artifact validation reads each PNG's intrinsic width and fails
+when it does not match the viewport it claims, so a resized desktop capture
+cannot pass as mobile evidence.
+
+The target is resolved once from a priority-ordered source list and fails as
+ambiguous rather than guessing. Production hosts, the Production alias, and
+`-git-main-` previews are refused outright, and a mutating run additionally
+requires a Supabase project ref proving the release-candidate deployment does
+not share the production database. Runs are serialized through the
+`tradeos-beta-evidence` concurrency group.
+
+Required secrets are `BETA_RC_SMOKE_EMAIL`, `BETA_RC_SMOKE_PASSWORD`,
+`BETA_RC_SUPABASE_PROJECT_REF`, and at least one foreign resource id
+(`BETA_RC_FOREIGN_PROJECT_ID`, `BETA_RC_FOREIGN_CUSTOMER_ID`, or
+`BETA_RC_FOREIGN_ESTIMATE_ID`). Beta evidence is UNVERIFIED until a `full` run
+passes. See [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
+
 Do not place credentials or raw cookies in workflow YAML, repository files, PR comments, or uploaded artifacts.
 
 ## Safety boundaries
