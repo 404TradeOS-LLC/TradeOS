@@ -18,8 +18,12 @@ export class ContractsService {
     assertContractWriteAccess(input.actorRole);
     const proposal = await prisma.proposal.findFirst({
       where: { id: input.proposalId, project: input.orgId ? { orgId: input.orgId } : undefined },
+      include: { contracts: { select: { id: true }, take: 1 } },
     });
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
+    if (proposal.contracts.length > 0) {
+      throw new ApiError(409, `Proposal ${input.proposalId} already has contract ${proposal.contracts[0].id}`);
+    }
     if (normalizeProposalStatus(proposal.status) !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
     if (proposal.finalPrice == null) throw new ApiError(409, `Proposal ${input.proposalId} must have a final price before a contract can be created`);
 
