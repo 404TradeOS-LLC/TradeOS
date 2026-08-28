@@ -25,23 +25,33 @@ const tenantLabel = process.env.BETA_SMOKE_TENANT_LABEL || "TradeOS Beta Smoke";
 const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
-if (!baseUrlInput) throw new Error("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
-if (!storageState) throw new Error("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
-if (!runId) throw new Error("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
+function startupFailure(message) {
+  console.error(`::error::[capture-evidence viewport=${viewportName ?? "unset"}] ${message}`);
+  process.exit(1);
+}
+
+if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
+if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
+if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
 if (!allowMutations) {
-  throw new Error(
+  startupFailure(
     "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
   );
 }
 
 const viewport = VIEWPORTS.find((entry) => entry.name === viewportName);
 if (!viewport) {
-  throw new Error(
+  startupFailure(
     `BETA_VIEWPORT must be one of ${VIEWPORTS.map((entry) => entry.name).join(", ")}; received "${viewportName}".`,
   );
 }
 
-const parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+let parsedBaseUrl;
+try {
+  parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+} catch (error) {
+  startupFailure(error.message);
+}
 const screenshotDir = path.join(outDir, viewport.name, "screenshots");
 await fs.mkdir(screenshotDir, { recursive: true });
 

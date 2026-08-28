@@ -18,16 +18,26 @@ const foreignCustomerId = process.env.BETA_FOREIGN_CUSTOMER_ID;
 const foreignProjectId = process.env.BETA_FOREIGN_PROJECT_ID;
 const foreignEstimateId = process.env.BETA_FOREIGN_ESTIMATE_ID;
 
-if (!baseUrlInput) throw new Error("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
-if (!storageState) throw new Error("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
+function startupFailure(message) {
+  console.error(`::error::[tenant-isolation] ${message}`);
+  process.exit(1);
+}
+
+if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
+if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
 if (!foreignProjectId && !foreignCustomerId && !foreignEstimateId) {
-  throw new Error(
+  startupFailure(
     "At least one of BETA_FOREIGN_CUSTOMER_ID, BETA_FOREIGN_PROJECT_ID, or BETA_FOREIGN_ESTIMATE_ID is required. " +
       "Tenant isolation cannot be proven without a known foreign resource identifier.",
   );
 }
 
-const parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+let parsedBaseUrl;
+try {
+  parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+} catch (error) {
+  startupFailure(error.message);
+}
 await fs.mkdir(outDir, { recursive: true });
 
 const probes = [

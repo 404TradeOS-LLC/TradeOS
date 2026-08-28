@@ -20,9 +20,16 @@ const storageStatePath = process.env.BETA_STORAGE_STATE_PATH;
 const expectedOrg = process.env.BETA_SMOKE_ORG_LABEL;
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
+// Startup misconfiguration should read as one actionable line, not a stack
+// trace, so CI logs name the phase and the fix.
+function startupFailure(message) {
+  console.error(`::error::[auth-setup] ${message}`);
+  process.exit(1);
+}
+
 function requireEnv(value, name, guidance) {
   if (!value || String(value).trim() === "") {
-    throw new Error(`${name} is required. ${guidance}`);
+    startupFailure(`${name} is required. ${guidance}`);
   }
   return String(value);
 }
@@ -32,7 +39,12 @@ requireEnv(email, "BETA_SMOKE_EMAIL", "Provision a dedicated RC smoke identity a
 requireEnv(password, "BETA_SMOKE_PASSWORD", "Provision a dedicated RC smoke identity and expose it as a secret.");
 requireEnv(storageStatePath, "BETA_STORAGE_STATE_PATH", "Point this at a runner temp path, never at the repository.");
 
-const parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+let parsedBaseUrl;
+try {
+  parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
+} catch (error) {
+  startupFailure(error.message);
+}
 
 // A storage state written inside the working tree would be one `git add -A`
 // away from committing a live session. Refuse outright.
@@ -42,7 +54,7 @@ const resolvedStatePath = path.resolve(storageStatePath);
 // the check is correct no matter which directory the script is invoked from.
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 if (resolvedStatePath === repoRoot || resolvedStatePath.startsWith(`${repoRoot}${path.sep}`)) {
-  throw new Error(
+  startupFailure(
     `BETA_STORAGE_STATE_PATH (${resolvedStatePath}) is inside the repository. ` +
       "Authenticated session material must be written outside the working tree.",
   );
