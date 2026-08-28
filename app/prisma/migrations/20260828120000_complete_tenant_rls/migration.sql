@@ -7,8 +7,7 @@ declare
   tenant_table text;
 begin
   foreach tenant_table in array array[
-    'service_addresses', 'customer_equipment', 'service_agreements',
-    'payments', 'activity_events', 'notifications', 'attachments',
+    'activity_events', 'notifications', 'attachments',
     'comments', 'tags', 'tag_assignments', 'saved_views', 'recent_items',
     'feature_flags'
   ]

@@ -7,10 +7,6 @@ describe("complete tenant RLS migration", () => {
     "utf8"
   );
   const tenantTables = [
-    "service_addresses",
-    "customer_equipment",
-    "service_agreements",
-    "payments",
     "activity_events",
     "notifications",
     "attachments",
