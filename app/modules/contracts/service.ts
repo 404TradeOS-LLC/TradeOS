@@ -271,7 +271,7 @@ function toEventDTO(row: {
   };
 }
 
-function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> | null {
+function asRecord(value: Prisma.JsonValue | null | undefined): Record<string, unknown> | null {
   if (!value || Array.isArray(value) || typeof value !== "object") return null;
   return value as Record<string, unknown>;
 }
