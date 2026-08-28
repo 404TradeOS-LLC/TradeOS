@@ -29,6 +29,7 @@ if (hasFlag("help")) {
       "",
       "Options:",
       "  --viewport=<1440|1024|768|390>  Capture a single viewport instead of all four",
+      "  --allow-mutations               Consent to creating records in the RC tenant (required to capture)",
       "  --headed                        Run the browser headed (local debugging)",
       "  --skip-isolation                Skip the tenant-isolation probe",
       "  --help                          Show this message",
@@ -39,6 +40,7 @@ if (hasFlag("help")) {
       "  BETA_ACTUAL_ENVIRONMENT       must equal BETA_EXPECTED_ENVIRONMENT",
       "  BETA_SMOKE_EMAIL              RC smoke identity",
       "  BETA_SMOKE_PASSWORD           RC smoke identity password",
+      "  BETA_SMOKE_ORG_LABEL          Organization the session must belong to",
       "  BETA_RC_SUPABASE_PROJECT_REF  Non-production Supabase project ref (mutating runs)",
       "  BETA_STORAGE_STATE_PATH       Path OUTSIDE the repository for session state",
       "",
@@ -62,12 +64,18 @@ const viewports = requestedViewport
 const runId = process.env.BETA_RUN_ID || `local-${Date.now()}`;
 const storageStatePath =
   process.env.BETA_STORAGE_STATE_PATH || path.join("/tmp", `tradeos-beta-storage-state-${runId}.json`);
+const evidenceDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
+
+// Capturing evidence creates records in the RC tenant. Consent is explicit:
+// an unset value means "no", never "yes".
+const allowMutations = hasFlag("allow-mutations") || process.env.BETA_ALLOW_MUTATIONS === "true";
 
 const baseEnv = {
   ...process.env,
   BETA_RUN_ID: runId,
   BETA_STORAGE_STATE_PATH: storageStatePath,
-  BETA_ALLOW_MUTATIONS: process.env.BETA_ALLOW_MUTATIONS ?? "true",
+  BETA_EVIDENCE_DIR: evidenceDir,
+  BETA_ALLOW_MUTATIONS: String(allowMutations),
   BETA_STARTED_AT: process.env.BETA_STARTED_AT ?? new Date().toISOString(),
   ...(hasFlag("headed") ? { PWDEBUG: "0", BETA_HEADED: "true" } : {}),
 };
@@ -87,13 +95,20 @@ function runStep(label, script, extraEnv = {}) {
   });
 }
 
+const fsPromises = await import("node:fs/promises");
+
+// Start from an empty evidence directory so reports and screenshots from an
+// earlier run can never be counted as this one's evidence.
+await fsPromises.rm(evidenceDir, { recursive: true, force: true });
+await fsPromises.mkdir(evidenceDir, { recursive: true });
+
 try {
   await runStep("resolve RC target", "resolve-rc-target.mjs");
 
   // resolve-rc-target.mjs is the single source of truth for the URL; re-read it
   // rather than trusting the raw input a second time.
-  const fs = await import("node:fs/promises");
-  const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
+  const fs = fsPromises;
+  const outDir = evidenceDir;
   const target = JSON.parse(await fs.readFile(path.join(outDir, "rc-target.json"), "utf8"));
   baseEnv.BETA_RC_BASE_URL_RESOLVED = target.baseUrl;
 
@@ -121,7 +136,6 @@ try {
 } finally {
   // Never leave a reusable session lying around after a local run.
   if (!process.env.BETA_KEEP_STORAGE_STATE) {
-    const fs = await import("node:fs/promises");
-    await fs.rm(storageStatePath, { force: true }).catch(() => {});
+    await fsPromises.rm(storageStatePath, { force: true }).catch(() => {});
   }
 }

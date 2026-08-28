@@ -59,7 +59,9 @@ export function assertApprovedRcUrl(rawUrl) {
   try {
     parsed = new URL(rawUrl.trim());
   } catch {
-    fail("RC_URL_MALFORMED", `RC base URL is not a valid absolute URL: ${rawUrl}`);
+    // The raw value is not echoed: a malformed URL can still carry userinfo,
+    // and this message reaches CI logs.
+    fail("RC_URL_MALFORMED", "RC base URL is not a valid absolute URL. Its value is withheld because it may contain credentials.");
   }
 
   if (parsed.protocol !== "https:") {
@@ -68,8 +70,10 @@ export function assertApprovedRcUrl(rawUrl) {
   if (parsed.username || parsed.password) {
     fail("RC_URL_HAS_CREDENTIALS", "RC base URL must not embed credentials.");
   }
-  if (parsed.search || parsed.hash) {
-    fail("RC_URL_NOT_ORIGIN", "RC base URL must be a bare origin without query or fragment.");
+  // Only the origin is carried forward, so a path here would be silently
+  // dropped and the run would capture the root instead of what was configured.
+  if (parsed.search || parsed.hash || parsed.pathname !== "/") {
+    fail("RC_URL_NOT_ORIGIN", "RC base URL must be a bare origin without a path, query, or fragment.");
   }
 
   const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
@@ -113,7 +117,7 @@ export function deriveEnvironmentFromUrl(rawUrl) {
   try {
     hostname = new URL(rawUrl).hostname.toLowerCase().replace(/\.$/, "");
   } catch {
-    fail("RC_URL_MALFORMED", `Cannot derive an environment from ${rawUrl}.`);
+    fail("RC_URL_MALFORMED", "Cannot derive an environment from a malformed URL.");
   }
 
   if (PRODUCTION_HOSTNAMES.includes(hostname) || hostname === "tradeos-costbook-web.vercel.app") {

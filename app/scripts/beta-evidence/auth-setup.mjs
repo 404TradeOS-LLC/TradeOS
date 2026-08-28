@@ -38,6 +38,13 @@ requireEnv(baseUrlInput, "BETA_RC_BASE_URL_RESOLVED", "Run resolve-rc-target.mjs
 requireEnv(email, "BETA_SMOKE_EMAIL", "Provision a dedicated RC smoke identity and expose it as a secret.");
 requireEnv(password, "BETA_SMOKE_PASSWORD", "Provision a dedicated RC smoke identity and expose it as a secret.");
 requireEnv(storageStatePath, "BETA_STORAGE_STATE_PATH", "Point this at a runner temp path, never at the repository.");
+// Without an expected organization the tenant assertion cannot run, and a
+// session in an unintended tenant would be persisted and used for capture.
+requireEnv(
+  expectedOrg,
+  "BETA_SMOKE_ORG_LABEL",
+  "Name the smoke organization the session must belong to; the tenant assertion cannot be skipped.",
+);
 
 let parsedBaseUrl;
 try {
@@ -113,7 +120,7 @@ try {
   record("authenticated route renders without redirecting to login", true);
 
   // 3. Tenant assertion — the session must belong to the expected smoke org.
-  if (expectedOrg) {
+  {
     const signOutVisible = await page
       .getByRole("button", { name: "Sign out" })
       .first()
@@ -137,9 +144,7 @@ try {
           "Refusing to capture evidence against an unexpected organization.",
       );
     }
-    record(`session is scoped to the expected smoke tenant`, true);
-  } else {
-    record("tenant assertion skipped (BETA_SMOKE_ORG_LABEL not set)", true, "no expected organization supplied");
+    record("session is scoped to the expected smoke tenant", true);
   }
 
   // 4. Persist storage state outside the repository, owner-readable only.
@@ -162,7 +167,7 @@ try {
         generatedAt: new Date().toISOString(),
         baseUrl: parsedBaseUrl.origin,
         smokeIdentity: email.replace(/^(.).*(@.*)$/, "$1***$2"),
-        expectedOrganization: expectedOrg ?? null,
+        expectedOrganization: expectedOrg,
         steps,
         result: failure ? "FAIL" : "PASS",
       },

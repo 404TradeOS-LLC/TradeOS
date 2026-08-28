@@ -21,7 +21,7 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
-```
+```text
 resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  ->  upload
    (fail closed)      (runtime state)     (1440/1024/768/390)     (artifacts)   (30 days)
 ```
@@ -168,11 +168,19 @@ export BETA_EXPECTED_ENVIRONMENT=preview
 export BETA_ACTUAL_ENVIRONMENT=preview
 export BETA_SMOKE_EMAIL="<rc smoke identity>"
 export BETA_SMOKE_PASSWORD="<rc smoke password>"
+export BETA_SMOKE_ORG_LABEL="TradeOS Beta Smoke"
 export BETA_RC_SUPABASE_PROJECT_REF="<non-production project ref>"
 export BETA_FOREIGN_PROJECT_ID="<a project id in another synthetic tenant>"
 
-npm run beta:evidence
+npm run beta:evidence -- --allow-mutations
 ```
+
+Capturing evidence creates records in the RC tenant, so consent is explicit:
+without `--allow-mutations` (or `BETA_ALLOW_MUTATIONS=true`) the run stops before
+capture. `BETA_SMOKE_ORG_LABEL` is required — the tenant assertion cannot be
+skipped, because a session in an unintended organization would otherwise be
+persisted and used for capture. Each run starts from an empty evidence
+directory.
 
 Targeted options:
 
@@ -242,7 +250,7 @@ evidence rather than saved as a passing screenshot.
 
 ## Artifacts
 
-```
+```text
 beta-evidence/
   metadata.json
   rc-target.json

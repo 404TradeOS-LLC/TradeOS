@@ -68,6 +68,23 @@ test("RC target URLs must be bare HTTPS origins without credentials", () => {
     codeOf(() => assertApprovedRcUrl("https://tradeos-costbook-web-abc123.vercel.app?token=x")),
     "RC_URL_NOT_ORIGIN",
   );
+  // Only the origin is carried forward, so a path would be silently dropped.
+  assert.equal(
+    codeOf(() => assertApprovedRcUrl("https://tradeos-costbook-web-abc123.vercel.app/path")),
+    "RC_URL_NOT_ORIGIN",
+  );
+});
+
+test("a malformed RC URL is never echoed back, because it may carry credentials", () => {
+  const secret = "https://user:hunter2@[";
+  try {
+    assertApprovedRcUrl(secret);
+    assert.fail("expected a throw");
+  } catch (error) {
+    assert.equal(error.code, "RC_URL_MALFORMED");
+    assert.doesNotMatch(error.message, /hunter2/);
+    assert.doesNotMatch(error.message, /user:/);
+  }
 });
 
 test("an approved preview host is accepted", () => {
@@ -276,6 +293,25 @@ test("the workflow is least privilege, serialized, and never continues on error"
   assert.doesNotMatch(workflow, /continue-on-error/);
   assert.doesNotMatch(workflow, /pull_request_target/);
   assert.doesNotMatch(workflow, /set -x/);
+});
+
+test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
+  // An unset organization label previously recorded the tenant check as passed.
+  assert.match(authSetup, /BETA_SMOKE_ORG_LABEL/);
+  assert.match(authSetup, /tenant assertion cannot be skipped/);
+  assert.doesNotMatch(authSetup, /tenant assertion skipped/);
+
+  // An unset BETA_ALLOW_MUTATIONS previously defaulted to "true".
+  const run = read("app/scripts/beta-evidence/run.mjs");
+  assert.doesNotMatch(run, /BETA_ALLOW_MUTATIONS \?\? "true"/);
+  assert.match(run, /hasFlag\("allow-mutations"\) \|\| process\.env\.BETA_ALLOW_MUTATIONS === "true"/);
+  // Each run starts from an empty evidence directory.
+  assert.match(run, /rm\(evidenceDir, \{ recursive: true, force: true \}\)/);
+});
+
+test("third-party actions are pinned to an immutable commit", () => {
+  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/);
+  assert.doesNotMatch(workflow, /actions\/upload-artifact@v7\s*$/m);
 });
 
 test("session state is written outside the repository and removed afterwards", () => {

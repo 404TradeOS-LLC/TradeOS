@@ -250,7 +250,7 @@ jobs:
       # credential scan just rejected.
       - name: Upload beta evidence
         if: ${{ always() && inputs.mode == 'full' && steps.credential_scan.outcome == 'success' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: beta-evidence
           path: artifacts/beta-evidence
