@@ -9,6 +9,11 @@ interface InvoiceForPdf {
   type: string;
   status: string;
   amount: number;
+  subtotal: number;
+  taxPct: number;
+  taxAmount: number;
+  paidAmount: number;
+  balanceDue: number;
   dueDate: Date | null;
   createdAt: Date;
   percentComplete: number | null;
@@ -64,9 +69,17 @@ export function renderInvoicePdf(invoice: InvoiceForPdf, opts: { brand: Document
     }
     doc.moveDown(1.5);
 
-    doc.fontSize(12).fillColor(brand.colors.accent).text("Amount Due", { underline: true });
+    doc.fontSize(12).fillColor(brand.colors.accent).text("Invoice summary", { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(11).fillColor(DOCUMENT_INK).text(formatDocumentCurrency(invoice.amount), { align: "right" });
+    doc.fontSize(10).fillColor(DOCUMENT_INK);
+    doc.text(`Subtotal  ${formatDocumentCurrency(invoice.subtotal)}`, { align: "right" });
+    if (invoice.taxAmount > 0) {
+      const taxLabel = invoice.taxPct > 0 ? `Tax (${formatDocumentNumber(invoice.taxPct)}%)` : "Tax";
+      doc.text(`${taxLabel}  ${formatDocumentCurrency(invoice.taxAmount)}`, { align: "right" });
+    }
+    doc.fontSize(11).text(`Total  ${formatDocumentCurrency(invoice.amount)}`, { align: "right" });
+    if (invoice.paidAmount > 0) doc.fontSize(10).text(`Payments applied  ${formatDocumentCurrency(invoice.paidAmount)}`, { align: "right" });
+    doc.fontSize(12).text(`Balance due  ${formatDocumentCurrency(invoice.balanceDue)}`, { align: "right" });
 
     const trustSignals = [
       brand.showLicenseNumber !== false && brand.licenseNumber ? `License ${brand.licenseNumber}` : "",

@@ -112,6 +112,7 @@ A customer-facing commercial document stored in `Proposal`.
 A signable commercial agreement stored in `Contract`.
 
 - belongs to one project and one proposal
+- stores the agreed `contractAmount` and an immutable `snapshotJson` of the accepted proposal when created
 - owns contract event history
 
 ## Invoice
@@ -120,6 +121,7 @@ A billing document stored in `Invoice`.
 
 - belongs to one project
 - may reference an estimate and proposal
+- stores `subtotal`, `taxPct`, and `taxAmount` so customer documents can itemize the persisted total
 - owns invoice line items, payments, and delivery history
 - invoice line items store the issued selling-price allocation as `unitPrice`
   and `lineTotal`; estimate and change-order line items retain their separate

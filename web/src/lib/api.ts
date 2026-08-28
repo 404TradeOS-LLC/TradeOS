@@ -943,6 +943,9 @@ export interface Invoice {
   status: InvoiceStatus;
   percentComplete: number | null;
   amount: number;
+  subtotal: number;
+  taxPct: number;
+  taxAmount: number;
   dueDate: string | null;
   sentAt: string | null;
   paidAt: string | null;
@@ -1023,10 +1026,13 @@ export interface Contract {
   proposalId: string;
   status: ContractStatus;
   termsText: string;
+  contractAmount: number | null;
+  snapshot: Record<string, unknown> | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
   signatureIp: string | null;
+  signatureUserAgent: string | null;
   signedAt: string | null;
   createdAt: string;
   events: ContractEvent[];

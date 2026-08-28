@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { DispatchJob } from "@/lib/api";
 import { ClientApiError, clientFetch } from "@/lib/clientApi";
 
@@ -186,6 +187,11 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
               >
                 {busy === "Marking ready" ? "Marking ready…" : "Mark ready for invoice"}
               </button>
+            ) : null}
+            {job.readyForInvoiceAt && job.project ? (
+              <Link href={`/projects/${job.project.id}/invoices/new`} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground">
+                Open billing
+              </Link>
             ) : null}
           </div>
 

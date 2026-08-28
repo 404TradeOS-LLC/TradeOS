@@ -40,6 +40,11 @@ describe("branded PDF renderers", () => {
         type: "full",
         status: "sent",
         amount: 1250,
+        subtotal: 1125,
+        taxPct: 11.1111,
+        taxAmount: 125,
+        paidAmount: 200,
+        balanceDue: 1050,
         dueDate: new Date("2026-09-01T00:00:00.000Z"),
         createdAt: new Date("2026-08-24T00:00:00.000Z"),
         percentComplete: null,
@@ -57,6 +62,10 @@ describe("branded PDF renderers", () => {
     expect(text).toContain("Invoice #7");
     expect(text).toContain("License LIC-1");
     expect(text).toContain("Insured");
+    expect(text).toContain("Subtotal");
+    expect(text).toContain("Tax (11.11%)");
+    expect(text).toContain("Payments applied");
+    expect(text).toContain("Balance due");
   });
 
   it("returns a valid branded contract PDF without changing signature semantics", async () => {
@@ -64,6 +73,7 @@ describe("branded PDF renderers", () => {
       {
         status: "signed",
         termsText: "Existing contract terms.",
+        contractAmount: 8500,
         signerName: "Customer",
         signedAt: new Date("2026-08-24T00:00:00.000Z"),
         createdAt: new Date("2026-08-23T00:00:00.000Z"),
@@ -87,6 +97,11 @@ describe("branded PDF renderers", () => {
         type: "full",
         status: "draft",
         amount: Number.NaN,
+        subtotal: Number.NaN,
+        taxPct: 0,
+        taxAmount: 0,
+        paidAmount: 0,
+        balanceDue: Number.NaN,
         dueDate: new Date("invalid"),
         createdAt: new Date("2026-08-24T23:30:00-05:00"),
         percentComplete: null,

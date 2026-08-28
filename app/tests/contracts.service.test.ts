@@ -37,6 +37,13 @@ describe("ContractsService", () => {
       projectId: "project-1",
       status: "accepted",
       termsAndConditions: "Custom terms",
+      finalPrice: 8500,
+      companyName: "Canonical Builders",
+      scopeOfWork: "Build the agreed scope.",
+      assumptions: "Normal site access.",
+      exclusions: "Permits excluded.",
+      timeline: "Four weeks",
+      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }],
     });
     mockPrisma.contract.create.mockResolvedValue({
       id: "contract-1",
@@ -44,6 +51,8 @@ describe("ContractsService", () => {
       proposalId: "proposal-1",
       status: "pending_signature",
       termsText: "Custom terms",
+      contractAmount: 8500,
+      snapshotJson: { contractAmount: 8500 },
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
@@ -72,6 +81,10 @@ describe("ContractsService", () => {
 
     expect(contract.status).toBe("sent");
     expect(contract.termsText).toBe("Custom terms");
+    expect(contract.contractAmount).toBe(8500);
+    expect(mockPrisma.contract.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ contractAmount: 8500, snapshotJson: expect.objectContaining({ scopeOfWork: "Build the agreed scope." }) }) })
+    );
     expect(contract.events[0]?.eventType).toBe("contract.created");
   });
 

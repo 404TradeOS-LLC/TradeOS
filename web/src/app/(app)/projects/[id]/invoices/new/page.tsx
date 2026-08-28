@@ -11,7 +11,7 @@ export default async function NewInvoicePage({ params }: { params: Promise<{ id:
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="New invoice" backHref={`/projects/${id}`} backLabel="Back to project" />
-      <NewInvoiceForm projectId={id} estimates={project.estimates} />
+      <NewInvoiceForm projectId={id} estimates={project.estimates} proposals={project.proposals} />
     </div>
   );
 }

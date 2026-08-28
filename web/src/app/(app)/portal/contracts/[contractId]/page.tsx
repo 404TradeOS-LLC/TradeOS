@@ -4,7 +4,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getContract, getProject } from "@/lib/api";
-import { buildContractTimeline, formatDateTime } from "@/lib/document-workflow";
+import { buildContractTimeline, formatDateTime, formatInvoiceCurrency } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 import { SignContractForm } from "@/app/(app)/projects/[id]/contracts/[contractId]/sign-form";
 
@@ -42,7 +42,11 @@ export default async function CustomerPortalContractPage({ params }: { params: P
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scope</div>
-              <div className="mt-2 whitespace-pre-wrap text-muted-foreground">{proposal?.scopeOfWork ?? "Scope follows the accepted proposal."}</div>
+              <div className="mt-2 whitespace-pre-wrap text-muted-foreground">{contract.snapshot && typeof contract.snapshot.scopeOfWork === "string" ? contract.snapshot.scopeOfWork : proposal?.scopeOfWork ?? "Scope follows the accepted proposal."}</div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agreed amount</div>
+              <div className="mt-2 font-medium">{contract.contractAmount == null ? "Not set" : formatInvoiceCurrency(contract.contractAmount)}</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Terms</div>

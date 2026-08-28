@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInvoice, getProject } from "@/lib/api";
 import { buildInvoiceTimeline, formatDate, formatInvoiceCurrency, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
+import { RecordPaymentForm } from "./record-payment-form";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string; invoiceId: string }> }) {
   const { id: projectId, invoiceId } = await params;
@@ -73,6 +74,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <span className="min-w-0 truncate">Total</span>
             <span className="shrink-0">{formatInvoiceCurrency(invoice.amount)}</span>
           </div>
+          <div className="ml-auto grid w-full max-w-sm gap-1 border-t pt-3 text-sm">
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Subtotal</span><span>{formatInvoiceCurrency(invoice.subtotal)}</span></div>
+            {invoice.taxAmount > 0 ? <div className="flex justify-between gap-3"><span className="text-muted-foreground">Tax{invoice.taxPct > 0 ? ` (${invoice.taxPct}%)` : ""}</span><span>{formatInvoiceCurrency(invoice.taxAmount)}</span></div> : null}
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Paid</span><span>{formatInvoiceCurrency(invoice.paidAmount)}</span></div>
+            <div className="flex justify-between gap-3 font-semibold"><span>Balance due</span><span>{formatInvoiceCurrency(invoice.balanceDue)}</span></div>
+          </div>
         </CardContent>
       </Card>
 
@@ -126,11 +133,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           )}
 
           {(invoice.status === "sent" || invoice.status === "overdue") && (
-            <form action={markInvoicePaidAction}>
-              <input type="hidden" name="invoiceId" value={invoice.id} />
-              <input type="hidden" name="projectId" value={projectId} />
-              <Button type="submit">Mark paid</Button>
-            </form>
+            <>
+              {invoice.balanceDue > 0 ? <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} /> : null}
+              <form action={markInvoicePaidAction}>
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <input type="hidden" name="projectId" value={projectId} />
+                <Button type="submit" variant="outline">Mark paid without recording a payment</Button>
+              </form>
+            </>
           )}
 
           {invoice.status !== "paid" && invoice.status !== "voided" && (

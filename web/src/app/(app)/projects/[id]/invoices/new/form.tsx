@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
-import type { Estimate } from "@/lib/api";
+import type { Estimate, Proposal } from "@/lib/api";
 
-export function NewInvoiceForm({ projectId, estimates }: { projectId: string; estimates: Estimate[] }) {
+export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId: string; estimates: Estimate[]; proposals: Proposal[] }) {
   const [state, formAction, isPending] = useActionState(createInvoiceAction, undefined);
   const [type, setType] = useState<"full" | "progress">("full");
+  const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
+  const acceptedProposals = proposals.filter((proposal) => proposal.status === "accepted" && proposal.finalPrice !== null);
 
   return (
     <Card className="max-w-md">
@@ -23,12 +25,22 @@ export function NewInvoiceForm({ projectId, estimates }: { projectId: string; es
           <input type="hidden" name="projectId" value={projectId} />
           <SelectField label="Estimate" name="estimateId" required defaultValue="">
             <option value="">Select an estimate…</option>
-            {estimates.map((estimate) => (
+            {eligibleEstimates.map((estimate) => (
               <option key={estimate.id} value={estimate.id}>
                 v{estimate.version} · {estimate.status} · ${estimate.totalPrice.toFixed(2)}
               </option>
             ))}
           </SelectField>
+          {acceptedProposals.length > 0 ? (
+            <SelectField label="Accepted proposal price" name="proposalId" defaultValue="">
+              <option value="">Use estimate price</option>
+              {acceptedProposals.map((proposal) => (
+                <option key={proposal.id} value={proposal.id}>
+                  Accepted proposal · ${proposal.finalPrice?.toFixed(2)}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
           <div className="flex items-center gap-4 text-sm">
             <label className="flex items-center gap-1">
               <input type="radio" name="type" value="full" checked={type === "full"} onChange={() => setType("full")} /> Full

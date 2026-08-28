@@ -88,6 +88,9 @@ export interface InvoiceDTO {
   status: string;
   percentComplete: number | null;
   amount: number;
+  subtotal: number;
+  taxPct: number;
+  taxAmount: number;
   dueDate: Date | null;
   sentAt: Date | null;
   paidAt: Date | null;

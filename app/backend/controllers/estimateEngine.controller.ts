@@ -73,6 +73,7 @@ export const estimateEngineController = {
         unitOfMeasure: z.string().trim().min(1).max(40).optional(),
         unitCost: z.coerce.number().min(0).optional(),
         taxable: z.boolean().optional(),
+        sourceKey: z.string().trim().min(1).max(200).optional(),
       })
       .refine((v) => {
         if (v.costItemId || v.assemblyId) return Boolean(v.costItemId) !== Boolean(v.assemblyId);

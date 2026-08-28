@@ -320,9 +320,9 @@ values or payment behavior by migration
 
 ## S028 estimate-to-proposal reconciliation
 
-Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 PR #342 is merged as `164fe63867dceb265d80a0a61098c4c99315a3f3` and closes the persisted proposal-price gap.
+Estimate-backed Proposal creation now persists the finalized estimate's existing `totalPrice` at creation time, so proposal DTOs, queue views, portal presentation, and document generation read the same stored price. Draft estimates remain unpriced; the current Estimate model has no ranged-price fields. S028 implementation PR #338 and completion evidence #339 are already merged; PT-003 PR #342 is merged as `164fe63867dceb265d80a0a61098c4c99315a3f3` and closes the finalize-then-propose ordering. The pre-beta repair branch additionally rejects draft-estimate proposal creation, backfills unpriced proposals when an estimate is finalized, and removes the PDF fallback that could make a stored proposal disagree with its document.
 
-PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; the invoice queue now treats persisted `paid` as authoritative for `balanceDue: 0` while retaining recorded-payment aggregation semantics.
+PR #311 is merged as `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d`; the invoice queue now treats persisted `paid` as authoritative for `balanceDue: 0` while retaining recorded-payment aggregation semantics. The pre-beta repair branch adds authenticated payment entry, persisted invoice subtotal/tax composition, and customer-ready invoice PDF balance lines; these changes require migration and review before they become live main truth.
 
 S030 implementation PR #341 is merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. The authenticated browser evidence limitation is recorded explicitly. S040 and S041 are complete with implementation and completion evidence; S041 evidence is recorded in `docs/architecture/S041_COMPLETION_EVIDENCE.md`.
 

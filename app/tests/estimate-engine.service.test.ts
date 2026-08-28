@@ -9,6 +9,9 @@ const mockPrisma = {
     findMany: jest.fn(),
     update: jest.fn(),
   },
+  proposal: {
+    updateMany: jest.fn(),
+  },
   costItem: {
     findFirst: jest.fn(),
   },
@@ -303,6 +306,10 @@ describe("EstimateEngineService", () => {
         data: { status: "ready" },
       })
     );
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { estimateId: "estimate-1", finalPrice: null, priceLow: null, priceHigh: null },
+      data: { finalPrice: 33 },
+    });
   });
 
   it("duplicates an estimate into the next draft version with copied line items", async () => {

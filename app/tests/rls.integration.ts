@@ -1242,10 +1242,18 @@ describe("live organization row-level security", () => {
         from pg_class c
         join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
-          and c.relname in ('projects', 'proposals', 'invoices', 'contracts')
+          and c.relkind = 'r'
+          and exists (
+            select 1
+            from information_schema.columns column_info
+            where column_info.table_schema = 'public'
+              and column_info.table_name = c.relname
+              and column_info.column_name = 'org_id'
+          )
+        order by c.relname
       `
     );
-    expect(tables).toHaveLength(4);
+    expect(tables.length).toBeGreaterThan(4);
     expect(tables.every((table) => table.relrowsecurity && table.relforcerowsecurity)).toBe(true);
   });
 

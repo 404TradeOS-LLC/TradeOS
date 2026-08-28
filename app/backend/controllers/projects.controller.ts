@@ -219,6 +219,9 @@ export const projectsController = {
       invoices: (row.invoices ?? []).map((invoice) => ({
         ...invoice,
         amount: toNullableNumber(invoice.amount) ?? 0,
+        subtotal: toNullableNumber(invoice.subtotal) ?? toNullableNumber(invoice.amount) ?? 0,
+        taxPct: toNullableNumber(invoice.taxPct) ?? 0,
+        taxAmount: toNullableNumber(invoice.taxAmount) ?? 0,
         ...calculateInvoiceFinancials(invoice.amount, invoice.status, invoice.payments ?? []),
         payments: (invoice.payments ?? []).map(toInvoicePaymentDTO),
         percentComplete: toNullableNumber(invoice.percentComplete),

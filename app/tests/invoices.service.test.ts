@@ -208,6 +208,58 @@ describe("InvoicesService", () => {
     expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(50400);
   });
 
+  it("bills the accepted proposal price when it differs from the estimate", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      status: "accepted",
+      finalPrice: 6800,
+    });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      subtotalCost: 5100,
+      totalPrice: 7105.07,
+      lineItems: [
+        { description: "Labor", quantity: 1, unitOfMeasure: "job", lineCost: 3000 },
+        { description: "Materials", quantity: 1, unitOfMeasure: "job", lineCost: 2100 },
+      ],
+    });
+    mockPrisma.invoice.aggregate.mockResolvedValue({ _max: { invoiceNumber: null } });
+    mockPrisma.invoice.create.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: "proposal-1",
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 6800,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(),
+    });
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1", projectId: "project-1", estimateId: "estimate-1", proposalId: "proposal-1",
+      invoiceNumber: 1, type: "full", status: "draft", percentComplete: null, amount: 6800,
+      dueDate: null, sentAt: null, paidAt: null, createdAt: new Date(), lineItems: [], deliveries: [],
+    });
+
+    await new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" });
+
+    const created = mockPrisma.invoice.create.mock.calls[0][0].data;
+    expect(created).toEqual(expect.objectContaining({ proposalId: "proposal-1", amount: 6800 }));
+    expect(created.lineItems.create.reduce((sum: number, line: { lineTotal: number }) => sum + line.lineTotal, 0)).toBe(6800);
+  });
+
+  it("rejects invoice creation from a draft estimate", async () => {
+    mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", subtotalCost: 100, totalPrice: 120, lineItems: [],
+    });
+
+    await expect(
+      new InvoicesService().create({ orgId: "org-1", actorRole: "admin", projectId: "project-1", estimateId: "estimate-1" })
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.invoice.create).not.toHaveBeenCalled();
+  });
+
   it("scales the persisted sell total for progress invoices", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
     mockPrisma.estimate.findFirst.mockResolvedValue({
@@ -498,5 +550,32 @@ describe("InvoicesService", () => {
         }),
       })
     );
+  });
+
+  it("derives overdue status from an expired due date and positive balance", async () => {
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: "invoice-1",
+      projectId: "project-1",
+      estimateId: null,
+      proposalId: null,
+      invoiceNumber: 1,
+      type: "full",
+      status: "sent",
+      percentComplete: null,
+      amount: 1000,
+      dueDate: new Date(Date.now() - 86_400_000),
+      sentAt: new Date(Date.now() - 172_800_000),
+      paidAt: null,
+      createdAt: new Date(Date.now() - 172_800_000),
+      lineItems: [],
+      payments: [{ id: "payment-1", amount: 400, paymentDate: new Date(), method: "check", createdAt: new Date() }],
+      deliveries: [],
+    });
+
+    await expect(new InvoicesService().getById("invoice-1", "org-1")).resolves.toMatchObject({
+      status: "overdue",
+      paidAmount: 400,
+      balanceDue: 600,
+    });
   });
 });

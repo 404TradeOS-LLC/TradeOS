@@ -219,6 +219,21 @@ describe("CrmService", () => {
     );
   });
 
+  it("rejects payment recording for a draft invoice before creating a payment", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "draft", amount: "500.00", recipient_email: null },
+    ]);
+
+    await expect(
+      new CrmService().createPayment("org-1", "invoice-1", {
+        amount: 150,
+        paymentDate: "2026-07-01T00:00:00.000Z",
+        method: "card",
+      })
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.payment.create).not.toHaveBeenCalled();
+  });
+
   it("leaves a partially paid invoice persisted as sent while deriving the partial state from recorded payments", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([
       { id: "invoice-1", project_id: "project-1", invoice_number: 1, status: "sent", amount: "500.00", recipient_email: null },

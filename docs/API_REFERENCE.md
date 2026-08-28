@@ -137,7 +137,7 @@ been configured.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
-`POST /api/v1/invoices/:id/payments` remains the existing backend payment-recording boundary. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. No payment-entry UI or payment-processor contract is introduced by S011.
+`POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no payment processor or public checkout contract is introduced.
 
 `GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
 
@@ -486,13 +486,17 @@ The existing AI Estimate Assist routes expose this contract:
 
 When `POST /api/v1/invoices` is created with an `estimateId`, the persisted
 final customer-facing `Estimate.totalPrice` is the invoice amount, including
-persisted tax. The service allocates that total across the existing estimate
-lines in proportion to each persisted line `lineCost` share of
-`Estimate.subtotalCost`, rounds each allocation to cents, and assigns any
-rounding residual to the largest line. Progress invoices scale that sell total
-by `percentComplete`. When explicit non-empty `lineItems` are supplied, they
-override estimate resolution and retain their supplied values; estimate-backed
-allocation applies only when `lineItems` are absent or empty.
+persisted tax, unless the project has an accepted proposal with a non-null
+`finalPrice`, which becomes the billing source. Draft estimates are rejected.
+The service allocates the selected total across the existing estimate lines in
+proportion to each persisted line `lineCost` share of `Estimate.subtotalCost`,
+rounds each allocation to cents, and assigns any rounding residual to the
+largest line. Progress invoices scale that sell total by `percentComplete`.
+Invoice responses and PDFs expose persisted `subtotal`, `taxPct`, and
+`taxAmount`, plus server-derived payments and `balanceDue`. When explicit
+non-empty `lineItems` are supplied, they override estimate resolution and
+retain their supplied values; estimate-backed allocation applies only when
+`lineItems` are absent or empty.
 
 Invoice line-item payloads use `unitPrice` and `lineTotal`. The former
 `unitCost` and `lineCost` names are retired for `InvoiceLineItem` payloads;

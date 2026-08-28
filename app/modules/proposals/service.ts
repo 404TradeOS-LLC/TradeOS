@@ -136,6 +136,10 @@ export class ProposalsService {
 
   async update(id: string, input: Omit<CreateProposalInput, "estimateId" | "projectId">, orgId?: string): Promise<ProposalDTO> {
     const existing = await this.findOrThrow(id, orgId);
+    const linkedContract = await prisma.contract.findFirst({ where: { proposalId: id }, select: { id: true } });
+    if (normalizeProposalStatus(existing.status) === "accepted" || linkedContract) {
+      throw new ApiError(409, `Proposal ${id} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+    }
     const updated = await prisma.proposal.update({
       where: { id },
       data: {
@@ -392,8 +396,11 @@ export class ProposalsService {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
-    const estimateStatus = normalizeEstimateStatus(estimate.status);
-    const finalizedEstimatePrice = estimateStatus === "draft" ? null : estimate.totalPrice;
+    const estimateStatus = estimate.status ? normalizeEstimateStatus(estimate.status) : "ready";
+    if (estimateStatus === "draft") {
+      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`);
+    }
+    const finalizedEstimatePrice = estimate.totalPrice;
     const hasExplicitRange = input.priceLow != null || input.priceHigh != null;
 
     const proposal = await prisma.proposal.create({

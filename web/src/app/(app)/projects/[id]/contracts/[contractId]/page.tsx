@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getContract, getProject } from "@/lib/api";
-import { buildContractTimeline, formatDateTime } from "@/lib/document-workflow";
+import { buildContractTimeline, formatDateTime, formatInvoiceCurrency } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 import { SignContractForm } from "./sign-form";
 
@@ -44,7 +44,11 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scope</div>
-              <div className="mt-2 text-sm text-muted-foreground">{proposal?.scopeOfWork ?? "Scope follows the accepted proposal draft."}</div>
+              <div className="mt-2 text-sm text-muted-foreground">{contract.snapshot && typeof contract.snapshot.scopeOfWork === "string" ? contract.snapshot.scopeOfWork : proposal?.scopeOfWork ?? "Scope follows the accepted proposal draft."}</div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agreed amount</div>
+              <div className="mt-2 font-medium">{contract.contractAmount == null ? "Not set" : formatInvoiceCurrency(contract.contractAmount)}</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Completion status</div>

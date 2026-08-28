@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - app/modules/invoices
@@ -19,7 +19,7 @@ related_code:
 
 ## Purpose
 
-Own invoice creation, send and pay state changes, voiding, line items, delivery history, payment recording/reconciliation, and read-only payment-ledger reporting.
+Own invoice creation, send and pay state changes, voiding, line items, delivery history, payment recording/reconciliation, invoice financial composition, and read-only payment-ledger reporting.
 
 ## Source code locations
 
@@ -62,7 +62,9 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 ## Estimate-backed invoice creation
 
 Creating an invoice with `estimateId` transfers the persisted customer-facing
-`Estimate.totalPrice` into `Invoice.amount`; it does not sum the estimate's
+`Estimate.totalPrice` into `Invoice.amount`; an accepted proposal tied to the
+estimate overrides that source with its non-null `finalPrice`. The service does
+not sum the estimate's
 raw direct `unitCost` values. The total, including persisted tax, is allocated
 across the existing itemized invoice lines in proportion to each line's
 persisted `lineCost` share of `Estimate.subtotalCost`; each allocation is
@@ -71,8 +73,11 @@ invoices scale the sell total by `percentComplete`. Explicit non-empty
 `lineItems` override estimate resolution and retain their supplied values;
 estimate allocation applies only when `lineItems` are absent or empty. Custom
 `lineItems` remain an explicit direct-input path and retain their existing
-behavior. This value-transfer rule changes no permission, payment-ledger,
-tax-formula, or schema contract.
+behavior. Invoice-backed estimate creation rejects draft estimates. The
+invoice persists `subtotal`, `taxPct`, and `taxAmount`; when an accepted
+proposal changes the total, the estimate's persisted tax composition is scaled
+proportionally so `subtotal + taxAmount = amount` without inventing a new tax
+basis.
 
 `InvoiceLineItem` uses the selling-price names `unitPrice` and `lineTotal`.
 These replace the legacy `unitCost` and `lineCost` names for invoice rows only;
@@ -95,7 +100,9 @@ The current ledger counts only Payment rows whose status is `recorded`, matching
 
 Invoice voiding intentionally distinguishes storage from canonical semantics: `InvoicesService.void()` persists raw `void` because that is the value permitted by the live `invoices_status_check` constraint, while normalization, delivery history, and activity metadata continue to expose the canonical `voided` concept. This avoids changing the schema or lifecycle vocabulary while keeping the write path constraint-compatible.
 
-Payment reconciliation records the Payment, then recomputes the total recorded payments while holding a PostgreSQL row lock on that Invoice. An eligible persisted `sent` or existing `overdue` Invoice becomes `paid` when the recorded total is at least the Invoice amount; the payment, status update, and `invoice.paid` delivery/activity event share the existing request-scoped database transaction. `partially_paid` and new overdue persistence remain derived, and no payment-entry UI is owned by this module slice.
+Payment reconciliation records the Payment, then recomputes the total recorded payments while holding a PostgreSQL row lock on that Invoice. An eligible persisted `sent` or existing `overdue` Invoice becomes `paid` when the recorded total is at least the Invoice amount; the payment, status update, and `invoice.paid` delivery/activity event share the existing request-scoped database transaction. `partially_paid` and new overdue persistence remain derived. The authenticated invoice detail now exposes a payment-entry form for amount, date, method, reference, and notes; overpayments remain ledger-visible while displayed balance is clamped at zero.
+
+Invoice DTOs and queue items derive `overdue` from a non-terminal sent/viewed/partially-paid invoice whose due date has passed while a positive balance remains. The database status is not rewritten by reads, so the existing lifecycle constraint and reconciliation writer remain unchanged.
 
 ## Frontend surfaces
 
@@ -132,9 +139,9 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Known limitations
 
-- payment recording exists, but public payment processing does not
+- payment recording is an authenticated staff action; public payment processing does not exist
 - payment statuses are not yet a canonical domain enum; the weekly revenue ledger intentionally includes only the existing `recorded` status
-- payment recording remains a backend entry point; S011 does not add or redesign payment-entry UI
+- customer portal access remains staff-session gated until the approved customer-scoped magic-link boundary lands
 
 ## Deferred work
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-23
+last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - app/modules/contracts
@@ -56,8 +56,25 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 Contract PDFs resolve company identity, contact details, accent colors, and
 optional license/insurance/bonding footer signals from the authenticated
 organization's canonical Brand Studio data. Missing optional profile values
-use deterministic defaults. Contract route shape, signature semantics,
-permissions, organization scoping, and forced RLS remain unchanged.
+use deterministic defaults. Contract route shape, permissions, organization
+scoping, and forced RLS remain unchanged; the pre-beta repair adds an
+agreed-value snapshot and retains signature metadata as explicitly reported
+in-app acceptance evidence.
+
+## Executed-agreement integrity
+
+Contract creation requires an accepted proposal with a non-null final price.
+The contract stores that agreed amount and a JSON snapshot of the proposal
+scope, assumptions, exclusions, timeline, payment schedule, and terms. The
+snapshot is the document source for contract PDF scope rendering; later
+proposal edits are rejected once the proposal is accepted or has a contract.
+Scope changes use the existing change-order path rather than mutating the
+executed proposal. This remains bounded in-app acceptance under ADR-007; it is
+not certificate-backed or certified e-signature.
+
+Signature records include the browser-reported network value and user-agent
+when the web action can provide them. The values are retained as reported
+metadata and do not constitute identity verification.
 
 ## Tests
 
@@ -68,6 +85,7 @@ permissions, organization scoping, and forced RLS remain unchanged.
 ## Known limitations
 
 - the database still stores `pending_signature` as the pre-signature status; the check constraint has never accepted canonical `draft`/`sent`/`viewed`. PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface (`toDTO()` returns canonical `sent`) without a schema migration — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
+- historical contracts may have a null agreed amount and snapshot; the additive contract-integrity migration backfills no invented legal or commercial value
 - sign/void status writes now use expected-status predicates and fail closed on
   stale concurrent requests. The status update and event write are still not
   wrapped in one transaction; a future hardening slice may make that boundary
@@ -79,7 +97,7 @@ permissions, organization scoping, and forced RLS remain unchanged.
 
 ## Last verified date
 
-2026-08-24
+2026-08-28
 
 ## S022 rendering boundary
 

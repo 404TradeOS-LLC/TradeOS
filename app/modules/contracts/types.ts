@@ -14,6 +14,7 @@ export interface SignContractInput {
   signerEmail?: string;
   signatureDataUrl?: string;
   signatureIp?: string;
+  signatureUserAgent?: string;
 }
 
 export interface ContractEventDTO {
@@ -32,10 +33,13 @@ export interface ContractDTO {
   proposalId: string;
   status: string;
   termsText: string;
+  contractAmount: number | null;
+  snapshot: Record<string, unknown> | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
   signatureIp: string | null;
+  signatureUserAgent: string | null;
   signedAt: Date | null;
   createdAt: Date;
   events: ContractEventDTO[];

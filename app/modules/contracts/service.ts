@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
-import { hasPermission, normalizeContractStatus } from "../../domain/contracts";
+import { hasPermission, normalizeContractStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
 import { getDocumentBrand } from "../documents/branding";
 import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, SignContractInput } from "./types";
@@ -20,13 +20,30 @@ export class ContractsService {
       where: { id: input.proposalId, project: input.orgId ? { orgId: input.orgId } : undefined },
     });
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
-    if (proposal.status !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
+    if (normalizeProposalStatus(proposal.status) !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
+    if (proposal.finalPrice == null) throw new ApiError(409, `Proposal ${input.proposalId} must have a final price before a contract can be created`);
+
+    const termsText = input.termsText ?? proposal.termsAndConditions ?? DEFAULT_TERMS;
+    const snapshot = {
+      proposalId: proposal.id,
+      projectId: proposal.projectId,
+      contractAmount: Number(proposal.finalPrice),
+      companyName: proposal.companyName,
+      scopeOfWork: proposal.scopeOfWork,
+      assumptions: proposal.assumptions,
+      exclusions: proposal.exclusions,
+      timeline: proposal.timeline,
+      paymentSchedule: proposal.paymentScheduleJson,
+      termsText,
+    };
 
     const row = await prisma.contract.create({
       data: {
         projectId: proposal.projectId,
         proposalId: proposal.id,
-        termsText: input.termsText ?? proposal.termsAndConditions ?? DEFAULT_TERMS,
+        termsText,
+        contractAmount: proposal.finalPrice,
+        snapshotJson: snapshot,
       },
     });
     await this.recordContractEvent({
@@ -69,6 +86,7 @@ export class ContractsService {
         signerEmail: input.signerEmail,
         signatureDataUrl: input.signatureDataUrl,
         signatureIp: input.signatureIp,
+        signatureUserAgent: input.signatureUserAgent,
         signedAt: new Date(),
       },
     });
@@ -123,7 +141,15 @@ export class ContractsService {
     if (!row) throw new ApiError(404, `Contract ${id} not found`);
 
     const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
-    const buffer = await renderContractPdf(row, { brand });
+    const snapshot = asRecord(row.snapshotJson);
+    const buffer = await renderContractPdf(
+      {
+        ...row,
+        contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
+        scopeOfWork: typeof snapshot?.scopeOfWork === "string" ? snapshot.scopeOfWork : null,
+      },
+      { brand }
+    );
     return {
       buffer,
       filename: `contract-${row.project.name.replace(/\s+/g, "-").toLowerCase()}.pdf`,
@@ -187,10 +213,13 @@ function toDTO(row: {
   proposalId: string;
   status: string;
   termsText: string;
+  contractAmount?: unknown;
+  snapshotJson?: Prisma.JsonValue | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
   signatureIp: string | null;
+  signatureUserAgent?: string | null;
   signedAt: Date | null;
   createdAt: Date;
   events?: Array<{
@@ -213,6 +242,9 @@ function toDTO(row: {
     signerEmail: row.signerEmail,
     signatureDataUrl: row.signatureDataUrl,
     signatureIp: row.signatureIp,
+    signatureUserAgent: row.signatureUserAgent ?? null,
+    contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
+    snapshot: asRecord(row.snapshotJson),
     signedAt: row.signedAt,
     createdAt: row.createdAt,
     events: (row.events ?? []).map(toEventDTO),

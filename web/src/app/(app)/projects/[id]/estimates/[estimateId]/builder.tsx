@@ -105,9 +105,15 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
             <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
               AI assist
             </Link>
-            <Link href={`/projects/${projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "outline" })}>
-              Create proposal
-            </Link>
+            {isDraft ? (
+              <span className={buttonVariants({ variant: "outline" })} aria-disabled="true">
+                Finalize to create proposal
+              </span>
+            ) : (
+              <Link href={`/projects/${projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "outline" })}>
+                Create proposal
+              </Link>
+            )}
             <StatusBadge status={estimate.status} />
           </div>
         }
@@ -168,7 +174,7 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
         </div>
 
         <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-          <PricingPanel estimateId={estimateId} estimate={estimate} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
+          <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
           <Card className="border-border/70 bg-muted/10">
             <CardHeader>
@@ -233,11 +239,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     return () => clearTimeout(timeout);
   }, [query]);
 
-  const { data: results } = useQuery({
+  const { data: searchData, isError: searchFailed, error: searchError } = useQuery({
     queryKey: ["item-search", debouncedQuery],
-    queryFn: async (): Promise<PickerResult[]> => {
-      if (!debouncedQuery) return [];
-      const [costItems, assemblies] = await Promise.all([
+    queryFn: async (): Promise<{ items: PickerResult[]; failedSources: string[] }> => {
+      if (!debouncedQuery) return { items: [], failedSources: [] };
+      const [costItemsResult, assembliesResult] = await Promise.allSettled([
         clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string }[]>(
           `/cost-database/cost-items/search?q=${encodeURIComponent(debouncedQuery)}`
         ),
@@ -245,19 +251,31 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           `/assemblies/search?q=${encodeURIComponent(debouncedQuery)}`
         ),
       ]);
-      return [
+      const costItems = costItemsResult.status === "fulfilled" ? costItemsResult.value : [];
+      const assemblies = assembliesResult.status === "fulfilled" ? assembliesResult.value : [];
+      const items = [
         ...costItems.map((c) => ({ ...c, kind: "costItem" as const })),
         ...assemblies.map((a) => ({ ...a, kind: "assembly" as const })),
       ];
+      if (items.length === 0 && costItemsResult.status === "rejected" && assembliesResult.status === "rejected") {
+        throw new Error("Costbook search is unavailable. You can still add a custom line item.");
+      }
+      return {
+        items,
+        failedSources: [
+          costItemsResult.status === "rejected" ? "cost items" : "",
+          assembliesResult.status === "rejected" ? "assemblies" : "",
+        ].filter(Boolean),
+      };
     },
     enabled: debouncedQuery.length > 0,
     staleTime: 5 * 60_000,
   });
 
   const orderedResults = useMemo(() => {
-    const items = results ?? [];
+    const items = searchData?.items ?? [];
     return [...items.filter((result) => result.kind === "assembly"), ...items.filter((result) => result.kind === "costItem")];
-  }, [results]);
+  }, [searchData]);
 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
@@ -287,11 +305,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setError("Quantity must be a positive number");
       return;
     }
-    addLineItem.mutate({ item: target, quantity: qty, section, costType: costType || undefined, taxable });
+    addLineItem.mutate({ item: target, quantity: qty, section, costType: costType || undefined, taxable, sourceKey: `builder:${crypto.randomUUID()}` });
   };
 
   const addLineItem = useMutation({
-    mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable }: { item: PickerResult; quantity: number; section: string; costType?: LineItem["costType"]; taxable: boolean }) => {
+    mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable, sourceKey }: { item: PickerResult; quantity: number; section: string; costType?: LineItem["costType"]; taxable: boolean; sourceKey: string }) => {
       return clientFetch(`/estimates/${estimateId}/line-items`, {
         method: "POST",
         body: JSON.stringify({
@@ -300,6 +318,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           section: itemSection,
           ...(itemCostType ? { costType: itemCostType } : {}),
           taxable: itemTaxable,
+          sourceKey,
         }),
       });
     },
@@ -343,6 +362,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           <Input
             ref={searchInputRef}
             id="item-search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={orderedResults.length > 0}
+            aria-controls="item-search-results"
+            aria-activedescendant={activeResult ? `item-search-option-${activeResult.kind}-${activeResult.id}` : undefined}
             autoFocus
             placeholder="Search assemblies or cost items…"
             value={selected ? selected.name : query}
@@ -475,7 +499,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       {!selected && orderedResults.length > 0 && (
         <div className="space-y-4">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Search results</div>
-          <div className="max-h-72 space-y-4 overflow-auto pr-1">
+          <div id="item-search-results" role="listbox" aria-label="Costbook search results" className="max-h-72 space-y-4 overflow-auto pr-1">
             <ResultGroup
               title="Assemblies"
               description="Reusable packages and templates"
@@ -510,9 +534,16 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
       {!selected && debouncedQuery && orderedResults.length === 0 && !addLineItem.isPending && (
         <div className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
-          No matches yet. Try a broader assembly name or a cost item code.
+          <p>{searchFailed ? searchError instanceof Error ? searchError.message : "Costbook search is unavailable." : "No matches yet. Try a broader assembly name or a cost item code."}</p>
+          <p className="mt-2">You can add a custom line item below, or <Link href="/costbook/cost-items" className="font-medium text-foreground underline">add a Costbook item</Link> for reuse.</p>
         </div>
       )}
+
+      {!selected && searchData?.failedSources?.length ? (
+        <p className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="alert">
+          Search unavailable for {searchData.failedSources.join(" and ")}. Add a custom line item or try again.
+        </p>
+      ) : null}
 
       {selected && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
@@ -597,12 +628,14 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
 function PricingPanel({
   estimateId,
   estimate,
+  hasTaxableLineItems,
   pricingModeLabel,
   isDraft,
   onUpdated,
 }: {
   estimateId: string;
   estimate: Estimate;
+  hasTaxableLineItems: boolean;
   pricingModeLabel: string;
   isDraft: boolean;
   onUpdated: () => void;
@@ -683,6 +716,11 @@ function PricingPanel({
           <div className="space-y-2"><Label htmlFor="tax-value">Tax %</Label><Input id="tax-value" type="number" min="0" max="100" step="any" value={tax} onChange={(e) => setTax(e.target.value)} disabled={!isDraft} /></div>
         </div>
         <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
+        {Number(tax) > 0 && !hasTaxableLineItems ? (
+          <p className="rounded-lg border border-amber-300/70 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
+            A tax rate is set, but no estimate line is marked taxable. Tax will calculate to $0.00 until you mark the applicable line items as taxable.
+          </p>
+        ) : null}
         <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">Current gross profit</span>
@@ -785,6 +823,9 @@ function ResultGroup({
           return (
             <button
               key={`${result.kind}-${result.id}`}
+              id={`item-search-option-${result.kind}-${result.id}`}
+              role="option"
+              aria-selected={isActive}
               type="button"
               className={cn(
                 "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition",
