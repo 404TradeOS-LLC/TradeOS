@@ -38,4 +38,10 @@ describe("customer portal identity migration", () => {
     expect(migration).toContain("customer_portal_access_tokens_write_policy");
     expect(migration).toContain("current_app_role()) in ('owner', 'admin', 'dispatcher', 'estimator')");
   });
+
+  it("rate-limits both staff token-management routes", () => {
+    const routes = fs.readFileSync(path.resolve(__dirname, "../backend/routes/customerPortal.routes.ts"), "utf8");
+    expect(routes).toMatch(/post\("\/access-tokens", customerPortalRateLimit, requireAuth/);
+    expect(routes).toMatch(/post\("\/access-tokens\/:id\/revoke", customerPortalRateLimit, requireAuth/);
+  });
 });

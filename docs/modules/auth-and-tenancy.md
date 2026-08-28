@@ -56,8 +56,6 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `AuthRefreshToken`
 - `PasswordResetToken`
 - `UserTotpCredential`
-- `CustomerPortalAccessToken` and `CustomerPortalSession` — separate customer
-  portal security-control records; they are not staff memberships or roles
 
 ## Routes
 
@@ -70,8 +68,6 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/account/invites` — persists a hashed invitation token and schedules the raw token for post-response delivery through the server-side Resend adapter when configured; owner/admin authorization remains unchanged.
 - `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
-- `POST /api/v1/customer-portal/redeem` — rate-limited single-use magic-link redemption; returns an opaque short-lived portal session
-- `POST /api/v1/customer-portal/access-tokens` — staff `documents.manage` issuance for an emailed customer record
 
 ## Permissions
 
@@ -80,9 +76,6 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 Special constraints:
 
 - public auth routes are rate-limited
-- customer portal access values are high-entropy, hashed at rest, single-use,
-  and scoped to one organization/customer; portal sessions are short-lived and
-  cannot satisfy staff bearer authentication
 - organization provisioning uses a separate high-entropy secret
 - team invites are currently limited to `dispatcher` and `technician`
 - transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers

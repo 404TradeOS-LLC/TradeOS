@@ -160,10 +160,11 @@ export class CustomerPortalService {
         });
         if (!customer) throw new ApiError(401, "Customer portal identity is no longer active");
 
-        await transaction.customerPortalSession.updateMany({
+        const touched = await transaction.customerPortalSession.updateMany({
           where: { id: session.id, sessionHash, revokedAt: null, expiresAt: { gt: now } },
           data: { lastSeenAt: now },
         });
+        if (touched.count !== 1) throw new ApiError(401, "Customer portal session is invalid or was revoked");
         return {
           sessionId: session.id,
           accessTokenId: session.accessTokenId,

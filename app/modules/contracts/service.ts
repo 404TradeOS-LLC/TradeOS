@@ -5,7 +5,7 @@ import { ActivityTimelineService } from "../intelligence/service";
 import { hasPermission, normalizeContractStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
 import { getDocumentBrand } from "../documents/branding";
-import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, PortalSignContractInput, SignContractInput } from "./types";
+import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, SignContractInput } from "./types";
 
 const DEFAULT_TERMS =
   "This contract incorporates the accepted proposal in full. Work will proceed as scoped, with any changes " +
@@ -18,12 +18,8 @@ export class ContractsService {
     assertContractWriteAccess(input.actorRole);
     const proposal = await prisma.proposal.findFirst({
       where: { id: input.proposalId, project: input.orgId ? { orgId: input.orgId } : undefined },
-      include: { contracts: { select: { id: true }, take: 1 } },
     });
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
-    if (proposal.contracts?.length) {
-      throw new ApiError(409, `Proposal ${input.proposalId} already has contract ${proposal.contracts[0].id}`);
-    }
     if (normalizeProposalStatus(proposal.status) !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
     if (proposal.finalPrice == null) throw new ApiError(409, `Proposal ${input.proposalId} must have a final price before a contract can be created`);
 
@@ -108,50 +104,6 @@ export class ContractsService {
         previousStatus: row.status,
         newStatus: "signed",
         signerName: input.signerName,
-      },
-    });
-    return this.getById(id, input.orgId);
-  }
-
-  async signAsPortalCustomer(id: string, input: PortalSignContractInput): Promise<ContractDTO> {
-    const row = await this.findOrThrow(id, input.orgId);
-    if (row.status !== "pending_signature") throw new ApiError(409, `Contract ${id} cannot be signed from status ${row.status}`);
-
-    // The migration grants this transaction one narrowly scoped customer
-    // UPDATE policy. It is keyed by the already-verified portal customer and
-    // contract, so a portal session never receives staff write privileges.
-    await prisma.$queryRaw(Prisma.sql`
-      select set_config('app.portal_contract_id', ${id}, true)
-    `);
-    const updated = await prisma.contract.updateMany({
-      where: { id, status: "pending_signature", project: { orgId: input.orgId, customerId: input.customerId } },
-      data: {
-        status: "signed",
-        signerName: input.signerName,
-        signerEmail: input.signerEmail,
-        signatureDataUrl: input.signatureDataUrl,
-        signatureIpReported: input.signatureIpReported,
-        signatureUserAgentReported: input.signatureUserAgentReported,
-        signedAt: new Date(),
-      },
-    });
-    if (updated.count !== 1) throw new ApiError(409, `Contract ${id} changed before it could be signed`);
-
-    await this.recordContractEvent({
-      orgId: input.orgId,
-      contractId: id,
-      projectId: row.projectId,
-      eventType: "contract.signed",
-      recipientEmail: input.signerEmail,
-      metadata: {
-        previousStatus: row.status,
-        newStatus: "signed",
-        signerName: input.signerName,
-        actorType: "customer_portal",
-        customerId: input.customerId,
-        portalSessionId: input.portalSessionId,
-        signatureIpReported: input.signatureIpReported ?? null,
-        signatureUserAgentReported: input.signatureUserAgentReported ?? null,
       },
     });
     return this.getById(id, input.orgId);

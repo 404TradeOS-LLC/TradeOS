@@ -56,12 +56,6 @@ Athena is the shared AI/orchestration platform layer. Its canonical package loca
 
 Existing `app/` and `web/` deployable boundaries remain authoritative during RC1 hardening. Do not perform broad code movement merely to make the repository resemble a target package layout. Introduce `packages/costbook/` only when shared Costbook logic has a demonstrated reusable package boundary. Any later repository split or dependency-direction change requires explicit architectural documentation and must preserve the source-of-truth hierarchy and CI/governance controls defined here.
 
-Customer magic-link portal changes are governed by ADR-010. They must preserve
-the separate non-staff principal, hashed single-use access tokens, short-lived
-hashed sessions, forced RLS, customer/tenant resource checks, and the narrow
-contract-signing policy; they may not broaden staff roles or legal-signature
-claims.
-
 ## Live-state verification rule
 
 GitHub rulesets, branch protection, required checks, merge methods, and review requirements are external state. They must be verified directly in GitHub before being described as current.

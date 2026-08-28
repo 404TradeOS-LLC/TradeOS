@@ -50,7 +50,6 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 
 - `/projects/[id]/contracts/[contractId]`
 - `/portal/contracts/[contractId]`
-- `/customer-portal/contracts/[contractId]`
 
 ## Branded document generation
 
@@ -77,20 +76,11 @@ Signature records include the browser-reported network value and user-agent
 when the web action can provide them. The values are retained as reported
 metadata and do not constitute identity verification.
 
-The public customer route may sign only a pending contract whose project is
-owned by the redeemed portal session's customer. The backend re-derives the
-signer email from that customer record, records `actorType: customer_portal`,
-customer id, and portal session id in the contract event, and uses a dedicated
-RLS policy rather than a staff role. Replay, cross-customer, and cross-tenant
-requests fail closed.
-
 ## Tests
 
 - `app/tests/contracts.service.test.ts`
 - `app/tests/invoice-contract-history.migration.test.ts`
 - `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
-- `app/tests/customer-portal.service.test.ts`
-- `app/tests/customer-portal.migration.test.ts`
 
 ## Known limitations
 

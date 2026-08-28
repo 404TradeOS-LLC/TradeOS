@@ -67,7 +67,6 @@ Use these files first:
 - `docs/ROADMAP.md` for future work only
 - `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, review-repair/auto-merge discipline, and manual PR-maintenance controls
 - `docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md` for the current founder-authorized solo-maintainer merge-review exception and its non-waivable technical gates
-- `docs/decisions/ADR-010-customer-magic-link-portal.md` for the approved customer-scoped public portal identity and contract-signing boundary
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 - `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)

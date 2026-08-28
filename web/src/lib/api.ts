@@ -3,7 +3,6 @@ import type { OrganizationSettingsResponse } from "@/lib/settings";
 import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPreview } from "@/lib/brand-studio";
 import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
 import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
-import { customerPortalApiFetch } from "@/lib/customer-portal-session";
 import {
   contractStatuses,
   estimateStatuses,
@@ -1047,48 +1046,6 @@ export function listContractsByProject(token: string, projectId: string) {
 
 export function getContract(token: string, id: string) {
   return apiFetch<Contract>(`/api/v1/contracts/${id}`, { token }).then((contract) => ({
-    ...contract,
-    status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft"),
-  }));
-}
-
-export function getPortalProjects() {
-  return customerPortalApiFetch<Project[]>("/api/v1/customer-portal/projects").then((projects) =>
-    projects.map((project) => ({ ...project, status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead") }))
-  );
-}
-
-export function getPortalProject(id: string) {
-  return customerPortalApiFetch<Project & {
-    customer: Customer | null;
-    proposals: Proposal[];
-    invoices: Array<Invoice & { lineItems: InvoiceLineItem[] }>;
-    contracts: Contract[];
-  }>(`/api/v1/customer-portal/projects/${id}`).then((project) => ({
-    ...project,
-    status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead"),
-    proposals: project.proposals.map((proposal) => ({ ...proposal, status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft") })),
-    invoices: project.invoices.map((invoice) => ({ ...invoice, status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft") })),
-    contracts: project.contracts.map((contract) => ({ ...contract, status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft") })),
-  }));
-}
-
-export function getPortalProposal(id: string) {
-  return customerPortalApiFetch<Proposal>(`/api/v1/customer-portal/proposals/${id}`).then((proposal) => ({
-    ...proposal,
-    status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
-  }));
-}
-
-export function getPortalInvoice(id: string) {
-  return customerPortalApiFetch<Invoice & { lineItems: InvoiceLineItem[] }>(`/api/v1/customer-portal/invoices/${id}`).then((invoice) => ({
-    ...invoice,
-    status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft"),
-  }));
-}
-
-export function getPortalContract(id: string) {
-  return customerPortalApiFetch<Contract>(`/api/v1/customer-portal/contracts/${id}`).then((contract) => ({
     ...contract,
     status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft"),
   }));

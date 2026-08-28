@@ -103,4 +103,18 @@ describe("CustomerPortalService", () => {
     expect(service.proposals.getPdf).not.toHaveBeenCalled();
     expect(service.invoices.getPdf).not.toHaveBeenCalled();
   });
+
+  it("rejects a session when the last-seen compare-and-set loses a revoke race", async () => {
+    mockTransaction.customerPortalSession.findFirst.mockResolvedValue({
+      id: "session-1",
+      accessTokenId: "access-1",
+      orgId: "org-a",
+      customerId: "customer-a",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockTransaction.customer.findFirst.mockResolvedValue({ id: "customer-a" });
+    mockTransaction.customerPortalSession.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new CustomerPortalService().resolveSession("C".repeat(43))).rejects.toThrow("revoked");
+  });
 });

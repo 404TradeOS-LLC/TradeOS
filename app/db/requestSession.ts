@@ -1,7 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { AuthContext } from "../backend/auth/context";
-import type { CustomerPortalContext } from "../modules/customer-portal/service";
 import { getRolePermissions, normalizeRole, SupportedRole } from "../domain";
 
 const requestDatabase = new AsyncLocalStorage<Prisma.TransactionClient>();
@@ -34,33 +33,6 @@ export async function runWithDatabaseSession<T>(
           set_config('app.user_id', ${auth.userId}, true),
           set_config('app.org_id', ${auth.orgId}, true),
           set_config('app.role', ${auth.role}, true),
-          set_config('app.session_source', ${sessionSource}, true)
-      `);
-
-      return requestDatabase.run(transaction, operation);
-    },
-    { maxWait, timeout }
-  );
-}
-
-export async function runWithPortalDatabaseSession<T>(
-  client: PrismaClient,
-  portal: CustomerPortalContext,
-  operation: () => Promise<T>,
-  sessionSource = "customer_portal"
-): Promise<T> {
-  const maxWait = getDatabaseTransactionMaxWait();
-  const timeout = parseTransactionTimeout(process.env.RLS_TRANSACTION_TIMEOUT_MS);
-
-  return client.$transaction(
-    async (transaction) => {
-      await transaction.$queryRaw(Prisma.sql`
-        select
-          set_config('app.user_id', ${portal.customerId}, true),
-          set_config('app.org_id', ${portal.orgId}, true),
-          set_config('app.role', 'portal_customer', true),
-          set_config('app.portal_customer_id', ${portal.customerId}, true),
-          set_config('app.portal_session_id', ${portal.sessionId}, true),
           set_config('app.session_source', ${sessionSource}, true)
       `);
 

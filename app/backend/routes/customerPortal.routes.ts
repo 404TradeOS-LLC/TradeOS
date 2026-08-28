@@ -15,8 +15,8 @@ customerPortalRouter.post("/redeem", customerPortalRateLimit, asyncHandler(ctrl.
 
 // Staff may issue a customer-scoped link. Delivery remains a separate email
 // concern; this endpoint is also useful for controlled staging verification.
-customerPortalRouter.post("/access-tokens", requireAuth, databaseSession, asyncHandler(ctrl.issue));
-customerPortalRouter.post("/access-tokens/:id/revoke", requireAuth, databaseSession, asyncHandler(ctrl.revoke));
+customerPortalRouter.post("/access-tokens", customerPortalRateLimit, requireAuth, databaseSession, asyncHandler(ctrl.issue));
+customerPortalRouter.post("/access-tokens/:id/revoke", customerPortalRateLimit, requireAuth, databaseSession, asyncHandler(ctrl.revoke));
 
 customerPortalRouter.use(requireCustomerPortalSession, customerPortalDatabaseSession);
 customerPortalRouter.get("/session", asyncHandler(ctrl.session));
