@@ -5,6 +5,9 @@ last_verified: 2026-08-28
 source_of_truth: false
 related_code:
   - web/src/app/(app)/portal
+  - web/src/app/customer-portal
+  - app/modules/customer-portal
+  - app/backend/routes/customerPortal.routes.ts
   - web/src/app/actions/proposals.ts
   - web/src/app/actions/contracts.ts
   - web/src/app/actions/invoices.ts
@@ -15,7 +18,7 @@ related_code:
 
 ## Purpose
 
-Provide staff-accessible document and project views for proposals, contracts, invoices, and portal project summaries. A customer-scoped public route remains planned and is not shipped.
+Provide staff-accessible previews and a customer-scoped public document portal for proposals, contracts, invoices, and project summaries.
 
 ## Source code locations
 
@@ -32,10 +35,23 @@ Provide staff-accessible document and project views for proposals, contracts, in
 - `/portal/proposals/[proposalId]`
 - `/portal/contracts/[contractId]`
 - `/portal/invoices/[invoiceId]`
+- `/customer-portal/access?token=...`
+- `/customer-portal`
+- `/customer-portal/projects/[id]`
+- `/customer-portal/proposals/[proposalId]`
+- `/customer-portal/contracts/[contractId]`
+- `/customer-portal/invoices/[invoiceId]`
 
 ## Permissions
 
-Portal routes currently depend on the same authenticated web session and backend authorization model as the internal application. `web/src/proxy.ts` refreshes the Supabase session for `/portal/:path*`; server-side pages pass the session bearer token to protected `/api/v1/*` routes, where verified identity, active organization membership, request-scoped database session, and forced PostgreSQL RLS remain authoritative. There is no separate customer token or customer identity model today. See [RBAC_MATRIX.md](../RBAC_MATRIX.md) and [S018 readiness plan](../architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md).
+The `/portal/*` preview depends on the staff session. The `/customer-portal/*`
+surface uses a separate customer magic-link principal: a single-use hashed
+access token redeems to a short-lived hashed session cookie, and every backend
+request carries the server-side organization/customer scope in a dedicated
+portal database session. Public resource checks require the requested project
+to belong to both that organization and customer. Staff may revoke an issued
+access value; revocation also invalidates every portal session redeemed from
+that value. See [ADR-010](../decisions/ADR-010-customer-magic-link-portal.md), [RBAC_MATRIX.md](../RBAC_MATRIX.md), and [S018 readiness plan](../architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md).
 
 ## Lifecycle and statuses
 
@@ -50,42 +66,33 @@ sanitized history of recorded payments. Pending or failed payment rows are not
 counted or displayed, and the portal does not expose the internal payment-
 recording mutation or invent a pay-now action.
 
-Portal proposal, contract, and invoice PDF links continue to use the existing
-authenticated document proxy and route shapes. The server-side document
-generators resolve canonical organization branding before producing the binary
-response; no public link, client-selected organization, or portal identity
-model is introduced.
-
-The approved pre-beta direction is an expiring customer-scoped magic-link
-principal with a dedicated public route group, but that identity boundary is
-not implemented on this repair branch. Until it lands, `/portal/*` remains an
-authenticated staff-session surface and must not be represented as customer
-self-service access.
+Staff preview PDFs continue to use the authenticated document proxy. Public
+PDFs use `/api/customer-portal/*`, which forwards only the HttpOnly portal
+session to the backend. The server-side document generators resolve canonical
+organization branding; no client-selected organization is accepted.
 
 ## Proposal review actions
 
-`/portal/proposals/[proposalId]` uses the existing server-side session-token
-path for proposal reads and mutations. Sent proposals can be marked viewed,
-accepted, or declined; drafts and terminal proposals do not expose invalid
-actions. The action controls disable while a mutation is pending and surface
-server errors, while authorization remains enforced by the protected API rather
-than by button visibility. The existing `documents.manage` permission boundary
-is unchanged.
+`/portal/proposals/[proposalId]` uses the existing staff session-token path for
+proposal reads and mutations. The public customer surface is read-only for
+proposal documents in this slice. Customer-originated mutation is deliberately
+limited to signing a pending contract through the dedicated portal policy.
 
 ## Tests
 
 - backend authentication and tenant-boundary behavior is covered by `app/tests/auth.middleware.test.ts`, `app/tests/jwt.local.test.ts`, and the live PostgreSQL assertions in `app/tests/rls.integration.ts`
-- portal pages and document proxies continue to use server-side session token propagation; no client-selected organization or public-link path is introduced
+- portal access-token/session replay, customer/tenant scoping, and portal-only contract signing are covered by `app/tests/customer-portal.service.test.ts` and `app/tests/customer-portal.migration.test.ts`
+- public portal pages and PDF routes keep portal session tokens server-side; no client-selected organization is accepted
 
 ## Known limitations
 
-- S018 shipped the bounded hardening of the existing boundary: local access tokens expire and reject malformed claims, inactive users cannot refresh or bootstrap a session, and the PostgreSQL/RLS test suite asserts same-organization access plus cross-organization denial for portal resources. Exact-head Verify repository #1332 and the associated governance checks passed before implementation merge. There is still no separate customer identity, portal token, or immediate bearer-revocation model.
+- S018 shipped the staff-session hardening; ADR-010 now adds a separate customer magic-link principal for `/customer-portal/*`. Raw access values are single-use and hashed, sessions are short-lived and hashed, and customer/tenant scope is rechecked on every public resource request.
 - Contract portal presentation now includes the frozen agreed amount and snapshot-backed scope when available; it does not change the staff-session gate.
 
 ## Deferred work
 
-- broader customer self-service behavior beyond document viewing and related project context
+- outbound email delivery and customer proposal accept/decline actions remain separate slices; the public identity and contract-signing boundary is implemented here
 
 ## Last verified date
 
-2026-08-28 (S018 implementation and pre-beta branch reconciliation)
+2026-08-28 (ADR-010 customer magic-link portal implementation)

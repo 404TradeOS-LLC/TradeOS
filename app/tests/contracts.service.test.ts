@@ -1,4 +1,5 @@
 const mockPrisma = {
+  $queryRaw: jest.fn(),
   proposal: {
     findFirst: jest.fn(),
   },
@@ -122,6 +123,21 @@ describe("ContractsService", () => {
     await expect(service.create({ orgId: "org-1", actorRole: "admin", proposalId: "proposal-1" })).rejects.toThrow("must be accepted");
   });
 
+  it("rejects creating a second contract for the same proposal", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      status: "accepted",
+      finalPrice: 8500,
+      contracts: [{ id: "existing-contract" }],
+    });
+
+    await expect(new ContractsService().create({ orgId: "org-1", actorRole: "admin", proposalId: "proposal-1" })).rejects.toThrow(
+      "already has contract existing-contract"
+    );
+    expect(mockPrisma.contract.create).not.toHaveBeenCalled();
+  });
+
   it("rejects contract mutations for roles without documents.manage", async () => {
     const service = new ContractsService();
 
@@ -174,6 +190,56 @@ describe("ContractsService", () => {
     expect(mockPrisma.contractEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ eventType: "contract.signed", actorUserId: "user-1" }) })
     );
+  });
+
+  it("attributes a portal signature to the customer session without a staff actor", async () => {
+    mockPrisma.contract.findFirst
+      .mockResolvedValueOnce({
+        id: "contract-portal",
+        projectId: "project-1",
+        proposalId: "proposal-1",
+        status: "pending_signature",
+        signerEmail: null,
+        events: [],
+        project: { id: "project-1", orgId: "org-1" },
+      })
+      .mockResolvedValueOnce({
+        id: "contract-portal",
+        projectId: "project-1",
+        proposalId: "proposal-1",
+        status: "signed",
+        termsText: "Terms",
+        contractAmount: 1200,
+        snapshotJson: { scopeOfWork: "Scope" },
+        signerName: "Customer",
+        signerEmail: "customer@example.com",
+        signatureDataUrl: null,
+        signatureIpReported: "reported-ip",
+        signatureUserAgentReported: "reported-agent",
+        signedAt: new Date(),
+        createdAt: new Date(),
+        events: [],
+        project: { id: "project-1", orgId: "org-1" },
+      });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 1 });
+
+    const contract = await new ContractsService().signAsPortalCustomer("contract-portal", {
+      orgId: "org-1",
+      customerId: "customer-1",
+      portalSessionId: "session-1",
+      signerName: "Customer",
+      signerEmail: "customer@example.com",
+      signatureIpReported: "reported-ip",
+      signatureUserAgentReported: "reported-agent",
+    });
+
+    expect(contract.status).toBe("signed");
+    expect(mockPrisma.contractEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        actorUserId: undefined,
+        metadataJson: expect.objectContaining({ actorType: "customer_portal", customerId: "customer-1", portalSessionId: "session-1" }),
+      }),
+    }));
   });
 
   it("fails closed when a competing signer changes the contract after the read", async () => {
