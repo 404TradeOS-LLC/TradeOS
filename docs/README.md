@@ -241,6 +241,7 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 
 S041 is DONE through implementation PR #351 and completion evidence in `architecture/S041_COMPLETION_EVIDENCE.md`; its readiness contract and RLS inventory remain recorded in `architecture/S041_RLS_POLICY_COVERAGE_PLAN.md` and `architecture/S041_RLS_POLICY_COVERAGE_INVENTORY.md`. Keep S027 browser evidence independent and do not begin S042.
 
+- [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md)
 - [CURRENT_STATE.md](CURRENT_STATE.md)
 - [ENGINEERING_COMMAND_CENTER.md](ENGINEERING_COMMAND_CENTER.md)
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
