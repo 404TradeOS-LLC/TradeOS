@@ -61,12 +61,12 @@ current scope; it does not itself promote S027 to `READY`.
 
 The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 has now merged the standardized server-side catalog pagination/search/filter/sort contract. S027 remains `PARTIAL/BLOCKED` only until authenticated rendered Costbook browser evidence is captured. Re-read live GitHub state before any later promotion.
 
-Live queue reconciliation on 2026-08-28: S037, S038, and S043 are DONE with
-merged completion evidence. S038 implementation evidence is recorded in
-`docs/architecture/S038_COMPLETION_EVIDENCE.md`. S047 is the sole promoted
-active sprint and is IN_REVIEW in PR #397 through
-`docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`; S027 browser
-evidence and S036 remain independent blockers.
+Live queue reconciliation on 2026-08-28: S037, S038, S043, and S047 are DONE
+with merged completion evidence. S038 implementation evidence is recorded in
+`docs/architecture/S038_COMPLETION_EVIDENCE.md`; S047 implementation evidence
+is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. No numbered
+sprint is currently READY; S027 browser evidence and S036 remain independent
+blockers.
 
 S047 implementation evidence is constrained to the existing Playwright seams:
 the operator-triggered workflow now requires dedicated Preview/Staging
@@ -233,6 +233,6 @@ S030 is DONE after implementation PR #341 merged as `d8e07606737de561b7cbed4e0be
 
 ## Live queue reconciliation — 2026-08-25
 
-S028 is DONE through implementation PR #338 (`dcc72796c1bfd945de1f8303062103c8e8c4690c`) and completion evidence PR #339 (`cc2d6371aa29520dffc1f83bf86118c17f7b840c`). PR #332 is closed as superseded. PT-003 is merged in PR #342 (`164fe63867dceb265d80a0a61098c4c99315a3f3`) and persists finalized estimate pricing during proposal creation; PR #311 is merged in `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d` with paid queue balances derived from persisted invoice status while preserving the existing manual mark-paid boundary.
+S028 is DONE through implementation PR #338 (`dcc72796c1bfd945de1f8303062103c8e8c4690c`) and completion evidence PR #339 (`cc2d6371aa29520dffc1f83bf86118c17f7b840c`). PR #332 is closed as superseded. PT-003 is merged in PR #342 (`164fe63867dceb265d80a0a61098c4c99315a3f3`) and persists finalized estimate pricing during proposal creation; PR #311 is merged in `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d` with paid queue balances derived from persisted invoice status while preserving the existing manual mark-paid boundary. S047 is DONE through implementation PR #397 and completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`.
 
 The authenticated browser session is available for read-only verification, but the full estimate-to-proposal mutation proof remains environment-blocked until an explicit action-time confirmation permits creating test data in the existing workspace. S025, S026, S030, S031, S032, S033, S034, S035, S037, S038, S040, S041, S042, and S043 are complete; S035 representative isolated plan evidence, completion evidence, and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384. S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`. S047 is the sole promoted READY sprint under `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`. S036 remains blocked by S027; S044/S045 remain blocked on production access. S027 remains independently blocked on authenticated rendered Costbook browser evidence; do not combine that evidence with S038, S043, or S047.
