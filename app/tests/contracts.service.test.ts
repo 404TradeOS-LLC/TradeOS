@@ -66,6 +66,8 @@ describe("ContractsService", () => {
       proposalId: "proposal-1",
       status: "pending_signature",
       termsText: "Custom terms",
+      contractAmount: 8500,
+      snapshotJson: { contractAmount: 8500, scopeOfWork: "Build the agreed scope." },
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,

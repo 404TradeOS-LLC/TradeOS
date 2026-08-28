@@ -32,6 +32,7 @@ import { InvoicesService } from "../modules/invoices/service";
 describe("InvoicesService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.proposal.findFirst.mockResolvedValue(null);
   });
 
   it("creates a full invoice from custom line items and numbers it sequentially", async () => {

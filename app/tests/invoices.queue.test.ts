@@ -32,7 +32,7 @@ const RAW_ROW = {
   invoice_number: 42,
   status: "sent",
   amount: "1000.00",
-  due_date: new Date("2026-08-01T00:00:00.000Z"),
+  due_date: new Date("2026-09-01T00:00:00.000Z"),
   updated_at: new Date("2026-08-10T00:00:00.000Z"),
   project_name: "Kitchen Remodel",
   customer_name: "Jane Homeowner",
@@ -62,7 +62,7 @@ describe("InvoicesService.listOrganizationQueue", () => {
       amount: 1000,
       paidAmount: 400,
       balanceDue: 600,
-      dueDate: "2026-08-01T00:00:00.000Z",
+      dueDate: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-08-10T00:00:00.000Z",
     });
     expect(result.total).toBe(1);
