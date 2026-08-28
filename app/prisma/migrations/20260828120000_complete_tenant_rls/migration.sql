@@ -36,6 +36,7 @@ create policy users_select_policy on users
 for select using (
   auth_subject = current_app_auth_subject()
   or id = current_app_user_id()
+  or (select current_app_is_provisioning())
   or (
     (select current_app_can_administer())
     and exists (

@@ -313,6 +313,7 @@ describe("live organization row-level security", () => {
         },
         subtotalCost: 200,
         totalPrice: 200,
+        status: "ready",
       },
     });
     await adminClient.serviceAgreement.create({
@@ -2056,7 +2057,8 @@ describe("live organization row-level security", () => {
             orgB,
             invoiceCrossOrg,
             { amount: 100, paymentDate: "2026-07-14T00:00:00.000Z", method: "card" },
-            otherUser
+            otherUser,
+            "owner"
           )
         )
       ).rejects.toMatchObject({ statusCode: 404 });
