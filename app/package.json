@@ -25,7 +25,8 @@
     "test:integration": "bash scripts/test-integration-db.sh",
     "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|tools\\.[a-z.-]+)\\.contracts\\.test\\.ts$\"",
     "athena:smoke": "jest --runInBand --testPathPatterns \"athena-kernel\\.smoke\\.test\\.ts$\"",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "beta:evidence": "node scripts/beta-evidence/run.mjs"
   },
   "prisma": {
     "seed": "ts-node db/seed/seed.ts"
