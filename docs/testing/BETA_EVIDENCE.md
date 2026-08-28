@@ -292,6 +292,19 @@ per-check results. It contains no passwords, tokens, cookies, or storage state.
   no `pull_request_target`, and has no `continue-on-error` on any
   release-critical step.
 
+## Not yet covered
+
+The customer magic-link portal (`web/src/app/customer-portal/**`, ADR-010) landed
+on `main` after this suite was written and is **not** exercised by it. The
+canonical workflow here is the contractor-side path, which ends at the invoice;
+it does not obtain a magic link, redeem it, or assert the portal's security
+contract.
+
+Validating that surface — replay, expiry, cross-tenant token use, customer
+scope, and signature attribution — is genuine beta-evidence work and is tracked
+as follow-up. Until it exists, a passing run of this suite says nothing about
+customer-portal security, and must not be cited as if it did.
+
 ## Acceptance criteria
 
 A run is PASS only when all of these hold in the same run:
