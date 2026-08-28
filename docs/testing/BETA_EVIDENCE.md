@@ -184,7 +184,7 @@ export BETA_SMOKE_EMAIL="<rc smoke identity>"
 export BETA_SMOKE_PASSWORD="<rc smoke password>"
 export BETA_SMOKE_ORG_LABEL="TradeOS Beta Smoke"
 export BETA_RC_SUPABASE_PROJECT_REF="<non-production project ref>"
-export BETA_FOREIGN_PROJECT_ID="<a project id in another synthetic tenant>"
+export BETA_RC_FOREIGN_PROJECT_ID="<a project id in another synthetic tenant>"
 
 npm run beta:evidence -- --allow-mutations
 ```
