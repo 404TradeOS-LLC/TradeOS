@@ -9,6 +9,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { assertApprovedRcUrl } from "./lib/rc-target.mjs";
 
@@ -36,8 +37,11 @@ const parsedBaseUrl = assertApprovedRcUrl(baseUrlInput);
 // A storage state written inside the working tree would be one `git add -A`
 // away from committing a live session. Refuse outright.
 const resolvedStatePath = path.resolve(storageStatePath);
-const repoRoot = path.resolve(process.cwd(), "..");
-if (resolvedStatePath.startsWith(`${repoRoot}${path.sep}`)) {
+// Derive the repository root from this file's own location
+// (<repo>/app/scripts/beta-evidence/auth-setup.mjs) rather than from cwd, so
+// the check is correct no matter which directory the script is invoked from.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+if (resolvedStatePath === repoRoot || resolvedStatePath.startsWith(`${repoRoot}${path.sep}`)) {
   throw new Error(
     `BETA_STORAGE_STATE_PATH (${resolvedStatePath}) is inside the repository. ` +
       "Authenticated session material must be written outside the working tree.",

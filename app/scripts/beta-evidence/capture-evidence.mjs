@@ -195,6 +195,9 @@ try {
   await page.getByLabel("Overhead %").fill("10");
   await page.getByLabel("Tax %").fill("7");
   await page.getByRole("button", { name: "Save overhead / tax" }).click();
+  // Let the save settle so the checkpoint captures committed pricing rather
+  // than a mid-submit frame.
+  await page.waitForLoadState("networkidle");
   await checkpoint("04", "estimate-pricing");
 
   // ---- 05 save / reload persistence -------------------------------------
