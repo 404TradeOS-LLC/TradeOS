@@ -75,11 +75,14 @@ Use these files first:
 
 The manual `Release candidate authenticated smoke` workflow is the governed
 S047 evidence path. It is restricted to explicitly selected Preview or Staging
-deployments and a dedicated smoke tenant; it runs authentication lifecycle,
-resource-backed customer/estimate/proposal/contract/invoice/portal checks, and
-Dispatch/Field job-surface checks. Screenshots are opt-in only for an explicitly
-confirmed sanitized tenant. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for
-the required secrets and artifact boundary.
+deployments on the approved HTTPS `tradeos-costbook-web-*.vercel.app` host
+pattern and a dedicated smoke tenant; it runs authentication lifecycle with a
+distinct account, resource-backed customer/estimate/proposal/contract/invoice/
+portal checks, and Dispatch/Field job-surface checks using separate owner/admin
+and technician storage-state fixtures. Screenshots are opt-in only for an
+explicitly confirmed sanitized tenant, and failed steps retain available
+machine-readable reports. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the
+required secrets and artifact boundary.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 

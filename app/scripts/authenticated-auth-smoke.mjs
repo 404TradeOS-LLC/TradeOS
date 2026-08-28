@@ -19,8 +19,11 @@ if (!["preview", "staging"].includes(targetEnvironment)) {
 }
 
 const parsedBaseUrl = new URL(baseUrl);
-if (!/^https?:$/.test(parsedBaseUrl.protocol) || parsedBaseUrl.username || parsedBaseUrl.password) {
-  throw new Error("RC_BASE_URL must be an HTTP(S) URL without embedded credentials.");
+if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+  throw new Error("RC_BASE_URL must be an HTTPS URL without embedded credentials.");
+}
+if (!/^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(parsedBaseUrl.hostname)) {
+  throw new Error("RC_TARGET_ENVIRONMENT must use an approved tradeos-costbook-web Vercel Preview host.");
 }
 
 await fs.mkdir(outDir, { recursive: true });
@@ -38,11 +41,19 @@ async function recordStep(name, action) {
   }
 }
 
+async function openLoginPage(page) {
+  await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+  const finalUrl = new URL(page.url());
+  if (finalUrl.protocol !== "https:" || finalUrl.origin !== parsedBaseUrl.origin) {
+    throw new Error("Login navigation left the approved HTTPS smoke origin before credentials were entered.");
+  }
+}
+
 try {
   await recordStep("rejected credentials stay on login with an error", async () => {
     const context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await openLoginPage(page);
     await page.locator('[name="email"]').fill(email);
     await page.locator('[name="password"]').fill(rejectedPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
@@ -54,7 +65,7 @@ try {
   const context = await browser.newContext();
   const page = await context.newPage();
   await recordStep("successful login reaches the authenticated workspace", async () => {
-    await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await openLoginPage(page);
     await page.locator('[name="email"]').fill(email);
     await page.locator('[name="password"]').fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();

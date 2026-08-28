@@ -28,8 +28,14 @@ if (captureScreenshots && !sanitizedTenant) {
 }
 
 const parsedBaseUrl = new URL(baseUrl);
-if (!/^https?:$/.test(parsedBaseUrl.protocol) || parsedBaseUrl.username || parsedBaseUrl.password) {
-  throw new Error("RC_BASE_URL must be an HTTP(S) URL without embedded credentials.");
+if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+  throw new Error("RC_BASE_URL must be an HTTPS URL without embedded credentials.");
+}
+const approvedHost = targetEnvironment === "production"
+  ? parsedBaseUrl.hostname === "app.404tradeos.com"
+  : /^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(parsedBaseUrl.hostname);
+if (!approvedHost) {
+  throw new Error("RC_BASE_URL does not match the approved host for RC_TARGET_ENVIRONMENT.");
 }
 for (const route of routes) {
   const parsedRoute = new URL(route, parsedBaseUrl);
@@ -51,9 +57,11 @@ try {
     const response = await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
     const status = response?.status() ?? 0;
     const finalUrl = page.url();
+    const finalOrigin = new URL(finalUrl);
     const bodyTextLength = await page.locator("body").innerText().then((text) => text.trim().length);
-    const stayedAuthenticated = new URL(finalUrl).pathname !== "/login";
-    const passed = status > 0 && status < 400 && bodyTextLength > 0 && stayedAuthenticated;
+    const stayedOnApprovedOrigin = finalOrigin.protocol === "https:" && finalOrigin.origin === parsedBaseUrl.origin;
+    const stayedAuthenticated = finalOrigin.pathname !== "/login";
+    const passed = status > 0 && status < 400 && bodyTextLength > 0 && stayedOnApprovedOrigin && stayedAuthenticated;
     const safeName = route.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "root";
     let screenshot = null;
     if (captureScreenshots) {

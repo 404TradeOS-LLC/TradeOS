@@ -21,6 +21,8 @@ test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
   assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.match(workflow, /url\.protocol === "https:"/);
+  assert.match(workflow, /tradeos-costbook-web-\[a-z0-9\]/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
 });
 
@@ -31,6 +33,8 @@ test("route smoke fails closed before capturing production or unsanitized screen
   assert.match(routeSmoke, /screenshot = null/);
   assert.match(routeSmoke, /RC_ROUTES must contain same-origin absolute paths/);
   assert.match(routeSmoke, /\/dispatch,\/field/);
+  assert.match(routeSmoke, /approvedHost/);
+  assert.match(routeSmoke, /stayedOnApprovedOrigin/);
 });
 
 test("auth smoke covers rejection, login, refresh, logout, and protected-route denial", () => {
@@ -42,6 +46,8 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
     "expired or logged-out session redirects from a protected route",
   ]) assert.match(authSmoke, new RegExp(marker));
   assert.match(authSmoke, /RC_AUTH_REJECTED_PASSWORD/);
+  assert.match(authSmoke, /openLoginPage/);
+  assert.match(authSmoke, /finalUrl\.origin !== parsedBaseUrl\.origin/);
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
 });
 
@@ -49,6 +55,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /RC_ALLOW_MUTATIONS=true is required/);
   assert.match(golden, /RC_SMOKE_TENANT_LABEL is required/);
   assert.match(golden, /\["preview", "staging"\]/);
+  assert.match(golden, /protocol !== "https:"/);
   assert.match(golden, /approved tradeos-costbook-web Vercel Preview host/);
   for (const marker of ["Send to customer", "Mark accepted", "Create contract", "Create invoice"]) {
     assert.match(golden, new RegExp(marker));
@@ -69,6 +76,7 @@ test("business-flow smoke follows resource-backed project, portal, and job route
     '"/field"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
   assert.match(business, /RC_FIELD_STORAGE_STATE_PATH is required/);
+  assert.match(business, /finalOrigin\.origin === parsedBaseUrl\.origin/);
   assert.match(business, /Active Jobs/);
   assert.match(business, /No assigned jobs today/);
   assert.match(business, /Technician workspace/);

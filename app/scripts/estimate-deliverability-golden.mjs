@@ -22,8 +22,8 @@ if (!smokeTenantLabel) throw new Error("RC_SMOKE_TENANT_LABEL is required for mu
 if (!allowMutations) throw new Error("RC_ALLOW_MUTATIONS=true is required for the mutating golden workflow.");
 
 const parsedBaseUrl = new URL(baseUrl);
-if (!/^https?:$/.test(parsedBaseUrl.protocol) || parsedBaseUrl.username || parsedBaseUrl.password) {
-  throw new Error("ESTIMATE_BASE_URL must be an HTTP(S) URL without embedded credentials.");
+if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+  throw new Error("ESTIMATE_BASE_URL must be an HTTPS URL without embedded credentials.");
 }
 if (!/^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(parsedBaseUrl.hostname)) {
   throw new Error("Mutating golden workflow must target an approved tradeos-costbook-web Vercel Preview host.");

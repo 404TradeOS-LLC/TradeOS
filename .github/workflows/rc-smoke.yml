@@ -101,6 +101,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if ! node --input-type=module <<'NODE'
+          const url = new URL(process.env.RC_BASE_URL);
+          const approved = url.protocol === "https:" && /^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(url.hostname);
+          if (!approved) process.exit(1);
+          NODE
+          then
+            echo "::error::RC_BASE_URL must be an HTTPS tradeos-costbook-web Vercel Preview URL for the selected non-production environment."
+            exit 1
+          fi
           if [ -z "$RC_SMOKE_TENANT_LABEL" ]; then
             echo "::error::A dedicated non-production smoke tenant label is required."
             exit 1

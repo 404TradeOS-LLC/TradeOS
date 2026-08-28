@@ -54,7 +54,9 @@ The value must be a base64-encoded Playwright storage-state JSON file for a non-
 `RC_E2E_FIELD_STORAGE_STATE_B64`
 
 It accepts an explicitly selected Preview or Staging URL, a dedicated sanitized
-smoke-tenant label, and route list. The owner/admin storage state is used for
+smoke-tenant label, and route list. The base URL must be HTTPS and match the
+approved `tradeos-costbook-web-*.vercel.app` Vercel Preview host pattern for
+the selected non-production environment. The owner/admin storage state is used for
 the business golden path and Dispatch; the separate technician storage state
 is required for a resource-backed Field check. The workflow requires a
 separate lifecycle account using `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
