@@ -1031,8 +1031,8 @@ export interface Contract {
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
-  signatureIp: string | null;
-  signatureUserAgent: string | null;
+  signatureIpReported: string | null;
+  signatureUserAgentReported: string | null;
   signedAt: string | null;
   createdAt: string;
   events: ContractEvent[];

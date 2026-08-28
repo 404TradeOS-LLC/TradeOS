@@ -43,6 +43,14 @@ const RAW_ROW = {
 describe("InvoicesService.listOrganizationQueue", () => {
   const service = new InvoicesService();
 
+  beforeAll(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-28T12:00:00.000Z"));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

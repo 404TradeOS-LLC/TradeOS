@@ -37,7 +37,7 @@ export interface InvoiceLineItemInput {
 }
 
 export interface CreateInvoiceInput {
-  orgId?: string;
+  orgId: string;
   actorUserId?: string;
   actorRole?: string;
   projectId: string;

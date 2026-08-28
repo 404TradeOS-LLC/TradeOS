@@ -84,7 +84,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="font-medium">Audit trail</div>
               <p className="mt-2 text-muted-foreground">Timestamp: {formatDateTime(contract.signedAt)}</p>
-              <p className="text-muted-foreground">Signer network record: {contract.signatureIp ?? "Not captured for this signature"}</p>
+              <p className="text-muted-foreground">Client-reported signer network: {contract.signatureIpReported ?? "Not reported for this signature"}</p>
             </div>
             {contract.signatureDataUrl && (
               <div className="rounded-xl border border-border/60 bg-white p-4 md:col-span-2">

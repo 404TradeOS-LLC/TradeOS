@@ -37,8 +37,8 @@ export async function signContractAction(_prev: FormActionState, formData: FormD
   const portal = String(formData.get("portal") ?? "") === "true";
   const requestHeaders = await headers();
   const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const signatureIp = forwardedFor || requestHeaders.get("x-real-ip") || undefined;
-  const signatureUserAgent = requestHeaders.get("user-agent") || undefined;
+  const signatureIpReported = forwardedFor || requestHeaders.get("x-real-ip") || undefined;
+  const signatureUserAgentReported = requestHeaders.get("user-agent") || undefined;
 
   if (!signerName) return { error: "Signer name is required." };
 
@@ -50,8 +50,8 @@ export async function signContractAction(_prev: FormActionState, formData: FormD
         signerName,
         signerEmail: signerEmail || undefined,
         signatureDataUrl: signatureDataUrl || undefined,
-        signatureIp,
-        signatureUserAgent,
+        signatureIpReported,
+        signatureUserAgentReported,
       }),
     });
   } catch (err) {

@@ -397,18 +397,18 @@ export class InvoicesService {
 
     const proposal = await prisma.proposal.findFirst({
       where: input.proposalId
-        ? { id: input.proposalId, projectId: input.projectId, project: input.orgId ? { orgId: input.orgId } : undefined }
+        ? { id: input.proposalId, projectId: input.projectId, project: { orgId: input.orgId } }
         : {
             projectId: input.projectId,
             estimateId: input.estimateId,
             status: "accepted",
-            project: input.orgId ? { orgId: input.orgId } : undefined,
+            project: { orgId: input.orgId },
           },
       orderBy: input.proposalId ? undefined : { createdAt: "desc" },
     });
     if (input.proposalId && !proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     if (!proposal) return null;
-    if (input.proposalId && input.estimateId && proposal.estimateId !== input.estimateId) {
+    if (input.proposalId && proposal.estimateId !== input.estimateId) {
       throw new ApiError(409, `Proposal ${proposal.id} is not linked to estimate ${input.estimateId}`);
     }
     if (normalizeProposalStatus(proposal.status) !== "accepted") {
@@ -431,7 +431,7 @@ export class InvoicesService {
     });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
-    const estimateStatus = estimate.status ? normalizeEstimateStatus(estimate.status) : "ready";
+    const estimateStatus = normalizeEstimateStatus(estimate.status);
     if (estimateStatus === "draft") throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating an invoice`);
 
     const scale = type === "progress" ? (input.percentComplete ?? 0) / 100 : 1;

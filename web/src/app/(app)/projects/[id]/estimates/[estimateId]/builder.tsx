@@ -364,9 +364,9 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             id="item-search"
             role="combobox"
             aria-autocomplete="list"
-            aria-expanded={orderedResults.length > 0}
-            aria-controls="item-search-results"
-            aria-activedescendant={activeResult ? `item-search-option-${activeResult.kind}-${activeResult.id}` : undefined}
+            aria-expanded={!selected && orderedResults.length > 0}
+            aria-controls={!selected ? "item-search-results" : undefined}
+            aria-activedescendant={!selected && activeResult ? `item-search-option-${activeResult.kind}-${activeResult.id}` : undefined}
             autoFocus
             placeholder="Search assemblies or cost items…"
             value={selected ? selected.name : query}

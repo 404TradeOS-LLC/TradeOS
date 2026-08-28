@@ -58,7 +58,7 @@ Current enforced rule:
 - `ready` is the internally finalized state; this slice does not add customer delivery, viewing, or approval endpoints
 - proposal creation is refused for draft estimates; finalization backfills the stored price on any legacy proposal that was created without one
 - `Estimate(projectId, version)` is unique and estimate creation serializes on the project row before allocating the next version
-- reviewed line-item replay may supply `sourceKey` for idempotency; the builder generates a key for each add-line request
+- reviewed Costbook line-item replay may supply `sourceKey` for idempotency; the Costbook picker generates a key for each catalog add request
 
 ## Costbook provenance and pricing snapshots
 

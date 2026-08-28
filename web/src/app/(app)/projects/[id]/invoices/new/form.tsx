@@ -12,8 +12,12 @@ import type { Estimate, Proposal } from "@/lib/api";
 export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId: string; estimates: Estimate[]; proposals: Proposal[] }) {
   const [state, formAction, isPending] = useActionState(createInvoiceAction, undefined);
   const [type, setType] = useState<"full" | "progress">("full");
+  const [estimateId, setEstimateId] = useState("");
+  const [proposalId, setProposalId] = useState("");
   const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
-  const acceptedProposals = proposals.filter((proposal) => proposal.status === "accepted" && proposal.finalPrice !== null);
+  const acceptedProposals = proposals.filter(
+    (proposal) => proposal.status === "accepted" && proposal.finalPrice !== null && proposal.estimateId === estimateId
+  );
 
   return (
     <Card className="max-w-md">
@@ -23,7 +27,16 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
       <CardContent>
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="projectId" value={projectId} />
-          <SelectField label="Estimate" name="estimateId" required defaultValue="">
+          <SelectField
+            label="Estimate"
+            name="estimateId"
+            required
+            value={estimateId}
+            onChange={(event) => {
+              setEstimateId(event.target.value);
+              setProposalId("");
+            }}
+          >
             <option value="">Select an estimate…</option>
             {eligibleEstimates.map((estimate) => (
               <option key={estimate.id} value={estimate.id}>
@@ -32,7 +45,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
             ))}
           </SelectField>
           {acceptedProposals.length > 0 ? (
-            <SelectField label="Accepted proposal price" name="proposalId" defaultValue="">
+            <SelectField label="Accepted proposal price" name="proposalId" value={proposalId} onChange={(event) => setProposalId(event.target.value)}>
               <option value="">Use estimate price</option>
               {acceptedProposals.map((proposal) => (
                 <option key={proposal.id} value={proposal.id}>

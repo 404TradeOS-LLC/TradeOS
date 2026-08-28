@@ -150,7 +150,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Last verified date
 
-2026-08-26
+2026-08-28
 
 ## S022 rendering boundary
 

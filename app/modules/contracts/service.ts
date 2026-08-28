@@ -85,8 +85,8 @@ export class ContractsService {
         signerName: input.signerName,
         signerEmail: input.signerEmail,
         signatureDataUrl: input.signatureDataUrl,
-        signatureIp: input.signatureIp,
-        signatureUserAgent: input.signatureUserAgent,
+        signatureIpReported: input.signatureIpReported,
+        signatureUserAgentReported: input.signatureUserAgentReported,
         signedAt: new Date(),
       },
     });
@@ -146,7 +146,10 @@ export class ContractsService {
       {
         ...row,
         contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
-        scopeOfWork: typeof snapshot?.scopeOfWork === "string" ? snapshot.scopeOfWork : null,
+        scopeOfWork:
+          typeof snapshot?.scopeOfWork === "string"
+            ? snapshot.scopeOfWork
+            : "Legacy contract: immutable scope snapshot unavailable.",
       },
       { brand }
     );
@@ -218,8 +221,8 @@ function toDTO(row: {
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
-  signatureIp: string | null;
-  signatureUserAgent?: string | null;
+  signatureIpReported: string | null;
+  signatureUserAgentReported?: string | null;
   signedAt: Date | null;
   createdAt: Date;
   events?: Array<{
@@ -241,8 +244,8 @@ function toDTO(row: {
     signerName: row.signerName,
     signerEmail: row.signerEmail,
     signatureDataUrl: row.signatureDataUrl,
-    signatureIp: row.signatureIp,
-    signatureUserAgent: row.signatureUserAgent ?? null,
+    signatureIpReported: row.signatureIpReported,
+    signatureUserAgentReported: row.signatureUserAgentReported ?? null,
     contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
     snapshot: asRecord(row.snapshotJson),
     signedAt: row.signedAt,

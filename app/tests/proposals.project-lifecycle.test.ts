@@ -59,7 +59,7 @@ describe("proposal-driven Project lifecycle behavior", () => {
   });
 
   it("moves estimate-backed proposal creation to canonical estimating", async () => {
-    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1" });
+    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "ready", totalPrice: 0 });
     mockPrisma.proposal.create.mockResolvedValue(proposalRow("draft"));
 
     const service = new ProposalsService();
@@ -100,4 +100,3 @@ describe("proposal-driven Project lifecycle behavior", () => {
     });
   });
 });
-

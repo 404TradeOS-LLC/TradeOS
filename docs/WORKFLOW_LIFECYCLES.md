@@ -353,14 +353,14 @@ Estimate line-item append order is persisted and remains deterministic under con
 Estimate-backed proposal creation persists the finalized estimate's existing `totalPrice` as the proposal's `finalPrice` when no explicit proposal price is supplied. Draft estimates remain unpriced, and explicit proposal ranges remain ranges rather than being combined with a contradictory derived fixed price.
 S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.
 
-Pre-beta handoff safeguards reject draft-estimate proposal creation, backfill
+On the pre-beta repair branch, handoff safeguards reject draft-estimate proposal creation, backfill
 an unpriced legacy proposal when its estimate is finalized, and remove the PDF
 fallback to a live estimate total. Accepted or contract-linked proposals are
 not editable through the normal update path. Invoice creation rejects draft
 estimates and prefers the accepted proposal's persisted final price.
 
 Contracts capture the accepted proposal amount and a frozen snapshot at
-creation. The current product posture is bounded in-app acceptance rather than
+creation. These changes require migration and review before they are live-main behavior; the estimate-version uniqueness migration must run in a write-maintenance window because Prisma applies migrations transactionally. The current product posture is bounded in-app acceptance rather than
 certified legal e-signature; any later scope change must use the existing
 change-order or replacement-contract decision path.
 

@@ -13,7 +13,6 @@ export default async function CustomerPortalContractPage({ params }: { params: P
   const token = await getSessionToken();
   const contract = await getContract(token ?? "", contractId);
   const project = await getProject(token ?? "", contract.projectId);
-  const proposal = project.proposals.find((item) => item.id === contract.proposalId) ?? null;
   const timeline = buildContractTimeline(contract);
 
   return (
@@ -42,7 +41,11 @@ export default async function CustomerPortalContractPage({ params }: { params: P
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Scope</div>
-              <div className="mt-2 whitespace-pre-wrap text-muted-foreground">{contract.snapshot && typeof contract.snapshot.scopeOfWork === "string" ? contract.snapshot.scopeOfWork : proposal?.scopeOfWork ?? "Scope follows the accepted proposal."}</div>
+              <div className="mt-2 whitespace-pre-wrap text-muted-foreground">
+                {contract.snapshot && typeof contract.snapshot.scopeOfWork === "string"
+                  ? contract.snapshot.scopeOfWork
+                  : "Legacy contract: immutable scope snapshot unavailable."}
+              </div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Agreed amount</div>

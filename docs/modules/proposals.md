@@ -105,7 +105,7 @@ absent.
 
 ## Last verified date
 
-2026-08-24
+2026-08-28
 
 Exact-head GitHub verification for the earlier lifecycle PR #267 passed on
 2026-08-22; the S016 document-brand rendering verification was completed on

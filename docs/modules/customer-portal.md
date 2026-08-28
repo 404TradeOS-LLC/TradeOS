@@ -15,7 +15,7 @@ related_code:
 
 ## Purpose
 
-Provide customer-facing document and project views for proposals, contracts, invoices, and portal project summaries.
+Provide staff-accessible document and project views for proposals, contracts, invoices, and portal project summaries. A customer-scoped public route remains planned and is not shipped.
 
 ## Source code locations
 

@@ -14,8 +14,8 @@ const signSchema = z.object({
   signerName: z.string().min(1),
   signerEmail: z.string().email().optional(),
   signatureDataUrl: z.string().optional(),
-  signatureIp: z.string().trim().max(120).optional(),
-  signatureUserAgent: z.string().trim().max(512).optional(),
+  signatureIpReported: z.string().trim().max(120).optional(),
+  signatureUserAgentReported: z.string().trim().max(512).optional(),
 });
 
 export const contractsController = {
@@ -46,12 +46,11 @@ export const contractsController = {
         orgId: requireOrgId(req),
         actorUserId: auth.userId,
         actorRole: auth.role,
-        // The web action reports the browser-facing forwarded address and
-        // user-agent. Keep the values explicitly named in the payload so the
-        // contract record does not imply that Express's proxy address is the
-        // signer's address.
-        signatureIp: body.signatureIp ?? req.ip,
-        signatureUserAgent: body.signatureUserAgent ?? req.get("user-agent") ?? undefined,
+        // These values are explicitly client-reported because the web tier may
+        // proxy the request and forwarding headers are not independently
+        // attestable by this service.
+        signatureIpReported: body.signatureIpReported ?? req.ip,
+        signatureUserAgentReported: body.signatureUserAgentReported ?? req.get("user-agent") ?? undefined,
       })
     );
   },

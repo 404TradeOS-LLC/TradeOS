@@ -95,6 +95,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      status: "ready",
       subtotalCost: 1000,
       totalPrice: 1200,
       lineItems: [{ description: "Driveway", quantity: 100, unitOfMeasure: "sqft", unitCost: 10, lineCost: 1000 }],
@@ -151,6 +152,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      status: "ready",
       subtotalCost: 35000,
       totalPrice: 50400,
       taxAmount: 2400,
@@ -281,6 +283,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      status: "ready",
       subtotalCost: 35000,
       totalPrice: 50400,
       taxAmount: 2400,
@@ -346,6 +349,7 @@ describe("InvoicesService", () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
       projectId: "project-1",
+      status: "ready",
       subtotalCost: 1000,
       totalPrice: 1250,
       targetMarginPct: 20,
@@ -380,7 +384,7 @@ describe("InvoicesService", () => {
   it("allocates rounding residual to the largest direct-cost line", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
     mockPrisma.estimate.findFirst.mockResolvedValue({
-      id: "estimate-1", projectId: "project-1", subtotalCost: 5, totalPrice: 100.01,
+      id: "estimate-1", projectId: "project-1", status: "ready", subtotalCost: 5, totalPrice: 100.01,
       lineItems: [
         { description: "Largest (tie winner)", quantity: 1, unitOfMeasure: "ea", unitCost: 2, lineCost: 2 },
         { description: "Second largest", quantity: 1, unitOfMeasure: "ea", unitCost: 2, lineCost: 2 },

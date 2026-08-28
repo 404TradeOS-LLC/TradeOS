@@ -147,10 +147,16 @@ describe("ProposalsService", () => {
 
   it("rejects edits to an accepted proposal", async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("accepted"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
       new ProposalsService().update("proposal-1", { finalPrice: 7200 }, "org-1")
     ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { not: "accepted" }, contracts: { none: {} } }),
+      })
+    );
     expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
   });
 

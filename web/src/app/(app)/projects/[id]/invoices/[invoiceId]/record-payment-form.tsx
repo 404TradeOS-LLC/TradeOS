@@ -8,6 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatInvoiceCurrency } from "@/lib/document-workflow";
 
+function getLocalDateInputValue(): string {
+  const today = new Date();
+  return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
+}
+
 export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projectId: string; invoiceId: string; balanceDue: number }) {
   const [state, formAction, pending] = useActionState(recordInvoicePaymentAction, undefined);
 
@@ -27,7 +32,7 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
         </div>
         <div className="grid gap-2">
           <Label htmlFor="paymentDate">Payment date</Label>
-          <Input id="paymentDate" name="paymentDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+          <Input id="paymentDate" name="paymentDate" type="date" defaultValue={getLocalDateInputValue()} required />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="paymentMethod">Method</Label>

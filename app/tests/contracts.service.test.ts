@@ -56,7 +56,7 @@ describe("ContractsService", () => {
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
-      signatureIp: null,
+      signatureIpReported: null,
       signedAt: null,
       createdAt: new Date(),
     });
@@ -71,7 +71,8 @@ describe("ContractsService", () => {
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
-      signatureIp: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
       signedAt: null,
       createdAt: new Date(),
       events: [{ id: "event-1", eventType: "contract.created", actorUserId: "user-1", recipientEmail: null, metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
@@ -100,7 +101,8 @@ describe("ContractsService", () => {
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
-      signatureIp: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
       signedAt: null,
       createdAt: new Date(),
       events: [],
@@ -148,7 +150,8 @@ describe("ContractsService", () => {
         signerName: "Jane Doe",
         signerEmail: "jane@example.com",
         signatureDataUrl: null,
-        signatureIp: "127.0.0.1",
+        signatureIpReported: "127.0.0.1",
+        signatureUserAgentReported: null,
         signedAt: new Date(),
         createdAt: new Date(),
         events: [{ id: "event-2", eventType: "contract.signed", actorUserId: "user-1", recipientEmail: "jane@example.com", metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
@@ -163,7 +166,7 @@ describe("ContractsService", () => {
       actorRole: "admin",
       signerName: "Jane Doe",
       signerEmail: "jane@example.com",
-      signatureIp: "127.0.0.1",
+      signatureIpReported: "127.0.0.1",
     });
 
     expect(contract.status).toBe("signed");
