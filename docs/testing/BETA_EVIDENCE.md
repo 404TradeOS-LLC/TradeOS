@@ -153,18 +153,22 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
 | `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+| `BETA_RC_BASE_URL` (repository variable) | `BETA_RC_BASE_URL_VARIABLE` | variable | `resolve-rc-target.mjs` | optional |
+| `BETA_RC_DEPLOYMENT_URL` | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
+| `BETA_RC_DEPLOYMENT_SHA` | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
 
-`BETA_RC_SUPABASE_PROJECT_REF` is deliberately the same on both sides; the others
-drop the `RC_` prefix at runtime. The smoke-tenant label reaches the scripts as
-`BETA_SMOKE_ORG_LABEL` and `BETA_SMOKE_TENANT_LABEL`, both fed from the
-workflow's `smoke_tenant_label` input.
+`BETA_RC_SUPABASE_PROJECT_REF` is deliberately the same on both sides; the smoke
+and foreign-resource secrets drop the `RC_` prefix at runtime. The repository
+variable `BETA_RC_BASE_URL` is the odd one out: it reaches the resolver as
+`BETA_RC_BASE_URL_VARIABLE`, because the plain `BETA_RC_BASE_URL` name carries
+the workflow *input* — they are two distinct resolution sources and must not
+collide. The smoke-tenant label reaches the scripts as `BETA_SMOKE_ORG_LABEL`
+and `BETA_SMOKE_TENANT_LABEL`, both fed from the workflow's `smoke_tenant_label`
+input.
 
 An estimate id on its own is not probeable, because the estimate route is nested
 under a project. Supplying only `BETA_RC_FOREIGN_ESTIMATE_ID` fails the run
 rather than producing a report with no probes in it.
-| `BETA_RC_BASE_URL` | variable | `resolve-rc-target.mjs` | optional |
-| `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
-| `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
 
 The RC smoke identity must be a dedicated account belonging only to the
 synthetic smoke organization. It must not be a founder's personal account and

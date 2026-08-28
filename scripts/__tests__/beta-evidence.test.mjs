@@ -398,6 +398,38 @@ test("the documented secret names map to the runtime names the scripts read", ()
   assert.match(workflow, /BETA_FOREIGN_PROJECT_ID: \$\{\{ secrets\.BETA_RC_FOREIGN_PROJECT_ID \}\}/);
   assert.match(doc, /\| GitHub secret \/ variable \| Runtime variable \|/);
   assert.match(doc, /`BETA_RC_FOREIGN_PROJECT_ID` \| `BETA_FOREIGN_PROJECT_ID`/);
+
+  // The repository variable reaches the resolver under a different name than
+  // the workflow input, and they must not be conflated.
+  assert.match(workflow, /BETA_RC_BASE_URL_VARIABLE: \$\{\{ vars\.BETA_RC_BASE_URL \}\}/);
+  assert.match(doc, /BETA_RC_BASE_URL_VARIABLE/);
+
+  // Every row must sit inside the table and carry the header's column count.
+  // Inserting prose mid-table orphans the rows that follow: a renderer then
+  // shows them as literal pipe text rather than table rows.
+  const lines = doc.slice(doc.indexOf("| GitHub secret / variable")).split("\n");
+  const rows = [];
+  for (const line of lines) {
+    if (!line.startsWith("|")) break;
+    rows.push(line);
+  }
+  const widths = new Set(rows.map((row) => row.split("|").length));
+  assert.equal(widths.size, 1, `secrets table rows have inconsistent column counts: ${[...widths].join(", ")}`);
+
+  // Every documented name must be inside that contiguous block, not stranded
+  // after a paragraph further down.
+  for (const name of [
+    "BETA_RC_SMOKE_EMAIL",
+    "BETA_RC_FOREIGN_ESTIMATE_ID",
+    "BETA_RC_BASE_URL_VARIABLE",
+    "BETA_RC_DEPLOYMENT_URL",
+    "BETA_RC_DEPLOYMENT_SHA",
+  ]) {
+    assert.ok(
+      rows.some((row) => row.includes(name)),
+      `${name} is documented outside the secrets table, so it will not render as a table row`,
+    );
+  }
 });
 
 test("the tenant assertion cannot be skipped and mutation consent is never implicit", () => {
