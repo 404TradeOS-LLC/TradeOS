@@ -125,6 +125,23 @@ test("URL resolution is deterministic and refuses ambiguity", () => {
     ),
     "RC_URL_AMBIGUOUS",
   );
+
+  // Ambiguity is reported before the candidates are validated, so the values
+  // may still carry userinfo and must not reach the message.
+  try {
+    resolveRcBaseUrl([
+      { source: "workflow_input", value: "https://user:hunter2@a.vercel.app" },
+      { source: "repository_variable", value: "https://b.vercel.app" },
+    ]);
+    assert.fail("expected ambiguity to throw");
+  } catch (error) {
+    assert.equal(error.code, "RC_URL_AMBIGUOUS");
+    assert.doesNotMatch(error.message, /hunter2/);
+    assert.doesNotMatch(error.message, /user:/);
+    // The sources are still named, so the operator can tell which to fix.
+    assert.match(error.message, /workflow_input/);
+    assert.match(error.message, /repository_variable/);
+  }
   const resolved = resolveRcBaseUrl([
     { source: "workflow_input", value: "https://a.vercel.app/" },
     { source: "repository_variable", value: "https://a.vercel.app" },

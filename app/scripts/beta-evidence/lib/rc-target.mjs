@@ -198,11 +198,15 @@ export function resolveRcBaseUrl(candidates) {
 
   const distinct = [...new Set(provided.map((candidate) => candidate.value.replace(/\/+$/, "")))];
   if (distinct.length > 1) {
+    // Name the sources but not their values: this runs before the candidates
+    // have been validated, so an unvalidated value may still carry userinfo,
+    // and this message reaches CI logs.
     fail(
       "RC_URL_AMBIGUOUS",
-      `RC base URL resolution is ambiguous. Sources disagree: ${provided
-        .map((candidate) => `${candidate.source}=${candidate.value}`)
-        .join(", ")}.`,
+      `RC base URL resolution is ambiguous: ${provided
+        .map((candidate) => candidate.source)
+        .join(", ")} supplied different values. The values are withheld because they are unvalidated ` +
+        "and may contain credentials; compare the sources directly.",
     );
   }
 
