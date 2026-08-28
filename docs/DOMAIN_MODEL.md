@@ -33,11 +33,13 @@ An authenticated identity stored in `AppUser`.
 
 ## Authentication control records
 
-`OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` are security-control records, not ordinary tenant-editable entities.
+`OrganizationInvite`, `AuthRefreshToken`, `PasswordResetToken`, `CustomerPortalAccessToken`, and `CustomerPortalSession` are security-control records, not ordinary tenant-editable entities.
 
 - invitation ownership (`orgId`, email, role, token, inviter, and expiry) is immutable after creation; invite acceptance may update only lifecycle fields such as status and acceptance time
 - refresh-token ownership (`orgId`, user, membership, token, and expiry) is immutable after creation; rotation may update only usage, revocation, and replacement metadata
 - password-reset-token ownership (`userId`, token, and expiry) is immutable after creation; reset completion may update only consumption metadata
+- customer portal access-token ownership (`orgId`, customer, token digest, and expiry) is immutable after creation; redemption may update only consumption metadata
+- customer portal session ownership (`orgId`, customer, access token, session digest, and expiry) is immutable after creation; portal activity may update only the last-seen timestamp
 
 These invariants are enforced in PostgreSQL as well as in application service behavior so a login-lookup transaction cannot reassign an existing auth record across organizations or users.
 
@@ -52,6 +54,7 @@ A company-scoped account or homeowner record stored in `Customer`.
 - customers own the business relationship
 - customers can have many projects, service addresses, equipment assets, service agreements, and jobs
 - tenant customer listing/search is service-owned: `CrmService.listCustomers` always excludes soft-deleted rows, supports database-side case-insensitive name/email/phone search, and enforces a bounded result count before rows are loaded
+- public customer access is represented by a `CustomerPortalAccessToken` and short-lived `CustomerPortalSession`; neither is a staff membership or canonical role
 
 ## Service Address
 
@@ -114,6 +117,7 @@ A signable commercial agreement stored in `Contract`.
 - belongs to one project and one proposal
 - stores the agreed `contractAmount` and an immutable `snapshotJson` of the accepted proposal when created
 - owns contract event history
+- customer portal signing may transition only its pending state through the dedicated portal RLS policy; the signed event records the customer and portal session attribution
 
 ## Invoice
 

@@ -18,6 +18,17 @@ export interface SignContractInput {
   signatureUserAgentReported?: string;
 }
 
+export interface PortalSignContractInput {
+  orgId: string;
+  customerId: string;
+  portalSessionId: string;
+  signerName: string;
+  signerEmail: string;
+  signatureDataUrl?: string;
+  signatureIpReported?: string;
+  signatureUserAgentReported?: string;
+}
+
 export interface ContractEventDTO {
   id: string;
   eventType: string;
