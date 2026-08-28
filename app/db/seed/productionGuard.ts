@@ -29,12 +29,42 @@ const PRODUCTION_HOST_FRAGMENTS = [PRODUCTION_SUPABASE_REF, "api.404tradeos.com"
 
 const PRODUCTION_ENVIRONMENT_NAMES = new Set(["production", "prod"]);
 
-function hostnameOf(databaseUrl: string): string | null {
+function parseDatabaseUrl(databaseUrl: string): URL | null {
   try {
-    return new URL(databaseUrl).hostname.toLowerCase().replace(/\.$/, "");
+    return new URL(databaseUrl);
   } catch {
     return null;
   }
+}
+
+function isSupabaseManagedHost(hostname: string): boolean {
+  return hostname === "supabase.co" || hostname === "supabase.com" ||
+    hostname.endsWith(".supabase.co") || hostname.endsWith(".supabase.com");
+}
+
+/**
+ * Recover the Supabase project ref from a connection URL.
+ *
+ * Direct connections carry it in the hostname (`db.<ref>.supabase.co`), but
+ * pooler connections do not — there the host is a shared regional endpoint
+ * (`aws-0-<region>.pooler.supabase.com`) and the ref lives in the username
+ * (`postgres.<ref>`). Checking only the hostname therefore misses production
+ * entirely whenever the pooler form is used.
+ *
+ * Returns null when the ref cannot be determined.
+ */
+export function extractSupabaseProjectRef(url: URL): string | null {
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+
+  const hostMatch = /^(?:db\.)?([a-z0-9]{20})\.supabase\.(?:co|com)$/.exec(hostname);
+  if (hostMatch) return hostMatch[1];
+
+  // Pooler form: the username is `postgres.<ref>` (or occasionally just `<ref>`).
+  const username = decodeURIComponent(url.username || "").toLowerCase();
+  const userMatch = /(?:^|\.)([a-z0-9]{20})$/.exec(username);
+  if (userMatch) return userMatch[1];
+
+  return null;
 }
 
 /**
@@ -50,12 +80,27 @@ export function evaluateSeedGuard(env: SeedGuardEnvironment): SeedGuardResult {
   if (!databaseUrl) {
     reasons.push("DATABASE_URL is not set, so the target database cannot be identified.");
   } else {
-    const hostname = hostnameOf(databaseUrl);
-    if (hostname === null) {
+    const parsed = parseDatabaseUrl(databaseUrl);
+    if (parsed === null) {
       reasons.push("DATABASE_URL could not be parsed, so the target database cannot be identified.");
-    } else if (PRODUCTION_HOST_FRAGMENTS.some((fragment) => hostname.includes(fragment))) {
+    } else {
+      const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
       // Never echo the URL itself — it carries credentials.
-      reasons.push("DATABASE_URL points at a known production database host.");
+      if (PRODUCTION_HOST_FRAGMENTS.some((fragment) => hostname.includes(fragment))) {
+        reasons.push("DATABASE_URL points at a known production database host.");
+      }
+
+      const projectRef = extractSupabaseProjectRef(parsed);
+      if (projectRef === PRODUCTION_SUPABASE_REF) {
+        reasons.push("DATABASE_URL resolves to the production Supabase project.");
+      } else if (projectRef === null && isSupabaseManagedHost(hostname)) {
+        // A Supabase-managed endpoint whose project cannot be identified is
+        // treated as production: the pooler form hides the ref in the
+        // username, so "not obviously production" is not good enough here.
+        reasons.push(
+          "DATABASE_URL points at a Supabase-managed host whose project ref could not be determined, so it cannot be proven non-production.",
+        );
+      }
     }
   }
 

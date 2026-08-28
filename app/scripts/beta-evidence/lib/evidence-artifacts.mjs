@@ -33,9 +33,19 @@ export function screenshotFileName(viewportName, sequence, checkpointName) {
   return `${WORKFLOW_SLUG}-${viewportName}-${sequence}-${checkpointName}.png`;
 }
 
-export function expectedScreenshots({ includeOptional = false } = {}) {
+/** Resolve a viewport subset by name, defaulting to the full matrix. */
+export function selectViewports(names) {
+  if (!names || names.length === 0) return VIEWPORTS;
+  const selected = VIEWPORTS.filter((viewport) => names.includes(viewport.name));
+  if (selected.length === 0) {
+    throw new Error(`No known viewport matches ${JSON.stringify(names)}.`);
+  }
+  return selected;
+}
+
+export function expectedScreenshots({ includeOptional = false, viewports = VIEWPORTS } = {}) {
   const names = [];
-  for (const viewport of VIEWPORTS) {
+  for (const viewport of viewports) {
     for (const checkpoint of CHECKPOINTS) {
       if (!checkpoint.required && !includeOptional) continue;
       names.push({
@@ -74,11 +84,11 @@ export function readPngDimensions(buffer) {
  * Returns `{ ok, failures[] }` — never throws, so callers can report every
  * problem at once instead of one per run.
  */
-export function validateEvidenceSet(captured, { includeOptional = false } = {}) {
+export function validateEvidenceSet(captured, { includeOptional = false, viewports = VIEWPORTS } = {}) {
   const failures = [];
   const byName = new Map((captured ?? []).map((entry) => [entry.file, entry]));
 
-  for (const expected of expectedScreenshots({ includeOptional })) {
+  for (const expected of expectedScreenshots({ includeOptional, viewports })) {
     const actual = byName.get(expected.file);
     if (!actual) {
       failures.push({ file: expected.file, code: "MISSING", detail: "required screenshot was not captured" });
@@ -102,7 +112,7 @@ export function validateEvidenceSet(captured, { includeOptional = false } = {}) 
       .map((entry) => /^beta-(\d+)-/.exec(entry.file)?.[1])
       .filter(Boolean),
   );
-  for (const viewport of VIEWPORTS) {
+  for (const viewport of viewports) {
     if (!representedViewports.has(viewport.name)) {
       failures.push({
         file: viewport.name,

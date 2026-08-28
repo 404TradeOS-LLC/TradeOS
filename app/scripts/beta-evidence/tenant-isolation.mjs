@@ -43,10 +43,22 @@ await fs.mkdir(outDir, { recursive: true });
 const probes = [
   foreignCustomerId ? { name: "foreign customer", route: `/customers/${foreignCustomerId}` } : null,
   foreignProjectId ? { name: "foreign project", route: `/projects/${foreignProjectId}` } : null,
+  // The estimate route is nested under a project, so an estimate id is only
+  // probeable when its owning project id is also supplied.
   foreignEstimateId && foreignProjectId
     ? { name: "foreign estimate", route: `/projects/${foreignProjectId}/estimates/${foreignEstimateId}` }
     : null,
 ].filter(Boolean);
+
+// A configuration that supplies only BETA_FOREIGN_ESTIMATE_ID satisfies the
+// check above but yields no probeable route. Reporting PASS there would claim
+// tenant isolation without testing it, so fail closed instead.
+if (probes.length === 0) {
+  startupFailure(
+    "No tenant-isolation probe could be constructed. BETA_FOREIGN_ESTIMATE_ID requires BETA_FOREIGN_PROJECT_ID " +
+      "because the estimate route is nested under a project. Supply a foreign customer or project id.",
+  );
+}
 
 const results = [];
 const browser = await chromium.launch({ headless: true });
@@ -88,6 +100,10 @@ try {
           "instead of denying access. Cross-tenant data is reachable by the smoke identity.",
       );
     }
+  }
+
+  if (results.length === 0) {
+    throw new Error("Tenant isolation executed no probes; refusing to report PASS.");
   }
 
   await context.close();

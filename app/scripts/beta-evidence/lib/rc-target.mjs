@@ -31,6 +31,9 @@ const PRODUCTION_TRACKING_ALIAS = /^tradeos-costbook-web-git-main-[a-z0-9-]+\.ve
 
 export const SUPPORTED_ENVIRONMENTS = Object.freeze(["preview", "staging"]);
 
+// Staging deployments use Vercel's branch alias for the `staging` branch.
+const STAGING_ALIAS = /^tradeos-costbook-web-git-staging-[a-z0-9-]+\.vercel\.app$/;
+
 export class RcTargetError extends Error {
   constructor(message, code) {
     super(message);
@@ -94,6 +97,32 @@ export function assertApprovedRcUrl(rawUrl) {
   }
 
   return parsed;
+}
+
+/**
+ * Derive the environment from the deployment host itself.
+ *
+ * This is what makes the environment assertion meaningful: the operator states
+ * which environment they believe they are targeting, and it is checked against
+ * the deployment actually resolved, rather than against a copy of their own
+ * input. Production hosts are classified as production so callers can refuse
+ * them explicitly rather than silently treating them as preview.
+ */
+export function deriveEnvironmentFromUrl(rawUrl) {
+  let hostname;
+  try {
+    hostname = new URL(rawUrl).hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    fail("RC_URL_MALFORMED", `Cannot derive an environment from ${rawUrl}.`);
+  }
+
+  if (PRODUCTION_HOSTNAMES.includes(hostname) || hostname === "tradeos-costbook-web.vercel.app") {
+    return "production";
+  }
+  if (STAGING_ALIAS.test(hostname)) return "staging";
+  if (APPROVED_RC_HOST.test(hostname)) return "preview";
+
+  fail("ENV_UNDERIVABLE", `Cannot derive an environment from host ${hostname}.`);
 }
 
 /**

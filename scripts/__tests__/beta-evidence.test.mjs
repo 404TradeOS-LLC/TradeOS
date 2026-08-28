@@ -10,6 +10,7 @@ import {
   assertDeploymentSha,
   assertEnvironmentIdentity,
   assertNonProductionDataPlane,
+  deriveEnvironmentFromUrl,
   resolveRcBaseUrl,
 } from "../../app/scripts/beta-evidence/lib/rc-target.mjs";
 
@@ -21,6 +22,7 @@ import {
   expectedScreenshots,
   readPngDimensions,
   screenshotFileName,
+  selectViewports,
   validateEvidenceSet,
 } from "../../app/scripts/beta-evidence/lib/evidence-artifacts.mjs";
 
@@ -202,6 +204,49 @@ test("responsive gate flags horizontal overflow with the same tolerance as S027"
   );
 });
 
+test("the environment is derived from the deployment host, not from the operator's claim", () => {
+  assert.equal(
+    deriveEnvironmentFromUrl("https://tradeos-costbook-web-git-fix-abc123-billykshowalters.vercel.app"),
+    "preview",
+  );
+  assert.equal(
+    deriveEnvironmentFromUrl("https://tradeos-costbook-web-git-staging-billykshowalters.vercel.app"),
+    "staging",
+  );
+  assert.equal(deriveEnvironmentFromUrl("https://app.404tradeos.com"), "production");
+  assert.equal(deriveEnvironmentFromUrl("https://tradeos-costbook-web.vercel.app"), "production");
+  assert.equal(codeOf(() => deriveEnvironmentFromUrl("https://example.com")), "ENV_UNDERIVABLE");
+
+  // A preview deployment declared as staging must be rejected; before the
+  // actual side was derived, this comparison could never fail.
+  assert.equal(
+    codeOf(() =>
+      assertEnvironmentIdentity(
+        "staging",
+        deriveEnvironmentFromUrl("https://tradeos-costbook-web-git-fix-abc123-billykshowalters.vercel.app"),
+      ),
+    ),
+    "ENV_MISMATCH",
+  );
+});
+
+test("validation can be scoped to a viewport subset without demanding the full matrix", () => {
+  const mobileOnly = selectViewports(["390"]);
+  assert.equal(mobileOnly.length, 1);
+  assert.equal(selectViewports([]).length, VIEWPORTS.length);
+  assert.throws(() => selectViewports(["999"]));
+
+  const captured = expectedScreenshots({ viewports: mobileOnly }).map((entry) => ({
+    file: entry.file,
+    bytes: 512,
+    width: entry.expectedWidth,
+    height: 844,
+  }));
+  // Scoped to 390 this is complete; against the full matrix it is not.
+  assert.equal(validateEvidenceSet(captured, { viewports: mobileOnly }).ok, true);
+  assert.equal(validateEvidenceSet(captured).ok, false);
+});
+
 // ---------------------------------------------------------------------------
 // Workflow and script contract — these keep the guarantees from silently
 // regressing the way rc-smoke-contract.test.mjs does for the RC smoke lane.
@@ -265,10 +310,31 @@ test("tenant isolation treats a readable foreign resource as a release blocker",
   assert.match(isolation, /at least one of/i);
 });
 
+test("the evidence bundle is never uploaded after the credential scan rejects it", () => {
+  assert.match(workflow, /id: credential_scan/);
+  assert.match(workflow, /steps\.credential_scan\.outcome == 'success'/);
+});
+
+test("tenant isolation refuses to report PASS without a probeable resource", () => {
+  assert.match(isolation, /No tenant-isolation probe could be constructed/);
+  assert.match(isolation, /refusing to report PASS/i);
+  // An estimate id alone is not probeable, so the workflow must not accept it.
+  assert.match(workflow, /BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required/);
+});
+
+test("the workflow declares only the expected environment and derives the actual one", () => {
+  assert.match(workflow, /BETA_EXPECTED_ENVIRONMENT: \$\{\{ inputs\.target_environment \}\}/);
+  assert.doesNotMatch(workflow, /BETA_ACTUAL_ENVIRONMENT: \$\{\{ inputs\.target_environment \}\}/);
+});
+
 test("the destructive seed refuses to run against production and has no override", () => {
   assert.match(seed, /assertSeedTargetIsNotProduction\(\);/);
   assert.match(seedGuard, /Refusing to run destructive seed against a production target/);
   assert.match(seedGuard, /There is no override flag/);
+  // Pooler URLs hide the project ref in the username, so the hostname alone is
+  // not a sufficient production check.
+  assert.match(seedGuard, /extractSupabaseProjectRef/);
+  assert.match(seedGuard, /could not be determined/);
   // No environment variable or flag may re-enable destructive seeding.
   assert.doesNotMatch(seedGuard, /SEED_ALLOW_DESTRUCTIVE/);
   assert.doesNotMatch(seedGuard, /process\.argv/);

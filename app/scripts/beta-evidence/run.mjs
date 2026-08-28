@@ -109,7 +109,11 @@ try {
     await runStep("tenant isolation probe", "tenant-isolation.mjs");
   }
 
-  await runStep("validate artifacts and write metadata", "validate-artifacts.mjs");
+  await runStep("validate artifacts and write metadata", "validate-artifacts.mjs", {
+    // A targeted run validates only what it captured; the validator reports
+    // PARTIAL rather than PASS in that case.
+    BETA_VALIDATE_VIEWPORTS: viewports.map((viewport) => viewport.name).join(","),
+  });
   console.log("\nBeta evidence run complete.");
 } catch (error) {
   console.error(`\nBeta evidence run FAILED: ${error.message}`);

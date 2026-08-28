@@ -63,9 +63,16 @@ Preview host. These are refused explicitly:
 | `tradeos-costbook-web-git-main-*.vercel.app` | `RC_URL_TRACKS_MAIN` — builds from the default branch and shares Production configuration |
 | anything else | `RC_URL_NOT_APPROVED` |
 
-**Environment identity.** `EXPECTED_ENVIRONMENT` and `ACTUAL_ENVIRONMENT` must
-both be present and must agree, and must be `preview` or `staging`. `production`
-is not a supported value.
+**Environment identity.** The operator declares the environment they intend to
+target; the actual environment is *derived from the deployment that was
+resolved* (`deriveEnvironmentFromUrl`), not copied from that declaration, so the
+assertion can genuinely fail. Declaring `staging` while passing a Preview URL is
+rejected with `ENV_MISMATCH`. Only `preview` and `staging` are supported;
+`production` is not.
+
+The derivation is host-based, which is what the deployment exposes publicly. It
+does not prove which *database* the deployment is wired to — see the data-plane
+note below, which remains operator-attested.
 
 **Data plane.** A mutating run additionally requires
 `BETA_RC_SUPABASE_PROJECT_REF` — the Supabase project ref backing the RC
@@ -74,6 +81,16 @@ production fails with `DATA_PLANE_IS_PRODUCTION`. This exists because Preview
 and Production can share a Supabase project unless they are configured
 separately, and a shared project would make fixture creation a production
 mutation. Isolation must be proven, not assumed.
+
+Be precise about what this proves. The ref is **operator-attested**: it is
+supplied as a secret, not read back from the deployment, because the frontend
+uses Supabase server-side only and therefore exposes no project identity to an
+external caller. A Preview accidentally wired to the production database while
+the secret still names the staging project would not be caught here. Closing
+that gap needs a small public build-info endpoint on the deployment reporting
+its environment, commit SHA, and data-plane ref, which
+`resolve-rc-target.mjs` could then verify instead of trusting configuration;
+that is recorded as follow-up rather than silently assumed away.
 
 **SHA correlation.** The deployment under test is correlated with the commit it
 should have been built from. Set `require_sha_correlation: true` to make an
@@ -127,9 +144,13 @@ artifacts.
 | `BETA_RC_SMOKE_EMAIL` | secret | `auth-setup.mjs` | full runs |
 | `BETA_RC_SMOKE_PASSWORD` | secret | `auth-setup.mjs` | full runs |
 | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
-| `BETA_RC_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs |
-| `BETA_RC_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | optional |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional |
+| `BETA_RC_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
+| `BETA_RC_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+
+An estimate id on its own is not probeable, because the estimate route is nested
+under a project. Supplying only `BETA_RC_FOREIGN_ESTIMATE_ID` fails the run
+rather than producing a report with no probes in it.
 | `BETA_RC_BASE_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
@@ -161,6 +182,10 @@ npm run beta:evidence -- --headed
 npm run beta:evidence -- --skip-isolation
 npm run beta:evidence -- --help
 ```
+
+A targeted run validates only the viewports it captured and reports **PARTIAL**,
+never PASS — it is a debugging aid, not a release gate. Reports left over from a
+previous run are detected by run id and marked `STALE` rather than counted.
 
 Configuration is environment- and flag-driven. Changing the RC URL never
 requires editing source.
@@ -243,9 +268,12 @@ per-check results. It contains no passwords, tokens, cookies, or storage state.
   run the destructive seed when `DATABASE_URL` points at a known production
   host or when `NODE_ENV`, `APP_ENVIRONMENT`, or `VERCEL_ENV` is `production`.
   An unset or unparseable `DATABASE_URL` is also refused, because the target
-  cannot be identified. There is no override flag; the supported fix is to stop
-  pointing `DATABASE_URL` at production. Refusal messages never echo the
-  connection string.
+  cannot be identified. Hostname matching alone is not sufficient: Supabase
+  pooler URLs (`aws-0-<region>.pooler.supabase.com`) carry the project ref in
+  the *username*, so the guard extracts the ref from either position, and
+  refuses any Supabase-managed host whose ref it cannot determine. There is no
+  override flag; the supported fix is to stop pointing `DATABASE_URL` at
+  production. Refusal messages never echo the connection string.
 - **Non-production RC only.** Production hosts, the Production alias, and
   `-git-main-` previews are all refused.
 - **Proven data plane.** Mutating runs require a non-production Supabase ref.
@@ -272,7 +300,8 @@ A run is PASS only when all of these hold in the same run:
 - the tenant-isolation probe denied every foreign resource;
 - artifact validation passed and no credential material was detected.
 
-Any FAIL means beta evidence is NOT READY. Absence of a run means UNVERIFIED —
+Any FAIL means beta evidence is NOT READY. A PARTIAL result (a targeted
+single-viewport run) is not evidence either. Absence of a run means UNVERIFIED —
 documentation and configuration are never substitutes for a passing run.
 
 ## Troubleshooting
@@ -291,4 +320,8 @@ documentation and configuration are never substitutes for a passing run.
 | `not scoped to the expected smoke tenant` | identity belongs elsewhere | fix `smoke_tenant_label` or the identity's membership |
 | `failed the 390px quality gate` | genuine mobile overflow | fix the responsive defect; do not widen the tolerance |
 | `WRONG_WIDTH` | screenshot width ≠ viewport | do not resize screenshots; capture at the real viewport |
-| `Evidence bundle contains session material` | credential material reached the bundle | remove it; never relax the scan |
+| `Evidence bundle contains session material` | credential material reached the bundle | remove it; never relax the scan (the artifact upload is skipped when this fails) |
+| `ENV_UNDERIVABLE` | host is not a recognised TradeOS deployment | target an approved Preview or staging deployment |
+| `No tenant-isolation probe could be constructed` | only an estimate id was supplied | also supply `BETA_RC_FOREIGN_PROJECT_ID` |
+| viewport shows `STALE` | a capture report is left over from an earlier run | clear the evidence directory and re-run |
+| `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |

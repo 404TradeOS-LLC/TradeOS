@@ -72,8 +72,11 @@ jobs:
       BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
       BETA_RC_BASE_URL: ${{ inputs.rc_base_url }}
       BETA_RC_BASE_URL_VARIABLE: ${{ vars.BETA_RC_BASE_URL }}
+      # Only the expected side is declared here. resolve-rc-target.mjs derives
+      # the actual environment from the deployment it resolves, so the
+      # assertion compares the operator's claim against reality rather than
+      # against a copy of itself.
       BETA_EXPECTED_ENVIRONMENT: ${{ inputs.target_environment }}
-      BETA_ACTUAL_ENVIRONMENT: ${{ inputs.target_environment }}
       BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -129,7 +132,7 @@ jobs:
           HAS_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL != '' }}
           HAS_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD != '' }}
           HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
-          HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' }}
+          HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
         run: |
           set -euo pipefail
           missing=0
@@ -144,7 +147,7 @@ jobs:
             echo "| BETA_RC_SMOKE_EMAIL | ${HAS_EMAIL} |"
             echo "| BETA_RC_SMOKE_PASSWORD | ${HAS_PASSWORD} |"
             echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
-            echo "| BETA_RC_FOREIGN_PROJECT_ID | ${HAS_FOREIGN_PROJECT} |"
+            echo "| BETA_RC_FOREIGN_PROJECT_ID or _CUSTOMER_ID | ${HAS_FOREIGN_PROJECT} |"
           } >> "$GITHUB_STEP_SUMMARY"
           for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_PROJECT"; do
             [ "$flag" = "true" ] || missing=1
@@ -174,8 +177,10 @@ jobs:
             echo "::error::BETA_RC_SUPABASE_PROJECT_REF is required so the run can prove it is not mutating production."
             fail=1
           fi
-          if [ -z "${BETA_FOREIGN_PROJECT_ID}" ] && [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
-            echo "::error::A foreign resource id is required so tenant isolation can be proven."
+          # An estimate id alone is not probeable: the estimate route is nested
+          # under a project, so a customer or project id must be present.
+          if [ -z "${BETA_FOREIGN_PROJECT_ID}" ] && [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ]; then
+            echo "::error::BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required so tenant isolation can be proven."
             fail=1
           fi
           exit "$fail"
@@ -221,6 +226,7 @@ jobs:
         run: node scripts/beta-evidence/validate-artifacts.mjs
 
       - name: Scan evidence bundle for credential material
+        id: credential_scan
         if: ${{ always() && inputs.mode == 'full' }}
         shell: bash
         run: |
@@ -240,8 +246,10 @@ jobs:
         shell: bash
         run: rm -f "${BETA_STORAGE_STATE_PATH:-}"
 
+      # Publish evidence for ordinary failures, but never publish a bundle the
+      # credential scan just rejected.
       - name: Upload beta evidence
-        if: ${{ always() && inputs.mode == 'full' }}
+        if: ${{ always() && inputs.mode == 'full' && steps.credential_scan.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: beta-evidence
