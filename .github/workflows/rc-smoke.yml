@@ -10,7 +10,34 @@ on:
       routes:
         description: Comma-separated authenticated routes
         required: true
-        default: /dashboard,/customers,/projects,/estimates,/proposals,/contracts,/jobs,/invoices,/costbook
+        default: /dashboard,/customers,/projects,/dispatch,/field,/costbook
+        type: string
+      target_environment:
+        description: Non-production deployment environment used by the smoke tenant
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - staging
+      smoke_tenant_label:
+        description: Label for the dedicated non-production smoke tenant
+        required: true
+        type: string
+      capture_screenshots:
+        description: Capture screenshots only when the tenant is sanitized
+        required: true
+        default: false
+        type: boolean
+      sanitized_tenant:
+        description: Confirm the selected tenant contains sanitized test data
+        required: true
+        default: false
+        type: boolean
+      estimate_runs:
+        description: Number of isolated golden-workflow repetitions
+        required: true
+        default: "1"
         type: string
 
 permissions:
@@ -30,8 +57,18 @@ jobs:
     env:
       RC_BASE_URL: ${{ inputs.base_url }}
       RC_ROUTES: ${{ inputs.routes }}
+      RC_TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+      RC_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
+      RC_CAPTURE_SCREENSHOTS: ${{ inputs.capture_screenshots }}
+      RC_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      ESTIMATE_RELIABILITY_RUNS: ${{ inputs.estimate_runs }}
       RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
+      RC_FIELD_STORAGE_STATE_B64: ${{ secrets.RC_E2E_FIELD_STORAGE_STATE_B64 }}
+      RC_AUTH_EMAIL: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_EMAIL }}
+      RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
+      RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD }}
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
+      RC_FIELD_STORAGE_STATE_PATH: /tmp/rc-field-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,11 +90,55 @@ jobs:
           fi
           printf '%s' "$RC_STORAGE_STATE_B64" | base64 --decode > "$RC_STORAGE_STATE_PATH"
           chmod 600 "$RC_STORAGE_STATE_PATH"
+          if [ -z "$RC_FIELD_STORAGE_STATE_B64" ]; then
+            echo "::error::Repository secret RC_E2E_FIELD_STORAGE_STATE_B64 is required."
+            exit 1
+          fi
+          printf '%s' "$RC_FIELD_STORAGE_STATE_B64" | base64 --decode > "$RC_FIELD_STORAGE_STATE_PATH"
+          chmod 600 "$RC_FIELD_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
+      - name: Require non-production smoke configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! node --input-type=module <<'NODE'
+          const url = new URL(process.env.RC_BASE_URL);
+          const approved = url.protocol === "https:" && /^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(url.hostname);
+          if (!approved) process.exit(1);
+          NODE
+          then
+            echo "::error::RC_BASE_URL must be an HTTPS tradeos-costbook-web Vercel Preview URL for the selected non-production environment."
+            exit 1
+          fi
+          if [ -z "$RC_SMOKE_TENANT_LABEL" ]; then
+            echo "::error::A dedicated non-production smoke tenant label is required."
+            exit 1
+          fi
+          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ]; then
+            echo "::error::RC_E2E_LIFECYCLE_AUTH_EMAIL, RC_E2E_LIFECYCLE_AUTH_PASSWORD, and RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD are required."
+            exit 1
+          fi
+          if [ "$RC_CAPTURE_SCREENSHOTS" = "true" ] && [ "$RC_SANITIZED_TENANT" != "true" ]; then
+            echo "::error::Screenshots require explicit sanitized-tenant confirmation."
+            exit 1
+          fi
+      - run: node scripts/authenticated-auth-smoke.mjs
       - run: node scripts/authenticated-route-smoke.mjs
-      - uses: actions/upload-artifact@v7
+      - run: node scripts/estimate-deliverability-golden.mjs
+        env:
+          ESTIMATE_BASE_URL: ${{ inputs.base_url }}
+          ESTIMATE_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
+          ESTIMATE_EVIDENCE_DIR: ../artifacts/estimate-deliverability
+          RC_ALLOW_MUTATIONS: "true"
+      - run: node scripts/rc-business-flow-smoke.mjs
+        env:
+          RC_GOLDEN_REPORT_PATH: ../artifacts/estimate-deliverability/report.json
+      - if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: rc-authenticated-smoke
-          path: artifacts/rc-smoke
-          if-no-files-found: error
+          path: |
+            artifacts/rc-smoke
+            artifacts/estimate-deliverability
+          if-no-files-found: warn
           retention-days: 30

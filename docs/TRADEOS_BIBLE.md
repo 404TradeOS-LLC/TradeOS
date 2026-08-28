@@ -61,11 +61,22 @@ current scope; it does not itself promote S027 to `READY`.
 
 The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 has now merged the standardized server-side catalog pagination/search/filter/sort contract. S027 remains `PARTIAL/BLOCKED` only until authenticated rendered Costbook browser evidence is captured. Re-read live GitHub state before any later promotion.
 
-Live queue reconciliation on 2026-08-27: S037 and S038 are DONE with merged
-completion evidence. S038 implementation evidence is recorded in
-`docs/architecture/S038_COMPLETION_EVIDENCE.md`. S043 is now the sole promoted
-READY sprint through `docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md`;
-S027 browser evidence and S036 remain independent blockers.
+Live queue reconciliation on 2026-08-28: S037, S038, and S043 are DONE with
+merged completion evidence. S038 implementation evidence is recorded in
+`docs/architecture/S038_COMPLETION_EVIDENCE.md`. S047 is the sole promoted
+active sprint and is IN_REVIEW in PR #397 through
+`docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`; S027 browser
+evidence and S036 remain independent blockers.
+
+S047 implementation evidence is constrained to the existing Playwright seams:
+the operator-triggered workflow now requires dedicated Preview/Staging
+owner/admin and technician fixtures plus a distinct lifecycle auth account,
+binds mutating golden runs to the approved web Preview host pattern, exercises
+authentication lifecycle and resource-backed business flows, and always
+retains available failure diagnostics. It fail-closes mutation outside
+non-production or screenshot capture without sanitized-tenant confirmation.
+It does not change product auth, authorization, schema, RLS, or customer-data
+policy.
 
 ## Volume I — Vision
 

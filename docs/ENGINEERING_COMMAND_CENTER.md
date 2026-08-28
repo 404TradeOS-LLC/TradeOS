@@ -147,7 +147,7 @@ Production repair should use the health split first:
 
 CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
 
-The authenticated S027 and RC browser workflows are operator-triggered and require scoped Playwright storage-state secrets; they do not commit cookies or credentials and do not authorize product mutations. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+The authenticated S027 and RC browser workflows are operator-triggered and require scoped Playwright storage-state secrets; they do not commit cookies or credentials. The RC workflow additionally requires separate owner/admin and technician storage-state fixtures plus a distinct lifecycle auth account, binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
 ## Required verification
 
