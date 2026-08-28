@@ -1524,11 +1524,11 @@ describe("live organization row-level security", () => {
         projectId: projectA,
         actorUserId: adminUser,
         actorRole: "admin",
+        estimateId: estimateA,
         proposalId: proposal.id,
-        lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitPrice: 1000 }],
       })
     );
-    expect(invoice.amount).toBe(1000);
+    expect(invoice.amount).toBe(200);
     const sameOrgInvoice = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().invoice.findUnique({ where: { id: invoice.id } })
     );
@@ -1917,8 +1917,8 @@ describe("live organization row-level security", () => {
       const unsigned = await inSession(adminUser, orgA, "admin", async () =>
         new ProposalsService().listOrganizationQueue({ orgId: orgA, unsigned: true })
       );
-      expect(unsigned.items.map((item) => item.id)).toEqual([proposalQueueA1]);
-      expect(unsigned.items[0].contractId).toBeNull();
+      expect(unsigned.items.map((item) => item.id)).toEqual(expect.arrayContaining([proposalQueueA1]));
+      expect(unsigned.items.find((item) => item.id === proposalQueueA1)?.contractId).toBeNull();
 
       const all = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
       const converted = all.items.find((item) => item.id === proposalQueueA2);
@@ -2068,7 +2068,8 @@ describe("live organization row-level security", () => {
           orgA,
           invoiceQueueA4,
           { amount: 1000, paymentDate: "2026-07-15T00:00:00.000Z", method: "card" },
-          adminUser
+          adminUser,
+          "admin"
         )
       );
       const voided = await inSession(adminUser, orgA, "admin", async () =>

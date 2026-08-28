@@ -408,7 +408,7 @@ export class InvoicesService {
     });
     if (input.proposalId && !proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
     if (!proposal) return null;
-    if (input.proposalId && proposal.estimateId !== input.estimateId) {
+    if (input.proposalId && input.estimateId && proposal.estimateId !== input.estimateId) {
       throw new ApiError(409, `Proposal ${proposal.id} is not linked to estimate ${input.estimateId}`);
     }
     if (normalizeProposalStatus(proposal.status) !== "accepted") {
