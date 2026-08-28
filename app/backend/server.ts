@@ -43,6 +43,7 @@ import { jobsRouter, scheduleRouter } from "./routes/jobs.routes";
 import { paymentsRouter } from "./routes/payments.routes";
 import { athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
+import { customerPortalRouter } from "./routes/customerPortal.routes";
 
 export function createServer() {
   const app = express();
@@ -68,6 +69,7 @@ export function createServer() {
   app.use("/admin", adminUiRouter);
   app.use("/api/v1/platform", organizationProvisioningRouter);
   app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/customer-portal", customerPortalRouter);
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
   app.use("/api/v1/costbook", costbookRouter);

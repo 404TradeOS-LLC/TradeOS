@@ -364,6 +364,12 @@ creation. These changes require migration and review before they are live-main b
 certified legal e-signature; any later scope change must use the existing
 change-order or replacement-contract decision path.
 
+The public customer portal adds a separate `/customer-portal/*` route group.
+Its single-use magic-link access token redeems into a short-lived customer
+session. Customer-originated contract signing is limited to the exact pending
+contract bound to that session and records customer/session attribution; the
+existing `/portal/*` route remains the staff preview.
+
 
 ## S030 dispatcher verification (active)
 

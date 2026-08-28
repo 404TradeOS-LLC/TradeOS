@@ -3,6 +3,7 @@ import {
   getRequestDatabaseClient,
   runWithBackgroundDatabaseSession,
   runWithDatabaseSession,
+  runWithPortalDatabaseSession,
 } from "../db/requestSession";
 import { resolveAuthContext } from "../backend/auth/session";
 import type { SupportedRole } from "../domain";
@@ -92,6 +93,7 @@ const generationReviewB = "20000000-0000-0000-0000-000000000126";
 const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
 const generationTechnician = "10000000-0000-0000-0000-000000000128";
 const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
+const portalContractA = "10000000-0000-0000-0000-000000000206";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -2102,6 +2104,87 @@ describe("live organization row-level security", () => {
         select: { eventType: true },
       });
       expect(concurrencyDeliveries).toHaveLength(1);
+    });
+  });
+
+  describe("customer portal policies", () => {
+    const portalSessionId = "10000000-0000-0000-0000-000000000301";
+
+    it("restricts customer portal reads to the verified customer's tenant and projects", async () => {
+      const result = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000302", orgId: orgA, customerId: customerA },
+        async () => ({
+          projects: await currentTransaction().project.findMany({ orderBy: { id: "asc" } }),
+          customers: await currentTransaction().customer.findMany({ orderBy: { id: "asc" } }),
+          foreignProject: await currentTransaction().project.findUnique({ where: { id: projectB } }),
+          foreignCustomer: await currentTransaction().customer.findUnique({ where: { id: customerB } }),
+        }),
+      );
+
+      expect(result.projects.map((project) => project.id)).toEqual([projectA]);
+      expect(result.customers.map((customer) => customer.id)).toEqual([customerA]);
+      expect(result.foreignProject).toBeNull();
+      expect(result.foreignCustomer).toBeNull();
+    });
+
+    it("allows only the exact pending customer contract to transition and records no staff actor", async () => {
+      const denied = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000303", orgId: orgA, customerId: customerA },
+        async () => {
+          await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_contract_id', ${"10000000-0000-0000-0000-000000000304"}, true)`);
+          return currentTransaction().contract.updateMany({
+            where: { id: portalContractA, status: "pending_signature" },
+            data: { status: "signed", signedAt: new Date() },
+          });
+        },
+      );
+      expect(denied.count).toBe(0);
+
+      const signed = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000305", orgId: orgA, customerId: customerA },
+        async () => {
+          await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_contract_id', ${portalContractA}, true)`);
+          const updated = await currentTransaction().contract.updateMany({
+            where: { id: portalContractA, status: "pending_signature" },
+            data: {
+              status: "signed",
+              signerName: "Org A Customer",
+              signerEmail: "orga@example.com",
+              signedAt: new Date(),
+            },
+          });
+          const event = await currentTransaction().contractEvent.create({
+            data: {
+              orgId: orgA,
+              contractId: portalContractA,
+              eventType: "contract.signed",
+              actorUserId: null,
+              recipientEmail: "orga@example.com",
+              metadataJson: { actorType: "customer_portal", customerId: customerA, portalSessionId },
+            },
+          });
+          const activity = await currentTransaction().activityEvent.create({
+            data: {
+              orgId: orgA,
+              entityType: "project",
+              entityId: projectA,
+              eventType: "contract.signed",
+              title: "Contract signed",
+              actorUserId: null,
+              metadataJson: { actorType: "customer_portal", customerId: customerA, portalSessionId },
+            },
+          });
+          return { updated, event, activity };
+        },
+      );
+
+      expect(signed.updated.count).toBe(1);
+      expect(signed.event.actorUserId).toBeNull();
+      expect(signed.event.metadataJson).toMatchObject({ actorType: "customer_portal", customerId: customerA });
+      expect(signed.activity.actorUserId).toBeNull();
     });
   });
 });

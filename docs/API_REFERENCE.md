@@ -44,8 +44,50 @@ Public routes are limited to:
 
 - `/api/v1/auth/*`
 - `/api/v1/platform/organizations`
+- `/api/v1/customer-portal/redeem`
 
 `POST /api/v1/auth/bootstrap` is the one auth route that requires a bearer token (a verified Supabase or local JWT) despite living under the public `/api/v1/auth/*` prefix — it links that verified identity to an application user/organization/membership, is idempotent (safe to call repeatedly for an already-bootstrapped identity, which never touches the request body's `organizationName`), and never trusts a client-supplied role or organization id (`bootstrapSchema` is a Zod `.strict()` object accepting only `organizationName`/`regionCode`/`fullName` — any other field is a `400`). A `400` for a brand-new identity with no `organizationName` carries `details: { code: "organization_name_required" }`, a stable discriminator the frontend uses to route to `/finish-setup` rather than parsing the error message text. A `409` means the identity has an `AppUser` record but no active `OrganizationMembership` (a genuinely rare data-integrity edge case, not a normal path). See [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md) for the full lifecycle, including a previously-fixed production bug where every already-provisioned identity's second-and-later call falsely hit that `409`.
+
+## Customer magic-link portal
+
+`POST /api/v1/customer-portal/access-tokens` is staff-authenticated and
+requires `documents.manage`. Its body is `{ customerId }`; it returns a raw,
+high-entropy `token` exactly once to the authenticated caller, along with its
+customer scope and expiration. The raw token is never persisted or logged.
+`POST /api/v1/customer-portal/access-tokens/:id/revoke` is staff-authenticated,
+requires `documents.manage`, and revokes the access value plus every session
+redeemed from it.
+
+`POST /api/v1/customer-portal/redeem` accepts `{ token }` without a staff
+session. Redemption is rate-limited, organization/customer-bound, atomic, and
+single-use. It returns an opaque short-lived `sessionToken`; the web route
+immediately stores that value in an HttpOnly cookie and does not expose it to
+browser JavaScript. Expired, revoked, malformed, or replayed values return a
+non-success response.
+
+The following routes require
+`X-TradeOS-Portal-Session: <sessionToken>` and never accept a client-selected
+organization or customer id:
+
+- `GET /api/v1/customer-portal/projects`
+- `GET /api/v1/customer-portal/projects/:id`
+- `GET /api/v1/customer-portal/proposals/:id`
+- `GET /api/v1/customer-portal/proposals/:id/pdf`
+- `GET /api/v1/customer-portal/invoices/:id`
+- `GET /api/v1/customer-portal/invoices/:id/pdf`
+- `GET /api/v1/customer-portal/contracts/:id`
+- `GET /api/v1/customer-portal/contracts/:id/pdf`
+- `POST /api/v1/customer-portal/contracts/:id/sign`
+
+Every resource lookup requires the project to belong to both the session's
+organization and customer. Portal signing accepts a signer name and optional
+drawn signature data; the signer email is re-derived from the customer record.
+The transition is limited by a dedicated RLS policy to the session customer,
+the exact pending contract, and `pending_signature -> signed`. Signature IP
+and user agent are explicitly reported metadata because the web tier may proxy
+the request; the contract event records `actorType: customer_portal`, the
+customer id, and portal session id. The portal principal cannot call staff
+`/api/v1/*` routes.
 
 ## Transactional email behavior
 

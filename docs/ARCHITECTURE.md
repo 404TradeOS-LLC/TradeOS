@@ -67,6 +67,16 @@ Every authenticated API request depends on three layers:
 
 The organization context comes from the verified identity and the matching active membership, not from request-controlled tenant headers.
 
+The public customer portal is a separate identity boundary. A staff-issued
+high-entropy magic-link digest is stored in `customer_portal_access_tokens` and
+can be redeemed once. Redemption creates a short-lived hashed
+`customer_portal_sessions` record carrying the organization and customer
+scope. Public requests use a dedicated portal database session with
+`app.org_id`, `app.portal_customer_id`, and `app.portal_session_id`; resource
+lookups re-check the project/customer relationship. The portal does not reuse a
+staff role. Its only write policy is the exact pending-contract signing
+transition, with a separate contract-event insert policy.
+
 The S018/S042 hardening keeps this three-layer boundary intact: locally issued access JWTs expire after a finite default lifetime and reject malformed registered claims, refresh rotation is single-use under concurrency, local refresh sessions are revoked at logout/password reset/inactive-account rejection, and inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path with finite `exp`/`iat` required; captured access JWTs remain valid until expiry by policy. S043 records server-derived authentication outcomes, authorization denials, security decisions, and sensitive-action terminal outcomes in the durable Athena audit trail when a verified organization context exists; malformed tokens without trustworthy tenant context remain fail-closed and are never enriched from client input.
 
 The request-scoped database session sets:
@@ -118,6 +128,7 @@ Preferred frontend paths:
 - server components and server actions call `web/src/lib/api.ts`
 - interactive client components call `web/src/lib/clientApi.ts` through `web/src/app/api/proxy/[...path]/route.ts`
 - binary document downloads stream through `web/src/app/api/documents/[...path]/route.ts`
+- public customer document downloads stream through `web/src/app/api/customer-portal/[...path]/route.ts` using the HttpOnly portal session
 - `web/src/app/actions/auth.ts`'s `signupAction`/`loginAction`/`finishSetupAction` are the one frontend surface that calls the backend directly via `web/src/lib/api.ts`'s `apiFetch` with a Supabase-issued bearer token, rather than going through the session-cookie-based proxy — this is how the frontend links a Supabase Auth identity to an application organization/membership (`POST /api/v1/auth/bootstrap`). `finishSetupAction` (backing the standalone `/finish-setup` page) is the recovery path `loginAction` redirects to when bootstrap reports an authenticated identity with no organization and no recoverable `organization_name` metadata — see [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md#finish-setup-recovery-flow)
 
 ## Source-of-truth contract locations
