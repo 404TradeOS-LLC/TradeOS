@@ -17,9 +17,10 @@ test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
-  assert.match(workflow, /RC_E2E_AUTH_EMAIL/);
-  assert.match(workflow, /RC_E2E_AUTH_PASSWORD/);
-  assert.match(workflow, /RC_E2E_AUTH_REJECTED_PASSWORD/);
+  assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
+  assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
+  assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
+  assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
 });
 
@@ -48,6 +49,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /RC_ALLOW_MUTATIONS=true is required/);
   assert.match(golden, /RC_SMOKE_TENANT_LABEL is required/);
   assert.match(golden, /\["preview", "staging"\]/);
+  assert.match(golden, /approved tradeos-costbook-web Vercel Preview host/);
   for (const marker of ["Send to customer", "Mark accepted", "Create contract", "Create invoice"]) {
     assert.match(golden, new RegExp(marker));
   }
@@ -66,5 +68,11 @@ test("business-flow smoke follows resource-backed project, portal, and job route
     '"/dispatch"',
     '"/field"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
+  assert.match(business, /RC_FIELD_STORAGE_STATE_PATH is required/);
+  assert.match(business, /Active Jobs/);
+  assert.match(business, /No assigned jobs today/);
+  assert.match(business, /Technician workspace/);
   assert.match(business, /golden workflow report is missing/);
+  assert.match(workflow, /if: always\(\)/);
+  assert.match(workflow, /artifacts\/estimate-deliverability/);
 });

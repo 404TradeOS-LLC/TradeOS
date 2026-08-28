@@ -25,6 +25,9 @@ const parsedBaseUrl = new URL(baseUrl);
 if (!/^https?:$/.test(parsedBaseUrl.protocol) || parsedBaseUrl.username || parsedBaseUrl.password) {
   throw new Error("ESTIMATE_BASE_URL must be an HTTP(S) URL without embedded credentials.");
 }
+if (!/^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/.test(parsedBaseUrl.hostname)) {
+  throw new Error("Mutating golden workflow must target an approved tradeos-costbook-web Vercel Preview host.");
+}
 
 await fs.mkdir(outDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });

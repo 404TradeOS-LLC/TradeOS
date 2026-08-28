@@ -100,11 +100,15 @@ PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-art
 
 The S047 RC smoke workflow is an operator-triggered, non-production evidence
 lane. Its workflow inputs offer only Preview and Staging, require a dedicated
-smoke-tenant label and separate auth fixtures, and run the authentication,
-golden customer/project/estimate/proposal, contract/invoice/portal, and
-Dispatch/Field checks. Screenshot publication is opt-in and requires explicit
-sanitized-tenant confirmation; the route script also refuses screenshots when
-its target environment is production. These controls protect customer data in
+smoke-tenant label, separate owner/admin and technician storage-state fixtures,
+and a distinct lifecycle auth account, and run the authentication, golden
+customer/project/estimate/proposal, contract/invoice/portal, and Dispatch/Field
+checks. Mutating golden runs are additionally bound to the approved
+`tradeos-costbook-web-*.vercel.app` Preview host pattern. Screenshot publication
+is opt-in and requires explicit sanitized-tenant confirmation; the route script
+also refuses screenshots when its target environment is production. Workflow
+artifact publication always attempts to retain available failure diagnostics,
+including the detailed golden report. These controls protect customer data in
 CI artifacts without changing product authentication or authorization policy.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.

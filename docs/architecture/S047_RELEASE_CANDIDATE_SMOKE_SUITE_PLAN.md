@@ -42,7 +42,8 @@ contracts, domain services, forced RLS, and existing lifecycle semantics.
   credentials;
 - an authentication scenario exercises successful login, rejected credentials,
   logout, and session refresh/expiry behavior using a dedicated non-production
-  account or equivalent sanitized fixture, without persisting secrets;
+  lifecycle account, separate from reusable storage-state accounts, without
+  persisting secrets;
 - route smoke covers founder-critical authenticated workspace routes and
   records status, final URL, body presence, and screenshots only for a
   sanitized non-production tenant;
@@ -51,18 +52,23 @@ contracts, domain services, forced RLS, and existing lifecycle semantics.
   acceptance, contract creation, and invoice creation;
 - business-flow scenarios cover resource-backed contract, invoice, portal,
   Dispatch, and Field job boundaries without silently switching to top-level
-  routes that do not exist;
+  routes that do not exist; Field uses a technician storage-state fixture and
+  must not pass on the static technician-role denial state;
 - failures identify the route/workflow and publish safe machine-readable
-  evidence artifacts;
+  evidence artifacts, including the detailed golden report;
 - documentation names required secrets/access, environment limits, rollback
   considerations, and the distinction between repository evidence and live
   deployment evidence.
 
-The operator supplies `RC_E2E_STORAGE_STATE_B64`, `RC_E2E_AUTH_EMAIL`,
-`RC_E2E_AUTH_PASSWORD`, and a deliberately invalid
-`RC_E2E_AUTH_REJECTED_PASSWORD` from the selected non-production environment.
+The operator supplies `RC_E2E_STORAGE_STATE_B64`,
+`RC_E2E_FIELD_STORAGE_STATE_B64`, `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
+`RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and a deliberately invalid
+`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` from the selected non-production
+environment. The lifecycle account must be distinct from both storage-state
+accounts because the logout step revokes refresh sessions.
 The workflow sets mutation permission only for the guarded golden script and
-does not offer production as a mutating target.
+does not offer production as a mutating target; the mutating script also
+requires an approved `tradeos-costbook-web-*.vercel.app` host.
 
 ## Scope and non-goals
 
@@ -80,8 +86,11 @@ lint, builds, relevant integration/RLS checks, docs ownership/governance
 checks, and an operator-triggered RC smoke run when an authenticated storage
 state and deployment URL are available. The repository can prove script
 contracts and artifact safety without production access; live authenticated
-execution requires the existing scoped `RC_E2E_STORAGE_STATE_B64` secret and
-an explicitly selected non-production deployment URL and test tenant.
+execution requires the scoped owner/admin and technician storage-state secrets,
+the distinct lifecycle auth fixtures, and an explicitly selected approved
+non-production deployment URL and test tenant. The workflow always publishes
+available machine-readable reports, including failure reports, and includes
+the detailed golden report directory in its artifact.
 Production URLs must disable screenshot publication or apply an explicit
 redaction control before any artifact upload. No founder decision is required for
 this bounded verification contract. Founder approval of remaining product

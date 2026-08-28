@@ -63,10 +63,12 @@ jobs:
       RC_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       ESTIMATE_RELIABILITY_RUNS: ${{ inputs.estimate_runs }}
       RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
-      RC_AUTH_EMAIL: ${{ secrets.RC_E2E_AUTH_EMAIL }}
-      RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_AUTH_PASSWORD }}
-      RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_AUTH_REJECTED_PASSWORD }}
+      RC_FIELD_STORAGE_STATE_B64: ${{ secrets.RC_E2E_FIELD_STORAGE_STATE_B64 }}
+      RC_AUTH_EMAIL: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_EMAIL }}
+      RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
+      RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD }}
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
+      RC_FIELD_STORAGE_STATE_PATH: /tmp/rc-field-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,6 +90,12 @@ jobs:
           fi
           printf '%s' "$RC_STORAGE_STATE_B64" | base64 --decode > "$RC_STORAGE_STATE_PATH"
           chmod 600 "$RC_STORAGE_STATE_PATH"
+          if [ -z "$RC_FIELD_STORAGE_STATE_B64" ]; then
+            echo "::error::Repository secret RC_E2E_FIELD_STORAGE_STATE_B64 is required."
+            exit 1
+          fi
+          printf '%s' "$RC_FIELD_STORAGE_STATE_B64" | base64 --decode > "$RC_FIELD_STORAGE_STATE_PATH"
+          chmod 600 "$RC_FIELD_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
       - name: Require non-production smoke configuration
         shell: bash
@@ -98,7 +106,7 @@ jobs:
             exit 1
           fi
           if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ]; then
-            echo "::error::RC_E2E_AUTH_EMAIL, RC_E2E_AUTH_PASSWORD, and RC_E2E_AUTH_REJECTED_PASSWORD are required."
+            echo "::error::RC_E2E_LIFECYCLE_AUTH_EMAIL, RC_E2E_LIFECYCLE_AUTH_PASSWORD, and RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD are required."
             exit 1
           fi
           if [ "$RC_CAPTURE_SCREENSHOTS" = "true" ] && [ "$RC_SANITIZED_TENANT" != "true" ]; then
@@ -116,9 +124,12 @@ jobs:
       - run: node scripts/rc-business-flow-smoke.mjs
         env:
           RC_GOLDEN_REPORT_PATH: ../artifacts/estimate-deliverability/report.json
-      - uses: actions/upload-artifact@v7
+      - if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: rc-authenticated-smoke
-          path: artifacts/rc-smoke
-          if-no-files-found: error
+          path: |
+            artifacts/rc-smoke
+            artifacts/estimate-deliverability
+          if-no-files-found: warn
           retention-days: 30

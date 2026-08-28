@@ -51,15 +51,27 @@ The value must be a base64-encoded Playwright storage-state JSON file for a non-
 
 `RC_E2E_STORAGE_STATE_B64`
 
+`RC_E2E_FIELD_STORAGE_STATE_B64`
+
 It accepts an explicitly selected Preview or Staging URL, a dedicated sanitized
-smoke-tenant label, and route list. The workflow requires separate
-`RC_E2E_AUTH_EMAIL`, `RC_E2E_AUTH_PASSWORD`, and deliberately invalid
-`RC_E2E_AUTH_REJECTED_PASSWORD` secrets to exercise rejected credentials,
+smoke-tenant label, and route list. The owner/admin storage state is used for
+the business golden path and Dispatch; the separate technician storage state
+is required for a resource-backed Field check. The workflow requires a
+separate lifecycle account using `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
+`RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and deliberately invalid
+`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` secrets to exercise rejected credentials,
 successful login, refresh, logout, and protected-route denial. It then runs
 route smoke, the customer → project → estimate → proposal golden workflow,
 contract/invoice creation, portal resource checks, and the Dispatch/Field job
 surfaces. Golden-workflow mutations require `RC_ALLOW_MUTATIONS=true` inside
-the script and are fail-closed outside Preview or Staging.
+the script, are bound to the approved `tradeos-costbook-web-*.vercel.app`
+Preview host pattern, and are fail-closed outside Preview or Staging. The
+lifecycle account must not be the account encoded in either storage-state
+fixture because logout revokes that account's refresh sessions.
+
+The workflow uploads both the RC report directory and the detailed golden
+workflow report, including reports written by failed steps, with safe artifact
+publication under `if: always()`.
 
 Screenshots are opt-in. They require `sanitized_tenant=true` and are refused
 for production-targeted direct script runs; the workflow itself only offers
