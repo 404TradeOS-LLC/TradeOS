@@ -40,13 +40,29 @@ Implementation PR #322 merged to `main` as
 - Docs consistency, live documentation reconciliation, sprint governance,
   dependency review, and branch currency checks passed.
 
-## Known limitation
+## Transaction-boundary reconciliation
 
-The status update and contract-event write are not yet wrapped in one database
-transaction. The expected-status predicates prevent stale competing mutations;
-transactional event atomicity remains future hardening if separately promoted.
+A later maintenance review verified that the original completion note about
+missing transaction atomicity did not account for the repository's enclosing
+request database-session architecture. Staff `/api/v1/contracts/*` requests run
+behind `requireAuth` + `databaseSession`, while customer-portal contract writes
+run behind `customerPortalDatabaseSession`. Both session middlewares execute the
+request inside a Prisma transaction and publish that transaction through the
+AsyncLocalStorage-backed Prisma proxy.
+
+As a result, production route execution routes the contract status mutation,
+`ContractEvent` write, and `ActivityTimelineService` write through the same
+request-scoped transaction. S020's expected-status predicates still provide the
+optimistic-concurrency guard, and repeated voiding remains intentionally
+rejected. No service-local nested transaction was added because the established
+request-session boundary already owns transaction and RLS context.
+
+Direct `ContractsService` invocation outside a request/database session does not
+implicitly create that enclosing transaction; repository HTTP and customer
+portal routes do. This clarification changes documentation only and does not
+alter auth, RLS, signature semantics, or persistence behavior.
 
 ## Production verification
 
 `NOT RUN`: no production signing or authenticated browser execution was
-performed. Repository and CI evidence only is claimed.
+performed for S020. Repository and CI evidence only is claimed by this record.
