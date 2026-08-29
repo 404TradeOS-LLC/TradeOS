@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 source_of_truth: false
 related_code:
   - app/modules/contracts
@@ -45,6 +45,11 @@ See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
 - contract creation, signing, and voiding write contract event history
 - signing and voiding use organization-scoped status-conditional writes so
   competing stale mutations fail closed; repeated voiding is rejected
+- authenticated staff contract requests execute inside the shared
+  `databaseSession` transaction, and customer-portal contract requests execute
+  inside `customerPortalDatabaseSession`; the Prisma proxy therefore routes
+  the status mutation, `ContractEvent`, and activity-timeline writes through
+  the same request-scoped transaction
 
 ## Frontend surfaces
 
@@ -96,10 +101,11 @@ requests fail closed.
 
 - the database still stores `pending_signature` as the pre-signature status; the check constraint has never accepted canonical `draft`/`sent`/`viewed`. PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface (`toDTO()` returns canonical `sent`) without a schema migration — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - historical contracts may have a null agreed amount and snapshot; the additive contract-integrity migration backfills no invented legal or commercial value
-- sign/void status writes now use expected-status predicates and fail closed on
-  stale concurrent requests. The status update and event write are still not
-  wrapped in one transaction; a future hardening slice may make that boundary
-  atomic. `pending_signature` remains the compatibility storage value.
+- `ContractsService` relies on the repository's request-scoped database-session
+  boundary for transaction atomicity rather than opening a nested service-local
+  transaction. Direct service calls outside an authenticated/request database
+  session do not gain that request-level transaction automatically; production
+  HTTP and customer-portal routes do.
 
 ## Deferred work
 
@@ -107,7 +113,7 @@ requests fail closed.
 
 ## Last verified date
 
-2026-08-28
+2026-08-29
 
 ## S022 rendering boundary
 
