@@ -39,7 +39,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `e6115bbc7adc07f17c77a53cec1eef2c53cf5c0c` on 2026-08-29 after PR #404 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `73acd999481f1dad6b005ad1d1cbbe7c14edc5c9` on 2026-08-29 after PR #405 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -193,7 +193,7 @@ Repository governance additionally uses documentation consistency, dependency re
 - Cost-item and Assembly combined name-or-code substring search can still become scan-heavy because current trigram coverage is stronger for name search than code search.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
 - Production environment values, Preview isolation, authenticated RC storage states, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
-- Settings brand-asset uploads can leave an orphaned storage object if a user uploads and abandons the form before saving.
+- Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
 
 ## Canonical sequencing
 
