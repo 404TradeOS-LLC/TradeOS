@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-29
 source_of_truth: true
 related_code:
   - app/modules/costbook
@@ -9,6 +9,7 @@ related_code:
   - app/modules/assemblies-database
   - app/modules/estimate-engine
   - app/modules/supplier-integration
+  - app/modules/athena-tools/costbook
   - app/backend/controllers/costbook.controller.ts
   - app/backend/controllers/costDatabase.controller.ts
   - app/backend/controllers/costbookPricing.controller.ts
@@ -56,6 +57,7 @@ Examples:
 - Assemblies reuse `assembliesDatabase.controller.ts` and `app/modules/assemblies-database/*`
 - pricing preview uses `costbookPricing.controller.ts` and shared Estimate pricing formulas
 - supplier-feed ingestion reuses `app/modules/supplier-integration/*` and the existing proposal/review/audit flow
+- Athena Costbook Intelligence adapters under `app/modules/athena-tools/costbook/*` call existing Costbook/Assembly services and shared Estimate formulas; they do not reach Prisma directly or expose write-capable Costbook service methods
 
 This reuse is deliberate RC1 architecture, not a temporary duplicate subsystem.
 
@@ -89,6 +91,8 @@ The authenticated Costbook workspace under `/api/v1/costbook/*` and `/costbook/*
 - Assembly management and component composition
 - calculation-only pricing preview
 - price-history reads that separate catalog price changes from Estimate snapshots
+
+Athena A12 additionally exposes read-only Costbook Intelligence tools for catalog lookup, margin analysis, and price recommendation. Those tools remain outside the Costbook HTTP namespace and are orchestration adapters rather than a second Costbook implementation. They reuse `CostDatabaseService`, `AssembliesDatabaseService`, and the shared Estimate formula helpers, and they return analysis/recommendations without mutating stored Costbook or pricing data.
 
 ### Materials
 
@@ -190,4 +194,6 @@ Current merged architecture does **not** imply:
 - regional pricing policy
 - a second Costbook-specific Estimate engine
 
-Those remain future work unless and until separately implemented, reviewed, and merged.
+Read-only Athena Costbook lookup, margin analysis, and price recommendation are already implemented and do not weaken those mutation boundaries.
+
+Those remaining boundaries stay future work unless and until separately implemented, reviewed, and merged.

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-29
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -10,6 +10,7 @@ related_code:
   - app/modules/equipment-database
   - app/modules/assemblies-database
   - app/modules/costbook
+  - app/modules/athena-tools/costbook
   - app/backend/controllers/costDatabase.controller.ts
   - app/backend/routes/costbook.routes.ts
   - web/src/app/(app)/costbook/page.tsx
@@ -43,6 +44,8 @@ Provide the tenant-scoped estimating catalog: divisions, categories, subcategori
 
 The unified Costbook boundary covers the workspace summary, materials, labor rates, equipment, hierarchy management, CostItem management, and Assembly management while reusing the original catalog tables and services. Assemblies can be managed and composed through the canonical Costbook namespace without introducing a second Assembly model or pricing engine. The existing Estimate Engine remains the Costbook consumption path: persisted CostItem/Assembly IDs provide provenance and persisted `unitCost`/`lineCost` values are historical pricing snapshots. Practical pricing preview reuses the shared Estimate formulas, and the price-history read model keeps `MaterialPriceAudit` catalog changes distinct from Estimate snapshots. Supplier synchronization reuses the existing proposal/review/audit workflow and never auto-applies feed prices.
 
+Athena A12 also exposes three read-only Costbook Intelligence tools under `app/modules/athena-tools/costbook`: catalog lookup, margin analysis, and price recommendation. They are thin wrappers over `CostDatabaseService`, `AssembliesDatabaseService`, and the shared Estimate formula helpers. They do not reach Prisma directly, do not expose write-capable Costbook service methods, and do not mutate CostItem, Material, Assembly, pricing-policy, or supplier data. Athena Costbook mutation remains outside the landed architecture.
+
 ## Source code locations
 
 - `app/modules/cost-database/*`
@@ -51,6 +54,7 @@ The unified Costbook boundary covers the workspace summary, materials, labor rat
 - `app/modules/equipment-database/*`
 - `app/modules/assemblies-database/*`
 - `app/modules/costbook/*`
+- `app/modules/athena-tools/costbook/*` for read-only Athena Costbook Intelligence adapters
 
 ## Core models
 
@@ -237,6 +241,7 @@ Current behavior:
 - `cost-database` and `assemblies-database` services import the shared `round2()` helper from `estimate-engine/formulas.ts` rather than defining private rounding behavior.
 - CostItem and Assembly write validation are defense in depth over RLS: application checks give deterministic client errors while RLS remains the database-level tenant boundary.
 - Existing Estimate line records are historical pricing snapshots; recalculation does not re-fetch current Costbook unit cost for existing lines, while newly added lines capture current Costbook/Assembly pricing.
+- Athena Costbook Intelligence is currently read-only/recommendation-only: `lookup` uses CostItem/Assembly search services, while `analyzeMargin` and `recommendPrice` use `CostDatabaseService.getUnitCost()` plus the shared Estimate formula helpers. These tools do not define new pricing math or write through Costbook services.
 
 ## Known limitations
 
@@ -251,9 +256,9 @@ Current behavior:
 - persisted organization pricing-policy/rule governance if repository evidence justifies it
 - richer supplier-specific connectors and matching beyond the generic trusted-feed transport
 - expanded historical pricing analytics/filters beyond the current read model
-- Athena Costbook recommendations/writes only after non-Athena Costbook dependencies are complete and governed
+- Athena Costbook writes or autonomous Costbook mutation only after the existing approval/risk/governance boundaries explicitly authorize such behavior; the current Athena Costbook tools are read-only/recommendation-only
 - evaluate trigram indexing for `code` search paths if substring code lookup becomes a measurable bottleneck
 
 ## Last verified date
 
-2026-08-15
+2026-08-29
