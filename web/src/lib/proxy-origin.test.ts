@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { shouldRejectProxyMutation } from "./proxy-origin";
+import { shouldRejectProxyMutation } from "./proxy-origin.ts";
 
 const requestUrl = "https://app.404tradeos.com/api/proxy/projects/123";
 
