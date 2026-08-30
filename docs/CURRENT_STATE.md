@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -31,15 +31,17 @@ related_code:
   - web/src/app/(app)/projects
   - web/src/app/customer-portal
   - web/src/app/(app)/portal
+  - web/src/app/api/proxy/[...path]/route.ts
   - web/src/proxy.ts
   - web/src/lib/supabase/proxy.ts
   - web/src/lib/api.ts
+  - web/src/lib/proxy-origin.ts
   - .github/workflows/verify-repository.yml
 ---
 
 # Current State
 
-Last reconciled against `origin/main` commit `73acd999481f1dad6b005ad1d1cbbe7c14edc5c9` on 2026-08-29 after PR #405 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `33f78b4ce89beaafe276e698fa058d7bb87dd3f5` on 2026-08-30 before the bounded authenticated-proxy CSRF hardening branch. This document records repository truth plus the behavior under review on the current branch; production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -157,6 +159,8 @@ Security-sensitive maintenance already landed includes:
 - protected storage/server-action session checks
 - bounded database transaction acquisition under serverless contention
 - safe audit/security event capture
+
+The current security-maintenance branch additionally requires exact-origin browser requests for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token. Safe read methods remain unchanged. This closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 
 This document does not treat a passing unit test or route-level organization predicate as equivalent to RLS evidence where the repository requires PostgreSQL-backed verification.
 
