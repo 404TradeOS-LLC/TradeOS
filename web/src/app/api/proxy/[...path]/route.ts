@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSessionToken } from "@/lib/session";
+import { shouldRejectProxyMutation } from "@/lib/proxy-origin";
 
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 
@@ -9,6 +10,10 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 // than calling the Express API directly — this is that one route handler
 // for every backend resource, instead of hand-writing one per resource.
 async function handle(request: NextRequest, segments: string[]): Promise<Response> {
+  if (shouldRejectProxyMutation(request.method, request.url, request.headers.get("origin"))) {
+    return Response.json({ error: "Cross-origin proxy mutation is not allowed" }, { status: 403 });
+  }
+
   const token = await getSessionToken();
   if (!token) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
