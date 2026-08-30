@@ -41,7 +41,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `33f78b4ce89beaafe276e698fa058d7bb87dd3f5` on 2026-08-30 before the bounded authenticated-proxy CSRF hardening branch. This document records repository truth plus the behavior under review on the current branch; production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `fcf96a703f80fbaa4122f6a43977118687634122` on 2026-08-30 after PR #412 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -159,8 +159,9 @@ Security-sensitive maintenance already landed includes:
 - protected storage/server-action session checks
 - bounded database transaction acquisition under serverless contention
 - safe audit/security event capture
+- exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
 
-The current security-maintenance branch additionally requires exact-origin browser requests for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token. Safe read methods remain unchanged. This closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
+The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 
 This document does not treat a passing unit test or route-level organization predicate as equivalent to RLS evidence where the repository requires PostgreSQL-backed verification.
 
