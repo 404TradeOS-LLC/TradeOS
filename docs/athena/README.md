@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-30
 source_of_truth: true
 related_docs:
   - ../TRADEOS_BIBLE.md
@@ -26,18 +26,20 @@ still belongs to [Current State](../CURRENT_STATE.md), current TradeOS doctrine
 still begins at [TradeOS Bible](../TRADEOS_BIBLE.md), and detailed module truth
 still belongs in [modules](../modules/).
 
-As of Friday, August 14, 2026, current Athena core implementation still lives in
-`app/modules/**`, with the HTTP entrypoint in
-`app/backend/controllers/athena.controller.ts`. `packages/athena/` remains the
-canonical future ownership boundary per repository governance and ADR-005; it is
-not the current source layout.
+Current Athena core implementation still lives in `app/modules/**`, with the
+HTTP entrypoint in `app/backend/controllers/athena.controller.ts`.
+`packages/athena/` remains the canonical future ownership boundary per
+repository governance and ADR-005; it is not the current source layout.
 
-PR #202 is the current production-readiness slice on top of the merged Athena
-foundation. It adds durable approval and audit persistence, operator approval
-routes/UI, resource-aware permission context, and additional first-party context
-providers. Those capabilities remain subject to the existing Athena feature
-flags and deployment controls; repository merge state does not by itself mean
-Athena is enabled in production.
+PR #202 is merged repository state, not an active production-readiness slice.
+It landed durable approval and audit persistence, operator approval routes/UI,
+resource-aware permission context, and first-party context providers as merge
+commit `e373dfd0bbb19d175d6d8122817d061831efef5c`. Later merged work has added
+A6 durable action idempotency, A12.1 canonical-event transaction reliability,
+S043 security-event auditing, and additional bounded Athena capabilities. All
+of those capabilities remain subject to Athena feature flags and deployment
+controls; repository merge state does not by itself mean Athena is enabled in
+production.
 
 ## Binding Decisions
 
@@ -138,12 +140,17 @@ A6 production action execution no longer relies on process-local memory for dedu
 
 ## S025 generation persistence
 
-S025 PR #331 adds metadata-first generation records and append-only review
-provenance with organization/actor isolation and forced RLS. Provider/model
-usage is retained only when supplied; raw prompts, raw output, tool arguments,
-and tool results remain excluded by default. The migration is review-gated.
-
+S025 implementation PR #331 merged as
+`cffc92697196fea22b144424fd9fec4d8865aa44`. The landed implementation stores
+metadata-first generation records and append-only review provenance with
+organization/actor isolation and forced RLS. Provider/model usage is retained
+only when supplied; raw prompts, raw output, tool arguments, and tool results
+remain excluded by default.
 
 ## S028 boundary
 
-PR #338 verifies estimate metadata persistence and proposal handoff through existing Athena-aware service boundaries. Review-first AI behavior, organization context, permission checks, and audit evidence remain unchanged.
+S028 implementation PR #338 merged as
+`dcc72796c1bfd945de1f8303062103c8e8c4690c`. It verifies estimate metadata
+persistence and proposal handoff through existing Athena-aware service
+boundaries. Review-first AI behavior, organization context, permission checks,
+and audit evidence remain unchanged.
