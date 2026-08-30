@@ -140,11 +140,17 @@ A6 production action execution no longer relies on process-local memory for dedu
 
 ## S025 generation persistence
 
-S025 PR #331 adds metadata-first generation records and append-only review
-provenance with organization/actor isolation and forced RLS. Provider/model
-usage is retained only when supplied; raw prompts, raw output, tool arguments,
-and tool results remain excluded by default. The migration is review-gated.
+S025 implementation PR #331 merged as
+`cffc92697196fea22b144424fd9fec4d8865aa44`. The landed implementation stores
+metadata-first generation records and append-only review provenance with
+organization/actor isolation and forced RLS. Provider/model usage is retained
+only when supplied; raw prompts, raw output, tool arguments, and tool results
+remain excluded by default.
 
 ## S028 boundary
 
-PR #338 verifies estimate metadata persistence and proposal handoff through existing Athena-aware service boundaries. Review-first AI behavior, organization context, permission checks, and audit evidence remain unchanged.
+S028 implementation PR #338 merged as
+`dcc72796c1bfd945de1f8303062103c8e8c4690c`. It verifies estimate metadata
+persistence and proposal handoff through existing Athena-aware service
+boundaries. Review-first AI behavior, organization context, permission checks,
+and audit evidence remain unchanged.
