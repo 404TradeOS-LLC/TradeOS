@@ -41,7 +41,7 @@ import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
 import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
 import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
 import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
-import { loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
+import { loadDashboardProjectDetails, loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
 
 export const metadata: Metadata = {
   title: "Owner Dashboard | TradeOS",
@@ -206,11 +206,15 @@ function isActionableJob(job: Pick<JobSummary, "status" | "archivedAt">) {
   return !job.archivedAt && ACTIONABLE_JOB_STATUSES.has(job.status);
 }
 
-function getProjectScopeLabel(projectCount: number) {
-  if (projectCount === 0) return "loaded project set";
-  if (projectCount === 1) return "1 loaded project";
-  if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) return `${projectCount} loaded projects`;
-  return `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+function getProjectScopeLabel(projectCount: number, failedCount = 0) {
+  let scopeLabel: string;
+  if (projectCount === 0) scopeLabel = "loaded project set";
+  else if (projectCount === 1) scopeLabel = "1 loaded project";
+  else if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) scopeLabel = `${projectCount} loaded projects`;
+  else scopeLabel = `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+
+  if (failedCount === 0) return scopeLabel;
+  return `${scopeLabel}; ${failedCount} project detail${failedCount === 1 ? "" : "s"} unavailable`;
 }
 
 /**
@@ -225,9 +229,9 @@ export default async function DashboardPage() {
   const { projects, settingsResponse } = token
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
-  const [projectDetails, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
+  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
     ? await Promise.all([
-        Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
+        loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
         getKnowledgeStats(token).catch(() => null),
         loadTodaySchedule(token),
         getCurrentWeekPaymentLedger(token).catch(() => null),
@@ -236,7 +240,7 @@ export default async function DashboardPage() {
         loadEstimateAttentionQueue(token),
       ])
     : [
-        [],
+        { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
         null,
         { items: [] as DispatchJob[], total: 0, timezone: "UTC" },
         null,
@@ -244,6 +248,7 @@ export default async function DashboardPage() {
         { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
       ];
+  const projectDetails = projectDetailsResult.items;
 
   const weatherAddress = selectDashboardWeatherAddress({
     jobSiteAddresses: todaySchedule.items.map((job) => job.project?.siteAddress),
@@ -269,7 +274,7 @@ export default async function DashboardPage() {
         })
     : [];
   const dashboardTaskSnapshot = buildDashboardTaskSnapshot(dashboardTasks, now, timeZone);
-  const projectScopeLabel = getProjectScopeLabel(projectDetails.length);
+  const projectScopeLabel = getProjectScopeLabel(projectDetails.length, projectDetailsResult.failedCount);
   const currentDateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone,
     weekday: "long",
