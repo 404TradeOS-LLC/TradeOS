@@ -46,7 +46,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `fcf96a703f80fbaa4122f6a43977118687634122` on 2026-08-30 after PR #412 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `6addbfc0ec57ac9ce3d731154468e4f733c9f243` on 2026-08-31 after PR #423 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -60,7 +60,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Estimating: estimate creation, sections/line items, Costbook provenance, custom lines, pricing formulas, tax, duplication, comparison, finalized-estimate behavior, and review-first AI Estimate Assist.
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
 - Jobs and Dispatch: scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
-- Owner dashboard: organization work queues, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, activity, quick actions, and truthful degraded states.
+- Owner dashboard: organization work queues, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, activity, quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration.

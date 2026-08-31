@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup.ts";
+import {
+  loadDashboardProjectDetails,
+  loadDashboardStartup,
+  resolveDashboardOrganizationContext,
+} from "./dashboard-startup.ts";
 
 const sourceUrl = new URL("./page.tsx", import.meta.url);
 
@@ -52,6 +56,28 @@ test("organization settings failure preserves successfully loaded project data",
   assert.deepEqual(result.projects, projects);
   assert.equal(result.settingsResponse, null);
   assert.equal(settingsCalls, 1);
+});
+
+test("one failed project detail preserves fulfilled project siblings", async () => {
+  const projects = [{ id: "project-1" }, { id: "project-2" }, { id: "project-3" }];
+
+  const result = await loadDashboardProjectDetails("mock-token", projects, 3, async (_token, projectId) => {
+    if (projectId === "project-2") throw new Error("Project detail request failed");
+    return { id: projectId, name: `Project ${projectId}` };
+  });
+
+  assert.deepEqual(
+    result.items.map((project) => project.id),
+    ["project-1", "project-3"],
+  );
+  assert.equal(result.failedCount, 1);
+});
+
+test("dashboard wires project details through the isolated fan-out", async () => {
+  const source = await readDashboardSource();
+
+  assert.match(source, /loadDashboardProjectDetails\(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject\)/);
+  assert.match(source, /projectDetailsResult\.failedCount/);
 });
 
 test("settings outage uses dispatch timezone and does not expose demo organization identity", () => {
