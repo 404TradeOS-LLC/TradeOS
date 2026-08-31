@@ -18,7 +18,7 @@
     "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs"
   },
   "dependencies": {
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "minimatch": "^10.2.6"
   }
 }
