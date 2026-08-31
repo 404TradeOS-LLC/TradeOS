@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseCustomerPortalResponse } from "./customer-portal-session.ts";
+import { parseJsonResponse } from "./json-response.ts";
+
+const fallbackError = "Customer portal request failed";
 
 test("preserves structured customer portal errors", async () => {
   const response = new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -8,7 +10,7 @@ test("preserves structured customer portal errors", async () => {
     headers: { "Content-Type": "application/json" },
   });
 
-  await assert.rejects(parseCustomerPortalResponse(response), /Forbidden/);
+  await assert.rejects(parseJsonResponse(response, fallbackError), /Forbidden/);
 });
 
 test("normalizes non-json customer portal failures instead of leaking SyntaxError", async () => {
@@ -17,10 +19,10 @@ test("normalizes non-json customer portal failures instead of leaking SyntaxErro
     headers: { "Content-Type": "text/html" },
   });
 
-  await assert.rejects(parseCustomerPortalResponse(response), (error: unknown) => {
+  await assert.rejects(parseJsonResponse(response, fallbackError), (error: unknown) => {
     assert.ok(error instanceof Error);
     assert.equal(error.name, "Error");
-    assert.equal(error.message, "Customer portal request failed");
+    assert.equal(error.message, fallbackError);
     assert.ok(!(error instanceof SyntaxError));
     return true;
   });
@@ -32,5 +34,5 @@ test("rejects malformed successful customer portal responses", async () => {
     headers: { "Content-Type": "text/plain" },
   });
 
-  await assert.rejects(parseCustomerPortalResponse(response), /Invalid JSON response/);
+  await assert.rejects(parseJsonResponse(response, fallbackError), /Invalid JSON response/);
 });
