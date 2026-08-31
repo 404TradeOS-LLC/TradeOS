@@ -4,6 +4,7 @@ import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPrevie
 import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
 import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
 import { customerPortalApiFetch } from "@/lib/customer-portal-session";
+import { ApiClientError, parseStaffApiResponse } from "@/lib/staff-api-response";
 import {
   contractStatuses,
   estimateStatuses,
@@ -25,6 +26,8 @@ import {
   type TaskStatus,
 } from "@/domain";
 
+export { ApiClientError };
+
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 
 // The backend's canonical domain model (app/domain/contracts.ts) defines the
@@ -37,17 +40,6 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 function normalizeStatus<T extends string>(status: string, legacyMap: Record<string, T>, canonical: readonly T[], fallback: T): T {
   if ((canonical as readonly string[]).includes(status)) return status as T;
   return legacyMap[status] ?? fallback;
-}
-
-export class ApiClientError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly details?: unknown
-  ) {
-    super(message);
-    this.name = "ApiClientError";
-  }
 }
 
 interface ApiFetchOptions extends RequestInit {
@@ -68,14 +60,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     },
   });
 
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
-
-  if (!response.ok) {
-    throw new ApiClientError(body?.error ?? "Request failed", response.status, body?.details);
-  }
-
-  return body as T;
+  return parseStaffApiResponse<T>(response);
 }
 
 export function getOrganizationSettings(token: string) {
