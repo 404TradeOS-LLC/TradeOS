@@ -10,6 +10,7 @@ related_code:
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/backend/routes
   - app/modules/payments
   - app/modules/costbook
@@ -83,6 +84,8 @@ Implemented Costbook surfaces include:
 - bounded search/filter/sort/cursor pagination across canonical catalog collections
 
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
+
+Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
 ### S027 production-readiness truth
 
@@ -203,7 +206,6 @@ Repository governance additionally uses documentation consistency, dependency re
 - S027 exact authenticated rendered evidence at 1440 / 1024 / 768 / 390 px remains incomplete; repository/runtime repairs are merged and production replay is already evidenced.
 - Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
 - Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
-- Cost-item and Assembly combined name-or-code substring search can still become scan-heavy because current trigram coverage is stronger for name search than code search.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
 - Production environment values, Preview isolation, authenticated RC storage states, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
 - Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
