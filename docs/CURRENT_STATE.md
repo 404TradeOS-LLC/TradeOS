@@ -38,6 +38,7 @@ related_code:
   - web/src/lib/clientApi.ts
   - web/src/lib/customer-portal-session.ts
   - web/src/lib/json-response.ts
+  - web/src/lib/staff-api-response.ts
   - web/src/lib/proxy-origin.ts
   - .github/workflows/verify-repository.yml
 ---
@@ -166,6 +167,7 @@ Security-sensitive maintenance already landed includes:
 - safe audit/security event capture
 - exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
 - browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+- server-side staff API response handling preserves structured backend errors, normalizes non-JSON upstream failures into `ApiClientError` with the HTTP status preserved, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 
 The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 
