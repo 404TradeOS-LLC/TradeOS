@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-31
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
   - app/modules/athena-memory
   - app/modules/athena-events
@@ -299,6 +300,8 @@ C005 exposes the existing `Division`, `Category`, and `Subcategory` models throu
 ## Costbook assemblies and historical pricing
 
 PR #216 does not add replacement catalog entities. It promotes the existing `Assembly` and `AssemblyItem` models under the canonical Costbook workflow and strengthens database checks so parent Assembly, referenced CostItem, and referenced child Assembly remain in the authenticated organization. Estimate lines continue to persist `costItemId` or `assemblyId` provenance together with `unitCost` and `lineCost`; those persisted values are historical pricing snapshots and are not rewritten when current Costbook prices later change. `MaterialPriceAudit` remains the catalog price-change record; Estimate snapshots are a separate read-model input rather than price-change events.
+
+Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
 ## Core relationships
 
