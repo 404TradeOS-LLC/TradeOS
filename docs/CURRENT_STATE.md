@@ -36,6 +36,8 @@ related_code:
   - web/src/lib/supabase/proxy.ts
   - web/src/lib/api.ts
   - web/src/lib/clientApi.ts
+  - web/src/lib/customer-portal-session.ts
+  - web/src/lib/json-response.ts
   - web/src/lib/proxy-origin.ts
   - .github/workflows/verify-repository.yml
 ---
@@ -127,6 +129,8 @@ Two portal surfaces are intentionally distinct:
 - `/customer-portal/*` is the ADR-010 public customer-scoped magic-link surface.
 
 The public portal uses one-time hashed access tokens redeemed into short-lived hashed sessions, customer/tenant-scoped forced-RLS reads, replay/revocation protection, and a narrowly authorized pending-contract customer-signing transition with explicit customer attribution. It does not claim certificate-backed signing, notarization, or standalone legal identity verification.
+
+Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
 
 ## Athena implementation state
 
