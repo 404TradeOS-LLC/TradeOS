@@ -4,6 +4,7 @@ import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPrevie
 import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
 import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
 import { customerPortalApiFetch } from "@/lib/customer-portal-session";
+import { getApiErrorPayload, readApiResponseBody } from "@/lib/api-response";
 import {
   contractStatuses,
   estimateStatuses,
@@ -68,11 +69,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     },
   });
 
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
+  const { body, malformed } = await readApiResponseBody(response);
+
+  if (malformed) {
+    throw new ApiClientError(response.ok ? "Invalid response from server" : "Request failed", response.status);
+  }
 
   if (!response.ok) {
-    throw new ApiClientError(body?.error ?? "Request failed", response.status, body?.details);
+    const error = getApiErrorPayload(body);
+    throw new ApiClientError(error.message, response.status, error.details);
   }
 
   return body as T;
