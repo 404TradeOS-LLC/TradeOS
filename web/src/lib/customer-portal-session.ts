@@ -8,6 +8,31 @@ export async function getCustomerPortalSessionToken(): Promise<string | null> {
   return (await cookies()).get(CUSTOMER_PORTAL_SESSION_COOKIE)?.value ?? null;
 }
 
+function getCustomerPortalErrorMessage(body: unknown): string {
+  if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") {
+    return body.error;
+  }
+
+  return "Customer portal request failed";
+}
+
+export async function parseCustomerPortalResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let body: unknown = undefined;
+
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      if (!response.ok) throw new Error("Customer portal request failed");
+      throw new Error("Invalid JSON response");
+    }
+  }
+
+  if (!response.ok) throw new Error(getCustomerPortalErrorMessage(body));
+  return body as T;
+}
+
 export async function customerPortalApiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getCustomerPortalSessionToken();
   if (!token) throw new Error("Customer portal session is required");
@@ -21,8 +46,5 @@ export async function customerPortalApiFetch<T>(path: string, options: RequestIn
       ...headers,
     },
   });
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
-  if (!response.ok) throw new Error(body?.error ?? "Customer portal request failed");
-  return body as T;
+  return parseCustomerPortalResponse<T>(response);
 }
