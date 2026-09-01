@@ -32,7 +32,10 @@ type RequestWithContext = Request & {
 
 function logServerError(err: unknown, req: Request, requestId: string | undefined, statusCode: number): void {
   const request = req as RequestWithContext;
-  const route = request.route?.path ?? req.path ?? req.originalUrl;
+  const routePath = request.route?.path;
+  const route = routePath
+    ? `${req.baseUrl ?? ""}${routePath === "/" ? "" : routePath}` || req.path
+    : req.path ?? req.originalUrl;
   const error = err instanceof Error
     ? { name: err.name, message: err.message, stack: err.stack }
     : String(err);
