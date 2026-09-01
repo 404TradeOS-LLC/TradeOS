@@ -10,6 +10,7 @@ export class ApiError extends Error {
     public details?: unknown
   ) {
     super(message);
+    this.name = "ApiError";
   }
 }
 
@@ -21,6 +22,33 @@ interface MappedPrismaError {
   statusCode: number;
   message: string;
   details?: unknown;
+}
+
+type RequestWithContext = Request & {
+  auth?: { orgId?: string; role?: string };
+  orgId?: string;
+  route?: { path?: string };
+};
+
+function logServerError(err: unknown, req: Request, requestId: string | undefined, statusCode: number): void {
+  const request = req as RequestWithContext;
+  const route = request.route?.path ?? req.path ?? req.originalUrl;
+  const error = err instanceof Error
+    ? { name: err.name, message: err.message, stack: err.stack }
+    : String(err);
+
+  logError("request.failed", {
+    requestId,
+    operation: `${req.method} ${route}`,
+    method: req.method,
+    route,
+    path: req.originalUrl,
+    orgId: request.orgId ?? request.auth?.orgId,
+    role: request.auth?.role,
+    statusCode,
+    errorClass: err instanceof Error ? err.name : typeof err,
+    error,
+  });
 }
 
 // Maps the handful of Prisma error codes that represent an invalid client
@@ -62,6 +90,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : undefined;
 
   if (err instanceof ApiError) {
+    if (err.statusCode >= 500) logServerError(err, req, requestId, err.statusCode);
     res.status(err.statusCode).json({
       error: err.message,
       ...(err.details !== undefined ? { details: err.details } : {}),
@@ -85,12 +114,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     }
   }
 
-  logError("request.failed", {
-    requestId,
-    method: req.method,
-    path: req.originalUrl,
-    error: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
-  });
+  logServerError(err, req, requestId, 500);
 
   res.status(500).json({ error: "Internal server error", ...(requestId ? { requestId } : {}) });
 }

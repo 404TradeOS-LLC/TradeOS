@@ -73,7 +73,7 @@ describe("errorHandler", () => {
     res.locals = { requestId: "req-6" };
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-    errorHandler(prismaError("P2034"), { method: "GET", originalUrl: "/api/v1/test" } as Request, res, jest.fn());
+    errorHandler(prismaError("P2034"), { method: "GET", originalUrl: "/api/v1/test", path: "/api/v1/test" } as Request, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "Internal server error", requestId: "req-6" });
@@ -85,10 +85,44 @@ describe("errorHandler", () => {
     res.locals = { requestId: "req-7" };
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-    errorHandler(new Error("something unexpected"), { method: "POST", originalUrl: "/api/v1/test" } as Request, res, jest.fn());
+    errorHandler(new Error("something unexpected"), { method: "POST", originalUrl: "/api/v1/test", path: "/api/v1/test" } as Request, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "Internal server error", requestId: "req-7" });
+    consoleSpy.mockRestore();
+  });
+
+  it("logs structured context for a server ApiError without changing the public response", () => {
+    const res = mockResponse();
+    res.locals = { requestId: "req-8" };
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+
+    errorHandler(
+      new ApiError(500, "database query failed"),
+      {
+        method: "GET",
+        originalUrl: "/api/v1/estimates?status=draft",
+        path: "/api/v1/estimates",
+        route: { path: "/api/v1/estimates" },
+        orgId: "org-1",
+        auth: { orgId: "org-1", role: "owner" },
+      } as unknown as Request,
+      res,
+      jest.fn(),
+    );
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "database query failed", requestId: "req-8" });
+    const entry = JSON.parse(consoleSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(entry).toEqual(expect.objectContaining({
+      message: "request.failed",
+      requestId: "req-8",
+      operation: "GET /api/v1/estimates",
+      orgId: "org-1",
+      statusCode: 500,
+      errorClass: "ApiError",
+    }));
+    expect(JSON.stringify(entry)).not.toContain("Bearer");
     consoleSpy.mockRestore();
   });
 });
