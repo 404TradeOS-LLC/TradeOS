@@ -109,8 +109,37 @@ node web/scripts/preview-smoke-check.mjs https://<preview-url> \
 
 The smoke script checks public pages, unauthenticated protected-route
 redirects, 404 handling, response headers, and common secret-leak patterns.
-It does not authenticate, inspect the browser console, prove the server-only
-backend target, or replace the manual checks below.
+It does not authenticate, inspect the browser console, or replace the
+manual checks below. It also cannot read the live, deployed
+`BACKEND_API_URL` value from Vercel — `--require-backend-host` only checks
+the `BACKEND_URL` you assert on the command line, so always copy that value
+from the Vercel Preview environment-variable configuration for the exact
+branch under test rather than guessing.
+
+### RC / beta Preview deployments
+
+Section 0 above documents the default: every ordinary PR Preview's
+`BACKEND_API_URL` targets the shared staging backend. A live RC/beta
+frontend Preview (a long-lived branch alias serving real beta users, not an
+ordinary PR review) is the deliberate exception — its `BACKEND_API_URL`
+must instead target that RC branch's own dedicated backend deployment,
+never the shared staging backend, since real beta users' password-reset and
+other transactional emails must send through that RC deployment's own
+Resend configuration.
+
+Because that is a per-branch exception to the general rule, it is exactly
+the kind of setting that can silently drift back to staging (e.g. a Vercel
+project-level default re-applying, or the Preview override being cleared).
+Always run the smoke check for an RC/beta branch with
+`--require-backend-host` set to a substring unique to that branch's backend
+alias, so the check fails loudly instead of quietly passing against the
+wrong backend:
+
+```bash
+BACKEND_URL=https://<rc-backend-alias>.vercel.app \
+  node web/scripts/preview-smoke-check.mjs https://<rc-frontend-alias>.vercel.app \
+  --require-backend-host=<substring-unique-to-the-rc-backend-alias>
+```
 
 If Vercel Deployment Protection returns 401 before the application runs,
 perform the smoke check from an approved browser session or use the team's

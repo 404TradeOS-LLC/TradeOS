@@ -36,6 +36,23 @@
 //                                        Supabase project ref) — Preview
 //                                        must never reach either, so this
 //                                        isn't opt-in.
+//   --require-backend-host=<substring>  Fail unless BACKEND_URL's hostname
+//                                        contains this substring. Use this
+//                                        for a deployment that MUST point at
+//                                        one specific backend (e.g. an RC/
+//                                        beta frontend Preview that must
+//                                        reach its own dedicated RC backend
+//                                        deployment, not the shared staging
+//                                        backend every ordinary PR Preview
+//                                        uses) — a misconfigured
+//                                        BACKEND_API_URL that silently
+//                                        reverts to some other backend
+//                                        (staging included) fails this check
+//                                        instead of passing quietly. Ordinary
+//                                        Preview smoke checks that
+//                                        intentionally target the shared
+//                                        staging backend should omit this
+//                                        flag. May be given at most once.
 //
 // Exit code is non-zero if any check fails.
 
@@ -63,13 +80,15 @@ function targetsForbiddenHost(value, hosts) {
 const args = process.argv.slice(2);
 const positionalArg = args.find((arg) => !arg.startsWith("--"));
 const optionArgs = args.filter((arg) => arg.startsWith("--"));
-const unknownOptions = optionArgs.filter((arg) => !arg.startsWith("--forbid-host="));
+const forbidHostArgs = optionArgs.filter((arg) => arg.startsWith("--forbid-host="));
+const requireBackendHostArgs = optionArgs.filter((arg) => arg.startsWith("--require-backend-host="));
+const unknownOptions = optionArgs.filter((arg) => !arg.startsWith("--forbid-host=") && !arg.startsWith("--require-backend-host="));
 const baseUrlArg = positionalArg ?? process.env.PREVIEW_URL;
 const backendUrlArg = process.env.BACKEND_URL;
 
 if (!baseUrlArg) {
   console.error(
-    "Usage: node scripts/preview-smoke-check.mjs <preview-url> [--forbid-host=<substring>]...\n" +
+    "Usage: node scripts/preview-smoke-check.mjs <preview-url> [--forbid-host=<substring>]... [--require-backend-host=<substring>]\n" +
       "   or: PREVIEW_URL=<preview-url> [BACKEND_URL=<backend-url>] node scripts/preview-smoke-check.mjs"
   );
   process.exit(2);
@@ -77,6 +96,23 @@ if (!baseUrlArg) {
 
 if (unknownOptions.length > 0) {
   console.error(`Unknown option(s): ${unknownOptions.join(", ")}`);
+  process.exit(2);
+}
+
+if (requireBackendHostArgs.length > 1) {
+  console.error("--require-backend-host may be given at most once.");
+  process.exit(2);
+}
+
+const requireBackendHost = requireBackendHostArgs[0]?.slice("--require-backend-host=".length) || undefined;
+
+if (requireBackendHostArgs.length === 1 && !requireBackendHost) {
+  console.error("--require-backend-host requires a non-empty substring.");
+  process.exit(2);
+}
+
+if (requireBackendHost && !backendUrlArg) {
+  console.error("--require-backend-host requires BACKEND_URL to be set.");
   process.exit(2);
 }
 
@@ -123,7 +159,7 @@ target.search = "";
 target.hash = "";
 const baseUrl = target.toString();
 const backendBaseUrl = backendTarget ? backendTarget.toString().replace(/\/$/, "") : undefined;
-const forbidHosts = [...ALWAYS_FORBIDDEN_HOSTS, ...optionArgs.map((arg) => arg.slice("--forbid-host=".length)).filter(Boolean)];
+const forbidHosts = [...ALWAYS_FORBIDDEN_HOSTS, ...forbidHostArgs.map((arg) => arg.slice("--forbid-host=".length)).filter(Boolean)];
 
 // Patterns that must never appear in an unauthenticated response body or
 // header. Mirrors the forbidden-pattern intent of web/src/lib/envSecurity.test.ts
@@ -314,6 +350,15 @@ async function checkBackend() {
   if (!backendBaseUrl) return;
 
   console.log(`\nBackend checks against: ${backendBaseUrl}`);
+
+  if (requireBackendHost) {
+    const hostname = normalizedHostname(backendBaseUrl) ?? "";
+    logResult(
+      hostname.includes(requireBackendHost.toLowerCase()),
+      `BACKEND_URL host matches required substring "${requireBackendHost}"`,
+      `got hostname ${hostname || "(unparseable)"}`
+    );
+  }
 
   await checkBackendJson("/health", (status, json) => {
     logResult(status === 200 && json.status === "ok", "/health reports ok", `got status ${status}, body.status=${json.status}`);
