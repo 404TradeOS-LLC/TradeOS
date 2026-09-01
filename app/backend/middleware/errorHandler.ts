@@ -45,7 +45,7 @@ function logServerError(err: unknown, req: Request, requestId: string | undefine
     operation: `${req.method} ${route}`,
     method: req.method,
     route,
-    path: req.originalUrl,
+    path: req.path ?? req.originalUrl,
     orgId: request.orgId ?? request.auth?.orgId,
     role: request.auth?.role,
     statusCode,

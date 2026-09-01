@@ -40,8 +40,9 @@ S036 remains blocked by S027; S044/S045 remain blocked on production access.
   columns that were missing from the canonical RC database. The exact missing
   repository migrations were applied and their checksums reconciled in
   `public."_prisma_migrations"`; no authorization, RLS, or tenant filter was
-  weakened. The remaining work is the focused application logging/readiness
-  patch, merge/deployment, and authenticated browser/contractor smoke evidence.
+  weakened. The focused application logging/readiness patch is complete; the
+  remaining work is to merge and deploy it, then collect authenticated
+  browser/contractor smoke evidence.
 - The founder accepted ADR-009 on 2026-08-28: with no qualified independent
   reviewer available, a PR may use the documented founder-only merge-review
   exception after all required technical gates pass. The exception does not

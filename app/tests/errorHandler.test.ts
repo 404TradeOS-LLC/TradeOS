@@ -119,6 +119,7 @@ describe("errorHandler", () => {
       message: "request.failed",
       requestId: "req-8",
       operation: "GET /api/v1/estimates",
+      path: "/api/v1/estimates",
       orgId: "org-1",
       statusCode: 500,
       errorClass: "ApiError",

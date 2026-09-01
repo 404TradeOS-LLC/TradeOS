@@ -188,7 +188,7 @@ Customer magic-link portal implementation is merged, but its merge alone does no
 
 On 2026-09-01, the production-like Supabase database serving the RC deployment was behind the repository migration head. The API Prisma client queried `estimates.tax_pct` and project-detail financial fields that were absent from the database, causing the estimate queue and one project-detail request to return generic 500 responses while `/dashboard` itself rendered. The authenticated organization, membership, and forced-RLS context were valid; authorization was not bypassed or weakened.
 
-The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The repaired application still requires deployment and authenticated multi-viewport evidence before the incident can be marked fully closed.
+The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The remaining work is to merge and deploy the focused application repair, then collect authenticated multi-viewport and contractor-smoke evidence before the incident can be marked fully closed.
 
 ## Current verification surface
 
