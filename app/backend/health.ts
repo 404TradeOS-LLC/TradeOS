@@ -19,8 +19,25 @@ export interface ReadinessPayload {
       status: "ok" | "error";
       latencyMs: number;
     };
+    schema: {
+      status: "ok" | "error";
+      missingColumns?: string[];
+    };
   };
 }
+
+const DASHBOARD_SCHEMA_REQUIREMENTS = [
+  ["estimates", "tax_pct"],
+  ["estimates", "tax_amount"],
+  ["invoices", "subtotal"],
+  ["invoices", "tax_pct"],
+  ["invoices", "tax_amount"],
+  ["contracts", "contract_amount"],
+  ["contracts", "snapshot_json"],
+  ["contracts", "signature_user_agent_reported"],
+] as const;
+
+type SchemaColumn = { table_name: string; column_name: string };
 
 function serviceMetadata() {
   return {
@@ -47,7 +64,32 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
 
   try {
     await basePrisma.$queryRawUnsafe("SELECT 1");
+    const columns = await basePrisma.$queryRawUnsafe<SchemaColumn[]>(`
+      SELECT table_name, column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (table_name, column_name) IN (${DASHBOARD_SCHEMA_REQUIREMENTS.map(([table, column]) => `('${table}', '${column}')`).join(", ")})
+    `);
+    const present = new Set((columns ?? []).map(({ table_name, column_name }) => `${table_name}.${column_name}`));
+    const missingColumns = DASHBOARD_SCHEMA_REQUIREMENTS
+      .map(([table, column]) => `${table}.${column}`)
+      .filter((column) => !present.has(column));
     const latencyMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    if (missingColumns.length > 0) {
+      logError("health.readiness_failed", {
+        component: "schema",
+        missingColumns,
+      });
+      return {
+        status: "not_ready",
+        service: serviceMetadata().service,
+        timestamp: now.toISOString(),
+        checks: {
+          database: { status: "ok", latencyMs: Number(latencyMs.toFixed(1)) },
+          schema: { status: "error", missingColumns },
+        },
+      };
+    }
     return {
       status: "ready",
       service: serviceMetadata().service,
@@ -57,6 +99,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
           status: "ok",
           latencyMs: Number(latencyMs.toFixed(1)),
         },
+        schema: { status: "ok" },
       },
     };
   } catch (error) {
@@ -76,6 +119,7 @@ export async function checkReadiness(now: Date = new Date()): Promise<ReadinessP
           status: "error",
           latencyMs: Number(latencyMs.toFixed(1)),
         },
+        schema: { status: "error" },
       },
     };
   }

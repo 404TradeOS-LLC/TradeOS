@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-31
+last_verified: 2026-09-01
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -46,7 +46,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `6addbfc0ec57ac9ce3d731154468e4f733c9f243` on 2026-08-31 after PR #423 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `e872fa40f6e32175a80284f44c768d3307bdc22f` on 2026-09-01 after PR #425 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -183,6 +183,12 @@ Repository state and production state are separate evidence domains.
 Known retained deployment evidence includes the S027 production Costbook replay described above and later production/auth fixes recorded by their owning PRs. Exact release-candidate browser evidence, environment configuration, credentials/storage states, and retained multi-viewport artifacts must be proven through the approved deployment/evidence workflows rather than inferred from merged code.
 
 Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
+
+## RC dashboard schema-drift incident
+
+On 2026-09-01, the production-like Supabase database serving the RC deployment was behind the repository migration head. The API Prisma client queried `estimates.tax_pct` and project-detail financial fields that were absent from the database, causing the estimate queue and one project-detail request to return generic 500 responses while `/dashboard` itself rendered. The authenticated organization, membership, and forced-RLS context were valid; authorization was not bypassed or weakened.
+
+The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The remaining work is to merge and deploy the focused application repair, then collect authenticated multi-viewport and contractor-smoke evidence before the incident can be marked fully closed.
 
 ## Current verification surface
 
