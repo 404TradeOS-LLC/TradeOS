@@ -244,7 +244,7 @@ test("reset-password page never renders the password form for a missing recovery
   const pageSource = readResetPasswordPageSource();
   assert.match(pageSource, /cookies\(\)/);
   assert.match(pageSource, /tradeos-recovery/);
-  assert.match(pageSource, /tradeos-recovery/);
+  assert.match(pageSource, /recoveryUserId/);
 
   const resolveFnIndex = pageSource.indexOf("async function resolveContent");
   assert.notEqual(resolveFnIndex, -1);
@@ -278,7 +278,7 @@ test("resetPasswordAction fails closed with a recovery error when the tradeos-re
   const nextFnIndex = authSource.indexOf("export async function acceptInviteAction");
   const fnSource = authSource.slice(fnIndex, nextFnIndex);
 
-  const cookieCheckIndex = fnSource.indexOf('cookieStore.get("tradeos-recovery")?.value !== "1"');
+  const cookieCheckIndex = fnSource.indexOf("if (!recoveryUserId)");
   const updateUserIndex = fnSource.indexOf("supabase.auth.updateUser({ password })");
   assert.notEqual(cookieCheckIndex, -1);
   assert.notEqual(updateUserIndex, -1);
