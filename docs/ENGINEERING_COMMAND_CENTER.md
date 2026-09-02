@@ -34,6 +34,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -151,6 +152,10 @@ CI speed comes from parallel execution and earlier evidence, never from skipping
 The authenticated S027 and RC browser workflows are operator-triggered and require scoped Playwright storage-state secrets; they do not commit cookies or credentials. S047 is complete through PR #397 and its completion evidence. The RC workflow requires separate owner/admin and technician storage-state fixtures plus a distinct lifecycle auth account, binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
 The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with a negative probe, and validates every retained screenshot against its declared viewport width before publishing artifacts. It refuses to run against production hosts, the Production alias, or `-git-main-` previews, and refuses mutating runs unless the release-candidate data plane is proven non-production. Beta evidence is UNVERIFIED until a `full` run passes; see [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
+
+## RC beta Vercel repair
+
+The manual `Repair RC beta Vercel wiring` workflow is the guarded operational path for repairing the current RC beta's Preview wiring. It requires the explicit `CLEANUP_RC` confirmation, updates only branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL` values for the approved frontend/backend pair, and redeploys only those Preview deployments. It never touches Production or rotates `RESEND_API_KEY`; a successful workflow run is not evidence of email delivery, so the authenticated reset-email smoke remains a required follow-up.
 
 ## Required verification
 
