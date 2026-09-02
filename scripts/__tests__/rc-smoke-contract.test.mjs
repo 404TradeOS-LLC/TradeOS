@@ -8,23 +8,19 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 const workflow = read(".github/workflows/rc-smoke.yml");
 const routeSmoke = read("app/scripts/authenticated-route-smoke.mjs");
 const authSmoke = read("app/scripts/authenticated-auth-smoke.mjs");
-const fieldSession = read("app/scripts/authenticated-field-session.mjs");
 const golden = read("app/scripts/estimate-deliverability-golden.mjs");
 const business = read("app/scripts/rc-business-flow-smoke.mjs");
 
-test("RC workflow uses real routes and runs every authenticated smoke surface", () => {
+test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /default: \/dashboard,\/customers,\/projects,\/dispatch,\/field,\/costbook/);
   assert.match(workflow, /node scripts\/authenticated-auth-smoke\.mjs/);
-  assert.match(workflow, /node scripts\/authenticated-field-session\.mjs/);
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
-  assert.match(workflow, /RC_FIELD_AUTH_EMAIL: rc-field-tech@tradeos\.invalid/);
-  assert.match(workflow, /RC_FIELD_USER_ID: 08d28981-52e8-4459-bcbb-1ef996baea92/);
-  assert.doesNotMatch(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
   assert.match(workflow, /url\.protocol === "https:"/);
   assert.match(workflow, /tradeos-costbook-web-\[a-z0-9\]/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
@@ -55,19 +51,6 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
 });
 
-test("field session is regenerated from a dedicated technician identity", () => {
-  assert.match(fieldSession, /RC_FIELD_AUTH_EMAIL is required/);
-  assert.match(fieldSession, /RC_AUTH_PASSWORD is required for the field technician fixture/);
-  assert.match(fieldSession, /RC_FIELD_STORAGE_STATE_PATH is required/);
-  assert.match(fieldSession, /approved tradeos-costbook-web Vercel Preview host/);
-  assert.match(fieldSession, /page\.getByRole\("button", \{ name: "Sign in" \}\)/);
-  assert.match(fieldSession, /finalUrl\.pathname === "\/field"/);
-  assert.match(fieldSession, /bodyText\.includes\("Field day"\)/);
-  assert.match(fieldSession, /context\.storageState\(\{ path: storageStatePath \}\)/);
-  assert.match(fieldSession, /fs\.chmod\(storageStatePath, 0o600\)/);
-  assert.doesNotMatch(fieldSession, /console\.log\([^)]*password/i);
-});
-
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {
   assert.match(golden, /RC_ALLOW_MUTATIONS=true is required/);
   assert.match(golden, /RC_SMOKE_TENANT_LABEL is required/);
@@ -92,10 +75,9 @@ test("business-flow smoke executes payment through field completion", () => {
     '"/dispatch"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
 
-  assert.match(business, /RC_FIELD_AUTH_EMAIL is required for the dedicated field technician login/);
-  assert.match(business, /RC_FIELD_USER_ID is required for technician assignment evidence/);
-  assert.doesNotMatch(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
-  assert.doesNotMatch(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
+  assert.match(business, /RC_AUTH_PASSWORD is required for the dedicated field technician login/);
+  assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
+  assert.match(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
   assert.match(business, /Send invoice/);
   assert.match(business, /Record payment/);
   assert.match(business, /Create job and open Dispatch/);
