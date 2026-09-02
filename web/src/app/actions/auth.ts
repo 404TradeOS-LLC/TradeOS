@@ -133,7 +133,8 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
     }
   } else {
     const cookieStore = await cookies();
-    if (cookieStore.get("tradeos-recovery")?.value !== "1") {
+    const recoveryUserId = cookieStore.get("tradeos-recovery")?.value ?? "";
+    if (!recoveryUserId) {
       return {
         error: "This reset link is missing or invalid. Request a new link and try again.",
         recoveryError: true,
@@ -141,6 +142,18 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+      error: sessionError,
+    } = await supabase.auth.getUser();
+    if (sessionError || !user || user.id !== recoveryUserId) {
+      if (sessionError) console.error("Supabase recovery session validation failed during password reset:", sessionError.message);
+      return {
+        error: "This reset link is missing or invalid. Request a new link and try again.",
+        recoveryError: true,
+      };
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       // Server-side diagnostic only. The recovery cookie can be present yet
