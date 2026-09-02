@@ -223,3 +223,8 @@ Numbered-sprint eligibility and ordering are owned by `docs/SPRINT_BACKLOG.md` a
 ## Module documentation
 
 See `docs/modules/` for the maintained domain/module records and `docs/architecture/` for readiness plans, ADRs, and completion evidence.
+
+
+## Web password recovery
+
+The web forgot-password flow uses Supabase Auth recovery: the recovery request is sent through Supabase, `/auth/confirm` exchanges the PKCE or token-hash link for a server-side session, and the reset form updates the Supabase password. Legacy backend-token reset links remain supported. This avoids requiring the web recovery flow to reach Prisma or the backend Resend adapter.
