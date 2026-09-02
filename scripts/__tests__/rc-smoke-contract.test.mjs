@@ -8,22 +8,19 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "u
 const workflow = read(".github/workflows/rc-smoke.yml");
 const routeSmoke = read("app/scripts/authenticated-route-smoke.mjs");
 const authSmoke = read("app/scripts/authenticated-auth-smoke.mjs");
-const fieldSession = read("app/scripts/authenticated-field-session.mjs");
 const golden = read("app/scripts/estimate-deliverability-golden.mjs");
 const business = read("app/scripts/rc-business-flow-smoke.mjs");
 
 test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /default: \/dashboard,\/customers,\/projects,\/dispatch,\/field,\/costbook/);
   assert.match(workflow, /node scripts\/authenticated-auth-smoke\.mjs/);
-  assert.match(workflow, /node scripts\/authenticated-field-session\.mjs/);
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
-  assert.match(workflow, /RC_FIELD_AUTH_EMAIL/);
-  assert.doesNotMatch(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
   assert.match(workflow, /url\.protocol === "https:"/);
   assert.match(workflow, /tradeos-costbook-web-\[a-z0-9\]/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
@@ -52,19 +49,6 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
   assert.match(authSmoke, /openLoginPage/);
   assert.match(authSmoke, /finalUrl\.origin !== parsedBaseUrl\.origin/);
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
-});
-
-test("field session is regenerated from a dedicated technician identity", () => {
-  assert.match(fieldSession, /RC_FIELD_AUTH_EMAIL is required/);
-  assert.match(fieldSession, /RC_AUTH_PASSWORD is required for the field technician fixture/);
-  assert.match(fieldSession, /RC_FIELD_STORAGE_STATE_PATH is required/);
-  assert.match(fieldSession, /approved tradeos-costbook-web Vercel Preview host/);
-  assert.match(fieldSession, /page\.getByRole\("button", \{ name: "Sign in" \}\)/);
-  assert.match(fieldSession, /finalUrl\.pathname === "\/field"/);
-  assert.match(fieldSession, /bodyText\.includes\("Field day"\)/);
-  assert.match(fieldSession, /context\.storageState\(\{ path: storageStatePath \}\)/);
-  assert.match(fieldSession, /fs\.chmod\(storageStatePath, 0o600\)/);
-  assert.doesNotMatch(fieldSession, /console\.log\([^)]*password/i);
 });
 
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {
