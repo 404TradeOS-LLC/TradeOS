@@ -1,0 +1,131 @@
+name: Code quality autofix
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 3 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: code-quality-autofix
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    name: Apply safe frontend quality fixes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Apply ESLint safe fixes
+        working-directory: web
+        run: npm run lint -- --fix
+
+      - name: Detect source changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- web/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --check
+            git diff --stat
+          fi
+
+      - name: Verify fixed frontend
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: web
+        run: |
+          set -euo pipefail
+          npm test
+          npm run lint -- .
+          npm run build
+
+      - name: Open verified quality-fix PR
+        if: steps.changes.outputs.changed == 'true'
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          branch="quality-autofix/eslint-${RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -- web/
+          git commit -m "fix(quality): apply safe ESLint autofixes"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "$branch"
+
+          marker='<!-- tradeos-code-quality-autofix -->'
+          body_file="$RUNNER_TEMP/quality-pr.md"
+          cat > "$body_file" <<EOF
+          $marker
+          ## Code quality autofix
+
+          This PR contains only fixable changes produced by TradeOS's committed ESLint configuration.
+
+          Validation completed before this PR was opened:
+          - frontend unit tests
+          - frontend ESLint with zero remaining errors
+          - production frontend build
+          - git diff whitespace validation
+
+          ### Merge policy
+          GitHub auto-merge is enabled, but existing branch protection and required checks remain authoritative. The automation never writes directly to main.
+          EOF
+
+          pr_url="$(gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$branch" \
+            --title 'fix(quality): apply verified ESLint autofixes' \
+            --body-file "$body_file")"
+          pr_number="${pr_url##*/}"
+          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+
+          gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --auto --squash
+
+      - name: Summary
+        shell: bash
+        env:
+          CHANGED: ${{ steps.changes.outputs.changed }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          {
+            echo '## Code quality autofix'
+            echo
+            if [ "$CHANGED" = 'true' ]; then
+              echo "Verified quality fixes were found and opened as: $PR_URL"
+              echo
+              echo 'Auto-merge is enabled and remains gated by repository protections.'
+            else
+              echo 'No safe ESLint autofixes were needed.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
