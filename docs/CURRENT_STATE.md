@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-01
+last_verified: 2026-09-02
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -59,7 +59,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Projects and project workspace, including task and site-visit workflows.
 - Estimating: estimate creation, sections/line items, Costbook provenance, custom lines, pricing formulas, tax, duplication, comparison, finalized-estimate behavior, and review-first AI Estimate Assist.
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
-- Jobs and Dispatch: scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
+- Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
 - Owner dashboard: organization work queues, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, activity, quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
@@ -184,6 +184,12 @@ Known retained deployment evidence includes the S027 production Costbook replay 
 
 Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
 
+## Contractor project-to-job bridge
+
+The authenticated project workspace now has a reachable `Create job` path into `/projects/[id]/jobs/new`. The form resolves the linked customer, reuses saved service addresses, can create a missing service address through the existing CRM contract, and creates the initial Job through the existing authenticated `POST /api/v1/jobs` API before continuing into `/dispatch`.
+
+This closes the prior UI-only break between approved/billable project work and field execution. It does not add a new Job lifecycle, permission, role, schema, migration, RLS policy, or authentication mechanism; the existing backend service and request-scoped tenant boundary remain authoritative. Repository implementation truth is separate from RC promotion evidence: the full contractor flow still requires retained authenticated proof through payment -> job -> schedule -> dispatch/field progression -> completion plus the required 1440 / 1024 / 768 / 390 viewport evidence.
+
 ## RC dashboard schema-drift incident
 
 On 2026-09-01, the production-like Supabase database serving the RC deployment was behind the repository migration head. The API Prisma client queried `estimates.tax_pct` and project-detail financial fields that were absent from the database, causing the estimate queue and one project-detail request to return generic 500 responses while `/dashboard` itself rendered. The authenticated organization, membership, and forced-RLS context were valid; authorization was not bypassed or weakened.
@@ -223,7 +229,6 @@ Numbered-sprint eligibility and ordering are owned by `docs/SPRINT_BACKLOG.md` a
 ## Module documentation
 
 See `docs/modules/` for the maintained domain/module records and `docs/architecture/` for readiness plans, ADRs, and completion evidence.
-
 
 ## Web password recovery
 
