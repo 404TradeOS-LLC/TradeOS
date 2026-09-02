@@ -139,6 +139,14 @@ applies even to variables that look inert or hard to misuse — the point is
 to keep the two environments' credentials from ever being the same value,
 not to judge each variable's individual risk.
 
+The manual `Repair staging Supabase auth configuration` workflow is the
+bounded recovery path when the stable `staging` backend loses its
+branch-scoped `SUPABASE_URL`. It requires the exact `REPAIR_STAGING_AUTH`
+confirmation, writes only the public TradeOS Staging project URL to Preview
+scope for the `staging` branch, redeploys the recorded stable staging backend,
+and requires database-backed `/ready` success. It cannot target Production or
+the Production Supabase project and does not rotate database or JWT secrets.
+
 ### Vercel Authentication (Preview protection)
 
 As of 2026-08-17, Vercel Authentication (SSO protection) is **disabled**

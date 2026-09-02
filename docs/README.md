@@ -91,6 +91,12 @@ before artifact publication, and failed steps retain available machine-readable
 reports. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the required secrets
 and artifact boundary.
 
+When that smoke reports `SUPABASE_URL is not configured`, use the guarded
+`Repair staging Supabase auth configuration` workflow documented in
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
+`staging` backend and the TradeOS Staging Supabase URL; it is not a general
+environment editor.
+
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
 The `PR maintenance` workflow is also manual-only. It accepts an explicit open same-repository PR number targeting `main` and requests GitHub to rebase that branch onto current `main`; it must not bypass branch protection, required checks, review requirements, fork restrictions, or merge-conflict handling.

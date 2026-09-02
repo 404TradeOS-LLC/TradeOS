@@ -73,6 +73,12 @@ The workflow sets mutation permission only for the guarded golden script and
 does not offer production as a mutating target; the mutating script also
 requires an approved `tradeos-costbook-web-*.vercel.app` host.
 
+If the stable staging backend loses its branch-scoped Supabase issuer URL, the
+separate manual repair workflow restores only `SUPABASE_URL` for Preview scope
+on `staging`, redeploys the recorded backend, and checks database-backed
+readiness. That operational repair is a prerequisite to evidence capture, not
+evidence itself.
+
 ## Scope and non-goals
 
 Allowed paths are the existing RC workflow/scripts, focused tests and fixtures,

@@ -88,6 +88,13 @@ machine-readable reports only. Runtime storage state is removed in an
 upload credentials or storage state, and the generated reports never include
 authentication secrets.
 
+`Repair staging Supabase auth configuration` is a separate, manual recovery
+workflow rather than an evidence shortcut. With explicit confirmation, it
+restores only the stable staging backend's branch-scoped Preview
+`SUPABASE_URL`, redeploys that backend, and verifies database readiness before
+the RC smoke is rerun. The workflow embeds only the public staging project URL;
+its Vercel token remains a repository secret.
+
 ### Beta evidence
 
 `Beta Evidence` (`.github/workflows/beta-evidence.yml`) is the release-candidate
