@@ -244,12 +244,12 @@ test("reset-password page never renders the password form for a missing recovery
   const pageSource = readResetPasswordPageSource();
   assert.match(pageSource, /cookies\(\)/);
   assert.match(pageSource, /tradeos-recovery/);
-  assert.match(pageSource, /hasRecoverySession/);
+  assert.match(pageSource, /recoveryUserId/);
 
   const resolveFnIndex = pageSource.indexOf("async function resolveContent");
   assert.notEqual(resolveFnIndex, -1);
   const resolveFnSource = pageSource.slice(resolveFnIndex);
-  assert.match(resolveFnSource, /if \(!hasRecoverySession\) \{\s*\n\s*return <RecoveryErrorCard/);
+  assert.match(resolveFnSource, /if \(initialState\.kind === ["']invalid-link["']\)/);
 });
 
 test("reset-password page shows a clear recovery error with a link back to /forgot-password for an expired, reused, or scanner-consumed link", () => {
@@ -265,7 +265,7 @@ test("reset-password page shows a clear recovery error with a link back to /forg
   const resolveFnSource = pageSource.slice(resolveFnIndex);
   const tokenCheckIndex = resolveFnSource.indexOf("if (token)");
   const errorCheckIndex = resolveFnSource.indexOf("if (error) return <RecoveryErrorCard");
-  const cookieCheckIndex = resolveFnSource.indexOf("hasRecoverySession");
+  const cookieCheckIndex = resolveFnSource.indexOf('cookieStore.get("tradeos-recovery")');
   assert.notEqual(tokenCheckIndex, -1);
   assert.notEqual(errorCheckIndex, -1);
   assert.notEqual(cookieCheckIndex, -1);
@@ -278,7 +278,7 @@ test("resetPasswordAction fails closed with a recovery error when the tradeos-re
   const nextFnIndex = authSource.indexOf("export async function acceptInviteAction");
   const fnSource = authSource.slice(fnIndex, nextFnIndex);
 
-  const cookieCheckIndex = fnSource.indexOf('cookieStore.get("tradeos-recovery")?.value !== "1"');
+  const cookieCheckIndex = fnSource.indexOf("if (!recoveryUserId)");
   const updateUserIndex = fnSource.indexOf("supabase.auth.updateUser({ password })");
   assert.notEqual(cookieCheckIndex, -1);
   assert.notEqual(updateUserIndex, -1);
