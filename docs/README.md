@@ -281,3 +281,8 @@ Athena production-readiness changes that touch approvals, audit persistence,
 permission context, or provider scope should update both the Athena-specific
 docs and whichever shared platform docs describe tenancy, RBAC, or runtime
 architecture.
+
+
+### Automated maintenance
+
+The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.
