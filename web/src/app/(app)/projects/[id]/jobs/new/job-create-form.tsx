@@ -52,8 +52,6 @@ export function JobCreateForm({
 
   useEffect(() => {
     let cancelled = false;
-    setLoadingAddresses(true);
-    setAddressLoadFailed(false);
     clientFetch<CustomerDetail>(`/customers/${customerId}`)
       .then((customer) => {
         if (cancelled) return;
@@ -62,6 +60,7 @@ export function JobCreateForm({
         const primary = nextAddresses.find((address) => address.isPrimary) ?? nextAddresses[0];
         setSelectedAddressId(primary?.id ?? "");
         setShowAddressForm(nextAddresses.length === 0);
+        setAddressLoadFailed(false);
         setError(null);
       })
       .catch((caught) => {
@@ -87,6 +86,13 @@ export function JobCreateForm({
   function formatAddress(address: ServiceAddress) {
     const street = [address.addressLine1, address.addressLine2].filter(Boolean).join(", ");
     return `${address.label ? `${address.label} — ` : ""}${street}, ${address.city}, ${address.state} ${address.postalCode}`;
+  }
+
+  function retryAddressLoad() {
+    setLoadingAddresses(true);
+    setAddressLoadFailed(false);
+    setError(null);
+    setAddressReloadNonce((value) => value + 1);
   }
 
   async function createServiceAddress(formData: FormData): Promise<string> {
@@ -217,7 +223,7 @@ export function JobCreateForm({
         {!loadingAddresses && addressLoadFailed ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
             <p className="text-sm text-destructive">Service addresses could not be loaded. Retry before creating a job.</p>
-            <button type="button" className="text-sm font-medium underline" onClick={() => setAddressReloadNonce((value) => value + 1)}>
+            <button type="button" className="text-sm font-medium underline" onClick={retryAddressLoad}>
               Retry address load
             </button>
           </div>
