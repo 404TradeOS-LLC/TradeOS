@@ -67,6 +67,7 @@ jobs:
       RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
       RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD }}
       RC_FIELD_AUTH_EMAIL: rc-field-tech@tradeos.invalid
+      RC_FIELD_USER_ID: 08d28981-52e8-4459-bcbb-1ef996baea92
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
       RC_FIELD_STORAGE_STATE_PATH: /tmp/rc-field-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
@@ -108,7 +109,7 @@ jobs:
             echo "::error::A dedicated non-production smoke tenant label is required."
             exit 1
           fi
-          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ] || [ -z "$RC_FIELD_AUTH_EMAIL" ]; then
+          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ] || [ -z "$RC_FIELD_AUTH_EMAIL" ] || [ -z "$RC_FIELD_USER_ID" ]; then
             echo "::error::Lifecycle owner and field technician authentication fixtures are required."
             exit 1
           fi
