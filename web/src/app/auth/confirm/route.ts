@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { type NextRequest } from "next/server";
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     ({ error } = await supabase.auth.exchangeCodeForSession(code));
-  } else if (tokenHash && type) {
+  } else if (tokenHash && type === "recovery") {
     ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type }));
   } else {
     redirect("/reset-password?error=invalid-link");
@@ -27,6 +28,15 @@ export async function GET(request: NextRequest) {
   if (error) {
     redirect("/reset-password?error=invalid-link");
   }
+
+  const cookieStore = await cookies();
+  cookieStore.set("tradeos-recovery", "1", {
+    httpOnly: true,
+    maxAge: 600,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
 
   redirect(next);
 }
