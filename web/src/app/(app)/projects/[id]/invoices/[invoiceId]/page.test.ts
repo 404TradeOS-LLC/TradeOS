@@ -37,6 +37,7 @@ function extractBackendBillingWriteRoles(): string[] {
   const rolePermissionsStart = source.indexOf("const rolePermissions:");
   assert.notEqual(rolePermissionsStart, -1, "expected a rolePermissions map in app/domain/contracts.ts");
   const rolePermissionsEnd = source.indexOf("\n};", rolePermissionsStart);
+  assert.notEqual(rolePermissionsEnd, -1, "expected the rolePermissions map to be closed with \"\\n};\"");
   const rolePermissionsSource = source.slice(rolePermissionsStart, rolePermissionsEnd);
 
   const roles: string[] = [];

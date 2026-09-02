@@ -224,4 +224,30 @@ describe("beta contractor vertical: estimate -> proposal -> contract price/scope
     ).rejects.toMatchObject({ statusCode: 409 });
     expect(mockPrisma.contract.create).not.toHaveBeenCalled();
   });
+
+  it("returns 404 and creates no contract when the proposal belongs to a different org", async () => {
+    // The real query scopes the lookup through project.orgId (see
+    // ContractsService.create); honor that here instead of returning a
+    // fixed row regardless of orgId, so this test actually guards tenant
+    // isolation rather than always finding the proposal.
+    mockPrisma.proposal.findFirst.mockImplementation(({ where }) => {
+      if (where?.project?.orgId !== "org-1") return Promise.resolve(null);
+      return Promise.resolve({ id: "proposal-3", projectId: "project-1", status: "accepted", finalPrice: 500, contracts: [] });
+    });
+
+    const contractsService = new ContractsService();
+    await expect(
+      contractsService.create({ orgId: "org-2", proposalId: "proposal-3", actorRole: "owner" })
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.contract.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a role without documents.manage before it ever looks up the proposal or writes a contract", async () => {
+    const contractsService = new ContractsService();
+    await expect(
+      contractsService.create({ orgId: "org-1", proposalId: "proposal-4", actorRole: "technician" })
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockPrisma.proposal.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.contract.create).not.toHaveBeenCalled();
+  });
 });
