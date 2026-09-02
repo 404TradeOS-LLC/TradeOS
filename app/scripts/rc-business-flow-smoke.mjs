@@ -7,9 +7,20 @@ const storageState = process.env.RC_STORAGE_STATE_PATH;
 const targetEnvironment = process.env.RC_TARGET_ENVIRONMENT;
 const fixturePath = process.env.RC_GOLDEN_REPORT_PATH || "../artifacts/estimate-deliverability/report.json";
 const outDir = process.env.RC_EVIDENCE_DIR || "../artifacts/rc-smoke";
-const fieldEmail = process.env.RC_FIELD_AUTH_EMAIL || "rc-field-tech@tradeos.invalid";
 const fieldPassword = process.env.RC_AUTH_PASSWORD;
-const fieldUserId = process.env.RC_FIELD_USER_ID || "08d28981-52e8-4459-bcbb-1ef996baea92";
+
+const FIELD_FIXTURES_BY_ORG = {
+  "980756cd-1c45-4cdb-a516-26be5e2455ad": {
+    orgName: "TradeOS RC Smoke",
+    email: "tradeos-rc-owner-a90d5dad@mailinator.com",
+    userId: "0858f7e5-4df3-46ec-9023-f7961d791c6b",
+  },
+  "9814bd72-626a-42f4-8871-cd755cb9d685": {
+    orgName: "TradeOS Beta Smoke",
+    email: "rc-field-tech@tradeos.invalid",
+    userId: "08d28981-52e8-4459-bcbb-1ef996baea92",
+  },
+};
 
 if (!baseUrl) throw new Error("RC_BASE_URL is required.");
 if (!storageState) throw new Error("RC_STORAGE_STATE_PATH is required.");
@@ -72,14 +83,28 @@ async function waitForResource(page, pathName, predicate, description, timeoutMs
   throw new Error(`Timed out waiting for ${description}. Last resource state: ${JSON.stringify(latest)}.`);
 }
 
-async function loginFieldTechnician(page) {
+async function resolveFieldFixture(page) {
+  const settings = await proxyJson(page, "/settings");
+  const orgId = settings?.orgId;
+  const selected = FIELD_FIXTURES_BY_ORG[orgId];
+  if (!selected) {
+    throw new Error(`Authenticated owner session is not scoped to an approved smoke organization: ${orgId ?? "missing orgId"}.`);
+  }
+  return { ...selected, orgId };
+}
+
+async function loginFieldTechnician(page, fieldFixture) {
   await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
-  await page.locator('[name="email"]').fill(fieldEmail);
+  await page.locator('[name="email"]').fill(fieldFixture.email);
   await page.locator('[name="password"]').fill(fieldPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 60_000 });
   const finalUrl = new URL(page.url());
   if (finalUrl.origin !== parsedBaseUrl.origin) throw new Error("Field technician login left the approved Preview origin.");
+  const settings = await proxyJson(page, "/settings");
+  if (settings?.orgId !== fieldFixture.orgId || settings?.currentRole !== "technician") {
+    throw new Error(`Field login resolved to unexpected membership: org=${settings?.orgId}, role=${settings?.currentRole}.`);
+  }
 }
 
 async function recordFullPayment(page) {
@@ -146,10 +171,10 @@ async function createFieldJob(page) {
   return job;
 }
 
-async function assignScheduleAndDispatch(page, job) {
+async function assignScheduleAndDispatch(page, job, fieldFixture) {
   const assignment = await proxyJson(page, `/jobs/${job.id}/assignments`, {
     method: "POST",
-    body: JSON.stringify({ userId: fieldUserId, assignmentRole: "technician", isLead: true }),
+    body: JSON.stringify({ userId: fieldFixture.userId, assignmentRole: "technician", isLead: true }),
   });
 
   const scheduledStart = new Date(Date.now() + 10 * 60_000);
@@ -160,12 +185,12 @@ async function assignScheduleAndDispatch(page, job) {
   });
   const dispatched = await proxyJson(page, `/jobs/${job.id}/dispatch`, { method: "POST", body: JSON.stringify({ reason: "RC full-lifecycle evidence" }) });
   const passed = dispatched?.status === "dispatched";
-  results.push({ name: "assign schedule and dispatch job", jobId: job.id, assignmentId: assignment?.id, scheduledStart: scheduledStart.toISOString(), scheduledEnd: scheduledEnd.toISOString(), status: dispatched?.status, passed });
+  results.push({ name: "assign schedule and dispatch job", jobId: job.id, assignmentId: assignment?.id, technicianUserId: fieldFixture.userId, scheduledStart: scheduledStart.toISOString(), scheduledEnd: scheduledEnd.toISOString(), status: dispatched?.status, passed });
   if (!passed) throw new Error(`Job ${job.id} did not reach dispatched after assignment and scheduling.`);
 }
 
-async function executeFieldLifecycle(page, job) {
-  await loginFieldTechnician(page);
+async function executeFieldLifecycle(page, job, fieldFixture) {
+  await loginFieldTechnician(page, fieldFixture);
   const route = `/field?job=${encodeURIComponent(job.id)}`;
   await page.goto(new URL(route, parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   const initialBody = await page.locator("body").innerText();
@@ -188,6 +213,7 @@ const browser = await chromium.launch({ headless: true });
 const results = [];
 let workflowError = null;
 let job = null;
+let fieldFixture = null;
 
 try {
   const dispatchContext = await browser.newContext({ storageState, viewport: { width: 1440, height: 1000 } });
@@ -204,13 +230,15 @@ try {
     if (!passed) throw new Error(`${name} failed smoke check: status=${status}, finalUrl=${finalUrl}.`);
   }
 
+  fieldFixture = await resolveFieldFixture(dispatchPage);
+  results.push({ name: "resolve smoke technician fixture", orgId: fieldFixture.orgId, orgName: fieldFixture.orgName, technicianUserId: fieldFixture.userId, passed: true });
   await recordFullPayment(dispatchPage);
   job = await createFieldJob(dispatchPage);
-  await assignScheduleAndDispatch(dispatchPage, job);
+  await assignScheduleAndDispatch(dispatchPage, job, fieldFixture);
 
   const fieldContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const fieldPage = await fieldContext.newPage();
-  await executeFieldLifecycle(fieldPage, job);
+  await executeFieldLifecycle(fieldPage, job, fieldFixture);
 
   const finalOwnerJob = await proxyJson(dispatchPage, `/jobs/${job.id}`);
   const finalInvoice = await proxyJson(dispatchPage, `/invoices/${run.invoiceId}`);
@@ -225,7 +253,7 @@ try {
   await browser.close();
   await fs.writeFile(
     path.join(outDir, "business-flow-report.json"),
-    JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, fixturePath, fixture: { projectId: run.projectId, proposalId: run.proposalId, contractId: run.contractId, invoiceId: run.invoiceId }, fieldFixture: { email: fieldEmail, userId: fieldUserId }, job: job ? { id: job.id, jobNumber: job.jobNumber, title: job.title } : null, results, error: workflowError instanceof Error ? workflowError.message : workflowError }, null, 2),
+    JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, fixturePath, fixture: { projectId: run.projectId, proposalId: run.proposalId, contractId: run.contractId, invoiceId: run.invoiceId }, fieldFixture, job: job ? { id: job.id, jobNumber: job.jobNumber, title: job.title } : null, results, error: workflowError instanceof Error ? workflowError.message : workflowError }, null, 2),
   );
 }
 
