@@ -48,8 +48,10 @@ export async function GET(request: NextRequest) {
   } else {
     // No recognized recovery params at all — most commonly a link a mail
     // scanner already prefetched (consuming the PKCE code/OTP before the
-    // real click) or a manually truncated URL.
-    console.error("Password recovery callback missing code/token_hash:", requestUrl.search);
+    // real click) or a manually truncated URL. Never log the query string:
+    // it can contain a still-valid recovery code or token hash when the
+    // companion `type` value is malformed or unexpected.
+    console.error("Password recovery callback missing recognized recovery parameters");
     return resetRedirect(request, "invalid-link");
   }
 
