@@ -1,4 +1,4 @@
-name: Repair RC beta Vercel wiring
+# Operational note: this workflow is intentionally manual and Preview-only.\n\nname: Repair RC beta Vercel wiring
 
 on:
   workflow_dispatch:
