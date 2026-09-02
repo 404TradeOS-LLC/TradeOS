@@ -181,6 +181,8 @@ Changes under `.github/workflows/**` and `.github/actions/**` additionally trigg
 
 The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
 
+The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL` using the current non-interactive Vercel CLI contract, redeploys the recorded staging backend, and requires `/ready` before the authenticated RC smoke can resume.
+
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
 The enforcement flow is:

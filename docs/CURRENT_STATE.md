@@ -194,8 +194,12 @@ sanitized signup probe reported `SUPABASE_URL is not configured`; the stable
 staging backend remained database-ready, isolating the defect to its missing
 branch-scoped Supabase issuer URL. The Beta owner and technician now have
 confirmed staging Supabase Auth identities mapped to their existing active
-owner/technician memberships. Full lifecycle evidence remains blocked until the
-staging backend variable is restored and the smoke rerun passes.
+owner/technician memberships. The first guarded environment-repair dispatch did
+not alter the deployment: Vercel CLI 59.11.2 prompted before `env update` and
+rejected the removed `redeploy --yes` option. The workflow now uses the verified
+non-interactive update and redeploy contracts. Full lifecycle evidence remains
+blocked until the corrected repair dispatch restores the staging backend and the
+smoke rerun passes.
 
 Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
 

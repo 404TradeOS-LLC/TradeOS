@@ -93,7 +93,9 @@ workflow rather than an evidence shortcut. With explicit confirmation, it
 restores only the stable staging backend's branch-scoped Preview
 `SUPABASE_URL`, redeploys that backend, and verifies database readiness before
 the RC smoke is rerun. The workflow embeds only the public staging project URL;
-its Vercel token remains a repository secret.
+its Vercel token remains a repository secret. The Vercel CLI update is explicit
+and non-interactive (`--value` plus `--yes`); redeploy uses the current command
+contract, which does not accept the legacy `--yes` option.
 
 ### Beta evidence
 
