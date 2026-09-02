@@ -96,6 +96,16 @@ describe("beta contractor vertical: estimate -> proposal -> contract price/scope
     const proposalsService = new ProposalsService();
     const proposal = await proposalsService.create({ orgId: "org-1", estimateId: "estimate-1" });
 
+    // Assert on the actual write, not just the (independently stubbed)
+    // return value: this is what proves ProposalsService itself computed
+    // finalPrice from the estimate's total, rather than the mock simply
+    // echoing back whatever createFromEstimate happened to be given.
+    expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ estimateId: "estimate-1", finalPrice: 9450.25 }),
+      })
+    );
+
     // The estimate's total price must survive into the proposal unchanged.
     expect(proposal.finalPrice).toBe(9450.25);
 
@@ -176,11 +186,17 @@ describe("beta contractor vertical: estimate -> proposal -> contract price/scope
 
     // The contract must be created with the accepted proposal's exact final
     // price -- not the estimate's price re-derived independently, and not a
-    // priceLow/priceHigh range.
+    // priceLow/priceHigh range. Asserted against the actual write, same as
+    // above, not the independently stubbed contract.create return value.
     expect(mockPrisma.contract.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          contractAmount: proposal.finalPrice,
+          contractAmount: 9450.25,
+          snapshotJson: expect.objectContaining({
+            contractAmount: 9450.25,
+            scopeOfWork: "Replace roof decking and shingles",
+            assumptions: "Weather permitting",
+          }),
         }),
       })
     );
