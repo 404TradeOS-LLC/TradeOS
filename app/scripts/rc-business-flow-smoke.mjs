@@ -61,6 +61,17 @@ async function proxyJson(page, pathName, init = {}) {
   return result.body;
 }
 
+async function waitForResource(page, pathName, predicate, description, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  let latest = null;
+  while (Date.now() < deadline) {
+    latest = await proxyJson(page, pathName);
+    if (predicate(latest)) return latest;
+    await page.waitForTimeout(250);
+  }
+  throw new Error(`Timed out waiting for ${description}. Last resource state: ${JSON.stringify(latest)}.`);
+}
+
 async function loginFieldTechnician(page) {
   await page.goto(new URL("/login", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   await page.locator('[name="email"]').fill(fieldEmail);
@@ -77,8 +88,8 @@ async function recordFullPayment(page) {
   const send = page.getByRole("button", { name: "Send invoice" });
   if (await send.isVisible().catch(() => false)) {
     await send.click();
-    await page.waitForURL(new RegExp(`/projects/${run.projectId}/invoices/${run.invoiceId}(?:\\?|$)`), { timeout: 60_000 });
-    await page.waitForLoadState("networkidle");
+    await waitForResource(page, `/invoices/${run.invoiceId}`, (invoice) => invoice?.status === "sent", `invoice ${run.invoiceId} to become sent`);
+    await page.goto(new URL(route, parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   }
 
   const invoiceBefore = await proxyJson(page, `/invoices/${run.invoiceId}`);
@@ -92,10 +103,13 @@ async function recordFullPayment(page) {
   await page.locator('[name="reference"]').fill("RC full-lifecycle evidence");
   await page.locator('[name="notes"]').fill("Automated sanitized RC lifecycle payment.");
   await page.getByRole("button", { name: "Record payment" }).click();
-  await page.waitForURL(new RegExp(`/projects/${run.projectId}/invoices/${run.invoiceId}(?:\\?|$)`), { timeout: 60_000 });
-  await page.waitForLoadState("networkidle");
+  const invoiceAfter = await waitForResource(
+    page,
+    `/invoices/${run.invoiceId}`,
+    (invoice) => invoice?.status === "paid" && Math.abs(Number(invoice?.balanceDue || 0)) < 0.005,
+    `invoice ${run.invoiceId} payment reconciliation`,
+  );
 
-  const invoiceAfter = await proxyJson(page, `/invoices/${run.invoiceId}`);
   const paid = invoiceAfter?.status === "paid" && Math.abs(Number(invoiceAfter?.balanceDue || 0)) < 0.005;
   results.push({ name: "record full invoice payment", route, invoiceId: run.invoiceId, amount: balanceDue, status: invoiceAfter?.status, balanceDue: invoiceAfter?.balanceDue, passed: paid });
   if (!paid) throw new Error(`Recorded payment did not reconcile invoice ${run.invoiceId} to paid with zero balance.`);
@@ -161,12 +175,11 @@ async function executeFieldLifecycle(page, job) {
 
   for (const [buttonName, expectedStatus] of [["Start travel", "traveling"], ["Arrived on site", "on_site"], ["Complete job", "completed"]]) {
     await page.getByRole("button", { name: buttonName }).click();
-    await page.waitForURL(new RegExp(`/field\\?job=${job.id}.*updated=1`), { timeout: 60_000 });
-    await page.waitForLoadState("networkidle");
-    const current = await proxyJson(page, `/jobs/${job.id}`);
+    const current = await waitForResource(page, `/jobs/${job.id}`, (resource) => resource?.status === expectedStatus, `job ${job.id} to reach ${expectedStatus}`);
     const passed = current?.status === expectedStatus;
     results.push({ name: `field transition ${buttonName}`, jobId: job.id, status: current?.status, expectedStatus, passed });
     if (!passed) throw new Error(`Field transition ${buttonName} left job ${job.id} in ${current?.status}, expected ${expectedStatus}.`);
+    await page.goto(new URL(route, parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   }
 }
 
