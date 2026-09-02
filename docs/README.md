@@ -79,11 +79,12 @@ Use these files first:
 The manual `Release candidate authenticated smoke` workflow is the governed
 S047 evidence path. It is restricted to explicitly selected Preview or Staging
 deployments on the approved HTTPS `tradeos-costbook-web-*.vercel.app` host
-pattern and a dedicated smoke tenant; it runs authentication lifecycle with a
-distinct account, then creates fresh owner/admin browser state through the real
-login form using the Beta smoke credentials. Resource-backed customer/estimate/
+pattern and a dedicated smoke tenant; it runs the owner authentication lifecycle
+with the maintained Beta smoke credentials, then creates fresh owner/admin
+browser state through the real login form using those credentials. Resource-backed customer/estimate/
 proposal/contract/invoice/portal checks reuse that temporary session, while the
-organization-matched technician is fresh-authenticated for Dispatch/Field
+organization-matched technician is fresh-authenticated with its isolated field
+password for Dispatch/Field
 completion. No serialized cookie-jar secret is required. Screenshots are opt-in
 only for an explicitly confirmed sanitized tenant, runtime state is removed
 before artifact publication, and failed steps retain available machine-readable

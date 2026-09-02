@@ -7,7 +7,7 @@ const storageState = process.env.RC_STORAGE_STATE_PATH;
 const targetEnvironment = process.env.RC_TARGET_ENVIRONMENT;
 const fixturePath = process.env.RC_GOLDEN_REPORT_PATH || "../artifacts/estimate-deliverability/report.json";
 const outDir = process.env.RC_EVIDENCE_DIR || "../artifacts/rc-smoke";
-const fieldPassword = process.env.RC_AUTH_PASSWORD;
+const fieldPassword = process.env.RC_FIELD_PASSWORD;
 
 const FIELD_FIXTURES_BY_ORG = {
   "980756cd-1c45-4cdb-a516-26be5e2455ad": {
@@ -24,7 +24,7 @@ const FIELD_FIXTURES_BY_ORG = {
 
 if (!baseUrl) throw new Error("RC_BASE_URL is required.");
 if (!storageState) throw new Error("RC_STORAGE_STATE_PATH is required.");
-if (!fieldPassword) throw new Error("RC_AUTH_PASSWORD is required for the dedicated field technician login.");
+if (!fieldPassword) throw new Error("RC_FIELD_PASSWORD is required for the dedicated field technician login.");
 if (!targetEnvironment || !["preview", "staging"].includes(targetEnvironment)) throw new Error("RC_TARGET_ENVIRONMENT must be preview or staging.");
 
 const parsedBaseUrl = new URL(baseUrl);

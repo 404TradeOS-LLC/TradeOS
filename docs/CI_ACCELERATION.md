@@ -62,11 +62,12 @@ belongs to the named smoke organization, and writes owner/admin storage state
 to the runner temporary directory with owner-only permissions for the business
 golden path and Dispatch. It fresh-authenticates the organization-matched
 technician before the resource-backed Field lifecycle instead of consuming a
-serialized technician cookie jar. The workflow also requires a separate
-lifecycle account using `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
-`RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and deliberately invalid
-`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` secrets to exercise rejected credentials,
-successful login, refresh, logout, and protected-route denial. It then runs
+serialized technician cookie jar. The owner authentication lifecycle uses the
+same maintained Beta smoke credentials plus the deliberately invalid
+`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` secret to exercise rejected credentials,
+successful login, refresh, logout, and protected-route denial. The dedicated
+field technician remains isolated behind `RC_E2E_LIFECYCLE_AUTH_PASSWORD`; the
+workflow exposes that value only to the field login as `RC_FIELD_PASSWORD`. It then runs
 route smoke, the customer → project → estimate → proposal golden workflow,
 contract/invoice creation, portal resource checks, and the Dispatch/Field job
 surfaces. Golden-workflow mutations require `RC_ALLOW_MUTATIONS=true` inside

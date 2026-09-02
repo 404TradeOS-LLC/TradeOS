@@ -62,11 +62,13 @@ contracts, domain services, forced RLS, and existing lifecycle semantics.
   deployment evidence.
 
 The operator supplies `BETA_RC_SMOKE_EMAIL`, `BETA_RC_SMOKE_PASSWORD`,
-`RC_E2E_LIFECYCLE_AUTH_EMAIL`, `RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and a
-deliberately invalid `RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` from the
-selected non-production environment. The lifecycle account remains distinct
-from the Beta smoke owner; its logout scenario runs before owner state is
-created so later evidence cannot inherit a revoked session.
+`RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and a deliberately invalid
+`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` from the selected non-production
+environment. Owner rejection/login/refresh/logout coverage uses the maintained
+Beta smoke identity, while the lifecycle password is separately exposed to the
+organization-matched field technician as `RC_FIELD_PASSWORD`. The logout
+scenario runs before owner state is created so later evidence cannot inherit a
+revoked session.
 The workflow sets mutation permission only for the guarded golden script and
 does not offer production as a mutating target; the mutating script also
 requires an approved `tradeos-costbook-web-*.vercel.app` host.
