@@ -1,10 +1,14 @@
-import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { type EmailOtpType } from "@supabase/supabase-js";
-import { redirect } from "next/navigation";
-import { type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 const ALLOWED_NEXT_PATHS = new Set(["/reset-password"]);
+
+function resetRedirect(request: NextRequest, error: string) {
+  const url = new URL("/reset-password", request.url);
+  url.searchParams.set("error", error);
+  return NextResponse.redirect(url);
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -14,7 +18,27 @@ export async function GET(request: NextRequest) {
   const requestedNext = requestUrl.searchParams.get("next") ?? "/reset-password";
   const next = ALLOWED_NEXT_PATHS.has(requestedNext) ? requestedNext : "/reset-password";
 
-  const supabase = await createClient();
+  // Build the redirect response first. Supabase's PKCE exchange writes the
+  // access and refresh cookies through setAll; attaching them to this exact
+  // response guarantees they survive the redirect to the password form.
+  const response = NextResponse.redirect(new URL(next, request.url));
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
   let error: { message: string } | null = null;
 
   if (code) {
@@ -22,15 +46,14 @@ export async function GET(request: NextRequest) {
   } else if (tokenHash && type === "recovery") {
     ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type }));
   } else {
-    redirect("/reset-password?error=invalid-link");
+    return resetRedirect(request, "invalid-link");
   }
 
   if (error) {
-    redirect("/reset-password?error=invalid-link");
+    return resetRedirect(request, "invalid-link");
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set("tradeos-recovery", "1", {
+  response.cookies.set("tradeos-recovery", "1", {
     httpOnly: true,
     maxAge: 600,
     path: "/",
@@ -38,5 +61,5 @@ export async function GET(request: NextRequest) {
     secure: process.env.NODE_ENV === "production",
   });
 
-  redirect(next);
+  return response;
 }
