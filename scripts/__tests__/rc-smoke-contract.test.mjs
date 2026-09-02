@@ -64,7 +64,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /invoiceId/);
 });
 
-test("business-flow smoke follows resource-backed project, portal, and job routes", () => {
+test("business-flow smoke executes payment through field completion", () => {
   for (const route of [
     "`/projects/${run.projectId}/contracts/${run.contractId}`",
     "`/projects/${run.projectId}/invoices/${run.invoiceId}`",
@@ -73,14 +73,28 @@ test("business-flow smoke follows resource-backed project, portal, and job route
     "`/portal/contracts/${run.contractId}`",
     "`/portal/invoices/${run.invoiceId}`",
     '"/dispatch"',
-    '"/field"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
-  assert.match(business, /RC_FIELD_STORAGE_STATE_PATH is required/);
+
+  assert.match(business, /RC_AUTH_PASSWORD is required for the dedicated field technician login/);
+  assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
+  assert.match(business, /RC_FIELD_USER_ID/);
+  assert.match(business, /Send invoice/);
+  assert.match(business, /Record payment/);
+  assert.match(business, /Create job and open Dispatch/);
+  assert.match(business, /assignmentRole: "technician"/);
+  assert.match(business, /\/jobs\/\$\{job\.id\}\/schedule/);
+  assert.match(business, /\/jobs\/\$\{job\.id\}\/dispatch/);
+  assert.match(business, /Start travel/);
+  assert.match(business, /Arrived on site/);
+  assert.match(business, /Complete job/);
+  assert.match(business, /expectedStatus.*completed/);
+  assert.match(business, /finalOwnerJob\?\.status === "completed"/);
+  assert.match(business, /finalInvoice\?\.status === "paid"/);
+  assert.match(business, /balanceDue/);
+  assert.match(business, /waitForResource/);
   assert.match(business, /finalOrigin\.origin === parsedBaseUrl\.origin/);
-  assert.match(business, /Active Jobs/);
-  assert.match(business, /No assigned jobs today/);
-  assert.match(business, /Technician workspace/);
   assert.match(business, /golden workflow report is missing/);
+  assert.doesNotMatch(business, /console\.log\([^)]*fieldPassword/i);
   assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/estimate-deliverability/);
 });
