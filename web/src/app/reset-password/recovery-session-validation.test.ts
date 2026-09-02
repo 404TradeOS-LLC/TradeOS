@@ -27,6 +27,12 @@ test("recovery marker requires live session verification", () => {
   assert.deepEqual(resolveInitialRecoveryState("", "", true), { kind: "verify-session" });
 });
 
+test("stale marker paired with a valid non-recovery session fails closed", () => {
+  // The boolean represents an exact user-id match between the exchanged
+  // recovery marker and the currently authenticated Supabase user.
+  assert.deepEqual(resolveRecoverySessionState(false, false), { kind: "invalid-link" });
+});
+
 test("stale marker with no Supabase user fails closed", () => {
   assert.deepEqual(resolveRecoverySessionState(false, false), { kind: "invalid-link" });
 });
