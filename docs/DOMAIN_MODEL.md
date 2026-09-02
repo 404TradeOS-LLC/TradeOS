@@ -131,6 +131,7 @@ A billing document stored in `Invoice`.
 - invoice line items store the issued selling-price allocation as `unitPrice`
   and `lineTotal`; estimate and change-order line items retain their separate
   cost-oriented `unitCost`/`lineCost` fields
+- the physical invoice-line-item columns are `unit_price` and `line_total`; the rename preserves values, indexes, constraints, and RLS policies
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
