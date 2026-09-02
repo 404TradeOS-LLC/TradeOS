@@ -31,6 +31,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -354,6 +355,10 @@ The Bible does not replace:
 The workflow holds read-only repository contents permission, is serialized through the `tradeos-beta-evidence` concurrency group so two runs cannot corrupt shared smoke data, and carries no `continue-on-error` on any release-critical step. It fail-closes before doing anything destructive: production hosts, the Production alias, and `-git-main-` previews are refused outright; environment identity must be explicitly declared and self-consistent; and a mutating run additionally requires a Supabase project ref proving the release-candidate deployment does not share the production database. Authenticated session state is generated at runtime, written outside the working tree, deleted in an `always()` step, and never uploaded; the evidence bundle is scanned for credential material before publication. See [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md) for the full contract and acceptance criteria.
 
 Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor the workflow's existence is evidence of live runtime behavior.
+
+## RC beta Vercel repair workflow
+
+`.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
 ## Production migration history reconciliation
 
