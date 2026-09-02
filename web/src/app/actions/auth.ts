@@ -76,14 +76,12 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
     return { error: "Enter the email address for your TradeOS account." };
   }
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/request", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  } catch {
-    // Keep this response enumeration-safe. The backend intentionally returns
-    // the same success shape for known and unknown addresses.
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${APP_URL}/auth/confirm?next=/reset-password`,
+  });
+
+  if (error) {
     return { error: "We couldn't process that request. Please try again." };
   }
 
@@ -101,13 +99,19 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
   if (password.length < 8) return { error: "Your password must be at least 8 characters." };
   if (password !== confirmPassword) return { error: "The passwords do not match." };
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/confirm", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    });
-  } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+  if (token) {
+    try {
+      await apiFetch("/api/v1/auth/password-reset/confirm", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+    } catch (err) {
+      return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+    }
+  } else {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { error: "This reset link is missing or invalid. Request a new link and try again." };
   }
 
   return { success: "Your password has been updated. You can sign in now." };
