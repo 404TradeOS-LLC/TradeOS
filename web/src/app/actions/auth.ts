@@ -18,7 +18,19 @@ interface LocalAuthSession {
 // it's passed to Supabase as emailRedirectTo below, and Supabase only
 // honors it if the same URL is also added to the project's Auth > URL
 // Configuration > Redirect URLs allowlist in the Supabase dashboard.
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+function recoveryRedirectUrl(): string | null {
+  if (!APP_URL) return process.env.NODE_ENV === "development" ? "http://localhost:3000/auth/confirm?next=/reset-password" : null;
+
+  try {
+    const url = new URL(APP_URL);
+    if (process.env.NODE_ENV !== "development" && url.protocol !== "https:") return null;
+    return url.origin + "/auth/confirm?next=/reset-password";
+  } catch {
+    return null;
+  }
+}
 
 export async function signupAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const organizationName = String(formData.get("organizationName") ?? "").trim();
@@ -77,9 +89,14 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
     return { error: "Enter the email address for your TradeOS account." };
   }
 
+  const redirectTo = recoveryRedirectUrl();
+  if (!redirectTo) {
+    return { error: "Password recovery is not configured for this deployment." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${APP_URL}/auth/confirm?next=/reset-password`,
+    redirectTo,
   });
 
   if (error) {
