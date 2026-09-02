@@ -7,9 +7,9 @@ const storageState = process.env.RC_STORAGE_STATE_PATH;
 const targetEnvironment = process.env.RC_TARGET_ENVIRONMENT;
 const fixturePath = process.env.RC_GOLDEN_REPORT_PATH || "../artifacts/estimate-deliverability/report.json";
 const outDir = process.env.RC_EVIDENCE_DIR || "../artifacts/rc-smoke";
-const fieldEmail = process.env.RC_FIELD_AUTH_EMAIL || "tradeos-rc-owner-a90d5dad@mailinator.com";
+const fieldEmail = process.env.RC_FIELD_AUTH_EMAIL || "rc-field-tech@tradeos.invalid";
 const fieldPassword = process.env.RC_AUTH_PASSWORD;
-const fieldUserId = process.env.RC_FIELD_USER_ID || "0858f7e5-4df3-46ec-9023-f7961d791c6b";
+const fieldUserId = process.env.RC_FIELD_USER_ID || "08d28981-52e8-4459-bcbb-1ef996baea92";
 
 if (!baseUrl) throw new Error("RC_BASE_URL is required.");
 if (!storageState) throw new Error("RC_STORAGE_STATE_PATH is required.");
