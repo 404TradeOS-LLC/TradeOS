@@ -96,7 +96,6 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!token) return { error: "This password-reset link is missing its token." };
   if (password.length < 8) return { error: "Your password must be at least 8 characters." };
   if (password !== confirmPassword) return { error: "The passwords do not match." };
 
