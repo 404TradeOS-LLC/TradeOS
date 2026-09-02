@@ -133,14 +133,14 @@ export function JobCreateForm({
     setError(null);
     try {
       const formData = new FormData(event.currentTarget);
+      const title = String(formData.get("title") ?? "").trim();
+      const jobType = String(formData.get("jobType") ?? "").trim();
+      if (!title || !jobType) throw new Error("Job title and job type are required.");
+
       let serviceAddressId = selectedAddressId;
       if (showAddressForm || !serviceAddressId) {
         serviceAddressId = await createServiceAddress(formData);
       }
-
-      const title = String(formData.get("title") ?? "").trim();
-      const jobType = String(formData.get("jobType") ?? "").trim();
-      if (!title || !jobType) throw new Error("Job title and job type are required.");
 
       const created = await clientFetch<CreatedJob>("/jobs", {
         method: "POST",
