@@ -40,11 +40,16 @@ export async function GET(request: NextRequest) {
   );
 
   let error: { message: string } | null = null;
+  let recoveryUserId: string | null = null;
 
   if (code) {
-    ({ error } = await supabase.auth.exchangeCodeForSession(code));
+    const result = await supabase.auth.exchangeCodeForSession(code);
+    error = result.error;
+    recoveryUserId = result.data.session?.user.id ?? null;
   } else if (tokenHash && type === "recovery") {
-    ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type }));
+    const result = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    error = result.error;
+    recoveryUserId = result.data.session?.user.id ?? null;
   } else {
     // No recognized recovery params at all — most commonly a link a mail
     // scanner already prefetched (consuming the PKCE code/OTP before the
@@ -55,15 +60,16 @@ export async function GET(request: NextRequest) {
     return resetRedirect(request, "invalid-link");
   }
 
-  if (error) {
+  if (error || !recoveryUserId) {
     // Server-side diagnostic only — the user-facing redirect below stays
     // generic so we never leak Supabase internals or confirm which emails
     // have accounts.
-    console.error("Password recovery exchange failed:", error.message);
+    if (error) console.error("Password recovery exchange failed:", error.message);
+    else console.error("Password recovery exchange returned no user session");
     return resetRedirect(request, "invalid-link");
   }
 
-  response.cookies.set("tradeos-recovery", "1", {
+  response.cookies.set("tradeos-recovery", recoveryUserId, {
     httpOnly: true,
     maxAge: 600,
     path: "/",
