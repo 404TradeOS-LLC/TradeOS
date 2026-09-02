@@ -1,11 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildHeaderSynthesis,
   buildReviewQueueMetrics,
   createGreetingSubscription,
   getNextGreetingBoundary,
   greetingForHour,
 } from "./owner-dashboard-header-model.ts";
+
+test("buildHeaderSynthesis reports a fully clear day when nothing needs attention and no jobs are scheduled", () => {
+  assert.equal(buildHeaderSynthesis("Good morning", 0, 0), "Good morning — nothing on today's schedule, and nothing needs your attention right now.");
+});
+
+test("buildHeaderSynthesis singularizes a single item needing attention and a single job", () => {
+  assert.equal(buildHeaderSynthesis("Good morning", 1, 1), "Good morning — 1 item needs your attention and 1 job scheduled today.");
+});
+
+test("buildHeaderSynthesis pluralizes multiple attention items and multiple jobs", () => {
+  assert.equal(buildHeaderSynthesis("Good morning", 3, 2), "Good morning — 3 items need your attention and 2 jobs scheduled today.");
+});
+
+test("buildHeaderSynthesis still names today's jobs when nothing needs attention", () => {
+  assert.equal(buildHeaderSynthesis("Good afternoon", 0, 4), "Good afternoon — 4 jobs scheduled today, and nothing needs your attention right now.");
+});
 
 test("greetingForHour returns the right greeting for each part of the day", () => {
   assert.equal(greetingForHour(0), "Good night");

@@ -15,7 +15,6 @@ export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
     <DashboardPanel
       title="Today's Schedule"
       description="Jobs scheduled for today, pulled live from the dispatch workspace."
-      className="xl:col-span-2"
       action={
         <Link href="/dispatch" className={buttonVariants({ variant: "outline", size: "sm" })}>
           Open dispatch
