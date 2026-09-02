@@ -46,10 +46,18 @@ export async function GET(request: NextRequest) {
   } else if (tokenHash && type === "recovery") {
     ({ error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type }));
   } else {
+    // No recognized recovery params at all — most commonly a link a mail
+    // scanner already prefetched (consuming the PKCE code/OTP before the
+    // real click) or a manually truncated URL.
+    console.error("Password recovery callback missing code/token_hash:", requestUrl.search);
     return resetRedirect(request, "invalid-link");
   }
 
   if (error) {
+    // Server-side diagnostic only — the user-facing redirect below stays
+    // generic so we never leak Supabase internals or confirm which emails
+    // have accounts.
+    console.error("Password recovery exchange failed:", error.message);
     return resetRedirect(request, "invalid-link");
   }
 

@@ -28,7 +28,19 @@ export function ResetPasswordForm({ token }: { token: string }) {
               <Label htmlFor="confirmPassword">Confirm password</Label>
               <Input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" minLength={8} required />
             </div>
-            {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {state.error}
+                {state.recoveryError && (
+                  <>
+                    {" "}
+                    <Link href="/forgot-password" className="font-medium underline">
+                      Request a new link
+                    </Link>
+                  </>
+                )}
+              </p>
+            )}
             {state?.success && (
               <p role="status" className="text-sm text-emerald-700">
                 {state.success}{" "}
