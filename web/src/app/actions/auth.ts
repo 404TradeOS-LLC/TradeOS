@@ -6,7 +6,7 @@ import { apiFetch, ApiClientError } from "@/lib/api";
 import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
-export type AuthActionState = { error?: string; success?: string } | undefined;
+export type AuthActionState = { error?: string; success?: string; recoveryError?: boolean } | undefined;
 
 interface LocalAuthSession {
   token: string;
@@ -100,6 +100,12 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
   });
 
   if (error) {
+    // Server-side diagnostic only. Supabase can fail this for reasons that
+    // must never reach the client response (rate limiting, SMTP/provider
+    // outage, a malformed redirectTo the dashboard allowlist rejects) — the
+    // user-facing copy stays generic so we never confirm which emails have
+    // accounts.
+    console.error("resetPasswordForEmail failed:", error.message);
     return { error: "We couldn't process that request. Please try again." };
   }
 
@@ -128,12 +134,25 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
   } else {
     const cookieStore = await cookies();
     if (cookieStore.get("tradeos-recovery")?.value !== "1") {
-      return { error: "This reset link is missing or invalid. Request a new link and try again." };
+      return {
+        error: "This reset link is missing or invalid. Request a new link and try again.",
+        recoveryError: true,
+      };
     }
 
     const supabase = await createClient();
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) return { error: "Unable to update your password. Request a new link and try again." };
+    if (error) {
+      // Server-side diagnostic only. The recovery cookie can be present yet
+      // the Supabase session it names still fail here (link consumed a
+      // second time in another tab, session expired mid-form, provider
+      // error) — never surface error.message to the client.
+      console.error("Supabase updateUser failed during password reset:", error.message);
+      return {
+        error: "Unable to update your password. Request a new link and try again.",
+        recoveryError: true,
+      };
+    }
 
     cookieStore.delete("tradeos-recovery");
   }
