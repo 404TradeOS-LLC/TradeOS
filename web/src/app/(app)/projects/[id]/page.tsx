@@ -23,7 +23,8 @@ export default async function ProjectDetailPage({
         project={project}
         subtitle={project.simpleScope ?? "Move this job from estimate into full project execution."}
         actions={[
-          { href: `/projects/${project.id}/intake`, label: "Open field intake" },
+          { href: `/projects/${project.id}/jobs/new`, label: "Create job" },
+          { href: `/projects/${project.id}/intake`, label: "Open field intake", variant: "secondary" },
           { href: `/projects/${project.id}?tab=change-orders`, label: "Open change orders", variant: "secondary" },
         ]}
       />
