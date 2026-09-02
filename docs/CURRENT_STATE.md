@@ -182,6 +182,13 @@ Repository state and production state are separate evidence domains.
 
 Known retained deployment evidence includes the S027 production Costbook replay described above and later production/auth fixes recorded by their owning PRs. Exact release-candidate browser evidence, environment configuration, credentials/storage states, and retained multi-viewport artifacts must be proven through the approved deployment/evidence workflows rather than inferred from merged code.
 
+RC smoke run #10 on 2026-09-02 proved the repaired workflow now passes its
+non-production configuration gate without serialized storage-state secrets, but
+the owner authentication check still used a stale lifecycle identity and timed
+out on successful-login navigation. The bounded follow-up maps owner auth to the
+maintained Beta smoke credentials while keeping the field technician password
+isolated; this is evidence-fixture maintenance, not a product auth-policy change.
+
 Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
 
 ## Contractor project-to-job bridge

@@ -108,7 +108,8 @@ PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-art
 The S047 RC smoke workflow is an operator-triggered, non-production evidence
 lane. Its workflow inputs offer only Preview and Staging, require a dedicated
 smoke-tenant label, runtime-generated owner/admin state, an organization-matched
-fresh technician login, and a distinct lifecycle auth account, and run the authentication, golden
+fresh technician login with an isolated field password, and maintained Beta
+owner credentials for the authentication lifecycle, and run the authentication, golden
 customer/project/estimate/proposal, contract/invoice/portal, and Dispatch/Field
 checks. Mutating golden runs are additionally bound to the approved
 `tradeos-costbook-web-*.vercel.app` Preview host pattern. Screenshot publication

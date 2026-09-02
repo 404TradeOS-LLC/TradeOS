@@ -18,9 +18,10 @@ test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
-  assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
+  assert.doesNotMatch(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
+  assert.match(workflow, /RC_FIELD_PASSWORD/);
   assert.match(workflow, /BETA_RC_SMOKE_EMAIL/);
   assert.match(workflow, /BETA_RC_SMOKE_PASSWORD/);
   assert.match(workflow, /BETA_STORAGE_STATE_PATH/);
@@ -60,6 +61,7 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
     "expired or logged-out session redirects from a protected route",
   ]) assert.match(authSmoke, new RegExp(marker));
   assert.match(authSmoke, /RC_AUTH_REJECTED_PASSWORD/);
+  assert.match(authSmoke, /Valid RC smoke owner credentials were rejected by the login surface/);
   assert.match(authSmoke, /openLoginPage/);
   assert.match(authSmoke, /finalUrl\.origin !== parsedBaseUrl\.origin/);
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
@@ -89,7 +91,7 @@ test("business-flow smoke selects the matching smoke technician and executes pay
     '"/dispatch"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
 
-  assert.match(business, /RC_AUTH_PASSWORD is required for the dedicated field technician login/);
+  assert.match(business, /RC_FIELD_PASSWORD is required for the dedicated field technician login/);
   assert.match(business, /FIELD_FIXTURES_BY_ORG/);
   assert.match(business, /980756cd-1c45-4cdb-a516-26be5e2455ad/);
   assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);

@@ -69,7 +69,12 @@ try {
     await page.locator('[name="email"]').fill(email);
     await page.locator('[name="password"]').fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 60_000 });
+    await Promise.race([
+      page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 60_000 }),
+      page.getByRole("alert").waitFor({ state: "visible", timeout: 60_000 }).then(() => {
+        throw new Error("Valid RC smoke owner credentials were rejected by the login surface.");
+      }),
+    ]);
   });
 
   await recordStep("authenticated session survives a page refresh", async () => {
