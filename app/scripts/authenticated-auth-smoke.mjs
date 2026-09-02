@@ -72,7 +72,7 @@ try {
     await Promise.race([
       page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 60_000 }),
       page.getByRole("alert").waitFor({ state: "visible", timeout: 60_000 }).then(() => {
-        throw new Error("Valid RC smoke owner credentials were rejected by the login surface.");
+        throw new Error("RC smoke owner login returned an alert before reaching the authenticated workspace.");
       }),
     ]);
   });

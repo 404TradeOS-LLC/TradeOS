@@ -6,6 +6,7 @@ import test from "node:test";
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const workflow = read(".github/workflows/rc-smoke.yml");
+const stagingAuthRepair = read(".github/workflows/repair-staging-supabase-auth.yml");
 const routeSmoke = read("app/scripts/authenticated-route-smoke.mjs");
 const authSmoke = read("app/scripts/authenticated-auth-smoke.mjs");
 const golden = read("app/scripts/estimate-deliverability-golden.mjs");
@@ -61,10 +62,21 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
     "expired or logged-out session redirects from a protected route",
   ]) assert.match(authSmoke, new RegExp(marker));
   assert.match(authSmoke, /RC_AUTH_REJECTED_PASSWORD/);
-  assert.match(authSmoke, /Valid RC smoke owner credentials were rejected by the login surface/);
+  assert.match(authSmoke, /RC smoke owner login returned an alert before reaching the authenticated workspace/);
   assert.match(authSmoke, /openLoginPage/);
   assert.match(authSmoke, /finalUrl\.origin !== parsedBaseUrl\.origin/);
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
+});
+
+test("staging auth repair is explicit, branch-scoped, and never targets Production", () => {
+  assert.match(stagingAuthRepair, /REPAIR_STAGING_AUTH/);
+  assert.match(stagingAuthRepair, /STAGING_BRANCH: staging/);
+  assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
+  assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
+  assert.match(stagingAuthRepair, /tradeos-costbook-git-staging-billykshowalters\.vercel\.app/);
+  assert.match(stagingAuthRepair, /body\.status !== "ready"/);
+  assert.doesNotMatch(stagingAuthRepair, /\bproduction\b/i);
+  assert.doesNotMatch(stagingAuthRepair, /kssaceuetdjwfqnbzhly/);
 });
 
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {

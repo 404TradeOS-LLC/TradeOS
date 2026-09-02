@@ -122,6 +122,14 @@ created outside the checkout with owner-only permissions and removed in an
 required or uploaded. These controls protect customer data in CI artifacts
 without changing product authentication or authorization policy.
 
+The companion `Repair staging Supabase auth configuration` workflow is a
+manual, confirmation-gated operational control. Its repository contract fixes
+the Vercel project, `staging` branch, Preview environment, and public staging
+Supabase URL, then requires database-backed readiness. Changes that broaden it
+to Production, accept an operator-provided target/value, or expose the Vercel
+token require an explicit governance review and are prohibited by its contract
+test.
+
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
 ## Solo-maintainer review posture

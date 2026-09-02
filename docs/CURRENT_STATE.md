@@ -189,6 +189,14 @@ out on successful-login navigation. The bounded follow-up maps owner auth to the
 maintained Beta smoke credentials while keeping the field technician password
 isolated; this is evidence-fixture maintenance, not a product auth-policy change.
 
+Run #11 then returned a login alert before credential evaluation. A direct
+sanitized signup probe reported `SUPABASE_URL is not configured`; the stable
+staging backend remained database-ready, isolating the defect to its missing
+branch-scoped Supabase issuer URL. The Beta owner and technician now have
+confirmed staging Supabase Auth identities mapped to their existing active
+owner/technician memberships. Full lifecycle evidence remains blocked until the
+staging backend variable is restored and the smoke rerun passes.
+
 Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
 
 ## Contractor project-to-job bridge
