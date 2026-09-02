@@ -144,7 +144,9 @@ bounded recovery path when the stable `staging` backend loses its
 branch-scoped `SUPABASE_URL`. It requires the exact `REPAIR_STAGING_AUTH`
 confirmation, writes only the public TradeOS Staging project URL to Preview
 scope for the `staging` branch, redeploys the recorded stable staging backend,
-and requires database-backed `/ready` success. It cannot target Production or
+and requires database-backed `/ready` success. The environment update supplies
+its value and confirmation non-interactively, while `vercel redeploy` is invoked
+without the unsupported legacy `--yes` option. It cannot target Production or
 the Production Supabase project and does not rotate database or JWT secrets.
 
 ### Vercel Authentication (Preview protection)

@@ -73,6 +73,9 @@ test("staging auth repair is explicit, branch-scoped, and never targets Producti
   assert.match(stagingAuthRepair, /STAGING_BRANCH: staging/);
   assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
   assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
+  assert.match(stagingAuthRepair, /vercel env update SUPABASE_URL preview "\$STAGING_BRANCH" --value "\$STAGING_SUPABASE_URL" --yes/);
+  assert.match(stagingAuthRepair, /vercel redeploy "\$STAGING_BACKEND_DEPLOYMENT" --token="\$VERCEL_TOKEN"/);
+  assert.doesNotMatch(stagingAuthRepair, /vercel redeploy[^\n]*--yes/);
   assert.match(stagingAuthRepair, /tradeos-costbook-git-staging-billykshowalters\.vercel\.app/);
   assert.match(stagingAuthRepair, /body\.status !== "ready"/);
   assert.doesNotMatch(stagingAuthRepair, /\bproduction\b/i);
