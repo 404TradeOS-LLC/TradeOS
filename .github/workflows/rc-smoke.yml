@@ -63,11 +63,10 @@ jobs:
       RC_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       ESTIMATE_RELIABILITY_RUNS: ${{ inputs.estimate_runs }}
       RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
+      RC_FIELD_STORAGE_STATE_B64: ${{ secrets.RC_E2E_FIELD_STORAGE_STATE_B64 }}
       RC_AUTH_EMAIL: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_EMAIL }}
       RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
       RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD }}
-      RC_FIELD_AUTH_EMAIL: rc-field-tech@tradeos.invalid
-      RC_FIELD_USER_ID: 08d28981-52e8-4459-bcbb-1ef996baea92
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
       RC_FIELD_STORAGE_STATE_PATH: /tmp/rc-field-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
@@ -81,7 +80,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - name: Require authenticated owner storage state
+      - name: Require authenticated storage state
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +90,12 @@ jobs:
           fi
           printf '%s' "$RC_STORAGE_STATE_B64" | base64 --decode > "$RC_STORAGE_STATE_PATH"
           chmod 600 "$RC_STORAGE_STATE_PATH"
+          if [ -z "$RC_FIELD_STORAGE_STATE_B64" ]; then
+            echo "::error::Repository secret RC_E2E_FIELD_STORAGE_STATE_B64 is required."
+            exit 1
+          fi
+          printf '%s' "$RC_FIELD_STORAGE_STATE_B64" | base64 --decode > "$RC_FIELD_STORAGE_STATE_PATH"
+          chmod 600 "$RC_FIELD_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
       - name: Require non-production smoke configuration
         shell: bash
@@ -109,8 +114,8 @@ jobs:
             echo "::error::A dedicated non-production smoke tenant label is required."
             exit 1
           fi
-          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ] || [ -z "$RC_FIELD_AUTH_EMAIL" ] || [ -z "$RC_FIELD_USER_ID" ]; then
-            echo "::error::Lifecycle owner and field technician authentication fixtures are required."
+          if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ]; then
+            echo "::error::RC_E2E_LIFECYCLE_AUTH_EMAIL, RC_E2E_LIFECYCLE_AUTH_PASSWORD, and RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD are required."
             exit 1
           fi
           if [ "$RC_CAPTURE_SCREENSHOTS" = "true" ] && [ "$RC_SANITIZED_TENANT" != "true" ]; then
@@ -118,7 +123,6 @@ jobs:
             exit 1
           fi
       - run: node scripts/authenticated-auth-smoke.mjs
-      - run: node scripts/authenticated-field-session.mjs
       - run: node scripts/authenticated-route-smoke.mjs
       - run: node scripts/estimate-deliverability-golden.mjs
         env:
