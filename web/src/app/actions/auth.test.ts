@@ -249,7 +249,7 @@ test("reset-password page never renders the password form for a missing recovery
   const resolveFnIndex = pageSource.indexOf("async function resolveContent");
   assert.notEqual(resolveFnIndex, -1);
   const resolveFnSource = pageSource.slice(resolveFnIndex);
-  assert.match(resolveFnSource, /if \(!hasRecoverySession\) \{\s*\n\s*return <RecoveryErrorCard/);
+  assert.match(resolveFnSource, /if \(initialState\.kind === ["']invalid-link["']\)/);
 });
 
 test("reset-password page shows a clear recovery error with a link back to /forgot-password for an expired, reused, or scanner-consumed link", () => {
