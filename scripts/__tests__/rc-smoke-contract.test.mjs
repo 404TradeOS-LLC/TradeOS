@@ -76,8 +76,10 @@ test("business-flow smoke executes payment through field completion", () => {
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
 
   assert.match(business, /RC_AUTH_PASSWORD is required for the dedicated field technician login/);
-  assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
-  assert.match(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
+  assert.match(business, /rc-field-tech@tradeos\.invalid/);
+  assert.match(business, /08d28981-52e8-4459-bcbb-1ef996baea92/);
+  assert.doesNotMatch(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
+  assert.doesNotMatch(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
   assert.match(business, /Send invoice/);
   assert.match(business, /Record payment/);
   assert.match(business, /Create job and open Dispatch/);
