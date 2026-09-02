@@ -1,13 +1,23 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { JobCreateForm } from "./job-create-form";
 import { buttonVariants } from "@/components/ui/button";
-import { getProject } from "@/lib/api";
+import { getOrganizationSettings, getProject } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+
+const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
 
 export default async function NewProjectJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const token = await getSessionToken();
-  const project = await getProject(token ?? "", id);
+  const [project, settings] = await Promise.all([
+    getProject(token ?? "", id),
+    getOrganizationSettings(token ?? ""),
+  ]);
+
+  if (!JOB_MANAGER_ROLES.has(settings.currentRole)) {
+    redirect(`/projects/${project.id}`);
+  }
 
   if (!project.customer) {
     return (
