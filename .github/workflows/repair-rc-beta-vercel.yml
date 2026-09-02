@@ -8,21 +8,6 @@ on:
         required: true
         type: string
         default: ""
-      rc_branch:
-        description: "Vercel Preview Git branch to repair"
-        required: true
-        type: string
-        default: "fix/rc-dashboard-api-error"
-      frontend_deployment:
-        description: "Current RC frontend deployment URL"
-        required: true
-        type: string
-        default: "https://tradeos-costbook-57hq4ds6c-billykshowalters.vercel.app"
-      backend_deployment:
-        description: "Current RC backend deployment URL"
-        required: true
-        type: string
-        default: "https://tradeos-costbook-apbe6n08i-billykshowalters.vercel.app"
 
 permissions:
   contents: read
@@ -33,16 +18,16 @@ concurrency:
 
 jobs:
   repair:
-    name: Repair RC Preview configuration
+    name: Repair current RC Preview configuration
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
       FRONTEND_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
       BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
-      RC_BRANCH: ${{ inputs.rc_branch }}
-      FRONTEND_DEPLOYMENT: ${{ inputs.frontend_deployment }}
-      BACKEND_DEPLOYMENT: ${{ inputs.backend_deployment }}
+      RC_BRANCH: fix/rc-dashboard-api-error
+      FRONTEND_DEPLOYMENT: https://tradeos-costbook-57hq4ds6c-billykshowalters.vercel.app
+      BACKEND_DEPLOYMENT: https://tradeos-costbook-apbe6n08i-billykshowalters.vercel.app
       RC_FRONTEND_URL: https://tradeos-costbook-web-git-fix-rc-dashboa-39fb8b-billykshowalters.vercel.app
       RC_BACKEND_URL: https://tradeos-costbook-git-fix-rc-dashboard-a-873766-billykshowalters.vercel.app
     steps:
