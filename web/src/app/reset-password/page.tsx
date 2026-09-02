@@ -54,15 +54,15 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
 // Every other link relies on Supabase recovery: /auth/confirm sets the
 // short-lived tradeos-recovery cookie only after a successful exchange. The
 // marker is necessary but not sufficient because it can outlive the underlying
-// Supabase session; verify the current user before rendering the reset form so
-// an expired or otherwise lost recovery session fails closed at page load.
+// Supabase session; verify that the current user matches the recovery exchange before rendering
+// the reset form so an expired, stale, or unrelated sign-in session fails closed at page load.
 async function resolveContent(token: string, error: string) {
   if (token) return <ResetPasswordForm token={token} />;
   if (error) return <RecoveryErrorCard message={recoveryErrorMessage(error)} />;
 
   const cookieStore = await cookies();
-  const hasRecoveryMarker = cookieStore.get("tradeos-recovery")?.value === "1";
-  const initialState = resolveInitialRecoveryState("", "", hasRecoveryMarker);
+  const recoveryUserId = cookieStore.get("tradeos-recovery")?.value ?? "";
+  const initialState = resolveInitialRecoveryState("", "", Boolean(recoveryUserId));
   if (initialState.kind === "invalid-link") {
     return <RecoveryErrorCard message={recoveryErrorMessage("invalid-link")} />;
   }
@@ -72,7 +72,7 @@ async function resolveContent(token: string, error: string) {
     data: { user },
     error: sessionError,
   } = await supabase.auth.getUser();
-  const sessionState = resolveRecoverySessionState(Boolean(user), Boolean(sessionError));
+  const sessionState = resolveRecoverySessionState(Boolean(user && recoveryUserId && user.id === recoveryUserId), Boolean(sessionError));
   if (sessionState.kind === "invalid-link") {
     if (sessionError) console.error("Supabase recovery session validation failed:", sessionError.message);
     return <RecoveryErrorCard message={recoveryErrorMessage("invalid-link")} />;
