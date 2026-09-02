@@ -265,7 +265,7 @@ test("reset-password page shows a clear recovery error with a link back to /forg
   const resolveFnSource = pageSource.slice(resolveFnIndex);
   const tokenCheckIndex = resolveFnSource.indexOf("if (token)");
   const errorCheckIndex = resolveFnSource.indexOf("if (error) return <RecoveryErrorCard");
-  const cookieCheckIndex = resolveFnSource.indexOf("cookieStore.get(\\\"tradeos-recovery\\\")");
+  const cookieCheckIndex = resolveFnSource.indexOf('cookieStore.get("tradeos-recovery")');
   assert.notEqual(tokenCheckIndex, -1);
   assert.notEqual(errorCheckIndex, -1);
   assert.notEqual(cookieCheckIndex, -1);
