@@ -177,5 +177,6 @@ test("web password recovery uses Supabase Auth and exchanges recovery links befo
   assert.match(authSource, /updateUser\(\{ password \}\)/);
   assert.match(routeSource, /exchangeCodeForSession/);
   assert.match(routeSource, /verifyOtp/);
+  assert.match(routeSource, /tradeos-recovery/);
   assert.match(routeSource, /reset-password/);
 });
