@@ -14,13 +14,27 @@ const business = read("app/scripts/rc-business-flow-smoke.mjs");
 test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /default: \/dashboard,\/customers,\/projects,\/dispatch,\/field,\/costbook/);
   assert.match(workflow, /node scripts\/authenticated-auth-smoke\.mjs/);
+  assert.match(workflow, /node scripts\/beta-evidence\/auth-setup\.mjs/);
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
-  assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.match(workflow, /BETA_RC_SMOKE_EMAIL/);
+  assert.match(workflow, /BETA_RC_SMOKE_PASSWORD/);
+  assert.match(workflow, /BETA_STORAGE_STATE_PATH/);
+  assert.doesNotMatch(workflow, /RC_E2E_STORAGE_STATE_B64/);
+  assert.doesNotMatch(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.doesNotMatch(workflow, /base64 --decode/);
+  assert.match(workflow, /name: Remove runtime storage state/);
+  assert.match(workflow, /rm -f "\$\{BETA_STORAGE_STATE_PATH:-\}"/);
+
+  const authLifecycleIndex = workflow.indexOf("node scripts/authenticated-auth-smoke.mjs");
+  const runtimeBootstrapIndex = workflow.indexOf("node scripts/beta-evidence/auth-setup.mjs");
+  const routeSmokeIndex = workflow.indexOf("node scripts/authenticated-route-smoke.mjs");
+  assert.ok(authLifecycleIndex < runtimeBootstrapIndex, "logout lifecycle must run before owner state is generated");
+  assert.ok(runtimeBootstrapIndex < routeSmokeIndex, "owner state must exist before authenticated route smoke");
   assert.match(workflow, /url\.protocol === "https:"/);
   assert.match(workflow, /tradeos-costbook-web-\[a-z0-9\]/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
