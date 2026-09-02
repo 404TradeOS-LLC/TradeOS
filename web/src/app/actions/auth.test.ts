@@ -162,3 +162,21 @@ test("invite acceptance establishes the backend local session before entering th
   assert.match(inviteSource, /setLocalSession\(session\.token, session\.refreshToken\)/);
   assert.match(inviteSource, /redirect\(["']\/dashboard["']\)/);
 });
+
+
+function readRecoveryRouteSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "auth", "confirm", "route.ts"), "utf8");
+}
+
+test("web password recovery uses Supabase Auth and exchanges recovery links before updating the password", () => {
+  const authSource = readAuthActionsSource();
+  const routeSource = readRecoveryRouteSource();
+
+  assert.match(authSource, /resetPasswordForEmail/);
+  assert.match(authSource, /updateUser\(\{ password \}\)/);
+  assert.match(routeSource, /exchangeCodeForSession/);
+  assert.match(routeSource, /verifyOtp/);
+  assert.match(routeSource, /tradeos-recovery/);
+  assert.match(routeSource, /reset-password/);
+});

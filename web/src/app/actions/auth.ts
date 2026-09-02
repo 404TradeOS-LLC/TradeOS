@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
 import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
@@ -17,7 +18,19 @@ interface LocalAuthSession {
 // it's passed to Supabase as emailRedirectTo below, and Supabase only
 // honors it if the same URL is also added to the project's Auth > URL
 // Configuration > Redirect URLs allowlist in the Supabase dashboard.
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+function recoveryRedirectUrl(): string | null {
+  if (!APP_URL) return process.env.NODE_ENV === "development" ? "http://localhost:3000/auth/confirm?next=/reset-password" : null;
+
+  try {
+    const url = new URL(APP_URL);
+    if (process.env.NODE_ENV !== "development" && url.protocol !== "https:") return null;
+    return url.origin + "/auth/confirm?next=/reset-password";
+  } catch {
+    return null;
+  }
+}
 
 export async function signupAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const organizationName = String(formData.get("organizationName") ?? "").trim();
@@ -76,14 +89,17 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
     return { error: "Enter the email address for your TradeOS account." };
   }
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/request", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  } catch {
-    // Keep this response enumeration-safe. The backend intentionally returns
-    // the same success shape for known and unknown addresses.
+  const redirectTo = recoveryRedirectUrl();
+  if (!redirectTo) {
+    return { error: "Password recovery is not configured for this deployment." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
     return { error: "We couldn't process that request. Please try again." };
   }
 
@@ -97,17 +113,29 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!token) return { error: "This password-reset link is missing its token." };
   if (password.length < 8) return { error: "Your password must be at least 8 characters." };
   if (password !== confirmPassword) return { error: "The passwords do not match." };
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/confirm", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    });
-  } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+  if (token) {
+    try {
+      await apiFetch("/api/v1/auth/password-reset/confirm", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+    } catch (err) {
+      return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+    }
+  } else {
+    const cookieStore = await cookies();
+    if (cookieStore.get("tradeos-recovery")?.value !== "1") {
+      return { error: "This reset link is missing or invalid. Request a new link and try again." };
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { error: "Unable to update your password. Request a new link and try again." };
+
+    cookieStore.delete("tradeos-recovery");
   }
 
   return { success: "Your password has been updated. You can sign in now." };
