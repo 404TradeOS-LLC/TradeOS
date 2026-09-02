@@ -18,9 +18,9 @@ export function resolveInitialRecoveryState(
 }
 
 export function resolveRecoverySessionState(
-  hasUser: boolean,
+  hasMatchingUser: boolean,
   hasSessionError: boolean,
 ): RecoverySessionState {
-  if (hasSessionError || !hasUser) return { kind: "invalid-link" };
+  if (hasSessionError || !hasMatchingUser) return { kind: "invalid-link" };
   return { kind: "reset-form" };
 }
