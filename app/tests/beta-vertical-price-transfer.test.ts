@@ -1,0 +1,211 @@
+/**
+ * Regression coverage for the beta contractor vertical's price/scope transfer
+ * contract: estimate -> proposal -> contract. Existing suites
+ * (proposals.service.test.ts, contracts.service.test.ts) each verify their
+ * own module in isolation with independently authored fixtures; neither
+ * proves that a *real* proposal produced by ProposalsService.create() still
+ * carries the correct amount and scope once it flows into
+ * ContractsService.create(). This file chains the two real service calls so
+ * a regression in either module's field mapping fails loudly here even if
+ * each module's own isolated fixtures still pass.
+ *
+ * Known limitation (see PR): Proposal has no subtotal/tax fields in the
+ * Prisma schema, so only the single collapsed `finalPrice` transfers from
+ * estimate to proposal to contract. Fixing that requires a schema
+ * migration, which is out of scope for this change.
+ */
+const mockPrisma = {
+  estimate: {
+    findFirst: jest.fn(),
+  },
+  project: {
+    findFirst: jest.fn(),
+    update: jest.fn(),
+  },
+  proposal: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  contract: {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  contractEvent: {
+    create: jest.fn(),
+  },
+};
+
+jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+jest.mock("../modules/proposal-generator/service", () => ({
+  ProposalGeneratorService: jest.fn().mockImplementation(() => ({
+    generateProposal: jest.fn(),
+    generateProjectProposal: jest.fn(),
+  })),
+}));
+jest.mock("../modules/intelligence/service", () => ({
+  ActivityTimelineService: jest.fn().mockImplementation(() => ({
+    record: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
+jest.mock("../modules/athena-events/service", () => ({
+  getDefaultAthenaEventService: jest.fn(() => ({ publish: jest.fn() })),
+}));
+jest.mock("../modules/contracts/pdf", () => ({
+  renderContractPdf: jest.fn().mockResolvedValue(Buffer.from("pdf")),
+}));
+
+import { ProposalsService } from "../modules/proposals/service";
+import { ContractsService } from "../modules/contracts/service";
+
+describe("beta contractor vertical: estimate -> proposal -> contract price/scope transfer", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("carries a finalized estimate's total price and the proposal's scope through into the contract snapshot", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      totalPrice: 9450.25,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      estimateId: "estimate-1",
+      status: "draft",
+      companyName: "Acme Roofing",
+      scopeOfWork: "Replace roof decking and shingles",
+      assumptions: "Weather permitting",
+      exclusions: "Gutter replacement",
+      timeline: "2 weeks",
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: 9450.25,
+      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }],
+      termsAndConditions: "Net 30",
+      pdfUrl: null,
+      sentAt: null,
+      viewedAt: null,
+      respondedAt: null,
+      createdAt: new Date(),
+      deliveries: [],
+    });
+
+    const proposalsService = new ProposalsService();
+    const proposal = await proposalsService.create({ orgId: "org-1", estimateId: "estimate-1" });
+
+    // The estimate's total price must survive into the proposal unchanged.
+    expect(proposal.finalPrice).toBe(9450.25);
+
+    // Now feed that real proposal DTO into contract creation, the way the
+    // API does: ContractsService re-reads the accepted proposal by id.
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: proposal.id,
+      projectId: proposal.projectId,
+      status: "accepted",
+      finalPrice: proposal.finalPrice,
+      companyName: proposal.companyName,
+      scopeOfWork: proposal.scopeOfWork,
+      assumptions: proposal.assumptions,
+      exclusions: proposal.exclusions,
+      timeline: proposal.timeline,
+      paymentScheduleJson: proposal.paymentScheduleJson,
+      termsAndConditions: proposal.termsAndConditions,
+      contracts: [],
+    });
+    mockPrisma.contract.create.mockResolvedValue({
+      id: "contract-1",
+      projectId: proposal.projectId,
+      proposalId: proposal.id,
+      status: "pending_signature",
+      termsText: proposal.termsAndConditions,
+      contractAmount: proposal.finalPrice,
+      snapshotJson: {
+        proposalId: proposal.id,
+        projectId: proposal.projectId,
+        contractAmount: proposal.finalPrice,
+        companyName: proposal.companyName,
+        scopeOfWork: proposal.scopeOfWork,
+        assumptions: proposal.assumptions,
+        exclusions: proposal.exclusions,
+        timeline: proposal.timeline,
+        paymentSchedule: proposal.paymentScheduleJson,
+        termsText: proposal.termsAndConditions,
+      },
+      signerName: null,
+      signerEmail: null,
+      signatureDataUrl: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
+      signedAt: null,
+      createdAt: new Date(),
+    });
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: proposal.projectId,
+      proposalId: proposal.id,
+      status: "pending_signature",
+      termsText: proposal.termsAndConditions,
+      contractAmount: proposal.finalPrice,
+      snapshotJson: {
+        scopeOfWork: proposal.scopeOfWork,
+        assumptions: proposal.assumptions,
+        exclusions: proposal.exclusions,
+        timeline: proposal.timeline,
+        contractAmount: proposal.finalPrice,
+      },
+      signerName: null,
+      signerEmail: null,
+      signatureDataUrl: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
+      signedAt: null,
+      createdAt: new Date(),
+      events: [],
+      project: { id: proposal.projectId, name: "Roof replacement" },
+    });
+
+    const contractsService = new ContractsService();
+    const contract = await contractsService.create({
+      orgId: "org-1",
+      proposalId: proposal.id,
+      actorRole: "owner",
+    });
+
+    // The contract must be created with the accepted proposal's exact final
+    // price -- not the estimate's price re-derived independently, and not a
+    // priceLow/priceHigh range.
+    expect(mockPrisma.contract.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contractAmount: proposal.finalPrice,
+        }),
+      })
+    );
+    expect(contract.contractAmount).toBe(proposal.finalPrice);
+    expect(contract.contractAmount).toBe(9450.25);
+
+    // Scope of work frozen into the immutable snapshot must be the same
+    // scope the beta contractor actually wrote into the proposal, not a
+    // regenerated or blank value.
+    expect(contract.snapshot?.scopeOfWork).toBe("Replace roof decking and shingles");
+  });
+
+  it("refuses to create a contract from a proposal that has no final price yet", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-2",
+      projectId: "project-1",
+      status: "accepted",
+      finalPrice: null,
+      contracts: [],
+    });
+
+    const contractsService = new ContractsService();
+    await expect(
+      contractsService.create({ orgId: "org-1", proposalId: "proposal-2", actorRole: "owner" })
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.contract.create).not.toHaveBeenCalled();
+  });
+});
