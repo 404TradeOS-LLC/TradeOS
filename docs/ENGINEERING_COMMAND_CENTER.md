@@ -238,3 +238,8 @@ S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f83030621
 ## S030 readiness
 
 S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; the Dispatcher Workspace completion evidence records the shipped assignment, scheduling, conflict, lifecycle, responsive, organization/RLS, and declined-assignment reactivation behavior. Authenticated browser evidence remains environment-dependent. S027 remains independently blocked on authenticated Costbook browser evidence.
+
+
+## Automated maintenance lanes
+
+TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
