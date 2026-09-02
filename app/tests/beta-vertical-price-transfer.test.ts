@@ -110,20 +110,26 @@ describe("beta contractor vertical: estimate -> proposal -> contract price/scope
     expect(proposal.finalPrice).toBe(9450.25);
 
     // Now feed that real proposal DTO into contract creation, the way the
-    // API does: ContractsService re-reads the accepted proposal by id.
-    mockPrisma.proposal.findFirst.mockResolvedValue({
-      id: proposal.id,
-      projectId: proposal.projectId,
-      status: "accepted",
-      finalPrice: proposal.finalPrice,
-      companyName: proposal.companyName,
-      scopeOfWork: proposal.scopeOfWork,
-      assumptions: proposal.assumptions,
-      exclusions: proposal.exclusions,
-      timeline: proposal.timeline,
-      paymentScheduleJson: proposal.paymentScheduleJson,
-      termsAndConditions: proposal.termsAndConditions,
-      contracts: [],
+    // API does: ContractsService re-reads the accepted proposal by id. Honor
+    // where.id here instead of returning the row unconditionally, so this
+    // proves ContractsService.create() actually looks up the *created*
+    // proposal rather than any id it happens to be passed.
+    mockPrisma.proposal.findFirst.mockImplementation(({ where }) => {
+      if (where?.id !== proposal.id) return Promise.resolve(null);
+      return Promise.resolve({
+        id: proposal.id,
+        projectId: proposal.projectId,
+        status: "accepted",
+        finalPrice: proposal.finalPrice,
+        companyName: proposal.companyName,
+        scopeOfWork: proposal.scopeOfWork,
+        assumptions: proposal.assumptions,
+        exclusions: proposal.exclusions,
+        timeline: proposal.timeline,
+        paymentScheduleJson: proposal.paymentScheduleJson,
+        termsAndConditions: proposal.termsAndConditions,
+        contracts: [],
+      });
     });
     mockPrisma.contract.create.mockResolvedValue({
       id: "contract-1",
@@ -183,6 +189,12 @@ describe("beta contractor vertical: estimate -> proposal -> contract price/scope
       proposalId: proposal.id,
       actorRole: "owner",
     });
+
+    // Prove the contract was built from the proposal *this call* created,
+    // not just any proposal id the findFirst mock would have answered.
+    expect(mockPrisma.proposal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: proposal.id }) })
+    );
 
     // The contract must be created with the accepted proposal's exact final
     // price -- not the estimate's price re-derived independently, and not a
