@@ -61,6 +61,7 @@
     "typescript": "^6.0.3"
   },
   "overrides": {
-    "deepmerge-ts": "8.0.0"
+    "deepmerge-ts": "8.0.0",
+    "qs": "6.16.0"
   }
 }
