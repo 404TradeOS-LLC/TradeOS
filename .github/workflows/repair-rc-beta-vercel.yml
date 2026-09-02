@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      RC_CONFIRM: ${{ inputs.confirm }}
       VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
       FRONTEND_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
       BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
@@ -35,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ inputs.confirm }}" != "CLEANUP_RC" ]; then
+          if [ "${RC_CONFIRM}" != "CLEANUP_RC" ]; then
             echo "::error::Type CLEANUP_RC in the confirmation field."
             exit 1
           fi
