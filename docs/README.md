@@ -43,6 +43,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
 ---
 
 # TradeOS Documentation
@@ -167,6 +168,8 @@ The workflow implementation uses supported major versions of `actions/checkout` 
 PR #308 updates the existing artifact publication steps in `.github/workflows/rc-smoke.yml` and `.github/workflows/s027-browser-evidence.yml` from `actions/upload-artifact@v6` to `@v7`. The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
+
+The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
