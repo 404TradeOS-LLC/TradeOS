@@ -44,12 +44,16 @@ export function JobCreateForm({
   const [addresses, setAddresses] = useState<ServiceAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [addressLoadFailed, setAddressLoadFailed] = useState(false);
+  const [addressReloadNonce, setAddressReloadNonce] = useState(0);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingAddresses(true);
+    setAddressLoadFailed(false);
     clientFetch<CustomerDetail>(`/customers/${customerId}`)
       .then((customer) => {
         if (cancelled) return;
@@ -58,9 +62,12 @@ export function JobCreateForm({
         const primary = nextAddresses.find((address) => address.isPrimary) ?? nextAddresses[0];
         setSelectedAddressId(primary?.id ?? "");
         setShowAddressForm(nextAddresses.length === 0);
+        setError(null);
       })
       .catch((caught) => {
         if (!cancelled) {
+          setAddressLoadFailed(true);
+          setShowAddressForm(false);
           setError(caught instanceof Error ? caught.message : "Unable to load service addresses.");
         }
       })
@@ -70,7 +77,7 @@ export function JobCreateForm({
     return () => {
       cancelled = true;
     };
-  }, [customerId]);
+  }, [customerId, addressReloadNonce]);
 
   const selectedAddress = useMemo(
     () => addresses.find((address) => address.id === selectedAddressId) ?? null,
@@ -106,11 +113,16 @@ export function JobCreateForm({
     });
     setAddresses((current) => [...current, created]);
     setSelectedAddressId(created.id);
+    setShowAddressForm(false);
     return created.id;
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (addressLoadFailed) {
+      setError("Reload service addresses before creating the job.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -193,7 +205,7 @@ export function JobCreateForm({
             <div className="text-sm font-medium">Service address</div>
             <div className="text-xs text-muted-foreground">Every field job is tied to a customer service address.</div>
           </div>
-          {addresses.length > 0 ? (
+          {addresses.length > 0 && !addressLoadFailed ? (
             <button type="button" className="text-sm font-medium underline" onClick={() => setShowAddressForm((value) => !value)}>
               {showAddressForm ? "Use saved address" : "Add another address"}
             </button>
@@ -202,7 +214,16 @@ export function JobCreateForm({
 
         {loadingAddresses ? <p className="text-sm text-muted-foreground">Loading service addresses…</p> : null}
 
-        {!loadingAddresses && addresses.length > 0 && !showAddressForm ? (
+        {!loadingAddresses && addressLoadFailed ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm text-destructive">Service addresses could not be loaded. Retry before creating a job.</p>
+            <button type="button" className="text-sm font-medium underline" onClick={() => setAddressReloadNonce((value) => value + 1)}>
+              Retry address load
+            </button>
+          </div>
+        ) : null}
+
+        {!loadingAddresses && !addressLoadFailed && addresses.length > 0 && !showAddressForm ? (
           <label className="grid gap-1.5 text-sm font-medium">
             Saved address
             <select className={fieldClass} value={selectedAddressId} onChange={(event) => setSelectedAddressId(event.target.value)} required>
@@ -212,7 +233,7 @@ export function JobCreateForm({
           </label>
         ) : null}
 
-        {!loadingAddresses && (showAddressForm || addresses.length === 0) ? (
+        {!loadingAddresses && !addressLoadFailed && (showAddressForm || addresses.length === 0) ? (
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-medium">Label<input className={fieldClass} name="addressLabel" defaultValue="Jobsite" /></label>
             <label className="grid gap-1 text-sm font-medium md:col-span-2">Street address<input className={fieldClass} name="addressLine1" defaultValue={projectSiteAddress ?? ""} required /></label>
@@ -227,7 +248,7 @@ export function JobCreateForm({
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
 
       <div className="flex justify-end">
-        <button type="submit" disabled={busy || loadingAddresses} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+        <button type="submit" disabled={busy || loadingAddresses || addressLoadFailed} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
           {busy ? "Creating job…" : "Create job and open Dispatch"}
         </button>
       </div>
