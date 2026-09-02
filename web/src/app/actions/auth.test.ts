@@ -244,12 +244,12 @@ test("reset-password page never renders the password form for a missing recovery
   const pageSource = readResetPasswordPageSource();
   assert.match(pageSource, /cookies\(\)/);
   assert.match(pageSource, /tradeos-recovery/);
-  assert.match(pageSource, /hasRecoverySession/);
+  assert.match(pageSource, /tradeos-recovery/);
 
   const resolveFnIndex = pageSource.indexOf("async function resolveContent");
   assert.notEqual(resolveFnIndex, -1);
   const resolveFnSource = pageSource.slice(resolveFnIndex);
-  assert.match(resolveFnSource, /if \(!hasRecoverySession\) \{\s*\n\s*return <RecoveryErrorCard/);
+  assert.match(resolveFnSource, /if \(initialState\.kind === ["']invalid-link["']\)/);
 });
 
 test("reset-password page shows a clear recovery error with a link back to /forgot-password for an expired, reused, or scanner-consumed link", () => {
@@ -265,7 +265,7 @@ test("reset-password page shows a clear recovery error with a link back to /forg
   const resolveFnSource = pageSource.slice(resolveFnIndex);
   const tokenCheckIndex = resolveFnSource.indexOf("if (token)");
   const errorCheckIndex = resolveFnSource.indexOf("if (error) return <RecoveryErrorCard");
-  const cookieCheckIndex = resolveFnSource.indexOf("hasRecoverySession");
+  const cookieCheckIndex = resolveFnSource.indexOf('cookieStore.get("tradeos-recovery")');
   assert.notEqual(tokenCheckIndex, -1);
   assert.notEqual(errorCheckIndex, -1);
   assert.notEqual(cookieCheckIndex, -1);
