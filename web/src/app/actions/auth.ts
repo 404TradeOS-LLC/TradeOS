@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
 import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
@@ -109,9 +110,16 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
       return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
     }
   } else {
+    const cookieStore = await cookies();
+    if (cookieStore.get("tradeos-recovery")?.value !== "1") {
+      return { error: "This reset link is missing or invalid. Request a new link and try again." };
+    }
+
     const supabase = await createClient();
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) return { error: "This reset link is missing or invalid. Request a new link and try again." };
+    if (error) return { error: "Unable to update your password. Request a new link and try again." };
+
+    cookieStore.delete("tradeos-recovery");
   }
 
   return { success: "Your password has been updated. You can sign in now." };
