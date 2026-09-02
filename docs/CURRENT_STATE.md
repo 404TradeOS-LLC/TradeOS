@@ -26,6 +26,7 @@ related_code:
   - app/modules/athena-action-engine
   - web/src/app
   - web/src/app/(app)/dashboard
+  - web/src/components/dashboard
   - web/src/app/(app)/costbook
   - web/src/app/(app)/dispatch
   - web/src/app/(app)/customers
@@ -60,7 +61,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Estimating: estimate creation, sections/line items, Costbook provenance, custom lines, pricing formulas, tax, duplication, comparison, finalized-estimate behavior, and review-first AI Estimate Assist.
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
-- Owner dashboard: organization work queues, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, activity, quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
+- Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration.

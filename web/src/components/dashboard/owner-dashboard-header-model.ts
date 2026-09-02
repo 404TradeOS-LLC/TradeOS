@@ -51,6 +51,23 @@ export function getNextGreetingBoundary(now: Date): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
 }
 
+/**
+ * Builds one synthesized sentence tying together the greeting, today's job
+ * count, and how many items need attention, so the header reads as a single
+ * status statement — "3 items need attention and 2 jobs today" — instead of
+ * scattered badges the owner has to add up themselves.
+ */
+export function buildHeaderSynthesis(greeting: string, notificationCount: number, todaysJobsCount: number): string {
+  const jobsPhrase = todaysJobsCount === 0 ? "nothing on today's schedule" : todaysJobsCount === 1 ? "1 job scheduled today" : `${todaysJobsCount} jobs scheduled today`;
+
+  if (notificationCount === 0) {
+    return `${greeting} — ${jobsPhrase}, and nothing needs your attention right now.`;
+  }
+
+  const attentionPhrase = notificationCount === 1 ? "1 item needs your attention" : `${notificationCount} items need your attention`;
+  return `${greeting} — ${attentionPhrase} and ${jobsPhrase}.`;
+}
+
 /** useSyncExternalStore subscribe function: notifies `callback` at each greeting boundary so a mounted dashboard refreshes without a manual reload. */
 export function createGreetingSubscription(callback: () => void): () => void {
   let active = true;

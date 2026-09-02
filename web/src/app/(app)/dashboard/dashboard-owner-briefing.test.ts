@@ -28,12 +28,12 @@ test("owner briefing does not claim Athena business-tool execution", () => {
   assert.doesNotMatch(source, /method:\s*["']POST["']/);
 });
 
-test("legacy primary-dashboard slot is suppressed while the briefing remains available for drill-in", () => {
-  const compatibilitySource = readSource("../../../components/dashboard/ai-assistant-placeholder-panel.tsx");
+test("owner briefing panel component still exists as an available (but not yet wired-in) drill-in", () => {
+  // The dashboard's primary-slot placeholder (ai-assistant-placeholder-panel.tsx,
+  // a no-op compatibility export) was removed and replaced with the real
+  // Continue Working panel (contractor-command-center work). This file
+  // documents that the separate OwnerBriefingPanel component itself is
+  // untouched by that change and remains available for a future drill-in.
   const briefingSource = readSource("../../../components/dashboard/owner-briefing-panel.tsx");
-
-  assert.match(compatibilitySource, /export function AIAssistantPlaceholderPanel/);
-  assert.match(compatibilitySource, /return null/);
-  assert.doesNotMatch(compatibilitySource, /OwnerBriefingPanel as AIAssistantPlaceholderPanel/);
   assert.match(briefingSource, /export async function OwnerBriefingPanel/);
 });
