@@ -467,3 +467,8 @@ Label groups:
 - `owner:*` identifies the expected owner lane when work is split across agents or humans
 
 Labels should be applied consistently during triage. Do not create one-off labels until the taxonomy is updated in the same branch.
+
+
+## CodeQL and code-quality autofix
+
+Scheduled and manually dispatched maintenance workflows may generate isolated pull requests for bounded CodeQL remediations or deterministic frontend ESLint fixes. They must preserve required repository checks, immutable action pinning, branch-current validation, and documentation governance. They may not write directly to `main` or autonomously change product behavior, database/schema/migrations, authentication/authorization/RLS, billing semantics, or production trust boundaries.
