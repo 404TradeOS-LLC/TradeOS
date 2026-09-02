@@ -64,7 +64,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /invoiceId/);
 });
 
-test("business-flow smoke follows resource-backed project, portal, and job routes", () => {
+test("business-flow smoke selects the matching smoke technician and executes payment through field completion", () => {
   for (const route of [
     "`/projects/${run.projectId}/contracts/${run.contractId}`",
     "`/projects/${run.projectId}/invoices/${run.invoiceId}`",
@@ -73,14 +73,38 @@ test("business-flow smoke follows resource-backed project, portal, and job route
     "`/portal/contracts/${run.contractId}`",
     "`/portal/invoices/${run.invoiceId}`",
     '"/dispatch"',
-    '"/field"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
-  assert.match(business, /RC_FIELD_STORAGE_STATE_PATH is required/);
+
+  assert.match(business, /RC_AUTH_PASSWORD is required for the dedicated field technician login/);
+  assert.match(business, /FIELD_FIXTURES_BY_ORG/);
+  assert.match(business, /980756cd-1c45-4cdb-a516-26be5e2455ad/);
+  assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
+  assert.match(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
+  assert.match(business, /9814bd72-626a-42f4-8871-cd755cb9d685/);
+  assert.match(business, /rc-field-tech@tradeos\.invalid/);
+  assert.match(business, /08d28981-52e8-4459-bcbb-1ef996baea92/);
+  assert.match(business, /resolveFieldFixture/);
+  assert.match(business, /proxyJson\(page, "\/settings"\)/);
+  assert.match(business, /settings\?\.orgId !== fieldFixture\.orgId/);
+  assert.match(business, /settings\?\.currentRole !== "technician"/);
+  assert.match(business, /Send invoice/);
+  assert.match(business, /Record payment/);
+  assert.match(business, /Create job and open Dispatch/);
+  assert.match(business, /assignmentRole: "technician"/);
+  assert.match(business, /`\/jobs\/\$\{job\.id\}\/schedule`/);
+  assert.match(business, /method: "PUT"/);
+  assert.match(business, /`\/jobs\/\$\{job\.id\}\/dispatch`/);
+  assert.match(business, /Start travel/);
+  assert.match(business, /Arrived on site/);
+  assert.match(business, /Complete job/);
+  assert.match(business, /expectedStatus.*completed/);
+  assert.match(business, /finalOwnerJob\?\.status === "completed"/);
+  assert.match(business, /finalInvoice\?\.status === "paid"/);
+  assert.match(business, /balanceDue/);
+  assert.match(business, /waitForResource/);
   assert.match(business, /finalOrigin\.origin === parsedBaseUrl\.origin/);
-  assert.match(business, /Active Jobs/);
-  assert.match(business, /No assigned jobs today/);
-  assert.match(business, /Technician workspace/);
   assert.match(business, /golden workflow report is missing/);
+  assert.doesNotMatch(business, /console\.log\([^)]*fieldPassword/i);
   assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/estimate-deliverability/);
 });
