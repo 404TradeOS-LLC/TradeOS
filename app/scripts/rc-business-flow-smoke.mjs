@@ -7,13 +7,15 @@ const storageState = process.env.RC_STORAGE_STATE_PATH;
 const targetEnvironment = process.env.RC_TARGET_ENVIRONMENT;
 const fixturePath = process.env.RC_GOLDEN_REPORT_PATH || "../artifacts/estimate-deliverability/report.json";
 const outDir = process.env.RC_EVIDENCE_DIR || "../artifacts/rc-smoke";
-const fieldEmail = process.env.RC_FIELD_AUTH_EMAIL || "tradeos-rc-owner-a90d5dad@mailinator.com";
+const fieldEmail = process.env.RC_FIELD_AUTH_EMAIL;
 const fieldPassword = process.env.RC_AUTH_PASSWORD;
-const fieldUserId = process.env.RC_FIELD_USER_ID || "0858f7e5-4df3-46ec-9023-f7961d791c6b";
+const fieldUserId = process.env.RC_FIELD_USER_ID;
 
 if (!baseUrl) throw new Error("RC_BASE_URL is required.");
 if (!storageState) throw new Error("RC_STORAGE_STATE_PATH is required.");
+if (!fieldEmail) throw new Error("RC_FIELD_AUTH_EMAIL is required for the dedicated field technician login.");
 if (!fieldPassword) throw new Error("RC_AUTH_PASSWORD is required for the dedicated field technician login.");
+if (!fieldUserId) throw new Error("RC_FIELD_USER_ID is required for technician assignment evidence.");
 if (!targetEnvironment || !["preview", "staging"].includes(targetEnvironment)) throw new Error("RC_TARGET_ENVIRONMENT must be preview or staging.");
 
 const parsedBaseUrl = new URL(baseUrl);
@@ -155,7 +157,7 @@ async function assignScheduleAndDispatch(page, job) {
   const scheduledStart = new Date(Date.now() + 10 * 60_000);
   const scheduledEnd = new Date(scheduledStart.getTime() + 2 * 60 * 60_000);
   await proxyJson(page, `/jobs/${job.id}/schedule`, {
-    method: "POST",
+    method: "PUT",
     body: JSON.stringify({ scheduledStart: scheduledStart.toISOString(), scheduledEnd: scheduledEnd.toISOString(), estimatedDurationMinutes: 120 }),
   });
   const dispatched = await proxyJson(page, `/jobs/${job.id}/dispatch`, { method: "POST", body: JSON.stringify({ reason: "RC full-lifecycle evidence" }) });
