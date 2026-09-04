@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, CircleDollarSign, ClipboardList, Hammer, History, Package, ShieldCheck, Wrench } from "lucide-react";
+import { Boxes, Check, CircleDollarSign, ClipboardList, Hammer, History, Package, ShieldCheck, Wrench, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiClientError, getCostbookWorkspace, type CostbookWorkspaceSummary } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Costbook | TradeOS",
@@ -176,7 +177,7 @@ export default async function CostbookPage() {
               const Icon = areaIcons[area.id];
               return (
                 <Link key={area.id} href={areaHrefs[area.id]} className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                  <div className="h-full rounded-lg border border-border/70 bg-surface p-4 transition-colors hover:border-border">
+                  <div className="h-full rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-border">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <span className="grid size-10 place-items-center rounded-md border border-border/70 bg-background">
@@ -206,7 +207,10 @@ function PermissionRow({ label, enabled }: { label: string; enabled: boolean }) 
   return (
     <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
       <span>{label}</span>
-      <span className={enabled ? "font-medium text-foreground" : "text-muted-foreground"}>{enabled ? "Enabled" : "No"}</span>
+      <span className={cn("inline-flex items-center gap-1.5 font-medium", enabled ? "text-success" : "text-muted-foreground")}>
+        {enabled ? <Check className="size-3.5" aria-hidden="true" /> : <X className="size-3.5" aria-hidden="true" />}
+        {enabled ? "Enabled" : "No"}
+      </span>
     </div>
   );
 }

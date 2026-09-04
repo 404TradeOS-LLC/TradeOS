@@ -24,6 +24,33 @@ export async function loadDashboardStartup<TProject, TSettingsResponse>(
   return { projects, settingsResponse };
 }
 
+/**
+ * Loads the bounded recent-project detail fan-out without allowing one failed
+ * project request to discard healthy siblings and crash the whole dashboard.
+ */
+export async function loadDashboardProjectDetails<TProject extends { id: string }, TProjectDetail>(
+  token: string,
+  projects: TProject[],
+  limit: number,
+  getProject: (token: string, projectId: string) => Promise<TProjectDetail>,
+): Promise<{ items: TProjectDetail[]; failedCount: number }> {
+  const results = await Promise.allSettled(
+    projects.slice(0, limit).map((project) => getProject(token, project.id)),
+  );
+  const items: TProjectDetail[] = [];
+  let failedCount = 0;
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      items.push(result.value);
+    } else {
+      failedCount += 1;
+    }
+  }
+
+  return { items, failedCount };
+}
+
 function getSafeTimeZone(timeZone: string) {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());

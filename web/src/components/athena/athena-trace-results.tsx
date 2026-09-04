@@ -63,7 +63,7 @@ export function AthenaTraceResults({ rows, isFiltered }: AthenaTraceResultsProps
                 <td className="max-w-64 px-3 py-3">
                   <Link
                     href={`/athena/traces/${row.execution.traceId}`}
-                    className="block truncate font-mono text-sm text-foreground underline underline-offset-4 hover:text-primary"
+                    className="block truncate font-mono text-sm text-foreground underline underline-offset-4 hover:text-accent-foreground"
                   >
                     {truncateId(row.execution.traceId)}
                   </Link>
@@ -80,7 +80,7 @@ export function AthenaTraceResults({ rows, isFiltered }: AthenaTraceResultsProps
                 </td>
                 <td className="px-3 py-3 text-sm text-foreground">
                   {row.spanCount}
-                  {row.errorSpanCount > 0 ? <span className="ml-1 text-xs text-rose-600 dark:text-rose-300">({row.errorSpanCount} error)</span> : null}
+                  {row.errorSpanCount > 0 ? <span className="ml-1 text-xs text-destructive">({row.errorSpanCount} error)</span> : null}
                 </td>
                 <td className="px-3 py-3 text-sm text-foreground">{formatAthenaUsd(row.totalCostUsd)}</td>
                 <td className="px-3 py-3 whitespace-nowrap text-sm text-foreground">{formatDateTime(row.execution.createdAt)}</td>

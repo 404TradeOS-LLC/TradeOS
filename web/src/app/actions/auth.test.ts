@@ -162,3 +162,194 @@ test("invite acceptance establishes the backend local session before entering th
   assert.match(inviteSource, /setLocalSession\(session\.token, session\.refreshToken\)/);
   assert.match(inviteSource, /redirect\(["']\/dashboard["']\)/);
 });
+
+
+function readRecoveryRouteSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "auth", "confirm", "route.ts"), "utf8");
+}
+
+test("web password recovery uses Supabase Auth and exchanges recovery links before updating the password", () => {
+  const authSource = readAuthActionsSource();
+  const routeSource = readRecoveryRouteSource();
+
+  assert.match(authSource, /resetPasswordForEmail/);
+  assert.match(authSource, /updateUser\(\{ password \}\)/);
+  assert.match(routeSource, /exchangeCodeForSession/);
+  assert.match(routeSource, /verifyOtp/);
+  assert.match(routeSource, /tradeos-recovery/);
+  assert.match(routeSource, /reset-password/);
+});
+
+function readResetPasswordPageSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "reset-password", "page.tsx"), "utf8");
+}
+
+function readResetPasswordFormSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "reset-password", "reset-password-form.tsx"), "utf8");
+}
+
+test("/auth/confirm exchanges a PKCE code for a session before marking the recovery cookie", () => {
+  const routeSource = readRecoveryRouteSource();
+  const codeBranchIndex = routeSource.indexOf("if (code) {");
+  assert.notEqual(codeBranchIndex, -1);
+
+  const cookieSetIndex = routeSource.indexOf('response.cookies.set("tradeos-recovery"');
+  assert.notEqual(cookieSetIndex, -1);
+  assert.ok(codeBranchIndex < cookieSetIndex, "the PKCE code exchange must run before the recovery cookie is set");
+  assert.match(routeSource, /supabase\.auth\.exchangeCodeForSession\(code\)/);
+});
+
+test("/auth/confirm verifies a recovery token_hash via verifyOtp before marking the recovery cookie", () => {
+  const routeSource = readRecoveryRouteSource();
+  const tokenHashBranchIndex = routeSource.indexOf('tokenHash && type === "recovery"');
+  assert.notEqual(tokenHashBranchIndex, -1);
+
+  const cookieSetIndex = routeSource.indexOf('response.cookies.set("tradeos-recovery"');
+  assert.ok(tokenHashBranchIndex < cookieSetIndex, "token_hash verification must run before the recovery cookie is set");
+  assert.match(routeSource, /supabase\.auth\.verifyOtp\(\{ token_hash: tokenHash, type \}\)/);
+});
+
+test("/auth/confirm redirects to a generic invalid-link error, with server-side diagnostics, when neither code nor a recovery token_hash is present", () => {
+  const routeSource = readRecoveryRouteSource();
+  const elseBranchIndex = routeSource.indexOf("} else {");
+  const nextIfIndex = routeSource.indexOf("if (error) {");
+  assert.notEqual(elseBranchIndex, -1);
+  const elseBranch = routeSource.slice(elseBranchIndex, nextIfIndex);
+
+  assert.match(elseBranch, /console\.error\(/);
+  assert.match(elseBranch, /resetRedirect\(request, "invalid-link"\)/);
+});
+
+test("/auth/confirm logs the Supabase error server-side but redirects with a generic invalid-link error (expired or reused links included)", () => {
+  const routeSource = readRecoveryRouteSource();
+  const errorBranchIndex = routeSource.indexOf("if (error) {\n    // Server-side diagnostic");
+  assert.notEqual(errorBranchIndex, -1, "expected the post-exchange error branch with its diagnostic comment");
+
+  const errorBranch = routeSource.slice(errorBranchIndex, errorBranchIndex + 400);
+  assert.match(errorBranch, /console\.error\("Password recovery exchange failed:", error\.message\)/);
+  assert.match(errorBranch, /resetRedirect\(request, "invalid-link"\)/);
+  assert.doesNotMatch(errorBranch, /searchParams\.set\(["']error["'],\s*error\.message\)/);
+});
+
+test("/auth/confirm restricts the redirect target to the /reset-password allowlist regardless of the requested next param", () => {
+  const routeSource = readRecoveryRouteSource();
+  assert.match(routeSource, /ALLOWED_NEXT_PATHS = new Set\(\["\/reset-password"\]\)/);
+  assert.match(routeSource, /ALLOWED_NEXT_PATHS\.has\(requestedNext\)/);
+});
+
+test("reset-password page never renders the password form for a missing recovery session (no token, no cookie, no error param)", () => {
+  const pageSource = readResetPasswordPageSource();
+  assert.match(pageSource, /cookies\(\)/);
+  assert.match(pageSource, /tradeos-recovery/);
+  assert.match(pageSource, /recoveryUserId/);
+
+  const resolveFnIndex = pageSource.indexOf("async function resolveContent");
+  assert.notEqual(resolveFnIndex, -1);
+  const resolveFnSource = pageSource.slice(resolveFnIndex);
+  assert.match(resolveFnSource, /if \(initialState\.kind === ["']invalid-link["']\)/);
+});
+
+test("reset-password page shows a clear recovery error with a link back to /forgot-password for an expired, reused, or scanner-consumed link", () => {
+  const pageSource = readResetPasswordPageSource();
+  assert.match(pageSource, /function RecoveryErrorCard/);
+  assert.match(pageSource, /href="\/forgot-password"/);
+
+  // The /auth/confirm redirect's ?error=invalid-link must short-circuit to
+  // the error card before ever considering the recovery cookie or rendering
+  // the form — this is what makes a consumed/expired/reused link fail
+  // closed immediately instead of surfacing only after form submission.
+  const resolveFnIndex = pageSource.indexOf("async function resolveContent");
+  const resolveFnSource = pageSource.slice(resolveFnIndex);
+  const tokenCheckIndex = resolveFnSource.indexOf("if (token)");
+  const errorCheckIndex = resolveFnSource.indexOf("if (error) return <RecoveryErrorCard");
+  const cookieCheckIndex = resolveFnSource.indexOf('cookieStore.get("tradeos-recovery")');
+  assert.notEqual(tokenCheckIndex, -1);
+  assert.notEqual(errorCheckIndex, -1);
+  assert.notEqual(cookieCheckIndex, -1);
+  assert.ok(tokenCheckIndex < errorCheckIndex && errorCheckIndex < cookieCheckIndex);
+});
+
+test("resetPasswordAction fails closed with a recovery error when the tradeos-recovery cookie is absent, without calling Supabase", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("export async function resetPasswordAction");
+  const nextFnIndex = authSource.indexOf("export async function acceptInviteAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  const cookieCheckIndex = fnSource.indexOf("if (!recoveryUserId)");
+  const updateUserIndex = fnSource.indexOf("supabase.auth.updateUser({ password })");
+  assert.notEqual(cookieCheckIndex, -1);
+  assert.notEqual(updateUserIndex, -1);
+  assert.ok(cookieCheckIndex < updateUserIndex, "the recovery cookie must be checked before calling updateUser");
+
+  const cookieBranch = fnSource.slice(cookieCheckIndex, updateUserIndex);
+  assert.match(cookieBranch, /recoveryError: true/);
+});
+
+test("resetPasswordAction logs the Supabase updateUser failure server-side but keeps the client error generic", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("export async function resetPasswordAction");
+  const nextFnIndex = authSource.indexOf("export async function acceptInviteAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  const updateUserIndex = fnSource.indexOf("supabase.auth.updateUser({ password })");
+  const afterUpdate = fnSource.slice(updateUserIndex, updateUserIndex + 700);
+  assert.match(afterUpdate, /console\.error\("Supabase updateUser failed during password reset:", error\.message\)/);
+  assert.match(afterUpdate, /error: "Unable to update your password\.[\s\S]*?Request a new link and try again\."/);
+  assert.match(afterUpdate, /recoveryError: true/);
+  assert.doesNotMatch(afterUpdate, /error:\s*error\.message/);
+});
+
+test("resetPasswordAction clears the recovery cookie only after a successful updateUser call, so a reused link can't be replayed", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("export async function resetPasswordAction");
+  const nextFnIndex = authSource.indexOf("export async function acceptInviteAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  const updateUserIndex = fnSource.indexOf("supabase.auth.updateUser({ password })");
+  const deleteCookieIndex = fnSource.indexOf('cookieStore.delete("tradeos-recovery")');
+  assert.notEqual(deleteCookieIndex, -1);
+  assert.ok(updateUserIndex < deleteCookieIndex);
+});
+
+test("requestPasswordResetAction logs the Supabase error server-side but returns a safe generic message to the client", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("export async function requestPasswordResetAction");
+  const nextFnIndex = authSource.indexOf("export async function resetPasswordAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  assert.match(fnSource, /console\.error\("resetPasswordForEmail failed:", error\.message\)/);
+  assert.match(fnSource, /error: "We couldn't process that request\. Please try again\."/);
+  assert.doesNotMatch(fnSource, /error:\s*error\.message/);
+});
+
+test("reset-password form surfaces a 'Request a new link' path back to /forgot-password whenever the action reports a recovery error", () => {
+  const formSource = readResetPasswordFormSource();
+  assert.match(formSource, /state\.recoveryError/);
+  assert.match(formSource, /href="\/forgot-password"/);
+});
+
+test("loginAction rejects a wrong password by surfacing Supabase's error rather than falling through to a session", () => {
+  const authSource = readAuthActionsSource();
+  const fnIndex = authSource.indexOf("export async function loginAction");
+  const nextFnIndex = authSource.indexOf("export async function finishSetupAction");
+  const fnSource = authSource.slice(fnIndex, nextFnIndex);
+
+  const signInIndex = fnSource.indexOf("supabase.auth.signInWithPassword({ email, password })");
+  assert.notEqual(signInIndex, -1);
+  const afterSignIn = fnSource.slice(signInIndex);
+  const errorCheckIndex = afterSignIn.indexOf("if (error) {");
+  assert.notEqual(errorCheckIndex, -1);
+
+  // On a Supabase error this must fall back to the backend's own login
+  // check (for local/invited accounts), not silently proceed with no
+  // session — either path still returns { error } rather than redirecting
+  // to /dashboard when both fail.
+  const errorBlock = afterSignIn.slice(errorCheckIndex);
+  const catchIndex = errorBlock.indexOf("} catch {");
+  assert.notEqual(catchIndex, -1);
+  const catchBlock = errorBlock.slice(catchIndex, catchIndex + 100);
+  assert.match(catchBlock, /return\s*\{\s*error:\s*error\.message\s*\}/);
+});

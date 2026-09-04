@@ -32,8 +32,12 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { isTerminalStatus, jobStatuses } from "@/domain";
 import { NeedsAttentionCard, type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
 import { buildAttentionEstimateRows, buildAttentionInvoiceRows, buildAttentionProposalRows, getStaleProposalCutoffIso } from "@/components/dashboard/needs-attention-model";
-import { AIAssistantPlaceholderPanel } from "@/components/dashboard/ai-assistant-placeholder-panel";
+import { buildContinueWorkingRows } from "@/components/dashboard/continue-working-model";
+import { ContinueWorkingPanel } from "@/components/dashboard/continue-working-panel";
+import { buildReceivablesSummary } from "@/components/dashboard/receivables-model";
+import { ReceivablesCard } from "@/components/dashboard/receivables-card";
 import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
+import { buildProjectActivityEntries, mergeActivityEntries } from "@/components/dashboard/project-activity-model";
 import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
 import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
 import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
@@ -41,7 +45,7 @@ import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
 import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
 import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
 import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
-import { loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
+import { loadDashboardProjectDetails, loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
 
 export const metadata: Metadata = {
   title: "Owner Dashboard | TradeOS",
@@ -206,11 +210,15 @@ function isActionableJob(job: Pick<JobSummary, "status" | "archivedAt">) {
   return !job.archivedAt && ACTIONABLE_JOB_STATUSES.has(job.status);
 }
 
-function getProjectScopeLabel(projectCount: number) {
-  if (projectCount === 0) return "loaded project set";
-  if (projectCount === 1) return "1 loaded project";
-  if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) return `${projectCount} loaded projects`;
-  return `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+function getProjectScopeLabel(projectCount: number, failedCount = 0) {
+  let scopeLabel: string;
+  if (projectCount === 0) scopeLabel = "loaded project set";
+  else if (projectCount === 1) scopeLabel = "1 loaded project";
+  else if (projectCount < DASHBOARD_PROJECT_DETAIL_LIMIT) scopeLabel = `${projectCount} loaded projects`;
+  else scopeLabel = `recent ${DASHBOARD_PROJECT_DETAIL_LIMIT} loaded projects`;
+
+  if (failedCount === 0) return scopeLabel;
+  return `${scopeLabel}; ${failedCount} project detail${failedCount === 1 ? "" : "s"} unavailable`;
 }
 
 /**
@@ -225,9 +233,9 @@ export default async function DashboardPage() {
   const { projects, settingsResponse } = token
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
-  const [projectDetails, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
+  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
     ? await Promise.all([
-        Promise.all(projects.slice(0, DASHBOARD_PROJECT_DETAIL_LIMIT).map((project) => getProject(token, project.id))),
+        loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
         getKnowledgeStats(token).catch(() => null),
         loadTodaySchedule(token),
         getCurrentWeekPaymentLedger(token).catch(() => null),
@@ -236,7 +244,7 @@ export default async function DashboardPage() {
         loadEstimateAttentionQueue(token),
       ])
     : [
-        [],
+        { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
         null,
         { items: [] as DispatchJob[], total: 0, timezone: "UTC" },
         null,
@@ -244,6 +252,7 @@ export default async function DashboardPage() {
         { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
       ];
+  const projectDetails = projectDetailsResult.items;
 
   const weatherAddress = selectDashboardWeatherAddress({
     jobSiteAddresses: todaySchedule.items.map((job) => job.project?.siteAddress),
@@ -254,22 +263,36 @@ export default async function DashboardPage() {
   const { companyName, timeZone } = resolveDashboardOrganizationContext(settingsResponse?.settings, todaySchedule.timezone);
   let dashboardTasksError: string | null = null;
   let taskActivityError: string | null = null;
+  let projectActivityError: string | null = null;
   const dashboardTasks = token
     ? await listOrganizationProjectTasks(token, { limit: DASHBOARD_TASK_FEED_LIMIT, includeCompleted: true }).catch((error: unknown) => {
         dashboardTasksError = error instanceof Error ? error.message : "Task feed request failed";
         return [];
       })
     : [];
-  const taskActivityEntries = token
-    ? await listActivityEvents(token, { entityType: "task", limit: 8 })
-        .then((events) => buildTaskActivityEntries(events))
-        .catch((error: unknown) => {
-          taskActivityError = error instanceof Error ? error.message : "Task activity request failed";
-          return [];
-        })
-    : [];
+  const [taskActivityEntries, projectActivityEntries] = token
+    ? await Promise.all([
+        listActivityEvents(token, { entityType: "task", limit: 8 })
+          .then((events) => buildTaskActivityEntries(events))
+          .catch((error: unknown) => {
+            taskActivityError = error instanceof Error ? error.message : "Task activity request failed";
+            return [];
+          }),
+        // "project" is the entityType every proposal/contract/invoice/site-visit
+        // milestone is actually recorded under (see
+        // app/modules/{proposals,contracts,invoices}/service.ts) — broadening
+        // Recent Activity beyond task movement without inventing new backend
+        // infrastructure.
+        listActivityEvents(token, { entityType: "project", limit: 8 })
+          .then((events) => buildProjectActivityEntries(events))
+          .catch((error: unknown) => {
+            projectActivityError = error instanceof Error ? error.message : "Project activity request failed";
+            return [];
+          }),
+      ])
+    : [[], []];
   const dashboardTaskSnapshot = buildDashboardTaskSnapshot(dashboardTasks, now, timeZone);
-  const projectScopeLabel = getProjectScopeLabel(projectDetails.length);
+  const projectScopeLabel = getProjectScopeLabel(projectDetails.length, projectDetailsResult.failedCount);
   const currentDateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone,
     weekday: "long",
@@ -308,6 +331,20 @@ export default async function DashboardPage() {
       customerName: project.customer?.name ?? "No customer linked",
     }));
   const notificationCount = attentionEstimates.length + attentionProposals.length + attentionInvoices.length + attentionReadyToStart.length;
+  const continueWorkingRows = buildContinueWorkingRows(projectDetails);
+  const receivablesSummary = buildReceivablesSummary(attentionInvoices, {
+    overdueInvoiceTotal: invoiceAttentionQueues.overdue.total,
+    openInvoiceTotal: invoiceAttentionQueues.unpaid.total,
+  });
+  const mergedActivityEntries = mergeActivityEntries(taskActivityError ? [] : taskActivityEntries, projectActivityError ? [] : projectActivityEntries);
+  const activityErrorMessage =
+    taskActivityError && projectActivityError
+      ? "Recent activity is temporarily unavailable"
+      : taskActivityError
+        ? "Task activity is temporarily unavailable"
+        : projectActivityError
+          ? "Project activity is temporarily unavailable"
+          : null;
   const ownerScheduleItems: OwnerScheduleItem[] = todaySchedule.items.map((job) => ({
     id: job.id,
     timeWindow: job.scheduledStart ? formatScheduleInZone(job.scheduledStart, todaySchedule.timezone) : "Unscheduled",
@@ -334,6 +371,7 @@ export default async function DashboardPage() {
         companyName={companyName}
         currentDateLabel={currentDateLabel}
         notificationCount={notificationCount}
+        todaysJobsCount={todayLiveJobs}
         weather={weather}
         projectScopeLabel={projectScopeLabel}
         reviewQueue={{
@@ -355,26 +393,28 @@ export default async function DashboardPage() {
         invoicesError={invoiceAttentionQueues.error}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-6 xl:grid-cols-2">
         <OwnerTodaySchedule items={ownerScheduleItems} />
-        <AIAssistantPlaceholderPanel />
+        <ContinueWorkingPanel rows={continueWorkingRows} scopeLabel={projectScopeLabel} />
       </div>
 
       <OwnerKpiGrid kpis={ownerKpis} />
 
+      <ReceivablesCard summary={receivablesSummary} errorMessage={invoiceAttentionQueues.error} />
+
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <OwnerTaskBoard tasks={dashboardTasks} now={now} timeZone={timeZone} errorMessage={dashboardTasksError} />
         <OwnerActivityFeed
-          entries={taskActivityError ? [] : taskActivityEntries}
-          title="Recent task movement"
-          description="Real task activity events from the live task workflow, so the dashboard shows actual movement instead of inferring it from the current row snapshot."
+          entries={mergedActivityEntries}
+          title="Recent activity"
+          description="Task movement plus proposal, contract, and invoice milestones from the live activity timeline."
           emptyState={
             <EmptyState
-              title={taskActivityError ? "Task activity is temporarily unavailable." : "No recent task movement yet."}
+              title={activityErrorMessage ? "Recent activity is temporarily unavailable." : "No recent activity yet."}
               description={
-                taskActivityError
-                  ? `${taskActivityError} Open the project workspace directly if you need task detail right away.`
-                  : "Task updates will appear here as the team moves work from to-do through completion."
+                activityErrorMessage
+                  ? `${activityErrorMessage}. Open the project workspace directly if you need activity detail right away.`
+                  : "Task, proposal, contract, and invoice updates will appear here as work moves."
               }
             />
           }

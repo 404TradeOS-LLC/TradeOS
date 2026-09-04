@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-28
+last_verified: 2026-08-30
 source_of_truth: false
 related_code:
   - app/modules/invoices
@@ -13,6 +13,7 @@ related_code:
   - web/src/app/(app)/projects/[id]/invoices
   - web/src/app/(app)/dashboard/revenue-this-week
   - web/src/app/(app)/portal/invoices
+  - web/src/app/customer-portal/invoices
 ---
 
 # Invoices and Payments
@@ -31,6 +32,8 @@ Own invoice creation, send and pay state changes, voiding, line items, delivery 
 - `web/src/lib/payment-ledger.ts`
 - `web/src/app/(app)/projects/[id]/invoices/**`
 - `web/src/app/(app)/dashboard/revenue-this-week/page.tsx`
+- `web/src/app/(app)/portal/invoices/**`
+- `web/src/app/customer-portal/invoices/**`
 
 ## Core models
 
@@ -110,12 +113,19 @@ Invoice DTOs and queue items derive `overdue` from a non-terminal sent/viewed/pa
 - `/projects/[id]/invoices/[invoiceId]`
 - `/dashboard/revenue-this-week` — transaction-level weekly payment ledger; each row links back to its invoice
 - `/portal/invoices/[invoiceId]`
+- `/customer-portal/invoices/[invoiceId]`
 
-The portal project summary lists every invoice for the selected organization
-project. The portal invoice detail reads `paidAmount`, `balanceDue`, and a
-sanitized history of only `recorded` payments from the server response; it does
-not calculate balances in the browser or expose payment-entry actions. A
-persisted `paid` invoice remains authoritative even when it has no Payment row.
+The staff portal project summary lists every invoice for the selected
+organization project. The staff portal invoice detail reads `paidAmount`,
+`balanceDue`, and a sanitized history of only `recorded` payments from the
+server response; it does not calculate balances in the browser or expose
+payment-entry actions. A persisted `paid` invoice remains authoritative even
+when it has no Payment row.
+
+The public `/customer-portal/*` surface uses the ADR-010 customer-scoped
+magic-link session. Draft invoices are excluded from public access, and public
+invoice/PDF reads remain scoped to both the redeemed customer's organization
+and customer identity. Public payment recording/processing is not exposed.
 
 The owner dashboard's Revenue This Week KPI uses the same weekly Payment-ledger response as the drill-down. If that read fails, the KPI reports `Unavailable` instead of substituting paid-invoice totals.
 
@@ -136,12 +146,13 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 - `app/tests/rls.integration.ts` (`organization work-queue reads` describe block) — live tenant isolation and real Payment-aggregate balance computation (overdue/partiallyPaid/unpaid, voided exclusion) for the queue read
 - `app/tests/rls.integration.ts` — live PostgreSQL concurrent-payment serialization, one paid event, payment durability, cross-organization denial, and voided-invoice non-revival
 - `app/tests/documents.branding.test.ts` — canonical organization-brand resolution and safe fallback/color behavior
+- `app/tests/customer-portal.service.test.ts`, `app/tests/customer-portal.migration.test.ts` — public invoice visibility, portal identity/session scope, and tenant/customer isolation
 
 ## Known limitations
 
 - payment recording is an authenticated staff action; public payment processing does not exist
 - payment statuses are not yet a canonical domain enum; the weekly revenue ledger intentionally includes only the existing `recorded` status
-- customer portal access remains staff-session gated until the approved customer-scoped magic-link boundary lands
+- the public customer magic-link portal is implemented, but it is read-only for invoice/payment actions; it does not provide customer payment processing
 
 ## Deferred work
 
@@ -150,7 +161,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Last verified date
 
-2026-08-28
+2026-08-30
 
 ## S022 rendering boundary
 

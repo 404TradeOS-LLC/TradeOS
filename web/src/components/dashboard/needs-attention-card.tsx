@@ -44,7 +44,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
  * @param message - The error message to display
  */
 function SectionError({ message }: { message: string }) {
-  return <p className="text-sm text-rose-700 dark:text-rose-300">{message} Try refreshing, or open the underlying workspace directly.</p>;
+  return <p className="text-sm text-destructive">{message} Try refreshing, or open the underlying workspace directly.</p>;
 }
 
 /**

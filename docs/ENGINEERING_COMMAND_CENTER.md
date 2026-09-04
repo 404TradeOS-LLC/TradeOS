@@ -34,6 +34,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
 ---
 
 # TradeOS Engineering Command Center
@@ -148,9 +149,17 @@ Production repair should use the health split first:
 
 CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
 
-The authenticated S027 and RC browser workflows are operator-triggered and require scoped Playwright storage-state secrets; they do not commit cookies or credentials. S047 is complete through PR #397 and its completion evidence. The RC workflow requires separate owner/admin and technician storage-state fixtures plus a distinct lifecycle auth account, binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+The authenticated S027 browser workflow remains operator-triggered and requires its scoped Playwright storage-state secret. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+
+RC smoke run #11 identified a staging deployment configuration failure before credential evaluation: the stable backend returned `SUPABASE_URL is not configured`. The guarded `Repair staging Supabase auth configuration` workflow owns that exact recovery by restoring the public TradeOS Staging URL only to Preview scope for the `staging` branch, redeploying the stable backend, and checking `/ready`. It does not copy Production configuration or change application auth policy.
+
+The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. The workflow now uses `env update --value ... --yes` and the current non-interactive redeploy syntax; its contract test locks both forms before another staging repair dispatch.
 
 The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with a negative probe, and validates every retained screenshot against its declared viewport width before publishing artifacts. It refuses to run against production hosts, the Production alias, or `-git-main-` previews, and refuses mutating runs unless the release-candidate data plane is proven non-production. Beta evidence is UNVERIFIED until a `full` run passes; see [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
+
+## RC beta Vercel repair
+
+The manual `Repair RC beta Vercel wiring` workflow is the guarded operational path for repairing the current RC beta's Preview wiring. It requires the explicit `CLEANUP_RC` confirmation, updates only branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL` values for the approved frontend/backend pair, and redeploys only those Preview deployments. It never touches Production or rotates `RESEND_API_KEY`; a successful workflow run is not evidence of email delivery, so the authenticated reset-email smoke remains a required follow-up.
 
 ## Required verification
 
@@ -229,3 +238,8 @@ S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f83030621
 ## S030 readiness
 
 S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; the Dispatcher Workspace completion evidence records the shipped assignment, scheduling, conflict, lifecycle, responsive, organization/RLS, and declined-assignment reactivation behavior. Authenticated browser evidence remains environment-dependent. S027 remains independently blocked on authenticated Costbook browser evidence.
+
+
+## Automated maintenance lanes
+
+TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.

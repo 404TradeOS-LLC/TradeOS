@@ -6,14 +6,14 @@ import type { AthenaApprovalDetail, AthenaApprovalRecord } from "@/lib/api";
 function statusTone(status: AthenaApprovalRecord["status"]): string {
   switch (status) {
     case "granted":
-      return "text-emerald-300";
+      return "text-success";
     case "denied":
-      return "text-rose-300";
+      return "text-destructive";
     case "expired":
     case "revoked":
-      return "text-amber-300";
+      return "text-warning";
     default:
-      return "text-sky-300";
+      return "text-info";
   }
 }
 
@@ -22,15 +22,15 @@ function ApprovalStats({ approvals }: { approvals: AthenaApprovalRecord[] }) {
   const grantedCount = approvals.filter((approval) => approval.status === "granted").length;
   const deniedCount = approvals.filter((approval) => approval.status === "denied").length;
   const stats = [
-    { label: "Pending", value: pendingCount, icon: Clock3, tone: "text-sky-300" },
-    { label: "Granted", value: grantedCount, icon: CheckCircle2, tone: "text-emerald-300" },
-    { label: "Denied", value: deniedCount, icon: XCircle, tone: "text-rose-300" },
+    { label: "Pending", value: pendingCount, icon: Clock3, tone: "text-info" },
+    { label: "Granted", value: grantedCount, icon: CheckCircle2, tone: "text-success" },
+    { label: "Denied", value: deniedCount, icon: XCircle, tone: "text-destructive" },
   ];
 
   return (
     <section className="grid gap-3 sm:grid-cols-3">
       {stats.map(({ label, value, icon: Icon, tone }) => (
-        <div key={label} className="rounded-lg border border-border/70 bg-surface p-4">
+        <div key={label} className="rounded-lg border border-border/70 bg-card p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
@@ -47,7 +47,7 @@ function ApprovalStats({ approvals }: { approvals: AthenaApprovalRecord[] }) {
 function ApprovalSubmissionForm() {
   const fieldClass = "rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground";
   return (
-    <div className="rounded-lg border border-border/70 bg-surface p-4">
+    <div className="rounded-lg border border-border/70 bg-card p-4">
       <h2 className="text-sm font-semibold text-foreground">Submit Approval Request</h2>
       <form action={submitAthenaApprovalAction} className="mt-4 grid gap-3">
         <label htmlFor="athena-approval-action-id" className="text-xs font-medium text-muted-foreground">Action ID</label>
@@ -89,7 +89,10 @@ function ApprovalSubmissionForm() {
             <input id="athena-approval-step-id" name="stepId" placeholder="Step ID" className={fieldClass} />
           </div>
         </div>
-        <button type="submit" className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background">
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background outline-none transition-colors hover:bg-foreground/85 focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           Submit request
         </button>
       </form>
@@ -99,7 +102,7 @@ function ApprovalSubmissionForm() {
 
 function ApprovalQueue({ approvals }: { approvals: AthenaApprovalRecord[] }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-surface p-4">
+    <div className="rounded-lg border border-border/70 bg-card p-4">
       <h2 className="text-sm font-semibold text-foreground">Approval Queue</h2>
       {approvals.length === 0 ? (
         <div className="mt-4"><EmptyState title="No approval requests" description="No medium- or high-risk Athena actions have been submitted for review." /></div>
@@ -124,13 +127,13 @@ function ApprovalQueue({ approvals }: { approvals: AthenaApprovalRecord[] }) {
 
 function ApprovalReviewDetail({ selectedApproval }: { selectedApproval: AthenaApprovalDetail | null }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-surface p-4">
+    <div className="rounded-lg border border-border/70 bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Review Detail</h2>
           <p className="mt-1 text-sm text-muted-foreground">Bound to exact actor, action, plan step, and canonical input hash.</p>
         </div>
-        <ShieldAlert className="size-5 text-amber-300" aria-hidden="true" />
+        <ShieldAlert className="size-5 text-warning" aria-hidden="true" />
       </div>
       {!selectedApproval ? (
         <div className="mt-6"><EmptyState title="Select an approval" description="Choose an approval request from the queue to review its binding and audit trail." /></div>
@@ -150,8 +153,8 @@ function ApprovalReviewDetail({ selectedApproval }: { selectedApproval: AthenaAp
           </dl>
           {selectedApproval.approval.status === "pending" ? (
             <div className="flex flex-wrap gap-3">
-              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="grant" /><button type="submit" className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-white">Grant</button></form>
-              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="deny" /><button type="submit" className="rounded-md bg-rose-500 px-4 py-2 text-sm font-medium text-white">Deny</button></form>
+              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="grant" /><button type="submit" className="rounded-md bg-success px-4 py-2 text-sm font-medium text-success-foreground outline-none transition-colors hover:bg-success/85 focus-visible:ring-3 focus-visible:ring-ring/50">Grant</button></form>
+              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="deny" /><button type="submit" className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground outline-none transition-colors hover:bg-destructive/85 focus-visible:ring-3 focus-visible:ring-ring/50">Deny</button></form>
             </div>
           ) : null}
           <div>

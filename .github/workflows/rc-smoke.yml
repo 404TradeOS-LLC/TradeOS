@@ -62,14 +62,18 @@ jobs:
       RC_CAPTURE_SCREENSHOTS: ${{ inputs.capture_screenshots }}
       RC_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       ESTIMATE_RELIABILITY_RUNS: ${{ inputs.estimate_runs }}
-      RC_STORAGE_STATE_B64: ${{ secrets.RC_E2E_STORAGE_STATE_B64 }}
-      RC_FIELD_STORAGE_STATE_B64: ${{ secrets.RC_E2E_FIELD_STORAGE_STATE_B64 }}
-      RC_AUTH_EMAIL: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_EMAIL }}
-      RC_AUTH_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
+      RC_AUTH_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      RC_AUTH_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
       RC_AUTH_REJECTED_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD }}
+      RC_FIELD_PASSWORD: ${{ secrets.RC_E2E_LIFECYCLE_AUTH_PASSWORD }}
       RC_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
-      RC_FIELD_STORAGE_STATE_PATH: /tmp/rc-field-storage-state.json
       RC_EVIDENCE_DIR: ../artifacts/rc-smoke
+      BETA_RC_BASE_URL_RESOLVED: ${{ inputs.base_url }}
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_STORAGE_STATE_PATH: /tmp/rc-storage-state.json
+      BETA_EVIDENCE_DIR: ../artifacts/rc-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,22 +84,6 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - name: Require authenticated storage state
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "$RC_STORAGE_STATE_B64" ]; then
-            echo "::error::Repository secret RC_E2E_STORAGE_STATE_B64 is required."
-            exit 1
-          fi
-          printf '%s' "$RC_STORAGE_STATE_B64" | base64 --decode > "$RC_STORAGE_STATE_PATH"
-          chmod 600 "$RC_STORAGE_STATE_PATH"
-          if [ -z "$RC_FIELD_STORAGE_STATE_B64" ]; then
-            echo "::error::Repository secret RC_E2E_FIELD_STORAGE_STATE_B64 is required."
-            exit 1
-          fi
-          printf '%s' "$RC_FIELD_STORAGE_STATE_B64" | base64 --decode > "$RC_FIELD_STORAGE_STATE_PATH"
-          chmod 600 "$RC_FIELD_STORAGE_STATE_PATH"
       - run: npx playwright install --with-deps chromium
       - name: Require non-production smoke configuration
         shell: bash
@@ -115,7 +103,15 @@ jobs:
             exit 1
           fi
           if [ -z "$RC_AUTH_EMAIL" ] || [ -z "$RC_AUTH_PASSWORD" ] || [ -z "$RC_AUTH_REJECTED_PASSWORD" ]; then
-            echo "::error::RC_E2E_LIFECYCLE_AUTH_EMAIL, RC_E2E_LIFECYCLE_AUTH_PASSWORD, and RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD are required."
+            echo "::error::BETA_RC_SMOKE_EMAIL, BETA_RC_SMOKE_PASSWORD, and RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD are required for owner authentication smoke."
+            exit 1
+          fi
+          if [ -z "$RC_FIELD_PASSWORD" ]; then
+            echo "::error::RC_E2E_LIFECYCLE_AUTH_PASSWORD is required for the dedicated field technician login."
+            exit 1
+          fi
+          if [ -z "$BETA_SMOKE_EMAIL" ] || [ -z "$BETA_SMOKE_PASSWORD" ]; then
+            echo "::error::BETA_RC_SMOKE_EMAIL and BETA_RC_SMOKE_PASSWORD are required to generate fresh owner storage state."
             exit 1
           fi
           if [ "$RC_CAPTURE_SCREENSHOTS" = "true" ] && [ "$RC_SANITIZED_TENANT" != "true" ]; then
@@ -123,6 +119,8 @@ jobs:
             exit 1
           fi
       - run: node scripts/authenticated-auth-smoke.mjs
+      - name: Authenticate and bootstrap owner storage state
+        run: node scripts/beta-evidence/auth-setup.mjs
       - run: node scripts/authenticated-route-smoke.mjs
       - run: node scripts/estimate-deliverability-golden.mjs
         env:
@@ -133,6 +131,12 @@ jobs:
       - run: node scripts/rc-business-flow-smoke.mjs
         env:
           RC_GOLDEN_REPORT_PATH: ../artifacts/estimate-deliverability/report.json
+
+      - name: Remove runtime storage state
+        if: always()
+        shell: bash
+        run: rm -f "${BETA_STORAGE_STATE_PATH:-}"
+
       - if: always()
         uses: actions/upload-artifact@v7
         with:

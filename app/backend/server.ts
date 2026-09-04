@@ -27,6 +27,7 @@ import { proposalsRouter } from "./routes/proposals.routes";
 import { invoicesRouter } from "./routes/invoices.routes";
 import { contractsRouter } from "./routes/contracts.routes";
 import { adminDashboardRouter } from "./routes/adminDashboard.routes";
+import { projectCustomerScopeRouter } from "./routes/projectCustomerScope.routes";
 import { projectsRouter } from "./routes/projects.routes";
 import { changeOrdersRouter } from "./routes/changeOrders.routes";
 import { supplierIntegrationRouter } from "./routes/supplierIntegration.routes";
@@ -89,6 +90,7 @@ export function createServer() {
   app.use("/api/v1/contracts", contractsRouter);
   app.use("/api/v1/admin", adminDashboardRouter);
   app.use("/api/v1/customers", crmCustomersRouter);
+  app.use("/api/v1/projects", projectCustomerScopeRouter);
   app.use("/api/v1/projects", projectsRouter);
   app.use("/api/v1/jobs", jobsRouter);
   app.use("/api/v1/schedule", scheduleRouter);

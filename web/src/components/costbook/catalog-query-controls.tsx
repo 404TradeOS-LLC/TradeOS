@@ -50,7 +50,7 @@ export function CatalogQueryControls({
   });
 
   return (
-    <section className="grid gap-3 rounded-lg border border-border/70 bg-surface p-4" aria-label="Catalog query controls">
+    <section className="grid gap-3 rounded-lg border border-border/70 bg-card p-4" aria-label="Catalog query controls">
       {hasFormControls ? (
         <form action={pathname} method="get" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-end">
           {hiddenFields.map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)}

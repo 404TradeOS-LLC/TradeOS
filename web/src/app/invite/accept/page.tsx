@@ -13,8 +13,8 @@ export default async function InviteAcceptPage({ searchParams }: { searchParams:
   const token = typeof params.token === "string" ? params.token : "";
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <InviteAcceptForm token={token} />
-    </div>
+    </main>
   );
 }

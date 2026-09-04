@@ -31,6 +31,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -106,16 +107,28 @@ PR #308 applies the same CI-runtime-maintenance principle to `actions/upload-art
 
 The S047 RC smoke workflow is an operator-triggered, non-production evidence
 lane. Its workflow inputs offer only Preview and Staging, require a dedicated
-smoke-tenant label, separate owner/admin and technician storage-state fixtures,
-and a distinct lifecycle auth account, and run the authentication, golden
+smoke-tenant label, runtime-generated owner/admin state, an organization-matched
+fresh technician login with an isolated field password, and maintained Beta
+owner credentials for the authentication lifecycle, and run the authentication, golden
 customer/project/estimate/proposal, contract/invoice/portal, and Dispatch/Field
 checks. Mutating golden runs are additionally bound to the approved
 `tradeos-costbook-web-*.vercel.app` Preview host pattern. Screenshot publication
 is opt-in and requires explicit sanitized-tenant confirmation; the route script
 also refuses screenshots when its target environment is production. Workflow
 artifact publication always attempts to retain available failure diagnostics,
-including the detailed golden report. These controls protect customer data in
-CI artifacts without changing product authentication or authorization policy.
+including the detailed golden report. The temporary owner storage state is
+created outside the checkout with owner-only permissions and removed in an
+`always()` step before publication; no serialized storage-state secret is
+required or uploaded. These controls protect customer data in CI artifacts
+without changing product authentication or authorization policy.
+
+The companion `Repair staging Supabase auth configuration` workflow is a
+manual, confirmation-gated operational control. Its repository contract fixes
+the Vercel project, `staging` branch, Preview environment, and public staging
+Supabase URL, then requires database-backed readiness. Changes that broaden it
+to Production, accept an operator-provided target/value, or expose the Vercel
+token require an explicit governance review and are prohibited by its contract
+test.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
@@ -355,6 +368,12 @@ The workflow holds read-only repository contents permission, is serialized throu
 
 Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor the workflow's existence is evidence of live runtime behavior.
 
+## RC beta Vercel repair workflow
+
+`.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
+
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It targets only the recorded TradeOS Staging backend, writes the public staging Supabase URL only to Preview scope for the `staging` branch, redeploys that backend with the current Vercel CLI syntax, and verifies `/ready`. It may not target Production, copy Production secrets, or change auth policy.
+
 ## Production migration history reconciliation
 
 Normal production schema rollout uses the protected migration deployment process, not ad hoc SQL.
@@ -448,3 +467,8 @@ Label groups:
 - `owner:*` identifies the expected owner lane when work is split across agents or humans
 
 Labels should be applied consistently during triage. Do not create one-off labels until the taxonomy is updated in the same branch.
+
+
+## CodeQL and code-quality autofix
+
+Scheduled and manually dispatched maintenance workflows may generate isolated pull requests for bounded CodeQL remediations or deterministic frontend ESLint fixes. They must preserve required repository checks, immutable action pinning, branch-current validation, and documentation governance. They may not write directly to `main` or autonomously change product behavior, database/schema/migrations, authentication/authorization/RLS, billing semantics, or production trust boundaries.

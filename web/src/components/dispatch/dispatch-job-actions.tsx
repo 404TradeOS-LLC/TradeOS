@@ -116,7 +116,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
             <button
               type="button"
               disabled={!assignmentUserId.trim() || busy !== null}
-              className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               onClick={() => run("Assigning", () => clientFetch("/jobs/" + job.id + "/assignments", { method: "POST", body: JSON.stringify({ userId: assignmentUserId.trim(), assignmentRole, isLead: assignmentRole === "lead" }) }))}
             >
               {busy === "Assigning" ? "Assigning…" : "Assign technician"}
@@ -126,7 +126,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
                 key={technician.assignmentId ?? technician.userId}
                 type="button"
                 disabled={!technician.assignmentId || busy !== null}
-                className="rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs font-medium text-destructive disabled:opacity-50"
+                className="rounded-md border border-destructive/40 px-2.5 py-1.5 text-xs font-medium text-destructive outline-none transition-colors hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 onClick={() => technician.assignmentId && run("Unassigning", () => clientFetch("/jobs/" + job.id + "/assignments/" + technician.assignmentId, { method: "DELETE", body: JSON.stringify({ reason: "Removed from dispatcher workspace" }) }))}
               >
                 Remove {technician.name}
@@ -157,13 +157,13 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={busy !== null} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground disabled:opacity-50" onClick={checkConflicts}>
+            <button type="button" disabled={busy !== null} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50" onClick={checkConflicts}>
               {busy === "Checking conflicts" ? "Checking…" : "Check conflicts"}
             </button>
             <button
               type="button"
               disabled={busy !== null}
-              className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
               onClick={() => run(job.scheduledStart ? "Rescheduling" : "Scheduling", () => clientFetch("/jobs/" + job.id + "/" + (job.scheduledStart ? "reschedule" : "schedule"), { method: job.scheduledStart ? "POST" : "PUT", body: JSON.stringify(schedulePayload()) }))}
             >
               {busy === "Rescheduling" ? "Rescheduling…" : busy === "Scheduling" ? "Scheduling…" : job.scheduledStart ? "Reschedule" : "Schedule"}
@@ -172,7 +172,7 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
               <button
                 type="button"
                 disabled={busy !== null}
-                className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
+                className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 onClick={() => run("Dispatching", () => clientFetch("/jobs/" + job.id + "/dispatch", { method: "POST", body: JSON.stringify({}) }))}
               >
                 {busy === "Dispatching" ? "Dispatching…" : "Mark dispatched"}
@@ -182,14 +182,14 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
               <button
                 type="button"
                 disabled={busy !== null}
-                className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
                 onClick={() => run("Marking ready", () => clientFetch("/jobs/" + job.id + "/ready-for-invoice", { method: "POST", body: JSON.stringify({}) }))}
               >
                 {busy === "Marking ready" ? "Marking ready…" : "Mark ready for invoice"}
               </button>
             ) : null}
             {job.readyForInvoiceAt && job.project ? (
-              <Link href={`/projects/${job.project.id}/invoices/new`} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground">
+              <Link href={`/projects/${job.project.id}/invoices/new`} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50">
                 Open billing
               </Link>
             ) : null}

@@ -1,11 +1,12 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api";
 import { clearLocalSessionCookies, clearSessionCookie, setLocalSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 
-export type AuthActionState = { error?: string; success?: string } | undefined;
+export type AuthActionState = { error?: string; success?: string; recoveryError?: boolean } | undefined;
 
 interface LocalAuthSession {
   token: string;
@@ -17,7 +18,19 @@ interface LocalAuthSession {
 // it's passed to Supabase as emailRedirectTo below, and Supabase only
 // honors it if the same URL is also added to the project's Auth > URL
 // Configuration > Redirect URLs allowlist in the Supabase dashboard.
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+function recoveryRedirectUrl(): string | null {
+  if (!APP_URL) return process.env.NODE_ENV === "development" ? "http://localhost:3000/auth/confirm?next=/reset-password" : null;
+
+  try {
+    const url = new URL(APP_URL);
+    if (process.env.NODE_ENV !== "development" && url.protocol !== "https:") return null;
+    return url.origin + "/auth/confirm?next=/reset-password";
+  } catch {
+    return null;
+  }
+}
 
 export async function signupAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const organizationName = String(formData.get("organizationName") ?? "").trim();
@@ -76,14 +89,23 @@ export async function requestPasswordResetAction(_prev: AuthActionState, formDat
     return { error: "Enter the email address for your TradeOS account." };
   }
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/request", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-  } catch {
-    // Keep this response enumeration-safe. The backend intentionally returns
-    // the same success shape for known and unknown addresses.
+  const redirectTo = recoveryRedirectUrl();
+  if (!redirectTo) {
+    return { error: "Password recovery is not configured for this deployment." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    // Server-side diagnostic only. Supabase can fail this for reasons that
+    // must never reach the client response (rate limiting, SMTP/provider
+    // outage, a malformed redirectTo the dashboard allowlist rejects) — the
+    // user-facing copy stays generic so we never confirm which emails have
+    // accounts.
+    console.error("resetPasswordForEmail failed:", error.message);
     return { error: "We couldn't process that request. Please try again." };
   }
 
@@ -97,17 +119,55 @@ export async function resetPasswordAction(_prev: AuthActionState, formData: Form
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!token) return { error: "This password-reset link is missing its token." };
   if (password.length < 8) return { error: "Your password must be at least 8 characters." };
   if (password !== confirmPassword) return { error: "The passwords do not match." };
 
-  try {
-    await apiFetch("/api/v1/auth/password-reset/confirm", {
-      method: "POST",
-      body: JSON.stringify({ token, password }),
-    });
-  } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+  if (token) {
+    try {
+      await apiFetch("/api/v1/auth/password-reset/confirm", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+    } catch (err) {
+      return { error: err instanceof ApiClientError ? err.message : "Unable to reset your password. Please try again." };
+    }
+  } else {
+    const cookieStore = await cookies();
+    const recoveryUserId = cookieStore.get("tradeos-recovery")?.value ?? "";
+    if (!recoveryUserId) {
+      return {
+        error: "This reset link is missing or invalid. Request a new link and try again.",
+        recoveryError: true,
+      };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: sessionError,
+    } = await supabase.auth.getUser();
+    if (sessionError || !user || user.id !== recoveryUserId) {
+      if (sessionError) console.error("Supabase recovery session validation failed during password reset:", sessionError.message);
+      return {
+        error: "This reset link is missing or invalid. Request a new link and try again.",
+        recoveryError: true,
+      };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      // Server-side diagnostic only. The recovery cookie can be present yet
+      // the Supabase session it names still fail here (link consumed a
+      // second time in another tab, session expired mid-form, provider
+      // error) — never surface error.message to the client.
+      console.error("Supabase updateUser failed during password reset:", error.message);
+      return {
+        error: "Unable to update your password. Request a new link and try again.",
+        recoveryError: true,
+      };
+    }
+
+    cookieStore.delete("tradeos-recovery");
   }
 
   return { success: "Your password has been updated. You can sign in now." };

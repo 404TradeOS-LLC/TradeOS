@@ -83,7 +83,7 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
       ) : workspace ? (
         <>
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Hierarchy summary">
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Divisions in result</p>
@@ -92,11 +92,11 @@ export default async function CostbookDivisionsPage({ searchParams }: { searchPa
                 <Layers className="size-5 text-muted-foreground" aria-hidden="true" />
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Write Access</p>
               <p className="mt-2 text-lg font-semibold text-foreground">{workspace.permissions.canWrite ? "Enabled" : "Read Only"}</p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Scope</p>
               <p className="mt-2 truncate text-sm font-medium text-foreground">{workspace.organizationId}</p>
             </div>

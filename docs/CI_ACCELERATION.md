@@ -49,27 +49,32 @@ The value must be a base64-encoded Playwright storage-state JSON file for a non-
 
 `Release candidate authenticated smoke` uses:
 
-`RC_E2E_STORAGE_STATE_B64`
+`BETA_RC_SMOKE_EMAIL`
 
-`RC_E2E_FIELD_STORAGE_STATE_B64`
+`BETA_RC_SMOKE_PASSWORD`
 
 It accepts an explicitly selected Preview or Staging URL, a dedicated sanitized
 smoke-tenant label, and route list. The base URL must be HTTPS and match the
 approved `tradeos-costbook-web-*.vercel.app` Vercel Preview host pattern for
-the selected non-production environment. The owner/admin storage state is used for
-the business golden path and Dispatch; the separate technician storage state
-is required for a resource-backed Field check. The workflow requires a
-separate lifecycle account using `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
-`RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and deliberately invalid
-`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` secrets to exercise rejected credentials,
-successful login, refresh, logout, and protected-route denial. It then runs
+the selected non-production environment. The workflow drives the real login
+form with the Beta smoke owner credentials, verifies that the resulting session
+belongs to the named smoke organization, and writes owner/admin storage state
+to the runner temporary directory with owner-only permissions for the business
+golden path and Dispatch. It fresh-authenticates the organization-matched
+technician before the resource-backed Field lifecycle instead of consuming a
+serialized technician cookie jar. The owner authentication lifecycle uses the
+same maintained Beta smoke credentials plus the deliberately invalid
+`RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` secret to exercise rejected credentials,
+successful login, refresh, logout, and protected-route denial. The dedicated
+field technician remains isolated behind `RC_E2E_LIFECYCLE_AUTH_PASSWORD`; the
+workflow exposes that value only to the field login as `RC_FIELD_PASSWORD`. It then runs
 route smoke, the customer → project → estimate → proposal golden workflow,
 contract/invoice creation, portal resource checks, and the Dispatch/Field job
 surfaces. Golden-workflow mutations require `RC_ALLOW_MUTATIONS=true` inside
 the script, are bound to the approved `tradeos-costbook-web-*.vercel.app`
 Preview host pattern, and are fail-closed outside Preview or Staging. The
-lifecycle account must not be the account encoded in either storage-state
-fixture because logout revokes that account's refresh sessions.
+authentication lifecycle runs before owner storage-state generation so its
+logout cannot revoke the session used by the remaining evidence steps.
 
 The workflow uploads both the RC report directory and the detailed golden
 workflow report, including reports written by failed steps, with safe artifact
@@ -78,8 +83,19 @@ publication under `if: always()`.
 Screenshots are opt-in. They require `sanitized_tenant=true` and are refused
 for production-targeted direct script runs; the workflow itself only offers
 Preview and Staging. Without that confirmation, uploaded artifacts contain
-machine-readable reports only. The workflow does not commit credentials or
-storage state, and the generated reports never include authentication secrets.
+machine-readable reports only. Runtime storage state is removed in an
+`always()` step before artifact publication. The workflow does not commit or
+upload credentials or storage state, and the generated reports never include
+authentication secrets.
+
+`Repair staging Supabase auth configuration` is a separate, manual recovery
+workflow rather than an evidence shortcut. With explicit confirmation, it
+restores only the stable staging backend's branch-scoped Preview
+`SUPABASE_URL`, redeploys that backend, and verifies database readiness before
+the RC smoke is rerun. The workflow embeds only the public staging project URL;
+its Vercel token remains a repository secret. The Vercel CLI update is explicit
+and non-interactive (`--value` plus `--yes`); redeploy uses the current command
+contract, which does not accept the legacy `--yes` option.
 
 ### Beta evidence
 

@@ -65,7 +65,7 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
         <SummaryMetricCard label="Needs contact" value={String(stats.missingContact)} />
       </div>
 
-      <div className="rounded-3xl border border-border/70 bg-card/90 p-4 shadow-sm">
+      <div className="rounded-3xl border border-border/70 bg-card/90 p-4 shadow-(--elev-1)">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1">
             <label htmlFor="customer-search" className="sr-only">
@@ -140,7 +140,7 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
           >
             {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
             <table className="w-full min-w-[920px] text-left">
-              <thead className="border-b border-border/60 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 <tr>
                   <th scope="col" className="py-3 pr-4 font-medium">Customer</th>
                   <th scope="col" className="py-3 pr-4 font-medium">Contact</th>
@@ -149,9 +149,9 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
                   <th scope="col" className="py-3 pl-4 text-right font-medium">Open</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/40">
                 {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="border-b border-border/40 last:border-b-0">
+                  <tr key={customer.id} className="transition-colors hover:bg-muted/40">
                     <td className="py-4 pr-4 align-top">
                       <div className="space-y-1">
                         <div className="font-medium text-foreground">{customer.name}</div>

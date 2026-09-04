@@ -1,7 +1,7 @@
 ---
 status: ready
 owner: platform
-last_verified: 2026-08-27
+last_verified: 2026-09-02
 source_of_truth: true
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -32,17 +32,17 @@ blocked by S045 and does not block this candidate.
 Automate and document repeatable release-candidate smoke evidence over the
 existing authenticated web and API surfaces for auth, customer, estimate,
 proposal, contract, job, invoice, and portal flows. Reuse the existing
-Playwright scripts, storage-state contract, artifact publication, route
+Playwright scripts, runtime authentication bootstrap, artifact publication, route
 contracts, domain services, forced RLS, and existing lifecycle semantics.
 
 ## Acceptance contract
 
 - the smoke suite runs deterministically against an explicitly supplied
-  deployment URL and authenticated storage state without committing cookies or
-  credentials;
+  deployment URL and generates authenticated owner storage state outside the
+  checkout without committing or uploading cookies or credentials;
 - an authentication scenario exercises successful login, rejected credentials,
   logout, and session refresh/expiry behavior using a dedicated non-production
-  lifecycle account, separate from reusable storage-state accounts, without
+  lifecycle account before the owner session is generated, without
   persisting secrets;
 - route smoke covers founder-critical authenticated workspace routes and
   records status, final URL, body presence, and screenshots only for a
@@ -52,23 +52,32 @@ contracts, domain services, forced RLS, and existing lifecycle semantics.
   acceptance, contract creation, and invoice creation;
 - business-flow scenarios cover resource-backed contract, invoice, portal,
   Dispatch, and Field job boundaries without silently switching to top-level
-  routes that do not exist; Field uses a technician storage-state fixture and
-  must not pass on the static technician-role denial state;
+  routes that do not exist; Field fresh-authenticates the technician mapped to
+  the owner's verified smoke organization and must not pass on the static
+  technician-role denial state;
 - failures identify the route/workflow and publish safe machine-readable
   evidence artifacts, including the detailed golden report;
 - documentation names required secrets/access, environment limits, rollback
   considerations, and the distinction between repository evidence and live
   deployment evidence.
 
-The operator supplies `RC_E2E_STORAGE_STATE_B64`,
-`RC_E2E_FIELD_STORAGE_STATE_B64`, `RC_E2E_LIFECYCLE_AUTH_EMAIL`,
+The operator supplies `BETA_RC_SMOKE_EMAIL`, `BETA_RC_SMOKE_PASSWORD`,
 `RC_E2E_LIFECYCLE_AUTH_PASSWORD`, and a deliberately invalid
 `RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD` from the selected non-production
-environment. The lifecycle account must be distinct from both storage-state
-accounts because the logout step revokes refresh sessions.
+environment. Owner rejection/login/refresh/logout coverage uses the maintained
+Beta smoke identity, while the lifecycle password is separately exposed to the
+organization-matched field technician as `RC_FIELD_PASSWORD`. The logout
+scenario runs before owner state is created so later evidence cannot inherit a
+revoked session.
 The workflow sets mutation permission only for the guarded golden script and
 does not offer production as a mutating target; the mutating script also
 requires an approved `tradeos-costbook-web-*.vercel.app` host.
+
+If the stable staging backend loses its branch-scoped Supabase issuer URL, the
+separate manual repair workflow restores only `SUPABASE_URL` for Preview scope
+on `staging`, redeploys the recorded backend, and checks database-backed
+readiness. That operational repair is a prerequisite to evidence capture, not
+evidence itself.
 
 ## Scope and non-goals
 
@@ -84,13 +93,14 @@ S045, S046, S048, or S049.
 Required validation includes focused script/config tests, app/web typecheck,
 lint, builds, relevant integration/RLS checks, docs ownership/governance
 checks, and an operator-triggered RC smoke run when an authenticated storage
-state and deployment URL are available. The repository can prove script
+state can be generated and a deployment URL is available. The repository can prove script
 contracts and artifact safety without production access; live authenticated
-execution requires the scoped owner/admin and technician storage-state secrets,
-the distinct lifecycle auth fixtures, and an explicitly selected approved
+execution requires the Beta smoke owner credentials, the distinct lifecycle
+auth fixtures, the provisioned organization-matched technician, and an explicitly selected approved
 non-production deployment URL and test tenant. The workflow always publishes
 available machine-readable reports, including failure reports, and includes
-the detailed golden report directory in its artifact.
+the detailed golden report directory in its artifact. Runtime storage state is
+removed before publication and is never part of the artifact.
 Production URLs must disable screenshot publication or apply an explicit
 redaction control before any artifact upload. No founder decision is required for
 this bounded verification contract. Founder approval of remaining product

@@ -2,8 +2,10 @@ import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { ProjectWorkspaceTabs, resolveProjectWorkspaceTab } from "@/components/projects/project-workspace-tabs";
-import { getProject } from "@/lib/api";
+import { getOrganizationSettings, getProject } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+
+const JOB_MANAGER_ROLES = new Set(["owner", "admin", "dispatcher"]);
 
 export default async function ProjectDetailPage({
   params,
@@ -14,18 +16,25 @@ export default async function ProjectDetailPage({
 }) {
   const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
-  const project = await getProject(token ?? "", id);
+  const [project, settings] = await Promise.all([
+    getProject(token ?? "", id),
+    getOrganizationSettings(token ?? ""),
+  ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  const actions = [
+    ...(JOB_MANAGER_ROLES.has(settings.currentRole)
+      ? [{ href: `/projects/${project.id}/jobs/new`, label: "Create job" }]
+      : []),
+    { href: `/projects/${project.id}/intake`, label: "Open field intake", variant: "secondary" as const },
+    { href: `/projects/${project.id}?tab=change-orders`, label: "Open change orders", variant: "secondary" as const },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
       <ProjectHeader
         project={project}
         subtitle={project.simpleScope ?? "Move this job from estimate into full project execution."}
-        actions={[
-          { href: `/projects/${project.id}/intake`, label: "Open field intake" },
-          { href: `/projects/${project.id}?tab=change-orders`, label: "Open change orders", variant: "secondary" },
-        ]}
+        actions={actions}
       />
 
       <ProjectWorkspaceTabs projectId={project.id} activeTab={activeTab} />

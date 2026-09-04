@@ -1,0 +1,73 @@
+name: Repair staging Supabase auth configuration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type REPAIR_STAGING_AUTH to update the staging backend Preview only"
+        required: true
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-staging-supabase-auth
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Restore staging backend Supabase issuer configuration
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      REPAIR_CONFIRM: ${{ inputs.confirm }}
+      VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
+      STAGING_BRANCH: staging
+      STAGING_SUPABASE_URL: https://qfbgdkbamfaasmtjfyru.supabase.co
+      STAGING_BACKEND_DEPLOYMENT: https://tradeos-costbook-32iyzg1jx-billykshowalters.vercel.app
+      STAGING_BACKEND_ALIAS: https://tradeos-costbook-git-staging-billykshowalters.vercel.app
+    steps:
+      - name: Require explicit staging-only confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$REPAIR_CONFIRM" != "REPAIR_STAGING_AUTH" ]; then
+            echo "::error::Type REPAIR_STAGING_AUTH in the confirmation field."
+            exit 1
+          fi
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::GitHub secret VERCEL_TOKEN is missing."
+            exit 1
+          fi
+          case "$STAGING_SUPABASE_URL" in
+            https://qfbgdkbamfaasmtjfyru.supabase.co) ;;
+            *) echo "::error::Staging Supabase URL is outside the approved project."; exit 1 ;;
+          esac
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Verify Vercel token
+        run: vercel whoami --token="$VERCEL_TOKEN"
+
+      - name: Restore branch-scoped staging Supabase URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env update SUPABASE_URL preview "$STAGING_BRANCH" --value "$STAGING_SUPABASE_URL" --yes --token="$VERCEL_TOKEN"; then
+            exit 0
+          fi
+          printf '%s' "$STAGING_SUPABASE_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env add SUPABASE_URL preview "$STAGING_BRANCH" --token="$VERCEL_TOKEN"
+
+      - name: Redeploy stable staging backend
+        run: vercel redeploy "$STAGING_BACKEND_DEPLOYMENT" --token="$VERCEL_TOKEN"
+
+      - name: Verify database-backed staging readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 8 --retry-delay 5 "$STAGING_BACKEND_ALIAS/ready")"
+          node -e 'const body = JSON.parse(process.argv[1]); if (body.status !== "ready" || body.checks?.database?.status !== "ok") process.exit(1)' "$response"

@@ -6,6 +6,7 @@ import test from "node:test";
 const root = process.cwd();
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 const workflow = read(".github/workflows/rc-smoke.yml");
+const stagingAuthRepair = read(".github/workflows/repair-staging-supabase-auth.yml");
 const routeSmoke = read("app/scripts/authenticated-route-smoke.mjs");
 const authSmoke = read("app/scripts/authenticated-auth-smoke.mjs");
 const golden = read("app/scripts/estimate-deliverability-golden.mjs");
@@ -14,13 +15,28 @@ const business = read("app/scripts/rc-business-flow-smoke.mjs");
 test("RC workflow uses real routes and runs every S047 smoke surface", () => {
   assert.match(workflow, /default: \/dashboard,\/customers,\/projects,\/dispatch,\/field,\/costbook/);
   assert.match(workflow, /node scripts\/authenticated-auth-smoke\.mjs/);
+  assert.match(workflow, /node scripts\/beta-evidence\/auth-setup\.mjs/);
   assert.match(workflow, /node scripts\/authenticated-route-smoke\.mjs/);
   assert.match(workflow, /node scripts\/estimate-deliverability-golden\.mjs/);
   assert.match(workflow, /node scripts\/rc-business-flow-smoke\.mjs/);
-  assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
+  assert.doesNotMatch(workflow, /RC_E2E_LIFECYCLE_AUTH_EMAIL/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_PASSWORD/);
   assert.match(workflow, /RC_E2E_LIFECYCLE_AUTH_REJECTED_PASSWORD/);
-  assert.match(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.match(workflow, /RC_FIELD_PASSWORD/);
+  assert.match(workflow, /BETA_RC_SMOKE_EMAIL/);
+  assert.match(workflow, /BETA_RC_SMOKE_PASSWORD/);
+  assert.match(workflow, /BETA_STORAGE_STATE_PATH/);
+  assert.doesNotMatch(workflow, /RC_E2E_STORAGE_STATE_B64/);
+  assert.doesNotMatch(workflow, /RC_E2E_FIELD_STORAGE_STATE_B64/);
+  assert.doesNotMatch(workflow, /base64 --decode/);
+  assert.match(workflow, /name: Remove runtime storage state/);
+  assert.match(workflow, /rm -f "\$\{BETA_STORAGE_STATE_PATH:-\}"/);
+
+  const authLifecycleIndex = workflow.indexOf("node scripts/authenticated-auth-smoke.mjs");
+  const runtimeBootstrapIndex = workflow.indexOf("node scripts/beta-evidence/auth-setup.mjs");
+  const routeSmokeIndex = workflow.indexOf("node scripts/authenticated-route-smoke.mjs");
+  assert.ok(authLifecycleIndex < runtimeBootstrapIndex, "logout lifecycle must run before owner state is generated");
+  assert.ok(runtimeBootstrapIndex < routeSmokeIndex, "owner state must exist before authenticated route smoke");
   assert.match(workflow, /url\.protocol === "https:"/);
   assert.match(workflow, /tradeos-costbook-web-\[a-z0-9\]/);
   assert.doesNotMatch(workflow, /options:\n(?:.|\n)*- production/);
@@ -46,9 +62,24 @@ test("auth smoke covers rejection, login, refresh, logout, and protected-route d
     "expired or logged-out session redirects from a protected route",
   ]) assert.match(authSmoke, new RegExp(marker));
   assert.match(authSmoke, /RC_AUTH_REJECTED_PASSWORD/);
+  assert.match(authSmoke, /RC smoke owner login returned an alert before reaching the authenticated workspace/);
   assert.match(authSmoke, /openLoginPage/);
   assert.match(authSmoke, /finalUrl\.origin !== parsedBaseUrl\.origin/);
   assert.doesNotMatch(authSmoke, /console\.log\([^)]*password/i);
+});
+
+test("staging auth repair is explicit, branch-scoped, and never targets Production", () => {
+  assert.match(stagingAuthRepair, /REPAIR_STAGING_AUTH/);
+  assert.match(stagingAuthRepair, /STAGING_BRANCH: staging/);
+  assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
+  assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
+  assert.match(stagingAuthRepair, /vercel env update SUPABASE_URL preview "\$STAGING_BRANCH" --value "\$STAGING_SUPABASE_URL" --yes/);
+  assert.match(stagingAuthRepair, /vercel redeploy "\$STAGING_BACKEND_DEPLOYMENT" --token="\$VERCEL_TOKEN"/);
+  assert.doesNotMatch(stagingAuthRepair, /vercel redeploy[^\n]*--yes/);
+  assert.match(stagingAuthRepair, /tradeos-costbook-git-staging-billykshowalters\.vercel\.app/);
+  assert.match(stagingAuthRepair, /body\.status !== "ready"/);
+  assert.doesNotMatch(stagingAuthRepair, /\bproduction\b/i);
+  assert.doesNotMatch(stagingAuthRepair, /kssaceuetdjwfqnbzhly/);
 });
 
 test("golden workflow is explicitly limited to a dedicated non-production tenant", () => {
@@ -64,7 +95,7 @@ test("golden workflow is explicitly limited to a dedicated non-production tenant
   assert.match(golden, /invoiceId/);
 });
 
-test("business-flow smoke follows resource-backed project, portal, and job routes", () => {
+test("business-flow smoke selects the matching smoke technician and executes payment through field completion", () => {
   for (const route of [
     "`/projects/${run.projectId}/contracts/${run.contractId}`",
     "`/projects/${run.projectId}/invoices/${run.invoiceId}`",
@@ -73,14 +104,38 @@ test("business-flow smoke follows resource-backed project, portal, and job route
     "`/portal/contracts/${run.contractId}`",
     "`/portal/invoices/${run.invoiceId}`",
     '"/dispatch"',
-    '"/field"',
   ]) assert.ok(business.includes(route), `missing business route ${route}`);
-  assert.match(business, /RC_FIELD_STORAGE_STATE_PATH is required/);
+
+  assert.match(business, /RC_FIELD_PASSWORD is required for the dedicated field technician login/);
+  assert.match(business, /FIELD_FIXTURES_BY_ORG/);
+  assert.match(business, /980756cd-1c45-4cdb-a516-26be5e2455ad/);
+  assert.match(business, /tradeos-rc-owner-a90d5dad@mailinator\.com/);
+  assert.match(business, /0858f7e5-4df3-46ec-9023-f7961d791c6b/);
+  assert.match(business, /9814bd72-626a-42f4-8871-cd755cb9d685/);
+  assert.match(business, /rc-field-tech@tradeos\.invalid/);
+  assert.match(business, /08d28981-52e8-4459-bcbb-1ef996baea92/);
+  assert.match(business, /resolveFieldFixture/);
+  assert.match(business, /proxyJson\(page, "\/settings"\)/);
+  assert.match(business, /settings\?\.orgId !== fieldFixture\.orgId/);
+  assert.match(business, /settings\?\.currentRole !== "technician"/);
+  assert.match(business, /Send invoice/);
+  assert.match(business, /Record payment/);
+  assert.match(business, /Create job and open Dispatch/);
+  assert.match(business, /assignmentRole: "technician"/);
+  assert.match(business, /`\/jobs\/\$\{job\.id\}\/schedule`/);
+  assert.match(business, /method: "PUT"/);
+  assert.match(business, /`\/jobs\/\$\{job\.id\}\/dispatch`/);
+  assert.match(business, /Start travel/);
+  assert.match(business, /Arrived on site/);
+  assert.match(business, /Complete job/);
+  assert.match(business, /expectedStatus.*completed/);
+  assert.match(business, /finalOwnerJob\?\.status === "completed"/);
+  assert.match(business, /finalInvoice\?\.status === "paid"/);
+  assert.match(business, /balanceDue/);
+  assert.match(business, /waitForResource/);
   assert.match(business, /finalOrigin\.origin === parsedBaseUrl\.origin/);
-  assert.match(business, /Active Jobs/);
-  assert.match(business, /No assigned jobs today/);
-  assert.match(business, /Technician workspace/);
   assert.match(business, /golden workflow report is missing/);
+  assert.doesNotMatch(business, /console\.log\([^)]*fieldPassword/i);
   assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /artifacts\/estimate-deliverability/);
 });

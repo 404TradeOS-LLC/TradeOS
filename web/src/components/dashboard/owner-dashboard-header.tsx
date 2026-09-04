@@ -2,13 +2,14 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { OwnerDashboardGreeting } from "@/components/dashboard/owner-dashboard-greeting";
+import { OwnerDashboardGreeting, OwnerDashboardSynthesis } from "@/components/dashboard/owner-dashboard-greeting";
 import { buildReviewQueueMetrics, type ReviewQueueCounts } from "@/components/dashboard/owner-dashboard-header-model";
 
 interface OwnerDashboardHeaderProps {
   companyName: string;
   currentDateLabel: string;
   notificationCount: number;
+  todaysJobsCount: number;
   weather?: unknown;
   projectScopeLabel: string;
   reviewQueue?: ReviewQueueCounts;
@@ -27,6 +28,7 @@ export function OwnerDashboardHeader({
   companyName,
   currentDateLabel,
   notificationCount,
+  todaysJobsCount,
   projectScopeLabel,
   reviewQueue,
 }: OwnerDashboardHeaderProps) {
@@ -34,7 +36,7 @@ export function OwnerDashboardHeader({
   const metrics = buildReviewQueueMetrics(reviewQueue);
 
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-(--elev-1) sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -45,7 +47,7 @@ export function OwnerDashboardHeader({
               variant="outline"
               className={
                 hasAttention
-                  ? "border-primary/20 bg-primary/8 text-primary"
+                  ? "border-primary/20 bg-primary/8 text-accent-foreground"
                   : "border-border/70 bg-muted/30 text-muted-foreground"
               }
             >
@@ -53,6 +55,7 @@ export function OwnerDashboardHeader({
             </Badge>
           </div>
           <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{companyName}</h1>
+          <OwnerDashboardSynthesis notificationCount={notificationCount} todaysJobsCount={todaysJobsCount} />
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <CalendarDays aria-hidden="true" className="size-4" />

@@ -32,9 +32,9 @@ export function AthenaCompletenessPanel({ completeness }: { completeness: Athena
                 className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2 text-sm"
               >
                 {isObserved ? (
-                  <Check aria-hidden="true" className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <Check aria-hidden="true" className="size-4 shrink-0 text-success" />
                 ) : (
-                  <X aria-hidden="true" className="size-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <X aria-hidden="true" className="size-4 shrink-0 text-destructive" />
                 )}
                 <span className={isObserved ? "text-foreground" : "text-muted-foreground"}>{spanType}</span>
                 {isObserved ? (

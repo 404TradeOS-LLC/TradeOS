@@ -10,9 +10,9 @@ interface DispatchObservabilityPanelProps {
 }
 
 const signals = [
-  { label: "Unscheduled work", value: (summary: DispatchSummary) => summary.unscheduledJobs, href: "/dispatch?view=all&status=unscheduled", tone: "text-amber-700" },
-  { label: "Overdue work", value: (summary: DispatchSummary) => summary.overdueActionable, href: "/dispatch?view=attention&scheduled=week", tone: "text-red-700" },
-  { label: "Needs attention", value: (summary: DispatchSummary) => summary.needsAttention, href: "/dispatch?view=attention", tone: "text-orange-700" },
+  { label: "Unscheduled work", value: (summary: DispatchSummary) => summary.unscheduledJobs, href: "/dispatch?view=all&status=unscheduled", tone: "text-warning" },
+  { label: "Overdue work", value: (summary: DispatchSummary) => summary.overdueActionable, href: "/dispatch?view=attention&scheduled=week", tone: "text-destructive" },
+  { label: "Needs attention", value: (summary: DispatchSummary) => summary.needsAttention, href: "/dispatch?view=attention", tone: "text-warning" },
 ];
 
 function formatEventTime(value: string) {

@@ -1,0 +1,96 @@
+# Operational note: this workflow is intentionally manual and Preview-only.\n\nname: Repair RC beta Vercel wiring
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type CLEANUP_RC to update Preview only"
+        required: true
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-rc-beta-vercel
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Repair current RC Preview configuration
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      RC_CONFIRM: ${{ inputs.confirm }}
+      VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      FRONTEND_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+      BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
+      RC_BRANCH: fix/rc-dashboard-api-error
+      FRONTEND_DEPLOYMENT: https://tradeos-costbook-57hq4ds6c-billykshowalters.vercel.app
+      BACKEND_DEPLOYMENT: https://tradeos-costbook-apbe6n08i-billykshowalters.vercel.app
+      RC_FRONTEND_URL: https://tradeos-costbook-web-git-fix-rc-dashboa-39fb8b-billykshowalters.vercel.app
+      RC_BACKEND_URL: https://tradeos-costbook-git-fix-rc-dashboard-a-873766-billykshowalters.vercel.app
+    steps:
+      - name: Require explicit confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${RC_CONFIRM}" != "CLEANUP_RC" ]; then
+            echo "::error::Type CLEANUP_RC in the confirmation field."
+            exit 1
+          fi
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::GitHub secret VERCEL_TOKEN is missing."
+            exit 1
+          fi
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Verify Vercel token
+        run: vercel whoami --token="$VERCEL_TOKEN"
+
+      - name: Update frontend backend target
+        shell: bash
+        run: |
+          set -euo pipefail
+          update_or_add() {
+            local project_id="$1"
+            local name="$2"
+            local value="$3"
+            if printf '%s' "$value" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$project_id" vercel env update "$name" preview "$RC_BRANCH" --token="$VERCEL_TOKEN"; then
+              return 0
+            fi
+            printf '%s' "$value" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$project_id" vercel env add "$name" preview "$RC_BRANCH" --token="$VERCEL_TOKEN"
+          }
+          update_or_add "$FRONTEND_PROJECT_ID" BACKEND_API_URL "$RC_BACKEND_URL"
+
+      - name: Update backend email configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          update_or_add() {
+            local name="$1"
+            local value="$2"
+            if printf '%s' "$value" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env update "$name" preview "$RC_BRANCH" --token="$VERCEL_TOKEN"; then
+              return 0
+            fi
+            printf '%s' "$value" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env add "$name" preview "$RC_BRANCH" --token="$VERCEL_TOKEN"
+          }
+          update_or_add EMAIL_FROM "TradeOS <hello@404tradeos.com>"
+          update_or_add APP_BASE_URL "$RC_FRONTEND_URL"
+
+      - name: Redeploy RC frontend
+        run: vercel redeploy "$FRONTEND_DEPLOYMENT" --token="$VERCEL_TOKEN" --yes
+
+      - name: Redeploy RC backend
+        run: vercel redeploy "$BACKEND_DEPLOYMENT" --token="$VERCEL_TOKEN" --yes
+
+      - name: Verify RC URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 "$RC_FRONTEND_URL/login" >/dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 "$RC_BACKEND_URL/health" >/dev/null
+          echo "RC frontend and backend responded successfully."

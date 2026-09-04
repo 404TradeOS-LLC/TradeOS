@@ -71,6 +71,11 @@ PDFs use `/api/customer-portal/*`, which forwards only the HttpOnly portal
 session to the backend. The server-side document generators resolve canonical
 organization branding; no client-selected organization is accepted.
 
+Portal invoice loading uses the shared document-detail skeleton with an
+accessible loading status and a valid two-column ratio at wide-screen sizes;
+the loading state does not alter invoice data, permissions, or payment
+behavior.
+
 ## Proposal review actions
 
 `/portal/proposals/[proposalId]` uses the existing staff session-token path for

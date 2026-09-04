@@ -43,6 +43,7 @@ related_code:
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
 ---
 
 # TradeOS Documentation
@@ -78,13 +79,23 @@ Use these files first:
 The manual `Release candidate authenticated smoke` workflow is the governed
 S047 evidence path. It is restricted to explicitly selected Preview or Staging
 deployments on the approved HTTPS `tradeos-costbook-web-*.vercel.app` host
-pattern and a dedicated smoke tenant; it runs authentication lifecycle with a
-distinct account, resource-backed customer/estimate/proposal/contract/invoice/
-portal checks, and Dispatch/Field job-surface checks using separate owner/admin
-and technician storage-state fixtures. Screenshots are opt-in only for an
-explicitly confirmed sanitized tenant, and failed steps retain available
-machine-readable reports. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the
-required secrets and artifact boundary.
+pattern and a dedicated smoke tenant; it runs the owner authentication lifecycle
+with the maintained Beta smoke credentials, then creates fresh owner/admin
+browser state through the real login form using those credentials. Resource-backed customer/estimate/
+proposal/contract/invoice/portal checks reuse that temporary session, while the
+organization-matched technician is fresh-authenticated with its isolated field
+password for Dispatch/Field
+completion. No serialized cookie-jar secret is required. Screenshots are opt-in
+only for an explicitly confirmed sanitized tenant, runtime state is removed
+before artifact publication, and failed steps retain available machine-readable
+reports. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the required secrets
+and artifact boundary.
+
+When that smoke reports `SUPABASE_URL is not configured`, use the guarded
+`Repair staging Supabase auth configuration` workflow documented in
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
+`staging` backend and the TradeOS Staging Supabase URL; it is not a general
+environment editor.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -167,6 +178,10 @@ The workflow implementation uses supported major versions of `actions/checkout` 
 PR #308 updates the existing artifact publication steps in `.github/workflows/rc-smoke.yml` and `.github/workflows/s027-browser-evidence.yml` from `actions/upload-artifact@v6` to `@v7`. The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
+
+The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
+
+The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL` using the current non-interactive Vercel CLI contract, redeploys the recorded staging backend, and requires `/ready` before the authenticated RC smoke can resume.
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
@@ -266,3 +281,8 @@ Athena production-readiness changes that touch approvals, audit persistence,
 permission context, or provider scope should update both the Athena-specific
 docs and whichever shared platform docs describe tenancy, RBAC, or runtime
 architecture.
+
+
+### Automated maintenance
+
+The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.
