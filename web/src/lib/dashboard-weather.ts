@@ -10,7 +10,8 @@ export interface DashboardWeatherAddressInput {
  * dashboard/page.tsx drops the old import; it returns null so no Census/NWS request is
  * performed from the generic dashboard header.
  */
-export function selectDashboardWeatherAddress(_input: DashboardWeatherAddressInput): string | null {
+export function selectDashboardWeatherAddress(input: DashboardWeatherAddressInput): string | null {
+  void input;
   return null;
 }
 
