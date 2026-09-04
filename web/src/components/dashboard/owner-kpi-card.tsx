@@ -9,8 +9,8 @@ interface OwnerKpiCardProps {
 
 const toneClasses: Record<OwnerKpi["tone"], string> = {
   neutral: "bg-muted/60 text-muted-foreground ring-foreground/10",
-  attention: "bg-amber-500/12 text-amber-800 ring-amber-500/20 dark:text-amber-200",
-  success: "bg-primary/10 text-primary ring-primary/20",
+  attention: "bg-warning/12 text-warning ring-warning/20",
+  success: "bg-success/10 text-success ring-success/20",
 };
 
 export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {

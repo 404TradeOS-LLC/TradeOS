@@ -100,7 +100,7 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
       ) : workspace ? (
         <>
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Cost item summary">
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Cost Items in result</p>
@@ -109,11 +109,11 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
                 <Boxes className="size-5 text-muted-foreground" aria-hidden="true" />
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Write Access</p>
               <p className="mt-2 text-lg font-semibold text-foreground">{workspace.permissions.canWrite ? "Enabled" : "Read Only"}</p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Lifecycle Control</p>
               <p className="mt-2 text-lg font-semibold text-foreground">{workspace.permissions.canManage ? "Enabled" : "Read Only"}</p>
             </div>

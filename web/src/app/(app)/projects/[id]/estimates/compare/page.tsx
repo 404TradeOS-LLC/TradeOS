@@ -174,7 +174,7 @@ export default async function EstimateComparePage({
                               <td className="px-3 py-3">{row.left ? formatCurrency(row.left.lineCost) : "—"}</td>
                               <td className="px-3 py-3">{formatQuantity(row.right?.quantity)}</td>
                               <td className="px-3 py-3">{row.right ? formatCurrency(row.right.lineCost) : "—"}</td>
-                              <td className={cn("px-3 py-3 font-medium", delta > 0 && "text-orange-700", delta < 0 && "text-emerald-700")}>
+                              <td className={cn("px-3 py-3 font-medium", delta > 0 && "text-warning", delta < 0 && "text-success")}>
                                 {row.left || row.right ? formatCurrency(delta) : "—"}
                               </td>
                             </tr>
@@ -244,8 +244,8 @@ function Metric({
       <div
         className={cn(
           "mt-2 text-lg font-semibold text-foreground",
-          signed != null && signed > 0 && "text-orange-700",
-          signed != null && signed < 0 && "text-emerald-700"
+          signed != null && signed > 0 && "text-warning",
+          signed != null && signed < 0 && "text-success"
         )}
       >
         {signed != null && signed > 0 ? `+${value}` : value}

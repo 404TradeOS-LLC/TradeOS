@@ -83,8 +83,8 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
       >
         {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
         <table className="min-w-[820px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-border/70 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <tr>
             <th scope="col" className="px-3 py-2">Customer / Project</th>
             <th scope="col" className="px-3 py-2">Status</th>
             <th scope="col" className="px-3 py-2">Schedule</th>
@@ -94,9 +94,9 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
             <th scope="col" className="px-3 py-2">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border/50">
           {jobs.map((job) => (
-            <tr key={job.id} className="border-b border-border/50 align-top">
+            <tr key={job.id} className="align-top transition-colors hover:bg-muted/40">
               <td className="max-w-64 px-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate font-medium text-foreground">{job.customer?.name ?? "No customer linked"}</div>

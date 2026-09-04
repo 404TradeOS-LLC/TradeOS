@@ -184,7 +184,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
         <div
           className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
             statusTone === "success"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900"
+              ? "border-success/30 bg-success/10 text-success"
               : statusTone === "error"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
                 : "border-border bg-muted text-foreground"
@@ -216,7 +216,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-900">
+                  <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-sm text-success">
                     Core brand setup is complete. The frame system has enough signal for branded document output.
                   </div>
                 )}
@@ -593,10 +593,10 @@ function PreviewCard({ preview }: { preview: BrandStudioSettingsBundle["preview"
 function StatTile({ label, value, tone }: { label: string; value: string; tone: "accent" | "warn" | "good" }) {
   const toneClass =
     tone === "accent"
-      ? "border-amber-500/25 bg-amber-500/10 text-amber-950"
+      ? "border-warning/25 bg-warning/10 text-warning"
       : tone === "warn"
         ? "border-border bg-background"
-        : "border-emerald-500/25 bg-emerald-500/10 text-emerald-950";
+        : "border-success/25 bg-success/10 text-success";
   return (
     <div className={`rounded-xl border px-4 py-4 ${toneClass}`}>
       <p className="text-xs uppercase tracking-[0.25em] opacity-70">{label}</p>

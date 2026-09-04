@@ -1262,8 +1262,8 @@ export interface DispatchSummary {
   scope: { source: "organization" | "assigned_only"; role: string };
 }
 
-export function getDispatchSummary(token: string) {
-  return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token });
+export function getDispatchSummary(token: string, options: { signal?: AbortSignal } = {}) {
+  return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token, signal: options.signal });
 }
 
 // dispatchRules.getOrgDayBoundaryUtc/getRollingWindowUtc (backend) document

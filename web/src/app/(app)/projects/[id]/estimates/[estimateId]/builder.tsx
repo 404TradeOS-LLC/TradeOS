@@ -540,7 +540,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       )}
 
       {!selected && searchData?.failedSources?.length ? (
-        <p className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="alert">
+        <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning" role="alert">
           Search unavailable for {searchData.failedSources.join(" and ")}. Add a custom line item or try again.
         </p>
       ) : null}
@@ -717,7 +717,7 @@ function PricingPanel({
         </div>
         <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
         {Number(tax) > 0 && !hasTaxableLineItems ? (
-          <p className="rounded-lg border border-amber-300/70 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
+          <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
             A tax rate is set, but no estimate line is marked taxable. Tax will calculate to $0.00 until you mark the applicable line items as taxable.
           </p>
         ) : null}

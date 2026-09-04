@@ -246,7 +246,7 @@ export function HierarchyCatalog({
           )}
         </div>
       ) : (
-        <div className="rounded-lg border border-border/70 bg-surface p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">
           You have read-only Costbook access. Hierarchy create and edit controls are hidden for this role.
         </div>
       )}
@@ -263,7 +263,7 @@ export function HierarchyCatalog({
             const isExpanded = expandedDivisions.has(division.id);
 
             return (
-              <div key={division.id} className="overflow-hidden rounded-lg border border-border/70 bg-surface">
+              <div key={division.id} className="overflow-hidden rounded-lg border border-border/70 bg-card">
                 {editingDivisionId === division.id ? (
                   <div className="p-4">
                     <HierarchyForm
@@ -342,7 +342,7 @@ export function HierarchyCatalog({
                           const categoryExpanded = expandedCategories.has(category.id);
 
                           return (
-                            <div key={category.id} className="overflow-hidden rounded-md border border-border/60 bg-surface">
+                            <div key={category.id} className="overflow-hidden rounded-md border border-border/60 bg-card">
                               {editingCategoryId === category.id ? (
                                 <div className="p-3">
                                   <HierarchyForm
@@ -417,7 +417,7 @@ export function HierarchyCatalog({
                                   ) : (
                                     <ul className="mt-3 grid gap-2">
                                       {categorySubcategories.map((subcategory) => (
-                                        <li key={subcategory.id} className="rounded-md border border-border/60 bg-surface p-3">
+                                        <li key={subcategory.id} className="rounded-md border border-border/60 bg-card p-3">
                                           {editingSubcategoryId === subcategory.id ? (
                                             <HierarchyForm
                                               title="Edit Subcategory"
@@ -516,7 +516,7 @@ function HierarchyForm({
   submitLabel: string;
 }) {
   return (
-    <section className="rounded-lg border border-border/70 bg-surface p-4" aria-label={title}>
+    <section className="rounded-lg border border-border/70 bg-card p-4" aria-label={title}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         <Button type="button" variant="outline" size="sm" onClick={onCancel}>
@@ -553,7 +553,7 @@ function Field({ label, className, children }: { label: string; className?: stri
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600" : "border-border/70 bg-muted text-muted-foreground"}`}>
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${active ? "border-success/30 bg-success/10 text-success" : "border-border/70 bg-muted text-muted-foreground"}`}>
       {active ? "Active" : "Inactive"}
     </span>
   );

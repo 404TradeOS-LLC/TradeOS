@@ -597,7 +597,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
           </div>
         </div>
         {dirty ? (
-          <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="mt-3 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <div>
               Unsaved changes are ready to sync. Core TradeOS settings now persist to the active organization workspace.
@@ -1089,8 +1089,8 @@ function StatusPill({ item }: { item: SettingsStatusItem }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        item.tone === "good" && "bg-emerald-100 text-emerald-800",
-        item.tone === "warn" && "bg-amber-100 text-amber-900",
+        item.tone === "good" && "bg-success/10 text-success",
+        item.tone === "warn" && "bg-warning/10 text-warning",
         !item.tone && "bg-muted text-muted-foreground"
       )}
     >
@@ -1105,7 +1105,7 @@ function HeroMetric({ label, value, tone }: { label: string; value: string; tone
   return (
     <div className="rounded-2xl border border-border/70 bg-background/85 p-3">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-lg font-semibold text-foreground", tone === "warn" && "text-amber-700", tone === "good" && "text-emerald-700")}>
+      <div className={cn("mt-1 text-lg font-semibold text-foreground", tone === "warn" && "text-warning", tone === "good" && "text-success")}>
         {value}
       </div>
     </div>
@@ -1126,8 +1126,8 @@ function Toast({ toast }: { toast: ToastMessage }) {
   return (
     <div
       className={cn(
-        "pointer-events-auto rounded-2xl border bg-background px-4 py-3 shadow-lg",
-        toast.tone === "success" && "border-emerald-200",
+        "pointer-events-auto rounded-2xl border bg-background px-4 py-3 shadow-(--elev-4) animate-in fade-in-0 slide-in-from-bottom-2 duration-(--dur-3) ease-(--ease-emphasized)",
+        toast.tone === "success" && "border-success/30",
         toast.tone === "info" && "border-border",
         toast.tone === "error" && "border-destructive/30"
       )}

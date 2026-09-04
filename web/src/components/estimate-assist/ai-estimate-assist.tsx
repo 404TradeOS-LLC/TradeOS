@@ -518,7 +518,7 @@ function SuggestionCard({
 
   const statusTone =
     suggestion.status === "accepted"
-      ? "border-emerald-500/30 bg-emerald-500/5"
+      ? "border-success/30 bg-success/5"
       : suggestion.status === "rejected"
         ? "border-destructive/30 bg-destructive/5"
         : "border-border/70 bg-background/80";
@@ -588,7 +588,7 @@ function SuggestionCard({
             Estimate target
           </div>
           {suggestion.selectedTarget ? (
-            <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <div className="mt-3 rounded-xl border border-success/30 bg-success/5 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{suggestion.selectedTarget.kind === "assembly" ? "Assembly" : "Cost item"}</Badge>
                 {suggestion.selectedTarget.matchScore != null ? <Badge variant="outline">{suggestion.selectedTarget.matchScore}% match</Badge> : null}
@@ -694,7 +694,7 @@ function KnowledgeMatchPanel({ match }: { match: KnowledgeScopeMatch }) {
           title="Review warnings"
           items={match.reviewWarnings}
           emptyLabel="No extra review warnings were generated."
-          icon={<AlertTriangle className="size-4 text-amber-500" />}
+          icon={<AlertTriangle className="size-4 text-warning" />}
         />
         <InfoList title="Rationale" items={match.rationale} emptyLabel="No rationale available." />
       </div>

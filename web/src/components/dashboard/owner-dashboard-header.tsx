@@ -47,7 +47,7 @@ export function OwnerDashboardHeader({
               variant="outline"
               className={
                 hasAttention
-                  ? "border-primary/20 bg-primary/8 text-primary"
+                  ? "border-primary/20 bg-primary/8 text-accent-foreground"
                   : "border-border/70 bg-muted/30 text-muted-foreground"
               }
             >

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { CommandPaletteContext, useCommandPalette } from "@/hooks/use-command-palette";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { CommandAction, commandPaletteActions, listRecentItems, recordRecentItem, searchIntelligence, SearchResult } from "@/lib/intelligence";
 
 type PaletteItem =
@@ -56,8 +57,6 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
     setQuery("");
     setResults([]);
     setActiveIndex(0);
-    previouslyFocusedRef.current?.focus();
-    previouslyFocusedRef.current = null;
   }, [isOpen]);
 
   const openPalette = useCallback(() => {
@@ -136,6 +135,17 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (isOpen) return;
+    const previouslyFocused = previouslyFocusedRef.current;
+    previouslyFocusedRef.current = null;
+    previouslyFocused?.focus();
+  }, [isOpen]);
+
+  // Coordinate with the More sheet so closing either overlay cannot restore
+  // body scrolling while the other overlay is still open.
+  useBodyScrollLock(isOpen);
+
   const visibleActions = useMemo(
     () => commandPaletteActions.filter((action) => matchesAction(query, action)).map((action) => ({ ...action, kind: "action" as const })),
     [query]
@@ -177,13 +187,16 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
     >
       {children}
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/70 px-4 pt-[12vh] backdrop-blur-sm" onClick={closePalette}>
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-background/70 px-4 pt-[12vh] backdrop-blur-sm animate-in fade-in-0 duration-(--dur-2)"
+          onClick={closePalette}
+        >
           <div
             ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
-            className="w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+            className="w-full max-w-3xl overflow-hidden rounded-3xl border border-border bg-card shadow-(--elev-4) animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-(--dur-3) ease-(--ease-emphasized)"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
@@ -198,15 +211,17 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
               } else if (event.key === "Tab") {
                 // Keep keyboard focus contained to the dialog while it's open.
                 const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
-                  'input, button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+                  'input:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [href], [tabindex]:not([tabindex="-1"])'
                 );
                 if (!focusable || focusable.length === 0) return;
                 const first = focusable[0];
                 const last = focusable[focusable.length - 1];
-                if (event.shiftKey && document.activeElement === first) {
+                const activeElement = document.activeElement;
+                const focusOutsidePanel = !panelRef.current?.contains(activeElement);
+                if (event.shiftKey && (focusOutsidePanel || activeElement === first)) {
                   event.preventDefault();
                   last.focus();
-                } else if (!event.shiftKey && document.activeElement === last) {
+                } else if (!event.shiftKey && (focusOutsidePanel || activeElement === last)) {
                   event.preventDefault();
                   first.focus();
                 }
@@ -221,6 +236,11 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search customers, projects, estimates, invoices, or jump to an action"
                 className="h-10 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+                role="combobox"
+                aria-expanded="true"
+                aria-controls="command-palette-listbox"
+                aria-autocomplete="list"
+                aria-activedescendant={items[effectiveActiveIndex] ? `cmdk-option-${getPaletteItemKey(items[effectiveActiveIndex])}` : undefined}
               />
               <div className="hidden rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground md:block">Esc</div>
             </div>
@@ -232,16 +252,20 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
                 <SectionLabel label="Results" />
               )}
 
-              {items.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-                  No matches yet. Try a customer name, project address, or a quick action like “create project”.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {items.map((item, index) => (
+              <div id="command-palette-listbox" role="listbox" aria-label="Command palette results" className="space-y-1">
+                {items.length === 0 ? (
+                  <div role="status" className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                    No matches yet. Try a customer name, project address, or a quick action like “create project”.
+                  </div>
+                ) : (
+                  items.map((item, index) => (
                     <button
                       key={getPaletteItemKey(item)}
+                      id={`cmdk-option-${getPaletteItemKey(item)}`}
                       type="button"
+                      role="option"
+                      aria-selected={index === effectiveActiveIndex}
+                      tabIndex={-1}
                       onClick={() => void navigateToItem(item)}
                       className={cn(
                         "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition-colors",
@@ -250,18 +274,18 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-sm font-medium">
-                          {item.kind === "action" && item.favorite ? <Star className="size-3.5 text-orange-500" /> : null}
+                          {item.kind === "action" && item.favorite ? <Star className="size-3.5 text-warning" /> : null}
                           <span className="truncate">{item.title}</span>
                         </div>
                         {item.subtitle ? <div className="mt-1 truncate text-xs text-muted-foreground">{item.subtitle}</div> : null}
                       </div>
                       <div className="ml-4 shrink-0 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        {item.kind === "action" ? "Action" : item.entityType.replace("_", " ")}
+                        {item.kind === "action" ? "Action" : item.entityType.replaceAll("_", " ")}
                       </div>
                     </button>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground">
@@ -283,11 +307,20 @@ function SectionLabel({ label }: { label: string }) {
   return <div className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</div>;
 }
 
-export function CommandPaletteTrigger() {
-  const { toggle } = useCommandPalette();
+export function CommandPaletteTrigger({ onBeforeOpen }: { onBeforeOpen?: () => void } = {}) {
+  const { isOpen, toggle } = useCommandPalette();
 
   return (
-    <Button type="button" variant="outline" size="sm" className="gap-2 text-muted-foreground" onClick={toggle}>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="gap-2 text-muted-foreground"
+      onClick={() => {
+        if (!isOpen) onBeforeOpen?.();
+        toggle();
+      }}
+    >
       <Search className="size-4" />
       <span className="hidden sm:inline">Search</span>
       <span className="hidden rounded border border-border px-1.5 py-0.5 text-[11px] sm:inline">⌘K</span>
