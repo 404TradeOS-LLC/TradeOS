@@ -28,7 +28,7 @@ export function ContinueWorkingPanel({ rows, scopeLabel }: ContinueWorkingPanelP
         />
       ) : (
         rows.map((row) => (
-          <article key={row.projectId} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-sm">
+          <article key={row.projectId} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-(--elev-1)">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="break-words text-base font-semibold text-foreground">{row.projectName}</h3>

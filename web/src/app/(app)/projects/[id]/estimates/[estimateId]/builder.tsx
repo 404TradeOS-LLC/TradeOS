@@ -607,7 +607,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
-  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-(--elev-1)">
     {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
       <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
@@ -829,7 +829,7 @@ function ResultGroup({
               type="button"
               className={cn(
                 "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition",
-                isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/50"
+                isActive ? "border-primary bg-primary/5 shadow-(--elev-1)" : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/50"
               )}
               onClick={() => onSelect(result, index)}
             >

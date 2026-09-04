@@ -220,7 +220,7 @@ export function AppNav({
         <div className="flex min-h-16 items-center justify-between gap-3 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/dashboard" className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-(--elev-1)">
                 <ChevronRight className="size-4" aria-hidden="true" />
               </span>
               <div className="min-w-0">
@@ -344,7 +344,7 @@ export function AppNav({
         <Link
           href={CREATE_LINK.href}
           aria-label={CREATE_LINK.label}
-          className="mx-1 flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
+          className="mx-1 flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-(--elev-1) outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
         >
           <Plus className="size-5" aria-hidden="true" />
         </Link>

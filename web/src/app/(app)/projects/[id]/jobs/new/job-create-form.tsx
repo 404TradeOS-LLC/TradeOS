@@ -171,7 +171,7 @@ export function JobCreateForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-5 rounded-xl border border-border/70 bg-card p-5 shadow-sm">
+    <form onSubmit={onSubmit} className="grid gap-5 rounded-xl border border-border/70 bg-card p-5 shadow-(--elev-1)">
       <div>
         <h2 className="text-lg font-semibold">Create field job</h2>
         <p className="mt-1 text-sm text-muted-foreground">Turn the approved project scope into a schedulable field job for {projectName}.</p>

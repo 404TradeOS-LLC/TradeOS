@@ -27,7 +27,7 @@ export function OwnerQuickActions({ actions }: OwnerQuickActionsProps) {
         );
 
         return (
-          <div key={action.id} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-background/85 p-3 shadow-sm">
+          <div key={action.id} className="flex flex-col gap-3 rounded-xl border border-border/60 bg-background/85 p-3 shadow-(--elev-1)">
             {action.href ? (
               <Link href={action.href} className={cn(buttonVariants({ variant: "outline" }), "w-full justify-between")}>
                 <span className="flex items-center gap-2">{content}</span>

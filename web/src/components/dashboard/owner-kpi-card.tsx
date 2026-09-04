@@ -17,7 +17,7 @@ export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
   const Icon = kpi.icon;
 
   return (
-    <Card className={cn("relative border-border/70 bg-card/98", kpi.href && "transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-md")}>
+    <Card className={cn("relative border-border/70 bg-card/98", kpi.href && "transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-(--elev-2)")}>
       {kpi.href ? (
         <Link
           href={kpi.href}
@@ -31,7 +31,7 @@ export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
           <p className="mt-3 font-mono text-[1.75rem] font-semibold tabular-nums text-foreground">{kpi.value}</p>
           <p className="mt-2 text-sm leading-5 text-muted-foreground">{kpi.helper}</p>
         </div>
-        <div className={cn("rounded-xl p-2.5 ring-1 shadow-sm", toneClasses[kpi.tone])}>
+        <div className={cn("rounded-xl p-2.5 ring-1 shadow-(--elev-1)", toneClasses[kpi.tone])}>
           <Icon aria-hidden="true" />
         </div>
       </CardContent>

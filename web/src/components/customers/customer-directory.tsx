@@ -65,7 +65,7 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
         <SummaryMetricCard label="Needs contact" value={String(stats.missingContact)} />
       </div>
 
-      <div className="rounded-3xl border border-border/70 bg-card/90 p-4 shadow-sm">
+      <div className="rounded-3xl border border-border/70 bg-card/90 p-4 shadow-(--elev-1)">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-1">
             <label htmlFor="customer-search" className="sr-only">

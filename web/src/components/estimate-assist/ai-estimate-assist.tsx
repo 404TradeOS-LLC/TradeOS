@@ -524,7 +524,7 @@ function SuggestionCard({
         : "border-border/70 bg-background/80";
 
   return (
-    <div className={cn("rounded-2xl border p-4 shadow-sm transition-colors", statusTone)}>
+    <div className={cn("rounded-2xl border p-4 shadow-(--elev-1) transition-colors", statusTone)}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">

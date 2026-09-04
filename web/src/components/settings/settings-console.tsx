@@ -488,7 +488,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,251,0.94))] p-6 shadow-sm">
+      <section className="rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,251,0.94))] p-6 shadow-(--elev-1)">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -510,7 +510,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
         </div>
       </section>
 
-      <section className="sticky top-0 z-20 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm backdrop-blur">
+      <section className="sticky top-0 z-20 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-(--elev-1) backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -552,7 +552,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
               K
             </span>
             {searchQuery ? (
-              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] rounded-2xl border border-border/80 bg-popover p-2 shadow-xl">
+              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] rounded-2xl border border-border/80 bg-popover p-2 shadow-(--elev-3)">
                 {filteredResults.length ? (
                   <div className="space-y-1">
                     {filteredResults.map((result, index) => (

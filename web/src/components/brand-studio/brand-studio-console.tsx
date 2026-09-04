@@ -319,7 +319,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                     onClick={() => updateProfile("typographyStyle", specimen.style)}
                     className={`rounded-2xl border p-4 text-left transition ${
                       settings.profile.typographyStyle === specimen.style
-                        ? "border-electric bg-electric/5 shadow-sm"
+                        ? "border-electric bg-electric/5 shadow-(--elev-1)"
                         : "border-border/70 bg-background hover:bg-muted/40"
                     }`}
                   >
