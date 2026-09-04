@@ -254,7 +254,7 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
 
               <div id="command-palette-listbox" role="listbox" aria-label="Command palette results" className="space-y-1">
                 {items.length === 0 ? (
-                  <div role="status" className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                  <div role="option" aria-selected="false" aria-disabled="true" className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
                     No matches yet. Try a customer name, project address, or a quick action like “create project”.
                   </div>
                 ) : (
@@ -286,6 +286,11 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
                   ))
                 )}
               </div>
+              {items.length === 0 ? (
+                <div role="status" aria-live="polite" className="sr-only">
+                  No command palette matches found.
+                </div>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground">

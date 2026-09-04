@@ -64,8 +64,12 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
   existing routes and permissions, traps keyboard focus, restores focus on
   close, and coordinates body-scroll locking with the global command palette.
 - The Dispatch attention badge is advisory and loads after the authenticated
-  shell renders through the same-origin client API; the Dispatch workspace
-  remains the source of truth when the advisory lookup fails.
+  shell renders through the same-origin client API, aborts on unmount, and
+  propagates cancellation through the proxy; the Dispatch workspace remains
+  the source of truth when the advisory lookup fails.
+- Status badges use solid semantic fills with their paired foreground tokens
+  so warning, success, info, and destructive labels remain contrast-safe in
+  both themes.
 - Route-level loading states expose concise status announcements while keeping
   visual skeletons decorative. Document skeleton grid ratios normalize
   Tailwind-encoded underscores for valid CSS at the wide-screen breakpoint.

@@ -149,7 +149,8 @@ export function AppNav({
 
   useEffect(() => {
     let cancelled = false;
-    void clientFetch<{ needsAttention?: unknown }>("/api/v1/jobs/dispatch-summary")
+    const controller = new AbortController();
+    void clientFetch<{ needsAttention?: unknown }>("/api/v1/jobs/dispatch-summary", { signal: controller.signal })
       .then((summary) => {
         if (!cancelled && typeof summary.needsAttention === "number") {
           setClientDispatchAttentionCount(Math.max(summary.needsAttention, 0));
@@ -160,6 +161,7 @@ export function AppNav({
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 

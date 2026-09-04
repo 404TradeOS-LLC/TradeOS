@@ -26,6 +26,7 @@ async function handle(request: NextRequest, segments: string[]): Promise<Respons
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    signal: request.signal,
     body: hasBody ? await request.text() : undefined,
   });
 

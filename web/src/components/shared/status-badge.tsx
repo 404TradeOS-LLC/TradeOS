@@ -22,11 +22,14 @@ interface StatusBadgeProps {
 // copper buttons). --accent-foreground is a darker copper shade chosen
 // specifically to pass as text (6.12:1 light / 13.10:1 dark) while staying
 // in the same copper family.
-const TONE_SUCCESS = "border-success/20 bg-success/10 text-success";
-const TONE_WARNING = "border-warning/20 bg-warning/10 text-warning";
-const TONE_INFO = "border-info/20 bg-info/10 text-info";
-const TONE_DESTRUCTIVE = "border-destructive/20 bg-destructive/10 text-destructive";
-const TONE_DESTRUCTIVE_STRONG = "border-destructive/40 bg-destructive/15 text-destructive";
+// Solid semantic fills use their paired foreground token so badge text stays
+// contrast-safe in both themes. The prior translucent fill/text combination
+// was readable on the page surface but did not guarantee 4.5:1 on the badge.
+const TONE_SUCCESS = "border-success/40 bg-success text-success-foreground";
+const TONE_WARNING = "border-warning/40 bg-warning text-warning-foreground";
+const TONE_INFO = "border-info/40 bg-info text-info-foreground";
+const TONE_DESTRUCTIVE = "border-destructive/40 bg-destructive text-destructive-foreground";
+const TONE_DESTRUCTIVE_STRONG = "border-destructive/60 bg-destructive text-destructive-foreground";
 const TONE_PROCESSING = "border-accent-foreground/20 bg-accent text-accent-foreground";
 const TONE_NEUTRAL = "border-border bg-muted text-muted-foreground";
 
