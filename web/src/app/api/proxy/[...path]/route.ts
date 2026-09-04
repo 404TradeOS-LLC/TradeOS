@@ -33,7 +33,10 @@ async function handle(request: NextRequest, segments: string[]): Promise<Respons
   const text = await upstream.text();
   return new Response(text || null, {
     status: upstream.status,
-    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
+    headers: {
+      "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+      "Cache-Control": "no-store",
+    },
   });
 }
 

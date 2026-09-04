@@ -150,7 +150,10 @@ export function AppNav({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    void clientFetch<{ needsAttention?: unknown }>("/api/v1/jobs/dispatch-summary", { signal: controller.signal })
+    void clientFetch<{ needsAttention?: unknown }>("/api/v1/jobs/dispatch-summary", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
       .then((summary) => {
         if (!cancelled && typeof summary.needsAttention === "number") {
           setClientDispatchAttentionCount(Math.max(summary.needsAttention, 0));

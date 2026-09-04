@@ -45,6 +45,9 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [completedSearchQuery, setCompletedSearchQuery] = useState("");
   const [recentItems, setRecentItems] = useState<PaletteItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -94,15 +97,24 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
 
   useEffect(() => {
     if (!isOpen) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return;
+    }
+
     const timer = window.setTimeout(async () => {
-      if (!query.trim()) {
-        setResults([]);
-        return;
-      }
+      setIsSearchLoading(true);
+      setSearchError(false);
       try {
-        setResults(await searchIntelligence(query));
+        setResults(await searchIntelligence(trimmedQuery));
+        setCompletedSearchQuery(trimmedQuery);
+        setSearchError(false);
       } catch {
         setResults([]);
+        setCompletedSearchQuery(trimmedQuery);
+        setSearchError(true);
+      } finally {
+        setIsSearchLoading(false);
       }
     }, 120);
     return () => window.clearTimeout(timer);
@@ -159,6 +171,8 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
   }, [query, recentItems, results, visibleActions]);
 
   const effectiveActiveIndex = items.length === 0 ? 0 : Math.min(activeIndex, items.length - 1);
+  const announceNoMatches =
+    Boolean(query.trim()) && completedSearchQuery === query.trim() && items.length === 0 && !isSearchLoading && !searchError;
 
   const navigateToItem = async (item: PaletteItem) => {
     closePalette();
@@ -286,7 +300,7 @@ export function GlobalCommandPaletteProvider({ children }: { children: React.Rea
                   ))
                 )}
               </div>
-              {items.length === 0 ? (
+              {announceNoMatches ? (
                 <div role="status" aria-live="polite" className="sr-only">
                   No command palette matches found.
                 </div>
