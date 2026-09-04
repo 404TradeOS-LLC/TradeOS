@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
@@ -46,6 +46,6 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

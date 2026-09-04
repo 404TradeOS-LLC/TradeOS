@@ -171,7 +171,7 @@ export function JobCreateForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-5 rounded-xl border border-border/70 bg-card p-5 shadow-sm">
+    <form onSubmit={onSubmit} className="grid gap-5 rounded-xl border border-border/70 bg-card p-5 shadow-(--elev-1)">
       <div>
         <h2 className="text-lg font-semibold">Create field job</h2>
         <p className="mt-1 text-sm text-muted-foreground">Turn the approved project scope into a schedulable field job for {projectName}.</p>
@@ -212,7 +212,7 @@ export function JobCreateForm({
             <div className="text-xs text-muted-foreground">Every field job is tied to a customer service address.</div>
           </div>
           {addresses.length > 0 && !addressLoadFailed ? (
-            <button type="button" className="text-sm font-medium underline" onClick={() => setShowAddressForm((value) => !value)}>
+            <button type="button" className="rounded-sm text-sm font-medium underline outline-none focus-visible:ring-3 focus-visible:ring-ring/50" onClick={() => setShowAddressForm((value) => !value)}>
               {showAddressForm ? "Use saved address" : "Add another address"}
             </button>
           ) : null}
@@ -223,7 +223,7 @@ export function JobCreateForm({
         {!loadingAddresses && addressLoadFailed ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
             <p className="text-sm text-destructive">Service addresses could not be loaded. Retry before creating a job.</p>
-            <button type="button" className="text-sm font-medium underline" onClick={retryAddressLoad}>
+            <button type="button" className="rounded-sm text-sm font-medium underline outline-none focus-visible:ring-3 focus-visible:ring-ring/50" onClick={retryAddressLoad}>
               Retry address load
             </button>
           </div>
@@ -254,7 +254,7 @@ export function JobCreateForm({
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
 
       <div className="flex justify-end">
-        <button type="submit" disabled={busy || loadingAddresses || addressLoadFailed} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+        <button type="submit" disabled={busy || loadingAddresses || addressLoadFailed} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50">
           {busy ? "Creating job…" : "Create job and open Dispatch"}
         </button>
       </div>

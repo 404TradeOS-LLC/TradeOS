@@ -540,7 +540,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       )}
 
       {!selected && searchData?.failedSources?.length ? (
-        <p className="rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="alert">
+        <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning" role="alert">
           Search unavailable for {searchData.failedSources.join(" and ")}. Add a custom line item or try again.
         </p>
       ) : null}
@@ -607,7 +607,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
-  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-sm">
+  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-(--elev-1)">
     {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
       <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
@@ -717,7 +717,7 @@ function PricingPanel({
         </div>
         <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
         {Number(tax) > 0 && !hasTaxableLineItems ? (
-          <p className="rounded-lg border border-amber-300/70 bg-amber-50 p-3 text-sm text-amber-950" role="alert">
+          <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
             A tax rate is set, but no estimate line is marked taxable. Tax will calculate to $0.00 until you mark the applicable line items as taxable.
           </p>
         ) : null}
@@ -828,8 +828,8 @@ function ResultGroup({
               aria-selected={isActive}
               type="button"
               className={cn(
-                "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition",
-                isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/50"
+                "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
+                isActive ? "border-primary bg-primary/5 shadow-(--elev-1)" : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/50"
               )}
               onClick={() => onSelect(result, index)}
             >

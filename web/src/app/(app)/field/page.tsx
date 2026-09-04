@@ -59,12 +59,12 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
   return (
     <div className="grid gap-6">
       <header className="grid gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Field day</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-foreground">Field day</p>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Your assigned work</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">Job context, field actions, and notes in one place. Updates are saved to the job record and visible to the office.</p>
       </header>
 
-      {query.updated ? <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary" role="status">Job updated successfully.</p> : null}
+      {query.updated ? <p className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success" role="status">Job updated successfully.</p> : null}
 
       {jobs.length === 0 ? (
         <EmptyState title="No assigned jobs today" description="Your dispatcher has not assigned work for today. This view only shows jobs assigned to your authenticated technician account." />

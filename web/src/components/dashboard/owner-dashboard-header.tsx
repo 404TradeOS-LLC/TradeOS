@@ -36,7 +36,7 @@ export function OwnerDashboardHeader({
   const metrics = buildReviewQueueMetrics(reviewQueue);
 
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-(--elev-1) sm:p-6">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -47,7 +47,7 @@ export function OwnerDashboardHeader({
               variant="outline"
               className={
                 hasAttention
-                  ? "border-primary/20 bg-primary/8 text-primary"
+                  ? "border-primary/20 bg-primary/8 text-accent-foreground"
                   : "border-border/70 bg-muted/30 text-muted-foreground"
               }
             >

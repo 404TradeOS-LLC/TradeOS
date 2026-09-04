@@ -15,7 +15,7 @@ function StatBlock({ label, value, tone = "neutral" }: { label: string; value: s
   return (
     <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${tone === "attention" ? "text-rose-700 dark:text-rose-300" : "text-foreground"}`}>
+      <div className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${tone === "attention" ? "text-destructive" : "text-foreground"}`}>
         {value}
       </div>
     </div>
@@ -48,7 +48,7 @@ export function ReceivablesCard({ summary, errorMessage = null }: ReceivablesCar
           // real figures (a $0/0 stat standing in for "unknown" is exactly
           // what AGENTS.md's truthful-degraded-states rule forbids), so this
           // renders only the error state instead of partially-wrong numbers.
-          <p className="text-sm text-rose-700 dark:text-rose-300">{errorMessage} Try refreshing, or open Invoices directly.</p>
+          <p className="text-sm text-destructive">{errorMessage} Try refreshing, or open Invoices directly.</p>
         ) : !hasInvoices ? (
           <EmptyState title="Nothing outstanding right now." description="No open invoices need follow-up across the organization." />
         ) : (

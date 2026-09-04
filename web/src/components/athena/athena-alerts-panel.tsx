@@ -8,13 +8,13 @@ import type { AthenaAlertRecord, AthenaAlertSeverity } from "@/lib/api";
 // healthy"). An Athena alert with status "active" means the opposite - a
 // still-firing problem - so reusing that key would render a firing alert in
 // the same reassuring green as a healthy active job. Severity gets its own
-// small, alert-specific tone table instead, using the same color language
-// (rose/amber/slate) STATUS_TONES already uses for "bad/warn/neutral".
+// small, alert-specific tone table instead, built on the same shared
+// semantic tokens (globals.css) STATUS_TONES uses for "bad/warn/neutral".
 const SEVERITY_TONE: Record<AthenaAlertSeverity, string> = {
-  critical: "border-rose-700/40 bg-rose-600/15 text-rose-800 dark:border-rose-400/40 dark:bg-rose-500/20 dark:text-rose-200",
-  high: "border-rose-600/20 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-  medium: "border-amber-600/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  low: "border-slate-600/20 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+  critical: "border-destructive/40 bg-destructive/15 text-destructive",
+  high: "border-destructive/20 bg-destructive/10 text-destructive",
+  medium: "border-warning/20 bg-warning/10 text-warning",
+  low: "border-border bg-muted text-muted-foreground",
 };
 
 function formatDateTime(value: string) {

@@ -488,7 +488,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,251,0.94))] p-6 shadow-sm">
+      <section className="rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,251,0.94))] p-6 shadow-(--elev-1)">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-3">
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -510,7 +510,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
         </div>
       </section>
 
-      <section className="sticky top-0 z-20 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-sm backdrop-blur">
+      <section className="sticky top-0 z-20 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-(--elev-1) backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -552,7 +552,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
               K
             </span>
             {searchQuery ? (
-              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] rounded-2xl border border-border/80 bg-popover p-2 shadow-xl">
+              <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] rounded-2xl border border-border/80 bg-popover p-2 shadow-(--elev-3)">
                 {filteredResults.length ? (
                   <div className="space-y-1">
                     {filteredResults.map((result, index) => (
@@ -564,7 +564,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                           setSearchQuery("");
                         }}
                         className={cn(
-                          "flex w-full items-start justify-between rounded-xl px-3 py-2 text-left transition hover:bg-muted",
+                          "flex w-full items-start justify-between rounded-xl px-3 py-2 text-left outline-none transition hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
                           index === highlightedResult && "bg-muted"
                         )}
                       >
@@ -597,7 +597,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
           </div>
         </div>
         {dirty ? (
-          <div className="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="mt-3 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
             <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <div>
               Unsaved changes are ready to sync. Core TradeOS settings now persist to the active organization workspace.
@@ -638,7 +638,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                     type="button"
                     onClick={() => startTransition(() => setSelectedSectionId(section.id))}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
                       isActive ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
@@ -1089,8 +1089,8 @@ function StatusPill({ item }: { item: SettingsStatusItem }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
-        item.tone === "good" && "bg-emerald-100 text-emerald-800",
-        item.tone === "warn" && "bg-amber-100 text-amber-900",
+        item.tone === "good" && "bg-success/10 text-success",
+        item.tone === "warn" && "bg-warning/10 text-warning",
         !item.tone && "bg-muted text-muted-foreground"
       )}
     >
@@ -1105,7 +1105,7 @@ function HeroMetric({ label, value, tone }: { label: string; value: string; tone
   return (
     <div className="rounded-2xl border border-border/70 bg-background/85 p-3">
       <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-lg font-semibold text-foreground", tone === "warn" && "text-amber-700", tone === "good" && "text-emerald-700")}>
+      <div className={cn("mt-1 text-lg font-semibold text-foreground", tone === "warn" && "text-warning", tone === "good" && "text-success")}>
         {value}
       </div>
     </div>
@@ -1126,8 +1126,8 @@ function Toast({ toast }: { toast: ToastMessage }) {
   return (
     <div
       className={cn(
-        "pointer-events-auto rounded-2xl border bg-background px-4 py-3 shadow-lg",
-        toast.tone === "success" && "border-emerald-200",
+        "pointer-events-auto rounded-2xl border bg-background px-4 py-3 shadow-(--elev-4) animate-in fade-in-0 slide-in-from-bottom-2 duration-(--dur-3) ease-(--ease-emphasized)",
+        toast.tone === "success" && "border-success/30",
         toast.tone === "info" && "border-border",
         toast.tone === "error" && "border-destructive/30"
       )}

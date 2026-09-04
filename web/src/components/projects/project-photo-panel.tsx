@@ -57,7 +57,7 @@ export async function ProjectPhotoPanel({
                         <input type="hidden" name="storagePath" value={file.storagePath ?? ""} />
                         <button
                           type="submit"
-                          className="inline-flex rounded-md border border-destructive/30 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10"
+                          className="inline-flex rounded-md border border-destructive/30 px-3 py-1.5 text-sm text-destructive outline-none transition-colors hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
                               Delete photo
                         </button>

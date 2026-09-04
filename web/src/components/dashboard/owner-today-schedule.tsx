@@ -33,7 +33,7 @@ export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
         />
       ) : (
         items.map((item) => (
-          <article key={item.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-sm">
+          <article key={item.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-(--elev-1)">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

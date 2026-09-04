@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   const [state, formAction, isPending] = useActionState(requestPasswordResetAction, undefined);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Reset your password</CardTitle>
@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
               <Input id="email" name="email" type="email" autoComplete="email" required />
             </div>
             {state?.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
-            {state?.success && <p role="status" className="text-sm text-emerald-700">{state.success}</p>}
+            {state?.success && <p role="status" className="text-sm text-success">{state.success}</p>}
             <Button type="submit" disabled={isPending}>
               {isPending ? "Sending link…" : "Send reset link"}
             </Button>
@@ -36,6 +36,6 @@ export default function ForgotPasswordPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

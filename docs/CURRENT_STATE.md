@@ -53,6 +53,27 @@ Last reconciled against `origin/main` commit `e872fa40f6e32175a80284f44c768d3307
 
 TradeOS is in RC1 hardening. The active posture is production readiness, lifecycle consistency, contractor-facing usability, tenant-boundary verification, and retained release evidence rather than MVP planning.
 
+## Authenticated shell and navigation
+
+- The authenticated web shell uses a shared 404TradeOS copper token system and
+  semantic warning, success, info, and destructive tokens. The light-theme
+  semantic fill/foreground pairs are contrast-tested for normal-size text;
+  copper remains the sole brand accent.
+- The responsive navigation includes the 404TradeOS Control Dock with Today,
+  Dispatch, Create, Work, and More actions. The More sheet preserves the
+  existing routes and permissions, traps keyboard focus, restores focus on
+  close, and coordinates body-scroll locking with the global command palette.
+- The Dispatch attention badge is advisory and loads after the authenticated
+  shell renders through the same-origin client API, aborts on unmount, and
+  propagates cancellation through the proxy; the Dispatch workspace remains
+  the source of truth when the advisory lookup fails.
+- Status badges use solid semantic fills with their paired foreground tokens
+  so warning, success, info, and destructive labels remain contrast-safe in
+  both themes.
+- Route-level loading states expose concise status announcements while keeping
+  visual skeletons decorative. Document skeleton grid ratios normalize
+  Tailwind-encoded underscores for valid CSS at the wide-screen breakpoint.
+
 ## Implemented product areas
 
 - Auth and tenancy, including local-session refresh hardening, Supabase JWT verification, organization bootstrap/recovery, request-scoped database sessions, and forced PostgreSQL RLS.

@@ -61,7 +61,7 @@ export function OwnerTaskBoard({ tasks, now, timeZone, errorMessage = null }: Ow
         />
       ) : (
         snapshot.openTasks.slice(0, 6).map((task) => (
-          <article key={task.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-sm">
+          <article key={task.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-(--elev-1)">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

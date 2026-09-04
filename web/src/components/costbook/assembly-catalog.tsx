@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -214,7 +214,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
 
   return <div className="grid gap-6 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,2fr)]">
     <aside className="grid content-start gap-4">
-      {canWrite ? <form onSubmit={createAssembly} className="grid gap-3 rounded-lg border border-border/70 bg-surface p-4">
+      {canWrite ? <form onSubmit={createAssembly} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4">
         <div><h2 className="font-semibold text-foreground">New Assembly</h2><p className="mt-1 text-sm text-muted-foreground">Create a reusable Costbook composition.</p></div>
         <Input placeholder="Code" value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} required disabled={saving} />
         <Input placeholder="Name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required disabled={saving} />
@@ -222,18 +222,18 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
         <Input placeholder="Description (optional)" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} disabled={saving} />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isTemplate} onChange={(event) => setForm({ ...form, isTemplate: event.target.checked })} disabled={saving} />Reusable template</label>
         <Button type="submit" disabled={saving}><Plus className="size-4" aria-hidden="true" />{saving ? "Saving" : "Create Assembly"}</Button>
-      </form> : <div className="rounded-lg border border-border/70 bg-surface p-4 text-sm text-muted-foreground">{canManage ? "You can manage assembly lifecycle, but create and edit controls are hidden for this role." : "Read-only Costbook access. Assembly mutations are hidden."}</div>}
+      </form> : <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">{canManage ? "You can manage assembly lifecycle, but create and edit controls are hidden for this role." : "Read-only Costbook access. Assembly mutations are hidden."}</div>}
 
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-surface">
+      <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
         <div className="border-b border-border/70 px-4 py-3"><h2 className="font-semibold">Assemblies</h2></div>
-        {assemblies.length === 0 ? <div className="p-4 text-sm text-muted-foreground">No active assemblies.</div> : <div className="divide-y divide-border/70">{assemblies.map((assembly) => <button key={assembly.id} type="button" onClick={() => selectAssembly(assembly.id)} className={`w-full px-4 py-3 text-left text-sm ${assembly.id === selectedId ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block font-medium text-foreground">{assembly.name}</span><span className="font-mono text-xs text-muted-foreground">{assembly.code} · {assembly.unitOfMeasure}{assembly.isTemplate ? " · Template" : ""}</span></button>)}</div>}
+        {assemblies.length === 0 ? <div className="p-4 text-sm text-muted-foreground">No active assemblies.</div> : <div className="divide-y divide-border/70">{assemblies.map((assembly) => <button key={assembly.id} type="button" onClick={() => selectAssembly(assembly.id)} className={`w-full px-4 py-3 text-left text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${assembly.id === selectedId ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block font-medium text-foreground">{assembly.name}</span><span className="font-mono text-xs text-muted-foreground">{assembly.code} · {assembly.unitOfMeasure}{assembly.isTemplate ? " · Template" : ""}</span></button>)}</div>}
       </div>
     </aside>
 
     <section className="grid content-start gap-4">
       {error ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null}
       {!selected ? <EmptyState title="Choose an assembly" description="Select an assembly to review its composition." /> : <>
-        <div className="grid gap-4 rounded-lg border border-border/70 bg-surface p-4">
+        <div className="grid gap-4 rounded-lg border border-border/70 bg-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div><p className="font-mono text-xs text-muted-foreground">{selected.code}</p><h1 className="text-xl font-semibold text-foreground">{selected.name}</h1><p className="mt-1 text-sm text-muted-foreground">{selected.description || "No description"} · {selected.unitOfMeasure}</p><p className="mt-2 text-sm font-medium text-foreground">Current unit cost: {unitCost === null ? "—" : money(unitCost)}</p></div>
             {canManage ? <Button type="button" variant="outline" size="sm" onClick={deactivateSelected} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Deactivate</Button> : null}
@@ -241,14 +241,14 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
           {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={updateAssemblyInList} /> : null}
         </div>
 
-        {canWrite ? <form onSubmit={addComponent} className="grid gap-3 rounded-lg border border-border/70 bg-surface p-4 md:grid-cols-[160px_1fr_120px_auto] md:items-end">
+        {canWrite ? <form onSubmit={addComponent} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4 md:grid-cols-[160px_1fr_120px_auto] md:items-end">
           <label className="grid gap-1.5 text-sm font-medium"><span>Type</span><select className="h-9 rounded-md border border-input bg-background px-3" value={componentType} onChange={(event) => { setComponentType(event.target.value as "cost_item" | "assembly"); setComponentId(""); }} disabled={saving}><option value="cost_item">Cost item</option><option value="assembly">Assembly</option></select></label>
           <label className="grid gap-1.5 text-sm font-medium"><span>Component</span><select className="h-9 rounded-md border border-input bg-background px-3" value={componentId} onChange={(event) => setComponentId(event.target.value)} required disabled={saving}><option value="">Select</option>{(componentType === "cost_item" ? costItems : childOptions).map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></label>
           <label className="grid gap-1.5 text-sm font-medium"><span>Qty / unit</span><Input type="number" min="0.0001" step="0.0001" value={quantity} onChange={(event) => setQuantity(event.target.value)} required disabled={saving} /></label>
           <Button type="submit" disabled={saving || !componentId}><Plus className="size-4" aria-hidden="true" />Add</Button>
         </form> : null}
 
-        {loadingItems && items.length === 0 ? <div className="rounded-lg border border-border/70 bg-surface p-6 text-sm text-muted-foreground">Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-surface"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingItems}>{loadingItems ? "Loading" : "Load more components"}</Button></div> : null}</div>}
+        {loadingItems && items.length === 0 ? <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-card"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingItems}>{loadingItems ? "Loading" : "Load more components"}</Button></div> : null}</div>}
       </>}
     </section>
   </div>;

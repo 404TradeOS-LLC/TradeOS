@@ -150,7 +150,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
         <Card className="border border-border/70 bg-[linear-gradient(140deg,rgba(17,24,39,0.03),rgba(217,119,6,0.14),rgba(255,255,255,0.94))]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
-              <SwatchBook className="h-5 w-5 text-electric" />
+              <SwatchBook className="h-5 w-5 text-primary" />
               Brand Studio
             </CardTitle>
             <CardDescription>
@@ -184,7 +184,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
         <div
           className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
             statusTone === "success"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900"
+              ? "border-success/30 bg-success/10 text-success"
               : statusTone === "error"
                 ? "border-destructive/30 bg-destructive/10 text-destructive"
                 : "border-border bg-muted text-foreground"
@@ -216,7 +216,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-900">
+                  <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-sm text-success">
                     Core brand setup is complete. The frame system has enough signal for branded document output.
                   </div>
                 )}
@@ -227,7 +227,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           <Card id="colors">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Palette className="h-4 w-4 text-electric" />
+                <Palette className="h-4 w-4 text-primary" />
                 Colors
               </CardTitle>
               <CardDescription>Set the colors that every branded frame should inherit first. This is the highest-visibility skin control after the company name.</CardDescription>
@@ -262,7 +262,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           <Card id="logos">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ImagePlus className="h-4 w-4 text-electric" />
+                <ImagePlus className="h-4 w-4 text-primary" />
                 Logos
               </CardTitle>
               <CardDescription>Primary source assets plus backend-derived favicon, monochrome, and print-safe variants.</CardDescription>
@@ -293,7 +293,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           <Card id="typography">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Type className="h-4 w-4 text-electric" />
+                <Type className="h-4 w-4 text-primary" />
                 Typography
               </CardTitle>
               <CardDescription>Choose the document voice family once, then reuse it across proposals, change orders, warranties, and maintenance guides.</CardDescription>
@@ -319,7 +319,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                     onClick={() => updateProfile("typographyStyle", specimen.style)}
                     className={`rounded-2xl border p-4 text-left transition ${
                       settings.profile.typographyStyle === specimen.style
-                        ? "border-electric bg-electric/5 shadow-sm"
+                        ? "border-primary bg-primary/5 shadow-(--elev-1)"
                         : "border-border/70 bg-background hover:bg-muted/40"
                     }`}
                   >
@@ -354,7 +354,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
           <Card id="trust-signals">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-electric" />
+                <ShieldCheck className="h-4 w-4 text-primary" />
                 Trust Signals
               </CardTitle>
               <CardDescription>Surface the proof that helps homeowners and buyers feel safe signing.</CardDescription>
@@ -507,7 +507,7 @@ export function BrandStudioConsole({ initialSettings }: BrandStudioConsoleProps)
                         <div className="space-y-1">
                           <p className="font-medium capitalize">{asset.label || asset.type.replaceAll("-", " ")}</p>
                           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{asset.type}</p>
-                          <a href={asset.url} target="_blank" rel="noreferrer" className="break-all text-sm text-electric underline-offset-4 hover:underline">
+                          <a href={asset.url} target="_blank" rel="noreferrer" className="rounded-sm break-all text-sm text-accent-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
                             {asset.url}
                           </a>
                         </div>
@@ -593,10 +593,10 @@ function PreviewCard({ preview }: { preview: BrandStudioSettingsBundle["preview"
 function StatTile({ label, value, tone }: { label: string; value: string; tone: "accent" | "warn" | "good" }) {
   const toneClass =
     tone === "accent"
-      ? "border-amber-500/25 bg-amber-500/10 text-amber-950"
+      ? "border-warning/25 bg-warning/10 text-warning"
       : tone === "warn"
         ? "border-border bg-background"
-        : "border-emerald-500/25 bg-emerald-500/10 text-emerald-950";
+        : "border-success/25 bg-success/10 text-success";
   return (
     <div className={`rounded-xl border px-4 py-4 ${toneClass}`}>
       <p className="text-xs uppercase tracking-[0.25em] opacity-70">{label}</p>
