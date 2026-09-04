@@ -225,7 +225,7 @@ export function AIEstimateAssist({
                   key={prompt}
                   type="button"
                   onClick={() => setScopeOfWork(prompt)}
-                  className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-electric/40 hover:text-foreground"
+                  className="rounded-full border border-border/70 bg-background px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
                 >
                   {prompt}
                 </button>
@@ -235,7 +235,7 @@ export function AIEstimateAssist({
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Mic className="size-4 text-electric" />
+                  <Mic className="size-4 text-primary" />
                   Voice note workflow
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -244,7 +244,7 @@ export function AIEstimateAssist({
               </div>
               <div className="rounded-2xl border border-dashed border-border/70 bg-background/80 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Paperclip className="size-4 text-electric" />
+                  <Paperclip className="size-4 text-primary" />
                   Photo context
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -402,7 +402,7 @@ export function AIEstimateAssist({
             )}
             <div className="rounded-xl border border-border/70 bg-background/80 p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Layers3 className="size-4 text-electric" />
+                <Layers3 className="size-4 text-primary" />
                 Read-only bridge
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -631,7 +631,7 @@ function SuggestionCard({
                     key={result.id}
                     type="button"
                     onClick={() => onChange({ ...suggestion, selectedTarget: result })}
-                    className="w-full rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left transition hover:border-electric/40 hover:bg-muted/40"
+                    className="w-full rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left transition hover:border-primary/40 hover:bg-muted/40"
                   >
                     <div className="text-sm font-medium text-foreground">{result.name}</div>
                     <div className="text-sm text-muted-foreground">

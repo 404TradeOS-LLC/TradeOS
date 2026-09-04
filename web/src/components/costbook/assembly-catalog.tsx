@@ -226,7 +226,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
 
       <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
         <div className="border-b border-border/70 px-4 py-3"><h2 className="font-semibold">Assemblies</h2></div>
-        {assemblies.length === 0 ? <div className="p-4 text-sm text-muted-foreground">No active assemblies.</div> : <div className="divide-y divide-border/70">{assemblies.map((assembly) => <button key={assembly.id} type="button" onClick={() => selectAssembly(assembly.id)} className={`w-full px-4 py-3 text-left text-sm ${assembly.id === selectedId ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block font-medium text-foreground">{assembly.name}</span><span className="font-mono text-xs text-muted-foreground">{assembly.code} · {assembly.unitOfMeasure}{assembly.isTemplate ? " · Template" : ""}</span></button>)}</div>}
+        {assemblies.length === 0 ? <div className="p-4 text-sm text-muted-foreground">No active assemblies.</div> : <div className="divide-y divide-border/70">{assemblies.map((assembly) => <button key={assembly.id} type="button" onClick={() => selectAssembly(assembly.id)} className={`w-full px-4 py-3 text-left text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${assembly.id === selectedId ? "bg-muted" : "hover:bg-muted/50"}`}><span className="block font-medium text-foreground">{assembly.name}</span><span className="font-mono text-xs text-muted-foreground">{assembly.code} · {assembly.unitOfMeasure}{assembly.isTemplate ? " · Template" : ""}</span></button>)}</div>}
       </div>
     </aside>
 

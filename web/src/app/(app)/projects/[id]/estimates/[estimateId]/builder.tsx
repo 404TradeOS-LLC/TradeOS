@@ -828,7 +828,7 @@ function ResultGroup({
               aria-selected={isActive}
               type="button"
               className={cn(
-                "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition",
+                "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
                 isActive ? "border-primary bg-primary/5 shadow-(--elev-1)" : "border-border/70 bg-background hover:border-primary/40 hover:bg-muted/50"
               )}
               onClick={() => onSelect(result, index)}

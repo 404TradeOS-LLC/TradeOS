@@ -89,7 +89,10 @@ function ApprovalSubmissionForm() {
             <input id="athena-approval-step-id" name="stepId" placeholder="Step ID" className={fieldClass} />
           </div>
         </div>
-        <button type="submit" className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background">
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background outline-none transition-colors hover:bg-foreground/85 focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           Submit request
         </button>
       </form>
@@ -150,8 +153,8 @@ function ApprovalReviewDetail({ selectedApproval }: { selectedApproval: AthenaAp
           </dl>
           {selectedApproval.approval.status === "pending" ? (
             <div className="flex flex-wrap gap-3">
-              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="grant" /><button type="submit" className="rounded-md bg-success px-4 py-2 text-sm font-medium text-success-foreground">Grant</button></form>
-              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="deny" /><button type="submit" className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground">Deny</button></form>
+              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="grant" /><button type="submit" className="rounded-md bg-success px-4 py-2 text-sm font-medium text-success-foreground outline-none transition-colors hover:bg-success/85 focus-visible:ring-3 focus-visible:ring-ring/50">Grant</button></form>
+              <form action={reviewAthenaApprovalAction}><input type="hidden" name="approvalId" value={selectedApproval.approval.approvalId} /><input type="hidden" name="decision" value="deny" /><button type="submit" className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground outline-none transition-colors hover:bg-destructive/85 focus-visible:ring-3 focus-visible:ring-ring/50">Deny</button></form>
             </div>
           ) : null}
           <div>

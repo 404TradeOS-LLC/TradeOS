@@ -564,7 +564,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                           setSearchQuery("");
                         }}
                         className={cn(
-                          "flex w-full items-start justify-between rounded-xl px-3 py-2 text-left transition hover:bg-muted",
+                          "flex w-full items-start justify-between rounded-xl px-3 py-2 text-left outline-none transition hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
                           index === highlightedResult && "bg-muted"
                         )}
                       >
@@ -638,7 +638,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                     type="button"
                     onClick={() => startTransition(() => setSelectedSectionId(section.id))}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition",
+                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
                       isActive ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
