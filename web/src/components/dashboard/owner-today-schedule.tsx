@@ -15,7 +15,6 @@ export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
     <DashboardPanel
       title="Today's Schedule"
       description="Jobs scheduled for today, pulled live from the dispatch workspace."
-      className="xl:col-span-2"
       action={
         <Link href="/dispatch" className={buttonVariants({ variant: "outline", size: "sm" })}>
           Open dispatch
@@ -34,7 +33,7 @@ export function OwnerTodaySchedule({ items }: OwnerTodayScheduleProps) {
         />
       ) : (
         items.map((item) => (
-          <article key={item.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-sm">
+          <article key={item.id} className="rounded-xl border border-border/60 bg-background/85 p-4 shadow-(--elev-1)">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

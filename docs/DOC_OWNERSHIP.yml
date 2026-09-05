@@ -19,8 +19,13 @@ rules:
   - paths:
       - app/backend/middleware/auth.ts
       - app/backend/middleware/databaseSession.ts
+      - app/backend/middleware/customerPortal.ts
+      - app/backend/middleware/customerPortalRateLimit.ts
       - app/db/requestSession.ts
       - app/modules/auth/**
+      - app/modules/customer-portal/**
+      - app/backend/controllers/customerPortal.controller.ts
+      - app/backend/routes/customerPortal.routes.ts
       - app/backend/routes/auth.routes.ts
       - app/backend/routes/account.routes.ts
       - app/backend/routes/organizationProvisioning.routes.ts
@@ -169,6 +174,14 @@ rules:
     explanation: Settings, internal operations, and supplier review flows need dedicated operational docs.
 
   - paths:
+      - app/backend/controllers/changeOrders.controller.ts
+    requires:
+      - docs/API_REFERENCE.md
+      - docs/RBAC_MATRIX.md
+      - docs/CURRENT_STATE.md
+    explanation: Change-order authorization and route behavior must remain documented with billing permission boundaries.
+
+  - paths:
       - web/src/app/(app)/portal/**
     requires:
       - docs/modules/customer-portal.md
@@ -274,9 +287,8 @@ rules:
 
   # --- packages/knowledge-engine ownership (Phase A guardrails, 2026-07-16) ---
   # Added after a read-only audit found this package had zero DOC_OWNERSHIP.yml coverage.
-  # Rules are scoped to the canonical top-level tree only; the confirmed self-nested duplicate
-  # at packages/knowledge-engine/knowledge-engine/** is intentionally left ungoverned pending a
-  # later evidence-backed migration decision (see packages/knowledge-engine/README.md).
+  # Rules are scoped to the canonical top-level tree. The former self-nested duplicate was
+  # removed through the founder-approved evidence-backed cleanup on 2026-08-24.
 
   - paths:
       - packages/knowledge-engine/exports/**
@@ -324,7 +336,3 @@ exemptions:
       - web/public/**
       - docs/archive/**
     reason: Changes in these paths do not automatically imply live implementation doc impact, but contributors may still update docs when content changes behavior.
-
-  - paths:
-      - packages/knowledge-engine/knowledge-engine/**
-    reason: Confirmed exact duplicate of the canonical packages/knowledge-engine/** tree with zero references anywhere in the repository (2026-07-16 audit). Deliberately left ungoverned rather than requiring doc updates for a tree that is itself pending a future archive/deletion decision — see packages/knowledge-engine/README.md.

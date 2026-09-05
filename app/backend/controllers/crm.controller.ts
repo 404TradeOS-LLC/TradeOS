@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { CrmService } from "../../modules/crm/service";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
-import { requireAuthContext, requireOrgAdmin, requireOrgId, requireRoles } from "../requestContext";
+import { requireAuthContext, requireOrgAdmin, requireOrgId, requirePermissions, requireRoles } from "../requestContext";
 
 const service = new CrmService();
 const activityService = new ActivityTimelineService();
@@ -127,7 +127,7 @@ export const crmCustomersController = {
     res.status(201).json(customer);
   },
   async getById(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher", "technician"]);
+    requireRoles(req, ["owner", "admin", "dispatcher", "technician"]);
     res.json(await service.getCustomer(requireOrgId(req), req.params.id));
   },
   async update(req: Request, res: Response) {
@@ -159,7 +159,7 @@ export const crmCustomersController = {
     res.status(204).send();
   },
   async addServiceAddress(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher"]);
+    requireRoles(req, ["owner", "admin", "dispatcher"]);
     res.status(201).json(await service.addServiceAddress(requireOrgId(req), req.params.id, serviceAddressSchema.parse(req.body)));
   },
   async updateServiceAddress(req: Request, res: Response) {
@@ -245,7 +245,9 @@ export const paymentsController = {
     res.json(await service.listPayments(requireOrgId(req), req.params.id));
   },
   async create(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher"]);
-    res.status(201).json(await service.createPayment(requireOrgId(req), req.params.id, paymentSchema.parse(req.body)));
+    const auth = requirePermissions(req, ["billing.write"]);
+    res
+      .status(201)
+      .json(await service.createPayment(requireOrgId(req), req.params.id, paymentSchema.parse(req.body), auth.userId, auth.role));
   },
 };

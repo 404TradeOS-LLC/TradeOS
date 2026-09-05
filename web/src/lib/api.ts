@@ -1,6 +1,10 @@
 import "server-only";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
 import type { BrandAsset, BrandDocumentSettings, BrandProfile, BrandStudioPreview } from "@/lib/brand-studio";
+import { buildEstimateQueueSearchParams, buildInvoiceQueueSearchParams, buildProposalQueueSearchParams } from "@/lib/work-queue-params";
+import { buildCostbookQuery, type CostbookListParams } from "@/lib/costbook-query";
+import { customerPortalApiFetch } from "@/lib/customer-portal-session";
+import { getApiErrorPayload, readApiResponseBody } from "@/lib/api-response";
 import {
   contractStatuses,
   estimateStatuses,
@@ -65,11 +69,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     },
   });
 
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
+  const { body, malformed } = await readApiResponseBody(response);
+
+  if (malformed) {
+    throw new ApiClientError(response.ok ? "Invalid response from server" : "Request failed", response.status);
+  }
 
   if (!response.ok) {
-    throw new ApiClientError(body?.error ?? "Request failed", response.status, body?.details);
+    const error = getApiErrorPayload(body);
+    throw new ApiClientError(error.message, response.status, error.details);
   }
 
   return body as T;
@@ -202,8 +210,14 @@ export interface CostbookMaterialInput {
   supplierId?: string | null;
 }
 
-export function listCostbookMaterials(token: string) {
-  return apiFetch<CostbookMaterial[]>("/api/v1/costbook/materials", { token });
+export interface CatalogPage<T> {
+  items: T[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export function listCostbookMaterials(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookMaterial>>(`/api/v1/costbook/materials${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookLaborRate {
@@ -226,8 +240,8 @@ export interface CostbookLaborRateInput {
   active?: boolean;
 }
 
-export function listCostbookLaborRates(token: string) {
-  return apiFetch<CostbookLaborRate[]>("/api/v1/costbook/labor-rates", { token });
+export function listCostbookLaborRates(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookLaborRate>>(`/api/v1/costbook/labor-rates${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookDivision {
@@ -246,8 +260,8 @@ export interface CostbookDivisionInput {
   sortOrder?: number;
 }
 
-export function listCostbookDivisions(token: string) {
-  return apiFetch<CostbookDivision[]>("/api/v1/costbook/divisions", { token });
+export function listCostbookDivisions(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookDivision>>(`/api/v1/costbook/divisions${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookCategory {
@@ -268,8 +282,8 @@ export interface CostbookCategoryInput {
   sortOrder?: number;
 }
 
-export function listCostbookCategories(token: string) {
-  return apiFetch<CostbookCategory[]>("/api/v1/costbook/categories", { token });
+export function listCostbookCategories(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookCategory>>(`/api/v1/costbook/categories${buildCostbookQuery(params)}`, { token });
 }
 
 export interface CostbookSubcategory {
@@ -290,8 +304,8 @@ export interface CostbookSubcategoryInput {
   sortOrder?: number;
 }
 
-export function listCostbookSubcategories(token: string) {
-  return apiFetch<CostbookSubcategory[]>("/api/v1/costbook/subcategories", { token });
+export function listCostbookSubcategories(token: string, params: CostbookListParams = {}) {
+  return apiFetch<CatalogPage<CostbookSubcategory>>(`/api/v1/costbook/subcategories${buildCostbookQuery(params)}`, { token });
 }
 
 export interface Customer {
@@ -410,6 +424,10 @@ export interface Estimate {
   overheadPct: number;
   profitPct: number;
   targetMarginPct: number | null;
+  taxPct: number;
+  taxAmount: number;
+  costAfterOverhead: number;
+  preTaxTotalPrice: number;
   subtotalCost: number;
   totalPrice: number;
   createdAt?: string;
@@ -426,6 +444,9 @@ export interface EstimateLineItem {
   unitCost: number;
   lineCost: number;
   sortOrder: number;
+  section: string;
+  costType: "labor" | "material" | "equipment" | "disposal" | "subcontractor" | "other";
+  taxable: boolean;
 }
 
 export type EstimateDetail = Estimate & { lineItems: EstimateLineItem[] };
@@ -436,10 +457,69 @@ export function listEstimatesByProject(token: string, projectId: string) {
   );
 }
 
+/**
+ * Retrieves an estimate by ID with its status normalized to a canonical value.
+ *
+ * @param id - The estimate ID
+ * @returns The estimate details with a canonical status
+ */
 export function getEstimate(token: string, id: string) {
   return apiFetch<EstimateDetail>(`/api/v1/estimates/${id}`, { token }).then((estimate) => ({
     ...estimate,
     status: normalizeStatus(estimate.status, legacyEstimateStatusMap, estimateStatuses, "draft"),
+  }));
+}
+
+// --- Organization work-queue reads (PR #251) ---
+//
+// Reusable, organization-scoped, paginated read endpoints — the router root
+// for each resource, distinct from the existing `/by-project/:projectId` and
+// `/:id` routes on the same router. Intended for dashboard "needs attention"
+// views, reporting surfaces, and future Athena tools that need a
+// company-wide queue rather than a single project's documents. Shared
+// envelope/pagination contract across all three: opaque cursor, default
+// limit 25, max 50, `updatedAt desc, id desc` ordering, exact filtered
+// `total`. See docs/API_REFERENCE.md and docs/modules/{estimating,proposals,
+// invoices-and-payments}.md for the full per-resource contract.
+
+export interface WorkQueueResponse<T> {
+  items: T[];
+  total: number;
+  nextCursor: string | null;
+}
+
+export interface EstimateQueueItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: EstimateStatus;
+  amount: number;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EstimateQueueParams {
+  status?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists organization-wide estimates in a paginated work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns The paginated estimate queue with canonical estimate statuses
+ */
+export function listEstimateQueue(token: string, params: EstimateQueueParams = {}) {
+  const qs = buildEstimateQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<EstimateQueueItem>>(`/api/v1/estimates${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyEstimateStatusMap, estimateStatuses, "draft") })),
   }));
 }
 
@@ -781,8 +861,54 @@ export function getProposal(token: string, id: string) {
   }));
 }
 
+/**
+ * Retrieves the proposal draft preview for a project.
+ *
+ * @param projectId - The identifier of the project
+ * @returns The project's proposal draft preview
+ */
 export function getProjectProposalDraft(token: string, projectId: string) {
   return apiFetch<ProposalDraftPreview>(`/api/v1/proposals/project-draft/${projectId}`, { token });
+}
+
+export interface ProposalQueueItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: ProposalStatus;
+  amount: number | null;
+  contractId: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  updatedAt: string;
+}
+
+export interface ProposalQueueParams {
+  status?: string;
+  sent?: boolean;
+  viewed?: boolean;
+  unsigned?: boolean;
+  staleBefore?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists organization-wide proposals matching the specified queue filters.
+ *
+ * @param params - Optional filters and pagination settings for the proposal queue
+ * @returns A paginated proposal queue with canonical proposal statuses
+ */
+export function listProposalQueue(token: string, params: ProposalQueueParams = {}) {
+  const qs = buildProposalQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<ProposalQueueItem>>(`/api/v1/proposals${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyProposalStatusMap, proposalStatuses, "draft") })),
+  }));
 }
 
 export interface InvoiceLineItem {
@@ -790,8 +916,8 @@ export interface InvoiceLineItem {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
-  lineCost: number;
+  unitPrice: number;
+  lineTotal: number;
 }
 
 export interface InvoiceDelivery {
@@ -805,6 +931,14 @@ export interface InvoiceDelivery {
   createdAt: string;
 }
 
+export interface InvoicePayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  method: string;
+  createdAt: string;
+}
+
 export interface Invoice {
   id: string;
   projectId: string;
@@ -815,17 +949,70 @@ export interface Invoice {
   status: InvoiceStatus;
   percentComplete: number | null;
   amount: number;
+  subtotal: number;
+  taxPct: number;
+  taxAmount: number;
   dueDate: string | null;
   sentAt: string | null;
   paidAt: string | null;
   createdAt: string;
+  paidAmount: number;
+  balanceDue: number;
+  payments: InvoicePayment[];
   deliveries: InvoiceDelivery[];
 }
 
+/**
+ * Retrieves an invoice and its line items.
+ *
+ * @param id - The invoice identifier
+ * @returns The invoice with its status normalized to a canonical value
+ */
 export function getInvoice(token: string, id: string) {
   return apiFetch<Invoice & { lineItems: InvoiceLineItem[] }>(`/api/v1/invoices/${id}`, { token }).then((invoice) => ({
     ...invoice,
     status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft"),
+  }));
+}
+
+export interface InvoiceQueueItem {
+  id: string;
+  documentNumber: number;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: InvoiceStatus;
+  amount: number;
+  paidAmount: number;
+  balanceDue: number;
+  dueDate: string | null;
+  updatedAt: string;
+}
+
+export interface InvoiceQueueParams {
+  status?: string;
+  sent?: boolean;
+  overdue?: boolean;
+  partiallyPaid?: boolean;
+  unpaid?: boolean;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+/**
+ * Lists invoices in the organization work queue.
+ *
+ * @param params - Optional filters and pagination settings for the queue
+ * @returns A paginated invoice queue with canonical invoice statuses
+ */
+export function listInvoiceQueue(token: string, params: InvoiceQueueParams = {}) {
+  const qs = buildInvoiceQueueSearchParams(params).toString();
+
+  return apiFetch<WorkQueueResponse<InvoiceQueueItem>>(`/api/v1/invoices${qs ? `?${qs}` : ""}`, { token }).then((response) => ({
+    ...response,
+    items: response.items.map((item) => ({ ...item, status: normalizeStatus(item.status, legacyInvoiceStatusMap, invoiceStatuses, "draft") })),
   }));
 }
 
@@ -845,10 +1032,13 @@ export interface Contract {
   proposalId: string;
   status: ContractStatus;
   termsText: string;
+  contractAmount: number | null;
+  snapshot: Record<string, unknown> | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
-  signatureIp: string | null;
+  signatureIpReported: string | null;
+  signatureUserAgentReported: string | null;
   signedAt: string | null;
   createdAt: string;
   events: ContractEvent[];
@@ -867,6 +1057,48 @@ export function getContract(token: string, id: string) {
   }));
 }
 
+export function getPortalProjects() {
+  return customerPortalApiFetch<Project[]>("/api/v1/customer-portal/projects").then((projects) =>
+    projects.map((project) => ({ ...project, status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead") }))
+  );
+}
+
+export function getPortalProject(id: string) {
+  return customerPortalApiFetch<Project & {
+    customer: Customer | null;
+    proposals: Proposal[];
+    invoices: Array<Invoice & { lineItems: InvoiceLineItem[] }>;
+    contracts: Contract[];
+  }>(`/api/v1/customer-portal/projects/${id}`).then((project) => ({
+    ...project,
+    status: normalizeStatus(project.status, legacyProjectStatusMap, projectStatuses, "lead"),
+    proposals: project.proposals.map((proposal) => ({ ...proposal, status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft") })),
+    invoices: project.invoices.map((invoice) => ({ ...invoice, status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft") })),
+    contracts: project.contracts.map((contract) => ({ ...contract, status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft") })),
+  }));
+}
+
+export function getPortalProposal(id: string) {
+  return customerPortalApiFetch<Proposal>(`/api/v1/customer-portal/proposals/${id}`).then((proposal) => ({
+    ...proposal,
+    status: normalizeStatus(proposal.status, legacyProposalStatusMap, proposalStatuses, "draft"),
+  }));
+}
+
+export function getPortalInvoice(id: string) {
+  return customerPortalApiFetch<Invoice & { lineItems: InvoiceLineItem[] }>(`/api/v1/customer-portal/invoices/${id}`).then((invoice) => ({
+    ...invoice,
+    status: normalizeStatus(invoice.status, legacyInvoiceStatusMap, invoiceStatuses, "draft"),
+  }));
+}
+
+export function getPortalContract(id: string) {
+  return customerPortalApiFetch<Contract>(`/api/v1/customer-portal/contracts/${id}`).then((contract) => ({
+    ...contract,
+    status: normalizeStatus(contract.status, legacyContractStatusMap, contractStatuses, "draft"),
+  }));
+}
+
 // --- Dispatcher Workspace ---
 //
 // Consumes the jobs list/summary endpoints described in the dispatcher
@@ -876,6 +1108,7 @@ export function getContract(token: string, id: string) {
 // technician context the project-scoped summary does not.
 
 export interface DispatchJobTechnician {
+  assignmentId?: string;
   userId: string;
   name: string;
 }
@@ -894,6 +1127,8 @@ export interface DispatchJob {
   isOverdue: boolean;
   isUnassigned: boolean;
   needsAttention: boolean;
+  completedAt?: string | null;
+  readyForInvoiceAt?: string | null;
 }
 
 export interface DispatchJobListResponse {
@@ -909,6 +1144,7 @@ export interface DispatchJobListParams {
   technicianId?: string;
   unassigned?: boolean;
   needsAttention?: boolean;
+  readyForInvoice?: boolean;
   scheduledFrom?: string;
   scheduledTo?: string;
   projectId?: string;
@@ -925,6 +1161,7 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
   if (params.technicianId) query.set("technicianId", params.technicianId);
   if (params.unassigned != null) query.set("unassigned", String(params.unassigned));
   if (params.needsAttention != null) query.set("needsAttention", String(params.needsAttention));
+  if (params.readyForInvoice != null) query.set("readyForInvoice", String(params.readyForInvoice));
   if (params.scheduledFrom) query.set("scheduledFrom", params.scheduledFrom);
   if (params.scheduledTo) query.set("scheduledTo", params.scheduledTo);
   if (params.projectId) query.set("projectId", params.projectId);
@@ -935,6 +1172,77 @@ export function listJobsForDispatch(token: string, params: DispatchJobListParams
   const qs = query.toString();
 
   return apiFetch<DispatchJobListResponse>(`/api/v1/jobs${qs ? `?${qs}` : ""}`, { token });
+}
+
+export interface FieldJobDetail extends DispatchJob {
+  description: string;
+  jobType: string;
+  arrivalWindowStart: string | null;
+  arrivalWindowEnd: string | null;
+  estimatedDurationMinutes: number | null;
+  actualStart: string | null;
+  actualEnd: string | null;
+  completedAt: string | null;
+  readyForInvoiceAt: string | null;
+  serviceAddress: {
+    id: string;
+    label: string | null;
+    addressLine1: string;
+    addressLine2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string | null;
+  } | null;
+  equipment: Array<{
+    id: string;
+    name: string;
+    manufacturer: string | null;
+    model: string | null;
+    serialNumber: string | null;
+    status: string;
+  }>;
+  notes: Array<{
+    id: string;
+    body: string;
+    authorUserId: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  recentActivity: Array<{
+    id: string;
+    eventType: string;
+    title: string;
+    description: string | null;
+    actorUserId: string | null;
+    occurredAt: string;
+    metadata: Record<string, unknown> | null;
+  }>;
+}
+
+export function getFieldJob(token: string, jobId: string) {
+  return apiFetch<FieldJobDetail>(`/api/v1/jobs/${jobId}`, { token });
+}
+
+export async function listFieldJobs(token: string, todayRange: { start: string; end: string }) {
+  const scheduledTo = toInclusiveEndBoundary(todayRange.end);
+  const [scheduled, unscheduled] = await Promise.all([
+    listJobsForDispatch(token, {
+      scheduledFrom: todayRange.start,
+      scheduledTo,
+      page: 1,
+      pageSize: 100,
+    }),
+    listJobsForDispatch(token, { status: "unscheduled", page: 1, pageSize: 100 }),
+  ]);
+
+  const byId = new Map([...scheduled.items, ...unscheduled.items].map((job) => [job.id, job]));
+  return [...byId.values()].sort((left, right) => {
+    if (!left.scheduledStart && !right.scheduledStart) return left.jobNumber.localeCompare(right.jobNumber);
+    if (!left.scheduledStart) return 1;
+    if (!right.scheduledStart) return -1;
+    return left.scheduledStart.localeCompare(right.scheduledStart);
+  });
 }
 
 export interface DispatchSummary {
@@ -954,8 +1262,8 @@ export interface DispatchSummary {
   scope: { source: "organization" | "assigned_only"; role: string };
 }
 
-export function getDispatchSummary(token: string) {
-  return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token });
+export function getDispatchSummary(token: string, options: { signal?: AbortSignal } = {}) {
+  return apiFetch<DispatchSummary>("/api/v1/jobs/dispatch-summary", { token, signal: options.signal });
 }
 
 // dispatchRules.getOrgDayBoundaryUtc/getRollingWindowUtc (backend) document

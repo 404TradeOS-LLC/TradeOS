@@ -43,10 +43,10 @@ reviews:
         Preserve the Athena boundary: Athena -> Tool -> Application Service -> Domain Logic -> Infrastructure. Flag direct database access, direct infrastructure calls, autonomous writes, fake model output, and missing deterministic permission/risk/approval/result validation.
     - path: "app/tests/**"
       instructions: |
-        Check that tests cover tenant isolation, auth/RLS behavior, malformed payloads, error envelopes, and meaningful regression cases instead of only happy paths.
+        Check that tests cover tenant isolation, auth/RLS behavior, malformed payloads, error envelopes, and meaningful regression cases instead of only happy paths. Prefer executing the real behavior or mocked failure path over source-text matching unless the test is deliberately enforcing a static repository convention.
     - path: "web/src/**"
       instructions: |
-        Review Next.js code for server/client boundary correctness, accessible UI, truthful product states, robust loading/error handling, and avoidance of secret exposure in NEXT_PUBLIC variables.
+        Review Next.js code for server/client boundary correctness, accessible UI, truthful product states, robust loading/error handling, and avoidance of secret exposure in NEXT_PUBLIC variables. For regression tests, prefer executing behavior and failure paths over static source-text matching unless a source-shape convention is the explicit contract.
     - path: "docs/**"
       instructions: |
         Verify docs distinguish shipped implementation from planned roadmap, keep source-of-truth references current, and avoid claiming runtime readiness without validation evidence.

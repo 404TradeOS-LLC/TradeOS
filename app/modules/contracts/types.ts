@@ -7,13 +7,26 @@ export interface CreateContractInput {
 }
 
 export interface SignContractInput {
-  orgId?: string;
+  orgId: string;
   actorUserId?: string;
   actorRole?: string;
   signerName: string;
   signerEmail?: string;
   signatureDataUrl?: string;
-  signatureIp?: string;
+  /** Forwarded client metadata retained with explicit reported provenance. */
+  signatureIpReported?: string;
+  signatureUserAgentReported?: string;
+}
+
+export interface PortalSignContractInput {
+  orgId: string;
+  customerId: string;
+  portalSessionId: string;
+  signerName: string;
+  signerEmail: string;
+  signatureDataUrl?: string;
+  signatureIpReported?: string;
+  signatureUserAgentReported?: string;
 }
 
 export interface ContractEventDTO {
@@ -32,10 +45,13 @@ export interface ContractDTO {
   proposalId: string;
   status: string;
   termsText: string;
+  contractAmount: number | null;
+  snapshot: Record<string, unknown> | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
-  signatureIp: string | null;
+  signatureIpReported: string | null;
+  signatureUserAgentReported: string | null;
   signedAt: Date | null;
   createdAt: Date;
   events: ContractEventDTO[];

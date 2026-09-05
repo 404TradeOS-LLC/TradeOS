@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -40,16 +40,43 @@ authoritative compatibility inventory for the later S007-S012 normalization
 sprints. Completion of S006 does not automatically promote any of those
 `PLANNED` sprints to `READY`.
 
+S007 — Project lifecycle normalization is complete. PR #261 merged on 2026-08-21 as `e736bb6b92ce00441f2e0863ef3c4d34174571be`, normalizing proposal-driven Project writes to the canonical lifecycle while retaining compatibility reads for historical aliases and avoiding destructive historical rewrites. S008 estimate lifecycle normalization is also complete: PR #264 merged on 2026-08-22 as `dee5f98f0b46e98782b887fca80a63e55800cd65`. S009 proposal lifecycle normalization is also complete: PR #267 merged on 2026-08-22 — new declines persist canonical `declined`, historical `rejected` rows remain compatible, and S007 Project side effects are preserved. S010 contract lifecycle normalization is complete: PR #276 merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`. `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` in place of stored `pending_signature`, without a Contract schema migration or `sign()`/`void()` guard change — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
+
+S011 invoice lifecycle normalization is `DONE`: PR #283 merged 2026-08-24 as `6ca838d39d170fe520e16141e6e5213188f6d5f8`, followed by separate completion evidence. The shipped bounded implementation owns backend payment reconciliation correctness: serialize concurrent reconciliation per Invoice, aggregate valid recorded payments with cent-safe semantics, transition eligible fully covered `sent` or existing raw `overdue` invoices to persisted `paid` inside the existing request-scoped transaction/event boundary, enforce `billing.write` at the service boundary, and exclude persisted terminal invoices from unpaid/partially-paid/overdue follow-up queues. Overdue and partially-paid remain derived; payment-entry UI expansion is deferred; persisted `partially_paid`, a new overdue writer, `viewed` tracking, billing/payment-processor or portal redesign, unrelated Invoice mutation repairs, and S012 remain out of scope.
+
+S012 Job lifecycle normalization is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged 2026-08-24 as `403d84cb6187b59cf468802977a19fbc847ce314`, and separate completion evidence records the shipped behavior. Its bounded implementation centralizes backend enforcement and documentation of the existing canonical Job transition graph across scheduling, dispatch, field work, completion, cancellation/reopen, and completed-only invoice readiness. It preserves the live `on_site -> completed` rule, current permissions, assignment/conflict validation, organization/RLS scoping, activity and required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived and Job persistence remains the existing eight statuses; no new status, alias, migration, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work shipped.
+
+S018 — Customer portal authentication hardening is `DONE` after implementation PR #290 merged on 2026-08-24 as `6f2dd254c121855fa629d19da6bc0452cc9e6de7`; completion-evidence PR #292 records the exact-head verification. The current portal retains the existing authenticated Supabase session and protected bearer-authenticated API/RLS boundary; there is no separate customer token or identity model. The shipped bounded implementation adds finite local access-token expiry/claim validation, inactive-user session denial, and focused same-organization/cross-organization/RLS evidence while preserving the current route/API and request-session architecture. A new customer-auth product, public tokenized links, auth-provider replacement, RBAC/RLS redesign, or portal redesign requires a separate founder decision and was not shipped in S018. See `docs/architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md`.
+
+The post-merge S018 handoff is reconciled in `docs/SESSION_HANDOFF.md`: S019 was promoted through separate governance-only readiness PR #295, implemented in PR #296, and merged on 2026-08-24 as `9291ccd58624326b1bb142d47d50f97f85b413e3`. Its implementation remained limited to the existing authenticated proposal boundary, including the known competing-transition race and its bounded transactional repair; separate completion-evidence PR #297 records the shipped result. S021 readiness was promoted through its separate governance-only lane, implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`, and completion-evidence PR #300 records the shipped result with server-derived invoice/payment presentation and no new payment architecture. Founder-decision PR #301 is merged: S014 is DONE through ADR-006 for canonical Brand Studio branding, S020's boundary is resolved through ADR-007 for bounded authenticated in-app contract acceptance, and S024 is DONE through ADR-008 for metadata-first AI retention/privacy/cost controls; the S020/S021 documentation now reflects that accepted boundary. S015 is `DONE` after implementation PR #310 and completion-evidence PR #312. S016 implementation PR #314 merged on 2026-08-24 as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; its governance-only completion evidence records canonical Brand Studio branding at document-rendering seams, deterministic and safe fallbacks, trust-signal handling, contrast-safe PDF headers, exact-head checks, and the residual production/browser evidence limitation. S017 implementation PR #317 merged as `4b02c8257d7934a4e18d304ce9bdd8ba51878645` and corrective PR #319 merged as `8ebb1a84302eafcab529f3db2f93c63000a76ffe`; separate completion evidence records the fail-closed cleanup repair and repository verification. S020 implementation PR #322 and completion evidence #323 are merged; the implementation records organization-scoped expected-status hardening. S022 readiness PR #324, implementation PR #325, focused coverage PR #328, and completion evidence PR #329 are merged; S025 implementation PR #331 merged on 2026-08-25 with completion evidence in docs/architecture/S025_COMPLETION_EVIDENCE.md; S026 and S028 are DONE with merged implementation/completion evidence. S030 is DONE after implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c` and completion evidence PR #344 merged. S040 readiness PR #345 and implementation PR #346 are merged; completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`.
+
 S027 — Intelligent Costbook production readiness retains its founder-requested
 readiness contract in the Sprint Backlog. Its original blockers PR #94, #95,
 and #96 have merged. Its later-cited overlap, PR #128 (C004 equipment catalog
 foundation) and PR #151 (Costbook hierarchy RLS/parent activity hardening), is
-also resolved as of the 2026-08-16 reconciliation (#151 merged, #128 closed
-unmerged and superseded by merged PR #183). S027 is still not promoted to
-`READY` here: substantial further Costbook work has since merged (PR #183, PR #210,
-and PR #216), so a dedicated live-verified scope/overlap review is required
-before promotion, not just confirmation that the old blocking PRs are gone.
-Re-read live GitHub state before any later promotion.
+also resolved (#151 merged, #128 closed unmerged and superseded by merged PR #183).
+Substantial further Costbook work has also merged through PR #183, PR #210, and
+PR #216. PR #257 is the bounded dedicated readiness pass that reconciles that
+current scope; it does not itself promote S027 to `READY`.
+
+The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 has now merged the standardized server-side catalog pagination/search/filter/sort contract. S027 remains `PARTIAL/BLOCKED` only until authenticated rendered Costbook browser evidence is captured. Re-read live GitHub state before any later promotion.
+
+Live queue reconciliation on 2026-08-28: S037, S038, S043, and S047 are DONE
+with merged completion evidence. S038 implementation evidence is recorded in
+`docs/architecture/S038_COMPLETION_EVIDENCE.md`; S047 implementation evidence
+is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. No numbered
+sprint is currently READY; S027 browser evidence and S036 remain independent
+blockers.
+
+S047 implementation evidence is constrained to the existing Playwright seams:
+the operator-triggered workflow now requires dedicated Preview/Staging
+owner/admin and technician fixtures plus a distinct lifecycle auth account,
+binds mutating golden runs to the approved web Preview host pattern, exercises
+authentication lifecycle and resource-backed business flows, and always
+retains available failure diagnostics. It fail-closes mutation outside
+non-production or screenshot capture without sanitized-tenant confirmation.
+It does not change product auth, authorization, schema, RLS, or customer-data
+policy.
 
 ## Volume I — Vision
 
@@ -183,7 +210,31 @@ When two documents conflict, the agent must stop and identify which truth layer 
   `docs/REPOSITORY_GOVERNANCE.md`.
 - A zero-approval solo-maintainer posture must not weaken pull-request,
   required-check, up-to-date-branch, conversation-resolution, deletion, or
-  non-fast-forward protections.
+  non-fast-forward protections. ADR-009 permits a founder-authorized merge
+  review when no independent maintainer exists, but it does not waive those
+  technical gates or convert self-review into independent approval.
 - Broad roadmap priorities do not override the numbered sprint queue.
 - Agents may not invent replacement architecture when an existing source-of-truth contract applies.
 - Destructive documentation consolidation requires an audit, preservation plan, and founder approval.
+
+
+## S026 completion reconciliation
+
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 remains blocked on authenticated rendered Costbook evidence; no numbered implementation lane is active.
+
+
+## S028 completion reconciliation
+
+S028 — Estimate-to-proposal workflow verification is DONE after implementation PR #338 merged on 2026-08-25 as `dcc72796c1bfd945de1f8303062103c8e8c4690c`. The shipped bounded implementation adds additive estimate metadata, serializes estimate mutations and finalization on the parent row, preserves organization authorization/forced RLS and finalized-estimate immutability, carries verified estimates through proposal/PDF handoff, reports signed margins, and hardens the browser evidence harness. Repository verification passed app/web tests, typecheck, lint, builds, Athena contracts/smoke, integration/migration/RLS rehearsal, docs/governance, dependency review, and branch-currency checks. Residual authenticated production/browser evidence is environment-dependent and is not represented as repository incompleteness.
+
+
+## S030 readiness reconciliation
+
+S030 is DONE after implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; completion evidence is recorded in `docs/architecture/S030_COMPLETION_EVIDENCE.md`. The existing Dispatcher Workspace, Job routes, named lifecycle actions, dispatch-summary scope, organization/RLS boundaries, and declined-assignment reactivation are verified. Authenticated browser evidence remains environment-dependent; no new statuses, roles, route optimization, GPS, notifications, billing, or later sprint scope shipped.
+
+
+## Live queue reconciliation — 2026-08-25
+
+S028 is DONE through implementation PR #338 (`dcc72796c1bfd945de1f8303062103c8e8c4690c`) and completion evidence PR #339 (`cc2d6371aa29520dffc1f83bf86118c17f7b840c`). PR #332 is closed as superseded. PT-003 is merged in PR #342 (`164fe63867dceb265d80a0a61098c4c99315a3f3`) and persists finalized estimate pricing during proposal creation; PR #311 is merged in `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d` with paid queue balances derived from persisted invoice status while preserving the existing manual mark-paid boundary. S047 is DONE through implementation PR #397 and completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`.
+
+The authenticated browser session is available for read-only verification, but the full estimate-to-proposal mutation proof remains environment-blocked until an explicit action-time confirmation permits creating test data in the existing workspace. S025, S026, S030, S031, S032, S033, S034, S035, S037, S038, S040, S041, S042, and S043 are complete; S035 representative isolated plan evidence, completion evidence, and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384. S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`. S047 is the sole promoted READY sprint under `docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md`. S036 remains blocked by S027; S044/S045 remain blocked on production access. S027 remains independently blocked on authenticated rendered Costbook browser evidence; do not combine that evidence with S038, S043, or S047.

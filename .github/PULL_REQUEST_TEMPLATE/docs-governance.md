@@ -34,7 +34,7 @@
 - [ ] PR and issue templates reinforce current RC1 operating rules.
 - [ ] Label taxonomy changes are reflected in governance documentation.
 - [ ] No runtime `app/` or `web/` implementation behavior changed.
-- [ ] No governance rule weakens tenant isolation, required verification, or review expectations.
+- [ ] No governance rule weakens tenant isolation or required verification; the ADR-009 solo-maintainer exception changes reviewer availability only and preserves technical merge gates.
 
 ## Change Checklist
 

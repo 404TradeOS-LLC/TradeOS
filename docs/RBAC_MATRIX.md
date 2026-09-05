@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -64,12 +64,22 @@ Shared permission keys from `app/domain/contracts.ts`:
 
 Costbook hierarchy PATCH operations intentionally split ordinary editing from lifecycle control. Changes to Division, Category, or Subcategory fields such as `code`, `name`, and `sortOrder` require `costbook.write`; any PATCH that includes `isActive` additionally requires `costbook.manage`, matching the existing manage-only DELETE/deactivation boundary. Owner/admin currently hold both permissions, but this distinction is enforced independently so a future write-only Costbook role cannot activate or deactivate hierarchy records.
 
+Change-order reads require `billing.read`; change-order creation, edits, line-item changes, deletion, approval, and rejection require `billing.write`. Supplier reads require `costbook.read`; supplier creation, edits, and deletion require `costbook.manage`. These are application-layer gates in addition to the existing forced-RLS tenant floor.
+
+S008 changes estimate lifecycle normalization only. It does not change estimate permissions, roles, organization scoping, or the existing `crm.read`/`crm.write` boundaries.
+
 ## Tenant-boundary behavior
 
 - all roles are tenant-scoped by organization membership
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
+- customer portal sessions are scoped to one organization and customer; they can read only that customer's shared project documents and can write only the exact pending contract-sign transition
 - request headers cannot select or impersonate a tenant
+- S018 authentication hardening preserves these role boundaries. ADR-010 adds a separate non-staff customer portal principal; it is not a canonical staff role, cannot reach staff routes, and does not expand the staff permission matrix.
+- waiting longer to acquire the request-scoped transaction changes only
+  contention handling; verified JWT and organization-membership authorization
+  remain enforced upstream, and the transaction-local `app.*` RLS settings
+  are still established inside the acquired transaction
 
 ## Assigned-technician restrictions
 
@@ -79,8 +89,13 @@ Jobs have extra scope restrictions beyond the shared permission map:
 - technicians can accept or decline only their own assignments
 - technicians may move assigned jobs through field states that the service permits
 - owners and admins can override schedule conflicts
+- a conflict override requires a nonempty reason and is recorded with the normal
+  activity attribution; dispatcher and technician callers fail closed when they
+  attempt to override
 - only owners and admins can reopen completed jobs
+- the centralized Job lifecycle contract in `app/modules/jobs/lifecycle.ts` preserves the existing action graph: completion is `on_site -> completed`, cancellation is limited to `scheduled|dispatched|paused`, and owner/admin reopen is `completed -> unscheduled|scheduled`; no role receives generic status-write access
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
+- S033 invoice-readiness acknowledgement uses the existing manager boundary (`owner`/`admin`/`dispatcher`); technicians cannot invoke it. The route remains organization-scoped under forced RLS and does not create invoice or payment records.
 
 ## Athena business tools (A12)
 
@@ -112,15 +127,33 @@ See `docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md` secti
 - Athena audit/event review in the operator console is also owner/admin only,
   even though the underlying audit table keeps actor-scoped visibility for
   non-operator callers.
+- S043 security audit events use server-derived actor and organization context;
+  authentication failures, authorization denials, security decisions, and
+  sensitive-action outcomes do not add a role or permission. The security-event
+  review endpoint remains owner/admin only and accepts bounded filters for
+  event type, actor, outcome, and time range.
 
 ## Current auth-specific constraints
 
 - first-owner provisioning creates an `owner`; this only happens once per identity — `POST /api/v1/auth/bootstrap` looks up an existing membership (by verified `authSubject`/email) before ever provisioning, so calling it again for an already-bootstrapped user (which the frontend now does on every login, not just at signup) returns their existing role and never creates a second organization or membership, and the client-supplied `organizationName` is ignored entirely once a membership already exists. That lookup runs inside a transaction that explicitly sets the `app.login_lookup` → `app.user_id` → `app.org_id` RLS session flags in sequence (a fixed production bug — see `docs/modules/auth-and-tenancy.md`'s Database security invariants), since the request has no established org context yet
 - `organizationName` (and only `organizationName`/`regionCode`/`fullName`) is the sole client input the first-owner provisioning path accepts; `bootstrapSchema` (`app/backend/controllers/auth.controller.ts`) is a Zod `.strict()` object, so a request body carrying `role`, `userId`, `authSubject`, or `organizationId` is rejected outright (`400`, before any provisioning logic runs) — see `app/tests/auth.controller.bootstrap.test.ts`. Role is always the hardcoded `"owner"` literal in `OrganizationProvisioningService.provision`; identity is always the verified JWT's `authSubject`/email, never the request body
 - team invites are currently limited to `dispatcher` and `technician` roles
+- password-reset delivery is public and rate-limited; invite delivery does not change the existing owner/admin write boundary, tenant scoping, or forced-RLS floor
 - compatibility values may still appear in stored memberships but are normalized during auth/session resolution
 - legacy `estimator` retains existing compatibility permissions and has read-only Costbook access through `costbook.read`; it does not receive `costbook.write` or `costbook.manage`
+- S042 adds no role or permission. Logout uses the caller's resolved user identity to revoke that user's local refresh sessions; password reset and inactive-account rejection apply the same lifecycle revocation without widening organization access.
 
 ## A12.1 transactional event authorization
 
 A12.1 changes transaction semantics, not permissions. The six required canonical event publishers continue to use the same authenticated organization, actor, service-level authorization, and shared permission boundaries described above. Making business mutation plus durable canonical-event persistence atomic does not grant a new role, permission, bypass, or cross-tenant capability; subscriber delivery remains asynchronous and outside the authorization-sensitive business transaction.
+
+
+## S030 dispatcher verification (active)
+
+Dispatcher actions continue to use the existing bearer authentication, organization membership, service authorization, and forced-RLS boundaries. Active technician visibility excludes declined assignments, and job creation rejects non-technician membership rows; conflict overrides remain enforced by the existing owner/admin service policy.
+
+S031 preserves those boundaries while making the schedule check concurrency-safe:
+the authenticated organization and technician identifiers form the transaction
+lock scope, and the lock covers both conflict reads and the schedule/assignment
+write. This does not widen dispatcher permissions or allow a caller to select a
+different organization through request input.

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { AuthContext } from "../backend/auth/context";
+import type { CustomerPortalContext } from "../modules/customer-portal/service";
 import { getRolePermissions, normalizeRole, SupportedRole } from "../domain";
 
 const requestDatabase = new AsyncLocalStorage<Prisma.TransactionClient>();
@@ -23,6 +24,7 @@ export async function runWithDatabaseSession<T>(
   operation: () => Promise<T>,
   sessionSource = "http"
 ): Promise<T> {
+  const maxWait = getDatabaseTransactionMaxWait();
   const timeout = parseTransactionTimeout(process.env.RLS_TRANSACTION_TIMEOUT_MS);
 
   return client.$transaction(
@@ -37,7 +39,34 @@ export async function runWithDatabaseSession<T>(
 
       return requestDatabase.run(transaction, operation);
     },
-    { timeout }
+    { maxWait, timeout }
+  );
+}
+
+export async function runWithPortalDatabaseSession<T>(
+  client: PrismaClient,
+  portal: CustomerPortalContext,
+  operation: () => Promise<T>,
+  sessionSource = "customer_portal"
+): Promise<T> {
+  const maxWait = getDatabaseTransactionMaxWait();
+  const timeout = parseTransactionTimeout(process.env.RLS_TRANSACTION_TIMEOUT_MS);
+
+  return client.$transaction(
+    async (transaction) => {
+      await transaction.$queryRaw(Prisma.sql`
+        select
+          set_config('app.user_id', ${portal.customerId}, true),
+          set_config('app.org_id', ${portal.orgId}, true),
+          set_config('app.role', 'portal_customer', true),
+          set_config('app.portal_customer_id', ${portal.customerId}, true),
+          set_config('app.portal_session_id', ${portal.sessionId}, true),
+          set_config('app.session_source', ${sessionSource}, true)
+      `);
+
+      return requestDatabase.run(transaction, operation);
+    },
+    { maxWait, timeout }
   );
 }
 
@@ -87,8 +116,16 @@ export async function runWithBackgroundDatabaseSession<T>(
   return runWithDatabaseSession(client, auth, operation, `job:${input.jobName}`);
 }
 
+export function getDatabaseTransactionMaxWait(): number {
+  return parseTransactionDuration(process.env.RLS_TRANSACTION_MAX_WAIT_MS, 15_000);
+}
+
 function parseTransactionTimeout(value: string | undefined): number {
-  if (!value) return 60_000;
+  return parseTransactionDuration(value, 60_000);
+}
+
+function parseTransactionDuration(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

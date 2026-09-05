@@ -1,4 +1,44 @@
-import { hasAnyPermission, hasPermission } from "../domain";
+import {
+  canTransitionProjectStatus,
+  hasAnyPermission,
+  hasPermission,
+  normalizeEstimateStatus,
+  normalizeProjectStatus,
+  normalizeProposalStatus,
+  canTransitionProposalStatus,
+} from "../domain";
+
+describe("Project lifecycle compatibility", () => {
+  it("normalizes historical project aliases without changing the canonical vocabulary", () => {
+    expect(normalizeProjectStatus("proposal_draft")).toBe("estimating");
+    expect(normalizeProjectStatus("proposal_sent")).toBe("estimating");
+    expect(normalizeProjectStatus("accepted")).toBe("awarded");
+    expect(normalizeProjectStatus("in_production")).toBe("active");
+  });
+
+  it("keeps proposal-driven canonical project progression valid", () => {
+    expect(canTransitionProjectStatus("lead", "estimating")).toBe(true);
+    expect(canTransitionProjectStatus("estimating", "awarded")).toBe(true);
+    expect(canTransitionProjectStatus("awarded", "active")).toBe(true);
+    expect(canTransitionProjectStatus("lead", "awarded")).toBe(false);
+  });
+});
+
+describe("Estimate lifecycle compatibility", () => {
+  it("keeps sent canonical instead of collapsing it into ready", () => {
+    expect(normalizeEstimateStatus("sent")).toBe("sent");
+    expect(normalizeEstimateStatus("rejected")).toBe("declined");
+  });
+});
+
+describe("Proposal lifecycle compatibility", () => {
+  it("normalizes historical rejection while keeping canonical decline transitions", () => {
+    expect(normalizeProposalStatus("rejected")).toBe("declined");
+    expect(normalizeProposalStatus("declined")).toBe("declined");
+    expect(canTransitionProposalStatus("sent", "declined")).toBe(true);
+    expect(canTransitionProposalStatus("viewed", "declined")).toBe(true);
+  });
+});
 
 // This exact permission triple is what backend/requestContext.ts's
 // requireOrgAdmin() checks (team.manage / company.manage / settings.manage),

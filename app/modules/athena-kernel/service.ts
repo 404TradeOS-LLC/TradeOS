@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { normalizeRole } from "../../domain";
 import type { DomainPermission } from "../../domain";
 import type { AthenaAuditStore } from "../athena-audit/types";
+import { buildAthenaSecurityAuditEvent } from "../athena-audit/securityEvents";
+import type { AthenaAuditEventType, AthenaSecurityAuditEventType, AthenaSecurityAuditOutcome } from "../athena-audit/types";
 import { assembleAthenaContext } from "../athena-context-engine/assembler";
 import type { AthenaContextRegistry } from "../athena-context-engine/registry";
 import type { AthenaApprovalVerifier } from "../athena-action-engine/approval";
@@ -35,7 +37,41 @@ const DEFAULT_PROVIDER_DEADLINE_MS = 8_000;
 function parsePositiveIntEnv(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function persistGenerationWithinDeadline(
+  persist: () => Promise<void>,
+  deadline: Date,
+  signal: AbortSignal,
+  abort: (reason: AthenaCancellationReason) => void,
+  getCancellationReason: () => AthenaCancellationReason | undefined
+): Promise<void> {
+  if (signal.aborted) {
+    throw new AthenaAbortedError(getCancellationReason() ?? "shutdown");
+  }
+
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+  let rejectCancellation: ((reason?: unknown) => void) | undefined;
+  const onAbort = () => rejectCancellation?.(new AthenaAbortedError(getCancellationReason() ?? "shutdown"));
+  const cancellationPromise = new Promise<never>((_, reject) => {
+    rejectCancellation = reject;
+  });
+  signal.addEventListener("abort", onAbort, { once: true });
+  const deadlinePromise = new Promise<never>((_, reject) => {
+    const remainingMs = Math.max(0, deadline.getTime() - Date.now());
+    timeoutTimer = setTimeout(() => {
+      abort("deadline_exceeded");
+      reject(new AthenaAbortedError("deadline_exceeded"));
+    }, remainingMs);
+  });
+
+  try {
+    await Promise.race([persist(), cancellationPromise, deadlinePromise]);
+  } finally {
+    clearTimeout(timeoutTimer);
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
 }
 
 // Internal-only marker distinguishing "the kernel-owned AbortController
@@ -153,7 +189,7 @@ export class AthenaKernelService {
     let state: AthenaKernelState = "created";
     let roundTrips = 0;
     const recordAudit = async (
-      eventType: "request_received" | "context_gathered" | "tools_considered" | "action_attempted" | "approval_requested" | "execution_completed" | "failure",
+      eventType: AthenaAuditEventType,
       metadata: Record<string, unknown>,
       extras: { actionId?: string; approvalId?: string } = {}
     ) => {
@@ -174,6 +210,34 @@ export class AthenaKernelService {
         });
       } catch {
         // Audit must never flip the business result.
+      }
+    };
+
+    const recordSecurityAudit = async (
+      eventType: AthenaSecurityAuditEventType,
+      outcome: AthenaSecurityAuditOutcome,
+      metadata: Record<string, unknown> = {},
+      extras: { actionId?: string; approvalId?: string } = {}
+    ) => {
+      if (!input.auditStore) return;
+      try {
+        await input.auditStore.record(
+          buildAthenaSecurityAuditEvent({
+            eventType,
+            organization: actor.orgId,
+            actor: { userId: actor.userId, role: actor.role },
+            outcome,
+            metadata,
+            requestId: input.requestId,
+            traceId,
+            executionId,
+            actionId: extras.actionId,
+            approvalId: extras.approvalId,
+          })
+        );
+      } catch {
+        // Security-audit persistence is best effort and must not alter the
+        // already-authoritative authorization or business result.
       }
     };
 
@@ -298,6 +362,11 @@ export class AthenaKernelService {
         });
 
         if (decision.decision !== "allow") {
+          await recordSecurityAudit("privilege_denied", "denied", {
+            capability,
+            decision: decision.decision,
+            reasonCode: decision.reasonCode,
+          });
           await applyTransition("denied", decision.reasonCode);
           const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
           await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -358,6 +427,12 @@ export class AthenaKernelService {
             deniedFields: decision.deniedFields,
             planId: plan.planId,
           });
+          await recordSecurityAudit("privilege_denied", "denied", {
+            capability: decision.capability,
+            decision: decision.decision,
+            reasonCode: decision.reasonCode,
+            planId: plan.planId,
+          });
           await applyTransition("denied", decision.reasonCode);
           const denied = this.buildDeniedResult(executionId, traceId, decision.reasonCode);
           await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -382,6 +457,13 @@ export class AthenaKernelService {
             // (removed, or an injected registry whose discover()/resolve()
             // diverge) must never fall back to a permissive default.
             const reasonCode = "athena_tool_call_step_unresolvable";
+            await recordSecurityAudit("privilege_denied", "denied", {
+              reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              toolVersion: step.toolVersion,
+            });
             await emitSpan("approval", "denied", Date.now() - policyStart, { planId: plan.planId, stepId: step.stepId, toolId: step.toolId, toolVersion: step.toolVersion, reasonCode });
             await applyTransition("denied", reasonCode);
             const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
@@ -419,6 +501,13 @@ export class AthenaKernelService {
           });
 
           if (stepDecision.decision === "deny") {
+            await recordSecurityAudit("privilege_denied", "denied", {
+              decision: stepDecision.decision,
+              reasonCode: stepDecision.reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+            });
             await emitSpan("approval", "denied", Date.now() - policyStart, {
               planId: plan.planId,
               stepId: step.stepId,
@@ -451,6 +540,15 @@ export class AthenaKernelService {
                 decision: stepDecision.decision,
                 reasonCode,
               });
+              await recordSecurityAudit("sensitive_action_attempted", "denied", {
+                decision: stepDecision.decision,
+                reasonCode,
+                planId: plan.planId,
+                stepId: step.stepId,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                riskLevel: tool.risk,
+              }, { approvalId: input.approvalId });
               await applyTransition("denied", reasonCode);
               const denied = this.buildDeniedResult(executionId, traceId, reasonCode);
               await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
@@ -504,9 +602,30 @@ export class AthenaKernelService {
             layer: "athena_security_risk_engine",
             ...buildAthenaSecurityAuditMetadata(securityDecision),
           });
+          await recordSecurityAudit("security_decision", securityDecision.decision === "allow" ? "allowed" : "denied", {
+            decision: securityDecision.decision,
+            layer: "athena_security_risk_engine",
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: securityDecision.riskLevel,
+            securityDecision: securityDecision.decision,
+            securityReasons: securityDecision.reasons,
+            securityRequiredControls: securityDecision.requiredControls,
+          });
 
           if (securityDecision.decision === "deny") {
             const reasonCode = securityDecision.reasons[0];
+            const securityEventType = reasonCode === "athena_security_denied_cross_tenant_reference" ? "tenant_access_denied" : "sensitive_action_attempted";
+            await recordSecurityAudit(securityEventType, "denied", {
+              reasonCode,
+              planId: plan.planId,
+              stepId: step.stepId,
+              toolId: step.toolId,
+              toolVersion: step.toolVersion,
+              riskLevel: securityDecision.riskLevel,
+            });
             await recordAudit("failure", {
               toolId: step.toolId,
               planId: plan.planId,
@@ -534,6 +653,15 @@ export class AthenaKernelService {
             },
             { actionId: actionAuditId, approvalId: input.approvalId }
           );
+          await recordSecurityAudit("sensitive_action_attempted", "attempted", {
+            decision: stepDecision.decision,
+            reasonCode: stepDecision.reasonCode,
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: tool.risk,
+          }, { actionId: actionAuditId, approvalId: input.approvalId });
           const actionStart = Date.now();
           const actionOutcome = await executeAthenaAction(
             { toolRegistry, approvalVerifier: input.approvalVerifier, idempotencyStore: input.idempotencyStore },
@@ -573,6 +701,20 @@ export class AthenaKernelService {
 
           if (actionState !== "succeeded") {
             const toolError = actionOutcome.result.toolResult.error ?? normalizeAthenaError(new Error("athena_action_failed"), traceId);
+            await recordSecurityAudit(
+              "sensitive_action_completed",
+              actionState === "denied" || actionState === "awaiting_approval" ? "denied" : "failed",
+              {
+                decision: stepDecision.decision,
+                reasonCode: toolError.code,
+                planId: plan.planId,
+                stepId: step.stepId,
+                toolId: step.toolId,
+                toolVersion: step.toolVersion,
+                riskLevel: tool.risk,
+              },
+              { actionId: actionAuditId, approvalId: input.approvalId }
+            );
             if (actionState === "denied" || actionState === "awaiting_approval") {
               if (actionState === "awaiting_approval") {
                 await recordAudit(
@@ -619,6 +761,14 @@ export class AthenaKernelService {
             stepId: step.stepId,
             summary: actionOutcome.result.toolResult.summary,
           });
+          await recordSecurityAudit("sensitive_action_completed", "succeeded", {
+            decision: stepDecision.decision,
+            planId: plan.planId,
+            stepId: step.stepId,
+            toolId: step.toolId,
+            toolVersion: step.toolVersion,
+            riskLevel: tool.risk,
+          }, { actionId: actionAuditId, approvalId: input.approvalId });
 
           // A7 memory-candidate hook (Step 12) - a no-op unless a caller
           // supplied both DI seams (never true in production today). Wrapped
@@ -724,9 +874,11 @@ export class AthenaKernelService {
         signal: controller.signal,
         deadline,
         providerDeadlineMs,
+        generationRetentionDays: parsePositiveIntEnv(env.ATHENA_GENERATION_RETENTION_DAYS, 90),
         abort,
         getCancellationReason: () => cancellationReason,
         emitSpan,
+        persistGeneration: async (generation) => executionStore.persistGenerationRecord({ ...generation, orgId: actor.orgId, actorUserId: actor.userId, executionId, requestId: input.requestId, traceId }),
       });
 
       await applyTransition("succeeded", "draft_response_completed");
@@ -850,9 +1002,23 @@ export class AthenaKernelService {
     signal: AbortSignal;
     deadline: Date;
     providerDeadlineMs: number;
+    generationRetentionDays: number;
     abort: (reason: AthenaCancellationReason) => void;
     getCancellationReason: () => AthenaCancellationReason | undefined;
     emitSpan: (spanType: "model", status: "ok" | "error", durationMs: number, metadata: Record<string, unknown>, cost?: AthenaTelemetryCost) => Promise<void>;
+    persistGeneration: (generation: {
+      provider: string;
+      model: string;
+      providerVersion?: string;
+      status: "succeeded";
+      inputTokens?: number;
+      outputTokens?: number;
+      estimatedUsd?: number;
+      latencyMs: number;
+      provenance?: Record<string, unknown>;
+      retentionExpiresAt: Date;
+      completedAt: Date;
+    }) => Promise<void>;
   }): Promise<{ summary: string; message: string | null; warnings: { code: string; message: string }[] }> {
     if (!input.flags.draftResponsesEnabled) {
       return {
@@ -882,6 +1048,8 @@ export class AthenaKernelService {
 
     try {
       const result = await Promise.race([input.provider.generateDraft({ message: input.message, signal: input.signal, deadline: providerDeadline }), providerTimeoutPromise]);
+      clearTimeout(providerTimeoutTimer);
+      providerTimeoutTimer = undefined;
       // Missing provider usage data is recorded as absent, not estimated
       // from prompt text (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md
       // "Cost attribution"). costTrackingEnabled=false omits the field
@@ -890,6 +1058,29 @@ export class AthenaKernelService {
         ? { provider: result.provider, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, estimatedUsd: result.estimatedUsd }
         : undefined;
       await input.emitSpan("model", "ok", Date.now() - modelStart, { provider: result.provider, model: result.model }, cost);
+      await persistGenerationWithinDeadline(
+        () =>
+          input.persistGeneration({
+            provider: result.provider,
+            model: result.model,
+            providerVersion: result.providerVersion,
+            status: "succeeded",
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            estimatedUsd: result.estimatedUsd,
+            latencyMs: Date.now() - modelStart,
+            provenance: { source: "athena_kernel", executionState: "succeeded" },
+            retentionExpiresAt: new Date(Date.now() + input.generationRetentionDays * 24 * 60 * 60 * 1000),
+            completedAt: new Date(),
+          }),
+        input.deadline,
+        input.signal,
+        input.abort,
+        input.getCancellationReason
+      );
+      if (input.signal.aborted) {
+        throw new AthenaAbortedError(input.getCancellationReason() ?? "shutdown");
+      }
       return { summary: "Athena prepared a draft response.", message: result.text, warnings: [] };
     } catch (error) {
       const errorCode = error instanceof AthenaAbortedError ? `athena_${error.reason}` : error instanceof AthenaKernelError ? error.code : "unknown";

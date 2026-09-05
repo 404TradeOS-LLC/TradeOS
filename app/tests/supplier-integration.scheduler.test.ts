@@ -46,14 +46,14 @@ describe("runSupplierPriceSyncJobs", () => {
   it("runs every spec and isolates failures from one another", async () => {
     const secondSpec = { ...validSpec, supplierId: "00000000-0000-0000-0000-000000000004", label: "Beta" };
     runSupplierPriceSyncJob
-      .mockRejectedValueOnce(new Error("missing membership"))
+      .mockRejectedValueOnce(new Error("Background job identity must have an active organization membership"))
       .mockResolvedValueOnce({ proposed: 2, skipped: 1 });
 
     const outcomes = await runSupplierPriceSyncJobs([validSpec, secondSpec]);
 
     expect(outcomes).toEqual([
-      { spec: validSpec, error: "missing membership" },
-      { spec: secondSpec, result: { proposed: 2, skipped: 1 } },
+      expect.objectContaining({ spec: validSpec, status: "terminal_failure", failureCode: "background_identity_invalid", error: "background_identity_invalid", attempt: 1, nextAttemptAt: null }),
+      expect.objectContaining({ spec: secondSpec, status: "succeeded", result: { proposed: 2, skipped: 1 }, attempt: 1 }),
     ]);
     expect(runSupplierPriceSyncJob).toHaveBeenCalledTimes(2);
   });
@@ -104,6 +104,6 @@ describe("startSupplierPriceSyncScheduler", () => {
     tickFn();
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(onTick).toHaveBeenCalledWith([{ spec: validSpec, result: { proposed: 0, skipped: 0 } }]);
+    expect(onTick).toHaveBeenCalledWith([expect.objectContaining({ spec: validSpec, result: { proposed: 0, skipped: 0 }, status: "succeeded", attempt: 1 })]);
   });
 });

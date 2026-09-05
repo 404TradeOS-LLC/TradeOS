@@ -2,8 +2,22 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { TransactionalProposalsService } from "../../modules/athena-events/transactionalPublishers";
 import { requireAuthContext, requireOrgId, requirePermissions } from "../requestContext";
+import { commaSeparatedEnum, strictOptionalBoolean } from "../queryParams";
+import { proposalStatuses } from "../../domain";
 
 const service = new TransactionalProposalsService();
+
+const listQueueQuerySchema = z.object({
+  status: commaSeparatedEnum(z.enum(proposalStatuses)),
+  sent: strictOptionalBoolean,
+  viewed: strictOptionalBoolean,
+  unsigned: strictOptionalBoolean,
+  staleBefore: z.string().datetime().optional(),
+  updatedAfter: z.string().datetime().optional(),
+  updatedBefore: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  cursor: z.string().optional(),
+});
 
 const createSchema = z.object({
   estimateId: z.string().uuid().optional(),
@@ -43,6 +57,24 @@ export const proposalsController = {
     requirePermissions(req, ["billing.read"]);
     res.json(await service.listByProject(req.params.projectId, requireOrgId(req)));
   },
+  async listOrganizationQueue(req: Request, res: Response) {
+    requirePermissions(req, ["billing.read"]);
+    const query = listQueueQuerySchema.parse(req.query);
+    res.json(
+      await service.listOrganizationQueue({
+        orgId: requireOrgId(req),
+        statuses: query.status,
+        sent: query.sent,
+        viewed: query.viewed,
+        unsigned: query.unsigned,
+        staleBefore: query.staleBefore,
+        updatedAfter: query.updatedAfter,
+        updatedBefore: query.updatedBefore,
+        limit: query.limit,
+        cursor: query.cursor,
+      })
+    );
+  },
   async getById(req: Request, res: Response) {
     requirePermissions(req, ["billing.read"]);
     res.json(await service.getById(req.params.id, requireOrgId(req)));
@@ -63,7 +95,8 @@ export const proposalsController = {
     requirePermissions(req, ["billing.read"]);
     const doc = await service.getPdf(req.params.id, requireOrgId(req));
     res.setHeader("Content-Type", doc.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${doc.filename}"`);
+    const disposition = req.query.disposition === "inline" ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${disposition}; filename="${doc.filename}"`);
     res.send(doc.buffer);
   },
   async send(req: Request, res: Response) {

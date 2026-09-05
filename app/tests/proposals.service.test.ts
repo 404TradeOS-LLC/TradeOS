@@ -11,9 +11,13 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   proposalDelivery: {
     create: jest.fn(),
+  },
+  contract: {
+    findFirst: jest.fn(),
   },
 };
 
@@ -25,6 +29,33 @@ const mockProposalGenerator = {
 const mockAthenaEventService = {
   publish: jest.fn(),
 };
+
+function proposalRow(status: string) {
+  return {
+    id: "proposal-1",
+    projectId: "project-1",
+    estimateId: "estimate-1",
+    status,
+    companyName: null,
+    showLineItemDetail: false,
+    scopeOfWork: null,
+    assumptions: null,
+    exclusions: null,
+    timeline: null,
+    priceLow: null,
+    priceHigh: null,
+    finalPrice: null,
+    paymentScheduleJson: null,
+    pdfUrl: null,
+    termsAndConditions: null,
+    sentAt: new Date(),
+    viewedAt: null,
+    respondedAt: null,
+    createdAt: new Date(),
+    deliveries: [],
+    project: { orgId: "org-1", customer: { id: "customer-1", email: "customer@example.com" } },
+  };
+}
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 jest.mock("../modules/proposal-generator/service", () => ({
@@ -51,30 +82,82 @@ describe("ProposalsService", () => {
     });
   });
 
-  it("creates a draft proposal scoped to the estimate's project", async () => {
-    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1" });
+  it("rejects proposal creation from a draft estimate", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1", status: "draft", totalPrice: 0 });
+
+    const service = new ProposalsService();
+    await expect(service.create({ orgId: "org-1", estimateId: "estimate-1" })).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("persists a finalized estimate total as the proposal final price", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      totalPrice: 7125.37,
+    });
     mockPrisma.proposal.create.mockResolvedValue({
       id: "proposal-1",
       projectId: "project-1",
       estimateId: "estimate-1",
       status: "draft",
-      companyName: null,
-      showLineItemDetail: false,
-      termsAndConditions: null,
-      sentAt: null,
-      viewedAt: null,
-      respondedAt: null,
-      createdAt: new Date(),
+      priceLow: null,
+      priceHigh: null,
+      finalPrice: 7125.37,
       deliveries: [],
     });
 
     const service = new ProposalsService();
-    const proposal = await service.create({ orgId: "org-1", estimateId: "estimate-1" });
+    await service.create({ orgId: "org-1", estimateId: "estimate-1" });
 
-    expect(proposal.status).toBe("draft");
     expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ projectId: "project-1", estimateId: "estimate-1" }) })
+      expect.objectContaining({
+        data: expect.objectContaining({
+          projectId: "project-1",
+          estimateId: "estimate-1",
+          priceLow: undefined,
+          priceHigh: undefined,
+          finalPrice: 7125.37,
+        }),
+      })
     );
+  });
+
+  it("preserves explicit estimate-backed ranges without creating a contradictory final price", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      projectId: "project-1",
+      orgId: "org-1",
+      status: "ready",
+      totalPrice: 12000,
+    });
+    mockPrisma.proposal.create.mockResolvedValue({ id: "proposal-1", projectId: "project-1", estimateId: "estimate-1", status: "draft", deliveries: [] });
+
+    const service = new ProposalsService();
+    await service.create({ orgId: "org-1", estimateId: "estimate-1", priceLow: 10000, priceHigh: 15000 });
+
+    expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ priceLow: 10000, priceHigh: 15000, finalPrice: null }),
+      })
+    );
+  });
+
+  it("rejects edits to an accepted proposal", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("accepted"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      new ProposalsService().update("proposal-1", { finalPrice: 7200 }, "org-1")
+    ).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { not: "accepted" }, contracts: { none: {} } }),
+      })
+    );
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
   });
 
   it("sends a draft proposal and stamps sentAt", async () => {
@@ -148,7 +231,7 @@ describe("ProposalsService", () => {
     expect(proposal.sentAt).not.toBeNull();
     expect(proposal.deliveries[0]?.eventType).toBe("proposal.sent");
     expect(mockPrisma.proposalDelivery.create).toHaveBeenCalled();
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_sent" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
   });
 
   it("rejects sending a proposal that has already been sent", async () => {
@@ -191,20 +274,7 @@ describe("ProposalsService", () => {
         deliveries: [],
         project: { orgId: "org-1", customer: { email: "customer@example.com" } },
       });
-    mockPrisma.proposal.update.mockResolvedValue({
-      id: "proposal-1",
-      projectId: "project-1",
-      estimateId: "estimate-1",
-      status: "accepted",
-      companyName: null,
-      showLineItemDetail: false,
-      termsAndConditions: null,
-      sentAt: new Date(),
-      viewedAt: null,
-      respondedAt: new Date(),
-      createdAt: new Date(),
-      deliveries: [],
-    });
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
 
     const service = new ProposalsService();
     const proposal = await service.accept("proposal-1", "org-1", "owner-1");
@@ -217,7 +287,53 @@ describe("ProposalsService", () => {
         }),
       })
     );
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "accepted" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "awarded" } });
+  });
+
+  it("marks a sent proposal viewed with an organization-scoped conditional transition", async () => {
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("sent"))
+      .mockResolvedValueOnce(proposalRow("viewed"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const service = new ProposalsService();
+    const proposal = await service.markViewed("proposal-1", "org-1", "owner-1");
+
+    expect(proposal.status).toBe("viewed");
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "sent", project: { orgId: "org-1" } },
+      data: expect.objectContaining({ status: "viewed", viewedAt: expect.any(Date) }),
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ eventType: "proposal.viewed", actorUserId: "owner-1" }),
+      })
+    );
+  });
+
+  it("uses the observed status as the compare-and-swap value for acceptance", async () => {
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("viewed"))
+      .mockResolvedValueOnce(proposalRow("accepted"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const service = new ProposalsService();
+    await service.accept("proposal-1", "org-1", "owner-1");
+
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "viewed", project: { orgId: "org-1" } },
+      data: expect.objectContaining({ status: "accepted", respondedAt: expect.any(Date) }),
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "proposal.accepted",
+          metadataJson: { previousStatus: "viewed", newStatus: "accepted" },
+        }),
+      })
+    );
   });
 
   it("rejects accepting a proposal still in draft", async () => {
@@ -225,6 +341,51 @@ describe("ProposalsService", () => {
 
     const service = new ProposalsService();
     await expect(service.accept("proposal-1", "org-1")).rejects.toThrow("cannot be accepted");
+  });
+
+  it("persists a canonical declined status and emits a canonical decline event", async () => {
+    mockPrisma.proposal.findFirst
+      .mockResolvedValueOnce(proposalRow("sent"))
+      .mockResolvedValueOnce(proposalRow("declined"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.proposalDelivery.create.mockResolvedValue({});
+
+    const service = new ProposalsService();
+    const proposal = await service.reject("proposal-1", "org-1", "owner-1");
+
+    expect(proposal.status).toBe("declined");
+    expect(mockPrisma.proposal.updateMany).toHaveBeenCalledWith({
+      where: { id: "proposal-1", status: "sent", project: { orgId: "org-1" } },
+      data: expect.objectContaining({ status: "declined", respondedAt: expect.any(Date) }),
+    });
+    expect(mockPrisma.proposalDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "proposal.declined",
+          metadataJson: { previousStatus: "sent", newStatus: "declined" },
+        }),
+      })
+    );
+  });
+
+  it("keeps historical rejected rows terminal while returning canonical declined", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue(proposalRow("rejected"));
+
+    const service = new ProposalsService();
+    const proposal = await service.markViewed("proposal-1", "org-1");
+
+    expect(proposal.status).toBe("declined");
+    expect(mockPrisma.proposal.update).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when a competing acceptance wins the conditional transition", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValueOnce(proposalRow("sent"));
+    mockPrisma.proposal.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new ProposalsService();
+    await expect(service.accept("proposal-1", "org-1", "owner-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockPrisma.proposalDelivery.create).not.toHaveBeenCalled();
+    expect(mockPrisma.project.update).not.toHaveBeenCalled();
   });
 
   it("resends a viewed proposal and stamps a fresh sentAt timestamp", async () => {
@@ -286,7 +447,7 @@ describe("ProposalsService", () => {
         }),
       })
     );
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_sent" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
   });
 
   it("duplicates an existing proposal back into draft status", async () => {
@@ -355,6 +516,14 @@ describe("ProposalsService", () => {
       companyName: "Acme Co",
       showLineItemDetail: true,
       termsAndConditions: "Custom terms",
+      scopeOfWork: undefined,
+      assumptions: undefined,
+      exclusions: undefined,
+      timeline: undefined,
+      priceLow: 10000,
+      priceHigh: 15000,
+      finalPrice: 12000,
+      paymentScheduleJson: undefined,
     });
     mockProposalGenerator.generateProposal.mockResolvedValue({ buffer: Buffer.from("pdf"), filename: "p.pdf", contentType: "application/pdf" });
 
@@ -367,6 +536,14 @@ describe("ProposalsService", () => {
       companyName: "Acme Co",
       showLineItemDetail: true,
       termsAndConditions: "Custom terms",
+      scopeOfWork: undefined,
+      assumptions: undefined,
+      exclusions: undefined,
+      timeline: undefined,
+      priceLow: 10000,
+      priceHigh: 15000,
+      finalPrice: 12000,
+      paymentScheduleJson: undefined,
     });
   });
 
@@ -441,7 +618,7 @@ describe("ProposalsService", () => {
     expect(proposal.projectId).toBe("project-1");
     expect(proposal.estimateId).toBeNull();
     expect(mockPrisma.project.findFirst).toHaveBeenCalled();
-    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "proposal_draft" } });
+    expect(mockPrisma.project.update).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { status: "estimating" } });
     expect(mockPrisma.proposal.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

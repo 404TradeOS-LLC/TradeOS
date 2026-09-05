@@ -31,10 +31,21 @@ describe("production health surfaces", () => {
 
   it("reports ready when the database probe succeeds", async () => {
     queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
+    queryRawUnsafe.mockResolvedValueOnce([
+      { table_name: "estimates", column_name: "tax_pct" },
+      { table_name: "estimates", column_name: "tax_amount" },
+      { table_name: "invoices", column_name: "subtotal" },
+      { table_name: "invoices", column_name: "tax_pct" },
+      { table_name: "invoices", column_name: "tax_amount" },
+      { table_name: "contracts", column_name: "contract_amount" },
+      { table_name: "contracts", column_name: "snapshot_json" },
+      { table_name: "contracts", column_name: "signature_user_agent_reported" },
+    ]);
     const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
     expect(queryRawUnsafe).toHaveBeenCalledWith("SELECT 1");
     expect(payload.status).toBe("ready");
     expect(payload.checks.database.status).toBe("ok");
+    expect(payload.checks.schema.status).toBe("ok");
     expect(payload.checks.database.latencyMs).toEqual(expect.any(Number));
     expect(mockedLogError).not.toHaveBeenCalled();
   });
@@ -47,6 +58,24 @@ describe("production health surfaces", () => {
     expect(mockedLogError).toHaveBeenCalledWith(
       "health.readiness_failed",
       expect.objectContaining({ component: "database", error: "database unavailable" }),
+    );
+  });
+
+  it("fails closed when dashboard-critical schema columns are missing", async () => {
+    queryRawUnsafe.mockResolvedValueOnce([{ "?column?": 1 }]);
+    queryRawUnsafe.mockResolvedValueOnce([{ table_name: "estimates", column_name: "tax_pct" }]);
+
+    const payload = await checkReadiness(new Date("2026-08-12T22:00:00.000Z"));
+
+    expect(payload.status).toBe("not_ready");
+    expect(payload.checks.database.status).toBe("ok");
+    expect(payload.checks.schema).toEqual(expect.objectContaining({
+      status: "error",
+      missingColumns: expect.arrayContaining(["estimates.tax_amount", "invoices.tax_pct"]),
+    }));
+    expect(mockedLogError).toHaveBeenCalledWith(
+      "health.readiness_failed",
+      expect.objectContaining({ component: "schema" }),
     );
   });
 });

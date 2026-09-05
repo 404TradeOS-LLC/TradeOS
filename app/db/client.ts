@@ -1,11 +1,18 @@
 import { PrismaClient } from "@prisma/client";
 import { getRequestDatabaseClient } from "./requestSession";
+import { resolveRuntimeDatabaseUrl } from "./runtimeDatabaseUrl";
 
 // Singleton Prisma client. Reused across modules/services to avoid exhausting
 // database connections, especially under ts-node-dev/nodemon hot reloads.
 const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
-export const basePrisma = globalForPrisma.prisma ?? new PrismaClient();
+const runtimeDatabaseUrl = resolveRuntimeDatabaseUrl(process.env.DATABASE_URL);
+
+export const basePrisma =
+  globalForPrisma.prisma ??
+  new PrismaClient(
+    runtimeDatabaseUrl ? { datasources: { db: { url: runtimeDatabaseUrl } } } : undefined,
+  );
 
 // Existing services import this object once. The proxy transparently routes
 // model calls through the request transaction when RLS context is active.

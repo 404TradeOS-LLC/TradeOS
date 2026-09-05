@@ -38,7 +38,7 @@ canonical, this file wins.**
 
 | Path | Status | Why |
 |---|---|---|
-| `packages/knowledge-engine/knowledge-engine/**` | **Prohibited — not canonical, not safe to delete yet** | Confirmed self-nested duplicate of the entire package tree. No in-repo runtime, build, or test consumer references it (Phase B reference audit, 2026-07-16). Do not resolve any path into it; do not delete it without a fresh proof pass and founder sign-off (see README §6). |
+| `packages/knowledge-engine/knowledge-engine/**` | **Removed — founder-approved cleanup, 2026-08-24** | Former self-nested duplicate of the canonical package tree. A fresh full re-hash, repo-wide reference grep, and loader/path-resolution test pass found no unique runtime or build dependency before removal. |
 | `packages/knowledge-engine/pipelines/exports/**` | Deprecated — stale generated output | Byproduct of running `pipelines/master_pipeline.py` / `pipelines/export/sync_manager.py` with `cwd` set to `pipelines/` instead of the package root. Zero confirmed consumers anywhere in the repo. Phase B's path fix (see below) stops this from happening for *future* runs; the existing stale files are left untouched. |
 | `packages/knowledge-engine/pipelines/knowledge/cost-items/costbook.json` | Deprecated — stale generated output | Same root cause and same wrong-`cwd` run as above; byte-identical to `pipelines/exports/json/costbook.json`. |
 
@@ -47,9 +47,7 @@ canonical, this file wins.**
 Any code that needs to locate this package's canonical roots **must not** rely on the
 invoking process's current working directory (`cwd`) or on a single `__file__`-relative
 offset alone when the resolved path could be ambiguous. Both of those break the moment a
-script is invoked from an unexpected directory — including, worst case, from inside the
-prohibited `knowledge-engine/knowledge-engine/` duplicate, which mirrors this package's own
-directory names one level down.
+script is invoked from an unexpected directory or a deep nested data directory.
 
 The canonical algorithm (implemented twice, once per language, both required to agree):
 
@@ -57,9 +55,9 @@ The canonical algorithm (implemented twice, once per language, both required to 
    Builds a small, fixed set of `__dirname`-anchored and `process.cwd()`-anchored candidate
    roots, and accepts the first one that satisfies **both** `REPO_MARKERS`:
    `packages/knowledge-engine/exports/json/costbook.json` **and** `app/package.json` existing
-   under the same candidate directory. The duplicate tree has no `app/` sibling, so it can
-   never satisfy both markers — this is what makes `loader.ts` safe today without any Phase B
-   change (confirmed by the Phase B loader/resolver audit).
+   under the same candidate directory. A non-canonical nested candidate has no `app/` sibling,
+   so it can never satisfy both markers — this is what makes `loader.ts` safe (confirmed by the
+   loader/resolver audit).
 
 2. **Python** — `packages/knowledge-engine/pipelines/package_root.py`'s
    `resolve_repo_root()` / `resolve_package_root()` / `resolve_export_root()` (added in Phase
@@ -67,7 +65,7 @@ The canonical algorithm (implemented twice, once per language, both required to 
    (max 8 levels) anchored to the helper module's own file location rather than the caller's
    — so every consumer gets the same trustworthy starting point regardless of how it was
    invoked (imported vs. run standalone as a subprocess). Verified to converge on the true
-   repo root even when the walk is started from inside the duplicate tree. Markers:
+   repo root even when the walk is started from a deep nested package directory. Markers:
    `packages/knowledge-engine/README.md` **and** `app/package.json` — deliberately *not*
    `exports/json/costbook.json` like `loader.ts` uses, because this resolver backs
    `master_pipeline.py`, which *writes* that file; requiring it as a marker would make it
@@ -77,9 +75,8 @@ The canonical algorithm (implemented twice, once per language, both required to 
 
 The assembly-specific helper `scripts/assembly_pipeline_common.py` is anchored directly to its
 canonical package parent (`Path(__file__).resolve().parents[1]`) and now resolves
-`KNOWLEDGE_DIR` to `knowledge/knowledge/`, matching this contract. Because that helper is itself
-inside the canonical top-level package and the nested duplicate remains prohibited, callers must
-continue using the canonical script path rather than invoking the duplicate copy.
+`KNOWLEDGE_DIR` to `knowledge/knowledge/`, matching this contract. Callers must use the
+canonical script path rather than stale/generated paths.
 
 Any new path-resolution code added to this package (Python or otherwise) should call into
 `package_root.py` rather than reimplementing cwd- or `__file__`-relative logic unless a bounded,
@@ -124,9 +121,10 @@ full detail — these remain documented, not silently ignored):
   separate behavior-characterization task.
 - `app/modules/trainingless-estimate-demo/knowledgeLoader.ts` is `cwd`-relative and
   unguarded (no dual-marker check), but the Phase B reference audit confirmed it cannot
-  currently resolve into the duplicate tree (its hardcoded path segments don't match that
-  shape) — it is fragile (crashes on wrong `cwd`) rather than dangerous (silently wrong).
+  currently resolve into a non-canonical package path (its hardcoded path segments do not match
+  that shape) — it is fragile (crashes on wrong `cwd`) rather than dangerous (silently wrong).
   Recommended hardening (reuse `loader.ts`'s marker logic) remains separate because no proven
-  doubled-path reference justifies an unrelated `app/**` change here.
-- `packages/knowledge-engine/knowledge-engine/**` itself is untouched and remains prohibited
-  pending the evidence-backed migration/deletion decision described above.
+  non-canonical path reference justifies an unrelated `app/**` change here.
+- The former `packages/knowledge-engine/knowledge-engine/**` duplicate was removed on 2026-08-24
+  after founder approval and fresh reference/path-resolution evidence; the canonical top-level
+  package tree remains unchanged.

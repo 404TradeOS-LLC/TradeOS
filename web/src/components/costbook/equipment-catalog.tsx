@@ -124,7 +124,7 @@ export function EquipmentCatalog({
   return (
     <div className="grid gap-6">
       {capabilities.canCreate ? (
-        <section className="rounded-lg border border-border/70 bg-surface p-4" aria-label={editingEquipment ? "Edit equipment" : "Create equipment"}>
+        <section className="rounded-lg border border-border/70 bg-card p-4" aria-label={editingEquipment ? "Edit equipment" : "Create equipment"}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">{editingEquipment ? "Edit Equipment" : "Create Equipment"}</h2>
@@ -193,7 +193,7 @@ export function EquipmentCatalog({
           {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
         </section>
       ) : (
-        <div className="rounded-lg border border-border/70 bg-surface p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">
           You have read-only Costbook access. Equipment create and edit controls are hidden for this role.
         </div>
       )}
@@ -204,7 +204,7 @@ export function EquipmentCatalog({
           description="Add equipment to prepare Costbook for estimating workflows."
         />
       ) : (
-        <section className="overflow-hidden rounded-lg border border-border/70 bg-surface" aria-label="Equipment catalog">
+        <section className="overflow-hidden rounded-lg border border-border/70 bg-card" aria-label="Equipment catalog">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -219,7 +219,7 @@ export function EquipmentCatalog({
               </thead>
               <tbody className="divide-y divide-border/70">
                 {equipment.map((item) => (
-                  <tr key={item.id}>
+                  <tr key={item.id} className="transition-colors hover:bg-muted/40">
                     <td className="px-4 py-3 font-medium text-foreground">{item.name}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(item.ownershipCostPerHour)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(item.operatingCostPerHour)}</td>

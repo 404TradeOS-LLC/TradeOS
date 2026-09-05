@@ -13,3 +13,15 @@ app/vendor/
 .claude/scheduled_tasks.lock
 .idea/
 .codex/
+
+# Local Playwright authentication state and captured evidence.
+# Authenticated session material must never be committed, and evidence
+# bundles are CI artifacts rather than repository content.
+storageState.json
+**/playwright/.auth/
+**/.auth/
+*storage-state*.json
+*storageState*.json
+artifacts/
+playwright-report/
+test-results/

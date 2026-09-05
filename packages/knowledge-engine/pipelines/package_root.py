@@ -4,9 +4,8 @@ Phase B path-canonicalization helper. See packages/knowledge-engine/PATHS.md for
 path contract this implements. Mirrors the dual-marker safety property of
 app/modules/knowledge-runtime/loader.ts's resolveKnowledgeEnginePaths(), generalized to a
 bounded upward directory walk so it converges on the true repo root from anywhere inside
-the tree -- including, deliberately, from inside packages/knowledge-engine/knowledge-engine/
-(the confirmed self-nested duplicate), which has no app/ sibling and therefore can never
-itself satisfy both markers.
+the tree, including a deep nested package/data directory that cannot itself satisfy both
+repository markers unless it is the actual repository root.
 
 This module's own file location (not the caller's) anchors the search, so every consumer
 gets the same trustworthy starting point regardless of how it was invoked.
@@ -42,8 +41,8 @@ def _has_repo_markers(candidate: Path) -> bool:
 def resolve_repo_root(start: Optional[Path] = None) -> Path:
     """Walk upward from `start` (default: this module's own file location) looking for a
     directory that contains both REPO_MARKERS. Never trusts a single __file__-relative
-    offset alone -- that is what protects callers from silently resolving into
-    packages/knowledge-engine/knowledge-engine/**.
+    offset alone -- that is what protects callers from silently resolving into a non-canonical
+    package/data directory.
     """
     candidate = (start or Path(__file__).resolve()).resolve()
     for _ in range(_MAX_WALK_DEPTH):

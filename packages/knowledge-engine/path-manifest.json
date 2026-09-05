@@ -1,6 +1,6 @@
 {
-  "_comment": "Machine-readable companion to PATHS.md. Phase B (path-canonicalization and reference-hardening), 2026-07-16. If this file and PATHS.md ever disagree, PATHS.md is authoritative -- update this file to match, not the reverse.",
-  "lastVerified": "2026-07-16",
+  "_comment": "Machine-readable companion to PATHS.md. Phase B (path-canonicalization and reference-hardening), 2026-07-16, followed by the founder-approved duplicate-tree cleanup on 2026-08-24. If this file and PATHS.md ever disagree, PATHS.md is authoritative -- update this file to match, not the reverse.",
+  "lastVerified": "2026-08-24",
   "canonicalRoots": {
     "packageRoot": "packages/knowledge-engine",
     "runtimeKnowledgeRoot": "packages/knowledge-engine/knowledge/knowledge",
@@ -80,26 +80,6 @@
   ],
   "deprecatedRoots": [
     {
-      "path": "packages/knowledge-engine/knowledge-engine",
-      "reason": "exact self-nested duplicate of the entire canonical package tree",
-      "status": "prohibited - not canonical, not safe to delete yet",
-      "trackedFileCount": { "duplicate": 4746, "canonical": 4748, "asOf": "2026-07-16" },
-      "knownContentDivergence": [
-        "packages/knowledge-engine/docs/knowledge-engine-architecture.md",
-        "packages/knowledge-engine/docs/migration-plan.md",
-        "packages/knowledge-engine/runtime/README.md",
-        "packages/knowledge-engine/review/runtime/README.md"
-      ],
-      "divergenceReason": "Phase A added historical/path-correction notices to the canonical copies only, by design",
-      "evidence": "2026-07-16 Phase B reference audit: zero functional (runtime/build/test) references found anywhere in the repository outside the duplicate tree itself; only this package's own README.md and docs/DOC_OWNERSHIP.yml mention it, both descriptively",
-      "removalPrerequisites": [
-        "fresh full re-hash of all tracked files",
-        "fresh repo-wide reference grep",
-        "green app/tests/knowledge-runtime.loader.test.ts run",
-        "founder sign-off"
-      ]
-    },
-    {
       "path": "packages/knowledge-engine/pipelines/exports",
       "reason": "near-duplicate of exports/ caused by invoking pipelines/master_pipeline.py or pipelines/export/sync_manager.py with cwd set to pipelines/ instead of the package root",
       "status": "stale generated output, zero confirmed consumers",
@@ -119,7 +99,7 @@
   ],
   "compatibilityFallback": {
     "status": "not_needed",
-    "evidence": "2026-07-16 Phase B reference audit found zero tracked in-repo consumers (runtime, build, or test) referencing the doubled packages/knowledge-engine/knowledge-engine path in any executable form -- only documentation describing the problem. app/modules/trainingless-estimate-demo/knowledgeLoader.ts is cwd-fragile but structurally cannot resolve into the doubled path given its hardcoded path segments, so it does not qualify as a doubled-path consumer either."
+    "evidence": "The canonical TypeScript and Python resolvers use stable repository markers and do not require a duplicate-tree fallback. The former nested duplicate was removed on 2026-08-24 after a fresh full re-hash, repo-wide reference grep, and green loader/path-resolution evidence."
   },
   "unresolvedRisks": [
     {
@@ -163,7 +143,7 @@
     },
     {
       "id": "trainingless-demo-loader-fragile",
-      "description": "app/modules/trainingless-estimate-demo/knowledgeLoader.ts is cwd-relative with no dual-marker guard. Confirmed it cannot currently resolve into the duplicate tree (its hardcoded segments don't match that shape), so it is fragile (crashes on wrong cwd) rather than dangerous (silently wrong). No proven doubled-path reference exists to justify an app/** change in this phase.",
+      "description": "app/modules/trainingless-estimate-demo/knowledgeLoader.ts is cwd-relative with no dual-marker guard. Confirmed it cannot currently resolve into a non-canonical package path (its hardcoded segments do not match that shape), so it is fragile (crashes on wrong cwd) rather than dangerous (silently wrong). No proven non-canonical path reference exists to justify an app/** change in this phase.",
       "affectedScripts": ["app/modules/trainingless-estimate-demo/knowledgeLoader.ts"],
       "status": "documented, not fixed - recommended hardening for a future phase"
     }

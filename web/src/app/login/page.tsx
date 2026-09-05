@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, undefined);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
@@ -34,6 +34,11 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="mt-4 text-sm text-muted-foreground">
+            <Link href="/forgot-password" className="font-medium text-foreground underline">
+              Forgot your password?
+            </Link>
+          </p>
+          <p className="mt-4 text-sm text-muted-foreground">
             No account yet?{" "}
             <Link href="/signup" className="font-medium text-foreground underline">
               Create one
@@ -41,6 +46,6 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

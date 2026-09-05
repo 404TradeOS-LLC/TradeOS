@@ -64,6 +64,29 @@ describe("aiEstimateAssistController structured estimator endpoints", () => {
     });
   });
 
+  it("passes the generation ID through the structured review contract", async () => {
+    const res = response();
+
+    await aiEstimateAssistController.applyStructuredEstimate(
+      authedRequest({
+        generationId: "10000000-0000-0000-0000-000000000010",
+        lineItems: [
+          {
+            draftLineItemId: "line-1",
+            status: "rejected",
+            quantity: 1,
+          },
+        ],
+      }),
+      res as never
+    );
+
+    expect(mockStructuredEstimator.applyReviewedDraft).toHaveBeenCalledWith(expect.objectContaining({
+      generationId: "10000000-0000-0000-0000-000000000010",
+      actorUserId: "user-1",
+    }));
+  });
+
   it("rejects body org IDs and unknown generated price fields on apply", async () => {
     const res = response();
 
@@ -176,6 +199,25 @@ describe("aiEstimateAssistController structured estimator endpoints", () => {
       )
     ).rejects.toThrow();
     await expect(aiEstimateAssistController.applyStructuredEstimate(authedRequest({ lineItems: tooManyLines }), res as never)).rejects.toThrow();
+    expect(mockStructuredEstimator.applyReviewedDraft).not.toHaveBeenCalled();
+  });
+
+  it("rejects generation-linked review provenance for non-administrator writers", async () => {
+    const res = response();
+
+    await expect(
+      aiEstimateAssistController.applyStructuredEstimate(
+        authedRequest(
+          {
+            generationId: "10000000-0000-0000-0000-000000000010",
+            lineItems: [{ draftLineItemId: "line-1", status: "rejected", quantity: 1 }],
+          },
+          { id: "10000000-0000-0000-0000-000000000001" },
+          "dispatcher"
+        ),
+        res as never
+      )
+    ).rejects.toThrow("You do not have permission");
     expect(mockStructuredEstimator.applyReviewedDraft).not.toHaveBeenCalled();
   });
 

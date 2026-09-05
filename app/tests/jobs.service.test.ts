@@ -151,6 +151,33 @@ describe("JobsService", () => {
     mockDb.organizationSettings.findUnique.mockResolvedValue(null);
   });
 
+  it("rejects non-technician organization members in technicianIds during job creation", async () => {
+    mockDb.organizationMembership.findMany.mockResolvedValue([
+      {
+        orgId: "org-1",
+        userId: "dispatcher-1",
+        role: "dispatcher",
+        status: "active",
+        user: { id: "dispatcher-1", email: "dispatcher@example.com", fullName: "Dispatcher", isActive: true },
+      },
+    ]);
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.create({
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        title: "Invalid assignment",
+        jobType: "HVAC Service",
+        technicianIds: ["dispatcher-1"],
+      })
+    ).rejects.toThrow("Assigned technicians must be active users in the same organization");
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
   it("creates a scheduled job and seeds technician assignments", async () => {
     const service = new JobsService(mockDb as never);
 
@@ -191,6 +218,69 @@ describe("JobsService", () => {
         ],
       })
     );
+  });
+
+  it("uses half-open interval bounds for technician conflicts", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await service.create({
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      projectId: "project-1",
+      customerId: "customer-1",
+      serviceAddressId: "address-1",
+      title: "Boundary job",
+      jobType: "HVAC Service",
+      scheduledStart: new Date("2026-07-16T15:00:00.000Z"),
+      scheduledEnd: new Date("2026-07-16T16:00:00.000Z"),
+      technicianIds: ["tech-1"],
+    });
+
+    const conflictQuery = mockDb.jobAssignment.findMany.mock.calls
+      .map(([query]) => query)
+      .find((query) => query?.where?.job?.scheduledStart);
+    expect(conflictQuery).toBeDefined();
+    expect(conflictQuery.where.job.scheduledStart).toEqual({ lt: new Date("2026-07-16T16:00:00.000Z") });
+    expect(conflictQuery.where.job.scheduledEnd).toEqual({ gt: new Date("2026-07-16T15:00:00.000Z") });
+  });
+
+  it("rejects invalid direct-service schedule dates before persistence", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.create({
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        title: "Invalid date",
+        jobType: "HVAC Service",
+        scheduledStart: new Date("invalid"),
+        scheduledEnd: new Date("2026-07-16T16:00:00.000Z"),
+        technicianIds: ["tech-1"],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, message: "scheduledStart must be a valid date" });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects fractional direct-service durations before persistence", async () => {
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.create({
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        projectId: "project-1",
+        customerId: "customer-1",
+        serviceAddressId: "address-1",
+        title: "Fractional duration",
+        jobType: "HVAC Service",
+        estimatedDurationMinutes: 30.5,
+        technicianIds: ["tech-1"],
+      })
+    ).rejects.toMatchObject({ statusCode: 400, message: "estimatedDurationMinutes must be a positive integer" });
+    expect(mockDb.job.create).not.toHaveBeenCalled();
   });
 
   it("blocks dispatcher conflict overrides without owner/admin permission", async () => {
@@ -257,6 +347,51 @@ describe("JobsService", () => {
     });
   });
 
+  it("reactivates a declined assignment instead of violating the active-assignment index", async () => {
+    const declinedAssignment = {
+      id: "assignment-1",
+      orgId: "org-1",
+      jobId: "job-1",
+      userId: "tech-1",
+      assignmentRole: "technician",
+      isLead: false,
+      assignedAt: new Date("2026-07-15T12:00:00.000Z"),
+      assignedById: "dispatcher-old",
+      acceptedAt: null,
+      declinedAt: new Date("2026-07-15T13:00:00.000Z"),
+      removedAt: null,
+      createdAt: new Date("2026-07-15T12:00:00.000Z"),
+      updatedAt: new Date("2026-07-15T13:00:00.000Z"),
+      user: { id: "tech-1", fullName: "Tech One", email: "tech@example.com" },
+    };
+    const reactivatedAssignment = { ...declinedAssignment, declinedAt: null, assignedById: "dispatcher-1" };
+    mockDb.jobAssignment.findFirst.mockResolvedValue(declinedAssignment);
+    mockDb.jobAssignment.update.mockResolvedValue(reactivatedAssignment);
+
+    const service = new JobsService(mockDb as never);
+    const result = await service.addAssignment("job-1", {
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      userId: "tech-1",
+      assignmentRole: "technician",
+    });
+
+    expect(result).toMatchObject({ id: "assignment-1", userId: "tech-1", declinedAt: null });
+    expect(mockDb.jobAssignment.create).not.toHaveBeenCalled();
+    expect(mockDb.jobAssignment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "assignment-1" },
+        data: expect.objectContaining({
+          assignmentRole: "technician",
+          assignedById: "dispatcher-1",
+          acceptedAt: null,
+          declinedAt: null,
+          assignedAt: expect.any(Date),
+        }),
+      })
+    );
+  });
+
   it("lets an assigned technician complete an on-site job", async () => {
     mockDb.job.findFirst.mockResolvedValue({
       ...scheduledJob,
@@ -293,6 +428,92 @@ describe("JobsService", () => {
     );
   });
 
+  it.each(["traveling", "paused"] as const)("does not allow %s jobs to be completed before returning on site", async (status) => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status,
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.complete("job-1", {
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: `Job job-1 cannot transition from ${status} to completed`,
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("requires an existing schedule when reopening a completed job to scheduled", async () => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status: "completed",
+      scheduledStart: null,
+      scheduledEnd: null,
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.reopen("job-1", {
+        orgId: "org-1",
+        actor: { userId: "admin-1", orgId: "org-1", role: "admin" },
+        status: "scheduled",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Job job-1 cannot reopen to scheduled without an existing schedule",
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("only allows completed jobs to be marked ready for invoice", async () => {
+    mockDb.job.findFirst.mockResolvedValue({
+      ...scheduledJob,
+      description: "",
+      priority: "medium",
+      status: "on_site",
+    });
+    const service = new JobsService(mockDb as never);
+
+    await expect(
+      service.readyForInvoice("job-1", {
+        orgId: "org-1",
+        actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Job job-1 must be completed before it is ready for invoice",
+    });
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+  });
+
+  it("treats repeated invoice-readiness acknowledgement as an idempotent read", async () => {
+    const readyJob = {
+      ...scheduledJob,
+      status: "completed",
+      completedAt: new Date("2026-07-16T15:00:00.000Z"),
+      readyForInvoiceAt: new Date("2026-07-16T15:05:00.000Z"),
+    };
+    mockDb.job.findFirst.mockResolvedValue(readyJob);
+    const service = new JobsService(mockDb as never);
+
+    const result = await service.readyForInvoice("job-1", {
+      orgId: "org-1",
+      actor: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+    });
+
+    expect(result.readyForInvoiceAt).toBe(readyJob.readyForInvoiceAt.toISOString());
+    expect(mockDb.job.update).not.toHaveBeenCalled();
+    expect(mockDb.activityEvent.create).not.toHaveBeenCalled();
+  });
+
   describe("list", () => {
     // buildJobWhere composes optional predicates as separate entries in a
     // shared `AND` array (rather than spreading each one directly onto the
@@ -316,10 +537,10 @@ describe("JobsService", () => {
 
       const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
       expect(findManyWhere.orgId).toBe("org-1");
-      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { none: { removedAt: null, declinedAt: null } } });
 
       const countWhere = mockDb.job.count.mock.calls[0][0].where;
-      expect(andConditions(countWhere)).toContainEqual({ assignments: { none: { removedAt: null } } });
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { none: { removedAt: null, declinedAt: null } } });
     });
 
     it("builds an assignments.some where clause for unassigned: false (assigned-only), not the same as omitted", async () => {
@@ -337,10 +558,10 @@ describe("JobsService", () => {
 
       const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
       expect(findManyWhere.orgId).toBe("org-1");
-      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
+      expect(andConditions(findManyWhere)).toContainEqual({ assignments: { some: { removedAt: null, declinedAt: null } } });
 
       const countWhere = mockDb.job.count.mock.calls[0][0].where;
-      expect(andConditions(countWhere)).toContainEqual({ assignments: { some: { removedAt: null } } });
+      expect(andConditions(countWhere)).toContainEqual({ assignments: { some: { removedAt: null, declinedAt: null } } });
     });
 
     it("does not add an assignments filter when unassigned is omitted", async () => {
@@ -376,10 +597,25 @@ describe("JobsService", () => {
       expect(orCondition!.OR).toEqual(
         expect.arrayContaining([
           { status: { in: ["scheduled", "dispatched", "traveling", "on_site", "paused"] }, scheduledStart: { lt: expect.any(Date) } },
-          { status: { notIn: ["completed", "cancelled"] }, assignments: { none: { removedAt: null } } },
+          { status: { notIn: ["completed", "cancelled"] }, assignments: { none: { removedAt: null, declinedAt: null } } },
           { status: "unscheduled" },
         ])
       );
+    });
+
+    it("filters the invoice handoff to completed jobs that have not been acknowledged", async () => {
+      const service = new JobsService(mockDb as never);
+
+      await service.list({
+        orgId: "org-1",
+        auth: { userId: "dispatcher-1", orgId: "org-1", role: "dispatcher" },
+        status: "completed",
+        readyForInvoice: false,
+      });
+
+      const findManyWhere = mockDb.job.findMany.mock.calls[0][0].where;
+      expect(findManyWhere.status).toBe("completed");
+      expect(andConditions(findManyWhere)).toContainEqual({ readyForInvoiceAt: null });
     });
 
     it("does not add a needsAttention filter when omitted or explicitly false", async () => {
@@ -612,7 +848,7 @@ describe("JobsService", () => {
           { status: { in: ["scheduled", "dispatched", "traveling", "on_site", "paused"] }, scheduledStart: { lt: expect.any(Date) } },
           {
             status: { notIn: ["completed", "cancelled"] },
-            assignments: { none: { removedAt: null } },
+            assignments: { none: { removedAt: null, declinedAt: null } },
           },
           { status: "unscheduled" },
         ])

@@ -1,0 +1,258 @@
+name: Beta Evidence
+
+# Captures release-candidate beta evidence: a real authenticated contractor
+# workflow driven against an approved non-production TradeOS deployment, with
+# screenshot checkpoints at 1440 / 1024 / 768 / 390 and validated artifacts.
+#
+# Two modes:
+#   preflight — verifies configuration, guards, and credential availability and
+#               reports readiness. Never claims evidence PASS. Safe to run with
+#               no RC identity provisioned.
+#   full      — the real evidence run. Creates records in the RC tenant and
+#               therefore refuses to start unless the target is proven
+#               non-production (approved Preview host + non-production Supabase
+#               project ref + matching environment identity).
+#
+# See docs/testing/BETA_EVIDENCE.md for the full contract.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: preflight (readiness only) or full (capture real evidence)
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - full
+      rc_base_url:
+        description: Approved non-production RC base URL (tradeos-costbook-web-*.vercel.app)
+        required: false
+        type: string
+      target_environment:
+        description: Non-production environment identity for this run
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - staging
+      smoke_tenant_label:
+        description: Label of the sanitized smoke tenant (must match the RC org name)
+        required: true
+        default: TradeOS Beta Smoke
+        type: string
+      expected_sha:
+        description: Commit SHA the RC deployment must have been built from
+        required: false
+        type: string
+      require_sha_correlation:
+        description: Fail if the deployment SHA cannot be correlated
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# Evidence runs mutate shared smoke data. Never run two at once.
+concurrency:
+  group: tradeos-beta-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Beta evidence ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
+      BETA_RC_BASE_URL: ${{ inputs.rc_base_url }}
+      BETA_RC_BASE_URL_VARIABLE: ${{ vars.BETA_RC_BASE_URL }}
+      # Only the expected side is declared here. resolve-rc-target.mjs derives
+      # the actual environment from the deployment it resolves, so the
+      # assertion compares the operator's claim against reality rather than
+      # against a copy of itself.
+      BETA_EXPECTED_ENVIRONMENT: ${{ inputs.target_environment }}
+      BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
+      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.require_sha_correlation }}
+      BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
+      BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
+      BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
+      BETA_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
+      BETA_ALLOW_MUTATIONS: ${{ inputs.mode == 'full' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      - name: Record run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Session state lives in the runner temp dir: never inside the
+          # repository and never inside the uploaded evidence bundle.
+          {
+            echo "BETA_RUN_ID=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "BETA_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "BETA_STORAGE_STATE_PATH=${RUNNER_TEMP}/beta-storage-state.json"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve and prove the RC target
+        run: node scripts/beta-evidence/resolve-rc-target.mjs
+
+      - name: Export the resolved RC base URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved="$(node -e 'const t=require("../artifacts/beta-evidence/rc-target.json");process.stdout.write(t.baseUrl)')"
+          echo "BETA_RC_BASE_URL_RESOLVED=$resolved" >> "$GITHUB_ENV"
+
+      - name: Report beta evidence readiness
+        if: inputs.mode == 'preflight'
+        shell: bash
+        env:
+          HAS_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL != '' }}
+          HAS_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD != '' }}
+          HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
+          HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
+        run: |
+          set -euo pipefail
+          missing=0
+          {
+            echo "# TradeOS Beta Evidence — readiness (preflight)"
+            echo
+            echo "This run verifies configuration only. It does NOT capture evidence."
+            echo
+            echo "| Prerequisite | Present |"
+            echo "| --- | --- |"
+            echo "| RC target resolved | yes (${BETA_RC_BASE_URL_RESOLVED}) |"
+            echo "| BETA_RC_SMOKE_EMAIL | ${HAS_EMAIL} |"
+            echo "| BETA_RC_SMOKE_PASSWORD | ${HAS_PASSWORD} |"
+            echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
+            echo "| BETA_RC_FOREIGN_PROJECT_ID or _CUSTOMER_ID | ${HAS_FOREIGN_PROJECT} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_PROJECT"; do
+            [ "$flag" = "true" ] || missing=1
+          done
+          {
+            echo
+            if [ "$missing" -eq 0 ]; then
+              echo "**Readiness: READY** — dispatch this workflow with mode=full to capture evidence."
+            else
+              echo "**Readiness: NOT READY** — provision the missing prerequisites above, then re-run."
+              echo
+              echo "Beta evidence remains UNVERIFIED until a mode=full run passes."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require a provisioned RC smoke identity
+        if: inputs.mode == 'full'
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          if [ -z "${BETA_SMOKE_EMAIL}" ] || [ -z "${BETA_SMOKE_PASSWORD}" ]; then
+            echo "::error::BETA_RC_SMOKE_EMAIL and BETA_RC_SMOKE_PASSWORD are required for a full evidence run."
+            fail=1
+          fi
+          if [ -z "${BETA_RC_SUPABASE_PROJECT_REF}" ]; then
+            echo "::error::BETA_RC_SUPABASE_PROJECT_REF is required so the run can prove it is not mutating production."
+            fail=1
+          fi
+          # An estimate id alone is not probeable: the estimate route is nested
+          # under a project, so a customer or project id must be present.
+          if [ -z "${BETA_FOREIGN_PROJECT_ID}" ] && [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ]; then
+            echo "::error::BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required so tenant isolation can be proven."
+            fail=1
+          fi
+          exit "$fail"
+
+      - name: Install Chromium
+        if: inputs.mode == 'full'
+        run: npx playwright install --with-deps chromium
+
+      - name: Authenticate and bootstrap storage state
+        if: inputs.mode == 'full'
+        run: node scripts/beta-evidence/auth-setup.mjs
+
+      - name: Capture evidence at 1440px
+        if: inputs.mode == 'full'
+        env:
+          BETA_VIEWPORT: "1440"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture evidence at 1024px
+        if: inputs.mode == 'full'
+        env:
+          BETA_VIEWPORT: "1024"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture evidence at 768px
+        if: inputs.mode == 'full'
+        env:
+          BETA_VIEWPORT: "768"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture evidence at 390px
+        if: inputs.mode == 'full'
+        env:
+          BETA_VIEWPORT: "390"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Prove tenant isolation
+        if: inputs.mode == 'full'
+        run: node scripts/beta-evidence/tenant-isolation.mjs
+
+      - name: Validate artifacts and write metadata
+        if: ${{ always() && inputs.mode == 'full' }}
+        run: node scripts/beta-evidence/validate-artifacts.mjs
+
+      - name: Scan evidence bundle for credential material
+        id: credential_scan
+        if: ${{ always() && inputs.mode == 'full' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="../artifacts/beta-evidence"
+          [ -d "$bundle" ] || exit 0
+          # A storage state, cookie jar, or bearer token must never reach the
+          # uploaded artifact. Fail loudly rather than publishing it.
+          if grep -rlIE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}' "$bundle" >/dev/null 2>&1; then
+            echo "::error::Evidence bundle contains session or credential material. Refusing to upload."
+            exit 1
+          fi
+          echo "Evidence bundle contains no detectable credential material."
+
+      - name: Remove runtime storage state
+        if: always()
+        shell: bash
+        run: rm -f "${BETA_STORAGE_STATE_PATH:-}"
+
+      # Publish evidence for ordinary failures, but never publish a bundle the
+      # credential scan just rejected.
+      - name: Upload beta evidence
+        if: ${{ always() && inputs.mode == 'full' && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: beta-evidence
+          path: artifacts/beta-evidence
+          if-no-files-found: error
+          retention-days: 30

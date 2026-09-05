@@ -7,7 +7,10 @@ import { ProposalDocument } from "../proposal-generator/types";
 import { ProjectIntakeService } from "../project-intake/service";
 import { ActivityTimelineService } from "../intelligence/service";
 import { getDefaultAthenaEventService } from "../athena-events/service";
-import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO } from "./types";
+import { legacyProposalStatusMap, normalizeEstimateStatus, normalizeProposalStatus } from "../../domain";
+import { clampQueueLimit, decodeUpdatedAtCursor, encodeUpdatedAtCursor, buildUpdatedAtRange, QueuePage } from "../shared/pagination";
+import { expandCanonicalStatusFilter } from "../shared/statusFilter";
+import { CreateProposalInput, ProposalDTO, ProposalDeliveryDTO, ProposalDraftPreviewDTO, ProposalQueueFilters, ProposalQueueItemDTO } from "./types";
 
 interface PaymentScheduleEntry {
   label: string;
@@ -34,6 +37,65 @@ export class ProposalsService {
       orderBy: { createdAt: "desc" },
     });
     return rows.map(toDTO);
+  }
+
+  /**
+   * Organization-wide, newest-activity-first proposal queue. "Unsigned"
+   * means no Contract row references this proposal yet (conversion is the
+   * Contract's existence, independent of that contract's own signature
+   * state). "Stale" is caller-defined via `staleBefore` against `sentAt` —
+   * this domain has no canonical canceled/voided proposal status, so that
+   * exclusion rule from the product spec has nothing to apply to today.
+   */
+  async listOrganizationQueue(filters: ProposalQueueFilters): Promise<QueuePage<ProposalQueueItemDTO>> {
+    const limit = clampQueueLimit(filters.limit);
+    const conditions: Prisma.ProposalWhereInput[] = [{ project: { orgId: filters.orgId } }];
+
+    if (filters.statuses?.length) conditions.push({ status: { in: expandCanonicalStatusFilter(filters.statuses, legacyProposalStatusMap) } });
+    if (filters.sent === true) conditions.push({ sentAt: { not: null } });
+    if (filters.sent === false) conditions.push({ sentAt: null });
+    if (filters.viewed === true) conditions.push({ viewedAt: { not: null } });
+    if (filters.viewed === false) conditions.push({ viewedAt: null });
+    if (filters.unsigned === true) conditions.push({ contracts: { none: {} } });
+    if (filters.unsigned === false) conditions.push({ contracts: { some: {} } });
+    if (filters.staleBefore) conditions.push({ sentAt: { lte: new Date(filters.staleBefore) } });
+
+    const updatedAtRange = buildUpdatedAtRange(filters);
+    if (updatedAtRange) conditions.push({ updatedAt: updatedAtRange });
+
+    // filterWhere excludes the cursor predicate so count() reflects the
+    // exact total for the filter, not just rows remaining after the cursor
+    // position — pageWhere adds the cursor on top of it for findMany only.
+    const filterWhere: Prisma.ProposalWhereInput = { AND: conditions };
+    let pageWhere = filterWhere;
+    if (filters.cursor) {
+      const cursor = decodeUpdatedAtCursor(filters.cursor);
+      pageWhere = {
+        AND: [
+          ...conditions,
+          { OR: [{ updatedAt: { lt: cursor.updatedAt } }, { AND: [{ updatedAt: cursor.updatedAt }, { id: { lt: cursor.id } }] }] },
+        ],
+      };
+    }
+
+    const [total, rows] = await Promise.all([
+      prisma.proposal.count({ where: filterWhere }),
+      prisma.proposal.findMany({
+        where: pageWhere,
+        include: {
+          project: { include: { customer: { select: { name: true } } } },
+          contracts: { select: { id: true }, orderBy: { createdAt: "desc" }, take: 1 },
+        },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        take: limit,
+      }),
+    ]);
+
+    const items = rows.map(toQueueItemDTO);
+    const last = rows[rows.length - 1];
+    const nextCursor = rows.length === limit && last ? encodeUpdatedAtCursor({ updatedAt: last.updatedAt, id: last.id }) : null;
+
+    return { items, total, nextCursor };
   }
 
   async getById(id: string, orgId?: string): Promise<ProposalDTO> {
@@ -74,8 +136,13 @@ export class ProposalsService {
 
   async update(id: string, input: Omit<CreateProposalInput, "estimateId" | "projectId">, orgId?: string): Promise<ProposalDTO> {
     const existing = await this.findOrThrow(id, orgId);
-    const updated = await prisma.proposal.update({
-      where: { id },
+    const updated = await prisma.proposal.updateMany({
+      where: {
+        id,
+        project: orgId ? { orgId } : undefined,
+        status: { not: "accepted" },
+        contracts: { none: {} },
+      },
       data: {
         companyName: input.companyName,
         showLineItemDetail: input.showLineItemDetail,
@@ -93,7 +160,10 @@ export class ProposalsService {
         termsAndConditions: input.termsAndConditions,
       },
     });
-    return toDTO(updated);
+    if (updated.count !== 1) {
+      throw new ApiError(409, `Proposal ${id} is immutable after acceptance or contract creation; use a change order or duplicate revision`);
+    }
+    return this.getById(id, orgId);
   }
 
   async getPdf(id: string, orgId?: string): Promise<ProposalDocument> {
@@ -107,6 +177,14 @@ export class ProposalsService {
       companyName: row.companyName ?? undefined,
       showLineItemDetail: row.showLineItemDetail,
       termsAndConditions: row.termsAndConditions ?? undefined,
+      scopeOfWork: row.scopeOfWork ?? undefined,
+      assumptions: row.assumptions ?? undefined,
+      exclusions: row.exclusions ?? undefined,
+      timeline: row.timeline ?? undefined,
+      priceLow: row.priceLow != null ? Number(row.priceLow) : null,
+      priceHigh: row.priceHigh != null ? Number(row.priceHigh) : null,
+      finalPrice: row.finalPrice != null ? Number(row.finalPrice) : null,
+      paymentScheduleJson: row.paymentScheduleJson,
     });
   }
 
@@ -127,11 +205,6 @@ export class ProposalsService {
         idempotencyKey: `proposal:${row.id}:sent:v1`,
       });
     } catch (error) {
-      // Publishing a canonical event must never block or roll back the
-      // proposal-send mutation itself (docs/athena/10-events/README.md:
-      // "Failed subscribers do not roll back already-committed business
-      // state" — the same posture applies to publish failures for this
-      // already-committed mutation).
       console.error("[athena-events] failed to publish ProposalSent event", error);
     }
     await this.recordDeliveryEvent({
@@ -143,15 +216,25 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "sent" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_sent" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
   }
 
   async markViewed(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (row.status === "draft") throw new ApiError(409, `Proposal ${id} has not been sent yet`);
-    if (row.status === "viewed" || row.status === "accepted" || row.status === "rejected") return toDTO(row);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "viewed", viewedAt: new Date() } });
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (currentStatus === "draft") throw new ApiError(409, `Proposal ${id} has not been sent yet`);
+    if (currentStatus === "viewed" || currentStatus === "accepted" || currentStatus === "declined") return toDTO(row);
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: "sent", project: orgId ? { orgId } : undefined },
+      data: { status: "viewed", viewedAt: new Date() },
+    });
+    if (updated.count !== 1) {
+      const latest = await this.findOrThrow(id, orgId);
+      const latestStatus = normalizeProposalStatus(latest.status);
+      if (latestStatus === "viewed" || latestStatus === "accepted" || latestStatus === "declined") return toDTO(latest);
+      throw new ApiError(409, `Proposal ${id} changed before it could be marked viewed`);
+    }
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -161,13 +244,18 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "viewed" },
     });
-    return this.getById(updated.id, orgId);
+    return this.getById(row.id, orgId);
   }
 
   async accept(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${row.status}`);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "accepted", respondedAt: new Date() } });
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be accepted from status ${currentStatus}`);
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
+      data: { status: "accepted", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be accepted`);
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
@@ -177,31 +265,37 @@ export class ProposalsService {
       recipientEmail: row.project.customer?.email ?? null,
       metadata: { previousStatus: row.status, newStatus: "accepted" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "accepted" } });
-    return this.getById(updated.id, orgId);
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "awarded" } });
+    return this.getById(row.id, orgId);
   }
 
   async reject(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) throw new ApiError(409, `Proposal ${id} cannot be rejected from status ${row.status}`);
-    const updated = await prisma.proposal.update({ where: { id }, data: { status: "rejected", respondedAt: new Date() } });
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) throw new ApiError(409, `Proposal ${id} cannot be declined from status ${currentStatus}`);
+    const updated = await prisma.proposal.updateMany({
+      where: { id, status: currentStatus, project: orgId ? { orgId } : undefined },
+      data: { status: "declined", respondedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Proposal ${id} changed before it could be declined`);
     await this.recordDeliveryEvent({
       orgId: orgId ?? row.project.orgId ?? undefined,
       proposalId: row.id,
       projectId: row.projectId,
       actorUserId,
-      eventType: "proposal.rejected",
+      eventType: "proposal.declined",
       recipientEmail: row.project.customer?.email ?? null,
-      metadata: { previousStatus: row.status, newStatus: "rejected" },
+      metadata: { previousStatus: currentStatus, newStatus: "declined" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_draft" } });
-    return this.getById(updated.id, orgId);
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
+    return this.getById(row.id, orgId);
   }
 
   async resend(id: string, orgId?: string, actorUserId?: string): Promise<ProposalDTO> {
     const row = await this.findOrThrow(id, orgId);
-    if (!["sent", "viewed"].includes(row.status)) {
-      throw new ApiError(409, `Proposal ${id} cannot be resent from status ${row.status}`);
+    const currentStatus = normalizeProposalStatus(row.status);
+    if (!["sent", "viewed"].includes(currentStatus)) {
+      throw new ApiError(409, `Proposal ${id} cannot be resent from status ${currentStatus}`);
     }
 
     const updated = await prisma.proposal.update({
@@ -218,9 +312,9 @@ export class ProposalsService {
       actorUserId,
       eventType: "proposal.resent",
       recipientEmail: row.project.customer?.email ?? null,
-      metadata: { previousStatus: row.status, newStatus: "sent" },
+      metadata: { previousStatus: currentStatus, newStatus: "sent" },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_sent" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return this.getById(updated.id, orgId);
   }
 
@@ -243,7 +337,7 @@ export class ProposalsService {
         termsAndConditions: row.termsAndConditions,
       },
     });
-    await prisma.project.update({ where: { id: row.projectId }, data: { status: "proposal_draft" } });
+    await prisma.project.update({ where: { id: row.projectId }, data: { status: "estimating" } });
     return toDTO(duplicated);
   }
 
@@ -306,7 +400,14 @@ export class ProposalsService {
     const estimate = await prisma.estimate.findFirst({ where: { id: input.estimateId, orgId: input.orgId } });
     if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
 
-    return prisma.proposal.create({
+    const estimateStatus = normalizeEstimateStatus(estimate.status);
+    if (estimateStatus === "draft") {
+      throw new ApiError(409, `Estimate ${input.estimateId} must be finalized before creating a proposal`);
+    }
+    const finalizedEstimatePrice = estimate.totalPrice;
+    const hasExplicitRange = input.priceLow != null || input.priceHigh != null;
+
+    const proposal = await prisma.proposal.create({
       data: {
         projectId: estimate.projectId,
         estimateId: input.estimateId,
@@ -318,11 +419,13 @@ export class ProposalsService {
         timeline: input.timeline,
         priceLow: input.priceLow,
         priceHigh: input.priceHigh,
-        finalPrice: input.finalPrice,
+        finalPrice: input.finalPrice ?? (hasExplicitRange ? null : finalizedEstimatePrice),
         paymentScheduleJson: this.normalizePaymentSchedule(input.paymentScheduleJson) as object | undefined,
         termsAndConditions: input.termsAndConditions,
       },
     });
+    await prisma.project.update({ where: { id: estimate.projectId }, data: { status: "estimating" } });
+    return proposal;
   }
 
   private async createFromProject(input: CreateProposalInput) {
@@ -360,7 +463,7 @@ export class ProposalsService {
         termsAndConditions: input.termsAndConditions,
       },
     });
-    await prisma.project.update({ where: { id: project.id }, data: { status: "proposal_draft" } });
+    await prisma.project.update({ where: { id: project.id }, data: { status: "estimating" } });
     return proposal;
   }
 
@@ -415,6 +518,31 @@ export class ProposalsService {
   }
 }
 
+function toQueueItemDTO(row: {
+  id: string;
+  projectId: string;
+  status: string;
+  finalPrice: unknown;
+  sentAt: Date | null;
+  viewedAt: Date | null;
+  updatedAt: Date;
+  project: { name: string; customer: { name: string } | null };
+  contracts: Array<{ id: string }>;
+}): ProposalQueueItemDTO {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    projectName: row.project.name,
+    customerName: row.project.customer?.name ?? null,
+    status: normalizeProposalStatus(row.status),
+    amount: toNullableNumber(row.finalPrice),
+    contractId: row.contracts[0]?.id ?? null,
+    sentAt: row.sentAt ? row.sentAt.toISOString() : null,
+    viewedAt: row.viewedAt ? row.viewedAt.toISOString() : null,
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
 function toDTO(row: {
   id: string;
   projectId: string;
@@ -452,7 +580,7 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     estimateId: row.estimateId,
-    status: row.status,
+    status: normalizeProposalStatus(row.status),
     companyName: row.companyName,
     showLineItemDetail: row.showLineItemDetail,
     scopeOfWork: row.scopeOfWork,

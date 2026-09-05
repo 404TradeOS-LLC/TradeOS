@@ -9,14 +9,18 @@ function readSource(relativePath: string): string {
   return fs.readFileSync(path.join(here, relativePath), "utf8");
 }
 
-test("divisions page loads the authenticated Costbook workspace and hierarchy catalog", () => {
+test("divisions page loads bounded hierarchy pages with their matching cursors", () => {
   const source = readSource("page.tsx");
 
   assert.match(source, /title:\s*"Divisions \| TradeOS"/);
   assert.match(source, /getCostbookWorkspace\(token\)/);
-  assert.match(source, /listCostbookDivisions\(token\)/);
-  assert.match(source, /listCostbookCategories\(token\)/);
-  assert.match(source, /listCostbookSubcategories\(token\)/);
+  assert.match(source, /listCostbookDivisions\(token, \{ \.\.\.common, cursor: query\.divisionCursor \}\)/);
+  assert.match(source, /listCostbookCategories\(token, \{ \.\.\.common, cursor: query\.categoryCursor \}\)/);
+  assert.match(source, /listCostbookSubcategories\(token, \{ \.\.\.common, cursor: query\.subcategoryCursor \}\)/);
+  assert.match(source, /categoryCursor: query\.categoryCursor, subcategoryCursor: query\.subcategoryCursor/);
+  assert.match(source, /divisionCursor: query\.divisionCursor, subcategoryCursor: query\.subcategoryCursor/);
+  assert.match(source, /divisionCursor: query\.divisionCursor, categoryCursor: query\.categoryCursor/);
+  assert.match(source, /query\.active === "true" \? true : query\.active === "false" \? false : undefined/);
   assert.match(source, /Couldn't load the Costbook hierarchy/);
 });
 

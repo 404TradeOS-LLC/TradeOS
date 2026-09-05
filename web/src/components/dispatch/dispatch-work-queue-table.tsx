@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DispatchJobActions } from "@/components/dispatch/dispatch-job-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
 import type { DispatchJob } from "@/lib/api";
@@ -22,6 +23,7 @@ interface DispatchWorkQueueTableProps {
    * "today"/"this week" filters above it.
    */
   timezone: string;
+  canManageInvoiceReadiness: boolean;
 }
 
 // Attention flags reuse the shared STATUS_TONES palette (via StatusBadge)
@@ -48,7 +50,7 @@ function AttentionIndicator({ job }: { job: DispatchJob }) {
   );
 }
 
-export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: DispatchWorkQueueTableProps) {
+export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canManageInvoiceReadiness }: DispatchWorkQueueTableProps) {
   if (jobs.length === 0) {
     return (
       <TableSection title="Work queue" description="Jobs needing dispatcher attention.">
@@ -75,25 +77,26 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
   return (
     <>
       <TableSection
-        className="hidden md:block"
+        className="hidden lg:block"
         title="Work queue"
         description={`${total} job${total === 1 ? "" : "s"} matching the current filters.`}
       >
         {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
         <table className="min-w-[820px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-border/70 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <tr>
             <th scope="col" className="px-3 py-2">Customer / Project</th>
             <th scope="col" className="px-3 py-2">Status</th>
             <th scope="col" className="px-3 py-2">Schedule</th>
             <th scope="col" className="px-3 py-2">Assigned</th>
             <th scope="col" className="px-3 py-2">Priority</th>
             <th scope="col" className="px-3 py-2">Attention</th>
+            <th scope="col" className="px-3 py-2">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border/50">
           {jobs.map((job) => (
-            <tr key={job.id} className="border-b border-border/50 align-top">
+            <tr key={job.id} className="align-top transition-colors hover:bg-muted/40">
               <td className="max-w-64 px-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate font-medium text-foreground">{job.customer?.name ?? "No customer linked"}</div>
@@ -129,13 +132,16 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
               <td className="px-3 py-3">
                 <AttentionIndicator job={job} />
               </td>
+              <td className="px-3 py-3">
+                <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
+              </td>
             </tr>
           ))}
         </tbody>
         </table>
       </TableSection>
 
-      <div className="grid gap-3 md:hidden">
+      <div className="grid gap-3 lg:hidden">
         {jobs.map((job) => (
           <article key={job.id} className="rounded-2xl border border-border/60 bg-background/80 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -177,6 +183,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone }: Di
               {job.priority ? <StatusBadge status={job.priority} /> : null}
               <AttentionIndicator job={job} />
             </div>
+            <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
           </article>
         ))}
       </div>

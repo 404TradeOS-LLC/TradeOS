@@ -95,7 +95,16 @@ export async function dispatchAthenaEventDelivery(
   // re-enter a service-owned scoped database session with organization,
   // actor or service principal, role/capability context... before reading
   // or writing tenant data."
-  const ctx: AthenaEventSubscriberContext = { orgId: delivery.orgId, actor: { type: "system", id: delivery.subscriberId } };
+  const ctx: AthenaEventSubscriberContext = {
+    orgId: delivery.orgId,
+    correlationId: revalidatedEvent.correlationId,
+    // Event ID plus subscriber identity is stable across process restarts and
+    // replay attempts. Subscribers use this key to suppress a duplicate side
+    // effect when a worker dies after the side effect but before acknowledgement.
+    idempotencyKey: `event:${revalidatedEvent.id}:subscriber:${subscriber.id}`,
+    attempt: delivery.attemptCount + 1,
+    actor: { type: "system", id: delivery.subscriberId },
+  };
 
   try {
     await subscriber.handler(revalidatedEvent, ctx);

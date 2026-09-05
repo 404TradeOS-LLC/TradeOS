@@ -12,7 +12,7 @@ export default function SignupPage() {
   const [state, formAction, isPending] = useActionState(signupAction, undefined);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Create your account</CardTitle>
@@ -49,6 +49,6 @@ export default function SignupPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

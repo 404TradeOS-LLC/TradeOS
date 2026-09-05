@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const VIEW_OPTIONS = [
   { value: "attention", label: "Needs attention" },
+  { value: "invoice-ready", label: "Ready-to-invoice handoff" },
   { value: "all", label: "All jobs" },
 ];
 
@@ -29,7 +30,7 @@ function formatStatusOptionLabel(status: string) {
 }
 
 interface DispatchFilterBarProps {
-  view: "attention" | "all";
+  view: "attention" | "all" | "invoice-ready";
   status?: string;
   scheduled?: string;
   assigned?: string;

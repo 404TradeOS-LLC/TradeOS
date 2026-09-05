@@ -89,6 +89,9 @@ export interface AthenaEventDeadLetter {
 
 export interface AthenaEventSubscriberContext {
   orgId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  attempt: number;
   // Service-principal session, never the original event's actor - dispatch
   // re-derives a scoped session per docs/athena/10-events/README.md's
   // "Subscribers... must re-enter a service-owned scoped database session".

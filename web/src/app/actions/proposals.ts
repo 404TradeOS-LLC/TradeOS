@@ -223,6 +223,7 @@ export async function rejectProposalAction(_prev: FormActionState, formData: For
   const token = await getSessionToken();
   const id = String(formData.get("proposalId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
+  const portal = String(formData.get("portal") ?? "") === "true";
 
   try {
     await apiFetch(`/api/v1/proposals/${id}/reject`, { method: "POST", token: token ?? undefined });
@@ -231,6 +232,9 @@ export async function rejectProposalAction(_prev: FormActionState, formData: For
   }
 
   revalidatePath(`/projects/${projectId}/proposals/${id}`);
+  if (portal) {
+    redirect(`/portal/projects/${projectId}`);
+  }
   redirect(`/projects/${projectId}/proposals/${id}`);
 }
 

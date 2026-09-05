@@ -117,7 +117,7 @@ export function LaborRatesCatalog({
   return (
     <div className="grid gap-6">
       {canWrite ? (
-        <section className="rounded-lg border border-border/70 bg-surface p-4" aria-label={editingRate ? "Edit labor rate" : "Create labor rate"}>
+        <section className="rounded-lg border border-border/70 bg-card p-4" aria-label={editingRate ? "Edit labor rate" : "Create labor rate"}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">{editingRate ? "Edit Labor Rate" : "Create Labor Rate"}</h2>
@@ -179,7 +179,7 @@ export function LaborRatesCatalog({
           {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
         </section>
       ) : (
-        <div className="rounded-lg border border-border/70 bg-surface p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">
           You have read-only Costbook access. Labor-rate create and edit controls are hidden for this role.
         </div>
       )}
@@ -190,7 +190,7 @@ export function LaborRatesCatalog({
           description="Add labor rates to prepare Costbook for estimating workflows."
         />
       ) : (
-        <section className="overflow-hidden rounded-lg border border-border/70 bg-surface" aria-label="Labor rates catalog">
+        <section className="overflow-hidden rounded-lg border border-border/70 bg-card" aria-label="Labor rates catalog">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -205,7 +205,7 @@ export function LaborRatesCatalog({
               </thead>
               <tbody className="divide-y divide-border/70">
                 {laborRates.map((laborRate) => (
-                  <tr key={laborRate.id}>
+                  <tr key={laborRate.id} className="transition-colors hover:bg-muted/40">
                     <td className="px-4 py-3 font-medium text-foreground">{laborRate.role}</td>
                     <td className="px-4 py-3 text-muted-foreground">{laborRate.description ?? "No description"}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(laborRate.hourlyCost)}</td>
@@ -296,7 +296,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function StatusPill({ active }: { active: boolean }) {
   return (
-    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600" : "border-border/70 bg-muted text-muted-foreground"}`}>
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${active ? "border-success/30 bg-success/10 text-success" : "border-border/70 bg-muted text-muted-foreground"}`}>
       {active ? "Active" : "Inactive"}
     </span>
   );

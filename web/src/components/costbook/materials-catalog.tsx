@@ -96,7 +96,7 @@ export function MaterialsCatalog({
   return (
     <div className="grid gap-6">
       {canWrite ? (
-        <section className="rounded-lg border border-border/70 bg-surface p-4" aria-label={editingMaterial ? "Edit material" : "Create material"}>
+        <section className="rounded-lg border border-border/70 bg-card p-4" aria-label={editingMaterial ? "Edit material" : "Create material"}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">{editingMaterial ? "Edit Material" : "Create Material"}</h2>
@@ -161,7 +161,7 @@ export function MaterialsCatalog({
           {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
         </section>
       ) : (
-        <div className="rounded-lg border border-border/70 bg-surface p-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">
           You have read-only Costbook access. Material create and edit controls are hidden for this role.
         </div>
       )}
@@ -172,7 +172,7 @@ export function MaterialsCatalog({
           description={canWrite ? "Add the first material to start building this organization's Costbook catalog." : "Materials will appear here after a Costbook writer creates them."}
         />
       ) : (
-        <section className="overflow-hidden rounded-lg border border-border/70 bg-surface" aria-label="Materials catalog">
+        <section className="overflow-hidden rounded-lg border border-border/70 bg-card" aria-label="Materials catalog">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -188,7 +188,7 @@ export function MaterialsCatalog({
               </thead>
               <tbody className="divide-y divide-border/70">
                 {materials.map((material) => (
-                  <tr key={material.id}>
+                  <tr key={material.id} className="transition-colors hover:bg-muted/40">
                     <td className="px-4 py-3 font-medium text-foreground">{material.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{material.sku ?? "Unassigned"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{material.unitOfMeasure}</td>

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-28
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -10,6 +10,7 @@ related_code:
   - app/modules/contracts/service.ts
   - app/modules/invoices/service.ts
   - app/modules/jobs/service.ts
+  - app/modules/jobs/lifecycle.ts
   - app/modules/athena-events/transactionalContext.ts
   - app/modules/athena-events/transactionalPublishers.ts
   - app/tests/estimate-costbook-snapshot.test.ts
@@ -45,12 +46,14 @@ Canonical display states:
 Compatibility persistence:
 
 - older project values such as `proposal_sent`, `accepted`, `proposal_draft`, `site_visit`, and `in_production` are normalized through `legacyProjectStatusMap`
+- new project writes use canonical values only; proposal draft creation/duplication/decline and send/resend side effects persist `estimating`, while proposal acceptance persists `awarded`
 
 Current transition posture:
 
 - project status is partly direct and partly side-effect-driven from proposal and job workflows
-- proposal send currently pushes persisted project status toward `proposal_sent`
-- proposal accept currently pushes persisted project status toward `accepted`
+- proposal send/resend currently pushes persisted project status toward canonical `estimating`
+- proposal accept currently pushes persisted project status toward canonical `awarded`
+- proposal draft creation/duplication and decline currently push persisted project status toward canonical `estimating`
 - full canonical project transition enforcement remains a compatibility layer, not a single dedicated state machine
 
 ## Estimates
@@ -75,6 +78,7 @@ Compatibility persistence:
 
 - persisted values such as `rejected` normalize to canonical `declined`
 - proposal-linked downstream statuses are normalized for display through `legacyEstimateStatusMap`
+- `sent` is a canonical estimate state and remains `sent` when persisted or returned; it is not an alias for `ready`
 
 Pricing snapshot invariant:
 
@@ -90,6 +94,14 @@ Implementation notes:
 - Structured AI estimator replay protection adds optional line-item `sourceKey` handling but does not change estimate lifecycle states or the draft-only mutation rule.
 - `removeLineItem` now returns the affected line item's estimate id (for accurate activity-log attribution — see `docs/modules/estimating.md`) but its draft-only enforcement and org-scoping checks are unchanged.
 - A12.1: `EstimateEngineService.create()` requires durable `EstimateStarted` persistence in the same database transaction as estimate creation, and `finalize()` requires durable `EstimateCompleted` persistence in the same transaction as `draft -> ready`. If either required event cannot be persisted, the enclosing estimate mutation/transition rolls back. This does not add an estimate state or alter the allowed transition graph; subscriber delivery remains outside the lifecycle transaction.
+- Estimate mutation locking remains tenant-bound: the parent Estimate row is locked only for the authenticated organization, with UUID-typed estimate and organization parameter binding before draft validation. Cross-organization reads and updates remain not-found/denied and produce no successful lifecycle side effect; S040 covers the live service path.
+
+Organization work-queue reads (`GET /api/v1/estimates`, see `docs/modules/estimating.md`):
+
+- the queue includes every non-deleted estimate; the current Estimate model has no soft-delete/archive flag, so this is unconditionally true today and no status is treated as an implicit default-view exclusion
+- a `status` filter (or comma-separated multiple statuses) is matched against the canonical value; matching also expands to any legacy raw stored value that normalizes to it, so callers never have to know the compatibility mapping
+- `sent` is accepted as its own canonical queue filter and does not match `ready`
+- this is a read-only aggregate; it introduces no new estimate state or transition
 
 ## Costbook Workspace
 
@@ -121,8 +133,8 @@ Canonical display states:
 
 Current persisted values:
 
-- the service persists `draft`, `sent`, `viewed`, `accepted`, and `rejected`
-- `rejected` is displayed canonically as `declined`
+- new service writes persist `draft`, `sent`, `viewed`, `accepted`, and canonical `declined`
+- historical `rejected` rows remain accepted by the database constraint and are displayed canonically as `declined`
 
 Current enforced transitions:
 
@@ -132,13 +144,33 @@ Current enforced transitions:
 - `sent|viewed -> declined`
 - `sent|viewed -> sent` through resend
 
+View, accept, and decline writes use organization-scoped conditional updates
+inside the existing request transaction. A competing transition can produce
+only one winning terminal result; the losing request fails closed without a
+second delivery/activity event or project-side-effect overwrite. Repeated
+terminal approval/decline remains an invalid transition.
+
 Compatibility note:
 
-- canonical documentation uses `declined`, but storage and service internals still use `rejected` in some paths
+- the `/reject` route and service method remain for API compatibility, but the mutation writes canonical `declined` and records `proposal.declined`; historical `rejected` values remain read-compatible
+- `generated` and `expired` are canonical states without a current proposal-service mutation path
 
 Athena event integration:
 
 - A12.1 makes the `draft -> sent` transition and required `ProposalSent` persistence atomic: both commit together or both roll back. No other proposal transition publishes a canonical event yet. Subscriber delivery remains pull-based/asynchronous and is not part of the proposal lifecycle transaction.
+
+Organization work-queue reads (`GET /api/v1/proposals`, see `docs/modules/proposals.md`):
+
+- `sent` / `viewed` filter on `sentAt`/`viewedAt` being non-null
+- `unsigned` means no `Contract` row references the proposal yet — conversion is the Contract row's existence, independent of that contract's own `pending_signature`/`signed`/`voided` state
+- `stale` has no fixed age; the caller supplies `staleBefore` and the queue matches proposals whose `sentAt <= staleBefore`
+- the product spec for this queue calls for cancelled/voided proposals to be excluded from `unsigned`/`stale`, but the current domain has no canonical cancelled/voided proposal status (only `declined`/`expired` exist as terminal states) — there is nothing for that exclusion rule to apply to today; it is not implemented as a status value that does not exist in this domain
+- this is a read-only aggregate; it introduces no new proposal state or transition
+
+Proposal, invoice, and contract PDF generation preserves each workflow's
+existing lifecycle and binary route contract while applying server-derived
+organization branding. Branding is presentation-only and does not alter
+pricing, payment, signature, status, or document authorization semantics.
 
 ## Contracts
 
@@ -152,7 +184,7 @@ Canonical display states:
 
 Current persisted values:
 
-- the database currently defaults to `pending_signature`
+- the database currently defaults to `pending_signature`; the `contracts.status` check constraint accepts only `pending_signature`, `signed`, `voided` — canonical `draft`/`sent`/`viewed` are not DB-legal
 - `pending_signature` is the compatibility storage value for the pre-signature contract phase
 
 Current enforced transitions:
@@ -164,7 +196,11 @@ Current enforced transitions:
 
 Compatibility note:
 
-- the repository has event history for contracts, but the canonical display state names are ahead of the stored default name
+- PR #276 (S010, merged 2026-08-23 as `fcbf1fff342053d854ad73667c54a5e44c1bbfb6`) normalizes the API surface: `toDTO()` in `app/modules/contracts/service.ts` returns canonical `sent` for a stored `pending_signature` row. Persistence, the check constraint, and the `sign()`/`void()` guards are unchanged and still operate on raw `pending_signature`.
+- S020 hardening adds optimistic concurrency at both contract mutation
+  boundaries: sign requires the row to remain `pending_signature`, void requires
+  the previously read status to remain unchanged, and a competing mutation
+  fails closed without a duplicate event. Already-voided contracts are rejected.
 
 ## Jobs
 
@@ -189,7 +225,7 @@ Current enforced transitions:
 - `traveling -> on_site`
 - `on_site -> paused`
 - `paused -> on_site`
-- `traveling|on_site|paused -> completed`
+- `on_site -> completed`; `traveling` and `paused` must return to `on_site` before completion
 - `scheduled|dispatched|paused -> cancelled`
 - `completed -> unscheduled|scheduled` through owner/admin reopen
 
@@ -204,6 +240,22 @@ Operational role note:
 - dispatchers coordinate assignment, schedule changes, and permitted job-state progression within the current RBAC model, but current docs do not claim automated routing or optimization behavior
 - the Dispatcher Workspace (`/dispatch`) is a read-mostly overview surface built on the existing job list/status model above — it introduces no new canonical status, no new transition, and no new privileged action; "needs attention" is a derived, non-persisted view computed from existing status/schedule/assignment fields (see `app/modules/jobs/dispatchRules.ts`), not a new lifecycle state
 - A12.1: `JobsService.schedule()` + `JobScheduled`, `addAssignment()` + `TechnicianAssigned`, and `complete()` + `WorkCompleted` each commit atomically. Required canonical event-persistence failure rolls back the corresponding schedule/assignment/completion mutation, leaving the prior lifecycle state intact. `reschedule()` and every other transition above remain unchanged. Subscriber delivery is not part of the transaction.
+- S012: `app/modules/jobs/lifecycle.ts` is the backend transition source of truth for the existing Job actions. It preserves the eight persisted statuses, current role/assignment checks, schedule/conflict validation, activity events, completion/readiness metadata, request-scoped transactions, and tenant/RLS boundaries. Dispatch attention remains derived and no schema migration is introduced.
+- S033 keeps completion as the only status transition into `completed`; a separate nullable `readyForInvoiceAt` acknowledgement records a manager handoff to invoicing. The named route is manager-only, completed-only, idempotent on repeat, and does not create an invoice or alter the lifecycle graph.
+
+### Scheduling conflict semantics (S031)
+
+Scheduling and rescheduling use half-open time intervals, so work ending at the
+exact instant another job starts is allowed. A conflict requires the same
+organization and technician plus an overlap between `[scheduledStart,
+scheduledEnd)` intervals. Only active scheduled statuses participate; archived
+jobs, removed or declined assignments, and the job being rescheduled are
+excluded. Invalid schedule dates and non-positive, fractional, or non-finite
+durations fail before persistence.
+
+The conflict read and the following mutation are serialized per
+organization/technician inside the existing request-scoped transaction. Owners
+and admins may override with a nonempty reason; all other roles fail closed.
 
 ## Invoices
 
@@ -221,11 +273,61 @@ Current enforced transitions:
 
 - `draft -> sent`
 - `sent|overdue -> paid`
+- a recorded-payment reconciliation may transition an eligible `sent` invoice, or an existing raw `overdue` invoice for historical compatibility, to persisted `paid` when recorded payments fully cover the invoice
 - non-paid invoices may be voided
 
 Compatibility persistence:
 
-- legacy values such as `void` and `cancelled` normalize to canonical `voided`
+- raw `void` normalizes to canonical `voided`
+- `InvoicesService.void()` persists raw `void` so the transition satisfies the live `invoices_status_check` constraint; delivery/activity metadata still records canonical `invoice.voided` / `newStatus: "voided"`
+- `cancelled` remains a defensive legacy normalization synonym, although the live constraint has never permitted that value
+- `partially_paid` and `overdue` remain derived read/reporting states; they are not persisted by the current Invoice payment path
+- `viewed` remains canonical vocabulary without a current Invoice persistence or tracking path
+
+Organization work-queue reads (`GET /api/v1/invoices`, see `docs/modules/invoices-and-payments.md`):
+
+- `paidAmount` is derived from recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative `amount - paidAmount` remainder; persisted `paid` is authoritative for a zero queue `balanceDue` even when manual `mark-paid` created no Payment row
+- `overdue` = `dueDate` has passed AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
+- `partiallyPaid` = `paidAmount > 0` AND `balanceDue > 0` AND status is neither persisted `paid` nor voided
+- `unpaid` = `balanceDue > 0` AND status is neither persisted `paid` nor voided — this includes partially-paid invoices, per the locked product decision that a partial payment does not make an invoice "paid"
+- the voided exclusion above checks the actual persisted raw value the live `invoices_status_check` database constraint allows (`void`); canonical display/activity semantics remain `voided`. It also checks `cancelled` as a defensive legacy synonym (`legacyInvoiceStatusMap` maps it to canonical `voided` too), even though the live constraint has never allowed that value either
+- this is a read-only aggregate; it introduces no new invoice state or transition
+
+Invoice detail and project invoice reads use the same source-of-truth rules:
+the API returns only `recorded` payment rows, derives `paidAmount` and
+`balanceDue` on the server, and leaves partial-payment and overdue status as
+display/reporting derivations. Persisted `paid` remains authoritative for the
+displayed zero balance even when manual `mark-paid` created no Payment row.
+
+Payment reconciliation:
+
+- `POST /api/v1/invoices/:id/payments` serializes reconciliation on the target Invoice row inside the existing request-scoped transaction, inserts the Payment, and recomputes the recorded-payment total from the database
+- only an eligible persisted `sent` Invoice, or an existing raw `overdue` Invoice for historical compatibility, transitions automatically to `paid`; partial payments remain derived and non-recorded payments do not count
+- the payment, persisted status change, and `invoice.paid` delivery/activity event commit together; a concurrent final payment observes the serialized status and does not emit a duplicate transition event
+- the existing manual `mark-paid` action remains compatible: it can persist `paid` without a Payment row, and persisted `paid` is authoritative for both follow-up exclusion and zero queue balance presentation
+
+## Estimate-backed invoice pricing invariant
+
+When an invoice is created from an estimate, the invoice amount is the
+persisted customer-facing `Estimate.totalPrice`, including persisted tax; an
+accepted proposal tied to the estimate supplies the agreed sell total instead.
+The existing estimate line items remain the invoice scope; their customer
+line totals receive a proportional allocation of the pre-tax subtotal based on
+each persisted `lineCost` share of `Estimate.subtotalCost`. Persisted tax is
+carried separately into the invoice financial breakdown and is not re-derived
+in the invoice module. Each line is rounded to cents and any residual is
+assigned to the largest line so itemized lines reconcile exactly to subtotal.
+Progress invoices scale the sell total and tax composition by completion
+percentage. If explicit non-empty `lineItems` are
+provided, they override estimate resolution and keep their supplied values;
+custom invoice line items do not use this transfer path.
+
+Invoice line-item field names reflect that invariant: `unitPrice` is the
+selling-price unit value and `lineTotal` is the customer-facing allocated line
+total. Migration `20260826140000_rename_invoice_line_price_columns` renames the
+legacy persisted columns only; it does not alter pricing, invoice states,
+payment reconciliation, or tenant/RLS behavior. The documented rollback is the
+reverse column rename before redeploying the prior application version.
 
 ## Transactional canonical-event invariant (A12.1)
 
@@ -236,3 +338,39 @@ For the six required A12 canonical mutation events — `EstimateStarted`, `Estim
 - owner/admin schedule conflict override for jobs
 - owner/admin reopen completed jobs
 - compatibility normalization for legacy role and status values remains active until persisted values are cleaned up in a dedicated migration plan
+
+## Document rendering lifecycle evidence
+
+S022 rendering is presentation-only: proposal, contract, and invoice lifecycle values remain server-derived and are not persisted or reinterpreted by renderers. The current slice emits deterministic UTC dates, safe finite-number fallbacks, canonical HTML status labels, and explicit empty line-item states while preserving authorization and tenant boundaries.
+
+
+## Estimate line-item ordering concurrency
+
+Estimate line-item append order is persisted and remains deterministic under concurrent manual or AI/replay-shaped inserts. The implementation serializes allocation on the parent Estimate row without changing estimate lifecycle states.
+
+## S028 estimate-to-proposal workflow
+
+Estimate-backed proposal creation persists the finalized estimate's existing `totalPrice` as the proposal's `finalPrice` when no explicit proposal price is supplied. Draft estimates remain unpriced, and explicit proposal ranges remain ranges rather than being combined with a contradictory derived fixed price.
+S028 verifies the existing draft-estimate editing path, deterministic recalculation, finalized-estimate immutability, and proposal generation handoff. It does not add lifecycle states or alter established estimate/proposal transition policy; PR #338 carries the reconciled implementation.
+
+On the pre-beta repair branch, handoff safeguards reject draft-estimate proposal creation, backfill
+an unpriced legacy proposal when its estimate is finalized, and remove the PDF
+fallback to a live estimate total. Accepted or contract-linked proposals are
+not editable through the normal update path. Invoice creation rejects draft
+estimates and prefers the accepted proposal's persisted final price.
+
+Contracts capture the accepted proposal amount and a frozen snapshot at
+creation. These changes require migration and review before they are live-main behavior; the estimate-version uniqueness migration must run in a write-maintenance window because Prisma applies migrations transactionally. The current product posture is bounded in-app acceptance rather than
+certified legal e-signature; any later scope change must use the existing
+change-order or replacement-contract decision path.
+
+The public customer portal adds a separate `/customer-portal/*` route group.
+Its single-use magic-link access token redeems into a short-lived customer
+session. Customer-originated contract signing is limited to the exact pending
+contract bound to that session and records customer/session attribution; the
+existing `/portal/*` route remains the staff preview.
+
+
+## S030 dispatcher verification (active)
+
+The dispatcher workspace invokes only the existing canonical Job actions and schedule/assignment routes. It does not add statuses or generic status mutation. Scheduling and rescheduling preserve the existing conflict/override and lifecycle transition rules, and successful mutations refresh the rendered queue and summary.

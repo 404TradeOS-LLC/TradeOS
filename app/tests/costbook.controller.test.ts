@@ -1,25 +1,30 @@
 const mockService = {
   getWorkspace: jest.fn(),
   listLaborRates: jest.fn(),
+  listLaborRatesPage: jest.fn(),
   getLaborRate: jest.fn(),
   createLaborRate: jest.fn(),
   updateLaborRate: jest.fn(),
   deactivateLaborRate: jest.fn(),
   listMaterials: jest.fn(),
+  listMaterialsPage: jest.fn(),
   getMaterial: jest.fn(),
   createMaterial: jest.fn(),
   updateMaterial: jest.fn(),
   listDivisions: jest.fn(),
+  listDivisionsPage: jest.fn(),
   getDivision: jest.fn(),
   createDivision: jest.fn(),
   updateDivision: jest.fn(),
   deactivateDivision: jest.fn(),
   listCategories: jest.fn(),
+  listCategoriesPage: jest.fn(),
   getCategory: jest.fn(),
   createCategory: jest.fn(),
   updateCategory: jest.fn(),
   deactivateCategory: jest.fn(),
   listSubcategories: jest.fn(),
+  listSubcategoriesPage: jest.fn(),
   getSubcategory: jest.fn(),
   createSubcategory: jest.fn(),
   updateSubcategory: jest.fn(),
@@ -60,38 +65,64 @@ describe("costbookController materials endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockService.listLaborRates.mockResolvedValue([]);
+    mockService.listLaborRatesPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getLaborRate.mockResolvedValue({ id: materialId });
     mockService.createLaborRate.mockResolvedValue({ id: materialId });
     mockService.updateLaborRate.mockResolvedValue({ id: materialId });
     mockService.deactivateLaborRate.mockResolvedValue(undefined);
     mockService.listMaterials.mockResolvedValue([]);
+    mockService.listMaterialsPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getMaterial.mockResolvedValue({ id: materialId });
     mockService.createMaterial.mockResolvedValue({ id: materialId });
     mockService.updateMaterial.mockResolvedValue({ id: materialId });
     mockService.listDivisions.mockResolvedValue([]);
+    mockService.listDivisionsPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getDivision.mockResolvedValue({ id: materialId });
     mockService.createDivision.mockResolvedValue({ id: materialId });
     mockService.updateDivision.mockResolvedValue({ id: materialId });
     mockService.deactivateDivision.mockResolvedValue(undefined);
     mockService.listCategories.mockResolvedValue([]);
+    mockService.listCategoriesPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getCategory.mockResolvedValue({ id: materialId });
     mockService.createCategory.mockResolvedValue({ id: materialId });
     mockService.updateCategory.mockResolvedValue({ id: materialId });
     mockService.deactivateCategory.mockResolvedValue(undefined);
     mockService.listSubcategories.mockResolvedValue([]);
+    mockService.listSubcategoriesPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getSubcategory.mockResolvedValue({ id: materialId });
     mockService.createSubcategory.mockResolvedValue({ id: materialId });
     mockService.updateSubcategory.mockResolvedValue({ id: materialId });
     mockService.deactivateSubcategory.mockResolvedValue(undefined);
   });
 
-  it("allows read-only Costbook roles to list materials", async () => {
+  it("allows read-only Costbook roles to list materials and forwards the complete catalog query", async () => {
     const res = response();
+    const supplierId = "40000000-0000-0000-0000-000000000001";
 
-    await costbookController.listMaterials(authedRequest({ role: "technician" }), res as never);
+    await costbookController.listMaterials(
+      authedRequest({
+        role: "technician",
+        query: {
+          limit: "40",
+          cursor: "cursor-token",
+          q: " concrete ",
+          sort: "updatedAt",
+          order: "desc",
+          supplierId,
+        },
+      }),
+      res as never
+    );
 
-    expect(mockService.listMaterials).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
-    expect(res.json).toHaveBeenCalledWith([]);
+    expect(mockService.listMaterialsPage).toHaveBeenCalledWith("org-from-auth", {
+      limit: 40,
+      cursor: "cursor-token",
+      q: "concrete",
+      sort: "updatedAt",
+      order: "desc",
+      filters: { supplierId },
+    });
+    expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
   it("denies Costbook materials reads to viewer/no-access roles", async () => {
@@ -99,7 +130,7 @@ describe("costbookController materials endpoints", () => {
       "You do not have permission"
     );
 
-    expect(mockService.listMaterials).not.toHaveBeenCalled();
+    expect(mockService.listMaterialsPage).not.toHaveBeenCalled();
   });
 
   it("denies material writes to read-only Costbook roles", async () => {
@@ -239,8 +270,8 @@ describe("costbookController materials endpoints", () => {
 
     await costbookController.listLaborRates(authedRequest({ role: "technician" }), res as never);
 
-    expect(mockService.listLaborRates).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
-    expect(res.json).toHaveBeenCalledWith([]);
+    expect(mockService.listLaborRatesPage).toHaveBeenCalledWith("org-from-auth", expect.objectContaining({ limit: 25 }));
+    expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
   it("denies labor-rate writes to read-only Costbook roles", async () => {
@@ -395,8 +426,8 @@ describe("costbookController materials endpoints", () => {
 
     await costbookController.listDivisions(authedRequest({ role: "technician" }), res as never);
 
-    expect(mockService.listDivisions).toHaveBeenCalledWith(expect.objectContaining({ orgId: "org-from-auth", role: "technician" }));
-    expect(res.json).toHaveBeenCalledWith([]);
+    expect(mockService.listDivisionsPage).toHaveBeenCalledWith("org-from-auth", expect.objectContaining({ limit: 25 }));
+    expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
   });
 
   it("denies division writes to read-only Costbook roles", async () => {
@@ -456,9 +487,9 @@ describe("costbookController materials endpoints", () => {
       res as never
     );
 
-    expect(mockService.listCategories).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
-      divisionId
+    expect(mockService.listCategoriesPage).toHaveBeenCalledWith(
+      "org-from-auth",
+      expect.objectContaining({ filters: expect.objectContaining({ divisionId }) })
     );
   });
 
@@ -496,9 +527,9 @@ describe("costbookController materials endpoints", () => {
       res as never
     );
 
-    expect(mockService.listSubcategories).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: "org-from-auth", role: "technician" }),
-      categoryId
+    expect(mockService.listSubcategoriesPage).toHaveBeenCalledWith(
+      "org-from-auth",
+      expect.objectContaining({ filters: expect.objectContaining({ categoryId }) })
     );
   });
 

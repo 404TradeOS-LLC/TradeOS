@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { acceptProposalSubmit, markProposalViewedSubmit } from "@/app/actions/proposals";
 import { ActivityTimeline } from "@/components/shared/activity-timeline";
+import { CustomerPortalProposalActions } from "@/components/proposals/customer-portal-proposal-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject, getProposal } from "@/lib/api";
 import { buildProposalTimeline, formatCurrency, getProposalDisplayStatus } from "@/lib/document-workflow";
@@ -70,27 +70,7 @@ export default async function CustomerPortalProposalPage({ params }: { params: P
             Download proposal PDF
           </a>
 
-          {(proposal.status === "sent" || proposal.status === "draft") && (
-            <form action={markProposalViewedSubmit}>
-              <input type="hidden" name="proposalId" value={proposal.id} />
-              <input type="hidden" name="projectId" value={project.id} />
-              <input type="hidden" name="portal" value="true" />
-              <Button type="submit" variant="outline" className="w-full">
-                Mark proposal viewed
-              </Button>
-            </form>
-          )}
-
-          {(proposal.status === "sent" || proposal.status === "viewed") && (
-            <form action={acceptProposalSubmit}>
-              <input type="hidden" name="proposalId" value={proposal.id} />
-              <input type="hidden" name="projectId" value={project.id} />
-              <input type="hidden" name="portal" value="true" />
-              <Button type="submit" className="w-full">
-                Accept proposal
-              </Button>
-            </form>
-          )}
+          <CustomerPortalProposalActions projectId={project.id} proposal={{ id: proposal.id, status: proposal.status }} />
         </CardContent>
       </Card>
     </div>

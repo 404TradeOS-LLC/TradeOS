@@ -2,6 +2,7 @@ import cron, { ScheduledTask } from "node-cron";
 import { z } from "zod";
 import { runSupplierPriceSyncJob } from "./worker";
 import { SupplierPriceSyncJobOutcome, SupplierPriceSyncJobSpec } from "./types";
+import { executeBackgroundAttempt } from "../background/retry";
 
 const jobSpecSchema = z.object({
   orgId: z.string().uuid(),
@@ -36,11 +37,22 @@ export async function runSupplierPriceSyncJobs(
 ): Promise<SupplierPriceSyncJobOutcome[]> {
   const outcomes: SupplierPriceSyncJobOutcome[] = [];
   for (const spec of jobSpecs) {
-    try {
-      const result = await runSupplierPriceSyncJob(spec);
-      outcomes.push({ spec, result });
-    } catch (error) {
-      outcomes.push({ spec, error: error instanceof Error ? error.message : String(error) });
+    const outcome = await executeBackgroundAttempt(
+      { orgId: spec.orgId, jobName: "supplier-price-sync", workerId: spec.userId },
+      () => runSupplierPriceSyncJob(spec)
+    );
+    if (outcome.status === "succeeded") {
+      outcomes.push({ spec, status: outcome.status, attempt: outcome.context.attempt, correlationId: outcome.context.correlationId, result: outcome.value });
+    } else {
+      outcomes.push({
+        spec,
+        status: outcome.status,
+        attempt: outcome.failure.attempt,
+        correlationId: outcome.failure.correlationId,
+        failureCode: outcome.failure.code,
+        nextAttemptAt: outcome.failure.nextAttemptAt,
+        error: outcome.failure.code,
+      });
     }
   }
   return outcomes;

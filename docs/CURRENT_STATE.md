@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-09-02
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -10,275 +10,280 @@ related_code:
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
-  - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
-  - app/prisma/migrations/20260804020000_harden_database_security_boundaries/migration.sql
-  - app/scripts/sql/provision-app-role.sql
+  - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/backend/routes
   - app/modules/payments
-  - app/backend/routes/payments.routes.ts
-  - web/src/app
-  - web/src/app/(app)/dashboard/overdue-tasks/page.tsx
-  - web/src/app/(app)/dashboard/revenue-this-week/page.tsx
-  - web/src/app/(app)/dashboard/knowledge-coverage/page.tsx
-  - web/src/lib/payment-ledger.ts
-  - web/src/components/dashboard/needs-attention-card.tsx
-  - web/src/components/dashboard/owner-dashboard-data.ts
-  - web/src/components/dashboard/owner-dashboard-header.tsx
-  - web/src/components/dashboard/owner-kpi-card.tsx
-  - web/src/components/dashboard/owner-today-schedule.tsx
-  - web/src/components/dashboard/owner-briefing-panel.tsx
-  - web/src/components/dashboard/ai-assistant-placeholder-panel.tsx
-  - web/src/components/dashboard/owner-activity-feed.tsx
-  - web/src/components/dashboard/owner-quick-actions.tsx
-  - web/src/components/estimate-assist/ai-estimate-assist.tsx
-  - web/src/app/(app)/dispatch/page.tsx
-  - web/src/components/dispatch
-  - app/modules/jobs/dispatchRules.ts
-  - web/src/app/(app)/customers/page.tsx
-  - web/src/app/(app)/customers/[id]/page.tsx
-  - web/src/components/customers/customer-directory.tsx
-  - web/src/components/shared/page-header.tsx
-  - web/src/components/shared/status-badge.tsx
-  - web/src/components/shared/global-command-palette.tsx
-  - web/src/components/ui/card.tsx
-  - web/src/components/ui/select-field.tsx
-  - web/src/lib/document-workflow.ts
-  - web/src/lib/weather.ts
-  - web/src/app/actions/settings.ts
-  - web/src/lib/storage.ts
-  - web/src/lib/settingsAssetUpload.ts
-  - web/src/lib/envSecurity.test.ts
-  - web/scripts/preview-smoke-check.mjs
-  - web/.env.example
-  - .github/workflows/verify-repository.yml
-  - web/src/proxy.ts
-  - web/src/lib/supabase/proxy.ts
-  - web/src/lib/supabase/proxy.test.ts
-  - web/next.config.ts
-  - app/backend/middleware/productionHardening.ts
-  - app/.env.example
-  - app/modules/athena-kernel
-  - app/prisma/migrations/20260809120000_add_athena_kernel_execution/migration.sql
-  - app/modules/athena-memory
-  - app/prisma/migrations/20260810130000_add_athena_memory/migration.sql
-  - app/modules/athena-events
-  - app/prisma/migrations/20260810180000_add_athena_events/migration.sql
-  - app/modules/athena-observability
-  - app/prisma/migrations/20260811020000_add_athena_observability/migration.sql
-  - app/backend/controllers/athenaObservability.controller.ts
-  - app/backend/routes/athenaObservability.routes.ts
-  - web/src/app/(app)/athena
-  - web/src/lib/athena-access.ts
-  - app/modules/athena-action-engine
-  - app/prisma/migrations/20260814200000_add_athena_action_idempotency/migration.sql
   - app/modules/costbook
   - app/modules/cost-database
-  - app/backend/controllers/costDatabase.controller.ts
-  - app/backend/routes/costbook.routes.ts
-  - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
-  - app/prisma/migrations/20260811130000_restrict_costbook_material_writes/migration.sql
-  - app/prisma/migrations/20260811150000_restrict_costbook_equipment_writes/migration.sql
-  - app/prisma/migrations/20260812120000_add_costbook_hierarchy_foundation/migration.sql
-  - app/prisma/migrations/20260812173000_harden_costbook_hierarchy_rls/migration.sql
-  - web/src/app/(app)/costbook/page.tsx
-  - web/src/app/(app)/costbook/materials/page.tsx
-  - web/src/app/(app)/costbook/equipment/page.tsx
-  - web/src/app/(app)/costbook/divisions/page.tsx
-  - web/src/app/(app)/costbook/cost-items/page.tsx
-  - web/src/components/costbook/materials-catalog.tsx
-  - web/src/components/costbook/equipment-catalog.tsx
-  - web/src/components/costbook/hierarchy-catalog.tsx
-  - web/src/components/costbook/cost-item-catalog.tsx
+  - app/modules/assemblies-database
+  - app/modules/estimate-engine
+  - app/modules/supplier-integration
+  - app/modules/athena-kernel
+  - app/modules/athena-tools
+  - app/modules/athena-tools/costbook
+  - app/modules/athena-events
+  - app/modules/athena-observability
+  - app/modules/athena-action-engine
+  - web/src/app
+  - web/src/app/(app)/dashboard
+  - web/src/components/dashboard
+  - web/src/app/(app)/costbook
+  - web/src/app/(app)/dispatch
+  - web/src/app/(app)/customers
+  - web/src/app/(app)/projects
+  - web/src/app/customer-portal
+  - web/src/app/(app)/portal
+  - web/src/app/api/proxy/[...path]/route.ts
+  - web/src/proxy.ts
+  - web/src/lib/supabase/proxy.ts
+  - web/src/lib/api.ts
+  - web/src/lib/api-response.ts
+  - web/src/lib/clientApi.ts
+  - web/src/lib/customer-portal-session.ts
+  - web/src/lib/json-response.ts
+  - web/src/lib/proxy-origin.ts
+  - .github/workflows/verify-repository.yml
 ---
 
 # Current State
 
-Last reconciled against `main` commit `d266afdbfc32e430267d7b586ce92f2f5c04bf93` on 2026-08-15 after PR #221, including Athena durable idempotency merged via PR #214 and the Costbook continuation merged via PR #216. Runtime implementation claims remain grounded in the code paths and evidence named below. Repository state does not by itself prove production deployment state, which must be verified through the approval-gated deployment workflows and the target platform.
+Last reconciled against `origin/main` commit `e872fa40f6e32175a80284f44c768d3307bdc22f` on 2026-09-01 after PR #425 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
-TradeOS is in RC1 hardening.
+TradeOS is in RC1 hardening. The active posture is production readiness, lifecycle consistency, contractor-facing usability, tenant-boundary verification, and retained release evidence rather than MVP planning.
 
-The repository is no longer organized around MVP planning documents. The active posture is production readiness, lifecycle consistency, verification, and contractor-facing polish.
+## Authenticated shell and navigation
 
-## Implemented modules
+- The authenticated web shell uses a shared 404TradeOS copper token system and
+  semantic warning, success, info, and destructive tokens. The light-theme
+  semantic fill/foreground pairs are contrast-tested for normal-size text;
+  copper remains the sole brand accent.
+- The responsive navigation includes the 404TradeOS Control Dock with Today,
+  Dispatch, Create, Work, and More actions. The More sheet preserves the
+  existing routes and permissions, traps keyboard focus, restores focus on
+  close, and coordinates body-scroll locking with the global command palette.
+- The Dispatch attention badge is advisory and loads after the authenticated
+  shell renders through the same-origin client API, aborts on unmount, and
+  propagates cancellation through the proxy; the Dispatch workspace remains
+  the source of truth when the advisory lookup fails.
+- Status badges use solid semantic fills with their paired foreground tokens
+  so warning, success, info, and destructive labels remain contrast-safe in
+  both themes.
+- Route-level loading states expose concise status announcements while keeping
+  visual skeletons decorative. Document skeleton grid ratios normalize
+  Tailwind-encoded underscores for valid CSS at the wide-screen breakpoint.
 
-- Auth and tenancy
-- CRM: customers, service addresses, customer equipment, service agreements, notes, company profile
-- Projects and project workspace
-- Site visit intake: intake saves can capture notes, measurements, and project photos; if a later photo-metadata write fails after earlier metadata rows were persisted, the action compensates those persisted rows before storage cleanup. If metadata compensation itself fails, the corresponding storage object is preserved so surviving metadata never points at an object the action deleted, and cleanup failures do not mask the original intake error.
-- Cost book: divisions, categories, subcategories, cost items, labor, materials, equipment, assemblies
-- Costbook workspace foundation and materials catalog: unified `/api/v1/costbook/workspace` and `/api/v1/costbook/materials` boundaries, Costbook-specific permission keys, org-scoped workspace foundation tables, organization-scoped material reads/writes, and `/costbook` plus `/costbook/materials` web routes with live catalog data and honest loading/empty/error states
-- Costbook equipment catalog foundation (C004, merged via PR #183): organization-scoped equipment list/detail/create/update/delete under `/api/v1/costbook/equipment`, legacy equipment-route permission alignment, owner/admin-managed forced-RLS writes, cent-safe hourly-cost derivation, nullable daily-rate clearing, and `/costbook/equipment` with real-data loading/error/empty/read-only/mutation states. PR #203 adds a bounded 15-second equipment-page load timeout and locks editable form state/transitions while save or delete mutations are pending.
-- Costbook hierarchy management (C005): full Division/Category/Subcategory CRUD under `/api/v1/costbook/{divisions,categories,subcategories}` and `/costbook/divisions`, with owner/admin-only hierarchy writes, explicit parent-derived tenant predicates for Category/Subcategory RLS, cross-organization parent rejection, active-child guards beneath inactive ancestors, and parent-deactivation guards that prevent active descendants from being stranded beneath an inactive Division or Category
-- Costbook CostItem management: canonical `/api/v1/costbook/cost-items` routes and `/costbook/cost-items` reuse the existing `CostItem` model, `CostDatabaseService`, legacy compatibility routes, and relationship-derived unit-cost formulas. Reads require `costbook.read`, ordinary writes require `costbook.write`, lifecycle activation/deactivation requires `costbook.manage`, strict request validation rejects caller-controlled organization IDs, and service-level checks reject cross-organization Subcategory/LaborRate/Material/Equipment/Subcontractor references before writes. CostItem delete remains soft-deactivate so existing Estimate references are preserved.
-- Costbook continuation on PR #216: canonical Assembly management reuses `Assembly`/`AssemblyItem`; Estimate lines preserve CostItem/Assembly provenance and captured `unitCost`/`lineCost` snapshots; pricing preview reuses shared Estimate formulas without saved pricing-policy state; price history separates `MaterialPriceAudit` changes from Estimate snapshots; and trusted supplier feeds enqueue review proposals only, with no automatic Material mutation.
-- Estimating: estimate creation, line items, duplication, comparison, AI estimate assist, and structured contractor-language draft generation
-- Proposals
-- Contracts
-- Invoices and payment recording
-- Change orders
-- Jobs and scheduling: job creation, assignment, scheduling, rescheduling, dispatcher coordination, and field-status workflows
-- Project tasks
-- Activity, notifications, recents, saved views, feature flags, and search-oriented intelligence primitives
-- Owner dashboard foundation: morning command-center shell, review-queue header, KPI scan, "Needs attention" decision queues, a Today schedule wired to live dispatch data, a live project-task queue with real task activity, deterministic live owner briefing, activity timeline, and quick actions across existing contractor workflows
-- Brand Studio
-- Settings and organization operations
-- Customer portal document views
-- Supplier review queue and scheduler plumbing
-- Knowledge runtime integration
-- Backend structured AI estimator orchestration that stages contractor-language scopes into reviewable estimate drafts using existing costbook and estimate-engine services
-- Project Athena A1 kernel lifecycle foundation (`app/modules/athena-kernel`): feature-flagged, non-mutating kernel shell with durable execution/transition/telemetry persistence, RLS-protected tenant and actor isolation, and a kernel-owned `AbortController` for timeout/cancellation. Dark by default behind `ATHENA_KERNEL_ENABLED=false`; see [athena/roadmap/A1-ai-kernel-implementation-plan.md](athena/roadmap/A1-ai-kernel-implementation-plan.md). As of A12, the kernel resolves against a real, populated production tool registry (see below) rather than an empty one, when the flag is on.
-- Project Athena A8 event integration foundation (`app/modules/athena-events`): dark, pull-based event infrastructure with canonical event, delivery, retry, dead-letter, and replay persistence behind forced RLS. `ProposalsService.send()` remains a production publisher, joined by A12's `EstimateEngineService.create()`/`finalize()` (`EstimateStarted`/`EstimateCompleted`) and `JobsService.schedule()`/`addAssignment()`/`complete()` (`JobScheduled`/`TechnicianAssigned`/`WorkCompleted`). A12.1 makes durable persistence of those six canonical events atomic with the corresponding estimate, proposal, schedule, assignment, and completion mutations: required event-persistence failure rolls the business mutation back. Subscriber delivery, retry, dead-letter, and replay remain asynchronous after commit. No subscriber is wired to production, no scheduler/worker route invokes delivery dispatch, and event rows are not authoritative business state.
-- Project Athena A10 observability (`app/modules/athena-observability`): a read/derivation layer over existing C011 telemetry and A1/A8 tables - trace lookup/search, reliability/latency/tool/model/cost/event-DLQ metrics, ten threshold-based alert rules with dedup/resolution (`athena_alerts`, forced RLS restricted to `owner`/`admin`, narrower than the existing `current_app_can_administer()`), console/webhook exporters, and batched idempotent retention cleanup. Feature-flagged dark behind `ATHENA_OBSERVABILITY_ENABLED=false`. The one production-reachable telemetry gap found during the coverage audit (the A7 memory-candidate hook had no span) was closed with a `spanType: "memory"` addition to `athena-kernel/service.ts`, carrying only candidate counts. Operator dashboard UI lives at `web/src/app/(app)/athena/**`. Two of the ten alert rules are documented, narrow-scope proxies rather than direct signals (`approval_bypass_attempt`, based on an action-span/approval-span match heuristic; `telemetry_write_failure` is explicitly not implemented, since telemetry write failures are unobservable by design) - see [athena/roadmap/A10-observability-implementation-plan.md](athena/roadmap/A10-observability-implementation-plan.md) for the exact scope and known limitations. No dashboards, exporters, or retention/alert jobs run unless the flag is on and, for background jobs, `ATHENA_OBSERVABILITY_MAINTENANCE_JOBS` is configured.
-- Project Athena A12 business tool rollout (`app/modules/athena-tools`): the first production Athena business tools - 19 first-party tools across Estimator, Dispatcher, Office Manager, Field Technician, and Costbook Intelligence, each a thin A9 `defineTool()` wrapper around an existing application service (`EstimateEngineService`, `JobsService`, `CrmService`, `InvoicesService`, `ProjectTasksService`, `CostDatabaseService`, `AssembliesDatabaseService`) - never Prisma directly. All 19 are `risk: "low"` by deliberate design (every mutation is an internal, reversible draft/operational change - a draft estimate, a scheduled job, a technician assignment, a task, a job note - never a sent communication, a finalized invoice, or a changed stored price), since production has no real caller-facing approval-verifier submission surface yet for a `medium`/`high`-risk tool to complete against. `createProductionAthenaToolRegistry()` (`app/modules/athena-tools/registry.ts`) is the first real production tool registry - `athena.controller.ts` now passes it into every `handleRequest()` call, reachable only when `ATHENA_KERNEL_ENABLED=true`. Every tool inherits A10 telemetry/alerts and the A11 risk-engine gate automatically via the kernel's existing plan/step loop, with no tool-authored telemetry or security code. See [athena/roadmap/A12-business-tool-rollout-implementation-plan.md](athena/roadmap/A12-business-tool-rollout-implementation-plan.md) for the full tool catalog, permission/event mapping, and the "how to add a new business tool" guide.
-- Athena foundation hardening (merged via PR #200, merge commit `c2121f5c60059bc8f38546dad45755e566eceae0`): shared Athena contracts now expose a central `app/modules/athena/contracts.ts` facade; registered tools normalize discovery metadata (`name`, `category`, `outputSchema`) while preserving legacy raw-registration compatibility; router execution goes through an explicit strategy-plus-fallback seam; kernel context snapshots stay immutable during provider enrichment; successful action execution returns the executed tool result at the Athena response boundary; and action approval/executor metadata is validated through the hardened A6 contract path. This is merged repository state, not proof that Athena is enabled in production.
-- Athena durable action idempotency merged as PR #214 (`4483330a65df8a4b0079339e02c360e29532585a`): the existing A6 `AthenaIdempotencyStore` now has a PostgreSQL-backed production implementation, the controller injects it instead of relying on process-local memory, and migration `20260814200000_add_athena_action_idempotency` adds exact-actor/organization forced-RLS execution-control rows. Claims are unique by organization/actor/tool/version/key and bound to the canonical validated-input hash; completed safe action/result envelopes can suppress the same action after restart or on another API instance. This merge does not add approval-resume behavior, Costbook changes, new tools, or broader autonomy; repository merge state does not by itself mean this path is enabled/exercised in production.
+## Implemented product areas
 
-See module docs in `docs/modules/`.
+- Auth and tenancy, including local-session refresh hardening, Supabase JWT verification, organization bootstrap/recovery, request-scoped database sessions, and forced PostgreSQL RLS.
+- CRM: customers, service addresses, customer equipment, service agreements, notes, and company profile.
+- Projects and project workspace, including task and site-visit workflows.
+- Estimating: estimate creation, sections/line items, Costbook provenance, custom lines, pricing formulas, tax, duplication, comparison, finalized-estimate behavior, and review-first AI Estimate Assist.
+- Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
+- Invoice line-item storage now uses canonical selling-price columns `unit_price` and `line_total`; synchronized legacy `unit_cost`/`line_cost` aliases remain during the expand/contract rollout, while the `unitPrice`/`lineTotal` API contract stays unchanged.
+- Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
+- Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
+- Brand Studio and Settings/organization operations.
+- Customer portal document views and the public customer magic-link portal approved by ADR-010.
+- Knowledge Runtime integration and backend structured estimator orchestration.
 
-## Partially implemented or compatibility-layer areas
+## Costbook domain
 
-- Legacy role values `estimator` and `viewer` are still tolerated in stored data but normalize to canonical roles
-- Project lifecycle persistence still contains legacy values such as `proposal_sent` and `accepted`; UI and shared contracts normalize these into canonical display states
-- Contract persistence still stores `pending_signature`; global lifecycle docs treat that as compatibility storage under canonical contract states
-- Costbook architecture is documented as a pricing intelligence domain in [architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md](architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md). C001-C005 and PR #210 provide the workspace, Materials, Labor Rates, Equipment, hierarchy, and canonical CostItem management. PR #216 promotes the existing Assembly implementation into the unified Costbook workflow, verifies Estimate historical pricing snapshots, adds a calculation-only pricing preview and a split price-history read model, and adds trusted supplier-feed transport over the existing review queue. Persisted organization-wide pricing rules, supplier SKU matching/provider-specific connectors, and Athena Costbook writes remain outside this slice.
-- Supplier feed ingestion now has a trusted HTTPS transport adapter driven by server-side configuration; queue, review, audit, worker, scheduler, and duplicate-pending suppression remain the existing implementation, and feed results never auto-apply Material prices
-- Customer portal exists for proposal, contract, invoice, and project views, but hardening is still tracked as RC work
-- Structured AI estimator drafts remain review-first; they do not autonomously write estimate line items and do not call external model APIs in the current implementation
-- Structured AI estimator apply now uses server-signed review tokens, server-side active target validation, per-estimate apply serialization, and optional estimate-line `sourceKey` duplicate protection for reviewed AI lines; Docker-backed live RLS integration verification passed locally on this branch
-- Route-level `requirePermissions` checks were added to `app/backend/controllers/{aiEstimateAssist,crm,estimateEngine,projectTasks,proposals}.controller.ts`, closing a gap where those routes previously relied on org-membership alone (no route-level permission check). Customer and estimate mutation endpoints also now record `ActivityTimelineService` events (see [modules/activity-and-intelligence.md](modules/activity-and-intelligence.md)).
+The canonical Costbook workspace is implemented across `/api/v1/costbook/*` and `/costbook/*` while reusing the established catalog tables and services instead of creating duplicate pricing subsystems.
 
-## Recent verified changes
+Implemented Costbook surfaces include:
 
-- Project workflow navigation hardening on PR #231 normalizes seven project sub-detail/create pages to the shared `PageHeader` pattern. Proposal and invoice creation now have explicit project back-navigation; proposal, contract, invoice, estimate comparison, and estimate builder pages use consistent title/back/action structure; and `page-header-consistency.test.ts` pins the shared-header/back-link contract. This is frontend-only: no backend API, database schema, RLS, authentication, billing, Athena, or Costbook business-logic change.
-- Admin organization tenant-boundary fix merged as PR #233 (`607e6c2`): the two `/api/v1/admin/organizations/:id` handlers (`app/backend/controllers/adminDashboard.controller.ts`) authenticated the caller globally but did not verify the requested `:id` matched the caller's own organization, so a caller with an admin-capable account could read or rename another organization's record if that organization's UUID was known. Both `getOrganization` and `updateOrganization` now call the existing `requireOrgAccess(req, req.params.id)` boundary before the service reads or writes, reusing the same admin-permission check already embedded there. New regression coverage (`app/tests/admin-dashboard-tenant-boundary.test.ts`) proves cross-organization reads and updates are rejected before the service is invoked, and that same-organization reads/updates still succeed. No auth architecture, schema/migration, billing, or secret change.
-- Fixed a production bug, confirmed directly against live Vercel runtime logs: every `PATCH /api/v1/settings` call failed with `TypeError: ...prisma.$transaction is not a function`. Root cause: `OrganizationSettingsService.updateSettings` (`app/modules/settings/service.ts`) called `prisma.$transaction(...)` directly on the shared, request-scoped `prisma` proxy exported from `app/db/client.ts`. `databaseSession` middleware already wraps every authenticated request in a `Prisma.TransactionClient` via `AsyncLocalStorage` (`app/db/requestSession.ts`), and that proxy resolves `prisma` to the active transaction client whenever one is set; `Prisma.TransactionClient` has no `$transaction` method, so the call threw on every real request. This was never caught by the existing unit test suite, which mocks `db/client` entirely and so never exercises the proxy's request-scoped resolution. A static audit of every other `prisma.$transaction(...)` call site in `app/modules/**` and `app/backend/**` found the identical, previously-unexercised-in-production bug in `app/modules/crm/service.ts` (`addServiceAddress`, `updateServiceAddress`), `app/modules/brand-studio/service.ts` (`updateProfile`, `createAsset`, `updateDocumentSettings`), and `app/backend/controllers/projectTasks.controller.ts` (`create`, `update`, `remove`) — all four were fixed the same way, routing through the existing `runInDatabaseTransaction()` helper (`app/db/requestSession.ts`), which reuses the active request transaction instead of nesting a new one, matching the convention already used by `jobs`, `athena-events`, `athena-memory`, `supplier-integration`, `material-database`, `costbook`, `estimate-engine`, and `ai-estimate-assist`. No API contract, permission, schema, or RLS behavior changed. New regression coverage: `app/tests/requestScopedTransaction.convention.test.ts` statically scans `app/backend/**` and `app/modules/**` and fails if any file reintroduces a direct `prisma.$transaction(...)` call, since the existing per-service unit tests cannot detect this bug class (they mock the Prisma client entirely). Validated with `cd app && npm test` (1678/1678 passing), `npm run lint` (clean), and `npm run build` (clean); `npm run test:integration` could not run in this environment because the Docker daemon is unavailable (a tooling limitation, not exercised here — this fix does not touch schema, RLS, or migrations, so the live-Postgres RLS suite is not required to validate it).
-- Costbook continuation on PR #216 reuses the existing Assembly, Estimate, MaterialPriceAudit, supplier-review, and shared pricing-formula paths. It adds canonical Assembly management with RLS defense in depth, verifies CostItem/Assembly Estimate snapshot semantics, provides calculation-only pricing preview and tenant-scoped history views, and adds bounded trusted supplier-feed transport that only queues proposals. No Athena Costbook write path or automatic supplier price application is introduced.
-- CostItem management reconciliation on PR #210 reuses the existing `CostItem` model, `CostDatabaseService`, relationship-derived pricing formulas, and legacy compatibility routes. It adds canonical `/api/v1/costbook/cost-items` routes and `/costbook/cost-items`, strict `costbook.read`/`costbook.write`/`costbook.manage` enforcement, no-org-id request validation, same-organization parent/catalog reference validation, nullable pricing-input clearing, soft deactivation, focused service tests, and live PostgreSQL CostItem RLS coverage. It does not add schema/migrations, new RLS policies, pricing rules, Estimate mutation changes, or Athena behavior.
-- Athena approval read normalization on PR #207 conditionally and atomically transitions overdue approvals that are still persisted as `pending` to `expired` before organization-scoped approval list/detail reads. The predicate remains organization-scoped and pending-state-only, so concurrent terminal changes and rows from other organizations are preserved. This is an approval lifecycle/read consistency repair only: no schema, migration, permission, scheduler, or roadmap scope changes are introduced.
-- A12.1 transactional canonical-event reliability merged as PR #191 at `57f4fe6d37538c755529b099ae79bc425e4d055d`. It reuses the existing `athena_events`/`athena_event_deliveries` outbox, adds transactional service wrappers for the six production canonical publishers, preserves savepoint isolation, uses conflict-safe idempotent insertion for concurrent same-key publication, and includes a live PostgreSQL rollback plus two-session race test. This does not add A13 work, another event bus, a scheduler, new permissions, or production subscriber execution.
-- Athena foundation hardening merged as PR #200 (`c2121f5c60059bc8f38546dad45755e566eceae0`): the registry/router/action/kernel seams described above are now on `main`. The merge does not imply production activation; `ATHENA_KERNEL_ENABLED` and the existing rollout controls remain the authority for runtime enablement.
-- Web app-route auth proxy hardening: unauthenticated requests to authenticated web route families now redirect to `/login` from `web/src/proxy.ts`/`web/src/lib/supabase/proxy.ts` before the `(app)` route tree can render or stream protected page content. The matcher now covers `/athena`, `/brand-studio`, `/costbook`, `/customers`, `/dashboard`, `/dispatch`, `/finish-setup`, `/portal`, `/projects`, and `/settings`. This fixes the production-observed behavior where unauthenticated protected routes could return HTTP 200 with a streamed `NEXT_REDIRECT` marker instead of an upfront redirect. Public `/login` and `/signup` remain outside the proxy matcher. Regression coverage in `web/src/lib/supabase/proxy.test.ts` pins both the unauthenticated redirect gate and the protected-route matcher set.
-- Web font/build reliability: the root web layout no longer imports `next/font/google`. The existing TradeOS font CSS-variable names remain stable, but they now resolve through installed/system fallback stacks in `globals.css`, removing build-time dependence on Google Fonts and Turbopack's external Google-font loader. This is a presentation/build-reliability change only; component behavior, application routing, backend APIs, auth, RLS, and database behavior are unchanged.
-- Project Athena A7 Memory repair: `AthenaMemoryService` now exposes only active, unexpired caller-visible memories; corrected and expired rows are no longer retrievable through `getById`. User/conversation memory remains exact-actor scoped and organization memory remains exact-organization scoped. Contract-recognized `project`/`job` memory now fails closed at both the service and forced-RLS layers until explicit object-scope authorization is implemented, replacing the rejected org-wide-read default. Deterministic write policy, source attribution, correction/supersession, forgetting, retention metadata, the lazy user-memory context provider, and the dormant post-action memory hook remain infrastructure-only; no production memory extraction, business-tool execution, semantic retrieval, or autonomous write path is enabled.
-- Project Athena A8 Event integration adds `AthenaEvent`, `AthenaEventDelivery`, and `AthenaEventDeadLetter` persistence plus an idempotent publisher, static subscriber registry, retry/dead-letter handling, and replay helper. Delivery failure reasons are stored as safe reason codes rather than raw exception messages. The implementation remains dark infrastructure: no autonomous Athena action, no proposal-route response contract change, and no production subscriber dispatch loop is enabled.
-- C001 Costbook Workspace Foundation: a bounded Costbook module now exposes the unified read-only workspace summary at `GET /api/v1/costbook/workspace`, guarded by `costbook.read` and backed by org-scoped counts from the existing catalog tables. `costbook.read`, `costbook.write`, and `costbook.manage` are shared domain permissions; owner/admin have full Costbook access, dispatcher, technician, and legacy estimator have read-only Costbook access, and viewer has no Costbook permission. Migration `20260811120000_add_costbook_workspace_foundation` adds `costbook_workspaces` and `costbook_workspace_events` with organization scoping, forced RLS, owner/admin-managed writes, and event/workspace organization guardrails. The web app has a `/costbook` route and dashboard/nav links that show live catalog counts and empty/error states. No materials CRUD, labor engine, assemblies builder, pricing calculations, estimate integration, price-history engine, or Athena behavior changed.
-- C002 Materials Catalog Foundation: the existing organization-scoped `Material` table is now managed through the unified Costbook boundary. `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`; `POST /api/v1/costbook/materials` and `PATCH /api/v1/costbook/materials/:id` require `costbook.write`; strict validation rejects caller-supplied organization IDs, out-of-scope pricing fields, blank/null unit costs, and unit costs outside the existing database precision. The legacy `/api/v1/materials/*` compatibility route group now shares that same Costbook read/write permission boundary. Owner/admin can create and update materials, dispatcher/technician/legacy estimator can view but not write, and viewer has no Costbook access. Same-organization supplier IDs are validated before linking, cross-organization material IDs return 404, supplier price update approve/reject routes require `costbook.write`, and unit-cost changes write the existing material price-audit record. The existing `materials` table already had forced RLS from `20260623180000_enable_org_rls`; migration `20260811130000_restrict_costbook_material_writes` tightens existing material and material-price-audit writes to the owner/admin Costbook boundary without adding a duplicate material table. The web app now has `/costbook/materials`, linked from the Materials count on `/costbook`, with real API data, route loading skeleton, load-error state, empty state, read-only state, and permission-aware create/edit controls. No labor engine, equipment workflow, assembly builder, pricing calculation, estimate integration, price-history engine, supplier sync automation, Athena recommendation, or autonomous write behavior was added.
-- C003 Labor Rates Foundation: the existing organization-scoped `labor_rates` table is now managed through the unified Costbook boundary with foundational `role`, optional `description`, `hourlyCost`, `billRate`, and `active` fields added in place. `GET /api/v1/costbook/labor-rates` and `GET /api/v1/costbook/labor-rates/:id` require `costbook.read`; `POST /api/v1/costbook/labor-rates` and `PATCH /api/v1/costbook/labor-rates/:id` require `costbook.write`; and `DELETE /api/v1/costbook/labor-rates/:id` requires `costbook.manage` and soft-deactivates the row through `active=false`. Strict validation rejects caller-supplied organization IDs, blank roles, blank/null numeric values, negative numeric values, and values outside the `numeric(10,2)` precision before writes reach the database. The legacy `/api/v1/labor-rates/*` compatibility route group now shares the same Costbook permission boundary, and forced-RLS writes now align to the owner/admin Costbook boundary through `current_app_can_manage_costbook()`. The web app now has `/costbook/labor-rates`, linked from the Labor Rates count on `/costbook`, with real API data, route loading skeleton, load-error state, empty state, read-only state, edit controls for writers, and deactivate controls for managers. This slice does not add labor burden calculations, pricing engine logic, estimate integration, supplier automation, Athena recommendations, or autonomous writes.
-- C004 Costbook Equipment Catalog Foundation (merged via PR #183): the existing organization-scoped `equipment` table is managed through the unified Costbook boundary. `GET /api/v1/costbook/equipment` and `GET /api/v1/costbook/equipment/:id` require `costbook.read`; `POST` and `PATCH` require `costbook.write`; `DELETE` requires `costbook.manage` and remains a hard delete with explicit UI confirmation. Migration `20260811150000_restrict_costbook_equipment_writes` narrows the existing forced-RLS equipment write policy to `current_app_can_manage_costbook()` without duplicating the table or its earlier `ENABLE/FORCE ROW LEVEL SECURITY` setup. Live PostgreSQL integration coverage proves tenant-scoped reads, owner write success, technician create/update denial, and cross-organization write denial. Hourly cost is derived with cent-safe decimal handling from ownership plus operating cost; `dailyRate` is optional and PATCH can clear it to null. The `/costbook/equipment` route exposes real API data with loading, error, empty, read-only, create/edit/delete, and responsive catalog states. This slice does not add equipment utilization, depreciation schedules, pricing-engine integration, supplier automation, or Athena recommendations.
-- C005 Costbook Hierarchy Management: the existing `Division`, `Category`, and `Subcategory` tables (previously list + create only, unlike `CostItem`'s full CRUD) are managed through the unified Costbook boundary. `GET/PATCH/DELETE /api/v1/costbook/divisions/:id`, `.../categories/:id`, and `.../subcategories/:id` (plus list/create) require `costbook.read`/`costbook.write`/`costbook.manage` respectively, matching the C003 permission split. Migration `20260812120000_add_costbook_hierarchy_foundation` adds an `isActive` column to all three tables (default `true`) and tightens direct hierarchy writes to `current_app_can_manage_costbook()` (owner/admin). Merged migration `20260812173000_harden_costbook_hierarchy_rls` makes the inherited tenant boundary explicit: Category/Subcategory write predicates verify the authenticated organization through parent joins; active children cannot be created or reactivated beneath inactive ancestors; and a Division/Category cannot be deactivated while it still has active Category/Subcategory descendants. Live PostgreSQL integration coverage independently verifies cross-organization RLS rejection and both directions of activity integrity. Delete remains soft-deactivate only; child rows are never cascade-deleted through the API. The web app has `/costbook/divisions`, an expandable Division → Category → Subcategory tree linked from the Categories count on `/costbook`, with inline create/edit forms and deactivate controls gated on the same Costbook permission summary as materials/labor-rates. This slice does not add labor engine, equipment utilization, assembly builder, pricing calculation, estimate integration, or Athena recommendation behavior.
-- Owner dashboard AI-placeholder audit: the disabled `AI Assistant` foundation slot is replaced by a deterministic `Owner Briefing` that reads the existing dispatch summary, org-scoped project-task feed, and current-week recorded-payment ledger. It surfaces schedule pressure, overdue/blocked task pressure, and transaction-backed weekly revenue with direct links to Dispatch, Overdue Tasks, and Revenue This Week. Each read degrades to `Unavailable` independently. The briefing makes no model call, does not call an Athena execution endpoint, performs no autonomous write, and explicitly keeps Athena business-tool execution off until the roadmap's A12 rollout. The old `AIAssistantPlaceholderPanel` export remains only as a compatibility alias to avoid unrelated parent-dashboard churn.
-- Dashboard knowledge/lifecycle audit: the existing Knowledge Runtime Coverage card remains backed by live `GET /api/v1/knowledge/stats` data but is no longer a dead-end summary; `/dashboard/knowledge-coverage` now reads the existing stats and trades endpoints to show live trade coverage, assemblies, cost items, indexed keywords, source/runtime health, and load warnings without adding AI execution or writes. The dashboard section previously labeled `Operational queues` was audited and found to be a recent-eight-project lifecycle snapshot, not an organization-wide queue; it is now truthfully labeled `Recent project lifecycle` and states that scope explicitly while preserving direct project navigation. No backend endpoint, RLS policy, schema, lifecycle write, payment path, or Athena behavior changed.
-- Revenue This Week is now transaction-backed instead of inferred from invoice paid state: `GET /api/v1/payments/current-week` reads organization-scoped persisted `Payment` rows with status `recorded` under the existing authenticated request/database-session boundary, requires `billing.read`, computes Sunday-to-Sunday boundaries in the organization timezone with explicit UTC fallback, and returns invoice/project/customer context. The dashboard KPI and `/dashboard/revenue-this-week` use the same ledger response, so the total reconciles by construction; the drill-down shows amount, payment date, method, reference, notes, and invoice links. If the ledger read fails, Revenue shows `Unavailable` rather than substituting paid-invoice totals. No payment-write behavior, database schema/RLS policy, public payment processing, or Athena behavior changed.
-- Owner-dashboard KPI drill-downs now preserve source-of-truth alignment instead of stopping at summary numbers: Open Estimates links to the exact draft/ready estimate rows already rendered in `NeedsAttentionCard`, Invoices Waiting links to the exact sent/overdue/partially-paid invoice rows there, and Overdue Tasks opens `/dashboard/overdue-tasks`, which reuses the same org-scoped 24-task feed, organization timezone, and calendar-date due-bucket rules as the KPI count. Today’s Jobs and Unscheduled Jobs retain their existing filtered Dispatch drill-downs. Revenue This Week is handled by the transaction-backed payment-ledger drill-down above. No Athena behavior changed.
-- Dashboard weather widget (`web/src/lib/weather.ts`) is now real, as a direct follow-up to the UI sprint below: the header's "Weather" tile previously removed as fabricated is back, backed by a live National Weather Service forecast for **today's first scheduled job's project site address** (not a generic company-wide forecast — a rain delay only matters relative to where the crew is actually working). Flow: US Census Bureau geocoder (free, keyless) turns the site address into lat/lon, then `api.weather.gov`'s points → forecast endpoints (free, keyless, requires only a `User-Agent` header) return the most relevant current or next forecast period's temperature, short forecast, and precipitation chance instead of blindly taking the first period row. Both external calls use Next's fetch cache with a 30-minute revalidate. No job scheduled today, no site address on file, or any geocode/NWS failure all degrade to an honest "No forecast for today's job site" state rather than fabricating or crashing — matching this dashboard's existing no-fabrication posture. Entirely `web/`-side (no `app/` backend change, no new env var, no secret — NWS needs no API key); wired into `web/src/app/(app)/dashboard/page.tsx` and `owner-dashboard-header.tsx`.
-- Dashboard UX modernization (`web/src/app/(app)/dashboard/page.tsx`, `web/src/components/dashboard/**`, `web/src/components/shared/app-nav.tsx`, `web/src/app/globals.css`): the authenticated app shell now uses a cooler neutral + electric-blue token pass, a clearer split navigation hierarchy, and denser RC1 dashboard composition. The owner dashboard now leads with a review-queue header, keeps the action queue ahead of KPI scan cards, standardizes repeated section framing through `DashboardPanel`, and upgrades schedule/task/quick-action cards to a cleaner, more consistent visual system without introducing new backend endpoints or fabricated workflow data.
-- UI/UX modernization sprint, directly commissioned outside the numbered sprint queue (matches the pattern of the Dispatcher Workspace entry below): a founder-directed, explicitly scoped UI-only pass audited by six parallel read-only sub-agents (information architecture, visual system, dashboard/owner UX, dispatch/ops UX, accessibility/responsive, code/performance) before any file was touched. No backend route, auth/session/RLS logic, Supabase bootstrap logic, CORS, `TRUST_PROXY` behavior, Vercel routing, environment-variable contract, or database schema/migration was modified — this is presentation and interaction only, per explicit instruction to treat those areas as stable.
-  - Dashboard (`web/src/app/(app)/dashboard/page.tsx`): reordered to Header → Needs Attention → Today/AI → KPI pipeline → Quick Actions → Activity → knowledge/operational-queue cards, so the one section that's actually actionable is no longer buried below a KPI wall. "Today's Schedule" (`owner-today-schedule.tsx`) is now wired to real data — it calls the same `getDispatchSummary`/`listJobsForDispatch` endpoints the `/dispatch` workspace already uses (today's org-timezone-aware boundary), rather than always rendering a hardcoded-empty placeholder. Removed a fabricated, unlabeled "Rain watch after 3 PM" weather widget (`owner-dashboard-header.tsx`) — every other placeholder in this codebase is honest about not having a live source; this one wasn't. The "Schedule" quick action now links to `/dispatch` instead of `/projects`. "Today's Jobs" and "Unscheduled Jobs" KPI tiles are now clickable through to filtered `/dispatch` views. The disabled "Costbook" quick action now carries a visible "Soon" badge instead of reading as a plain broken button.
-  - Customers: `/customers` now renders the previously-built-but-never-wired `CustomerDirectory` component (search, contact/billing filters, stats strip, desktop table + mobile card list) instead of a plain unfiltered link list — closing a real dead-code gap and adding search/filtering that didn't exist on this page before. Fixed a latent duplicate-content bug in that component (the desktop table had no `hidden md:block`, so under `md` both the table and the mobile card list rendered simultaneously). Customer detail page and the Dispatch page now use a new shared `PageHeader` component (title/description/back-link/action slot); customer detail also gained a working "All customers" back link. "New project" from a customer's detail page now passes `?customerId=` through to prefill the linked-customer field on `/projects/new`, instead of losing that context.
-  - Dispatch (`dispatch-work-queue-table.tsx`, `dispatch-filter-bar.tsx`): the work-queue table had no `min-width` or mobile fallback and would compress illegibly on a phone — added a `min-w-[820px]` desktop table (`hidden md:block`) plus a `md:hidden` card list mirroring the pattern `CustomerDirectory` already established. The filter bar's "Apply" button was visually scoped only to the search field even though it submits the whole form; it's now a full-width "Apply filters" button spanning the row. Attention flags (`overdue`/`needs attention`/`unassigned`) now render through the shared `StatusBadge`/`STATUS_TONES` map instead of hand-rolled duplicate color classes, and priority `urgent` now has its own (previously-missing) tone instead of silently falling back to the generic unstyled badge.
-  - Accessibility: the global command palette (`global-command-palette.tsx`) now has `role="dialog"`/`aria-modal`/`aria-label`, a Tab focus trap, and restores focus to the trigger on close — it previously had none of these. Form-submission errors on login, signup, finish-setup, and new-customer now carry `role="alert"` so they're actually announced, not just visually rendered. Table headers in the customer directory and dispatch table gained `scope="col"`.
-  - Shared primitives: `Card` (`components/ui/card.tsx`) previously drew its edge from a `ring-1 ring-foreground/10` with no border-width, making the ~79 existing `border-border/70` classNames passed to it dead/no-op; it now uses a real `border border-border`, aligning its edge color source with Input/Button/table dividers and making those existing classNames actually apply. `SelectField` now matches `Input`'s height/radius/padding shell so mixed select+input forms (dispatch filters, customer forms) don't visibly mismatch. Added `loading.tsx` route skeletons for `/dashboard`, `/customers`, and `/dispatch` (none existed before; only `/settings` had one).
-  - Removed `web/src/components/trainingless-demo/trainingless-demo.tsx` (952 lines, confirmed zero references anywhere in the app, the only file importing `framer-motion`) — dead code carrying real bundle-weight and visual-language-clash risk if it were ever accidentally wired up.
-  - Verification: `cd web && npm test` (29/29), `npm run lint` (clean), `npm run build` (clean) all pass. Live-rendered `/login` and `/signup` (the two routes reachable without a real Supabase session, since `proxy.ts`'s matcher excludes them) via a local Next dev server pointed at placeholder, non-production credentials and Playwright at mobile/tablet/laptop/desktop viewports — zero `scrollWidth`/`clientWidth` overflow, zero console/page errors, confirmed the `Card` border change renders correctly. Did **not** attempt live-authenticated verification of `/dashboard`, `/customers`, or `/dispatch` against the project's real Supabase project(s) (confirmed live and healthy via the Supabase MCP tools) — doing so would have created real rows in shared/production-adjacent infrastructure for the sole purpose of a screenshot, which the sprint's own production-safety priority rules out; this is recorded as an environment-blocked check, not a skipped one.
-- Fixed a critical production bug found immediately after the finish-setup fix went live: `hello@404tradeos.com` successfully completed finish-setup once (real `AppUser`/`Organization`/`OrganizationMembership` created), but every login *after* that got a false `409 User exists but has no active organization membership` from `POST /api/v1/auth/bootstrap` and, per `loginAction`'s own correct handling of that case, was left stuck on `/login` unable to sign in at all. Root cause: `bootstrapSupabaseIdentity`'s "does this identity already have an organization" lookup (`app/modules/auth/service.ts`) was a single un-flagged `basePrisma.appUser.findFirst` with a nested `include` for memberships/organization — but this database's RLS policies (`memberships_login_lookup_policy`, `organizations_select_policy`) require the request-scoped `app.login_lookup` → `app.user_id` → `app.org_id` session flags to be set, in that order, before those tables become visible; every other pre-authenticated lookup in this file (`login`, `refresh`, `requestPasswordReset`, `resetPassword`, `acceptInvite`) already followed that pattern, but this one call site never did. The user row itself was visible (some other policy permits that), but the nested memberships/organization queries were silently filtered to empty by RLS regardless of what actually existed — so this affected every already-provisioned identity's second-and-later login, not just this one account. Directly confirmed against production: `tradeos_app` (the app's runtime database role) has `rolbypassrls: false`, so RLS genuinely applies; `hello@404tradeos.com`'s `AppUser`/`OrganizationMembership` rows were confirmed present and correct in Postgres throughout, proving the bug was purely a visibility gap in the lookup, not missing data. Never caught by the existing unit test suite because it mocks Prisma entirely, which can't reproduce an RLS gap.
-  - Fix: rewrote the lookup to run inside a `basePrisma.$transaction`, mirroring `login()`'s exact three-step `set_config` sequence: find the user under `app.login_lookup`, set `app.user_id`, find their active membership, set `app.org_id`, find their organization. External behavior/return shape is unchanged for every existing caller.
-  - New regression coverage: `app/tests/auth.service.test.ts` gained a test asserting the exact `set_config` call sequence and values (the only way a mocked-Prisma unit test can pin this class of bug); `app/tests/rls.integration.ts` (Docker-backed, live Postgres, run in CI) gained `bootstrapSupabaseIdentity finds an already-provisioned identity's real membership against live RLS, not a false 409` — the authoritative proof, since only a real RLS-enforcing database can actually catch this bug class.
-- **Verified live in production**: the finish-setup recovery flow below (and the full auth/bootstrap chain it depends on) works end-to-end. `hello@404tradeos.com` — the real orphaned account this entire chain of fixes was diagnosed against — logged in, was routed to `/finish-setup`, submitted a company name, and `POST /api/v1/auth/bootstrap` returned `201`. Confirmed directly against production Postgres: a real `AppUser` (`role: owner`, `status: active`) and `Organization` ("404 TradeOS LLC") now exist for that identity, created at the exact timestamp of the successful bootstrap call in the Vercel runtime logs.
-- That same login surfaced a new, unrelated production bug: once bootstrap succeeded and `/dashboard` began actually loading real data, `GET /api/v1/knowledge/stats` started failing with `"Unable to locate the TradeOS repository root for Knowledge Engine loading"` (`app/modules/knowledge-runtime/loader.ts`), crashing the dashboard into the generic root `error.tsx` boundary the same way the auth gap had. Root cause: `packages/knowledge-engine/` (the actual data this module reads) is a sibling of `app/` at the repo root, but the `tradeos-costbook` Vercel project deploys with Root Directory `app` — only files inside `app/` land in the deployed Lambda's filesystem (confirmed against production runtime paths, e.g. `/var/task/app/node_modules/...`), so that data was never reachable there. This is why it was never caught before now: this code path only started actually running in production once the `jose`/`ERR_REQUIRE_ESM` fix below unblocked JWT verification, and no request had reached it until this real login.
-  - Fix: `app/scripts/vendor-knowledge-engine.js` (new) copies `packages/knowledge-engine/{exports,knowledge,schemas}` (~2.4MB) into `app/vendor/knowledge-engine/` as a build step (`npm run build`), physically inside the deployed Root Directory. `resolveKnowledgeEnginePaths()` checks that location first, falling back to its original repo-root search unchanged for local/CI. Manually verified against the exact production topology: built `dist/`, moved `packages/` out of the way entirely, and confirmed the compiled loader still finds real data (289 assemblies, 1795 cost items) via only the vendored copy.
-  - Also hardened `web/src/app/(app)/dashboard/page.tsx` and the AI Estimate Assist page's `getKnowledgeStats`/`getKnowledgeTrades` calls with `.catch()` fallbacks to their existing null/empty UI states — both pages already rendered "Unavailable"/empty states for missing knowledge data, they just weren't guarded against the fetch itself rejecting, so any future knowledge-runtime failure degrades gracefully instead of crashing the page.
-  - New regression coverage: `app/tests/knowledge-runtime.loader.test.ts` (vendored-path preferred-over-fallback behavior, using the loader's real fixed offset, not a stand-in), `app/tests/vendorKnowledgeEngineScript.test.ts` (runs the real copy script and diffs output against source), `web/src/app/(app)/dashboard/dashboard-knowledge-resilience.test.ts` (pins both `.catch()` guards).
-- Fixed the remaining production auth gap, found immediately after the `jose`/`ERR_REQUIRE_ESM` fix below unblocked bootstrap for real: an authenticated Supabase identity with an application membership already resolved correctly, but a legacy/orphaned identity — confirmed in Auth, but with no `AppUser`/`Organization`/`OrganizationMembership` row and no `organization_name` in its Supabase user metadata (any account created before the earlier bootstrap-on-login fix started storing that metadata) — had no recovery path. `loginAction` swallowed the resulting `400 organizationName is required to create a new organization` from `POST /api/v1/auth/bootstrap`, logged it, and still redirected to `/dashboard`, where every page's backend calls then 403'd with "Authenticated user is not provisioned in this organization" — a server-render-time throw that crashed into the app's generic root `error.tsx` boundary in production (the "Minified React error #441" / "Something went wrong" screen; Next.js redacts real server error text from the client-side error object in production, which is why the boundary itself couldn't route around this). Confirmed live against the real orphaned account, `hello@404tradeos.com`.
-  - Fix: `bootstrapSupabaseIdentity` (`app/modules/auth/service.ts`) now attaches a stable, machine-readable `details: { code: "organization_name_required" }` to that specific `400` (deliberately not something the frontend has to parse out of the message text). `loginAction` (`web/src/app/actions/auth.ts`) now has three distinct outcomes after its bootstrap call: success → `/dashboard`; `organization_name_required` → `redirect("/finish-setup")`; anything else (transient backend error, network failure, the `409` "user exists but has no active membership" edge case) → returns `{ error }` and stays on `/login`, rather than falling through to a guaranteed-broken dashboard visit.
-  - Added `/finish-setup` (`web/src/app/finish-setup/page.tsx` + `finish-setup-form.tsx`, new standalone route — not under the `(app)` group, since that layout's full nav would 403 for an unprovisioned user) and `finishSetupAction`. The only client input is `organizationName`; identity comes exclusively from the verified Supabase session cookie (never a client-supplied `role`/`userId`/`organizationId`/`authSubject`), and it calls the same idempotent bootstrap endpoint every other entry point uses, so a resubmit or an already-provisioned identity landing here again safely no-ops instead of creating a duplicate organization.
-  - Separately, found and fixed a second production issue while investigating: `TRUST_PROXY` (the env var `app/backend/server.ts`/`app/backend/middleware/productionHardening.ts` already correctly consume, and have since the repository's initial scaffolding) was simply never set in Vercel, so every production request logged `express-rate-limit`'s `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` warning (harmless on its own — a warning, not a failed request — but worth closing out while auditing this incident). No code change was needed; `app/tests/trustProxy.test.ts` is new end-to-end regression coverage proving `TRUST_PROXY=1` resolves the client IP from only the single innermost `X-Forwarded-For` entry Vercel's edge proxy appends (not a client-spoofable earlier entry), and `app/.env.example` now spells out the exact required Production/Preview value (`"1"`, never `"true"`) with justification.
-  - New regression coverage: `app/tests/auth.controller.bootstrap.test.ts` (supertest-level proof that a bootstrap request body carrying `role`/`userId`/`authSubject`/`organizationId` is rejected by Zod's `.strict()` schema before any provisioning logic runs), an extended assertion in `app/tests/auth.service.test.ts` for the new `details.code`, and `web/src/app/actions/auth.test.ts` (source-shape pinning — no mock harness exists for Server Actions in `web/` — covering the three-way `loginAction` routing outcome and every `finishSetupAction`/`/finish-setup` trust-boundary guarantee above).
-- Fixed a critical production bug, found immediately after the bootstrap-on-login fix below shipped: every backend request bearing a Supabase-issued JWT (`POST /api/v1/auth/bootstrap` and any other authenticated route reached with a Supabase session, not a local HS256 token) returned `500 Internal Server Error`. Root cause: `app/backend/auth/jwt.ts`'s `verifySupabaseToken`/`getSupabaseJwks` load the `jose` package via `await import("jose")`, but this project's TypeScript compiles to CommonJS (`module: "commonjs"` in `app/tsconfig.json`), which downlevels that dynamic import into a plain `require("jose")` (confirmed against the compiled `dist/` output: `Promise.resolve().then(() => __importStar(require("jose")))`). `jose` v5+ ships ESM-only, so that `require()` throws `ERR_REQUIRE_ESM` at runtime — this has been broken since Supabase JWT verification was first added to the repository and was never caught because the existing test suite (`app/tests/auth.service.test.ts`) only calls `bootstrapSupabaseIdentity` directly with an already-verified `authSubject`, never exercising `jwt.ts`'s `jose` import at all. Confirmed live via Vercel runtime logs on a real signup/login (`hello@404tradeos.com`) and directly reproduced/fixed locally. Fix: pinned `app/package.json`'s `jose` dependency to `^4.15.9`, the last major version that ships a dual CommonJS/ESM build (`"require"` export condition) — no code change to `jwt.ts` was needed or made. New regression coverage in `app/tests/jwt.supabase.test.ts` signs a real RS256 JWT and verifies it against a local JWKS HTTP server through the actual `verifyAnyAuthToken` code path (not a mock), so a future dependency bump back to an ESM-only `jose` fails the suite immediately; confirmed this test suite fails to even load with `jose` reinstalled at `6.2.8` before reverting to the `4.15.9` fix.
-- Fixed a production bug where a confirmed Supabase user could exist with zero application-side records (no `AppUser`, `Organization`, or `OrganizationMembership`). Root cause: `signupAction` (`web/src/app/actions/auth.ts`) only called `POST /api/v1/auth/bootstrap` in the same request as `signUp()`, which only returns a session immediately when email confirmation is disabled; `loginAction` never called it at all, so a user who confirmed their email asynchronously and came back to log in normally never got bootstrapped. `POST /api/v1/auth/bootstrap`'s `organizationName` is now optional (`app/backend/controllers/auth.controller.ts`, `app/modules/auth/types.ts`) — the existing-membership lookup in `AuthService.bootstrapSupabaseIdentity` (`app/modules/auth/service.ts`) already ran before using it, so making it optional lets `loginAction` call bootstrap on every login as a safe, idempotent, best-effort check; a brand-new identity with no membership and no `organizationName` still gets a clear 400 rather than a broken provisioning attempt. Separately, `signupAction` was not passing `emailRedirectTo` to `signUp()` at all, so Supabase's confirmation-email link fell back to the project's own Auth "Site URL" — which was `http://localhost:3000` — instead of production; `signupAction` now passes `emailRedirectTo: ${NEXT_PUBLIC_APP_URL}/login` (new env var, documented in `web/.env.example`) and also stores the typed organization name in Supabase's own user metadata (`options.data.organization_name`) so it survives the signup → confirm → first-login round trip for `loginAction` to read back. The Supabase project's Auth → URL Configuration → Redirect URLs allowlist still needs `https://app.404tradeos.com/login` added manually in the Supabase dashboard — no available tooling in this environment can read or write that setting; setting `NEXT_PUBLIC_APP_URL` alone is not sufficient on its own. New regression coverage in `app/tests/auth.service.test.ts` for the optional-`organizationName` bootstrap paths (existing user with and without a name supplied, new user rejected without a name, new user provisioned correctly).
-- The owner dashboard (`web/src/app/(app)/dashboard/page.tsx`) now presents the logged-in contractor homepage as a morning command center. It keeps the existing authenticated app shell and live project-detail fan-out, adds unique route metadata, derives the company name from organization settings, composes reusable KPI/header/schedule/activity/quick-action components, and includes a deterministic live Owner Briefing with no model calls or Athena runtime writes. The briefing reads existing dispatch summary, task-feed, and current-week payment-ledger APIs and degrades individual signals honestly when unavailable; no new backend endpoint, auth boundary, estimator runtime change, or `packages/knowledge-engine/**` change was introduced.
-- The dashboard (`web/src/app/(app)/dashboard/page.tsx`) now composes a "Needs attention" section from the existing per-project data fan-out it already fetches (draft/ready estimates, proposals awaiting a response, invoices that are sent, overdue, or partially paid, and projects with no estimate yet), each linking directly into the existing estimate builder, AI Estimate Assist, proposal, and invoice pages. AI assist is only offered for draft estimates, since a `ready` estimate's line items are locked. No new backend endpoints, aggregation service, or design system were introduced; the new `web/src/components/dashboard/needs-attention-card.tsx` component reuses `Card`, `StatusBadge`, `EmptyState`, and `Button` plus the existing `createEstimateAction` server action.
-- Dashboard tasks are now wired to real data end to end without touching Athena surfaces: `GET /api/v1/projects/tasks` reuses `app/modules/project-tasks/service.ts` under the existing bearer-auth + membership + request-scoped DB session stack, returns org-scoped tasks with project/customer/job context, and feeds the owner dashboard's new "Tasks To Move" queue plus "Recent task movement" timeline. The dashboard adds an explicit route loading state (`web/src/app/(app)/dashboard/loading.tsx`), a task-feed error fallback that keeps `/projects` reachable, and an honest empty state when there are no open tasks instead of rendering mock schedule/activity placeholders.
-- The AI Estimate Assist review panel (`web/src/components/estimate-assist/ai-estimate-assist.tsx`) now also surfaces the resolved target's `matchMethod` (already returned by the backend but previously unused by the frontend) next to the existing match-score badge, making the "why this was matched" provenance more visible without adding any new backend field.
-- Five duplicate private `round2()` rounding helpers (in `cost-database`, `assemblies-database`, `change-orders`, `estimate-engine`, and `knowledge-runtime` services) were consolidated to import the one already exported from `app/modules/estimate-engine/formulas.ts`. No rounding behavior changed.
-- Four internal-only exports (`mapPrismaKnownRequestError`, `CreateOrganizationInput`, `SupplierPriceUpdateStatus`, `SupplierFeedQuote`, `ClientApiError`) had their `export` keyword removed after confirming no other file imports them.
-- Confirmed-dead frontend code was removed: the unused shadcn `Select` primitive (`web/src/components/ui/select.tsx`), an unwired AI-suggestions component pair, an unused project-files panel, and a dead Supabase browser-client wrapper (`web/src/lib/supabase/client.ts`) that had already been superseded by server-side `@supabase/ssr` usage.
-- Unused `web/src/lib/api.ts` helpers (`signup`, `login`, `AuthSession`, `listProposalsByProject`, `listInvoicesByProject`) were removed after confirming the real auth path calls Supabase directly from Server Actions and that no caller used the two list helpers.
-- `claude.md` was renamed to `CLAUDE.md` — both names pointed at the same file only because of this machine's case-insensitive filesystem; git tracked the lowercase name, which would not resolve as `CLAUDE.md` on a case-sensitive filesystem (Linux CI, most Docker images).
-- Explicitly *not* removed: `web/src/components/ui/checkbox.tsx` and the `lucide-react` dependency — both are live (used by Brand Studio and Settings consoles), and `@supabase/supabase-js` — it is a required peer dependency of the actively-used `@supabase/ssr` package, not a dead dependency.
-- Two new shared components (`web/src/components/shared/{list-row-link,line-item-row}.tsx`) replace hand-rolled, non-truncation-safe row markup that had drifted across the customers list/detail pages, the projects list page, and the recent-documents card. `ListRowLink` is the standard "link to a detail page" row; `LineItemRow` is the equivalent for the invoice detail page's priced line items. Both guard against a long name/description pushing trailing content (price, status badge) off the card on narrow viewports, which the prior per-page copies didn't. See `docs/ui-guide.md`. The Estimate Builder's own line-item list (metric tiles, assembly/cost-item picker, sticky pricing rail) is a different, richer layout and intentionally doesn't use `LineItemRow`.
-- Settings Console's brand asset uploader (logo/dark logo/icon/watermark) previously staged an ephemeral `URL.createObjectURL()` blob straight into the settings draft, which silently broke on page reload since it was never actually persisted anywhere durable. It now uploads to the same private Supabase Storage bucket project files already use via `uploadSettingsAssetAction` (`web/src/app/actions/settings.ts`), records bucket/path metadata in `settings_asset_uploads`, and serves image bytes through the authenticated server-side proxy at `web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts`.
-- Follow-up hardening on the settings asset uploader: `assetKey` is validated against a strict allowlist (`logoUrl`, `darkLogoUrl`, `iconUrl`, `watermarkUrl` — the only four settings asset fields that exist) via `validateSettingsAssetUpload` (`web/src/lib/settingsAssetUpload.ts`), uploads use a server-only service-role Supabase client after session/org/permission checks, and the backend independently pins metadata to the authenticated organization's generated `project-files` namespace. Only passive raster formats up to 6 MB are accepted, and the proxy returns `nosniff` plus a restrictive CSP. Uploading before "Save changes" can still leave an orphaned storage object if the user abandons the settings form without saving — tracked as non-blocking technical debt, not fixed here.
+- workspace summary
+- divisions, categories, and subcategories
+- materials
+- labor rates
+- equipment
+- Cost Items
+- Assemblies and components
+- calculation-only pricing preview
+- Material price audit/history and Estimate pricing snapshots
+- supplier-feed proposal/review flow
+- bounded search/filter/sort/cursor pagination across canonical catalog collections
 
-- A Dispatcher Workspace (`/dispatch`, linked from the authenticated nav) was added as a founder-directed feature branch, outside the numbered sprint queue (the closest backlog item, S030 "Dispatcher workspace end-to-end verification", is still `PLANNED` and blocked on S012, which is not `DONE` — see [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md); this branch does not claim S030 completion). It reuses the existing `Job`/`JobAssignment` model and `GET /api/v1/jobs` list endpoint (now with an additive `unassigned` filter and additive `project`/`customer`/`assignedTechnicians`/`isOverdue`/`isUnassigned`/`needsAttention` DTO fields) plus one new read-only aggregate route, `GET /api/v1/jobs/dispatch-summary` (count()-only, never `findMany`). A new pure-logic module, `app/modules/jobs/dispatchRules.ts`, is the single source of truth for terminal-status exclusion, overdue/unassigned/unscheduled "needs attention" predicates, and organization-timezone-aware day/week boundary math (derived from `domain/contracts.ts`'s canonical `jobStatuses`, validated via built-in `Intl` — no new dependency). Organization timezone is read from the existing but previously-unused `organizationSettings.settingsJson.timezone` field, with an honest UTC-fallback label surfaced in the UI when it is absent or invalid. Because the underlying `jobs_select_policy` RLS policy already narrows job visibility to owner/admin/dispatcher or an assignee, the summary endpoint's response includes a `scope` field so a non-manager caller's narrower counts are never presented as an org-wide total. No new database migration, canonical status, lifecycle transition, or privileged role check was introduced.
+Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
 
-- Web frontend deployment foundation: the separate `tradeos-costbook-web` Vercel project now has READY Preview and production deployments, including a production deployment from `main` commit `2d80214a` on 2026-08-04. `web/.env.example` documents the frontend's server-only and browser-visible configuration contract with placeholders only, while `web/src/lib/envSecurity.test.ts` guards against importing `SUPABASE_SERVICE_ROLE_KEY` into a `"use client"` dependency graph. `docs/QA_PREVIEW_DEPLOYMENT_CHECKLIST.md` and `web/scripts/preview-smoke-check.mjs` provide repeatable validation for existing Preview deployments. Repository state cannot prove that every Vercel environment value is present or correct, so environment configuration remains a deployment check. No CORS, cookie, proxy/middleware, or backend auth code changed.
-- `web/proxy.ts` was never actually running: `web/` uses a `src/` layout (`web/src/app`), and Next.js only auto-detects `proxy.ts`/`middleware.ts` at the project root **or** inside `src/` if the project has one — not both. It sat at the wrong location with no build error or warning, so `updateSession` (the Supabase session refresh that gates `/dashboard`, `/customers`, `/projects`, `/dispatch`) silently never ran. Fixed by moving it to `web/src/proxy.ts` (also renaming its `proxyConfig` export to the required `config` name — the same naming bug independently fixed in the sibling `404-tradeos` marketing site's own `proxy.ts`). `web/next.config.ts`'s `turbopack.root` is now pinned explicitly to the repo root rather than left to Next.js's auto-inference: Turbopack does not honor `experimental.externalDir` (that flag only affects the webpack build path), so `web/src/domain`'s cross-directory re-export of `app/domain` only resolves because `turbopack.root` literally includes both directories; auto-inference landed on the same directory but emitted a spurious "multiple lockfiles" warning because of the repo root's own docs-governance `package-lock.json`. Verified via build output (`ƒ Proxy (Middleware)` now present) and behaviorally (unauthenticated requests to `/dashboard` and `/customers` now invoke `updateSession`, while `/login` correctly does not). Separately, `app/backend/server.ts`'s previously-unrestricted `cors()` is now an explicit allowlist (`app/backend/middleware/productionHardening.ts`: `isAllowedCorsOrigin`/`buildCorsOriginHandler`) — the production frontend (`https://app.404tradeos.com`), any `tradeos-costbook-web` Vercel Preview deployment, and localhost, extensible via `CORS_ADDITIONAL_ORIGINS`. Auth is bearer-token-only (no cookies), so the prior wide-open policy was not a credential-hijack risk, but the allowlist is tighter without hardcoding a single origin that would break Preview deployments.
+Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
-## Known blockers and unresolved technical debt
+### S027 production-readiness truth
 
-- Persisted organization-wide pricing policy/rule governance is not implemented; the current `/costbook/pricing` surface is a calculation-only preview.
-- Supplier feed transport requires trusted server-side endpoint configuration and still has no supplier-SKU matching/provider-specific connector layer; feeds enqueue proposals only and never auto-apply prices.
-- Cost-item and assembly combined name-or-code substring search can still degrade into scan-heavy plans because only `name` columns are trigram-indexed today
-- Documentation governance is implemented; ongoing governance work should update `docs/DOC_OWNERSHIP.yml`, `docs/README.md`, and `docs/REPOSITORY_GOVERNANCE.md` together when ownership policy changes
-- Production deployment state and environment approvals are not inferred from code and must be verified per environment
-- Some older implementation notes and planning artifacts required archiving because they conflicted with the live repository
-- Settings brand asset uploads (`uploadSettingsAssetAction`) use the private `project-files` bucket through a server-only Supabase service-role client and authenticated proxy; no service credential or direct public/signed Supabase Storage URL is returned to the browser
-- Settings brand asset uploads can leave an orphaned storage object if a user uploads a file but abandons the settings form before pressing "Save changes" — non-blocking, no cleanup logic exists for this yet
-- Knowledge Runtime deployment packaging now has two production-path protections: `app/scripts/vendor-knowledge-engine.js` copies the read-only Knowledge Engine data into `app/vendor/knowledge-engine/` during backend build, and `app/vercel.json` includes `vendor/knowledge-engine/**` in the `index.ts` function bundle. `app/modules/knowledge-runtime/loader.ts` checks the process-root vendored path first, then source-layout and compiled-`dist` relative candidates, before falling back to full-repository local/CI discovery. This changes deployment packaging only; knowledge APIs, estimator review behavior, auth, RLS, and write paths are unchanged.
+The implementation that older revisions of this document labeled **Unreleased** is merged repository state:
 
-## Recent verified infrastructure facts
+- PR #257 merged the supplier review concurrency repair.
+- PR #260 merged the standardized Costbook catalog query contract.
+- PR #268/#271 repaired bounded Supabase/Vercel serverless database pooling and TLS compatibility.
+- PR #273 merged the bounded request-transaction acquisition wait.
+- PR #274 added the real PostgreSQL `connection_limit=1` contention regression and hermetic timeout coverage.
+- PR #278 supplied the production deployment/replay evidence referenced by the S027 readiness record.
 
-- the repository now includes `20260804020000_harden_database_security_boundaries`, which enables RLS on Prisma migration history without forcing it for the table-owning migration administrator, revokes runtime/public migration-history privileges, pins the eight existing RLS helper functions to an empty search path, and replaces three permissive auth-record update checks with guarded policies plus immutable identity triggers
-- `app/scripts/sql/provision-app-role.sql` reapplies the `_prisma_migrations` privilege exception after its broad runtime table grant, preserving the boundary on every idempotent role provisioning run
-- static migration regression coverage, the PostgreSQL parser check, all 437 backend unit tests, TypeScript lint, and the backend build passed before the security-hardening change merged as PR #65; GitHub Actions also completed the Docker-backed live RLS integration suite successfully
-- merging application or migration code does not change the live database by itself; normal production rollout remains manual and Environment-approval-gated through the tracked migration deployment workflow
+The S027 readiness record therefore remains `PARTIAL`, **not because those repository/runtime repairs are unreleased**, but because exact authenticated rendered evidence is still missing at **1440 / 1024 / 768 / 390 px**, including keyboard-focus and mutation/error-state coverage. The production replay already reached all nine canonical Costbook routes with `200` API responses and no warning/error/fatal entries in the exact-deployment logs; exact viewport evidence remains the final promotion gate. See `docs/architecture/COSTBOOK_S027_READINESS.md`.
 
-- migration `20260703090000_add_search_trgm_indexes` enables PostgreSQL `pg_trgm`
-- the migration adds GIN trigram indexes on `cost_items.name`, `assemblies.name`, `materials.name`, and `suppliers.name`
-- this supports the current case-insensitive substring-search behavior used by cost-item and assembly name search, and it covers representative name-search patterns for materials and future supplier search surfaces
-- RLS behavior is unchanged because the indexes only affect query planning, not tenancy enforcement
-- verification state: the migration is merged on `main`; the PR notes local migration and `EXPLAIN` verification on a throwaway Postgres 18 cluster, while the repository's own `npm run test:integration` harness was still recommended separately in that PR
+Cold/concurrent Costbook requests in the retained production evidence reached approximately 12.6 seconds in the worst observed case. Treat that as performance follow-up, not as proof of an incomplete response.
+
+### Costbook ↔ Athena boundary
+
+Athena A12 includes three landed **read-only/recommendation-only** Costbook Intelligence tools under `app/modules/athena-tools/costbook`:
+
+- catalog lookup
+- margin analysis
+- price recommendation
+
+Those adapters call existing `CostDatabaseService` / `AssembliesDatabaseService` methods and shared Estimate formulas. They do not reach Prisma directly, do not define competing pricing math, and do not mutate Costbook or stored pricing state. Athena Costbook writes/autonomous Costbook mutation remain outside the landed architecture and require separate governance.
+
+## Lifecycle normalization status
+
+The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.
+
+Important compatibility truths that remain intentional:
+
+- historical Project aliases remain readable while new writes use canonical Project states;
+- Estimate `sent` remains distinct from internal `ready`;
+- historical Proposal `rejected` normalizes to canonical `declined`;
+- Contract persistence may retain compatibility storage such as `pending_signature` while DTOs expose the canonical lifecycle contract;
+- Invoice paid/partial/overdue presentation is derived from persisted Invoice/Payment truth rather than inventing ledger rows;
+- destructive historical rewrites are not implied by lifecycle normalization.
+
+## Customer portal and identity
+
+Two portal surfaces are intentionally distinct:
+
+- `/portal/*` is the authenticated staff preview/workspace.
+- `/customer-portal/*` is the ADR-010 public customer-scoped magic-link surface.
+
+The public portal uses one-time hashed access tokens redeemed into short-lived hashed sessions, customer/tenant-scoped forced-RLS reads, replay/revocation protection, and a narrowly authorized pending-contract customer-signing transition with explicit customer attribution. It does not claim certificate-backed signing, notarization, or standalone legal identity verification.
+
+Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
+
+## Athena implementation state
+
+Athena remains a feature-flagged orchestration layer over existing application services rather than a parallel business-domain implementation.
+
+Landed foundations include:
+
+- kernel lifecycle and execution persistence
+- memory infrastructure with scoped visibility rules
+- canonical event/outbox persistence and delivery infrastructure
+- action engine, approval/risk boundaries, and durable idempotency
+- observability/trace/alert derivation
+- first-party business tools routed through existing application services
+- safe background/retry/correlation semantics
+- security audit-event coverage
+
+Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
+
+Repository merge state does not by itself prove Athena is enabled in production; feature flags and deployment configuration remain authoritative.
+
+## Security and tenant-boundary posture
+
+Current repository architecture uses authenticated request context plus organization membership authorization, request-scoped database sessions, and forced PostgreSQL RLS as layered tenant protection. Route/service permission checks remain defense in depth rather than a substitute for database isolation.
+
+Security-sensitive maintenance already landed includes:
+
+- local refresh-token rotation/revocation hardening
+- Supabase JWT claim/lifetime validation
+- organization bootstrap/RLS lookup repairs
+- tenant-boundary regression coverage
+- protected storage/server-action session checks
+- bounded database transaction acquisition under serverless contention
+- safe audit/security event capture
+- exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
+- browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+- server-only staff API response handling preserves structured backend error status/details, normalizes non-JSON upstream failures into `ApiClientError`, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+
+The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
+
+This document does not treat a passing unit test or route-level organization predicate as equivalent to RLS evidence where the repository requires PostgreSQL-backed verification.
+
+## Deployment and beta-evidence posture
+
+Repository state and production state are separate evidence domains.
+
+Known retained deployment evidence includes the S027 production Costbook replay described above and later production/auth fixes recorded by their owning PRs. Exact release-candidate browser evidence, environment configuration, credentials/storage states, and retained multi-viewport artifacts must be proven through the approved deployment/evidence workflows rather than inferred from merged code.
+
+RC smoke run #10 on 2026-09-02 proved the repaired workflow now passes its
+non-production configuration gate without serialized storage-state secrets, but
+the owner authentication check still used a stale lifecycle identity and timed
+out on successful-login navigation. The bounded follow-up maps owner auth to the
+maintained Beta smoke credentials while keeping the field technician password
+isolated; this is evidence-fixture maintenance, not a product auth-policy change.
+
+Run #11 then returned a login alert before credential evaluation. A direct
+sanitized signup probe reported `SUPABASE_URL is not configured`; the stable
+staging backend remained database-ready, isolating the defect to its missing
+branch-scoped Supabase issuer URL. The Beta owner and technician now have
+confirmed staging Supabase Auth identities mapped to their existing active
+owner/technician memberships. The first guarded environment-repair dispatch did
+not alter the deployment: Vercel CLI 59.11.2 prompted before `env update` and
+rejected the removed `redeploy --yes` option. The workflow now uses the verified
+non-interactive update and redeploy contracts. Full lifecycle evidence remains
+blocked until the corrected repair dispatch restores the staging backend and the
+smoke rerun passes.
+
+Customer magic-link portal implementation is merged, but its merge alone does not constitute beta-readiness evidence. The same applies to other product flows that still require authenticated rendered verification.
+
+## Contractor project-to-job bridge
+
+The authenticated project workspace now has a reachable `Create job` path into `/projects/[id]/jobs/new`. The form resolves the linked customer, reuses saved service addresses, can create a missing service address through the existing CRM contract, and creates the initial Job through the existing authenticated `POST /api/v1/jobs` API before continuing into `/dispatch`. Before any missing-address CRM mutation, the form normalizes and validates the required job title and job type so an invalid job submission cannot leave a newly created service address behind.
+
+This closes the prior UI-only break between approved/billable project work and field execution. It does not add a new Job lifecycle, permission, role, schema, migration, RLS policy, or authentication mechanism; the existing backend service and request-scoped tenant boundary remain authoritative. Repository implementation truth is separate from RC promotion evidence: the full contractor flow still requires retained authenticated proof through payment -> job -> schedule -> dispatch/field progression -> completion plus the required 1440 / 1024 / 768 / 390 viewport evidence.
+
+## RC dashboard schema-drift incident
+
+On 2026-09-01, the production-like Supabase database serving the RC deployment was behind the repository migration head. The API Prisma client queried `estimates.tax_pct` and project-detail financial fields that were absent from the database, causing the estimate queue and one project-detail request to return generic 500 responses while `/dashboard` itself rendered. The authenticated organization, membership, and forced-RLS context were valid; authorization was not bypassed or weakened.
+
+The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The focused application repair is merged as `e09101f6c436f1f5648f2188a9621b5dc1a26477` and the backend is deployed READY as `dpl_2gWxCWF4wbiQS7FBxeu3a522h1VK` at `tradeos-costbook-ocq61wy8f-billykshowalters.vercel.app`; the frontend was correctly unchanged because no web files were modified. Authenticated multi-viewport and contractor-smoke evidence remain outstanding until the runtime-authenticated RC workflow completes and retains its artifacts; no baked browser-state secret is required by that workflow.
 
 ## Current verification surface
 
-Backend commands defined in `app/package.json`:
+Backend commands defined in `app/package.json` include:
 
 - `npm test`
 - `npm run test:integration`
 - `npm run lint`
 - `npm run build`
 
-Frontend commands defined in `web/package.json`:
+Frontend commands defined in `web/package.json` include:
 
+- `npm test`
 - `npm run lint`
 - `npm run build`
-- `npm test` (framework-free `node --test` against `src/**/*.test.ts`; today this is `web/src/lib/envSecurity.test.ts`, which statically checks that `SUPABASE_SERVICE_ROLE_KEY` never leaks into a `NEXT_PUBLIC_`-prefixed name and never becomes reachable from a `"use client"` import graph)
 
-Current CI workflows:
+Repository governance additionally uses documentation consistency, dependency review, branch-currency/live-reconciliation checks, and PostgreSQL-backed integration/migration rehearsals where applicable.
 
-- `.github/workflows/verify-repository.yml` runs backend lint, unit tests, build, integration tests, and frontend unit tests/lint/build
-- `.github/workflows/deploy-migrations.yml` runs tracked database rollout logic for migration changes
+### Beta contractor vertical regression coverage
+
+`app/tests/beta-vertical-price-transfer.test.ts` chains real `ProposalsService.create()` and `ContractsService.create()` calls (not per-module mocks with independent fixtures) to guard the estimate -> proposal -> contract price and scope transfer, including its tenant-isolation (`orgId`) and `documents.manage` role-guard boundaries. `web/src/app/actions/invoices.test.ts` and `web/src/app/(app)/projects/[id]/invoices/[invoiceId]/page.test.ts` pin `recordInvoicePaymentAction`'s validation/payload/error-handling contract and lock the invoice page's `canRecordPayment` role list to the backend's `billing.write` grant in `app/domain/contracts.ts`. Record-payment UI/API and contract amount/snapshot rendering were already correct; this closes the prior zero-regression-coverage gap on that path. It does not add authenticated browser/Playwright e2e coverage (no such harness exists in this repository) and does not add the `subtotal`/`taxAmount`/`taxPct` fields `Proposal` is still missing, so only a single collapsed `finalPrice` survives estimate -> proposal -> contract.
+
+## Known blockers and unresolved technical debt
+
+- S027 exact authenticated rendered evidence at 1440 / 1024 / 768 / 390 px remains incomplete; repository/runtime repairs are merged and production replay is already evidenced.
+- Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
+- Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
+- Athena Costbook writes/autonomous pricing mutation are not implemented.
+- Production environment values, Preview isolation, runtime-authenticated RC sessions, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
+- Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
+
+## Canonical sequencing
+
+Numbered-sprint eligibility and ordering are owned by `docs/SPRINT_BACKLOG.md` and the repository reconciliation protocol. `CURRENT_STATE.md` describes implementation truth; it does not override the backlog, readiness plans, ADRs, or completion-evidence records.
 
 ## Module documentation
 
-- [modules/auth-and-tenancy.md](modules/auth-and-tenancy.md)
-- [modules/crm.md](modules/crm.md)
-- [modules/cost-book.md](modules/cost-book.md)
-- [modules/estimating.md](modules/estimating.md)
-- [modules/proposals.md](modules/proposals.md)
-- [modules/contracts.md](modules/contracts.md)
-- [modules/invoices-and-payments.md](modules/invoices-and-payments.md)
-- [modules/projects.md](modules/projects.md)
-- [modules/jobs-and-scheduling.md](modules/jobs-and-scheduling.md)
-- [modules/activity-and-intelligence.md](modules/activity-and-intelligence.md)
-- [modules/brand-studio.md](modules/brand-studio.md)
-- [modules/customer-portal.md](modules/customer-portal.md)
-- [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)
-- [modules/settings-and-operations.md](modules/settings-and-operations.md)
+See `docs/modules/` for the maintained domain/module records and `docs/architecture/` for readiness plans, ADRs, and completion evidence.
 
-## Frontend UX hardening (landed)
+## Web password recovery
 
-- PR #211 (`fix/dashboard-navigation-ux`) merged: it repairs dashboard weather address selection so today's first real job-site address takes priority, with a fallback only to a non-empty persisted organization address from the settings API (never the demo/default address); keeps upstream weather failures fail-soft; aligns responsive navigation controls with the collapsed-primary-nav breakpoint; retains mobile command-palette access and the shared `Tools & admin` hierarchy; uses shared `PageHeader` context on Projects/New Project/New Customer; normalizes primary navigation icon semantics; and replaces the dashboard quick-action `Soon` pill with the shared `Badge` primitive. PR #231 (see Recent verified changes) is the Phase 2 follow-up built directly on this landed state. Neither PR changed backend APIs, auth/RLS, database schema, Costbook domain behavior, or Athena orchestration.
-- Remaining UI debt, deliberately out of scope for both #211 and #231: persistent desktop operations-console/sidebar architecture; exterior-job weather classification and adverse scheduled-window risk detection; first-class `/costbook/assemblies` management; Brand Studio/Settings full design-system migration; and a dead `AIAssistantPlaceholderPanel` import/render in `dashboard/page.tsx` (zero visual impact, pure cleanup).
+The web forgot-password flow uses Supabase Auth recovery: the recovery request is sent through Supabase, `/auth/confirm` exchanges the PKCE or token-hash link for a server-side session, and the reset form updates the Supabase password. Legacy backend-token reset links remain supported. This avoids requiring the web recovery flow to reach Prisma or the backend Resend adapter.
+The callback attaches Supabase recovery session cookies directly to its redirect response before navigating to `/reset-password`, preventing the reset form from losing the recovery session between requests. `/reset-password` binds the HttpOnly recovery marker to the user returned by the recovery exchange and requires that same live user before rendering the native form, so a stale marker or unrelated sign-in session fails closed at page load. Malformed or unrecognized recovery callbacks log only a static diagnostic; recovery query strings, PKCE codes, and token hashes are never written to server logs.
+
+`/reset-password` verifies a valid recovery session server-side (the `tradeos-recovery` cookie set by `/auth/confirm`, or a legacy invite token) before ever rendering the password form. A missing session, or an `?error=` from a failed `/auth/confirm` exchange (expired, reused, or scanner-consumed link), renders a recovery-error card with a link back to `/forgot-password` instead of the form — the form is never shown to a caller without a valid session. `resetPasswordForEmail`, the `/auth/confirm` exchange, and `updateUser` each log their real Supabase error server-side (`console.error`) on failure while returning a generic, safe message to the client.
+
+
+## Dashboard weather compatibility seam
+
+The standing dashboard weather selector in `web/src/lib/dashboard-weather.ts` remains intentionally disabled until adverse-weather handling is owned by the scheduled exterior-job needs-attention queue. It preserves its typed input contract and returns `null` without issuing Census or NWS requests; the follow-up lint cleanup is behavior-neutral.

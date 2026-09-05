@@ -19,6 +19,7 @@ const mockTransactionClient = {
     findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
   },
   passwordResetToken: {
     create: jest.fn(),
@@ -48,8 +49,18 @@ const mockPrisma = {
 };
 
 const mockProvision = jest.fn();
+const mockSendPasswordReset = jest.fn().mockResolvedValue({ sent: true });
+const mockSendTeamInvite = jest.fn().mockResolvedValue({ sent: true });
+const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => setImmediate(() => void send()));
 
 jest.mock("../db/client", () => ({ basePrisma: mockBasePrisma, prisma: mockPrisma }));
+jest.mock("../modules/email/service", () => ({
+  emailService: {
+    sendPasswordReset: mockSendPasswordReset,
+    sendTeamInvite: mockSendTeamInvite,
+  },
+  scheduleEmailInBackground: mockScheduleEmailInBackground,
+}));
 jest.mock("../modules/organization-provisioning/service", () => ({
   OrganizationProvisioningService: jest.fn().mockImplementation(() => ({ provision: mockProvision })),
 }));
@@ -153,8 +164,64 @@ describe("AuthService", () => {
     const result = await service.refresh({ refreshToken: "refresh-token" });
 
     expect(result.role).toBe("dispatcher");
-    expect(mockTransactionClient.authRefreshToken.update).toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ revokedAt: null }) }));
     expect(mockTransactionClient.authRefreshToken.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a refresh when another request already won the conditional rotation", async () => {
+    mockTransactionClient.authRefreshToken.findUnique.mockResolvedValue({
+      id: "rt-1", orgId: "org-1", userId: "user-1", membershipId: "membership-1",
+      expiresAt: new Date(Date.now() + 60_000), revokedAt: null,
+    });
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({ id: "user-1", isActive: true });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", orgId: "org-1", userId: "user-1", role: "dispatcher", status: "active" });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+    mockTransactionClient.authRefreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new AuthService().refresh({ refreshToken: "refresh-token" })).rejects.toMatchObject({ statusCode: 401 });
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("revokes all local refresh sessions on logout", async () => {
+    await new AuthService().logout("user-1");
+
+    expect(mockTransactionClient.authRefreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: expect.objectContaining({ revokedAt: expect.any(Date), lastUsedAt: expect.any(Date) }),
+    });
+  });
+
+  it("rejects refresh for an inactive application user", async () => {
+    mockTransactionClient.authRefreshToken.findUnique.mockResolvedValue({
+      id: "rt-1",
+      orgId: "org-1",
+      userId: "user-1",
+      membershipId: "membership-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+    });
+    mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({
+      id: "membership-1",
+      orgId: "org-1",
+      userId: "user-1",
+      role: "dispatcher",
+      status: "active",
+    });
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "dispatch@example.com",
+      fullName: "Dispatch",
+      isActive: false,
+    });
+    mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+
+    await expect(new AuthService().refresh({ refreshToken: "refresh-token" })).rejects.toMatchObject({
+      statusCode: 401,
+      message: "Invalid refresh token",
+    });
+    expect(mockTransactionClient.authRefreshToken.update).not.toHaveBeenCalled();
+    expect(mockTransactionClient.authRefreshToken.create).not.toHaveBeenCalled();
   });
 
   it("creates password reset tokens without leaking unknown-email status", async () => {
@@ -168,13 +235,39 @@ describe("AuthService", () => {
 
     const service = new AuthService();
     const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
 
     expect(result.success).toBe(true);
     expect(mockTransactionClient.passwordResetToken.create).toHaveBeenCalled();
+    expect(mockSendPasswordReset).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@example.com",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
+  });
+
+  it("preserves the generic password-reset response when email delivery fails", async () => {
+    mockTransactionClient.appUser.findUnique.mockResolvedValue({
+      id: "user-1",
+      authSubject: "local:abc",
+      email: "owner@example.com",
+      fullName: "Owner",
+      isActive: true,
+    });
+    mockSendPasswordReset.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.requestPasswordReset({ email: "owner@example.com" });
+    await waitForScheduledEmail();
+
+    expect(result.success).toBe(true);
+    expect(result.resetToken).toEqual(expect.any(String));
   });
 
   it("bootstrapSupabaseIdentity returns an existing user's membership without organizationName and without provisioning", async () => {
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -190,7 +283,7 @@ describe("AuthService", () => {
   });
 
   it("bootstrapSupabaseIdentity ignores a supplied organizationName for an already-bootstrapped user (idempotent, no duplicate org)", async () => {
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -213,7 +306,7 @@ describe("AuthService", () => {
     // identity's second-and-later bootstrap call falsely report "no active
     // organization membership" (a mocked Prisma client can't catch an RLS
     // gap — this test pins the actual set_config call sequence instead).
-    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person" });
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({ id: "user-1", email: "owner@example.com", fullName: "Owner Person", isActive: true });
     mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({ id: "membership-1", role: "owner", orgId: "org-1", createdAt: new Date("2024-01-01") });
     mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
 
@@ -234,6 +327,24 @@ describe("AuthService", () => {
       expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) })
     );
     expect(mockTransactionClient.organization.findUnique).toHaveBeenCalledWith({ where: { id: "org-1" } });
+  });
+
+  it("rejects bootstrap for an inactive existing application user", async () => {
+    mockTransactionClient.appUser.findFirst.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      fullName: "Owner Person",
+      isActive: false,
+    });
+
+    await expect(
+      new AuthService().bootstrapSupabaseIdentity({ authSubject: "supabase:abc", email: "owner@example.com" })
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Authenticated user is not provisioned in this organization",
+    });
+    expect(mockTransactionClient.organizationMembership.findFirst).not.toHaveBeenCalled();
+    expect(mockProvision).not.toHaveBeenCalled();
   });
 
   it("bootstrapSupabaseIdentity rejects provisioning a new organization without a name", async () => {
@@ -279,6 +390,33 @@ describe("AuthService", () => {
     );
   });
 
+  it("keeps the persisted invitation response when email delivery fails", async () => {
+    mockPrisma.organizationInvite.create.mockResolvedValue({
+      id: "invite-1",
+      email: "tech@example.com",
+      role: "technician",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mockSendTeamInvite.mockRejectedValueOnce(new Error("provider unavailable"));
+
+    const service = new AuthService();
+    const result = await service.inviteTeamMember({
+      orgId: "org-1",
+      invitedByUserId: "owner-1",
+      email: "tech@example.com",
+      role: "technician",
+    });
+    await waitForScheduledEmail();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        inviteId: "invite-1",
+        email: "tech@example.com",
+        role: "technician",
+      })
+    );
+  });
+
   it("allows owners to create dispatcher and technician invites", async () => {
     mockPrisma.organizationInvite.create.mockResolvedValue({
       id: "invite-1",
@@ -294,8 +432,22 @@ describe("AuthService", () => {
       email: "tech@example.com",
       role: "technician",
     });
+    await waitForScheduledEmail();
 
     expect(result.role).toBe("technician");
     expect(mockPrisma.organizationInvite.create).toHaveBeenCalled();
+    expect(mockSendTeamInvite).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "tech@example.com",
+        role: "technician",
+        token: expect.any(String),
+        expiresAt: expect.any(Date),
+      })
+    );
   });
 });
+
+
+function waitForScheduledEmail(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}

@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-08-24
 source_of_truth: false
 related_code:
   - app/modules/jobs
+  - app/modules/jobs/lifecycle.ts
   - app/backend/routes/jobs.routes.ts
   - app/prisma/schema.prisma
   - web/src/app/(app)/projects/[id]/page.tsx
@@ -63,9 +64,39 @@ Important job-specific rules:
 - schedule conflict overrides are owner/admin only
 - dispatcher workflows are in scope today; only advanced optimization and route-planning features remain deferred
 
+## Scheduling conflict rules
+
+The existing schedule, reschedule, and assignment paths enforce technician
+availability within the authenticated organization. A candidate interval
+overlaps an active scheduled job only when the existing start is before the
+candidate end and the existing end is after the candidate start. The intervals
+are therefore half-open: adjacent appointments with equal end/start times are
+allowed. The current job is excluded during rescheduling, and archived jobs plus
+removed or declined assignments do not create conflicts.
+
+`GET /api/v1/schedule/conflicts` provides a conflict preview for a technician and
+time window. Mutation paths reject conflicts with `409` unless an owner or admin
+supplies an explicit nonempty override reason. Dispatchers retain ordinary
+schedule and assignment management but cannot override; technicians retain only
+their existing field-scoped access. Dates must be valid and supplied durations
+must be positive integers before any write occurs.
+
+Conflict reads and their subsequent writes use transaction-scoped PostgreSQL
+advisory locks keyed by organization and technician. This closes the race where
+two concurrent requests could both observe a free interval, while preserving
+request authentication, forced RLS, activity attribution, and the existing
+schema. No scheduling table, status, role, provider integration, or route
+optimization behavior is added.
+
 ## Lifecycle and statuses
 
-See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md).
+See [WORKFLOW_LIFECYCLES.md](../WORKFLOW_LIFECYCLES.md). The backend transition
+contract is centralized in `app/modules/jobs/lifecycle.ts`: scheduling and
+rescheduling remain limited to `unscheduled|scheduled|dispatched`, field work
+progresses `scheduled -> dispatched -> traveling -> on_site`, pause/resume is
+`on_site <-> paused`, completion is `on_site -> completed`, cancellation is
+limited to `scheduled|dispatched|paused`, and owner/admin reopen is
+`completed -> unscheduled|scheduled`. Dispatch attention remains derived.
 
 ## Emitted activity events
 
@@ -80,6 +111,7 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 
 - jobs currently surface through the project workspace and related project detail pages
 - a dedicated Dispatcher Workspace now exists at `web/src/app/(app)/dispatch/page.tsx` (`/dispatch`, linked from the authenticated nav): an org-wide, filterable work queue plus the dispatch-attention summary strip above, both consuming only the routes documented here — no new backend module, no fabricated data, no drag-and-drop/GPS/route-optimization/map/notification features
+- the Dispatch workspace also includes a read-only diagnostics panel over the existing dispatch summary and `GET /api/v1/intelligence/activity?entityType=job` route. It links unscheduled, overdue, and needs-attention signals back to the existing queue and shows explicit activity empty/error states; it does not persist failed attempts or add alerting/notifications. Activity and counts remain organization-scoped or honestly assigned-only according to the existing backend/RLS contract.
 - the workspace defaults to `needsAttention=true` (a "Needs attention" vs. "All jobs" View filter, shareable/refresh-safe via `?view=`) rather than every unarchived job, since surfacing jobs that actually need dispatcher action is the workspace's purpose — the default is a visible, changeable filter-bar control, not a hidden constraint, and every empty state offers a working path back to the unfiltered `?view=all` queue
 - schedule times in the work-queue table render in the organization's timezone (or the UTC fallback), matching the summary strip's own caption — not the Next.js server process's local timezone, which the shared `formatDateTime` helper used elsewhere in this app does not account for
 - the work queue paginates with Previous/Next controls that preserve every active filter/search param
@@ -87,6 +119,7 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 ## Tests
 
 - `app/tests/jobs.service.test.ts`
+- `app/tests/jobs.lifecycle.test.ts`
 - `app/tests/jobs.controller.test.ts`
 - `app/tests/jobs.migration.test.ts`
 - `app/tests/dispatchRules.test.ts`
@@ -109,6 +142,21 @@ Four `app/modules/athena-tools/dispatcher/*` tools (`dispatcher.schedule-job`, `
 
 - advanced dispatch optimization and route planning
 
+## S033 implementation contract
+
+The Dispatcher Workspace includes a `Ready-to-invoice handoff` view backed by
+`GET /api/v1/jobs?status=completed&readyForInvoice=false`. It exposes completed
+jobs whose nullable `readyForInvoiceAt` marker is still empty. Owner, admin, and
+dispatcher users can acknowledge a row through
+`POST /api/v1/jobs/:jobId/ready-for-invoice`; the completed-only, organization/RLS
+scoping, activity attribution, and idempotent repeat behavior remain enforced by
+`JobsService`. This marker does not create, send, or post an invoice.
+
 ## Last verified date
 
 2026-08-12
+
+
+## S030 dispatcher verification (active)
+
+The `/dispatch` workspace now exposes the existing organization-scoped assignment, schedule/reschedule, conflict-check, and named lifecycle endpoints through a same-origin authenticated client proxy. Active assignments exclude both removed and declined rows in application predicates and detail/list includes, matching technician visibility policy. Job creation also requires assigned users to hold the canonical `technician` membership role; no new status, role, permission, migration, or RLS policy was introduced.

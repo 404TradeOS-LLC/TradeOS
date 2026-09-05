@@ -8,9 +8,9 @@ interface NotificationCenterProps {
 }
 
 const NOTIFICATION_TONES: Record<WorkflowNotification["status"], string> = {
-  ready: "border-sky-500/20 bg-sky-500/10",
-  attention: "border-orange-500/20 bg-orange-500/10",
-  completed: "border-emerald-500/20 bg-emerald-500/10",
+  ready: "border-info/20 bg-info/10",
+  attention: "border-warning/20 bg-warning/10",
+  completed: "border-success/20 bg-success/10",
 };
 
 export function NotificationCenter({ title = "Notifications", items }: NotificationCenterProps) {

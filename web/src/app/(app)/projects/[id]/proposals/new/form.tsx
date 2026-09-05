@@ -16,13 +16,16 @@ export function NewProposalForm({
   projectId,
   estimates,
   draft,
+  initialEstimateId,
 }: {
   projectId: string;
   estimates: Estimate[];
   draft: ProposalDraftPreview;
+  initialEstimateId?: string;
 }) {
   const [state, formAction, isPending] = useActionState(createProposalAction, undefined);
-  const hasEstimates = estimates.length > 0;
+  const eligibleEstimates = estimates.filter((estimate) => estimate.status !== "draft");
+  const hasEstimates = eligibleEstimates.length > 0;
 
   return (
     <Card className="border-border/70 bg-muted/10">
@@ -37,10 +40,11 @@ export function NewProposalForm({
             <select
               id="estimateId"
               name="estimateId"
+              defaultValue={initialEstimateId ?? ""}
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <option value="">{hasEstimates ? "Use project intake only" : "No estimates yet. Use project intake only."}</option>
-              {estimates.map((estimate) => (
+              <option value="">{hasEstimates ? "Use project intake only" : "No finalized estimates yet. Use project intake only."}</option>
+              {eligibleEstimates.map((estimate) => (
                 <option key={estimate.id} value={estimate.id}>
                   v{estimate.version} · {estimate.status} · ${estimate.totalPrice.toFixed(2)}
                 </option>

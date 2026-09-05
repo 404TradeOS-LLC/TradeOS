@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-16
+last_verified: 2026-08-29
 source_of_truth: false
 related_code:
   - app/modules/settings
@@ -12,17 +12,16 @@ related_code:
   - app/backend/routes/adminDashboard.routes.ts
   - app/backend/routes/supplierIntegration.routes.ts
   - app/backend/routes/supplierDatabase.routes.ts
-  - app/backend/controllers/supplierIntegration.controller.ts
-  - app/tests/supplier-integration.feed.test.ts
   - web/src/app/(app)/settings/page.tsx
   - web/src/components/settings/settings-console.tsx
+  - web/src/lib/settingsAssetCleanup.ts
 ---
 
 # Settings and Operations
 
 ## Purpose
 
-Own the organization settings control center, internal admin summaries, supplier records, and supplier review queue operations.
+Own the organization settings control center, internal admin summaries, supplier records, supplier review operations, and the Settings-side compatibility surface for canonical Brand Studio data.
 
 ## Source code locations
 
@@ -31,10 +30,13 @@ Own the organization settings control center, internal admin summaries, supplier
 - `app/modules/supplier-integration/*`
 - `app/modules/supplier-database/*`
 - `web/src/app/(app)/settings/page.tsx`
+- `web/src/app/actions/settings.ts`
+- `web/src/lib/settingsAssetCleanup.ts`
 
 ## Core models
 
 - `OrganizationSettings`
+- `SettingsAssetUpload`
 - `Supplier`
 - `SupplierPriceUpdate`
 - `MaterialPriceAudit`
@@ -46,31 +48,59 @@ Own the organization settings control center, internal admin summaries, supplier
 - `/api/v1/suppliers/*`
 - `/api/v1/supplier-integrations/*`
 
-## Permissions
+## Permissions and tenancy
 
 See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
-Current supplier-integration boundary:
-
 - supplier integration reads require `costbook.read`
-- queue creation/sync operations use the Costbook write boundary
+- queue creation/sync operations use the existing Costbook write boundary
 - approve/reject requires `costbook.manage` and remains an owner/admin governance operation under current role mappings
+- Settings brand-asset upload/removal/cleanup uses the existing admin-equivalent `team.manage`, `company.manage`, or `settings.manage` boundary
+- organization context is server-derived and request-scoped; forced PostgreSQL RLS remains the tenant floor for application metadata
 
 ## Supplier price-feed transport
 
-The existing SupplierIntegrationService queue/review/worker/scheduler remains canonical. The Costbook continuation adds only the previously missing feed transport adapter; it does not create another supplier synchronization system.
+`SupplierIntegrationService` remains the canonical queue/review/worker/scheduler implementation. The generic transport is review-first and never auto-applies Material prices.
 
 - trusted feed endpoints come only from server-side `SUPPLIER_PRICE_FEED_ENDPOINTS`, keyed by Supplier ID
-- arbitrary request URLs and `Supplier.website` are never treated as feed endpoints
-- configured endpoints must use HTTPS; redirects are rejected
-- an existing supplier `apiIntegrationKey`, when present, is used server-side as a bearer credential and is never returned by the API
-- responses use a strict minimal quote contract (`materialId`, `proposedUnitCost`), are bounded in quote count and response size, and are subject to an abort timeout
-- absent configuration is an honest safe no-op/unconfigured state rather than a fabricated successful sync
-- feed ingestion only creates pending `SupplierPriceUpdate` proposals; it never changes `Material.unitCost` directly
-- approved proposals continue through the existing transactional material update plus `MaterialPriceAudit` path
-- duplicate pending-proposal suppression remains in the existing service
+- arbitrary request URLs and `Supplier.website` are not feed endpoints
+- configured endpoints require HTTPS and reject redirects
+- an existing supplier integration credential, when configured, stays server-side
+- feed responses use the bounded `materialId` + `proposedUnitCost` quote contract
+- ingestion creates pending `SupplierPriceUpdate` proposals; approved proposals continue through the existing transactional Material update plus `MaterialPriceAudit` path
+- PR #257's merged supplier-review concurrency repair atomically claims pending approval/rejection rows so competing reviewers cannot apply or audit the same proposal twice
+- the canonical review collection uses organization-scoped bounded search/filter/sort/keyset pagination
+- scheduler execution uses the landed organization/supplier advisory lock plus bounded outcome/correlation metadata
 
-There is no supplier-SKU matching layer in this slice; feed rows must already identify a TradeOS Material by `materialId`.
+Supplier-SKU discovery/matching and provider-specific connectors remain future work; current feed rows must identify a TradeOS Material by `materialId`.
+
+## Brand Studio compatibility
+
+S015 is merged and complete. Brand Studio is the canonical organization-brand source; Settings remains its compatibility/admin surface. Canonical values take precedence over legacy Settings fallbacks, legacy non-empty values can be adopted non-destructively, unrelated operational Settings JSON remains owned by Settings, and explicit clears do not repopulate stale shell values.
+
+S016 is also merged and complete. Canonical organization branding is consumed by the authenticated proposal, invoice, contract, and shared document-rendering seams with deterministic fallbacks and safe asset/color/font handling. This supersedes older notes that claimed persisted Settings/Brand Studio fields had no downstream document consumer. Remote PDF logo fetching and arbitrary font loading remain intentionally outside that trust boundary.
+
+## Settings brand assets
+
+Settings Console assets (`logoUrl`, `darkLogoUrl`, `iconUrl`, `watermarkUrl`) use the private `project-files` bucket through a server-only Supabase service-role client after session, organization, and permission checks. Browser clients receive only the app-owned authenticated proxy URL.
+
+`SettingsAssetUpload` stores the authoritative bucket/path/content-type/size metadata. Upload replacement follows upload-new → record-current → remove-previous ordering, so a cleanup failure cannot invalidate the current asset.
+
+S017 is merged and complete. Its server-only reconciliation path:
+
+- defaults to dry-run
+- scopes listing to the exact organization/asset namespace
+- protects the metadata-referenced current object
+- applies a 24-hour grace period
+- accepts only generated object names
+- fails closed when listing evidence is incomplete
+- deletes only when explicitly run with `dryRun: false`
+
+The remaining limitation is operational rather than missing implementation: stale non-current objects can remain in private Storage until an authorized operator runs reconciliation. S017 intentionally did not introduce an automatic deletion scheduler or new retention policy.
+
+## Request-scoped transaction convention
+
+Settings uses the repository's request-scoped Prisma transaction boundary. A prior production defect caused `PATCH /api/v1/settings` to call `prisma.$transaction(...)` on the active transaction client; it was repaired by using the established `runInDatabaseTransaction()` helper, which reuses the current request transaction. Static regression coverage now guards against reintroducing that nested-transaction misuse in application modules.
 
 ## Frontend surfaces
 
@@ -79,6 +109,8 @@ There is no supplier-SKU matching layer in this slice; feed rows must already id
 
 ## Tests
 
+Representative coverage includes:
+
 - `app/tests/admin-dashboard.service.test.ts`
 - `app/tests/admin-dashboard.members.test.ts`
 - `app/tests/supplier-database.service.test.ts`
@@ -86,26 +118,23 @@ There is no supplier-SKU matching layer in this slice; feed rows must already id
 - `app/tests/supplier-integration.scheduler.test.ts`
 - `app/tests/supplier-integration.worker.test.ts`
 - `app/tests/supplier-integration.feed.test.ts`
-
-## Implementation notes
-
-- Fixed a production bug where every `PATCH /api/v1/settings` call failed with `TypeError: ...prisma.$transaction is not a function`, confirmed against live Vercel runtime logs. Root cause: `OrganizationSettingsService.updateSettings` called `prisma.$transaction(...)` on the shared, request-scoped `prisma` proxy (`app/db/client.ts`); `databaseSession` middleware already wraps every authenticated request in a `Prisma.TransactionClient` via `AsyncLocalStorage` (`app/db/requestSession.ts`), and that proxy resolves `prisma` to the active transaction client whenever one is set. `Prisma.TransactionClient` has no `$transaction` method, so the call threw on every real request; the existing unit test suite never caught this because it mocks `db/client` entirely, bypassing the proxy's request-scoped resolution. Fixed by routing through the existing `runInDatabaseTransaction()` helper, which reuses the active request transaction instead of nesting a new one. The same broken pattern (unexercised in production traffic) was also found and fixed in `app/modules/crm/service.ts`, `app/modules/brand-studio/service.ts`, and `app/backend/controllers/projectTasks.controller.ts` — see those modules' docs. `app/tests/requestScopedTransaction.convention.test.ts` is new static regression coverage that fails if any module reintroduces a direct `prisma.$transaction(...)` call.
-- `admin-dashboard`'s `CreateOrganizationInput` and `supplier-integration`'s `SupplierPriceUpdateStatus`/`SupplierFeedQuote` are file-local types; their `export` keyword was removed after confirming no other module imports them by name
-- Settings Console brand asset uploads (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`) go through a server-only Supabase service_role client (`web/src/lib/supabase/admin.ts`, requires `SUPABASE_SERVICE_ROLE_KEY` — never `NEXT_PUBLIC_`-prefixed, never sent to the browser), not the anon/publishable client used elsewhere. The `project-files` bucket is private; there are no `anon`/`authenticated` Storage RLS policies on `storage.objects` at all, since the service_role key bypasses Storage RLS entirely and authorization is enforced in `uploadSettingsAssetAction`/`removeSettingsAssetAction` before any Storage call (session + org membership + the `team.manage`/`company.manage`/`settings.manage` role gate). Storage location metadata (bucket/path/content type/size) is persisted in the application's own `settings_asset_uploads` table (forced RLS, admin-only write, `app/prisma/migrations/20260728120000_add_settings_asset_uploads`), not inferred from a URL string. The backend accepts only the `project-files` bucket, the authenticated organization's exact generated brand-asset namespace, passive raster content types (PNG/JPEG/WebP/GIF/ICO), and files up to 6 MB, preventing a crafted metadata request from redirecting the service-role read proxy to another object. Reads go through `web/src/app/api/brand-assets/[orgId]/[assetKey]/route.ts`, a server-side proxy that verifies the caller's session org matches the requested org before streaming bytes with `nosniff` and a restrictive CSP; the normal UI receives only the stable app-owned proxy URL. Replacing an asset uploads a fresh, server-generated object name, persists the new metadata row, and only then deletes the previous object, so a failure between those steps leaves an orphaned object rather than a broken active asset.
+- Settings asset upload/cleanup tests under `web/src/**/*.test.ts`
+- `app/tests/requestScopedTransaction.convention.test.ts`
 
 ## Known limitations
 
-- supplier feeds require explicit trusted server configuration per supplier; the adapter does not imply every Supplier is synchronized
-- supplier-SKU discovery/matching is not implemented
-- supplier pricing is review/proposal based and never auto-applied
+- supplier feeds require explicit trusted server configuration per supplier
+- supplier-SKU discovery/matching and provider-specific connectors are not implemented
 - internal admin surfaces are operational tooling, not contractor-facing product routes
-- Settings Console's brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`, persisted via `organization.logoUrl` and `organizationSettings.settingsJson`) are not currently rendered into any generated document or customer portal page. The live PDF generators (`app/modules/invoices/pdf.ts`, `app/modules/contracts/pdf.ts`, `app/modules/proposal-generator/service.ts`) are pdfkit-based and draw only a `companyName` text header — none of them call `.image()` or reference a logo/brand field, and the portal pages under `web/src/app/(app)/portal/**` don't render one either. The one place in the codebase that does treat a logo as a real `<img>` (`app/modules/documents/frame.ts` / `templates.ts`) has no live caller outside `app/tests/document-frame.test.ts`. A prior commit fixing this module's asset-upload persistence bug described the affected fields as driving "customer-facing PDF and portal branding" — that description is not accurate as of this writing; persisting these fields correctly is still a real, worthwhile fix (the previous blob-URL behavior broke on reload), it just has no visible customer-facing effect yet because nothing consumes the fields downstream.
+- brand-asset reconciliation is operator-invoked and dry-run by default; no automatic cleanup scheduler exists
+- remote PDF asset fetching and arbitrary font-file loading remain outside the approved document-rendering trust boundary
 
 ## Deferred work
 
-- supplier-specific adapters and SKU/product matching beyond the configured generic feed contract
-- additional operational reporting beyond current queue and admin summaries
+- supplier-specific adapters and SKU/product matching beyond the generic trusted-feed contract
+- additional operational reporting beyond the current queue/admin summaries
+- any automatic brand-asset cleanup schedule requires a separately governed retention/operations decision
 
 ## Last verified date
 
-2026-08-16
+2026-08-29

@@ -4,8 +4,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getSessionToken } from "@/lib/session";
 import { NewProposalForm } from "./form";
 
-export default async function NewProposalPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function NewProposalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estimateId?: string }> }) {
   const { id } = await params;
+  const { estimateId } = await searchParams;
   const token = await getSessionToken();
   const [project, draft] = await Promise.all([getProject(token ?? "", id), getProjectProposalDraft(token ?? "", id)]);
 
@@ -18,7 +19,7 @@ export default async function NewProposalPage({ params }: { params: Promise<{ id
         backLabel="Back to project"
       />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <NewProposalForm projectId={id} estimates={project.estimates} draft={draft} />
+        <NewProposalForm projectId={id} estimates={project.estimates} draft={draft} initialEstimateId={estimateId} />
         <ProposalContextPanel latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
       </div>
     </div>

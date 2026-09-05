@@ -1,7 +1,9 @@
 import { prisma, basePrisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { AuthContext } from "../../backend/auth/context";
+import { Prisma } from "@prisma/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { fetchConfiguredSupplierFeed } from "./feed";
 import {
   EnqueuePriceUpdateInput,
@@ -32,6 +34,29 @@ export class SupplierIntegrationService {
     return rows.map(toDTO);
   }
 
+  async listQueuePage(orgId: string, query: CatalogQuery): Promise<CatalogPage<SupplierPriceUpdateDTO>> {
+    query = { ...query, scope: orgId };
+    const where = {
+      orgId,
+      status: query.filters.status,
+      supplierId: query.filters.supplierId,
+      materialId: query.filters.materialId,
+      ...(query.q ? { source: { contains: query.q, mode: "insensitive" } } : {}),
+    };
+    const field = catalogField(query.sort, { createdAt: "createdAt", status: "status" });
+    return pageCatalogRows<any>({
+      query,
+      where,
+      cursorField: field,
+      cursorValueType: field === "createdAt" ? "date" : "string",
+      findMany: (args) => prisma.supplierPriceUpdate.findMany(args as any) as any,
+      count: (args) => prisma.supplierPriceUpdate.count(args as any),
+      getCursorValue: (row) => row[field],
+      getId: (row) => row.id,
+      map: (row) => toDTO(row),
+    }) as Promise<CatalogPage<SupplierPriceUpdateDTO>>;
+  }
+
   async enqueue(input: EnqueuePriceUpdateInput): Promise<SupplierPriceUpdateDTO> {
     const material = await prisma.material.findFirst({ where: { id: input.materialId, orgId: input.orgId } });
     if (!material) throw new ApiError(404, `Material ${input.materialId} not found`);
@@ -58,6 +83,19 @@ export class SupplierIntegrationService {
       if (!queued) throw new ApiError(404, `Supplier price update ${id} not found`);
       if (queued.status !== "pending") throw new ApiError(409, `Supplier price update ${id} is already ${queued.status}`);
 
+      // Claim the proposal before touching the Material. The status predicate
+      // makes approval/rejection mutually exclusive under concurrent review;
+      // the surrounding transaction rolls the claim back if the price update
+      // or audit write fails.
+      const reviewedAt = new Date();
+      const claimed = await transaction.supplierPriceUpdate.updateMany({
+        where: { id, orgId, status: "pending" },
+        data: { status: "approved", reviewedByUserId: actor.userId, reviewedAt },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(409, `Supplier price update ${id} is no longer pending`);
+      }
+
       const material = await transaction.material.findFirst({ where: { id: queued.materialId, orgId } });
       if (!material) throw new ApiError(404, `Material ${queued.materialId} not found`);
 
@@ -77,11 +115,12 @@ export class SupplierIntegrationService {
           actorRole: actor.role,
         },
       });
-      const reviewed = await transaction.supplierPriceUpdate.update({
-        where: { id },
-        data: { status: "approved", reviewedByUserId: actor.userId, reviewedAt: new Date() },
+      return toDTO({
+        ...queued,
+        status: "approved",
+        reviewedByUserId: actor.userId,
+        reviewedAt,
       });
-      return toDTO(reviewed);
     });
   }
 
@@ -91,11 +130,16 @@ export class SupplierIntegrationService {
       if (!queued) throw new ApiError(404, `Supplier price update ${id} not found`);
       if (queued.status !== "pending") throw new ApiError(409, `Supplier price update ${id} is already ${queued.status}`);
 
-      const reviewed = await transaction.supplierPriceUpdate.update({
-        where: { id },
-        data: { status: "rejected", reviewedByUserId: actor.userId, reviewedAt: new Date() },
+      const reviewedAt = new Date();
+      const claimed = await transaction.supplierPriceUpdate.updateMany({
+        where: { id, orgId, status: "pending" },
+        data: { status: "rejected", reviewedByUserId: actor.userId, reviewedAt },
       });
-      return toDTO(reviewed);
+      if (claimed.count !== 1) {
+        throw new ApiError(409, `Supplier price update ${id} is no longer pending`);
+      }
+
+      return toDTO({ ...queued, status: "rejected", reviewedByUserId: actor.userId, reviewedAt });
     });
   }
 
@@ -110,6 +154,18 @@ export class SupplierIntegrationService {
     if (quotes.length === 0) return { proposed: 0, skipped: 0 };
 
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      // The pending-row check below is intentionally inside the same
+      // transaction as proposal creation. Serialize one org/supplier feed
+      // at a time so two scheduler ticks cannot both observe an empty
+      // pending set and create duplicate proposals. This is an advisory lock,
+      // not a new schema or a tenant-bypassing connection.
+      // The optional guard keeps lightweight service fixtures independent of
+      // Prisma's raw-query surface; the production Prisma transaction always
+      // provides it, so production runs remain serialized.
+      if (typeof transaction.$executeRaw === "function") {
+        await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`supplier-price-sync:${input.orgId}:${input.supplierId}`}, 0))`);
+      }
+
       const uniqueQuotes = new Map<string, number>();
       let skipped = 0;
       for (const quote of quotes) {
@@ -196,4 +252,10 @@ function toDTO(row: {
     reviewedAt: row.reviewedAt,
     createdAt: row.createdAt,
   };
+}
+
+function catalogField(sort: string, allowed: Record<string, string>): string {
+  const field = allowed[sort];
+  if (!field) throw new ApiError(400, `Unsupported catalog sort field: ${sort}`);
+  return field;
 }

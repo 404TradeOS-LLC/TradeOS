@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-31
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
   - app/modules/athena-memory
   - app/modules/athena-events
@@ -33,11 +34,13 @@ An authenticated identity stored in `AppUser`.
 
 ## Authentication control records
 
-`OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` are security-control records, not ordinary tenant-editable entities.
+`OrganizationInvite`, `AuthRefreshToken`, `PasswordResetToken`, `CustomerPortalAccessToken`, and `CustomerPortalSession` are security-control records, not ordinary tenant-editable entities.
 
 - invitation ownership (`orgId`, email, role, token, inviter, and expiry) is immutable after creation; invite acceptance may update only lifecycle fields such as status and acceptance time
 - refresh-token ownership (`orgId`, user, membership, token, and expiry) is immutable after creation; rotation may update only usage, revocation, and replacement metadata
 - password-reset-token ownership (`userId`, token, and expiry) is immutable after creation; reset completion may update only consumption metadata
+- customer portal access-token ownership (`orgId`, customer, token digest, and expiry) is immutable after creation; redemption may update only consumption metadata
+- customer portal session ownership (`orgId`, customer, access token, session digest, and expiry) is immutable after creation; portal activity may update only the last-seen timestamp
 
 These invariants are enforced in PostgreSQL as well as in application service behavior so a login-lookup transaction cannot reassign an existing auth record across organizations or users.
 
@@ -52,6 +55,7 @@ A company-scoped account or homeowner record stored in `Customer`.
 - customers own the business relationship
 - customers can have many projects, service addresses, equipment assets, service agreements, and jobs
 - tenant customer listing/search is service-owned: `CrmService.listCustomers` always excludes soft-deleted rows, supports database-side case-insensitive name/email/phone search, and enforces a bounded result count before rows are loaded
+- public customer access is represented by a `CustomerPortalAccessToken` and short-lived `CustomerPortalSession`; neither is a staff membership or canonical role
 
 ## Service Address
 
@@ -94,6 +98,8 @@ A priced commercial draft stored in `Estimate`.
 - owns estimate line items
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
+- lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
+- Estimate Engine currently enforces draft-only mutations and `draft -> ready` finalization; customer-facing later transitions are separate workflow scope
 
 ## Proposal
 
@@ -103,13 +109,16 @@ A customer-facing commercial document stored in `Proposal`.
 - may reference one estimate
 - owns proposal delivery history
 - can produce contracts and support invoices
+- uses canonical lifecycle states `draft`, `generated`, `sent`, `viewed`, `accepted`, `declined`, and `expired`; historical stored `rejected` rows remain read-compatible and normalize to `declined`, while new decline mutations persist canonical `declined`
 
 ## Contract
 
 A signable commercial agreement stored in `Contract`.
 
 - belongs to one project and one proposal
+- stores the agreed `contractAmount` and an immutable `snapshotJson` of the accepted proposal when created
 - owns contract event history
+- customer portal signing may transition only its pending state through the dedicated portal RLS policy; the signed event records the customer and portal session attribution
 
 ## Invoice
 
@@ -117,7 +126,13 @@ A billing document stored in `Invoice`.
 
 - belongs to one project
 - may reference an estimate and proposal
+- stores `subtotal`, `taxPct`, and `taxAmount` so customer documents can itemize the persisted total
 - owns invoice line items, payments, and delivery history
+- invoice line items store the issued selling-price allocation as `unitPrice`
+  and `lineTotal`; estimate and change-order line items retain their separate
+  cost-oriented `unitCost`/`lineCost` fields
+- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; synchronized `unit_cost`/`line_cost` aliases remain temporarily so old and new backend versions can roll out safely without changing values, indexes, constraints, or RLS policies
+- a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
 
@@ -125,6 +140,7 @@ A recorded payment event stored in `Payment`.
 
 - belongs to one invoice and organization
 - tracks amount, payment date, method, reference, notes, and status
+- only `recorded` payments count toward reconciliation and queue balance derivation; concurrent payment reconciliation serializes on the Invoice row and preserves the Payment/status/audit transaction boundary
 
 ## Change Order
 
@@ -286,6 +302,8 @@ C005 exposes the existing `Division`, `Category`, and `Subcategory` models throu
 
 PR #216 does not add replacement catalog entities. It promotes the existing `Assembly` and `AssemblyItem` models under the canonical Costbook workflow and strengthens database checks so parent Assembly, referenced CostItem, and referenced child Assembly remain in the authenticated organization. Estimate lines continue to persist `costItemId` or `assemblyId` provenance together with `unitCost` and `lineCost`; those persisted values are historical pricing snapshots and are not rewritten when current Costbook prices later change. `MaterialPriceAudit` remains the catalog price-change record; Estimate snapshots are a separate read-model input rather than price-change events.
 
+Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
+
 ## Core relationships
 
 Canonical relationship flow:
@@ -300,3 +318,26 @@ Operational sub-relationships:
 - `Invoice -> Payment`
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
+
+## AI generation metadata
+
+S025 introduces tenant-owned `AthenaGenerationRun` metadata and append-only
+`AthenaGenerationReview` provenance. These records identify the organization,
+actor, execution correlation, model usage, status, and retention expiry; they
+do not persist raw prompts, model output, tool arguments, or tool results by
+default. Business mutations remain owned by existing review-first services.
+
+
+## S028 estimate deliverability
+
+The S028 lane preserves the existing Estimate and Proposal entities while adding additive estimate metadata for tax percentage/amount and line-item section, cost type, and taxable semantics. These fields remain organization-scoped through the existing relationships and do not introduce a new identity, payment, or accounting model.
+
+## S030 dispatcher workspace
+
+S030 uses the existing Job and JobAssignment entities as the dispatcher work queue; it does not introduce a replacement dispatch model.
+
+- Job remains organization-owned through orgId and retains the existing project, customer, service-address, scheduling, lifecycle, and archive relationships.
+- JobAssignment is the active technician relationship when both removedAt and declinedAt are null. Declined assignments remain provenance/history but are not active dispatch ownership, technician job access, queue assignment, or conflict participation.
+- Dispatcher mutations continue to use the established manager authorization and owner/admin conflict-override rules. The browser surface calls the authenticated same-origin proxy; it does not hold backend bearer credentials.
+- The S030 RLS hardening migration aligns the forced jobs and job_equipment policies with the active-assignment invariant. It changes existing policy predicates only and does not add entities or alter tenant ownership.
+- S030 does not introduce persisted derived lifecycle states, route optimization, GPS, notifications, billing behavior, or concurrency semantics.

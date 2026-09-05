@@ -107,6 +107,49 @@ describe("requireAuth middleware", () => {
     expect(response.body).toEqual({ error: "Missing bearer token" });
   });
 
+  it("rejects malformed bearer tokens before any membership lookup", async () => {
+    const response = await request(buildApp()).get("/secure").set("Authorization", "Bearer not-a-jwt");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: "Invalid bearer token" });
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects expired bearer tokens before any membership lookup", async () => {
+    const token = signAuthToken(
+      {
+        sub: "auth-sub-1",
+        email: "owner@example.com",
+        iss: "tradeos-costbook",
+        aud: "tradeos-costbook-api",
+        exp: Math.floor(Date.now() / 1000) - 1,
+      },
+      secret
+    );
+
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: "Bearer token has expired" });
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects a bearer token with an invalid signature", async () => {
+    const token = signAuthToken(
+      { sub: "auth-sub-1", iss: "tradeos-costbook", aud: "tradeos-costbook-api" },
+      secret
+    );
+    const [header, payload, signature] = token.split(".");
+    const tamperedSignature = `${signature[0] === "A" ? "B" : "A"}${signature.slice(1)}`;
+    const tampered = `${header}.${payload}.${tamperedSignature}`;
+
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${tampered}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: "Invalid bearer token signature" });
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
+  });
+
   it("rejects arbitrary organization-header values without echoing tenant details", async () => {
     process.env.AUTH_ALLOW_HEADER_ORG_ID = "true";
 

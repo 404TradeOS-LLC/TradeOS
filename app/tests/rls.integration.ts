@@ -3,6 +3,7 @@ import {
   getRequestDatabaseClient,
   runWithBackgroundDatabaseSession,
   runWithDatabaseSession,
+  runWithPortalDatabaseSession,
 } from "../db/requestSession";
 import { resolveAuthContext } from "../backend/auth/session";
 import type { SupportedRole } from "../domain";
@@ -12,10 +13,13 @@ import { SupplierIntegrationService } from "../modules/supplier-integration/serv
 import { runSupplierPriceSyncJob } from "../modules/supplier-integration/worker";
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 import { ProposalsService } from "../modules/proposals/service";
+import { EstimateEngineService } from "../modules/estimate-engine/service";
 import { InvoicesService } from "../modules/invoices/service";
+import { CrmService } from "../modules/crm/service";
 import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
+import { OrganizationSettingsService } from "../modules/settings/service";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -28,12 +32,15 @@ const adminUser = "10000000-0000-0000-0000-000000000011";
 const viewerUser = "10000000-0000-0000-0000-000000000012";
 const technicianUser = "10000000-0000-0000-0000-000000000014";
 const otherUser = "20000000-0000-0000-0000-000000000021";
+const noMembershipUser = "10000000-0000-0000-0000-000000000022";
+const disabledMembershipUser = "10000000-0000-0000-0000-000000000023";
 const estimatorUser = "10000000-0000-0000-0000-000000000013";
 const adminMembership = "10000000-0000-0000-0000-000000000031";
 const viewerMembership = "10000000-0000-0000-0000-000000000032";
 const technicianMembership = "10000000-0000-0000-0000-000000000034";
 const otherMembership = "20000000-0000-0000-0000-000000000041";
 const estimatorMembership = "10000000-0000-0000-0000-000000000033";
+const disabledMembership = "10000000-0000-0000-0000-000000000035";
 const divisionA = "10000000-0000-0000-0000-000000000051";
 const divisionB = "20000000-0000-0000-0000-000000000052";
 const materialA = "10000000-0000-0000-0000-000000000061";
@@ -75,6 +82,18 @@ const inviteA = "10000000-0000-0000-0000-000000000115";
 const refreshTokenA = "10000000-0000-0000-0000-000000000116";
 const passwordResetTokenA = "10000000-0000-0000-0000-000000000117";
 const replacementRefreshTokenA = "10000000-0000-0000-0000-000000000118";
+const proposalDeclinedStatusA = "10000000-0000-0000-0000-000000000119";
+const proposalRejectedStatusA = "10000000-0000-0000-0000-000000000120";
+const proposalInvalidStatusA = "10000000-0000-0000-0000-000000000121";
+const proposalConcurrencyA = "10000000-0000-0000-0000-000000000122";
+const generationA = "10000000-0000-0000-0000-000000000123";
+const generationB = "20000000-0000-0000-0000-000000000124";
+const generationReviewA = "10000000-0000-0000-0000-000000000125";
+const generationReviewB = "20000000-0000-0000-0000-000000000126";
+const generationReviewViewer = "10000000-0000-0000-0000-000000000127";
+const generationTechnician = "10000000-0000-0000-0000-000000000128";
+const generationReviewTechnician = "10000000-0000-0000-0000-000000000129";
+const portalContractA = "10000000-0000-0000-0000-000000000206";
 
 describe("live organization row-level security", () => {
   beforeAll(async () => {
@@ -90,6 +109,8 @@ describe("live organization row-level security", () => {
         { id: viewerUser, authSubject: "rls-viewer", email: "rls-viewer@example.com" },
         { id: technicianUser, authSubject: "rls-technician", email: "rls-tech@example.com", fullName: "Assigned Technician" },
         { id: otherUser, authSubject: "rls-other", email: "rls-other@example.com" },
+        { id: noMembershipUser, authSubject: "rls-no-membership", email: "rls-no-membership@example.com" },
+        { id: disabledMembershipUser, authSubject: "rls-disabled-membership", email: "rls-disabled-membership@example.com" },
         { id: estimatorUser, authSubject: "rls-estimator", email: "rls-estimator@example.com" },
       ],
     });
@@ -99,6 +120,7 @@ describe("live organization row-level security", () => {
         { id: viewerMembership, orgId: orgA, userId: viewerUser, role: "viewer", status: "active" },
         { id: technicianMembership, orgId: orgA, userId: technicianUser, role: "technician", status: "active" },
         { id: otherMembership, orgId: orgB, userId: otherUser, role: "owner", status: "active" },
+        { id: disabledMembership, orgId: orgA, userId: disabledMembershipUser, role: "viewer", status: "disabled" },
         { id: estimatorMembership, orgId: orgA, userId: estimatorUser, role: "estimator", status: "active" },
       ],
     });
@@ -293,6 +315,7 @@ describe("live organization row-level security", () => {
         },
         subtotalCost: 200,
         totalPrice: 200,
+        status: "ready",
       },
     });
     await adminClient.serviceAgreement.create({
@@ -485,6 +508,82 @@ describe("live organization row-level security", () => {
         status: "recorded",
       },
     });
+    await adminClient.athenaGenerationRun.createMany({
+      data: [
+        {
+          id: generationA,
+          orgId: orgA,
+          actorUserId: adminUser,
+          requestId: "rls-generation-a",
+          traceId: "rls-trace-a",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+        {
+          id: generationB,
+          orgId: orgB,
+          actorUserId: otherUser,
+          requestId: "rls-generation-b",
+          traceId: "rls-trace-b",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+        {
+          id: generationTechnician,
+          orgId: orgA,
+          actorUserId: technicianUser,
+          requestId: "rls-generation-technician",
+          traceId: "rls-trace-technician",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      ],
+    });
+    await adminClient.athenaGenerationReview.createMany({
+      data: [
+        {
+          id: generationReviewA,
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: adminUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:00.000Z"),
+        },
+        {
+          id: generationReviewB,
+          orgId: orgB,
+          generationId: generationB,
+          reviewerUserId: otherUser,
+          outcome: "rejected",
+          reviewedAt: new Date("2026-07-01T00:01:00.000Z"),
+        },
+        {
+          id: generationReviewViewer,
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: viewerUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:30.000Z"),
+        },
+        {
+          id: generationReviewTechnician,
+          orgId: orgA,
+          generationId: generationTechnician,
+          reviewerUserId: viewerUser,
+          outcome: "accepted",
+          reviewedAt: new Date("2026-07-01T00:01:45.000Z"),
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -505,6 +604,153 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("enforces generation metadata tenant and actor boundaries", async () => {
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(visible?.orgId).toBe(orgA);
+
+    const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(hiddenCrossOrg).toBeNull();
+
+    const hiddenPeerActor = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
+    );
+    expect(hiddenPeerActor).toBeNull();
+
+    const viewerInserted = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.create({
+        data: {
+          orgId: orgA,
+          actorUserId: viewerUser,
+          requestId: "rls-generation-viewer-owned",
+          traceId: "rls-trace-viewer-owned",
+          provider: "fake",
+          model: "fake",
+          status: "succeeded",
+          latencyMs: 1,
+          retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      })
+    );
+    expect(viewerInserted.actorUserId).toBe(viewerUser);
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().athenaGenerationRun.create({
+          data: {
+            orgId: orgA,
+            actorUserId: adminUser,
+            requestId: "rls-generation-viewer",
+            traceId: "rls-trace-viewer",
+            provider: "fake",
+            model: "fake",
+            status: "succeeded",
+            latencyMs: 1,
+            retentionExpiresAt: new Date("2026-07-01T00:00:00.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+  });
+
+  it("enforces generation review tenant, reviewer, and append-only boundaries", async () => {
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(visible?.orgId).toBe(orgA);
+
+    const hiddenCrossOrg = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(hiddenCrossOrg).toBeNull();
+
+    const hiddenPeer = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewA } })
+    );
+    expect(hiddenPeer).toBeNull();
+
+    const reviewerOwned = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewViewer } })
+    );
+    expect(reviewerOwned?.reviewerUserId).toBe(viewerUser);
+
+    const actorOwned = await inSession(technicianUser, orgA, "technician", async () =>
+      currentTransaction().athenaGenerationReview.findUnique({ where: { id: generationReviewTechnician } })
+    );
+    expect(actorOwned?.generationId).toBe(generationTechnician);
+
+    const inserted = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.create({
+        data: {
+          orgId: orgA,
+          generationId: generationA,
+          reviewerUserId: adminUser,
+          outcome: "amended",
+          reviewedAt: new Date("2026-07-01T00:02:00.000Z"),
+        },
+      })
+    );
+    expect(inserted.orgId).toBe(orgA);
+    expect(inserted.reviewerUserId).toBe(adminUser);
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().athenaGenerationReview.create({
+          data: {
+            orgId: orgA,
+            generationId: generationA,
+            reviewerUserId: viewerUser,
+            outcome: "accepted",
+            reviewedAt: new Date("2026-07-01T00:03:00.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().athenaGenerationReview.create({
+          data: {
+            orgId: orgA,
+            generationId: generationA,
+            reviewerUserId: viewerUser,
+            outcome: "amended",
+            reviewedAt: new Date("2026-07-01T00:03:30.000Z"),
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().athenaGenerationReview.update({
+          where: { id: generationReviewA },
+          data: { outcome: "rejected" },
+        })
+      )
+    ).rejects.toThrow();
+
+    const adminDelete = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationReview.deleteMany({ where: { id: generationReviewA } })
+    );
+    expect(adminDelete.count).toBe(0);
+  });
+
+  it("allows only an organization administrator to delete generation metadata", async () => {
+    const viewerDelete = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().athenaGenerationRun.deleteMany({ where: { id: generationA } })
+    );
+    expect(viewerDelete.count).toBe(0);
+
+    const adminDelete = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().athenaGenerationRun.deleteMany({ where: { id: generationA } })
+    );
+    expect(adminDelete.count).toBe(1);
   });
 
   it("keeps Prisma migration history inaccessible to the runtime role", async () => {
@@ -624,6 +870,21 @@ describe("live organization row-level security", () => {
     expect(updatedSettings.orgId).toBe(orgA);
   });
 
+  it("keeps the Settings adapter canonical read and tenant boundary inside request-scoped RLS", async () => {
+    const service = new OrganizationSettingsService();
+    const visible = await inSession(adminUser, orgA, "admin", async () =>
+      service.getSettings(orgA, { userId: adminUser, orgId: orgA, role: "admin" })
+    );
+
+    expect(visible.settings.companyName).toBe("Org A Brand");
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        service.getSettings(orgA, { userId: otherUser, orgId: orgB, role: "owner" })
+      )
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
   it("enforces brand studio visibility and admin-only writes", async () => {
     const visibleProfile = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().brandProfile.findUnique({ where: { organizationId: orgA } })
@@ -713,6 +974,20 @@ describe("live organization row-level security", () => {
     expect(hiddenUnassignedJob).toBeNull();
   });
 
+  it("denies a cross-organization Job transition before any status or activity write", async () => {
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        new JobsService().dispatch(jobA, {
+          orgId: orgB,
+          actor: { userId: otherUser, orgId: orgB, role: "owner" },
+        })
+      )
+    ).rejects.toMatchObject({ statusCode: 404, message: `Job ${jobA} not found` });
+
+    const unchanged = await adminClient.job.findUnique({ where: { id: jobA }, select: { status: true } });
+    expect(unchanged?.status).toBe("scheduled");
+  });
+
   it("lets technicians read their assigned team and update only their own assignment rows", async () => {
     const visibleAssignments = await inSession(technicianUser, orgA, "technician", async () =>
       currentTransaction().jobAssignment.findMany({ where: { jobId: jobA }, orderBy: { createdAt: "asc" } })
@@ -796,6 +1071,51 @@ describe("live organization row-level security", () => {
         })
       )
     ).rejects.toThrow();
+  });
+
+  it("enforces core service tenant boundaries before foreign reads or writes", async () => {
+    const visibleCustomer = await inSession(adminUser, orgA, "admin", async () => new CrmService().getCustomer(orgA, customerA));
+    expect(visibleCustomer.id).toBe(customerA);
+
+    const visibleEstimate = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().getById(estimateA, orgA));
+    expect(visibleEstimate.id).toBe(estimateA);
+
+    const visibleInvoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceForPaymentA, orgA));
+    expect(visibleInvoice.id).toBe(invoiceForPaymentA);
+
+    const visibleJob = await inSession(adminUser, orgA, "admin", async () =>
+      new JobsService().getById(orgA, jobA, { userId: adminUser, role: "admin" })
+    );
+    expect(visibleJob.id).toBe(jobA);
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () => new CrmService().getCustomer(orgB, customerA))
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () => new EstimateEngineService().getById(estimateA, orgB))
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        new EstimateEngineService().updateEstimate({ estimateId: estimateA, orgId: orgB, taxPct: 9 })
+      )
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () => new InvoicesService().getById(invoiceForPaymentA, orgB))
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () =>
+        new JobsService().getById(orgB, jobA, { userId: otherUser, role: "owner" })
+      )
+    ).rejects.toMatchObject({ statusCode: 404 });
+
+    const unchangedEstimate = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().estimate.findUnique({ where: { id: estimateA }, select: { taxPct: true } })
+    );
+    expect(Number(unchangedEstimate?.taxPct ?? 0)).toBe(0);
   });
 
   it("enforces intelligence foundation tenant boundaries", async () => {
@@ -899,6 +1219,45 @@ describe("live organization row-level security", () => {
     await expect(resolveAuthContext({ sub: "rls-admin", orgId: orgB })).rejects.toThrow(
       "Authenticated user does not belong to the requested organization"
     );
+
+    await expect(resolveAuthContext({ sub: "rls-no-membership", orgId: orgA })).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
+    await expect(resolveAuthContext({ sub: "rls-disabled-membership", orgId: orgA })).rejects.toThrow(
+      "Authenticated user does not belong to the requested organization"
+    );
+  });
+
+  it("proves direct portal resource isolation under forced RLS", async () => {
+    const sameOrgProject = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().project.findUnique({ where: { id: projectA } })
+    );
+    expect(sameOrgProject?.id).toBe(projectA);
+
+    const crossOrgProject = await inSession(otherUser, orgB, "owner", async () =>
+      currentTransaction().project.findUnique({ where: { id: projectA } })
+    );
+    expect(crossOrgProject).toBeNull();
+
+    const tables = await adminClient.$queryRaw<Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>>(
+      Prisma.sql`
+        select c.relname, c.relrowsecurity, c.relforcerowsecurity
+        from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind = 'r'
+          and exists (
+            select 1
+            from information_schema.columns column_info
+            where column_info.table_schema = 'public'
+              and column_info.table_name = c.relname
+              and column_info.column_name = 'org_id'
+          )
+        order by c.relname
+      `
+    );
+    expect(tables.length).toBeGreaterThan(4);
+    expect(tables.every((table) => table.relrowsecurity && table.relforcerowsecurity)).toBe(true);
   });
 
   it("provisions a new organization and initial owner atomically", async () => {
@@ -1111,6 +1470,11 @@ describe("live organization row-level security", () => {
     );
     expect(proposal.status).toBe("draft");
 
+    const sameOrgProposal = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().proposal.findUnique({ where: { id: proposal.id } })
+    );
+    expect(sameOrgProposal?.id).toBe(proposal.id);
+
     // Cross-org: a session scoped to orgB must not see a proposal that
     // belongs to an orgA project, even by direct id lookup.
     const crossOrgLookup = await inSession(otherUser, orgB, "owner", async () =>
@@ -1123,6 +1487,13 @@ describe("live organization row-level security", () => {
     const accepted = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposal.id, orgA));
     expect(accepted.status).toBe("accepted");
     expect(accepted.deliveries.map((delivery) => delivery.eventType)).toEqual(["proposal.accepted", "proposal.sent"]);
+
+    await expect(
+      inSession(otherUser, orgB, "owner", async () => new ProposalsService().accept(proposal.id, orgB, otherUser))
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposal.id, orgA, adminUser))
+    ).rejects.toMatchObject({ statusCode: 409 });
 
     const visibleDeliveries = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().proposalDelivery.findMany({
@@ -1144,7 +1515,7 @@ describe("live organization row-level security", () => {
         new InvoicesService().create({
           orgId: orgA,
           projectId: projectA,
-          lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitCost: 1000 }],
+          lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitPrice: 1000 }],
         })
       )
     ).rejects.toThrow();
@@ -1155,11 +1526,15 @@ describe("live organization row-level security", () => {
         projectId: projectA,
         actorUserId: adminUser,
         actorRole: "admin",
+        estimateId: estimateA,
         proposalId: proposal.id,
-        lineItems: [{ description: "Deposit", quantity: 1, unitOfMeasure: "EA", unitCost: 1000 }],
       })
     );
-    expect(invoice.amount).toBe(1000);
+    expect(invoice.amount).toBe(200);
+    const sameOrgInvoice = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().invoice.findUnique({ where: { id: invoice.id } })
+    );
+    expect(sameOrgInvoice?.id).toBe(invoice.id);
     expect(invoice.deliveries.map((delivery) => delivery.eventType)).toEqual(["invoice.created"]);
 
     const sentInvoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().send(invoice.id, orgA, adminUser, "admin"));
@@ -1193,7 +1568,11 @@ describe("live organization row-level security", () => {
     const contract = await inSession(adminUser, orgA, "admin", async () =>
       new ContractsService().create({ orgId: orgA, actorUserId: adminUser, actorRole: "admin", proposalId: proposal.id })
     );
-    expect(contract.status).toBe("pending_signature");
+    expect(contract.status).toBe("sent");
+    const sameOrgContract = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().contract.findUnique({ where: { id: contract.id } })
+    );
+    expect(sameOrgContract?.id).toBe(contract.id);
     expect(contract.events.map((event) => event.eventType)).toEqual(["contract.created"]);
 
     const signed = await inSession(adminUser, orgA, "admin", async () =>
@@ -1226,6 +1605,18 @@ describe("live organization row-level security", () => {
       currentTransaction().contractEvent.findMany({ where: { contractId: contract.id } })
     );
     expect(hiddenContractEvents).toEqual([]);
+  });
+
+  it("enforces canonical and legacy proposal statuses at the PostgreSQL boundary", async () => {
+    await adminClient.proposal.create({ data: { id: proposalDeclinedStatusA, projectId: projectB, status: "declined" } });
+    await adminClient.proposal.create({ data: { id: proposalRejectedStatusA, projectId: projectB, status: "rejected" } });
+
+    await expect(
+      adminClient.proposal.create({ data: { id: proposalInvalidStatusA, projectId: projectB, status: "unsupported" } })
+    ).rejects.toThrow(/proposals_status_check/);
+
+    await expect(adminClient.proposal.findUnique({ where: { id: proposalDeclinedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "declined" });
+    await expect(adminClient.proposal.findUnique({ where: { id: proposalRejectedStatusA }, select: { status: true } })).resolves.toMatchObject({ status: "rejected" });
   });
 
   it("scopes the dispatch summary to the requesting org and does not require an elevated role to read", async () => {
@@ -1373,6 +1764,428 @@ describe("live organization row-level security", () => {
     // as "assigned only" rather than presenting a role-narrowed 0 as if it
     // were a real organization-wide "zero active jobs" total.
     expect(viewerSummary.scope).toEqual({ source: "assigned_only", role: "viewer" });
+  });
+
+  describe("organization work-queue reads (estimates, proposals, invoices)", () => {
+    // Fresh fixtures scoped to this describe block only; orgA/orgB/projectA/
+    // projectB/customerA/customerB are the outer beforeAll's already-committed
+    // rows, reused here rather than re-seeding a parallel org pair.
+    const estimateQueueA1 = "10000000-0000-0000-0000-000000000201";
+    const estimateQueueA2 = "10000000-0000-0000-0000-000000000202";
+    const estimateQueueB1 = "20000000-0000-0000-0000-000000000203";
+    const proposalQueueA1 = "10000000-0000-0000-0000-000000000204";
+    const proposalQueueA2 = "10000000-0000-0000-0000-000000000205";
+    const contractQueueA1 = "10000000-0000-0000-0000-000000000206";
+    const proposalQueueB1 = "20000000-0000-0000-0000-000000000207";
+    const invoiceQueueA1 = "10000000-0000-0000-0000-000000000208";
+    const invoiceQueueA2 = "10000000-0000-0000-0000-000000000209";
+    const invoiceQueueA3 = "10000000-0000-0000-0000-000000000210";
+    const invoiceQueueA4 = "10000000-0000-0000-0000-000000000211";
+    const invoiceQueueB1 = "20000000-0000-0000-0000-000000000212";
+    const invoiceQueueA5 = "10000000-0000-0000-0000-000000000216";
+    const invoiceConcurrency = "10000000-0000-0000-0000-000000000217";
+    const invoiceCrossOrg = "10000000-0000-0000-0000-000000000218";
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    beforeAll(async () => {
+      await adminClient.estimate.create({
+        data: { id: estimateQueueA1, orgId: orgA, projectId: projectA, version: 10, status: "draft", totalPrice: 500 },
+      });
+      // Canonical status value "sent" remains distinct from "ready" in queue
+      // reads; historical rows are still returned without cross-org leakage.
+      await adminClient.estimate.create({
+        data: { id: estimateQueueA2, orgId: orgA, projectId: projectA, version: 11, status: "sent", totalPrice: 1000 },
+      });
+      await adminClient.estimate.create({
+        data: { id: estimateQueueB1, orgId: orgB, projectId: projectB, version: 1, status: "draft", totalPrice: 777 },
+      });
+
+      await adminClient.proposal.create({
+        data: {
+          id: proposalQueueA1,
+          projectId: projectA,
+          estimateId: estimateQueueA1,
+          status: "sent",
+          sentAt: new Date("2026-07-01T00:00:00.000Z"),
+          finalPrice: 750,
+        },
+      });
+      await adminClient.proposal.create({
+        data: {
+          id: proposalQueueA2,
+          projectId: projectA,
+          estimateId: estimateQueueA2,
+          status: "accepted",
+          sentAt: new Date("2026-07-05T00:00:00.000Z"),
+          viewedAt: new Date("2026-07-06T00:00:00.000Z"),
+          finalPrice: 1000,
+        },
+      });
+      await adminClient.contract.create({
+        data: { id: contractQueueA1, projectId: projectA, proposalId: proposalQueueA2, status: "pending_signature", termsText: "Net 30" },
+      });
+      await adminClient.proposal.create({
+        data: { id: proposalQueueB1, projectId: projectB, status: "sent", sentAt: new Date("2026-07-01T00:00:00.000Z") },
+      });
+
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA1, projectId: projectA, invoiceNumber: 201, status: "sent", amount: 1000, dueDate: yesterday },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA2, projectId: projectA, invoiceNumber: 202, status: "sent", amount: 1000, dueDate: yesterday },
+      });
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000213",
+          orgId: orgA,
+          invoiceId: invoiceQueueA2,
+          amount: 400,
+          paymentDate: new Date("2026-07-10T00:00:00.000Z"),
+          method: "card",
+          status: "recorded",
+        },
+      });
+      // A pending (not yet "recorded") payment must not count toward paidAmount.
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000214",
+          orgId: orgA,
+          invoiceId: invoiceQueueA2,
+          amount: 5000,
+          paymentDate: new Date("2026-07-11T00:00:00.000Z"),
+          method: "card",
+          status: "pending",
+        },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA3, projectId: projectA, invoiceNumber: 203, status: "sent", amount: 500, dueDate: yesterday },
+      });
+      await adminClient.payment.create({
+        data: {
+          id: "10000000-0000-0000-0000-000000000215",
+          orgId: orgA,
+          invoiceId: invoiceQueueA3,
+          amount: 500,
+          paymentDate: new Date("2026-07-10T00:00:00.000Z"),
+          method: "card",
+          status: "recorded",
+        },
+      });
+      // Raw status "void" (the actual DB-allowed value; see invoices_status_check)
+      // — must be excluded from overdue/unpaid/partiallyPaid despite a positive balance.
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA4, projectId: projectA, invoiceNumber: 204, status: "void", amount: 1000, dueDate: yesterday },
+      });
+      // Persisted paid is authoritative for follow-up exclusion even when
+      // markPaid() intentionally has no corresponding Payment row.
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueA5, projectId: projectA, invoiceNumber: 205, status: "paid", amount: 750, dueDate: yesterday },
+      });
+      await adminClient.invoice.create({
+        data: { id: invoiceQueueB1, projectId: projectB, invoiceNumber: 1, status: "sent", amount: 250, dueDate: yesterday },
+      });
+    });
+
+    it("estimates queue: scopes to the caller's organization and never returns another org's rows", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().listOrganizationQueue({ orgId: orgA }));
+      const ids = result.items.map((item) => item.id);
+      expect(ids).toEqual(expect.arrayContaining([estimateQueueA1, estimateQueueA2]));
+      expect(ids).not.toContain(estimateQueueB1);
+    });
+
+    it("estimates queue: forced RLS blocks Org B rows even if the service were called with a guessed/mismatched orgId while sessioned as Org A", async () => {
+      // The controller always derives orgId from the authenticated session
+      // (requireOrgId), never a caller-supplied value, so this scenario is
+      // not reachable through the real HTTP surface. This proves the
+      // deeper guarantee anyway: even a hypothetical broken/bypassed
+      // service-layer check could not leak Org B rows, because forced RLS
+      // scopes visibility to the session's own app.org_id, not to whatever
+      // orgId a query happens to ask for.
+      const result = await inSession(adminUser, orgA, "admin", async () => new EstimateEngineService().listOrganizationQueue({ orgId: orgB }));
+      expect(result.items.map((item) => item.id)).not.toContain(estimateQueueB1);
+    });
+
+    it("estimates queue: a sent status filter returns sent rows with the canonical response status", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () =>
+        new EstimateEngineService().listOrganizationQueue({ orgId: orgA, statuses: ["sent"] })
+      );
+      expect(result.items.map((item) => item.id)).toEqual([estimateQueueA2]);
+      expect(result.items[0].status).toBe("sent");
+      expect(result.items[0].projectName).toBe("Org A Project");
+      expect(result.items[0].customerName).toBe("Org A Customer");
+    });
+
+    it("proposals queue: unsigned means no Contract row exists yet; contractId resolves once one does", async () => {
+      const unsigned = await inSession(adminUser, orgA, "admin", async () =>
+        new ProposalsService().listOrganizationQueue({ orgId: orgA, unsigned: true })
+      );
+      expect(unsigned.items.map((item) => item.id)).toEqual(expect.arrayContaining([proposalQueueA1]));
+      expect(unsigned.items.find((item) => item.id === proposalQueueA1)?.contractId).toBeNull();
+
+      const all = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
+      const converted = all.items.find((item) => item.id === proposalQueueA2);
+      expect(converted?.contractId).toBe(contractQueueA1);
+    });
+
+    it("proposals queue: never returns another organization's proposals", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new ProposalsService().listOrganizationQueue({ orgId: orgA }));
+      expect(result.items.map((item) => item.id)).not.toContain(proposalQueueB1);
+    });
+
+    it("invoices queue: computes paidAmount/balanceDue from real Payment rows (excluding non-recorded payments) with exact decimal amounts", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA }));
+      const invoiceA2 = result.items.find((item) => item.id === invoiceQueueA2);
+      expect(invoiceA2).toMatchObject({ amount: 1000, paidAmount: 400, balanceDue: 600 });
+
+      const invoiceA3 = result.items.find((item) => item.id === invoiceQueueA3);
+      expect(invoiceA3).toMatchObject({ amount: 500, paidAmount: 500, balanceDue: 0 });
+
+      const invoiceA5 = result.items.find((item) => item.id === invoiceQueueA5);
+      expect(invoiceA5).toMatchObject({ amount: 750, paidAmount: 0, balanceDue: 0 });
+    });
+
+    it("invoices queue: overdue/partiallyPaid/unpaid predicates match the documented semantics, excluding voided invoices", async () => {
+      const overdue = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, overdue: true })
+      );
+      expect(overdue.items.map((i) => i.id).sort()).toEqual([invoiceQueueA1, invoiceQueueA2].sort());
+
+      const partiallyPaid = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, partiallyPaid: true })
+      );
+      expect(partiallyPaid.items.map((i) => i.id)).toEqual([invoiceQueueA2]);
+
+      const unpaid = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, unpaid: true })
+      );
+      const unpaidIds = unpaid.items.map((i) => i.id);
+      expect(unpaidIds).toEqual(expect.arrayContaining([invoiceQueueA1, invoiceQueueA2]));
+      expect(unpaidIds).not.toContain(invoiceQueueA3); // fully paid: balanceDue 0
+      expect(unpaidIds).not.toContain(invoiceQueueA4); // voided: excluded despite balance > 0
+      expect(unpaidIds).not.toContain(invoiceQueueA5); // persisted paid: authoritative even with no Payment row
+    });
+
+    it("invoices queue: never returns another organization's invoices, even unfiltered", async () => {
+      const result = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA }));
+      expect(result.items.map((item) => item.id)).not.toContain(invoiceQueueB1);
+    });
+
+    it("invoice detail: returns recorded payment history for the same org and fails closed across orgs", async () => {
+      const invoice = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueA2, orgA));
+
+      expect(invoice).toMatchObject({ paidAmount: 400, balanceDue: 600 });
+      expect(invoice.payments).toHaveLength(1);
+      expect(invoice.payments[0]).toMatchObject({ amount: 400, method: "card" });
+
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueB1, orgA))
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      // A guessed org argument cannot widen the request-scoped RLS session.
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().getById(invoiceQueueB1, orgB))
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("invoices queue: paginates against real Postgres ordering without duplicating rows across pages", async () => {
+      const page1 = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, limit: 2 })
+      );
+      expect(page1.items).toHaveLength(2);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = await inSession(adminUser, orgA, "admin", async () =>
+        new InvoicesService().listOrganizationQueue({ orgId: orgA, limit: 2, cursor: page1.nextCursor! })
+      );
+      const page1Ids = page1.items.map((i) => i.id);
+      const page2Ids = page2.items.map((i) => i.id);
+      expect(page1Ids.filter((id) => page2Ids.includes(id))).toHaveLength(0);
+    });
+
+    it("invoices queue: an invalid cursor is rejected with a 400 ApiError before any query runs", async () => {
+      await expect(
+        inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA, cursor: "not-a-real-cursor" }))
+      ).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it("serializes concurrent final payments and emits one paid transition while preserving both payments", async () => {
+      await adminClient.invoice.create({
+        data: { id: invoiceConcurrency, projectId: projectA, invoiceNumber: 206, status: "sent", amount: 100, dueDate: yesterday },
+      });
+
+      const [first, second] = await Promise.all([
+        inSession(adminUser, orgA, "admin", async () =>
+          new CrmService().createPayment(
+            orgA,
+            invoiceConcurrency,
+            { amount: 50, paymentDate: "2026-07-12T00:00:00.000Z", method: "card" },
+            adminUser,
+            "admin"
+          )
+        ),
+        inSession(adminUser, orgA, "admin", async () =>
+          new CrmService().createPayment(
+            orgA,
+            invoiceConcurrency,
+            { amount: 50, paymentDate: "2026-07-13T00:00:00.000Z", method: "cash" },
+            adminUser,
+            "admin"
+          )
+        ),
+      ]);
+
+      const state = await inSession(adminUser, orgA, "admin", async () => ({
+        invoice: await currentTransaction().invoice.findUnique({ where: { id: invoiceConcurrency } }),
+        payments: await currentTransaction().payment.findMany({ where: { invoiceId: invoiceConcurrency } }),
+        paidEvents: await currentTransaction().invoiceDelivery.findMany({
+          where: { invoiceId: invoiceConcurrency, eventType: "invoice.paid" },
+        }),
+      }));
+
+      expect([first.id, second.id]).toEqual(expect.arrayContaining(state.payments.map((payment) => payment.id)));
+      expect(state.payments).toHaveLength(2);
+      expect(state.invoice?.status).toBe("paid");
+      expect(state.paidEvents).toHaveLength(1);
+    });
+
+    it("keeps reconciliation tenant-scoped and never revives a voided invoice", async () => {
+      await adminClient.invoice.create({
+        data: { id: invoiceCrossOrg, projectId: projectA, invoiceNumber: 207, status: "sent", amount: 100, dueDate: yesterday },
+      });
+
+      await expect(
+        inSession(otherUser, orgB, "owner", async () =>
+          new CrmService().createPayment(
+            orgB,
+            invoiceCrossOrg,
+            { amount: 100, paymentDate: "2026-07-14T00:00:00.000Z", method: "card" },
+            otherUser,
+            "owner"
+          )
+        )
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      await inSession(adminUser, orgA, "admin", async () =>
+        new CrmService().createPayment(
+          orgA,
+          invoiceQueueA4,
+          { amount: 1000, paymentDate: "2026-07-15T00:00:00.000Z", method: "card" },
+          adminUser,
+          "admin"
+        )
+      );
+      const voided = await inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().invoice.findUnique({ where: { id: invoiceQueueA4 } })
+      );
+      expect(voided?.status).toBe("void");
+    });
+
+    it("serializes competing proposal decisions and records one delivery event", async () => {
+      await adminClient.proposal.create({
+        data: { id: proposalConcurrencyA, projectId: projectA, status: "sent", sentAt: new Date() },
+      });
+
+      const transitionResults = await Promise.allSettled([
+        inSession(adminUser, orgA, "admin", async () => new ProposalsService().accept(proposalConcurrencyA, orgA, adminUser)),
+        inSession(adminUser, orgA, "admin", async () => new ProposalsService().reject(proposalConcurrencyA, orgA, adminUser)),
+      ]);
+      expect(transitionResults.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(transitionResults.filter((result) => result.status === "rejected")).toHaveLength(1);
+      const transitionFailure = transitionResults.find((result) => result.status === "rejected");
+      expect(transitionFailure).toMatchObject({ reason: { statusCode: 409 } });
+
+      const finalConcurrencyRow = await adminClient.proposal.findUnique({
+        where: { id: proposalConcurrencyA },
+        select: { status: true },
+      });
+      expect(["accepted", "declined"]).toContain(finalConcurrencyRow?.status);
+      const concurrencyDeliveries = await adminClient.proposalDelivery.findMany({
+        where: { proposalId: proposalConcurrencyA },
+        select: { eventType: true },
+      });
+      expect(concurrencyDeliveries).toHaveLength(1);
+    });
+  });
+
+  describe("customer portal policies", () => {
+    const portalSessionId = "10000000-0000-0000-0000-000000000301";
+
+    it("restricts customer portal reads to the verified customer's tenant and projects", async () => {
+      const result = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000302", orgId: orgA, customerId: customerA },
+        async () => ({
+          projects: await currentTransaction().project.findMany({ orderBy: { id: "asc" } }),
+          customers: await currentTransaction().customer.findMany({ orderBy: { id: "asc" } }),
+          foreignProject: await currentTransaction().project.findUnique({ where: { id: projectB } }),
+          foreignCustomer: await currentTransaction().customer.findUnique({ where: { id: customerB } }),
+        }),
+      );
+
+      expect(result.projects.map((project) => project.id)).toEqual([projectA]);
+      expect(result.customers.map((customer) => customer.id)).toEqual([customerA]);
+      expect(result.foreignProject).toBeNull();
+      expect(result.foreignCustomer).toBeNull();
+    });
+
+    it("allows only the exact pending customer contract to transition and records no staff actor", async () => {
+      const denied = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000303", orgId: orgA, customerId: customerA },
+        async () => {
+          await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_contract_id', ${"10000000-0000-0000-0000-000000000304"}, true)`);
+          return currentTransaction().contract.updateMany({
+            where: { id: portalContractA, status: "pending_signature" },
+            data: { status: "signed", signedAt: new Date() },
+          });
+        },
+      );
+      expect(denied.count).toBe(0);
+
+      const signed = await runWithPortalDatabaseSession(
+        appClient,
+        { sessionId: portalSessionId, accessTokenId: "10000000-0000-0000-0000-000000000305", orgId: orgA, customerId: customerA },
+        async () => {
+          await currentTransaction().$queryRaw(Prisma.sql`select set_config('app.portal_contract_id', ${portalContractA}, true)`);
+          const updated = await currentTransaction().contract.updateMany({
+            where: { id: portalContractA, status: "pending_signature" },
+            data: {
+              status: "signed",
+              signerName: "Org A Customer",
+              signerEmail: "orga@example.com",
+              signedAt: new Date(),
+            },
+          });
+          const event = await currentTransaction().contractEvent.create({
+            data: {
+              orgId: orgA,
+              contractId: portalContractA,
+              eventType: "contract.signed",
+              actorUserId: null,
+              recipientEmail: "orga@example.com",
+              metadataJson: { actorType: "customer_portal", customerId: customerA, portalSessionId },
+            },
+          });
+          const activity = await currentTransaction().activityEvent.create({
+            data: {
+              orgId: orgA,
+              entityType: "project",
+              entityId: projectA,
+              eventType: "contract.signed",
+              title: "Contract signed",
+              actorUserId: null,
+              metadataJson: { actorType: "customer_portal", customerId: customerA, portalSessionId },
+            },
+          });
+          return { updated, event, activity };
+        },
+      );
+
+      expect(signed.updated.count).toBe(1);
+      expect(signed.event.actorUserId).toBeNull();
+      expect(signed.event.metadataJson).toMatchObject({ actorType: "customer_portal", customerId: customerA });
+      expect(signed.activity.actorUserId).toBeNull();
+    });
   });
 });
 

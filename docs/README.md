@@ -1,12 +1,13 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-15
+last_verified: 2026-08-25
 source_of_truth: true
 related_code:
   - AGENTS.md
   - README.md
   - docs/REPOSITORY_GOVERNANCE.md
+  - docs/CI_ACCELERATION.md
   - .github/pull_request_template.md
   - .github/PULL_REQUEST_TEMPLATE/
   - .github/ISSUE_TEMPLATE/
@@ -17,6 +18,13 @@ related_code:
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
+  - scripts/pr-preflight.mjs
+  - scripts/pr-body-check.mjs
+  - scripts/sprint-state-check.mjs
+  - scripts/live-sprint-evidence-check.mjs
+  - scripts/__tests__/pr-preflight.test.mjs
+  - scripts/__tests__/pr-body-check.test.mjs
+  - .github/workflows/docs-consistency.yml
   - .github/workflows/reconcile-production-migration.yml
   - .github/workflows/verify-repository.yml
   - .github/workflows/deploy-migrations.yml
@@ -25,6 +33,17 @@ related_code:
   - .github/workflows/dependency-review.yml
   - .github/workflows/workflow-security.yml
   - .github/workflows/nightly-repository-health.yml
+  - .github/workflows/preview-smoke-check.yml
+  - .github/workflows/sprint-governance.yml
+  - .github/workflows/migration-safety.yml
+  - .github/workflows/stale-pr-check.yml
+  - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/docs-reconciliation.yml
+  - .github/workflows/merge-readiness.yml
+  - .github/workflows/nightly-full-regression.yml
+  - .github/workflows/workflow-health-report.yml
+  - .github/workflows/rc-smoke.yml
+  - .github/workflows/repair-rc-beta-vercel.yml
 ---
 
 # TradeOS Documentation
@@ -47,11 +66,36 @@ Use these files first:
 - `docs/RBAC_MATRIX.md` for canonical roles and permission expectations
 - `docs/WORKFLOW_LIFECYCLES.md` for status vocabulary and transition rules
 - `docs/ROADMAP.md` for future work only
-- `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, and manual PR-maintenance controls
+- `docs/REPOSITORY_GOVERNANCE.md` for protected-branch policy, required checks, worktree lifecycle, PR templates, issue templates, label taxonomy, review-repair/auto-merge discipline, and manual PR-maintenance controls
+- `docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md` for the current founder-authorized solo-maintainer merge-review exception and its non-waivable technical gates
+- `docs/decisions/ADR-010-customer-magic-link-portal.md` for the approved customer-scoped public portal identity and contract-signing boundary
 - `docs/DEPLOYMENT_GUIDE.md` for deployment environment variables, migration rollout, and approved production migration-history reconciliation procedures
 - `docs/DOC_OWNERSHIP.yml` for required documentation updates by code path
 - `docs/athena/README.md` for Athena platform doctrine, contracts, and the A1 kernel roadmap (implementation truth for the A1 kernel foundation itself still lives in `docs/CURRENT_STATE.md`)
 - `docs/athena/SECURITY_MODEL.md` for Athena trust boundaries, approval rules, and forbidden patterns
+
+`docs/CI_ACCELERATION.md` is supporting operational documentation for the CI throughput/evidence workflows. It does not replace Repository Governance or the numbered-sprint protocol.
+
+The manual `Release candidate authenticated smoke` workflow is the governed
+S047 evidence path. It is restricted to explicitly selected Preview or Staging
+deployments on the approved HTTPS `tradeos-costbook-web-*.vercel.app` host
+pattern and a dedicated smoke tenant; it runs the owner authentication lifecycle
+with the maintained Beta smoke credentials, then creates fresh owner/admin
+browser state through the real login form using those credentials. Resource-backed customer/estimate/
+proposal/contract/invoice/portal checks reuse that temporary session, while the
+organization-matched technician is fresh-authenticated with its isolated field
+password for Dispatch/Field
+completion. No serialized cookie-jar secret is required. Screenshots are opt-in
+only for an explicitly confirmed sanitized tenant, runtime state is removed
+before artifact publication, and failed steps retain available machine-readable
+reports. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the required secrets
+and artifact boundary.
+
+When that smoke reports `SUPABASE_URL is not configured`, use the guarded
+`Repair staging Supabase auth configuration` workflow documented in
+[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
+`staging` backend and the TradeOS Staging Supabase URL; it is not a general
+environment editor.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -103,35 +147,62 @@ links or lane-specific additions and do not define parallel general contracts.
 
 Documentation changes are enforced in the same branch and pull request as relevant code changes.
 
+Before opening or updating a PR, run the repository preflight:
+
+```bash
+npm run pr:preflight -- --base origin/main
+```
+
+The preflight computes changed paths using the same ownership machinery as `docs:check`, reports the exact required owner documents, fails fast before expensive verification when `--run` is used and required docs are missing, and prints the minimum relevant local app/web verification lanes. `npm run pr:preflight:run -- --base origin/main` runs that scoped local plan after documentation ownership is satisfied. This is a contributor-speed tool; required GitHub checks remain authoritative.
+
 The repository verification workflow runs backend typechecking, unit tests,
 Athena contract/smoke checks, Prisma schema validation, production-dependency
 security auditing, build verification, live integration/migration rehearsal,
 and tracked-source cleanliness checks. The frontend gate runs production-
 dependency auditing, framework-free unit tests, lint, build, and the same
-tracked-source cleanliness check. These checks are intended to make a green PR
-a meaningful prerequisite for safe autonomous merging rather than a shallow
-build signal.
+tracked-source cleanliness check. On pull requests, these required job names
+always report, but expensive app/integration setup is skipped when the diff has
+no `app/**` or `packages/knowledge-engine/**` changes, and expensive web setup
+is skipped when the diff has no `web/**` changes. Pushes to `main` still run
+all lanes. This keeps branch-protection semantics stable while avoiding
+unrelated installs/tests/builds on single-lane PRs.
 
-The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow.
+The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
 
-The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. Action-runtime maintenance is intentionally separate from the explicit Node versions configured for TradeOS workloads, so updating an action does not silently redefine the application runtime matrix.
+`Docs consistency` also validates that the PR body contains every required default-template section and a real non-placeholder Summary before installing the docs checker dependencies. It then runs the focused PR-preflight tests, autonomy-reconciliation tests, and documentation ownership validation. This converts missing PR-template sections and missing owner docs into early, deterministic failures rather than late review churn.
+
+The dedicated dependency-review workflow is a pull-request security gate with read-only repository contents access. It fails when a PR introduces a dependency with a known high or critical vulnerability. This is additive to the existing package-manager production dependency audits and does not replace the normal repository verification workflow. The gate uses `actions/dependency-review-action@v5`; its internal Node 24 action runtime is CI implementation detail and does not change TradeOS workload runtime versions.
+
+The workflow implementation uses supported major versions of `actions/checkout` and `actions/setup-node`. As of 2026-08-18, checkout call sites are maintained on the v7.0.1 patch release; this action-runtime maintenance does not change the explicit Node versions used for TradeOS workload testing or deployment.
+
+PR #308 updates the existing artifact publication steps in `.github/workflows/rc-smoke.yml` and `.github/workflows/s027-browser-evidence.yml` from `actions/upload-artifact@v6` to `@v7`. The workflows retain their existing artifact names and directory paths and do not opt into v7 direct-upload mode (`archive: false`); this is GitHub Actions runtime maintenance only and does not change workflow permissions, secrets, triggers, explicit TradeOS Node workload versions, auth/RLS, schema, or product behavior.
 
 Changes under `.github/workflows/**` and `.github/actions/**` additionally trigger `workflow-security.yml`. Workflow YAML is inspected directly; for a change anywhere under a local action directory, the gate resolves and inspects that changed file's enclosing `action.yml` or `action.yaml` manifest and fails closed if no manifest exists. It runs pinned `actionlint` directly on the hosted runner and rejects the repository's default-prohibited workflow patterns. This remains supplemental CI unless live branch protection is separately configured to require the check.
 
+The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
+
+The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL` using the current non-interactive Vercel CLI contract, redeploys the recorded staging backend, and requires `/ready` before the authenticated RC smoke can resume.
+
+The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
+
 The enforcement flow is:
 
-1. `scripts/__tests__/reconcile-task.test.mjs` verifies the autonomous-work classification and evidence-report contract.
-2. `scripts/docs-check.mjs` determines the changed files against the PR base.
-3. `docs/DOC_OWNERSHIP.yml` maps changed code paths to required docs.
-4. The checker fails if the required docs are not also changed.
+1. `scripts/pr-body-check.mjs` validates the required PR-description structure on pull-request events.
+2. `scripts/__tests__/pr-{body-check,preflight}.test.mjs` pin the fast PR metadata/preflight contracts.
+3. `scripts/__tests__/reconcile-task.test.mjs` verifies the autonomous-work classification and evidence-report contract.
+4. `scripts/docs-check.mjs` determines the changed files against the PR base.
+5. `docs/DOC_OWNERSHIP.yml` maps changed code paths to required docs.
+6. The checker fails if the required docs are not also changed.
 
 Run locally with:
 
 ```bash
-npm run docs:check
+npm run pr:preflight -- --base origin/main
+npm run pr:test
+npm run docs:check -- --base origin/main
 ```
 
-Run tests for the checker with:
+Run tests for the docs checker with:
 
 ```bash
 npm run docs:test
@@ -171,11 +242,11 @@ Rename handling:
 - ordinary edits to living docs do not automatically require `docs/README.md`
 - `docs/README.md` is reserved for documentation-governance, hierarchy, ownership-rule, checker, PR-template, and docs-workflow changes — enforced mechanically: any change to `docs/DOC_OWNERSHIP.yml` requires `docs/README.md` and `docs/REPOSITORY_GOVERNANCE.md` to also change in the same PR
 - controller and middleware files should be listed when they own module-specific validation, permission, throttling, or security behavior; for example, AI estimator controller and rate-limit changes are owned by the AI Estimate Assist documentation set
-- package-level data corpora are listed when their content feeds a documented runtime consumer; for example, `packages/knowledge-engine/**` runtime and vendored-content changes are owned by `packages/knowledge-engine/README.md`, which is the package's own canonical entry point rather than a `docs/modules/*.md` file
+- package-level data corpora are listed when their content feeds a documented runtime consumer; for example, `packages/knowledge-engine/**` runtime, vendored-content, and canonical-path cleanup changes are owned by `packages/knowledge-engine/README.md`, which is the package's own canonical entry point rather than a `docs/modules/*.md` file
 
 ## Dependabot patch auto-merge
 
-The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements.
+The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may enable GitHub auto-merge only for same-repository Dependabot pull requests targeting `main` when Dependabot metadata classifies the update as `version-update:semver-patch`. It never directly merges a PR, does not cover minor or major updates, and does not bypass required checks, branch freshness, or review-thread requirements. The workflow now runs from the normal `pull_request` event and uses the immutable `dependabot/fetch-metadata` v3.1.0 commit; the action's Node 24 runtime is confined to GitHub Actions and does not alter TradeOS application runtime policy.
 
 ### Nightly repository health
 
@@ -183,6 +254,9 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 
 ## Source-of-truth files
 
+S041 is DONE through implementation PR #351 and completion evidence in `architecture/S041_COMPLETION_EVIDENCE.md`; its readiness contract and RLS inventory remain recorded in `architecture/S041_RLS_POLICY_COVERAGE_PLAN.md` and `architecture/S041_RLS_POLICY_COVERAGE_INVENTORY.md`. Keep S027 browser evidence independent and do not begin S042.
+
+- [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md)
 - [CURRENT_STATE.md](CURRENT_STATE.md)
 - [ENGINEERING_COMMAND_CENTER.md](ENGINEERING_COMMAND_CENTER.md)
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
@@ -193,9 +267,11 @@ The optional `.github/workflows/dependabot-patch-automerge.yml` workflow may ena
 - [RBAC_MATRIX.md](RBAC_MATRIX.md)
 - [WORKFLOW_LIFECYCLES.md](WORKFLOW_LIFECYCLES.md)
 - [ROADMAP.md](ROADMAP.md)
+- [SPRINT_BACKLOG.md](SPRINT_BACKLOG.md)
 - [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md)
 - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
+- [CI_ACCELERATION.md](CI_ACCELERATION.md)
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
@@ -205,3 +281,8 @@ Athena production-readiness changes that touch approvals, audit persistence,
 permission context, or provider scope should update both the Athena-specific
 docs and whichever shared platform docs describe tenancy, RBAC, or runtime
 architecture.
+
+
+### Automated maintenance
+
+The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.

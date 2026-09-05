@@ -1,5 +1,17 @@
 import { createHmac } from "node:crypto";
 
+const mockGenerationRunFindFirst = jest.fn();
+const mockGenerationRunCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+  ...data,
+  createdAt: new Date(),
+  completedAt: data.completedAt ?? null,
+  estimatedUsd: undefined,
+}));
+const mockGenerationReviewCreate = jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+  ...data,
+  createdAt: new Date(),
+}));
+
 const mockPrisma = {
   $queryRaw: jest.fn(),
   estimate: {
@@ -7,6 +19,13 @@ const mockPrisma = {
   },
   estimateLineItem: {
     findFirst: jest.fn(),
+  },
+  athenaGenerationRun: {
+    create: mockGenerationRunCreate,
+    findFirst: mockGenerationRunFindFirst,
+  },
+  athenaGenerationReview: {
+    create: mockGenerationReviewCreate,
   },
 };
 
@@ -370,6 +389,15 @@ describe("StructuredAIEstimatorService", () => {
       })
     );
     expect(mockActivityService.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: "estimate.ai_estimator_draft_generated" }));
+    expect(result.generationId).toEqual(expect.any(String));
+    expect(mockGenerationRunCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        actorUserId: "user-1",
+        provider: "knowledge-runtime",
+        status: "succeeded",
+      }),
+    }));
   });
 
   it.each([
@@ -917,6 +945,111 @@ describe("StructuredAIEstimatorService", () => {
     expect(mockRunInDatabaseTransaction).toHaveBeenCalledTimes(1);
     expect(mockEstimateEngine.addLineItem).toHaveBeenCalledTimes(2);
     expect(mockActivityService.record).not.toHaveBeenCalledWith(expect.objectContaining({ eventType: "estimate.ai_estimator_review_applied" }));
+  });
+
+  it("records review provenance against the generated metadata record", async () => {
+    mockGenerationRunFindFirst.mockResolvedValueOnce({
+      id: "10000000-0000-0000-0000-000000000010",
+      orgId: "org-1",
+      actorUserId: "user-1",
+      executionId: null,
+      requestId: "request-1",
+      traceId: "trace-1",
+      provider: "knowledge-runtime",
+      model: "structured-ai-estimator.v1",
+      providerVersion: null,
+      status: "succeeded",
+      failureCode: null,
+      inputTokens: null,
+      outputTokens: null,
+      estimatedUsd: null,
+      latencyMs: 1,
+      toolNamesJson: [],
+      provenanceJson: { source: "ai_estimate_assist", estimateId: "estimate-1" },
+      retentionExpiresAt: new Date("2026-12-01T00:00:00.000Z"),
+      createdAt: new Date("2026-08-25T00:00:00.000Z"),
+      completedAt: new Date("2026-08-25T00:00:00.000Z"),
+    });
+    mockCostDatabase.getById.mockResolvedValue({
+      id: "10000000-0000-0000-0000-000000000002",
+      orgId: "org-1",
+      code: "COST-001",
+      name: "Panel replacement",
+      unitOfMeasure: "EA",
+      isActive: true,
+    });
+    mockEstimateEngine.addLineItem.mockResolvedValue({ id: "line-item-1" });
+
+    const result = await new StructuredAIEstimatorService().applyReviewedDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      actorUserId: "user-1",
+      generationId: "10000000-0000-0000-0000-000000000010",
+      lineItems: [
+        {
+          draftLineItemId: "accepted-1",
+          status: "accepted",
+          reviewToken: buildReviewToken({
+            estimateId: "estimate-1",
+            orgId: "org-1",
+            draftLineItemId: "accepted-1",
+            targetKind: "costItem",
+            targetId: "10000000-0000-0000-0000-000000000002",
+          }),
+          targetId: "10000000-0000-0000-0000-000000000002",
+          targetKind: "costItem",
+          description: "Panel replacement",
+          quantity: 1,
+        },
+      ],
+    });
+
+    expect(result.applied).toHaveLength(1);
+    expect(mockGenerationReviewCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        orgId: "org-1",
+        generationId: "10000000-0000-0000-0000-000000000010",
+        reviewerUserId: "user-1",
+        outcome: "accepted",
+      }),
+    }));
+  });
+
+  it("rejects a generation record bound to a different estimate before any apply or review write", async () => {
+    mockGenerationRunFindFirst.mockResolvedValueOnce({
+      id: "10000000-0000-0000-0000-000000000011",
+      orgId: "org-1",
+      actorUserId: "user-1",
+      executionId: null,
+      requestId: "request-2",
+      traceId: "trace-2",
+      provider: "knowledge-runtime",
+      model: "structured-ai-estimator.v1",
+      providerVersion: null,
+      status: "succeeded",
+      failureCode: null,
+      inputTokens: null,
+      outputTokens: null,
+      estimatedUsd: null,
+      latencyMs: 1,
+      toolNamesJson: [],
+      provenanceJson: { source: "ai_estimate_assist", estimateId: "estimate-other" },
+      retentionExpiresAt: new Date("2026-12-01T00:00:00.000Z"),
+      createdAt: new Date("2026-08-25T00:00:00.000Z"),
+      completedAt: new Date("2026-08-25T00:00:00.000Z"),
+    });
+
+    await expect(
+      new StructuredAIEstimatorService().applyReviewedDraft({
+        estimateId: "estimate-1",
+        orgId: "org-1",
+        actorUserId: "user-1",
+        generationId: "10000000-0000-0000-0000-000000000011",
+        lineItems: [],
+      })
+    ).rejects.toThrow("Generation record does not match the reviewed estimate");
+    expect(mockEstimateEngine.addLineItem).not.toHaveBeenCalled();
+    expect(mockGenerationReviewCreate).not.toHaveBeenCalled();
   });
 
   it("skips accepted org-owned targets that are not backed by a matching server review token", async () => {

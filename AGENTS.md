@@ -136,11 +136,36 @@ Agents may investigate, prepare evidence, tests, migration plans, and a reviewed
 - changes that intentionally weaken tests, CI, branch protection, security controls, or observability;
 - ambiguous product behavior requiring a product decision.
 
-For these, stop at the safest reviewable boundary and state the exact decision required.
+For these, stop at the safest reviewable boundary and state the exact decision required
+unless the founder-only merge exception below is explicitly recorded for the PR.
+
+### Solo-maintainer founder merge exception
+
+ADR-009 establishes a narrow exception for the current one-maintainer operating
+model. When no qualified independent reviewer is available, the founder may
+authorize the founder or an authorized administrator to merge a protected PR
+through its normal pull request after completing the same technical review.
+This is an authority decision, not an independent approval, and it must never
+be represented as one.
+
+The exception is valid only when the PR records all of the following:
+
+- explicit founder authorization and the reason an independent reviewer is unavailable;
+- the affected risk boundaries and the rollback or recovery plan;
+- green required checks, a current branch, resolved conversations, and a reviewed final head;
+- no unresolved security, tenant-isolation, migration, financial, contractual, or production finding;
+- any required disposable-database migration rehearsal or environment approval; and
+- the exact follow-up owner and trigger for restoring independent review when another qualified maintainer joins.
+
+The exception does not permit direct pushes to `main`, failing or skipped
+required checks, unresolved conversations, fabricated approvals, weakened
+security controls, or unapproved production/destructive actions. It applies to
+the merge-review requirement only; product, legal, security, and operational
+decisions still require the founder authority described in the PR.
 
 ### Never do autonomously
 
-- bypass branch protection, required checks, or required conversation resolution;
+- use an unrecorded administrator bypass or bypass required checks, branch freshness, or required conversation resolution;
 - push directly to `main`;
 - use plain force push;
 - disable or delete tests merely to make CI green;
@@ -184,7 +209,7 @@ An agent may merge a low-risk PR only when **all** of the following are true:
 9. all review conversations are resolved;
 10. no unresolved high-severity security, data-integrity, migration, or production risk remains;
 11. the head SHA verified for merge is the SHA that was reviewed and tested;
-12. the change is not in a PR-only/human-decision category.
+12. the change is not in a PR-only/human-decision category, or the PR contains the complete ADR-009 founder-only exception record.
 
 If any condition is uncertain, do not merge.
 

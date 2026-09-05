@@ -1,4 +1,5 @@
 const mockPrisma = {
+  $queryRaw: jest.fn(),
   proposal: {
     findFirst: jest.fn(),
   },
@@ -7,6 +8,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   contractEvent: {
     create: jest.fn(),
@@ -36,6 +38,13 @@ describe("ContractsService", () => {
       projectId: "project-1",
       status: "accepted",
       termsAndConditions: "Custom terms",
+      finalPrice: 8500,
+      companyName: "Canonical Builders",
+      scopeOfWork: "Build the agreed scope.",
+      assumptions: "Normal site access.",
+      exclusions: "Permits excluded.",
+      timeline: "Four weeks",
+      paymentScheduleJson: [{ label: "Deposit", amountPercent: 50 }],
     });
     mockPrisma.contract.create.mockResolvedValue({
       id: "contract-1",
@@ -43,10 +52,12 @@ describe("ContractsService", () => {
       proposalId: "proposal-1",
       status: "pending_signature",
       termsText: "Custom terms",
+      contractAmount: 8500,
+      snapshotJson: { contractAmount: 8500 },
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
-      signatureIp: null,
+      signatureIpReported: null,
       signedAt: null,
       createdAt: new Date(),
     });
@@ -56,10 +67,13 @@ describe("ContractsService", () => {
       proposalId: "proposal-1",
       status: "pending_signature",
       termsText: "Custom terms",
+      contractAmount: 8500,
+      snapshotJson: { contractAmount: 8500, scopeOfWork: "Build the agreed scope." },
       signerName: null,
       signerEmail: null,
       signatureDataUrl: null,
-      signatureIp: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
       signedAt: null,
       createdAt: new Date(),
       events: [{ id: "event-1", eventType: "contract.created", actorUserId: "user-1", recipientEmail: null, metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
@@ -69,9 +83,37 @@ describe("ContractsService", () => {
     const service = new ContractsService();
     const contract = await service.create({ orgId: "org-1", actorUserId: "user-1", actorRole: "admin", proposalId: "proposal-1" });
 
-    expect(contract.status).toBe("pending_signature");
+    expect(contract.status).toBe("sent");
     expect(contract.termsText).toBe("Custom terms");
+    expect(contract.contractAmount).toBe(8500);
+    expect(mockPrisma.contract.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ contractAmount: 8500, snapshotJson: expect.objectContaining({ scopeOfWork: "Build the agreed scope." }) }) })
+    );
     expect(contract.events[0]?.eventType).toBe("contract.created");
+  });
+
+  it("normalizes a historical pending_signature row to canonical sent on read", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      status: "pending_signature",
+      termsText: "Custom terms",
+      signerName: null,
+      signerEmail: null,
+      signatureDataUrl: null,
+      signatureIpReported: null,
+      signatureUserAgentReported: null,
+      signedAt: null,
+      createdAt: new Date(),
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+
+    const service = new ContractsService();
+    const contract = await service.getById("contract-1", "org-1");
+
+    expect(contract.status).toBe("sent");
   });
 
   it("rejects creating a contract from a proposal that hasn't been accepted", async () => {
@@ -79,6 +121,21 @@ describe("ContractsService", () => {
 
     const service = new ContractsService();
     await expect(service.create({ orgId: "org-1", actorRole: "admin", proposalId: "proposal-1" })).rejects.toThrow("must be accepted");
+  });
+
+  it("rejects creating a second contract for the same proposal", async () => {
+    mockPrisma.proposal.findFirst.mockResolvedValue({
+      id: "proposal-1",
+      projectId: "project-1",
+      status: "accepted",
+      finalPrice: 8500,
+      contracts: [{ id: "existing-contract" }],
+    });
+
+    await expect(new ContractsService().create({ orgId: "org-1", actorRole: "admin", proposalId: "proposal-1" })).rejects.toThrow(
+      "already has contract existing-contract"
+    );
+    expect(mockPrisma.contract.create).not.toHaveBeenCalled();
   });
 
   it("rejects contract mutations for roles without documents.manage", async () => {
@@ -109,25 +166,14 @@ describe("ContractsService", () => {
         signerName: "Jane Doe",
         signerEmail: "jane@example.com",
         signatureDataUrl: null,
-        signatureIp: "127.0.0.1",
+        signatureIpReported: "127.0.0.1",
+        signatureUserAgentReported: null,
         signedAt: new Date(),
         createdAt: new Date(),
         events: [{ id: "event-2", eventType: "contract.signed", actorUserId: "user-1", recipientEmail: "jane@example.com", metadataJson: null, occurredAt: new Date(), createdAt: new Date() }],
         project: { id: "project-1", orgId: "org-1" },
       });
-    mockPrisma.contract.update.mockResolvedValue({
-      id: "contract-1",
-      projectId: "project-1",
-      proposalId: "proposal-1",
-      status: "signed",
-      termsText: "Custom terms",
-      signerName: "Jane Doe",
-      signerEmail: "jane@example.com",
-      signatureDataUrl: null,
-      signatureIp: "127.0.0.1",
-      signedAt: new Date(),
-      createdAt: new Date(),
-    });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 1 });
 
     const service = new ContractsService();
     const contract = await service.sign("contract-1", {
@@ -136,7 +182,7 @@ describe("ContractsService", () => {
       actorRole: "admin",
       signerName: "Jane Doe",
       signerEmail: "jane@example.com",
-      signatureIp: "127.0.0.1",
+      signatureIpReported: "127.0.0.1",
     });
 
     expect(contract.status).toBe("signed");
@@ -144,6 +190,75 @@ describe("ContractsService", () => {
     expect(mockPrisma.contractEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ eventType: "contract.signed", actorUserId: "user-1" }) })
     );
+  });
+
+  it("attributes a portal signature to the customer session without a staff actor", async () => {
+    mockPrisma.contract.findFirst
+      .mockResolvedValueOnce({
+        id: "contract-portal",
+        projectId: "project-1",
+        proposalId: "proposal-1",
+        status: "pending_signature",
+        signerEmail: null,
+        events: [],
+        project: { id: "project-1", orgId: "org-1" },
+      })
+      .mockResolvedValueOnce({
+        id: "contract-portal",
+        projectId: "project-1",
+        proposalId: "proposal-1",
+        status: "signed",
+        termsText: "Terms",
+        contractAmount: 1200,
+        snapshotJson: { scopeOfWork: "Scope" },
+        signerName: "Customer",
+        signerEmail: "customer@example.com",
+        signatureDataUrl: null,
+        signatureIpReported: "reported-ip",
+        signatureUserAgentReported: "reported-agent",
+        signedAt: new Date(),
+        createdAt: new Date(),
+        events: [],
+        project: { id: "project-1", orgId: "org-1" },
+      });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 1 });
+
+    const contract = await new ContractsService().signAsPortalCustomer("contract-portal", {
+      orgId: "org-1",
+      customerId: "customer-1",
+      portalSessionId: "session-1",
+      signerName: "Customer",
+      signerEmail: "customer@example.com",
+      signatureIpReported: "reported-ip",
+      signatureUserAgentReported: "reported-agent",
+    });
+
+    expect(contract.status).toBe("signed");
+    expect(mockPrisma.contractEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        actorUserId: undefined,
+        metadataJson: expect.objectContaining({ actorType: "customer_portal", customerId: "customer-1", portalSessionId: "session-1" }),
+      }),
+    }));
+  });
+
+  it("fails closed when a competing signer changes the contract after the read", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      status: "pending_signature",
+      signerEmail: null,
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new ContractsService();
+    await expect(service.sign("contract-1", { orgId: "org-1", actorRole: "admin", signerName: "Jane Doe" })).rejects.toThrow(
+      "changed before it could be signed"
+    );
+    expect(mockPrisma.contractEvent.create).not.toHaveBeenCalled();
   });
 
   it("rejects signing a contract that is already signed", async () => {
@@ -171,5 +286,38 @@ describe("ContractsService", () => {
 
     const service = new ContractsService();
     await expect(service.void("contract-1", "org-1", "user-1", "admin")).rejects.toThrow("already been signed");
+  });
+
+  it("rejects voiding an already voided contract", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      status: "voided",
+      signerEmail: "jane@example.com",
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+
+    const service = new ContractsService();
+    await expect(service.void("contract-1", "org-1", "user-1", "admin")).rejects.toThrow("already been voided");
+  });
+
+  it("fails closed when a competing void changes the contract after the read", async () => {
+    mockPrisma.contract.findFirst.mockResolvedValue({
+      id: "contract-1",
+      projectId: "project-1",
+      proposalId: "proposal-1",
+      status: "pending_signature",
+      signerEmail: null,
+      events: [],
+      project: { id: "project-1", orgId: "org-1" },
+    });
+    mockPrisma.contract.updateMany.mockResolvedValue({ count: 0 });
+
+    const service = new ContractsService();
+    await expect(service.void("contract-1", "org-1", "user-1", "admin")).rejects.toThrow(
+      "changed before it could be voided"
+    );
+    expect(mockPrisma.contractEvent.create).not.toHaveBeenCalled();
   });
 });

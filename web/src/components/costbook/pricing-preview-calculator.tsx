@@ -53,7 +53,7 @@ export function PricingPreviewCalculator() {
   }
 
   return <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
-    <form onSubmit={submit} className="grid gap-4 rounded-lg border border-border/70 bg-surface p-5">
+    <form onSubmit={submit} className="grid gap-4 rounded-lg border border-border/70 bg-card p-5">
       <div><h2 className="font-semibold text-foreground">Pricing inputs</h2><p className="mt-1 text-sm text-muted-foreground">Preview only. This calculator does not save or change Costbook prices.</p></div>
       <label className="grid gap-1.5 text-sm font-medium"><span>Job cost</span><Input type="number" min="0" step="0.01" value={jobCost} onChange={(event) => setJobCost(event.target.value)} required disabled={loading} /></label>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -68,7 +68,7 @@ export function PricingPreviewCalculator() {
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     </form>
 
-    <section className="rounded-lg border border-border/70 bg-surface p-5" aria-live="polite">
+    <section className="rounded-lg border border-border/70 bg-card p-5" aria-live="polite">
       <h2 className="font-semibold text-foreground">Preview</h2>
       {!preview ? <p className="mt-3 text-sm text-muted-foreground">Enter job cost and pricing mode to preview a sell price.</p> : <dl className="mt-4 grid gap-3">
         <Row label="Cost after overhead" value={money(preview.totalCost)} />

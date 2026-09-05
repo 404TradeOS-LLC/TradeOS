@@ -1,12 +1,43 @@
+import type { InvoiceStatus } from "../../domain";
+
+export interface InvoiceQueueFilters {
+  orgId: string;
+  statuses?: InvoiceStatus[];
+  sent?: boolean;
+  overdue?: boolean;
+  partiallyPaid?: boolean;
+  unpaid?: boolean;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface InvoiceQueueItemDTO {
+  id: string;
+  documentNumber: number;
+  projectId: string;
+  projectName: string;
+  customerName: string | null;
+  status: InvoiceStatus;
+  amount: number;
+  paidAmount: number;
+  balanceDue: number;
+  dueDate: string | null;
+  updatedAt: string;
+}
+
 export interface InvoiceLineItemInput {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
+  unitPrice: number;
+  /** Customer-facing allocated line total when created from an estimate. */
+  lineTotal?: number;
 }
 
 export interface CreateInvoiceInput {
-  orgId?: string;
+  orgId: string;
   actorUserId?: string;
   actorRole?: string;
   projectId: string;
@@ -23,8 +54,8 @@ export interface InvoiceLineItemDTO {
   description: string;
   quantity: number;
   unitOfMeasure: string;
-  unitCost: number;
-  lineCost: number;
+  unitPrice: number;
+  lineTotal: number;
   sortOrder: number;
 }
 
@@ -39,6 +70,14 @@ export interface InvoiceDeliveryDTO {
   createdAt: string;
 }
 
+export interface InvoicePaymentDTO {
+  id: string;
+  amount: number;
+  paymentDate: Date;
+  method: string;
+  createdAt: Date;
+}
+
 export interface InvoiceDTO {
   id: string;
   projectId: string;
@@ -49,10 +88,16 @@ export interface InvoiceDTO {
   status: string;
   percentComplete: number | null;
   amount: number;
+  subtotal: number;
+  taxPct: number;
+  taxAmount: number;
   dueDate: Date | null;
   sentAt: Date | null;
   paidAt: Date | null;
   createdAt: Date;
+  paidAmount: number;
+  balanceDue: number;
+  payments: InvoicePaymentDTO[];
   deliveries: InvoiceDeliveryDTO[];
 }
 

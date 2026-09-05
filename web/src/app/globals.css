@@ -18,6 +18,12 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -27,6 +33,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -64,16 +71,21 @@
   --font-source-sans-3: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   --font-jetbrains-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
 
-  /* Blueprint register: the quiet, data-dense product theme. Space Grotesk
-     is reserved for headings/display moments; body/UI text stays on system
-     sans. The accent moved from warm copper to a cooler electric blue so
-     the dashboard and navigation read cleaner at RC1 density, while amber
-     remains reserved for meaningful attention states. */
+  /* Blueprint register: the quiet, data-dense product theme from the
+     canonical 404TradeOS Design System. Space Grotesk is reserved for
+     headings/display moments; body/UI text stays on system sans. Copper is
+     the sole brand accent (see docs/404 TradeOS Design System/tokens) -
+     amber is reserved for warnings, green for success/online states, blue
+     for informational states. Never introduce a new accent color. */
   --font-sans: var(--font-inter);
   --font-heading-base: var(--font-space-grotesk);
   --font-mono-base: var(--font-ibm-plex-mono);
-  --copper: oklch(0.61 0.17 257);
-  --copper-foreground: oklch(0.99 0.01 255);
+  --copper: #b87333;
+  /* White-on-copper is only 3.79:1 (fails WCAG AA's 4.5:1 for normal text -
+     confirmed by a real accessibility audit against the deployed preview).
+     Matches the dark theme's already-correct forge-black-on-copper
+     convention below; #b87333 with #0d0a07 is 5.21:1. */
+  --copper-foreground: #0d0a07;
   --background: oklch(0.975 0.004 247);
   --foreground: oklch(0.24 0.014 255);
   --card: oklch(0.995 0.003 255);
@@ -86,9 +98,25 @@
   --secondary-foreground: oklch(0.28 0.015 255);
   --muted: oklch(0.958 0.005 252);
   --muted-foreground: oklch(0.5 0.013 256);
-  --accent: oklch(0.92 0.023 248);
-  --accent-foreground: oklch(0.33 0.055 257);
-  --destructive: oklch(0.577 0.245 27.325);
+  --accent: color-mix(in oklch, var(--copper) 14%, var(--background));
+  --accent-foreground: #8a5620;
+  /* destructive/warning/success/info are reused as both solid-fill button
+     backgrounds (white foreground) AND standalone text colors on the card
+     surface (StatusBadge etc.) - both uses need contrast(color, white) >=
+     4.5:1. The design bundle's own base shades (destructive #e24b4a,
+     warning #d9891f, success #0e9f6e, info #2f6fed) don't clear that in
+     either direction - down to 2.78:1 for warning - despite the source
+     commenting success as "AA" text. Darkened each to the same hue's
+     nearest shade that actually passes (confirmed by computing real WCAG
+     contrast ratios, not eyeballing), with a small safety margin. */
+  --destructive: #dd2f2d;
+  --destructive-foreground: #ffffff;
+  --warning: #a36717;
+  --warning-foreground: #ffffff;
+  --success: #0c855c;
+  --success-foreground: #ffffff;
+  --info: #2d6ded;
+  --info-foreground: #ffffff;
   --border: oklch(0.9 0.01 255);
   --input: oklch(0.9 0.01 255);
   --ring: var(--copper);
@@ -102,15 +130,15 @@
   --sidebar-foreground: oklch(0.24 0.014 255);
   --sidebar-primary: var(--copper);
   --sidebar-primary-foreground: var(--copper-foreground);
-  --sidebar-accent: oklch(0.93 0.02 248);
-  --sidebar-accent-foreground: oklch(0.34 0.05 257);
+  --sidebar-accent: color-mix(in oklch, var(--copper) 12%, var(--background));
+  --sidebar-accent-foreground: #8a5620;
   --sidebar-border: oklch(0.89 0.01 255);
   --sidebar-ring: var(--copper);
 }
 
 .dark {
-  --copper: oklch(0.72 0.14 257);
-  --copper-foreground: oklch(0.18 0.01 255);
+  --copper: #e8c99a;
+  --copper-foreground: #0d0a07;
   --background: oklch(0.18 0.01 255);
   --foreground: oklch(0.95 0.003 255);
   --card: oklch(0.22 0.012 255);
@@ -123,9 +151,19 @@
   --secondary-foreground: oklch(0.95 0.003 255);
   --muted: oklch(0.25 0.01 255);
   --muted-foreground: oklch(0.72 0.01 255);
-  --accent: oklch(0.31 0.03 252);
-  --accent-foreground: oklch(0.9 0.03 250);
-  --destructive: oklch(0.704 0.191 22.216);
+  --accent: color-mix(in oklch, var(--copper) 16%, var(--background));
+  /* #e8c99a (the dark theme's own --copper) on this lightly-tinted-with-
+     itself surface is only 4.33:1 - fails. #f2ddc2 (copper-100, still the
+     same copper family) is 5.20:1. */
+  --accent-foreground: #f2ddc2;
+  --destructive: #ff8785;
+  --destructive-foreground: #2b0705;
+  --warning: #e8a94b;
+  --warning-foreground: #0d0a07;
+  --success: #00c896;
+  --success-foreground: #0d0a07;
+  --info: #6d9bff;
+  --info-foreground: #0d0a07;
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 14%);
   --ring: var(--copper);
@@ -142,6 +180,30 @@
   --sidebar-accent-foreground: oklch(0.9 0.03 250);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: var(--copper);
+}
+
+:root {
+  /* Elevation - restrained two-part shadows (ambient + key), from the
+     404TradeOS Design System's tokens/elevation.css. Borders do most of the
+     separation work; shadows are reserved for floating/overlay chrome. */
+  --elev-1: 0 1px 2px rgba(16, 20, 28, 0.06), 0 1px 1px rgba(16, 20, 28, 0.04);
+  --elev-2: 0 2px 8px rgba(16, 20, 28, 0.08), 0 1px 2px rgba(16, 20, 28, 0.05);
+  --elev-3: 0 8px 24px rgba(16, 20, 28, 0.1), 0 2px 6px rgba(16, 20, 28, 0.06);
+  --elev-4: 0 24px 60px rgba(16, 20, 28, 0.14), 0 8px 20px rgba(16, 20, 28, 0.08);
+
+  /* Motion - duration climbs with the distance/importance of the change;
+     easings: standard for most, emphasized for entrances. */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --elev-2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --elev-3: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --elev-4: 0 32px 80px rgba(0, 0, 0, 0.55);
 }
 
 @layer base {

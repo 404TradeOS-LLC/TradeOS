@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-13
+last_verified: 2026-08-17
 source_of_truth: false
 related_code:
   - app/backend/start.ts
@@ -9,6 +9,8 @@ related_code:
   - app/backend/server.ts
   - app/backend/health.ts
   - web/src/lib/api.ts
+  - app/vercel.json
+  - web/vercel.json
   - .github/workflows/deploy-migrations.yml
 ---
 
@@ -28,6 +30,155 @@ Production posture for RC1:
 - forced PostgreSQL row-level security in the database
 - tracked Prisma migrations for schema and RLS policy rollout
 - request IDs and structured JSON logs on the API
+
+## Environment architecture
+
+TradeOS runs three environments, each with its own Vercel deployment(s) and
+its own Supabase project. Never mix credentials or connection strings
+across environments — a Preview deployment must never hold a Production
+secret, and Production must never be pointed at a staging dependency.
+
+```
+LOCAL
+  developer machine
+      |
+      v
+  local backend (npm run dev, app/backend/start.ts)
+      |
+      v
+  local/self-hosted Postgres (DATABASE_URL in app/.env)
+
+STAGING / PREVIEW
+  Vercel Preview deployment (any PR branch, tradeos-costbook-web)
+      |
+      v
+  tradeos-costbook-git-staging-billykshowalters.vercel.app
+  (tradeos-costbook, deployed from the dedicated `staging` branch)
+      |
+      v
+  TradeOS Staging Supabase — ref qfbgdkbamfaasmtjfyru
+
+PRODUCTION
+  https://app.404tradeos.com (tradeos-costbook-web, main branch)
+      |
+      v
+  https://api.404tradeos.com (tradeos-costbook, main branch)
+      |
+      v
+  404TradeOScostbook Supabase (Production) — ref kssaceuetdjwfqnbzhly
+```
+
+### Vercel projects
+
+- `tradeos-costbook` — the Express backend (`app/`). Production deploys
+  from `main`; the stable staging backend URL above deploys from the
+  dedicated `staging` branch, which intentionally carries no application
+  changes of its own (see `app/vercel.json`'s short `ignoreCommand` and its
+  bounded `app/vercel-ignore-build.sh` implementation, which is path-scoped to
+  `app/**` and `packages/knowledge-engine/**` for Preview deployments). The
+  command stays within Vercel's configuration-schema length limit. Production
+  deployments from `main` always build: Vercel's
+  `VERCEL_GIT_PREVIOUS_SHA` identifies the last successful project deployment,
+  which may be an equivalent Preview and therefore cannot safely suppress the
+  later Production deployment.
+- `tradeos-costbook-web` — the Next.js frontend (`web/`). Production
+  deploys from `main`; every other branch (any PR) gets its own Preview
+  deployment, all sharing the same staging-scoped Preview environment
+  variables — there is no per-branch backend, by design, to avoid needing
+  one staging environment per PR (see `web/vercel.json`'s `ignoreCommand`,
+  path-scoped to `web/**` and `app/domain/**`).
+
+### Which branches deploy where
+
+| Branch | `tradeos-costbook` (backend) | `tradeos-costbook-web` (frontend) |
+|---|---|---|
+| `main` | Production (`api.404tradeos.com`) | Production (`app.404tradeos.com`) |
+| `staging` | Stable Preview branch-alias URL (the shared staging backend) | Ordinary Preview deployment (not special-cased) |
+| any other branch / PR | Ordinary Preview deployment (not the shared staging backend — has no working `DATABASE_URL`/`SUPABASE_URL` of its own) | Preview deployment, points at the `staging` branch's backend URL |
+
+### Supabase projects
+
+| Environment | Project | Ref |
+|---|---|---|
+| Production | `404TradeOScostbook` | `kssaceuetdjwfqnbzhly` |
+| Staging/Preview | `TradeOS Staging` | `qfbgdkbamfaasmtjfyru` |
+
+The staging project runs the same tracked Prisma migration history and the
+same `tradeos_app` role-provisioning script as Production (`npm run
+db:deploy`, `scripts/provision-app-role.sh`) — there is no separate staging
+schema or a hand-maintained copy. Staging's confirmed `DATABASE_URL` uses the
+Supavisor transaction-mode pooler. Production is required to use the same
+contract, pending post-deployment verification: port `6543`, with
+`pgbouncer=true&connection_limit=1&sslmode=require`, rather
+than session mode on port `5432` or the direct-connection host. Transaction
+mode bounds each Vercel function instance to one Prisma connection;
+session-mode pool exhaustion can otherwise fail unrelated API routes once the
+shared pool reaches its client limit. As defense in depth, the backend
+normalizes Supabase pooler URLs to these pooling and encrypted-transport
+settings when running on Vercel. Prisma's `sslaccept=strict` is not currently
+enabled because Vercel rejects the pooler's self-signed certificate chain;
+certificate-chain verification requires a separately validated CA rollout.
+Direct/admin URLs remain unchanged and must stay limited to trusted migration
+and provisioning tooling.
+
+### Where environment variables are managed
+
+All environment variables live in Vercel project settings, scoped per
+environment (Production / Preview / Development) and, for the backend,
+additionally scoped to the `staging` git branch specifically for the
+staging-only secrets (`DATABASE_URL`, `SUPABASE_URL`, `AUTH_JWT_SECRET`,
+`PLATFORM_PROVISIONING_SECRET`) so an arbitrary backend PR branch doesn't
+inherit them. `app/.env.example` and `web/.env.example` document every
+variable's purpose but hold no real values — they are templates, not a
+source of truth for any environment's actual configuration.
+
+**Never copy a Production secret into Preview.** If a Preview deployment is
+missing a required variable, provision a fresh staging-only value (a new
+role password, a new JWT secret) rather than reusing Production's. This
+applies even to variables that look inert or hard to misuse — the point is
+to keep the two environments' credentials from ever being the same value,
+not to judge each variable's individual risk.
+
+The manual `Repair staging Supabase auth configuration` workflow is the
+bounded recovery path when the stable `staging` backend loses its
+branch-scoped `SUPABASE_URL`. It requires the exact `REPAIR_STAGING_AUTH`
+confirmation, writes only the public TradeOS Staging project URL to Preview
+scope for the `staging` branch, redeploys the recorded stable staging backend,
+and requires database-backed `/ready` success. The environment update supplies
+its value and confirmation non-interactively, while `vercel redeploy` is invoked
+without the unsupported legacy `--yes` option. It cannot target Production or
+the Production Supabase project and does not rotate database or JWT secrets.
+
+### Vercel Authentication (Preview protection)
+
+As of 2026-08-17, Vercel Authentication (SSO protection) is **disabled**
+for Preview deployments on both `tradeos-costbook` and
+`tradeos-costbook-web`. This is a deliberate, recorded operational
+decision, not an oversight:
+
+- The frontend's server-side code (server actions, the `/api/proxy/*` and
+  `/api/documents/*` route handlers) calls the staging backend URL
+  directly. With Vercel Authentication enabled, those server-to-server
+  calls were blocked by the same SSO wall meant for human visitors,
+  because Vercel's API only supports protecting `all`, `preview`, or
+  `prod_deployment_urls_and_all_previews` — there is no "protect the
+  production alias but leave Preview reachable by automation" option.
+- Application security does not depend on this setting: auth is
+  bearer-JWT-only (no cookies), and `app/backend/middleware/productionHardening.ts`
+  already allowlists Preview origins explicitly rather than reflecting any
+  origin.
+- The only side effect is that each project's own raw Production
+  `.vercel.app` fallback alias (not the custom domain anyone actually
+  uses) is also reachable without a Vercel login. `app.404tradeos.com` and
+  `api.404tradeos.com` were never covered by this setting in the first
+  place — Vercel never applies Vercel Authentication to custom domains,
+  regardless of this toggle.
+
+Do not re-enable Vercel Authentication for Preview unless a Vercel
+"Protection Bypass for Automation" secret (or an equivalent automation
+credential) is wired into the frontend's calls to `BACKEND_API_URL` first
+— re-enabling without that would silently break Preview's ability to talk
+to its own backend.
 
 ## Deployment model
 
@@ -54,7 +205,9 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 ### Backend required
 
 - `DATABASE_URL`
-  Use the restricted application role, not the admin database user.
+  Use the restricted application role, not the admin database user. On
+  Vercel with Supabase, use the transaction pooler on port `6543` with
+  `pgbouncer=true&connection_limit=1&sslmode=require`.
 - `DATABASE_ADMIN_URL`
   Required for migration rollout and role provisioning.
 - `APP_DB_ROLE_PASSWORD`
@@ -78,7 +231,14 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 - `SUPABASE_JWT_AUDIENCE`
 - `AUTH_ISSUER`
 - `AUTH_AUDIENCE`
+- `AUTH_JWT_TTL_SECONDS` (optional; positive lifetime in seconds for locally issued access JWTs, default `3600`)
 - `RLS_TRANSACTION_TIMEOUT_MS`
+- `RLS_TRANSACTION_MAX_WAIT_MS`
+  Defaults to `15000`. This bounds how long an authenticated request waits to
+  acquire the request-scoped Prisma transaction. Keep it above Prisma's
+  two-second default when `connection_limit=1` is used so parallel page-loader
+  requests queue briefly instead of failing before the active request releases
+  the single per-instance connection.
 - `PLATFORM_PROVISIONING_ALLOWED_IPS`
 - `PLATFORM_PROVISIONING_RATE_LIMIT_WINDOW_MS`
 - `PLATFORM_PROVISIONING_RATE_LIMIT_MAX`
@@ -328,6 +488,10 @@ The job exits non-zero if any configured target fails, which is better for alert
 ## Security checklist
 
 - `DATABASE_URL` uses the restricted role, not the admin role.
+- Vercel's `DATABASE_URL` must use Supabase transaction pooling on port `6543`
+  with `pgbouncer=true&connection_limit=1&sslmode=require`;
+  session pooling on port `5432` must not be used by serverless runtime
+  instances. Confirm the active Production deployment after rollout.
 - `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.
 - `PLATFORM_PROVISIONING_SECRET` is high entropy and rotated when needed.
 - provisioning routes are also protected by network controls.

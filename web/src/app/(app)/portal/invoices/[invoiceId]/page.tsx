@@ -4,7 +4,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInvoice, getProject } from "@/lib/api";
-import { buildInvoiceTimeline, formatCurrency, formatDate, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
+import { buildInvoiceTimeline, formatDate, formatDateTime, formatInvoiceCurrency, getInvoiceDisplayStatus } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 
 export default async function CustomerPortalInvoicePage({ params }: { params: Promise<{ invoiceId: string }> }) {
@@ -44,17 +44,54 @@ export default async function CustomerPortalInvoicePage({ params }: { params: Pr
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Amount</div>
-              <div className="mt-2 font-medium">{formatCurrency(invoice.amount)}</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.amount)}</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Balance</div>
-              <div className="mt-2 font-medium">{formatCurrency(getInvoiceRunningBalance(invoice))}</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subtotal</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.subtotal)}</div>
+            </div>
+            {invoice.taxAmount > 0 ? <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tax{invoice.taxPct > 0 ? ` (${invoice.taxPct}%)` : ""}</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.taxAmount)}</div>
+            </div> : null}
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Paid to date</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.paidAmount)}</div>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Balance due</div>
+              <div className="mt-2 font-medium">{formatInvoiceCurrency(invoice.balanceDue)}</div>
             </div>
           </CardContent>
         </Card>
 
         <ActivityTimeline title="Invoice timeline" items={timeline} />
       </div>
+
+      <Card className="border-border/70">
+        <CardHeader>
+          <CardTitle>Payment history</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoice.payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No recorded payments yet.</p>
+          ) : (
+            <div className="divide-y divide-border/60">
+              {invoice.payments.map((payment) => (
+                <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0">
+                  <div>
+                    <div className="font-medium">{formatInvoiceCurrency(payment.amount)}</div>
+                    <div className="text-muted-foreground">
+                      {payment.method} · {formatDateTime(payment.paymentDate)}
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Recorded</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-border/70">
         <CardHeader>

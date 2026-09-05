@@ -39,6 +39,8 @@ import {
   jobNeedsAttention,
   resolveOrgTimezone,
 } from "./dispatchRules";
+import { JOB_ACTION_RULES, isAllowedJobAction, isAllowedJobStatusTransition } from "./lifecycle";
+import type { JobAction } from "./lifecycle";
 
 const activityService = new ActivityTimelineService();
 
@@ -56,14 +58,13 @@ const OVERRIDE_ROLES = new Set(["owner", "admin"]);
 const REOPEN_ROLES = new Set(["owner", "admin"]);
 const TECHNICIAN_FIELD_ROLES = new Set(["technician", "owner", "admin", "dispatcher"]);
 const ACTIVE_SCHEDULE_STATUSES: JobStatus[] = ["scheduled", "dispatched", "traveling", "on_site", "paused"];
-const RESCHEDULABLE_STATUSES: JobStatus[] = ["unscheduled", "scheduled", "dispatched"];
 
 const jobDetailInclude = {
   project: true,
   customer: true,
   serviceAddress: true,
   assignments: {
-    where: { removedAt: null },
+    where: { removedAt: null, declinedAt: null },
     include: { user: true },
     orderBy: [{ isLead: "desc" }, { createdAt: "asc" }],
   },
@@ -91,8 +92,9 @@ const jobListInclude = {
     select: { id: true, name: true },
   },
   assignments: {
-    where: { removedAt: null },
+    where: { removedAt: null, declinedAt: null },
     select: {
+      id: true,
       userId: true,
       user: { select: { id: true, fullName: true, email: true } },
     },
@@ -273,12 +275,13 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       await this.assertJobContext(tx, input.orgId, input.projectId, input.customerId, input.serviceAddressId);
       const technicianIds = uniqueValues(input.technicianIds);
-      await this.assertAssignableTechnicians(tx, input.orgId, technicianIds);
+      await this.assertAssignableTechnicians(tx, input.orgId, technicianIds, true);
       validateScheduleRange(input.scheduledStart ?? null, input.scheduledEnd ?? null, input.arrivalWindowStart ?? null, input.arrivalWindowEnd ?? null);
       validateDuration(input.estimatedDurationMinutes ?? null);
 
       const jobNumber = await this.generateJobNumber(tx, input.orgId);
       const status = input.scheduledStart && input.scheduledEnd ? "scheduled" : "unscheduled";
+      await this.lockTechnicianSchedules(tx, input.orgId, technicianIds);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds,
@@ -479,7 +482,7 @@ export class JobsService {
   async listAssignments(jobId: string, orgId: string, actor: { userId: string; role: string }): Promise<JobAssignmentDTO[]> {
     await this.findJobOrThrow(this.db, jobId, orgId, actor, false);
     const rows = await this.db.jobAssignment.findMany({
-      where: { jobId, orgId, removedAt: null },
+      where: { jobId, orgId, removedAt: null, declinedAt: null },
       include: { user: true },
       orderBy: [{ isLead: "desc" }, { createdAt: "asc" }],
     });
@@ -489,7 +492,7 @@ export class JobsService {
   async addAssignment(jobId: string, input: AddJobAssignmentInput): Promise<JobAssignmentDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertManager(input.actor.role);
     const assignment = await runInDatabaseTransaction(this.db, async (tx) => {
-      const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
+      const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
       if (job.archivedAt) throw new ApiError(409, `Job ${jobId} is archived`);
       const [membership] = await this.assertAssignableTechnicians(tx, input.orgId, [input.userId]);
       const isLead = input.isLead ?? input.assignmentRole === "lead";
@@ -497,6 +500,7 @@ export class JobsService {
         throw new ApiError(409, `User ${input.userId} is not an active technician`);
       }
 
+      await this.lockTechnicianSchedules(tx, input.orgId, [input.userId]);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: [input.userId],
@@ -507,17 +511,40 @@ export class JobsService {
       this.assertConflictsAllowed(conflicts, input.actor.role, input.overrideConflict, input.overrideReason);
 
       try {
-        const row = await tx.jobAssignment.create({
-          data: {
+        const declinedAssignment = await tx.jobAssignment.findFirst({
+          where: {
             orgId: input.orgId,
             jobId: job.id,
             userId: input.userId,
-            assignmentRole: input.assignmentRole,
-            isLead,
-            assignedById: input.actor.userId,
+            removedAt: null,
+            declinedAt: { not: null },
           },
           include: { user: true },
         });
+        const row = declinedAssignment
+          ? await tx.jobAssignment.update({
+              where: { id: declinedAssignment.id },
+              data: {
+                assignmentRole: input.assignmentRole,
+                isLead,
+                assignedById: input.actor.userId,
+                assignedAt: new Date(),
+                acceptedAt: null,
+                declinedAt: null,
+              },
+              include: { user: true },
+            })
+          : await tx.jobAssignment.create({
+              data: {
+                orgId: input.orgId,
+                jobId: job.id,
+                userId: input.userId,
+                assignmentRole: input.assignmentRole,
+                isLead,
+                assignedById: input.actor.userId,
+              },
+              include: { user: true },
+            });
 
         await this.recordJobEvent(tx, {
           orgId: input.orgId,
@@ -573,6 +600,7 @@ export class JobsService {
 
       const nextRole = input.assignmentRole ?? existing.assignmentRole;
       const nextIsLead = input.isLead ?? existing.isLead;
+      await this.lockTechnicianSchedules(tx, input.orgId, [existing.userId]);
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: [existing.userId],
@@ -648,8 +676,7 @@ export class JobsService {
 
   async dispatch(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertManager(input.actor.role);
-    return this.transition(jobId, input, "dispatched", "job.dispatched", {
-      allowedFrom: ["scheduled"],
+    return this.transition(jobId, input, "dispatch", "job.dispatched", {
       title: "Job dispatched",
       validate: async (tx, job) => {
         if (job.archivedAt || job.status === "cancelled") {
@@ -668,16 +695,14 @@ export class JobsService {
 
   async startTravel(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "traveling", "job.travel_started", {
-      allowedFrom: ["dispatched"],
+    return this.transition(jobId, input, "startTravel", "job.travel_started", {
       title: "Travel started",
     });
   }
 
   async arrive(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "on_site", "job.arrived", {
-      allowedFrom: ["traveling"],
+    return this.transition(jobId, input, "arrive", "job.arrived", {
       title: "Arrived on site",
       data: (job) => ({
         actualStart: job.actualStart ?? new Date(),
@@ -687,8 +712,7 @@ export class JobsService {
 
   async pause(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "paused", "job.paused", {
-      allowedFrom: ["on_site"],
+    return this.transition(jobId, input, "pause", "job.paused", {
       title: "Job paused",
       requireReason: true,
     });
@@ -696,16 +720,14 @@ export class JobsService {
 
   async resume(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertFieldWorker(input.actor.role);
-    return this.transition(jobId, input, "on_site", "job.resumed", {
-      allowedFrom: ["paused"],
+    return this.transition(jobId, input, "resume", "job.resumed", {
       title: "Job resumed",
     });
   }
 
   async complete(jobId: string, input: JobTransitionInput): Promise<JobDTO & { athenaEvent?: AthenaJobEventRef }> {
     assertFieldWorker(input.actor.role);
-    const job = await this.transition(jobId, input, "completed", "job.completed", {
-      allowedFrom: ["on_site"],
+    const job = await this.transition(jobId, input, "complete", "job.completed", {
       title: "Job completed",
       data: (job) => ({
         actualStart: job.actualStart ?? new Date(),
@@ -727,8 +749,7 @@ export class JobsService {
 
   async cancel(jobId: string, input: JobTransitionInput): Promise<JobDTO> {
     assertManager(input.actor.role);
-    return this.transition(jobId, input, "cancelled", "job.cancelled", {
-      allowedFrom: ["scheduled", "dispatched", "paused"],
+    return this.transition(jobId, input, "cancel", "job.cancelled", {
       title: "Job cancelled",
       requireReasonFor: ["dispatched", "paused"],
     });
@@ -740,10 +761,14 @@ export class JobsService {
     }
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
-      if (job.status !== "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (!isAllowedJobAction("reopen", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} is not completed`);
       }
       const nextStatus = input.status ?? "unscheduled";
+      if (!isAllowedJobStatusTransition(currentStatus, nextStatus)) {
+        throw new ApiError(409, `Job ${job.id} cannot reopen to status ${nextStatus}`);
+      }
       if (nextStatus === "scheduled" && (!job.scheduledStart || !job.scheduledEnd)) {
         throw new ApiError(409, `Job ${job.id} cannot reopen to scheduled without an existing schedule`);
       }
@@ -779,8 +804,12 @@ export class JobsService {
     assertManager(input.actor.role);
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
-      if (job.status !== "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (!isAllowedJobAction("readyForInvoice", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} must be completed before it is ready for invoice`);
+      }
+      if (job.readyForInvoiceAt) {
+        return this.hydrateJobDTO(tx, input.orgId, job);
       }
       const row = await tx.job.update({
         where: { id: job.id },
@@ -872,13 +901,14 @@ export class JobsService {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, false);
       if (job.archivedAt) throw new ApiError(409, `Job ${job.id} is archived`);
-      if (job.status === "completed") {
+      const currentStatus = normalizeJobStatus(job.status);
+      if (currentStatus === "completed") {
         throw new ApiError(409, `Completed job ${job.id} must be reopened before rescheduling`);
       }
-      if (job.status === "cancelled") {
+      if (currentStatus === "cancelled") {
         throw new ApiError(409, `Cancelled job ${job.id} must be reopened before rescheduling`);
       }
-      if (!RESCHEDULABLE_STATUSES.includes(job.status as JobStatus)) {
+      if (!isAllowedJobAction("schedule", currentStatus)) {
         throw new ApiError(409, `Job ${job.id} cannot be rescheduled from status ${job.status}`);
       }
 
@@ -889,6 +919,7 @@ export class JobsService {
         where: { jobId: job.id, orgId: input.orgId, removedAt: null, declinedAt: null },
         select: { userId: true },
       });
+      await this.lockTechnicianSchedules(tx, input.orgId, assignments.map((assignment) => assignment.userId));
       const conflicts = await this.collectConflicts(tx, {
         orgId: input.orgId,
         technicianIds: assignments.map((assignment) => assignment.userId),
@@ -898,7 +929,7 @@ export class JobsService {
       });
       this.assertConflictsAllowed(conflicts, input.actor.role, input.overrideConflict, input.overrideReason);
 
-      const nextStatus: JobStatus = job.status === "unscheduled" || job.status === "dispatched" ? "scheduled" : (job.status as JobStatus);
+      const nextStatus = JOB_ACTION_RULES.schedule.target;
       const row = await tx.job.update({
         where: { id: job.id },
         data: {
@@ -991,10 +1022,9 @@ export class JobsService {
   private async transition(
     jobId: string,
     input: JobTransitionInput,
-    nextStatus: JobStatus,
+    action: Exclude<JobAction, "schedule" | "reopen" | "readyForInvoice">,
     eventType: string,
     options: {
-      allowedFrom: JobStatus[];
       title: string;
       requireReason?: boolean;
       requireReasonFor?: JobStatus[];
@@ -1004,8 +1034,10 @@ export class JobsService {
   ): Promise<JobDTO> {
     return runInDatabaseTransaction(this.db, async (tx) => {
       const job = await this.findJobOrThrow(tx, jobId, input.orgId, input.actor, true);
-      const currentStatus = job.status as JobStatus;
-      if (!options.allowedFrom.includes(currentStatus)) {
+      const currentStatus = normalizeJobStatus(job.status);
+      const transition = JOB_ACTION_RULES[action];
+      const nextStatus = transition.target;
+      if (!isAllowedJobAction(action, currentStatus) || !isAllowedJobStatusTransition(currentStatus, nextStatus)) {
         throw new ApiError(409, `Job ${job.id} cannot transition from ${currentStatus} to ${nextStatus}`);
       }
       if (options.requireReason || options.requireReasonFor?.includes(currentStatus)) {
@@ -1129,7 +1161,7 @@ export class JobsService {
     return { project, customer, serviceAddress };
   }
 
-  private async assertAssignableTechnicians(tx: Prisma.TransactionClient, orgId: string, userIds: string[]) {
+  private async assertAssignableTechnicians(tx: Prisma.TransactionClient, orgId: string, userIds: string[], requireTechnicianRole = false) {
     if (userIds.length === 0) return [];
     const rows = await tx.organizationMembership.findMany({
       where: {
@@ -1142,7 +1174,7 @@ export class JobsService {
     if (rows.length !== userIds.length) {
       throw new ApiError(409, "Assigned technicians must be active users in the same organization");
     }
-    if (!rows.every((row) => row.user.isActive)) {
+    if (!rows.every((row) => row.user.isActive && (!requireTechnicianRole || row.role === "technician"))) {
       throw new ApiError(409, "Assigned technicians must be active users in the same organization");
     }
     return rows;
@@ -1232,6 +1264,24 @@ export class JobsService {
     }));
   }
 
+  /**
+   * Serialize schedule conflict check plus the following mutation for each
+   * technician. Without a transaction-scoped lock, two concurrent requests
+   * can both observe a free interval and then create overlapping work.
+   * Sorting the keys makes multi-technician operations acquire locks in a
+   * stable order and avoids introducing a lock-order deadlock.
+   */
+  private async lockTechnicianSchedules(
+    tx: Prisma.TransactionClient | PrismaClient,
+    orgId: string,
+    technicianIds: string[],
+  ): Promise<void> {
+    for (const technicianId of [...new Set(technicianIds)].sort()) {
+      const lockKey = `job-schedule:${orgId}:${technicianId}`;
+      await tx.$queryRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    }
+  }
+
   private assertConflictsAllowed(
     conflicts: ScheduleConflictDTO[],
     role: string,
@@ -1278,6 +1328,7 @@ function scopedJobAccessWhere(orgId: string, actor: { userId: string; role: stri
         some: {
           userId: actor.userId,
           removedAt: null,
+          declinedAt: null,
         },
       },
     };
@@ -1299,7 +1350,7 @@ function buildNeedsAttentionWhere(now: Date): Prisma.JobWhereInput {
   return {
     OR: [
       { status: { in: inProgressStatuses }, scheduledStart: { lt: now } },
-      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null } } },
+      { status: { notIn: terminalStatuses }, assignments: { none: { removedAt: null, declinedAt: null } } },
       { status: "unscheduled" },
     ],
   };
@@ -1329,6 +1380,7 @@ function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput
         some: {
           userId: filters.technicianId,
           removedAt: null,
+          declinedAt: null,
         },
       },
     });
@@ -1340,13 +1392,19 @@ function buildJobWhere(filters: JobListFilters, now: Date): Prisma.JobWhereInput
   // would treat `false` the same as `undefined` and silently return every
   // job for an explicit "assigned" filter request.
   if (filters.unassigned === true) {
-    conditions.push({ assignments: { none: { removedAt: null } } });
+    conditions.push({ assignments: { none: { removedAt: null, declinedAt: null } } });
   } else if (filters.unassigned === false) {
-    conditions.push({ assignments: { some: { removedAt: null } } });
+    conditions.push({ assignments: { some: { removedAt: null, declinedAt: null } } });
   }
 
   if (filters.needsAttention === true) {
     conditions.push(buildNeedsAttentionWhere(now));
+  }
+
+  if (filters.readyForInvoice === true) {
+    conditions.push({ readyForInvoiceAt: { not: null } });
+  } else if (filters.readyForInvoice === false) {
+    conditions.push({ readyForInvoiceAt: null });
   }
 
   if (search) {
@@ -1392,6 +1450,16 @@ function validateScheduleRange(
   arrivalWindowStart: Date | null,
   arrivalWindowEnd: Date | null
 ) {
+  for (const [label, value] of [
+    ["scheduledStart", scheduledStart],
+    ["scheduledEnd", scheduledEnd],
+    ["arrivalWindowStart", arrivalWindowStart],
+    ["arrivalWindowEnd", arrivalWindowEnd],
+  ] as const) {
+    if (value && Number.isNaN(value.getTime())) {
+      throw new ApiError(400, `${label} must be a valid date`);
+    }
+  }
   if ((scheduledStart && !scheduledEnd) || (!scheduledStart && scheduledEnd)) {
     throw new ApiError(400, "scheduledStart and scheduledEnd must both be provided");
   }
@@ -1412,8 +1480,8 @@ function validateScheduleRange(
 }
 
 function validateDuration(estimatedDurationMinutes: number | null) {
-  if (estimatedDurationMinutes !== null && estimatedDurationMinutes <= 0) {
-    throw new ApiError(400, "estimatedDurationMinutes must be positive");
+  if (estimatedDurationMinutes !== null && (!Number.isFinite(estimatedDurationMinutes) || !Number.isInteger(estimatedDurationMinutes) || estimatedDurationMinutes <= 0)) {
+    throw new ApiError(400, "estimatedDurationMinutes must be a positive integer");
   }
 }
 
@@ -1451,6 +1519,8 @@ function toJobSummaryDTO(row: {
   scheduledStart: Date | null;
   scheduledEnd: Date | null;
   archivedAt: Date | null;
+  completedAt: Date | null;
+  readyForInvoiceAt: Date | null;
 }): JobSummaryDTO {
   return {
     id: row.id,
@@ -1462,6 +1532,8 @@ function toJobSummaryDTO(row: {
     scheduledStart: row.scheduledStart?.toISOString() ?? null,
     scheduledEnd: row.scheduledEnd?.toISOString() ?? null,
     archivedAt: row.archivedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    readyForInvoiceAt: row.readyForInvoiceAt?.toISOString() ?? null,
   };
 }
 
@@ -1481,9 +1553,11 @@ function toDispatchAwareJobSummaryDTO(
     scheduledStart: Date | null;
     scheduledEnd: Date | null;
     archivedAt: Date | null;
+    completedAt: Date | null;
+    readyForInvoiceAt: Date | null;
     project: { id: string; name: string; siteAddress: string | null } | null;
     customer: { id: string; name: string } | null;
-    assignments: { userId: string; user: { id: string; fullName: string | null; email: string } }[];
+    assignments: { id: string; userId: string; user: { id: string; fullName: string | null; email: string } }[];
   },
   now: Date
 ): JobSummaryDTO {
@@ -1495,6 +1569,7 @@ function toDispatchAwareJobSummaryDTO(
       : null,
     customer: row.customer ? { id: row.customer.id, name: row.customer.name } : null,
     assignedTechnicians: row.assignments.map((assignment) => ({
+      assignmentId: assignment.id,
       userId: assignment.userId,
       name: assignment.user.fullName ?? assignment.user.email,
     })),

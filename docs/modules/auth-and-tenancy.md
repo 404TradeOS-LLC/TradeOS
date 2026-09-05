@@ -17,6 +17,8 @@ related_code:
   - app/backend/routes/auth.routes.ts
   - app/backend/routes/account.routes.ts
   - app/backend/routes/organizationProvisioning.routes.ts
+  - app/modules/athena-audit/securityEvents.ts
+  - app/modules/athena-audit/store.ts
   - web/src/app/actions/auth.ts
   - web/src/app/finish-setup/page.tsx
   - web/src/app/finish-setup/finish-setup-form.tsx
@@ -31,7 +33,9 @@ Authenticate users, resolve organization membership, and establish the RLS-backe
 
 Protected API requests must derive tenant context from a verified authenticated identity plus an active membership. Request headers are not a tenant-selection mechanism.
 
-Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary.
+Locally issued HS256 access tokens carry a finite expiration (one hour by default, configurable through the positive `AUTH_JWT_TTL_SECONDS` value) and the verifier requires valid `sub`, `iat`, `exp`, and registered claim types. Expiration is fail-closed at the current JWT second. Refresh and Supabase bootstrap flows also reject inactive application users before issuing or returning an authenticated session. Supabase JWT verification requires finite `exp` and `iat` claims. Refresh rotation is conditional and single-use under concurrency; logout, password-reset confirmation, and inactive-account rejection revoke active local refresh sessions. Already-issued access JWTs remain valid until their current expiry by design.
+
+Request-scoped and service-level database transactions use the shared async-local Prisma routing in `app/db/requestSession.ts`, keeping RLS settings, advisory locks, and nested service writes inside the same transaction boundary. The SQL session preserves the supported database role string; legacy `estimator` and `viewer` inputs remain accepted by AuthContext without being normalized into broader RLS write/admin roles. Pre-RLS membership resolution and request transactions share a separately bounded 15-second acquisition wait by default; request transactions retain their 60-second execution timeout. The acquisition wait prevents parallel authenticated loaders from failing at Prisma's two-second default while a serverless instance's intentionally single-connection pool is busy; `RLS_TRANSACTION_TIMEOUT_MS` and `RLS_TRANSACTION_MAX_WAIT_MS` may override the positive millisecond values.
 
 ## Source code locations
 
@@ -39,6 +43,7 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `app/backend/middleware/databaseSession.ts`
 - `app/db/requestSession.ts`
 - `app/modules/auth/*`
+- `app/modules/email/service.ts`
 - `app/backend/routes/auth.routes.ts`
 - `app/backend/routes/account.routes.ts`
 - `app/backend/routes/organizationProvisioning.routes.ts`
@@ -51,6 +56,8 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `AuthRefreshToken`
 - `PasswordResetToken`
 - `UserTotpCredential`
+- `CustomerPortalAccessToken` and `CustomerPortalSession` — separate customer
+  portal security-control records; they are not staff memberships or roles
 
 ## Routes
 
@@ -58,8 +65,13 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/auth/signup`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout` — requires the authenticated request context and revokes the caller's active local refresh sessions.
+- `POST /api/v1/auth/password-reset/request` — keeps the response enumeration-safe, persists a hashed short-lived token, and schedules the raw token for post-response delivery through the server-side Resend adapter when configured.
+- `POST /api/v1/account/invites` — persists a hashed invitation token and schedules the raw token for post-response delivery through the server-side Resend adapter when configured; owner/admin authorization remains unchanged.
 - `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
+- `POST /api/v1/customer-portal/redeem` — rate-limited single-use magic-link redemption; returns an opaque short-lived portal session
+- `POST /api/v1/customer-portal/access-tokens` — staff `documents.manage` issuance for an emailed customer record
 
 ## Permissions
 
@@ -68,12 +80,39 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 Special constraints:
 
 - public auth routes are rate-limited
+- customer portal access values are high-entropy, hashed at rest, single-use,
+  and scoped to one organization/customer; portal sessions are short-lived and
+  cannot satisfy staff bearer authentication
 - organization provisioning uses a separate high-entropy secret
 - team invites are currently limited to `dispatcher` and `technician`
+- transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers
+
+## Transactional email delivery
+
+The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API directly, keeping the dependency footprint unchanged while providing one outbound primitive for auth notifications. It sends password-reset and team-invite messages with:
+
+- a verified sender from `EMAIL_FROM`
+- links built from `APP_BASE_URL`
+- plain-text and escaped HTML bodies
+- deterministic `Idempotency-Key` values derived from a SHA-256 digest of the opaque token
+- no raw token in logs or provider-error messages
+
+Missing email configuration is a non-fatal skip outside production so local auth tests and development can continue without network delivery. Delivery is scheduled after the HTTP response rather than awaited by the auth routes, which keeps password-reset timing uniform for known and unknown addresses. In production, missing configuration or a non-HTTPS `APP_BASE_URL` fails closed inside the adapter; the auth service logs only the error class and preserves the reset route's generic response. Invite creation remains durable even if delivery fails, so a later resend path can be added without losing the invitation record. Auth controllers register delivery after the response finishes; the scheduler keeps provider latency out of public auth responses and gives the authenticated request transaction a chance to commit before invite delivery starts. On Vercel, the scheduler registers the post-response promise with `waitUntil` before the response finishes so the function invocation remains alive through provider delivery; non-Vercel runtimes use a best-effort fallback. A durable transactional outbox remains the follow-up for retryable delivery across runtime termination.
+
+Authentication success and failure outcomes are also emitted to the durable
+Athena security audit trail when the server has a verified actor and
+organization context. The event builder allowlists metadata and never stores
+bearer tokens, raw prompts, secrets, request bodies, or stack traces. A token
+that cannot establish trustworthy tenant context remains fail-closed; it is
+reported through the existing safe application log path rather than being
+attributed to a client-supplied organization.
+
+The email links target the implemented `/reset-password?token=...` and `/invite/accept?token=...` frontend flows. Password reset preserves the generic response contract; invitation acceptance establishes the backend local session in secure HTTP-only cookies and enters the authenticated app. The separate `/forgot-password` screen starts reset delivery. Production sends still require a verified sender domain and the configured `APP_BASE_URL`.
 
 ## Database security invariants
 
 - `OrganizationInvite`, `AuthRefreshToken`, and `PasswordResetToken` retain their organization/user/token identity across updates, including during transaction-local login lookup; only the lifecycle fields used by invite acceptance, token rotation, and password reset consumption remain mutable
+- refresh rotation updates the presented token only when `revokedAt` is still null; a concurrent loser receives `401` and cannot create a replacement session
 - update policies validate the resulting row rather than using an unconditional `WITH CHECK (true)` expression
 - request-context RLS helper functions have fixed empty search paths; helpers that call another application function use schema-qualified references
 - `public._prisma_migrations` is administrator-only deployment state and is excluded from runtime application-role privileges after every role-provisioning run
@@ -83,12 +122,18 @@ Special constraints:
   review actions are then narrowed further by API role checks and by
   `athena_approvals` RLS updates that restrict row mutation to
   `owner`/`admin`/`dispatcher`.
+- Security audit persistence uses the same transaction client when the
+  authentication seam has a verified membership, preserving `app.user_id`,
+  `app.org_id`, and `app.role` without widening lookup scope.
 
 ## Frontend surfaces
 
 - `/login`
 - `/signup`
 - `/finish-setup`
+- `/forgot-password`
+- `/reset-password?token=...`
+- `/invite/accept?token=...`
 - `web/src/app/actions/auth.ts`
 
 `signupAction` passes `emailRedirectTo: ${NEXT_PUBLIC_APP_URL}/login` to Supabase's `signUp()` and stores the typed organization name in Supabase's own user metadata (`options.data.organization_name`) so it survives the signup → email-confirmation → first-login round trip, where no application-side state exists yet to hold it. `NEXT_PUBLIC_APP_URL` must be set to this deployment's real origin in every environment (falls back to `http://localhost:3000` for local dev) — Supabase only honors `emailRedirectTo` when the same URL is also present in that Supabase project's Auth → URL Configuration → Redirect URLs allowlist; setting the env var alone does not change Supabase's own dashboard config, which must be updated separately (see `web/.env.example`).
@@ -113,6 +158,7 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 - `app/tests/auth.service.test.ts`
 - `app/tests/auth.middleware.test.ts`
+- `app/tests/jwt.local.test.ts` — finite local-token expiry, expiration boundary, and malformed-claim rejection
 - `app/tests/auth.controller.bootstrap.test.ts` — supertest-level trust-boundary coverage: a bootstrap request body carrying `role`/`userId`/`authSubject`/`organizationId` is rejected (`400`, Zod `.strict()`) before it ever reaches provisioning logic
 - `app/tests/trustProxy.test.ts` — proves `TRUST_PROXY=1` resolves `req.ip` from the single innermost `X-Forwarded-For` entry Vercel's edge appends (silencing `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR`) without trusting an attacker-prefixed chain
 - `app/tests/platformProvisioningAuth.test.ts`
@@ -125,6 +171,7 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 
 - legacy roles still normalize at session time
 - TOTP exists as stored credential scaffolding but is not the primary documented login path
+- local access-token revocation is bounded by the finite JWT lifetime; immediate invalidation of already-issued local or Supabase bearer tokens would require new token state or provider introspection and remains outside S018
 - a truly transient bootstrap failure (e.g. a momentary backend blip) on an *already-provisioned* returning user now surfaces a "please try again" message on `/login` instead of letting them through to `/dashboard` on that one attempt — a deliberate tradeoff versus the previous best-effort behavior, made because the old behavior's failure mode (silently continuing to a dashboard that then itself crashes for an *unprovisioned* user) was the exact production incident this recovery flow fixes, and `loginAction` cannot yet distinguish "already provisioned, just had a hiccup" from "not provisioned at all" without a second network round trip
 - `app/backend/auth/jwt.ts` verifies Supabase-issued JWTs by dynamically importing `jose` (`await import("jose")`); this project's CommonJS TypeScript build downlevels that into `require("jose")`, so `jose` must stay pinned to a version that ships a CommonJS build (currently `^4.15.9` — `jose` v5+ is ESM-only and throws `ERR_REQUIRE_ESM` at runtime, which is exactly what happened in production before this was caught; see `docs/CURRENT_STATE.md`). `app/tests/jwt.supabase.test.ts` exercises the real `jose` import path end-to-end and will fail the suite if this regresses.
 - `TRUST_PROXY` must be set to `"1"` in Vercel Production and Preview for the backend project (`tradeos-costbook`) — the code has correctly supported this since the repository's initial scaffolding, but the env var itself was never set in Vercel, so production logged `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` on every request (harmless — a warning, not a request failure — but see `app/.env.example` for why the value must be `"1"`, never `"true"`).

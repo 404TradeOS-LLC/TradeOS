@@ -49,7 +49,9 @@ authentication, membership, and database-session model as the rest of the app.
   presented;
 - audit trail: request, context, tool consideration, action attempt, approval
   request, completion, and failure can be recorded with actor and organization
-  metadata;
+  metadata. S043 adds fixed security events for authenticated requests,
+  security decisions, tenant-boundary and privilege denials, and sensitive
+  action attempts/completions over the same store;
 - action idempotency: dedup-eligible production actions use a durable
   organization/tool/version/key claim inside the same request-scoped RLS
   transaction as tool execution rather than process-local memory.
@@ -106,6 +108,16 @@ The in-memory idempotency store remains a unit-test/local fixture and is not
 injected by the production Athena controller. This repair does not implement or
 alter approval-bound action resume/execution.
 
+## S043 security-event boundary
+
+Security-event records are built from server-derived actor and organization
+context and a fixed event/outcome vocabulary. Metadata is allowlisted and
+bounded, so prompts, model output, customer payloads, secrets, and stack traces
+cannot be persisted through this path. Owner/admin operators may query the
+organization-scoped records through the existing observability authorization
+surface; the query does not introduce a new permission, role, table, or RLS
+policy.
+
 ## Audit events
 
 Current event types:
@@ -117,6 +129,13 @@ Current event types:
 - `approval_requested`
 - `execution_completed`
 - `failure`
+- `authentication_succeeded`
+- `authentication_failed`
+- `security_decision`
+- `tenant_access_denied`
+- `privilege_denied`
+- `sensitive_action_attempted`
+- `sensitive_action_completed`
 
 Audit metadata must stay safe for logs and operator review. Secrets, raw model
 prompts, bearer tokens, and unrestricted record payloads are forbidden.
@@ -169,3 +188,17 @@ Athena may summarize or route on that input, but it may not:
 ## A12.1 transactional event security invariant
 
 For the six required canonical business events, event persistence now participates in the same database transaction as the authorized business mutation. This does not move authorization into the event layer: identity, organization scope, permissions, object-scope checks, approval policy, service validation, and forced RLS remain authoritative before and during the mutation. A required event-persistence failure rolls the authorized business mutation back; it never creates a permission bypass or cross-tenant fallback. Subscriber delivery remains asynchronous after commit.
+
+## S025 generation metadata invariant
+
+Generation records are organization- and actor-scoped with forced RLS and
+server-derived request context. Allowlisted metadata is redacted before
+persistence, raw AI content is omitted by default, and review provenance is
+append-only. No generation record can authorize a business mutation outside
+the existing authenticated, permission-checked, review-first application
+service path.
+
+
+## S028 security boundary
+
+The S028 implementation in PR #338 preserves server-derived organization context, existing permission checks, forced PostgreSQL RLS, direct-object denial, and secret-free audit/event payloads. No authentication bypass or autonomous AI write path is introduced.

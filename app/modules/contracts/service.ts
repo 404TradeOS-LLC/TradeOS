@@ -2,9 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { ActivityTimelineService } from "../intelligence/service";
-import { hasPermission } from "../../domain/contracts";
+import { hasPermission, normalizeContractStatus, normalizeProposalStatus } from "../../domain/contracts";
 import { renderContractPdf } from "./pdf";
-import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, SignContractInput } from "./types";
+import { getDocumentBrand } from "../documents/branding";
+import { ContractDTO, ContractDocument, ContractEventDTO, CreateContractInput, PortalSignContractInput, SignContractInput } from "./types";
 
 const DEFAULT_TERMS =
   "This contract incorporates the accepted proposal in full. Work will proceed as scoped, with any changes " +
@@ -17,15 +18,36 @@ export class ContractsService {
     assertContractWriteAccess(input.actorRole);
     const proposal = await prisma.proposal.findFirst({
       where: { id: input.proposalId, project: input.orgId ? { orgId: input.orgId } : undefined },
+      include: { contracts: { select: { id: true }, take: 1 } },
     });
     if (!proposal) throw new ApiError(404, `Proposal ${input.proposalId} not found`);
-    if (proposal.status !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
+    if (proposal.contracts?.length) {
+      throw new ApiError(409, `Proposal ${input.proposalId} already has contract ${proposal.contracts[0].id}`);
+    }
+    if (normalizeProposalStatus(proposal.status) !== "accepted") throw new ApiError(409, `Proposal ${input.proposalId} must be accepted before a contract can be created`);
+    if (proposal.finalPrice == null) throw new ApiError(409, `Proposal ${input.proposalId} must have a final price before a contract can be created`);
+
+    const termsText = input.termsText ?? proposal.termsAndConditions ?? DEFAULT_TERMS;
+    const snapshot = {
+      proposalId: proposal.id,
+      projectId: proposal.projectId,
+      contractAmount: Number(proposal.finalPrice),
+      companyName: proposal.companyName,
+      scopeOfWork: proposal.scopeOfWork,
+      assumptions: proposal.assumptions,
+      exclusions: proposal.exclusions,
+      timeline: proposal.timeline,
+      paymentSchedule: proposal.paymentScheduleJson,
+      termsText,
+    };
 
     const row = await prisma.contract.create({
       data: {
         projectId: proposal.projectId,
         proposalId: proposal.id,
-        termsText: input.termsText ?? proposal.termsAndConditions ?? DEFAULT_TERMS,
+        termsText,
+        contractAmount: proposal.finalPrice,
+        snapshotJson: snapshot,
       },
     });
     await this.recordContractEvent({
@@ -60,17 +82,21 @@ export class ContractsService {
     assertContractWriteAccess(input.actorRole);
     const row = await this.findOrThrow(id, input.orgId);
     if (row.status !== "pending_signature") throw new ApiError(409, `Contract ${id} cannot be signed from status ${row.status}`);
-    const updated = await prisma.contract.update({
-      where: { id },
+    const updated = await prisma.contract.updateMany({
+      where: { id, status: "pending_signature", project: input.orgId ? { orgId: input.orgId } : undefined },
       data: {
         status: "signed",
         signerName: input.signerName,
         signerEmail: input.signerEmail,
         signatureDataUrl: input.signatureDataUrl,
-        signatureIp: input.signatureIp,
+        signatureIpReported: input.signatureIpReported,
+        signatureUserAgentReported: input.signatureUserAgentReported,
         signedAt: new Date(),
       },
     });
+    if (updated.count !== 1) {
+      throw new ApiError(409, `Contract ${id} changed before it could be signed`);
+    }
     await this.recordContractEvent({
       orgId: input.orgId,
       contractId: row.id,
@@ -84,16 +110,67 @@ export class ContractsService {
         signerName: input.signerName,
       },
     });
-    return this.getById(updated.id, input.orgId);
+    return this.getById(id, input.orgId);
   }
 
-  async void(id: string, orgId?: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
+  async signAsPortalCustomer(id: string, input: PortalSignContractInput): Promise<ContractDTO> {
+    const row = await this.findOrThrow(id, input.orgId);
+    if (row.status !== "pending_signature") throw new ApiError(409, `Contract ${id} cannot be signed from status ${row.status}`);
+
+    // The migration grants this transaction one narrowly scoped customer
+    // UPDATE policy. It is keyed by the already-verified portal customer and
+    // contract, so a portal session never receives staff write privileges.
+    await prisma.$queryRaw(Prisma.sql`
+      select set_config('app.portal_contract_id', ${id}, true)
+    `);
+    const updated = await prisma.contract.updateMany({
+      where: { id, status: "pending_signature", project: { orgId: input.orgId, customerId: input.customerId } },
+      data: {
+        status: "signed",
+        signerName: input.signerName,
+        signerEmail: input.signerEmail,
+        signatureDataUrl: input.signatureDataUrl,
+        signatureIpReported: input.signatureIpReported,
+        signatureUserAgentReported: input.signatureUserAgentReported,
+        signedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1) throw new ApiError(409, `Contract ${id} changed before it could be signed`);
+
+    await this.recordContractEvent({
+      orgId: input.orgId,
+      contractId: id,
+      projectId: row.projectId,
+      eventType: "contract.signed",
+      recipientEmail: input.signerEmail,
+      metadata: {
+        previousStatus: row.status,
+        newStatus: "signed",
+        signerName: input.signerName,
+        actorType: "customer_portal",
+        customerId: input.customerId,
+        portalSessionId: input.portalSessionId,
+        signatureIpReported: input.signatureIpReported ?? null,
+        signatureUserAgentReported: input.signatureUserAgentReported ?? null,
+      },
+    });
+    return this.getById(id, input.orgId);
+  }
+
+  async void(id: string, orgId: string, actorUserId?: string, actorRole?: string): Promise<ContractDTO> {
     assertContractWriteAccess(actorRole);
     const row = await this.findOrThrow(id, orgId);
     if (row.status === "signed") throw new ApiError(409, `Contract ${id} has already been signed and cannot be voided`);
-    const updated = await prisma.contract.update({ where: { id }, data: { status: "voided" } });
+    if (row.status === "voided") throw new ApiError(409, `Contract ${id} has already been voided`);
+    const updated = await prisma.contract.updateMany({
+      where: { id, status: row.status, project: orgId ? { orgId } : undefined },
+      data: { status: "voided" },
+    });
+    if (updated.count !== 1) {
+      throw new ApiError(409, `Contract ${id} changed before it could be voided`);
+    }
     await this.recordContractEvent({
-      orgId: orgId ?? row.project.orgId ?? undefined,
+      orgId,
       contractId: row.id,
       projectId: row.projectId,
       actorUserId,
@@ -101,17 +178,29 @@ export class ContractsService {
       recipientEmail: row.signerEmail,
       metadata: { previousStatus: row.status, newStatus: "voided", proposalId: row.proposalId },
     });
-    return this.getById(updated.id, orgId);
+    return this.getById(id, orgId);
   }
 
   async getPdf(id: string, orgId?: string): Promise<ContractDocument> {
     const row = await prisma.contract.findFirst({
       where: { id, project: orgId ? { orgId } : undefined },
-      include: { project: { include: { customer: true } } },
+      include: { project: { include: { customer: true, organization: true } } },
     });
     if (!row) throw new ApiError(404, `Contract ${id} not found`);
 
-    const buffer = await renderContractPdf(row, { companyName: "Your Company Name" });
+    const brand = await getDocumentBrand(orgId, row.project.organization?.name ?? "Your Company Name");
+    const snapshot = asRecord(row.snapshotJson);
+    const buffer = await renderContractPdf(
+      {
+        ...row,
+        contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
+        scopeOfWork:
+          typeof snapshot?.scopeOfWork === "string"
+            ? snapshot.scopeOfWork
+            : "Legacy contract: immutable scope snapshot unavailable.",
+      },
+      { brand }
+    );
     return {
       buffer,
       filename: `contract-${row.project.name.replace(/\s+/g, "-").toLowerCase()}.pdf`,
@@ -175,10 +264,13 @@ function toDTO(row: {
   proposalId: string;
   status: string;
   termsText: string;
+  contractAmount?: unknown;
+  snapshotJson?: Prisma.JsonValue | null;
   signerName: string | null;
   signerEmail: string | null;
   signatureDataUrl: string | null;
-  signatureIp: string | null;
+  signatureIpReported: string | null;
+  signatureUserAgentReported?: string | null;
   signedAt: Date | null;
   createdAt: Date;
   events?: Array<{
@@ -195,12 +287,15 @@ function toDTO(row: {
     id: row.id,
     projectId: row.projectId,
     proposalId: row.proposalId,
-    status: row.status,
+    status: normalizeContractStatus(row.status),
     termsText: row.termsText,
     signerName: row.signerName,
     signerEmail: row.signerEmail,
     signatureDataUrl: row.signatureDataUrl,
-    signatureIp: row.signatureIp,
+    signatureIpReported: row.signatureIpReported,
+    signatureUserAgentReported: row.signatureUserAgentReported ?? null,
+    contractAmount: row.contractAmount != null ? Number(row.contractAmount) : null,
+    snapshot: asRecord(row.snapshotJson),
     signedAt: row.signedAt,
     createdAt: row.createdAt,
     events: (row.events ?? []).map(toEventDTO),
@@ -227,7 +322,7 @@ function toEventDTO(row: {
   };
 }
 
-function asRecord(value: Prisma.JsonValue | null): Record<string, unknown> | null {
+function asRecord(value: Prisma.JsonValue | null | undefined): Record<string, unknown> | null {
   if (!value || Array.isArray(value) || typeof value !== "object") return null;
   return value as Record<string, unknown>;
 }

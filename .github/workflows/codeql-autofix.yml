@@ -1,0 +1,243 @@
+name: CodeQL autofix
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_alerts:
+        description: Maximum open CodeQL alerts to remediate in this run
+        required: false
+        default: 3
+        type: number
+  schedule:
+    - cron: '23 */2 * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: codeql-autofix
+  cancel-in-progress: false
+
+env:
+  MAX_ALERTS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_alerts || 3 }}
+
+jobs:
+  remediate:
+    name: Generate CodeQL autofix PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Generate fixes and open pull requests
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          MAX_ALERTS: ${{ env.MAX_ALERTS }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const apiVersion = '2026-03-10';
+            const headers = {
+              accept: 'application/vnd.github+json',
+              'X-GitHub-Api-Version': apiVersion,
+            };
+
+            const maxAlerts = Math.max(1, Math.min(10, Number(process.env.MAX_ALERTS || 3)));
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            const { data: repository } = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repository.default_branch;
+
+            const { data: alerts } = await github.request(
+              'GET /repos/{owner}/{repo}/code-scanning/alerts',
+              {
+                owner,
+                repo,
+                state: 'open',
+                tool_name: 'CodeQL',
+                per_page: 100,
+                headers,
+              },
+            );
+
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: 'open',
+              base: defaultBranch,
+              per_page: 100,
+            });
+
+            let attempted = 0;
+            let opened = 0;
+            let autoMergeEnabled = 0;
+            let skipped = 0;
+            let failed = 0;
+
+            for (const alert of alerts) {
+              if (attempted >= maxAlerts) break;
+
+              const marker = `<!-- codeql-autofix-alert:${alert.number} -->`;
+              const duplicate = openPulls.find((pr) => (pr.body || '').includes(marker));
+              if (duplicate) {
+                core.info(`Alert #${alert.number}: existing PR #${duplicate.number}; skipping.`);
+                skipped += 1;
+                continue;
+              }
+
+              attempted += 1;
+              core.info(`Alert #${alert.number}: requesting Copilot Autofix for ${alert.rule?.id || 'unknown rule'}.`);
+
+              try {
+                const { data: baseRef } = await github.rest.git.getRef({
+                  owner,
+                  repo,
+                  ref: `heads/${defaultBranch}`,
+                });
+                const baseSha = baseRef.object.sha;
+
+                await github.request(
+                  'POST /repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix',
+                  {
+                    owner,
+                    repo,
+                    alert_number: alert.number,
+                    headers,
+                  },
+                );
+
+                let autofix = null;
+                for (let poll = 0; poll < 18; poll += 1) {
+                  const response = await github.request(
+                    'GET /repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix',
+                    {
+                      owner,
+                      repo,
+                      alert_number: alert.number,
+                      headers,
+                    },
+                  );
+                  autofix = response.data;
+
+                  if (autofix.status === 'success') break;
+                  if (['failure', 'error'].includes(autofix.status)) break;
+                  await sleep(10000);
+                }
+
+                if (!autofix || autofix.status !== 'success') {
+                  core.warning(
+                    `Alert #${alert.number}: autofix unavailable (status: ${autofix?.status || 'unknown'}).`,
+                  );
+                  failed += 1;
+                  continue;
+                }
+
+                const branch = `codeql-autofix/alert-${alert.number}-${context.runId}`;
+                await github.rest.git.createRef({
+                  owner,
+                  repo,
+                  ref: `refs/heads/${branch}`,
+                  sha: baseSha,
+                });
+
+                const commitResponse = await github.request(
+                  'POST /repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix/commits',
+                  {
+                    owner,
+                    repo,
+                    alert_number: alert.number,
+                    target_ref: `refs/heads/${branch}`,
+                    message: `fix(security): remediate CodeQL alert #${alert.number}`,
+                    headers,
+                  },
+                );
+
+                const severity =
+                  alert.rule?.security_severity_level || alert.rule?.severity || 'unknown';
+                const rule = alert.rule?.id || alert.rule?.name || 'unknown';
+                const location = alert.most_recent_instance?.location;
+                const locationText = location?.path
+                  ? `${location.path}${location.start_line ? `:${location.start_line}` : ''}`
+                  : 'unknown';
+
+                const body = [
+                  marker,
+                  '## CodeQL autofix',
+                  '',
+                  `Automatically generated from CodeQL alert #${alert.number}.`,
+                  '',
+                  `- Rule: \`${rule}\``,
+                  `- Severity: \`${severity}\``,
+                  `- Location: \`${locationText}\``,
+                  `- Alert: ${alert.html_url}`,
+                  `- Autofix commit: \`${commitResponse.data.sha}\``,
+                  '',
+                  '### Autofix explanation',
+                  autofix.description || 'GitHub generated a targeted remediation for this alert.',
+                  '',
+                  '### Merge policy',
+                  'Auto-merge is enabled for this PR, but it remains subject to TradeOS branch protection, required CI, CodeQL, review, and merge-policy gates. Any failed or pending gate blocks the merge.',
+                  '',
+                  '> Generated by GitHub CodeQL Copilot Autofix. Required repository protections remain authoritative.',
+                ].join('\n');
+
+                const { data: pr } = await github.rest.pulls.create({
+                  owner,
+                  repo,
+                  title: `fix(security): CodeQL alert #${alert.number} (${rule})`,
+                  head: branch,
+                  base: defaultBranch,
+                  body,
+                  maintainer_can_modify: true,
+                  draft: false,
+                });
+
+                opened += 1;
+
+                try {
+                  await github.graphql(
+                    `mutation($pullRequestId: ID!) {
+                      enablePullRequestAutoMerge(input: {
+                        pullRequestId: $pullRequestId,
+                        mergeMethod: SQUASH
+                      }) {
+                        pullRequest {
+                          number
+                          autoMergeRequest { enabledAt }
+                        }
+                      }
+                    }`,
+                    { pullRequestId: pr.node_id },
+                  );
+                  autoMergeEnabled += 1;
+                  core.notice(
+                    `Opened CodeQL autofix PR #${pr.number} with gated auto-merge enabled: ${pr.html_url}`,
+                  );
+                } catch (autoMergeError) {
+                  core.warning(
+                    `PR #${pr.number} was opened, but auto-merge could not be enabled: ${autoMergeError.message}`,
+                  );
+                  core.notice(`Opened CodeQL autofix PR #${pr.number}: ${pr.html_url}`);
+                }
+              } catch (error) {
+                failed += 1;
+                core.warning(`Alert #${alert.number}: ${error.message}`);
+              }
+            }
+
+            const summary = [
+              '## CodeQL autofix run',
+              '',
+              `- Open CodeQL alerts discovered: ${alerts.length}`,
+              `- Alerts attempted: ${attempted}`,
+              `- Autofix PRs opened: ${opened}`,
+              `- PRs with gated auto-merge enabled: ${autoMergeEnabled}`,
+              `- Alerts skipped due to an existing PR: ${skipped}`,
+              `- Autofix attempts that did not produce a PR: ${failed}`,
+              '',
+              'Each alert gets an isolated PR. Auto-merge never bypasses TradeOS required checks, reviews, CodeQL, or branch protection.',
+            ].join('\n');
+
+            await core.summary.addRaw(summary).write();

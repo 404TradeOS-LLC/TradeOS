@@ -1,5 +1,6 @@
 import type { ChangeOrder, Contract, ContractEvent, Invoice, InvoiceDelivery, Project, ProjectFile, ProjectTask, Proposal, ProposalDelivery, SiteVisit } from "@/lib/api";
 import { getStatusLabel } from "@/domain";
+import { getInvoiceDisplayStatus as deriveInvoiceDisplayStatus, getInvoiceRunningBalance as deriveInvoiceRunningBalance } from "@/lib/invoice-presentation";
 
 export interface WorkflowEvent {
   id: string;
@@ -21,6 +22,11 @@ export interface WorkflowNotification {
 export function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return "Not set";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+export function formatInvoiceCurrency(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return "Not set";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
 export function formatDateTime(value: string | null | undefined) {
@@ -57,15 +63,11 @@ export function getProposalDisplayStatus(proposal: Proposal) {
 }
 
 export function getInvoiceDisplayStatus(invoice: Invoice) {
-  if (invoice.status !== "paid" && invoice.status !== "voided" && invoice.dueDate && new Date(invoice.dueDate).getTime() < Date.now()) {
-    return "overdue";
-  }
-  return invoice.status;
+  return deriveInvoiceDisplayStatus(invoice);
 }
 
 export function getInvoiceRunningBalance(invoice: Invoice) {
-  const status = getInvoiceDisplayStatus(invoice);
-  return status === "paid" ? 0 : invoice.amount;
+  return deriveInvoiceRunningBalance(invoice);
 }
 
 // Backend delivery/event records use dotted event-type names (e.g.

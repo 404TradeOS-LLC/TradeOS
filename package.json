@@ -4,13 +4,21 @@
   "type": "module",
   "scripts": {
     "db:seed": "npm --prefix app run db:seed",
+    "beta:evidence": "npm --prefix app run beta:evidence --",
     "autonomy:reconcile": "node scripts/reconcile-task.mjs",
     "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
     "docs:check": "node scripts/docs-check.mjs",
-    "docs:test": "node --test scripts/__tests__/docs-check.test.mjs"
+    "docs:test": "node --test scripts/__tests__/docs-check.test.mjs",
+    "pr:body-check": "node scripts/pr-body-check.mjs",
+    "pr:preflight": "node scripts/pr-preflight.mjs",
+    "pr:preflight:run": "node scripts/pr-preflight.mjs --run",
+    "pr:test": "node --test scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs",
+    "prompt": "node scripts/prompt-manager.mjs",
+    "prompts": "node scripts/prompt-manager.mjs",
+    "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs"
   },
   "dependencies": {
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "minimatch": "^10.2.6"
   }
 }

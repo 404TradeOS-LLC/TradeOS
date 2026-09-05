@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Wrench } from "lucide-react";
 import { EquipmentCatalog } from "@/components/costbook/equipment-catalog";
+import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ApiClientError, apiFetch, type CostbookWorkspaceSummary } from "@/lib/api";
+import { ApiClientError, apiFetch, type CatalogPage, type CostbookWorkspaceSummary } from "@/lib/api";
 import { loadEquipmentPageData } from "@/lib/costbook-equipment-load";
 import { getSessionToken } from "@/lib/session";
 
@@ -20,8 +21,10 @@ interface CostbookEquipment {
 }
 
 /** Loads the organization-scoped equipment catalog with a caller-owned cancellation signal. */
-function listCostbookEquipment(token: string, signal: AbortSignal) {
-  return apiFetch<CostbookEquipment[]>("/api/v1/costbook/equipment", { token, signal });
+function listCostbookEquipment(token: string, signal: AbortSignal, query: EquipmentQuery = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value) params.set(key, value);
+  return apiFetch<CatalogPage<CostbookEquipment>>(`/api/v1/costbook/equipment?${params.toString()}`, { token, signal });
 }
 
 /** Loads Costbook workspace permissions and counts with the same bounded request signal. */
@@ -44,20 +47,27 @@ function toErrorMessage(error: unknown) {
 }
 
 /** Renders the authenticated Costbook equipment workspace with bounded backend loading. */
-export default async function CostbookEquipmentPage() {
+type EquipmentQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc" };
+
+export default async function CostbookEquipmentPage({ searchParams }: { searchParams: Promise<EquipmentQuery> }) {
   const token = await getSessionToken();
+  const query = await searchParams;
   let workspace: CostbookWorkspaceSummary | null = null;
   let equipment: CostbookEquipment[] = [];
+  let page = { total: 0, nextCursor: null as string | null };
   let loadError: string | null = null;
 
   if (!token) {
     loadError = "You need to be signed in to view Costbook equipment.";
   } else {
     try {
-      [workspace, equipment] = await loadEquipmentPageData(token, {
+      const [loadedWorkspace, equipmentPage] = await loadEquipmentPageData(token, {
         getWorkspace: getEquipmentWorkspace,
-        listEquipment: listCostbookEquipment,
+        listEquipment: (currentToken, signal) => listCostbookEquipment(currentToken, signal, query),
       });
+      workspace = loadedWorkspace;
+      equipment = equipmentPage.items;
+      page = { total: equipmentPage.total, nextCursor: equipmentPage.nextCursor };
     } catch (error) {
       loadError = toErrorMessage(error);
     }
@@ -77,25 +87,26 @@ export default async function CostbookEquipmentPage() {
       ) : workspace ? (
         <>
           <section className="grid gap-4 sm:grid-cols-3" aria-label="Equipment summary">
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Equipment</p>
-                  <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{equipment.length}</p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Equipment in result</p>
+                  <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{page.total}</p>
                 </div>
                 <Wrench className="size-5 text-muted-foreground" aria-hidden="true" />
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Write Access</p>
               <p className="mt-2 text-lg font-semibold text-foreground">{workspace.permissions.canWrite ? "Enabled" : "Read Only"}</p>
             </div>
-            <div className="rounded-lg border border-border/70 bg-surface p-4">
+            <div className="rounded-lg border border-border/70 bg-card p-4">
               <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Scope</p>
               <p className="mt-2 truncate text-sm font-medium text-foreground">{workspace.organizationId}</p>
             </div>
           </section>
 
+          <CatalogQueryControls pathname="/costbook/equipment" query={query} total={page.total} shown={equipment.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} />
           <EquipmentCatalog
             initialEquipment={equipment}
             canWrite={workspace.permissions.canWrite}

@@ -3,9 +3,20 @@ import { z } from "zod";
 import { TransactionalEstimateEngineService } from "../../modules/athena-events/transactionalPublishers";
 import { ActivityTimelineService } from "../../modules/intelligence/service";
 import { requireOrgId, requirePermissions } from "../requestContext";
+import { commaSeparatedEnum } from "../queryParams";
+import { estimateStatuses } from "../../domain";
+import { estimateCostTypes } from "../../modules/estimate-engine/types";
 
 const service = new TransactionalEstimateEngineService();
 const activityService = new ActivityTimelineService();
+
+const listQueueQuerySchema = z.object({
+  status: commaSeparatedEnum(z.enum(estimateStatuses)),
+  updatedAfter: z.string().datetime().optional(),
+  updatedBefore: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  cursor: z.string().optional(),
+});
 
 export const estimateEngineController = {
   async create(req: Request, res: Response) {
@@ -34,6 +45,21 @@ export const estimateEngineController = {
     res.json(await service.listByProject(req.params.projectId, requireOrgId(req)));
   },
 
+  async listOrganizationQueue(req: Request, res: Response) {
+    requirePermissions(req, ["crm.read"]);
+    const query = listQueueQuerySchema.parse(req.query);
+    res.json(
+      await service.listOrganizationQueue({
+        orgId: requireOrgId(req),
+        statuses: query.status,
+        updatedAfter: query.updatedAfter,
+        updatedBefore: query.updatedBefore,
+        limit: query.limit,
+        cursor: query.cursor,
+      })
+    );
+  },
+
   async addLineItem(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
     const schema = z
@@ -41,10 +67,19 @@ export const estimateEngineController = {
         costItemId: z.string().uuid().optional(),
         assemblyId: z.string().uuid().optional(),
         quantity: z.coerce.number().positive(),
-        description: z.string().optional(),
+        description: z.string().trim().min(1).max(500).optional(),
+        section: z.string().trim().min(1).max(120).optional(),
+        costType: z.enum(estimateCostTypes).optional(),
+        unitOfMeasure: z.string().trim().min(1).max(40).optional(),
+        unitCost: z.coerce.number().min(0).optional(),
+        taxable: z.boolean().optional(),
+        sourceKey: z.string().trim().min(1).max(200).optional(),
       })
-      .refine((v) => Boolean(v.costItemId) !== Boolean(v.assemblyId), {
-        message: "Provide exactly one of costItemId or assemblyId",
+      .refine((v) => {
+        if (v.costItemId || v.assemblyId) return Boolean(v.costItemId) !== Boolean(v.assemblyId);
+        return Boolean(v.description && v.unitOfMeasure && v.unitCost != null);
+      }, {
+        message: "Provide one catalog item or a custom description, unit, and unit cost",
       });
     const body = schema.parse(req.body);
     const lineItem = await service.addLineItem({ estimateId: req.params.id, ...body, orgId: requireOrgId(req) });
@@ -65,9 +100,46 @@ export const estimateEngineController = {
     res.status(201).json(lineItem);
   },
 
+  async updateLineItem(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["crm.write"]);
+    const schema = z.object({
+      description: z.string().trim().min(1).max(500).optional(),
+      section: z.string().trim().min(1).max(120).optional(),
+      costType: z.enum(estimateCostTypes).optional(),
+      unitOfMeasure: z.string().trim().min(1).max(40).optional(),
+      quantity: z.coerce.number().positive().optional(),
+      unitCost: z.coerce.number().min(0).optional(),
+      taxable: z.boolean().optional(),
+    }).refine((value) => Object.keys(value).length > 0, { message: "At least one line item field is required" });
+    const body = schema.parse(req.body);
+    const lineItem = await service.updateLineItem({ estimateId: req.params.id, lineItemId: req.params.lineItemId, ...body, orgId: requireOrgId(req) });
+    await activityService.record({
+      orgId: requireOrgId(req), entityType: "estimate", entityId: req.params.id,
+      eventType: "estimate.line_item_updated", title: "Estimate line item updated", actorUserId: auth.userId,
+      metadata: { lineItemId: lineItem.id },
+    });
+    res.json(lineItem);
+  },
+
+  async updateEstimate(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["crm.write"]);
+    const schema = z.object({
+      overheadPct: z.coerce.number().min(0).max(999.99).optional(),
+      taxPct: z.coerce.number().min(0).max(100).optional(),
+    }).refine((value) => Object.keys(value).length > 0, { message: "At least one estimate setting is required" });
+    const body = schema.parse(req.body);
+    const estimate = await service.updateEstimate({ estimateId: req.params.id, ...body, orgId: requireOrgId(req) });
+    await activityService.record({
+      orgId: requireOrgId(req), entityType: "estimate", entityId: estimate.id,
+      eventType: "estimate.settings_updated", title: "Estimate settings updated", actorUserId: auth.userId,
+      metadata: body,
+    });
+    res.json(estimate);
+  },
+
   async removeLineItem(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);
-    const { estimateId } = await service.removeLineItem(req.params.lineItemId, requireOrgId(req));
+    const { estimateId } = await service.removeLineItem(req.params.lineItemId, requireOrgId(req), req.params.id);
     await activityService.record({
       orgId: requireOrgId(req),
       entityType: "estimate",
@@ -86,6 +158,9 @@ export const estimateEngineController = {
       mode: z.enum(["markup", "targetMargin"]),
       markupPct: z.coerce.number().min(0).optional(),
       targetMarginPct: z.coerce.number().min(0).max(99.99).optional(),
+    }).superRefine((value, ctx) => {
+      if (value.mode === "markup" && value.markupPct == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["markupPct"], message: "markupPct is required for markup mode" });
+      if (value.mode === "targetMargin" && value.targetMarginPct == null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["targetMarginPct"], message: "targetMarginPct is required for target-margin mode" });
     });
     const body = schema.parse(req.body);
     const estimate = await service.setPricingMode({ estimateId: req.params.id, ...body, orgId: requireOrgId(req) });

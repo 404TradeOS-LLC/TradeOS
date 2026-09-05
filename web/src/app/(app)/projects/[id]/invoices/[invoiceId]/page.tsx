@@ -6,14 +6,16 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { LineItemRow } from "@/components/shared/line-item-row";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getInvoice, getProject } from "@/lib/api";
-import { buildInvoiceTimeline, formatCurrency, formatDate, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
+import { getInvoice, getOrganizationSettings, getProject } from "@/lib/api";
+import { buildInvoiceTimeline, formatDate, formatInvoiceCurrency, getInvoiceDisplayStatus, getInvoiceRunningBalance } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
+import { RecordPaymentForm } from "./record-payment-form";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string; invoiceId: string }> }) {
   const { id: projectId, invoiceId } = await params;
   const token = await getSessionToken();
-  const [project, invoice] = await Promise.all([getProject(token ?? "", projectId), getInvoice(token ?? "", invoiceId)]);
+  const [project, invoice, settings] = await Promise.all([getProject(token ?? "", projectId), getInvoice(token ?? "", invoiceId), getOrganizationSettings(token ?? "")]);
+  const canRecordPayment = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const timeline = buildInvoiceTimeline(invoice);
   const displayStatus = getInvoiceDisplayStatus(invoice);
   const runningBalance = getInvoiceRunningBalance(invoice);
@@ -45,7 +47,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Running balance</div>
-              <div className="mt-2 text-2xl font-semibold">{formatCurrency(runningBalance)}</div>
+              <div className="mt-2 text-2xl font-semibold">{formatInvoiceCurrency(runningBalance)}</div>
               <div className="mt-1 text-sm text-muted-foreground">Use this balance to confirm what is still outstanding on the job and whether the invoice is ready to close.</div>
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
@@ -67,11 +69,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {invoice.lineItems.map((li) => (
-            <LineItemRow key={li.id} description={li.description} amount={formatCurrency(li.lineCost)} className="border-none p-0" />
+            <LineItemRow key={li.id} description={li.description} amount={formatInvoiceCurrency(li.lineTotal)} className="border-none p-0" />
           ))}
           <div className="flex items-center justify-between gap-3 border-t pt-2 text-base font-semibold">
             <span className="min-w-0 truncate">Total</span>
-            <span className="shrink-0">{formatCurrency(invoice.amount)}</span>
+            <span className="shrink-0">{formatInvoiceCurrency(invoice.amount)}</span>
+          </div>
+          <div className="ml-auto grid w-full max-w-sm gap-1 border-t pt-3 text-sm">
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Subtotal</span><span>{formatInvoiceCurrency(invoice.subtotal)}</span></div>
+            {invoice.taxAmount > 0 ? <div className="flex justify-between gap-3"><span className="text-muted-foreground">Tax{invoice.taxPct > 0 ? ` (${invoice.taxPct}%)` : ""}</span><span>{formatInvoiceCurrency(invoice.taxAmount)}</span></div> : null}
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Paid</span><span>{formatInvoiceCurrency(invoice.paidAmount)}</span></div>
+            <div className="flex justify-between gap-3 font-semibold"><span>Balance due</span><span>{formatInvoiceCurrency(invoice.balanceDue)}</span></div>
           </div>
         </CardContent>
       </Card>
@@ -91,7 +99,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Payment history</div>
-            <div className="mt-2 text-muted-foreground">{invoice.paidAt ? "Paid in full" : "No payments recorded yet"}</div>
+            <div className="mt-2 text-muted-foreground">
+              {invoice.payments.length > 0
+                ? `${formatInvoiceCurrency(invoice.paidAmount)} across ${invoice.payments.length} recorded payment${invoice.payments.length === 1 ? "" : "s"}`
+                : invoice.status === "paid"
+                  ? "Marked paid without a recorded payment"
+                  : "No payments recorded yet"}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -120,11 +134,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           )}
 
           {(invoice.status === "sent" || invoice.status === "overdue") && (
-            <form action={markInvoicePaidAction}>
-              <input type="hidden" name="invoiceId" value={invoice.id} />
-              <input type="hidden" name="projectId" value={projectId} />
-              <Button type="submit">Mark paid</Button>
-            </form>
+            <>
+              {canRecordPayment && invoice.balanceDue > 0 ? <RecordPaymentForm projectId={projectId} invoiceId={invoice.id} balanceDue={invoice.balanceDue} /> : null}
+              <form action={markInvoicePaidAction}>
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <input type="hidden" name="projectId" value={projectId} />
+                <Button type="submit" variant="outline">Mark paid without recording a payment</Button>
+              </form>
+            </>
           )}
 
           {invoice.status !== "paid" && invoice.status !== "voided" && (
