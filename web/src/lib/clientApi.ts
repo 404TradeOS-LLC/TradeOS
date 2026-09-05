@@ -16,12 +16,16 @@ function getErrorMessage(body: unknown): string {
   return "Request failed";
 }
 
+function normalizeProxyPath(path: string): string {
+  return path.replace(/^\/api\/v1(?=\/|$)/, "");
+}
+
 // Browser-side fetch helper for Client Components (e.g. TanStack Query
 // hooks). Always goes through the same-origin /api/proxy/* route handler —
 // never calls the backend directly, since that's the only way to attach the
 // bearer token without exposing it to client-side JS.
 export async function clientFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api/proxy${path}`, {
+  const response = await fetch(`/api/proxy${normalizeProxyPath(path)}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...init.headers },
   });
