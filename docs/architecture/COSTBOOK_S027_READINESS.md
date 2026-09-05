@@ -69,6 +69,17 @@ authenticated production replay without transaction-acquisition `500`s.
 
 ## Smallest remaining S027 blockers
 
+The S027 evidence workflow uses the existing Beta smoke credentials to generate
+a fresh tenant-verified session outside the repository. It requires an approved
+non-production Preview host, sanitized smoke tenant, RC data-plane identifier,
+and Vercel verification of the full deployed commit before and after capture.
+The runner checks all nine routes at all four required widths, rejects HTTP-200
+error shells, records visible keyboard focus, and exercises real equipment
+validation/create/edit/reload/delete plus pricing preview. Only test equipment
+created by that run is deleted. Failure artifacts are retained after a credential
+scan; runtime session state is removed. Runner implementation alone does not
+close the gate: passing live evidence and reviewed screenshots are required.
+
 1. Authenticated browser evidence: render and exercise the nine Costbook routes
    at 1440px, 1024px, 768px, and 390px, including keyboard focus and mutation/error
    states. This requires an available authenticated environment, not a product

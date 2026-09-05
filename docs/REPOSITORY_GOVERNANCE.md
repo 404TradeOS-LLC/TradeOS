@@ -47,6 +47,14 @@ related_code:
 
 # Repository Governance
 
+The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
+and runtime-authentication seam. It verifies a Ready non-production web
+deployment and its full commit through Vercel before and after capture, requires
+sanitized test-tenant confirmation for equipment fixtures, and removes only
+fixtures created by that run. Session files remain outside the repository and
+uploaded artifacts; failure diagnostics are published only after credential
+scanning. Passing runner tests alone are not S027 completion evidence.
+
 This document defines the required repository workflow for TradeOS. The Bible defines doctrine, the Sprint Backlog defines executable work, and this file defines repository controls and merge discipline.
 
 ## Monorepo and AI-agent boundary policy

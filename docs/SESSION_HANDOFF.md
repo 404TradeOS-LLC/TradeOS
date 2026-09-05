@@ -16,6 +16,13 @@ related_docs:
 
 ## Mission
 
+Active bounded continuation: S027 authenticated Costbook browser evidence.
+The evidence runner/workflow now covers the nine-route, four-viewport matrix
+with runtime Beta authentication, deployment identity, keyboard focus, equipment
+CRUD/error states, and pricing preview. Live execution and screenshot review
+are pending; S027 is not yet DONE. Shared checkout dashboard edits and draft
+PR #453 remain outside this worktree and mission.
+
 S043 and S047 are DONE. The out-of-band RC dashboard/beta-evidence repair
 lineage (PRs #440, #442, #443, #444, #445, #446, #449, #451, #452, #454, #455,
 #456, #457, #458) is merged to `origin/main`; there is no in-progress

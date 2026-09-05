@@ -48,6 +48,11 @@ related_code:
 
 # TradeOS Documentation
 
+S027's authenticated evidence workflow captures all nine Costbook routes at
+1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
+deployment identity, test-tenant, mutation, and artifact controls are described
+in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
+
 This directory is the documentation entry point for implementation truth in TradeOS.
 
 ## Authoritative documents
