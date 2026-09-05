@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: proposal navigation requires a real proposal detail route.
+# Rerun marker: proposal pricing preserves cents on the RC deployment.
 on:
   push:
     branches:
@@ -28,10 +28,10 @@ jobs:
       BETA_SMOKE_TENANT_LABEL: TradeOS Beta Smoke
       BETA_SMOKE_ORG_LABEL: TradeOS Beta Smoke
       BETA_SMOKE_ORG_ID: 9814bd72-626a-42f4-8871-cd755cb9d685
-      BETA_EXPECTED_SHA: c9954b74841ddd19ae24904fdcd7252fdd5ffffd
+      BETA_EXPECTED_SHA: e0fab0e2d4cd6dade4bcb01f7ad68881a234327c
       BETA_REQUIRE_SHA_CORRELATION: "true"
       BETA_RC_DEPLOYMENT_URL: https://tradeos-costbook-web-git-rc-beta-eviden-9a7adb-billykshowalters.vercel.app
-      BETA_RC_DEPLOYMENT_SHA: c9954b74841ddd19ae24904fdcd7252fdd5ffffd
+      BETA_RC_DEPLOYMENT_SHA: e0fab0e2d4cd6dade4bcb01f7ad68881a234327c
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
       BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
       BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
