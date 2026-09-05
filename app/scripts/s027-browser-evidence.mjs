@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { VIEWPORTS, readPngDimensions } from "./beta-evidence/lib/evidence-artifacts.mjs";
 import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-evidence/lib/rc-target.mjs";
-import { assertCostbookPage, COSTBOOK_ROUTES } from "./s027-evidence-contract.mjs";
+import { assertCostbookPage, COSTBOOK_ROUTES, hasVisibleFocusIndicator } from "./s027-evidence-contract.mjs";
 
 const baseUrl = assertApprovedRcUrl(process.env.S027_BASE_URL).origin;
 assertNonProductionDataPlane(process.env.BETA_RC_SUPABASE_PROJECT_REF);
@@ -36,6 +36,23 @@ async function metrics(page) {
 
 async function keyboardEvidence(page) {
   const first = page.locator('main a[href], main button:not([disabled]), main input:not([disabled]), main select:not([disabled])').first();
+  const before = await first.evaluate(el => {
+    const style = getComputedStyle(el);
+    return {
+      color: style.color,
+      backgroundColor: style.backgroundColor,
+      borderTopColor: style.borderTopColor,
+      borderRightColor: style.borderRightColor,
+      borderBottomColor: style.borderBottomColor,
+      borderLeftColor: style.borderLeftColor,
+      textDecorationLine: style.textDecorationLine,
+      textDecorationColor: style.textDecorationColor,
+      textDecorationThickness: style.textDecorationThickness,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+      boxShadow: style.boxShadow,
+    };
+  });
   await first.focus();
   // Enter the first content control by keyboard, including read-only pages
   // whose only content control is the back link (Tab forward would leave it).
@@ -48,12 +65,27 @@ async function keyboardEvidence(page) {
     const style = getComputedStyle(el);
     const hit = document.elementFromPoint(Math.max(0, Math.min(innerWidth - 1, rect.x + rect.width / 2)), Math.max(0, Math.min(innerHeight - 1, rect.y + rect.height / 2)));
     return {
-      tag: el.tagName, visible: rect.width > 0 && rect.height > 0,
+      tag: el.tagName,
+      visible: rect.width > 0 && rect.height > 0,
       focusVisible: el.matches(":focus-visible"),
-      indicator: (style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0) || style.boxShadow !== "none",
       unobscured: el === hit || el.contains(hit),
+      styles: {
+        color: style.color,
+        backgroundColor: style.backgroundColor,
+        borderTopColor: style.borderTopColor,
+        borderRightColor: style.borderRightColor,
+        borderBottomColor: style.borderBottomColor,
+        borderLeftColor: style.borderLeftColor,
+        textDecorationLine: style.textDecorationLine,
+        textDecorationColor: style.textDecorationColor,
+        textDecorationThickness: style.textDecorationThickness,
+        outlineStyle: style.outlineStyle,
+        outlineWidth: style.outlineWidth,
+        boxShadow: style.boxShadow,
+      },
     };
   });
+  focus.indicator = hasVisibleFocusIndicator(before, focus.styles);
   assert.ok(focus.visible && focus.focusVisible && focus.indicator && focus.unobscured, `Keyboard focus is not visible/reachable: ${JSON.stringify(focus)}`);
   return focus;
 }
