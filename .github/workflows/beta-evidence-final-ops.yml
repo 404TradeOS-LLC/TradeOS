@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: mobile page-header overflow repaired.
+# Rerun marker: tenant isolation now asserts authenticated API denial.
 on:
   push:
     branches:
