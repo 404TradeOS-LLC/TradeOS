@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: custom estimate-line constraint repaired in staging.
+# Rerun marker: pricing assertions aligned with the rendered estimate summary.
 on:
   push:
     branches:
@@ -58,16 +58,28 @@ jobs:
           from pathlib import Path
           path = Path('scripts/beta-evidence/capture-evidence.mjs')
           text = path.read_text()
-          project_old = 'await page.getByText(projectName, { exact: true }).first().click();'
-          project_new = 'await page.getByRole("link").filter({ hasText: projectName }).click(); await page.waitForURL(/\\/projects\\/[^/?]+/, { timeout: 60_000 });'
-          estimate_old = 'await page.getByRole("button", { name: /create first estimate|new estimate/i }).click();'
-          estimate_new = 'await page.getByRole("button", { name: "Create first estimate", exact: true }).click();'
-          if project_old not in text:
-              raise SystemExit('expected stale project selector not found')
-          if estimate_old not in text:
-              raise SystemExit('expected ambiguous estimate selector not found')
-          text = text.replace(project_old, project_new, 1)
-          text = text.replace(estimate_old, estimate_new, 1)
+          replacements = [
+            (
+              'await page.getByText(projectName, { exact: true }).first().click();',
+              'await page.getByRole("link").filter({ hasText: projectName }).click(); await page.waitForURL(/\\/projects\\/[^/?]+/, { timeout: 60_000 });'
+            ),
+            (
+              'await page.getByRole("button", { name: /create first estimate|new estimate/i }).click();',
+              'await page.getByRole("button", { name: "Create first estimate", exact: true }).click();'
+            ),
+            (
+              'await page.getByText("$310.89", { exact: true }).waitFor({ timeout: 60_000 });\n  await page.getByText("$5,920.89", { exact: true }).waitFor({ timeout: 60_000 });',
+              'await page.waitForFunction(() => document.body.innerText.includes("$310.89") && document.body.innerText.includes("$5,920.89"), undefined, { timeout: 60_000 });'
+            ),
+            (
+              'await page.getByText("$6,732.00", { exact: true }).waitFor({ timeout: 60_000 });\n  await page.getByText("$7,105.07", { exact: true }).waitFor({ timeout: 60_000 });',
+              'await page.waitForFunction(() => document.body.innerText.includes("$6,732.00") && document.body.innerText.includes("$7,105.07"), undefined, { timeout: 60_000 });'
+            ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'expected evidence block not found: {old[:70]}')
+              text = text.replace(old, new, 1)
           path.write_text(text)
           PY
       - name: Record run identity
