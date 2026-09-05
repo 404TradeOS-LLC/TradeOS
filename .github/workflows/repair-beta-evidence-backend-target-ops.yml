@@ -1,0 +1,44 @@
+name: Repair Beta Evidence backend target ops
+
+on:
+  push:
+    branches:
+      - ops/repair-beta-evidence-backend-target
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repair-beta-evidence-backend-target
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Point Beta Evidence frontend at staging backend
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      FRONTEND_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+      RC_BRANCH: rc/beta-evidence-provisioning
+      RC_BACKEND_URL: https://tradeos-costbook-git-staging-billykshowalters.vercel.app
+    steps:
+      - name: Guard Preview-only target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${VERCEL_TOKEN:-}" ] || { echo "::error::VERCEL_TOKEN missing"; exit 1; }
+          [ "$RC_BRANCH" = "rc/beta-evidence-provisioning" ] || exit 1
+          [ "$RC_BACKEND_URL" = "https://tradeos-costbook-git-staging-billykshowalters.vercel.app" ] || exit 1
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Verify Vercel token
+        run: vercel whoami --token="$VERCEL_TOKEN"
+      - name: Set branch-scoped BACKEND_API_URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if printf '%s' "$RC_BACKEND_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$FRONTEND_PROJECT_ID" vercel env update BACKEND_API_URL preview "$RC_BRANCH" --token="$VERCEL_TOKEN"; then
+            exit 0
+          fi
+          printf '%s' "$RC_BACKEND_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$FRONTEND_PROJECT_ID" vercel env add BACKEND_API_URL preview "$RC_BRANCH" --token="$VERCEL_TOKEN"
