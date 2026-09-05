@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertCostbookPage, COSTBOOK_ROUTES, hasVisibleFocusIndicator } from "./s027-evidence-contract.mjs";
+import { assertCostbookPage, COSTBOOK_ROUTES, deploymentSupabaseProjectRef, hasVisibleFocusIndicator } from "./s027-evidence-contract.mjs";
 
 const valid = { pathname: "/costbook", expectedPath: "/costbook", status: 200, bodyText: "Costbook No Costbook catalog records yet", scrollWidth: 390, clientWidth: 390 };
 test("accepts a truthful empty catalog, and requires all nine canonical routes", () => {
@@ -30,4 +30,14 @@ test("accepts outline, shadow, or focus-induced visual style changes", () => {
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgb(20, 20, 20)" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base }), false);
+});
+test("binds Supabase attestation to applicable Preview configuration", () => {
+  const deployedAt = 2_000;
+  const envs = [
+    { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], value: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co", updatedAt: 1_000 },
+    { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], gitBranch: "rc/beta", value: "https://bbbbbbbbbbbbbbbbbbbb.supabase.co", updatedAt: 1_500 },
+  ];
+  assert.equal(deploymentSupabaseProjectRef(envs, "rc/beta", deployedAt), "bbbbbbbbbbbbbbbbbbbb");
+  assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], updatedAt: 2_500 }], "rc/beta", deployedAt), /redeploy before mutating evidence/);
+  assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "https://example.com" }], "rc/beta", deployedAt), /identify a Supabase project/);
 });
