@@ -49,7 +49,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      - name: Patch RC evidence selector drift
+      - name: Patch RC evidence navigation drift
         shell: bash
         run: |
           set -euo pipefail
@@ -57,10 +57,15 @@ jobs:
           from pathlib import Path
           path = Path('scripts/beta-evidence/capture-evidence.mjs')
           text = path.read_text()
-          old = 'await page.getByText(projectName, { exact: true }).first().click();'
-          new = 'await page.getByRole("link").filter({ hasText: projectName }).click();'
+          old = '''  await page.getByText(projectName, { exact: true }).first().click();
+  await page.waitForLoadState("networkidle");'''
+          new = '''  await Promise.all([
+    page.waitForURL(/\\/projects\\/[^/?]+/, { timeout: 60_000 }),
+    page.getByRole("link").filter({ hasText: projectName }).click(),
+  ]);
+  await page.waitForLoadState("networkidle");'''
           if old not in text:
-              raise SystemExit('expected stale project selector not found')
+              raise SystemExit('expected stale project navigation block not found')
           path.write_text(text.replace(old, new, 1))
           PY
       - name: Record run identity
