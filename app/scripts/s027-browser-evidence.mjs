@@ -7,12 +7,14 @@ import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-eviden
 import { assertCostbookPage, COSTBOOK_ROUTES, hasVisibleFocusIndicator } from "./s027-evidence-contract.mjs";
 
 const baseUrl = assertApprovedRcUrl(process.env.S027_BASE_URL).origin;
-assertNonProductionDataPlane(process.env.BETA_RC_SUPABASE_PROJECT_REF);
+const expectedSupabaseRef = assertNonProductionDataPlane(process.env.BETA_RC_SUPABASE_PROJECT_REF);
 assert.equal(process.env.S027_SANITIZED_TENANT, "true", "Sanitized smoke tenant confirmation required");
 assert.equal(process.env.S027_ALLOW_MUTATIONS, "true", "Smoke fixture mutation consent required");
 const storageState = process.env.S027_STORAGE_STATE_PATH;
 assert.ok(storageState, "S027_STORAGE_STATE_PATH is required");
 const outDir = process.env.S027_EVIDENCE_DIR || "../artifacts/s027-browser-evidence";
+const deploymentIdentity = JSON.parse(await fs.readFile(path.join(outDir, "deployment-identity.json"), "utf8"));
+assert.equal(deploymentIdentity.supabaseProjectRef, expectedSupabaseRef, "Mutating evidence requires deployment-attested RC Supabase identity");
 const runId = process.env.GITHUB_RUN_ID || Date.now().toString();
 const report = { generatedAt: new Date().toISOString(), baseUrl, runnerSha: process.env.GITHUB_SHA, routes: [], failures: [] };
 await fs.mkdir(outDir, { recursive: true });
