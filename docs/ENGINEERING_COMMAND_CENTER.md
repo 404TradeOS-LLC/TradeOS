@@ -39,6 +39,13 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+S027 continuation: the Costbook browser-evidence lane now covers all nine routes
+at all four required widths, visible keyboard focus, equipment mutations and
+validation errors, and calculated pricing preview. Runtime Beta authentication
+replaces the missing stored-session secret. The lane requires a verified Preview
+deployment and sanitized smoke tenant; S027 stays blocked until live evidence
+passes and the screenshots are reviewed.
+
 ## Purpose
 
 This is the concise operating overview for TradeOS engineering. It does not replace the Bible, Current State, Sprint Backlog, Session Handoff, module contracts, ADRs, or research evidence.
