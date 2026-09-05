@@ -1,0 +1,1 @@
+Force staging backend rebuild after restoring branch-scoped SUPABASE_URL.
