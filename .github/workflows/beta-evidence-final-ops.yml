@@ -1,0 +1,119 @@
+name: Beta Evidence Final Ops
+
+on:
+  push:
+    branches:
+      - ops/run-beta-evidence-final
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeos-beta-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Beta evidence full correlated
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
+      BETA_RC_BASE_URL: https://tradeos-costbook-web-git-rc-beta-eviden-9a7adb-billykshowalters.vercel.app
+      BETA_RC_BASE_URL_VARIABLE: ""
+      BETA_EXPECTED_ENVIRONMENT: preview
+      BETA_SMOKE_TENANT_LABEL: TradeOS Beta Smoke
+      BETA_SMOKE_ORG_LABEL: TradeOS Beta Smoke
+      BETA_EXPECTED_SHA: 3d4d07ea270e7993403c5fdad5471c9762908711
+      BETA_REQUIRE_SHA_CORRELATION: "true"
+      BETA_RC_DEPLOYMENT_URL: https://tradeos-costbook-web-git-rc-beta-eviden-9a7adb-billykshowalters.vercel.app
+      BETA_RC_DEPLOYMENT_SHA: 3d4d07ea270e7993403c5fdad5471c9762908711
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
+      BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
+      BETA_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
+      BETA_ALLOW_MUTATIONS: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Record run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "BETA_RUN_ID=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "BETA_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "BETA_STORAGE_STATE_PATH=${RUNNER_TEMP}/beta-storage-state.json"
+          } >> "$GITHUB_ENV"
+      - name: Resolve and prove the RC target
+        run: node scripts/beta-evidence/resolve-rc-target.mjs
+      - name: Export the resolved RC base URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved="$(node -e 'const t=require("../artifacts/beta-evidence/rc-target.json");process.stdout.write(t.baseUrl)')"
+          echo "BETA_RC_BASE_URL_RESOLVED=$resolved" >> "$GITHUB_ENV"
+      - name: Require provisioned evidence prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$BETA_SMOKE_EMAIL" ]
+          [ -n "$BETA_SMOKE_PASSWORD" ]
+          [ -n "$BETA_RC_SUPABASE_PROJECT_REF" ]
+          if [ -z "$BETA_FOREIGN_PROJECT_ID" ] && [ -z "$BETA_FOREIGN_CUSTOMER_ID" ]; then exit 1; fi
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Authenticate and bootstrap storage state
+        run: node scripts/beta-evidence/auth-setup.mjs
+      - name: Capture evidence at 1440px
+        env: { BETA_VIEWPORT: "1440" }
+        run: node scripts/beta-evidence/capture-evidence.mjs
+      - name: Capture evidence at 1024px
+        env: { BETA_VIEWPORT: "1024" }
+        run: node scripts/beta-evidence/capture-evidence.mjs
+      - name: Capture evidence at 768px
+        env: { BETA_VIEWPORT: "768" }
+        run: node scripts/beta-evidence/capture-evidence.mjs
+      - name: Capture evidence at 390px
+        env: { BETA_VIEWPORT: "390" }
+        run: node scripts/beta-evidence/capture-evidence.mjs
+      - name: Prove tenant isolation
+        run: node scripts/beta-evidence/tenant-isolation.mjs
+      - name: Validate artifacts and write metadata
+        if: always()
+        run: node scripts/beta-evidence/validate-artifacts.mjs
+      - name: Scan evidence bundle for credential material
+        id: credential_scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="../artifacts/beta-evidence"
+          [ -d "$bundle" ] || exit 0
+          if grep -rlIE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}' "$bundle" >/dev/null 2>&1; then
+            echo "::error::Evidence bundle contains session or credential material. Refusing to upload."
+            exit 1
+          fi
+      - name: Remove runtime storage state
+        if: always()
+        shell: bash
+        run: rm -f "${BETA_STORAGE_STATE_PATH:-}"
+      - name: Upload beta evidence
+        if: ${{ always() && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: beta-evidence-final-correlated
+          path: artifacts/beta-evidence
+          if-no-files-found: error
+          retention-days: 30
