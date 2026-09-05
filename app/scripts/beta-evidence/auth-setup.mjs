@@ -75,6 +75,25 @@ function record(name, passed, detail) {
   steps.push({ name, passed, ...(detail ? { detail } : {}) });
 }
 
+async function assertResponsiveOperatorShell(page) {
+  const signOutButton = page.getByRole("button", { name: "Sign out" }).first();
+  if (await signOutButton.isVisible().catch(() => false)) return;
+
+  // The Control Dock intentionally moves account controls into the More sheet
+  // below the 2xl breakpoint. Auth bootstrap uses a 1440px viewport, so prove
+  // the real operator session by opening that responsive navigation instead of
+  // requiring a desktop-only control to be visible.
+  const moreButton = page.getByRole("button", { name: "Open more menu" }).first();
+  if (!(await moreButton.isVisible().catch(() => false))) {
+    throw new Error("Authenticated shell exposed neither a visible Sign out control nor the responsive More menu.");
+  }
+
+  await moreButton.click();
+  await signOutButton.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {
+    throw new Error("Responsive operator menu opened but did not render a Sign out control.");
+  });
+}
+
 // A missing browser is a setup problem, not a product failure; say so
 // instead of surfacing a raw stack trace.
 let browser;
@@ -132,14 +151,9 @@ try {
 
   // 3. Tenant assertion — the session must belong to the expected smoke org.
   {
-    const signOutVisible = await page
-      .getByRole("button", { name: "Sign out" })
-      .first()
-      .isVisible()
-      .catch(() => false);
-    if (!signOutVisible) {
-      throw new Error("Authenticated shell did not render a Sign out control; the session may not be a real operator session.");
-    }
+    await assertResponsiveOperatorShell(page);
+    record("authenticated operator shell exposes sign-out control", true);
+
     const settingsResponse = await page.goto(new URL("/settings", parsedBaseUrl).toString(), {
       waitUntil: "networkidle",
       timeout: 60_000,
