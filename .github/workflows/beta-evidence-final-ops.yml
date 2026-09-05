@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: invoice creation tolerates decimal strings in nested project data.
+# Rerun marker: invoice evidence waits for the created invoice detail route.
 on:
   push:
     branches:
@@ -78,6 +78,10 @@ jobs:
             (
               'await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/[^/]+$`), { timeout: 60_000 });',
               'await page.waitForURL((url) => /^\\/projects\\/[^/]+\\/proposals\\/(?!new(?:\\/|$))[^/?]+$/.test(url.pathname), { timeout: 60_000 });'
+            ),
+            (
+              'await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`), { timeout: 60_000 });',
+              'await page.waitForURL((url) => /^\\/projects\\/[^/]+\\/invoices\\/(?!new(?:\\/|$))[^/?]+$/.test(url.pathname), { timeout: 60_000 });'
             ),
           ]
           for old, new in replacements:
