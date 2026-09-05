@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: invoice evidence waits for the created invoice detail route.
+# Rerun marker: document assertions wait for rendered prices after redirects.
 on:
   push:
     branches:
@@ -80,8 +80,16 @@ jobs:
               'await page.waitForURL((url) => /^\\/projects\\/[^/]+\\/proposals\\/(?!new(?:\\/|$))[^/?]+$/.test(url.pathname), { timeout: 60_000 });'
             ),
             (
+              'const proposalText = await page.locator("body").innerText();',
+              'await page.waitForFunction(() => document.body.innerText.includes("$7,105.07"), undefined, { timeout: 60_000 });\n  const proposalText = await page.locator("body").innerText();'
+            ),
+            (
               'await page.waitForURL(new RegExp(`/projects/${projectId}/invoices/[^/]+$`), { timeout: 60_000 });',
               'await page.waitForURL((url) => /^\\/projects\\/[^/]+\\/invoices\\/(?!new(?:\\/|$))[^/?]+$/.test(url.pathname), { timeout: 60_000 });'
+            ),
+            (
+              'const invoiceText = await page.locator("body").innerText();',
+              'await page.waitForFunction(() => document.body.innerText.includes("$7,105.07"), undefined, { timeout: 60_000 });\n  const invoiceText = await page.locator("body").innerText();'
             ),
           ]
           for old, new in replacements:
