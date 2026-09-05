@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-31
+last_verified: 2026-09-05
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
   - app/modules/athena-memory
@@ -96,6 +97,7 @@ A priced commercial draft stored in `Estimate`.
 
 - belongs to one project and organization
 - owns estimate line items
+- estimate line items may reference zero or one Costbook source (`costItemId` or `assemblyId`): zero is a valid custom line item, while referencing both sources simultaneously is prohibited by the database constraint
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
 - lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
