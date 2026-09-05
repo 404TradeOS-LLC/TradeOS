@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: pricing assertions aligned with the rendered estimate summary.
+# Rerun marker: proposal navigation requires a real proposal detail route.
 on:
   push:
     branches:
@@ -74,6 +74,10 @@ jobs:
             (
               'await page.getByText("$6,732.00", { exact: true }).waitFor({ timeout: 60_000 });\n  await page.getByText("$7,105.07", { exact: true }).waitFor({ timeout: 60_000 });',
               'await page.waitForFunction(() => document.body.innerText.includes("$6,732.00") && document.body.innerText.includes("$7,105.07"), undefined, { timeout: 60_000 });'
+            ),
+            (
+              'await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/[^/]+$`), { timeout: 60_000 });',
+              'await page.waitForURL((url) => /^\\/projects\\/[^/]+\\/proposals\\/(?!new(?:\\/|$))[^/?]+$/.test(url.pathname), { timeout: 60_000 });'
             ),
           ]
           for old, new in replacements:
