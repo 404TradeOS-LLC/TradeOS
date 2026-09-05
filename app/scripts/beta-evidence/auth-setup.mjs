@@ -88,7 +88,9 @@ async function assertResponsiveOperatorShell(page) {
 
 async function assertCanonicalTenant(page) {
   const result = await page.evaluate(async () => {
-    const response = await fetch("/api/proxy/api/v1/settings", {
+    // The browser proxy prepends /api/v1/ to its catch-all segments, so the
+    // settings client path /api/v1/settings maps to /api/proxy/settings here.
+    const response = await fetch("/api/proxy/settings", {
       credentials: "same-origin",
       cache: "no-store",
       headers: { Accept: "application/json" },
