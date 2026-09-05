@@ -16,6 +16,10 @@ on:
         required: true
         default: TradeOS Beta Smoke
         type: string
+      smoke_org_id:
+        description: Canonical organization ID of the sanitized smoke tenant
+        required: true
+        type: string
       sanitized_tenant:
         description: Confirm test-only tenant and equipment fixture create/edit/delete
         required: true
@@ -48,6 +52,7 @@ jobs:
       BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
       BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
+      BETA_SMOKE_ORG_ID: ${{ inputs.smoke_org_id }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
       BETA_STORAGE_STATE_PATH: /tmp/s027-storage-state.json
       BETA_EVIDENCE_DIR: ../artifacts/s027-browser-evidence

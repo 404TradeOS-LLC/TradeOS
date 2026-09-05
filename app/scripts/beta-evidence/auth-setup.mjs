@@ -19,6 +19,7 @@ const email = process.env.BETA_SMOKE_EMAIL;
 const password = process.env.BETA_SMOKE_PASSWORD;
 const storageStatePath = process.env.BETA_STORAGE_STATE_PATH;
 const expectedOrg = process.env.BETA_SMOKE_ORG_LABEL;
+const expectedOrgId = process.env.BETA_SMOKE_ORG_ID;
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
 // Startup misconfiguration should read as one actionable line, not a stack
@@ -132,13 +133,11 @@ try {
 
   // 3. Tenant assertion — the session must belong to the expected smoke org.
   {
-    const signOutVisible = await page
-      .getByRole("button", { name: "Sign out" })
-      .first()
-      .isVisible()
-      .catch(() => false);
-    if (!signOutVisible) {
-      throw new Error("Authenticated shell did not render a Sign out control; the session may not be a real operator session.");
+    const signOut = page.getByRole("button", { name: "Sign out", exact: true }).first();
+    if (!(await signOut.isVisible())) {
+      // The Control Dock keeps account actions in its responsive More sheet.
+      await page.getByRole("button", { name: "Open more menu", exact: true }).click();
+      await signOut.waitFor({ state: "visible", timeout: 5_000 });
     }
     const settingsResponse = await page.goto(new URL("/settings", parsedBaseUrl).toString(), {
       waitUntil: "networkidle",
@@ -149,7 +148,12 @@ try {
     if (status >= 400) {
       throw new Error(`Settings route returned HTTP ${status} while asserting tenant identity.`);
     }
-    if (!settingsText.includes(expectedOrg)) {
+    if (expectedOrgId) {
+      const settings = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
+      if (settings.status() !== 200 || (await settings.json()).orgId !== expectedOrgId) {
+        throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
+      }
+    } else if (!settingsText.includes(expectedOrg)) {
       throw new Error(
         `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
           "Refusing to capture evidence against an unexpected organization.",
@@ -179,6 +183,7 @@ try {
         baseUrl: parsedBaseUrl.origin,
         smokeIdentity: email.replace(/^(.).*(@.*)$/, "$1***$2"),
         expectedOrganization: expectedOrg,
+        expectedOrganizationId: expectedOrgId ?? null,
         steps,
         result: failure ? "FAIL" : "PASS",
       },
