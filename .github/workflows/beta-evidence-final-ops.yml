@@ -1,6 +1,6 @@
 name: Beta Evidence Final Ops
 
-# Rerun marker: document assertions wait for rendered prices after redirects.
+# Rerun marker: ignore only same-origin client-cancelled request aborts.
 on:
   push:
     branches:
@@ -59,6 +59,10 @@ jobs:
           path = Path('scripts/beta-evidence/capture-evidence.mjs')
           text = path.read_text()
           replacements = [
+            (
+              'page.on("requestfailed", (request) => failedRequests.push(`${request.method()} ${request.url()}`));',
+              'page.on("requestfailed", (request) => {\n    const requestFailure = request.failure();\n    const requestUrl = new URL(request.url());\n    const isExpectedClientAbort = requestUrl.origin === parsedBaseUrl.origin && requestFailure?.errorText === "net::ERR_ABORTED";\n    if (!isExpectedClientAbort) {\n      failedRequests.push(`${request.method()} ${request.url()}${requestFailure?.errorText ? ` — ${requestFailure.errorText}` : ""}`);\n    }\n  });'
+            ),
             (
               'await page.getByText(projectName, { exact: true }).first().click();',
               'await page.getByRole("link").filter({ hasText: projectName }).click(); await page.waitForURL(/\\/projects\\/[^/?]+/, { timeout: 60_000 });'
