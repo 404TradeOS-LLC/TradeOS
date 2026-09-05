@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject, getProposal } from "@/lib/api";
-import { buildProposalTimeline, formatCurrency, getProposalDisplayStatus } from "@/lib/document-workflow";
+import { buildProposalTimeline, formatInvoiceCurrency, getProposalDisplayStatus } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 
 export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string; proposalId: string }> }) {
@@ -60,9 +60,9 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
                 <div className="mt-1 font-medium">{getNextMilestone(displayStatus)}</div>
               </div>
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-1">
-                <SummaryMetricCard label="Low" value={formatCurrency(proposal.priceLow)} />
-                <SummaryMetricCard label="High" value={formatCurrency(proposal.priceHigh)} />
-                <SummaryMetricCard label="Final" value={formatCurrency(proposal.finalPrice)} />
+                <SummaryMetricCard label="Low" value={formatInvoiceCurrency(proposal.priceLow)} />
+                <SummaryMetricCard label="High" value={formatInvoiceCurrency(proposal.priceHigh)} />
+                <SummaryMetricCard label="Final" value={formatInvoiceCurrency(proposal.finalPrice)} />
               </div>
               <div className="flex flex-col gap-3">
                 <Link href={`/projects/${projectId}/proposals/${proposal.id}/preview`} className={buttonVariants()}>
