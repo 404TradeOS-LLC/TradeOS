@@ -6,6 +6,23 @@ export const COSTBOOK_ROUTES = [
   ["assemblies", "Assemblies"], ["pricing", "Pricing Preview"], ["price-history", "Price History"],
 ].map(([slug, title]) => ({ slug: slug || "costbook", path: `/costbook${slug ? `/${slug}` : ""}`, title }));
 
+const FOCUS_STYLE_KEYS = [
+  "color",
+  "backgroundColor",
+  "borderTopColor",
+  "borderRightColor",
+  "borderBottomColor",
+  "borderLeftColor",
+  "textDecorationLine",
+  "textDecorationColor",
+  "textDecorationThickness",
+];
+
+export function hasVisibleFocusIndicator(before, after) {
+  if ((after.outlineStyle !== "none" && Number.parseFloat(after.outlineWidth) > 0) || after.boxShadow !== "none") return true;
+  return FOCUS_STYLE_KEYS.some(key => before[key] !== after[key]);
+}
+
 export function assertCostbookPage({ pathname, expectedPath, status, bodyText, scrollWidth, clientWidth }) {
   assert.equal(pathname, expectedPath, "Navigation must remain on the requested authenticated route");
   assert.equal(status, 200, "Costbook route must return HTTP 200");
