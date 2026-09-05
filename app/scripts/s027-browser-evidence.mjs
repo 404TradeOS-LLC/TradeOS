@@ -37,7 +37,11 @@ async function metrics(page) {
 async function keyboardEvidence(page) {
   const first = page.locator('main a[href], main button:not([disabled]), main input:not([disabled]), main select:not([disabled])').first();
   await first.focus();
+  // Enter the first content control by keyboard, including read-only pages
+  // whose only content control is the back link (Tab forward would leave it).
+  await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Tab");
+  assert.ok(await first.evaluate(el => document.activeElement === el), "Tab must reach the first content control");
   const focus = await page.evaluate(() => {
     const el = document.activeElement;
     const rect = el.getBoundingClientRect();
