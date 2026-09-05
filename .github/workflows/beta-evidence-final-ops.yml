@@ -26,6 +26,7 @@ jobs:
       BETA_EXPECTED_ENVIRONMENT: preview
       BETA_SMOKE_TENANT_LABEL: TradeOS Beta Smoke
       BETA_SMOKE_ORG_LABEL: TradeOS Beta Smoke
+      BETA_SMOKE_ORG_ID: 9814bd72-626a-42f4-8871-cd755cb9d685
       BETA_EXPECTED_SHA: 2b3f8628d70b3e9071d20c2d64642629cba0ab6b
       BETA_REQUIRE_SHA_CORRELATION: "true"
       BETA_RC_DEPLOYMENT_URL: https://tradeos-costbook-web-git-rc-beta-eviden-9a7adb-billykshowalters.vercel.app
@@ -72,6 +73,7 @@ jobs:
           [ -n "$BETA_SMOKE_EMAIL" ]
           [ -n "$BETA_SMOKE_PASSWORD" ]
           [ -n "$BETA_RC_SUPABASE_PROJECT_REF" ]
+          [ -n "$BETA_SMOKE_ORG_ID" ]
           if [ -z "$BETA_FOREIGN_PROJECT_ID" ] && [ -z "$BETA_FOREIGN_CUSTOMER_ID" ]; then exit 1; fi
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
