@@ -1,6 +1,6 @@
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GENERATED_PROJECT_FILE_OBJECT_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-.+$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[a-zA-Z0-9._-]+$/;
 
 export function isSafeProjectId(projectId: string): boolean {
   return UUID_PATTERN.test(projectId);
@@ -11,7 +11,7 @@ export function buildProjectFilePath(projectId: string, fileName: string): strin
     throw new Error("Invalid project id.");
   }
 
-  const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+  const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-") || "file";
   return `${projectId}/${crypto.randomUUID()}-${sanitizedName}`;
 }
 
