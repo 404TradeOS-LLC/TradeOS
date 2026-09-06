@@ -76,32 +76,13 @@ test("document upload proves project visibility before creating a storage object
   assert.ok(preflightIndex < uploadIndex, "tenant/project visibility must be proven before Storage upload");
 });
 
-test("document upload only removes storage after authoritative reconciliation confirms no metadata row", () => {
+test("document upload delegates ambiguous failure cleanup to the executable storage workflow", () => {
   const source = readActionSource("uploadProjectDocumentAction");
-  const catchIndex = source.indexOf("} catch (err) {");
-  const catchSource = source.slice(catchIndex);
-  const reconcileIndex = catchSource.indexOf("apiFetch<ProjectFile[]>");
-  const confirmationIndex = catchSource.indexOf("confirmedUnpersisted = !projectFiles.some");
-  const cleanupIndex = catchSource.indexOf("supabase.storage.from(bucket).remove([storagePath])");
-
-  assert.notEqual(reconcileIndex, -1, "expected authoritative metadata reconciliation");
-  assert.notEqual(confirmationIndex, -1, "expected explicit non-persistence confirmation");
-  assert.notEqual(cleanupIndex, -1, "expected confirmed-orphan cleanup");
-  assert.ok(reconcileIndex < confirmationIndex && confirmationIndex < cleanupIndex);
-  assert.match(catchSource, /catch \{[\s\S]*preserve the object rather than[\s\S]*\}/);
+  assert.match(source, /cleanupUploadedProjectFileAfterMetadataFailure\(/);
 });
 
-test("project-file deletion resolves backend-owned metadata before destructive storage cleanup", () => {
+test("project-file deletion ignores submitted storage paths and delegates authorization ordering to the executable workflow", () => {
   const source = readActionSource("deleteProjectFileAction");
-  const metadataLookupIndex = source.indexOf("apiFetch<ProjectFile[]>");
-  const metadataDeleteIndex = source.indexOf("method: \"DELETE\"");
-  const storageRemoveIndex = source.indexOf("supabase.storage.from(bucket).remove");
-
   assert.doesNotMatch(source, /formData\.get\("storagePath"\)/, "storage path must never come from the submitted form");
-  assert.notEqual(metadataLookupIndex, -1, "expected backend-owned file lookup");
-  assert.notEqual(metadataDeleteIndex, -1, "expected backend authorization/delete");
-  assert.notEqual(storageRemoveIndex, -1, "expected post-delete storage cleanup");
-  assert.ok(metadataLookupIndex < metadataDeleteIndex, "file ownership must be resolved before metadata delete");
-  assert.ok(metadataDeleteIndex < storageRemoveIndex, "backend authorization/delete must happen before Storage deletion");
-  assert.match(source, /isGeneratedProjectFileStoragePath\(projectId, projectFile\.storagePath\)/);
+  assert.match(source, /deleteAuthorizedProjectFileStorage\(/);
 });
