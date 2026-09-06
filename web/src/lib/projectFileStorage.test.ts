@@ -19,13 +19,26 @@ test("project storage paths sanitize filenames and stay under the requested proj
   assert.equal(isGeneratedProjectFileStoragePath(PROJECT_ID, storagePath), true);
 });
 
+test("empty filenames normalize to a generated cleanup-safe object name", () => {
+  const storagePath = buildProjectFilePath(PROJECT_ID, "");
+  assert.match(storagePath, new RegExp(`^${PROJECT_ID}/[0-9a-f-]{36}-file$`, "i"));
+  assert.equal(isGeneratedProjectFileStoragePath(PROJECT_ID, storagePath), true);
+});
+
 test("storage cleanup rejects paths for a different project", () => {
   const foreignPath = `${OTHER_PROJECT_ID}/33333333-3333-4333-8333-333333333333-scope.pdf`;
 
   assert.equal(isGeneratedProjectFileStoragePath(PROJECT_ID, foreignPath), false);
 });
 
-test("storage cleanup rejects ungenerated or malformed object names", () => {
+test("storage cleanup rejects ungenerated, malformed, or nested object names", () => {
   assert.equal(isGeneratedProjectFileStoragePath(PROJECT_ID, `${PROJECT_ID}/scope.pdf`), false);
   assert.equal(isGeneratedProjectFileStoragePath(PROJECT_ID, `${PROJECT_ID}/../scope.pdf`), false);
+  assert.equal(
+    isGeneratedProjectFileStoragePath(
+      PROJECT_ID,
+      `${PROJECT_ID}/33333333-3333-4333-8333-333333333333-scope.pdf/extra`
+    ),
+    false
+  );
 });
