@@ -19,7 +19,12 @@ const FOCUS_STYLE_KEYS = [
 ];
 
 export function hasVisibleFocusIndicator(before, after) {
-  if ((after.outlineStyle !== "none" && Number.parseFloat(after.outlineWidth) > 0) || after.boxShadow !== "none") return true;
+  const outlineChanged = before.outlineStyle !== after.outlineStyle || before.outlineWidth !== after.outlineWidth;
+  const shadowChanged = before.boxShadow !== after.boxShadow;
+  if (
+    (outlineChanged && after.outlineStyle !== "none" && Number.parseFloat(after.outlineWidth) > 0) ||
+    (shadowChanged && after.boxShadow !== "none")
+  ) return true;
   return FOCUS_STYLE_KEYS.some(key => before[key] !== after[key]);
 }
 
@@ -31,7 +36,8 @@ export function deploymentSupabaseProjectRef(envs, branch, deploymentCreatedAt) 
   const applicable = envs.filter(env => env?.key === "NEXT_PUBLIC_SUPABASE_URL" && hasPreviewTarget(env.target));
   const branchScoped = applicable.filter(env => env.gitBranch === branch);
   const sharedPreview = applicable.filter(env => !env.gitBranch);
-  const candidate = [...branchScoped, ...sharedPreview]
+  const candidates = branchScoped.length > 0 ? branchScoped : sharedPreview;
+  const candidate = [...candidates]
     .sort((a, b) => Number(b.updatedAt ?? b.createdAt ?? 0) - Number(a.updatedAt ?? a.createdAt ?? 0))[0];
   assert.ok(candidate?.value, "Vercel Preview NEXT_PUBLIC_SUPABASE_URL is required for deployment data-plane attestation");
   const configuredAt = Number(candidate.updatedAt ?? candidate.createdAt ?? 0);
