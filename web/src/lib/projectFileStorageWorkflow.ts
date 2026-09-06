@@ -7,7 +7,19 @@ export interface ProjectFileStorageRecord {
 
 export interface StorageMutationResult {
   removed: boolean;
-  reason: "removed" | "persisted" | "ambiguous" | "unexpected-path" | "no-storage-path";
+  reason: "removed" | "persisted" | "ambiguous" | "unexpected-path" | "no-storage-path" | "cleanup-failed";
+}
+
+async function tryRemoveStorage(
+  storagePath: string,
+  removeStorage: (storagePath: string) => Promise<void>
+): Promise<StorageMutationResult> {
+  try {
+    await removeStorage(storagePath);
+    return { removed: true, reason: "removed" };
+  } catch {
+    return { removed: false, reason: "cleanup-failed" };
+  }
 }
 
 export async function cleanupUploadedProjectFileAfterMetadataFailure(options: {
@@ -27,8 +39,7 @@ export async function cleanupUploadedProjectFileAfterMetadataFailure(options: {
     return { removed: false, reason: "persisted" };
   }
 
-  await options.removeStorage(options.storagePath);
-  return { removed: true, reason: "removed" };
+  return tryRemoveStorage(options.storagePath, options.removeStorage);
 }
 
 export async function deleteAuthorizedProjectFileStorage(options: {
@@ -53,6 +64,5 @@ export async function deleteAuthorizedProjectFileStorage(options: {
     return { removed: false, reason: "unexpected-path" };
   }
 
-  await options.removeStorage(projectFile.storagePath);
-  return { removed: true, reason: "removed" };
+  return tryRemoveStorage(projectFile.storagePath, options.removeStorage);
 }
