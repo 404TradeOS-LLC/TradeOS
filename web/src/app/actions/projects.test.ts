@@ -9,22 +9,21 @@ function readProjectsActionsSource(): string {
   return fs.readFileSync(path.join(here, "projects.ts"), "utf8");
 }
 
-function readCreateSiteVisitActionSource(): string {
+function readActionSource(action: string): string {
   const source = readProjectsActionsSource();
-  const start = source.indexOf("export async function createSiteVisitAction");
-  const end = source.indexOf("export async function uploadProjectDocumentAction");
-  assert.notEqual(start, -1, "expected createSiteVisitAction to exist");
-  assert.notEqual(end, -1, "expected uploadProjectDocumentAction to follow createSiteVisitAction");
-  return source.slice(start, end);
+  const start = source.indexOf(`export async function ${action}`);
+  assert.notEqual(start, -1, `expected ${action} to exist`);
+  const next = source.indexOf("export async function ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+function readCreateSiteVisitActionSource(): string {
+  return readActionSource("createSiteVisitAction");
 }
 
 test("storage-mutating project actions require a server-side session before side effects", () => {
-  const source = readProjectsActionsSource();
   for (const action of ["createSiteVisitAction", "uploadProjectDocumentAction", "deleteProjectFileAction"]) {
-    const start = source.indexOf(`export async function ${action}`);
-    assert.notEqual(start, -1, `expected ${action} to exist`);
-    const next = source.indexOf("export async function ", start + 1);
-    const actionSource = source.slice(start, next === -1 ? undefined : next);
+    const actionSource = readActionSource(action);
     assert.match(actionSource, /const token = await getSessionToken\(\);/);
     assert.match(actionSource, /if \(!token\)/);
     assert.ok(actionSource.indexOf("if (!token)") < actionSource.indexOf("storage"), `${action} must guard before storage access`);
@@ -65,4 +64,31 @@ test("cleanup failures cannot replace the original intake error", () => {
 
   assert.match(catchSource, /try \{[\s\S]*supabase\.storage\.from\(bucket\)\.remove\(\[\.\.\.storagePathsToRemove\]\)[\s\S]*\} catch \{/);
   assert.match(catchSource, /return \{ error: err instanceof ApiClientError \? err\.message : \"Something went wrong\.\" \}/);
+});
+
+test("document upload compensates storage when backend metadata persistence fails", () => {
+  const source = readActionSource("uploadProjectDocumentAction");
+  const metadataCreateIndex = source.indexOf("method: \"POST\"");
+  const catchIndex = source.indexOf("} catch (err) {");
+  const cleanupIndex = source.indexOf("supabase.storage.from(bucket).remove([storagePath])", catchIndex);
+
+  assert.notEqual(metadataCreateIndex, -1, "expected backend metadata create");
+  assert.notEqual(catchIndex, -1, "expected document failure handler");
+  assert.notEqual(cleanupIndex, -1, "expected orphan storage cleanup");
+  assert.ok(metadataCreateIndex < catchIndex && catchIndex < cleanupIndex);
+});
+
+test("project-file deletion resolves backend-owned metadata before destructive storage cleanup", () => {
+  const source = readActionSource("deleteProjectFileAction");
+  const metadataLookupIndex = source.indexOf("apiFetch<ProjectFile[]>");
+  const metadataDeleteIndex = source.indexOf("method: \"DELETE\"");
+  const storageRemoveIndex = source.indexOf("supabase.storage.from(bucket).remove");
+
+  assert.doesNotMatch(source, /formData\.get\("storagePath"\)/, "storage path must never come from the submitted form");
+  assert.notEqual(metadataLookupIndex, -1, "expected backend-owned file lookup");
+  assert.notEqual(metadataDeleteIndex, -1, "expected backend authorization/delete");
+  assert.notEqual(storageRemoveIndex, -1, "expected post-delete storage cleanup");
+  assert.ok(metadataLookupIndex < metadataDeleteIndex, "file ownership must be resolved before metadata delete");
+  assert.ok(metadataDeleteIndex < storageRemoveIndex, "backend authorization/delete must happen before Storage deletion");
+  assert.match(source, /isGeneratedProjectFileStoragePath\(projectId, projectFile\.storagePath\)/);
 });
