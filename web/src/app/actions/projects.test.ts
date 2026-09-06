@@ -66,16 +66,29 @@ test("cleanup failures cannot replace the original intake error", () => {
   assert.match(catchSource, /return \{ error: err instanceof ApiClientError \? err\.message : \"Something went wrong\.\" \}/);
 });
 
-test("document upload compensates storage when backend metadata persistence fails", () => {
+test("document upload proves project visibility before creating a storage object", () => {
   const source = readActionSource("uploadProjectDocumentAction");
-  const metadataCreateIndex = source.indexOf("method: \"POST\"");
-  const catchIndex = source.indexOf("} catch (err) {");
-  const cleanupIndex = source.indexOf("supabase.storage.from(bucket).remove([storagePath])", catchIndex);
+  const preflightIndex = source.indexOf("apiFetch<ProjectFile[]>");
+  const uploadIndex = source.indexOf("supabase.storage.from(bucket).upload");
 
-  assert.notEqual(metadataCreateIndex, -1, "expected backend metadata create");
-  assert.notEqual(catchIndex, -1, "expected document failure handler");
-  assert.notEqual(cleanupIndex, -1, "expected orphan storage cleanup");
-  assert.ok(metadataCreateIndex < catchIndex && catchIndex < cleanupIndex);
+  assert.notEqual(preflightIndex, -1, "expected tenant-scoped project-file preflight");
+  assert.notEqual(uploadIndex, -1, "expected storage upload");
+  assert.ok(preflightIndex < uploadIndex, "tenant/project visibility must be proven before Storage upload");
+});
+
+test("document upload only removes storage after authoritative reconciliation confirms no metadata row", () => {
+  const source = readActionSource("uploadProjectDocumentAction");
+  const catchIndex = source.indexOf("} catch (err) {");
+  const catchSource = source.slice(catchIndex);
+  const reconcileIndex = catchSource.indexOf("apiFetch<ProjectFile[]>");
+  const confirmationIndex = catchSource.indexOf("confirmedUnpersisted = !projectFiles.some");
+  const cleanupIndex = catchSource.indexOf("supabase.storage.from(bucket).remove([storagePath])");
+
+  assert.notEqual(reconcileIndex, -1, "expected authoritative metadata reconciliation");
+  assert.notEqual(confirmationIndex, -1, "expected explicit non-persistence confirmation");
+  assert.notEqual(cleanupIndex, -1, "expected confirmed-orphan cleanup");
+  assert.ok(reconcileIndex < confirmationIndex && confirmationIndex < cleanupIndex);
+  assert.match(catchSource, /catch \{[\s\S]*preserve the object rather than[\s\S]*\}/);
 });
 
 test("project-file deletion resolves backend-owned metadata before destructive storage cleanup", () => {
