@@ -1,4 +1,4 @@
-import { isGeneratedProjectFileStoragePath } from "./projectFileStorage";
+import { isGeneratedProjectFileStoragePath } from "./projectFileStorage.ts";
 
 export interface ProjectFileStorageRecord {
   id: string;
