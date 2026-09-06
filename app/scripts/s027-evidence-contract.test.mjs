@@ -19,7 +19,7 @@ test("rejects failed responses and missing or overflowing dimensions", () => {
   assert.throws(() => assertCostbookPage({ ...valid, scrollWidth: 420 }));
   assert.throws(() => assertCostbookPage({ ...valid, clientWidth: undefined }));
 });
-test("accepts outline, shadow, or focus-induced visual style changes", () => {
+test("accepts only focus-induced outline, shadow, or visual style changes", () => {
   const base = {
     color: "rgb(100, 100, 100)", backgroundColor: "rgba(0, 0, 0, 0)",
     borderTopColor: "rgb(0, 0, 0)", borderRightColor: "rgb(0, 0, 0)", borderBottomColor: "rgb(0, 0, 0)", borderLeftColor: "rgb(0, 0, 0)",
@@ -30,14 +30,20 @@ test("accepts outline, shadow, or focus-induced visual style changes", () => {
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgb(20, 20, 20)" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base }), false);
+
+  const persistentOutline = { ...base, outlineStyle: "solid", outlineWidth: "2px" };
+  const persistentShadow = { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" };
+  assert.equal(hasVisibleFocusIndicator(persistentOutline, { ...persistentOutline }), false);
+  assert.equal(hasVisibleFocusIndicator(persistentShadow, { ...persistentShadow }), false);
 });
 test("binds Supabase attestation to applicable Preview configuration", () => {
   const deployedAt = 2_000;
   const envs = [
-    { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], value: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co", updatedAt: 1_000 },
+    { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], value: "https://aaaaaaaaaaaaaaaaaaaa.supabase.co", updatedAt: 1_900 },
     { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], gitBranch: "rc/beta", value: "https://bbbbbbbbbbbbbbbbbbbb.supabase.co", updatedAt: 1_500 },
   ];
   assert.equal(deploymentSupabaseProjectRef(envs, "rc/beta", deployedAt), "bbbbbbbbbbbbbbbbbbbb");
+  assert.equal(deploymentSupabaseProjectRef([envs[0]], "rc/beta", deployedAt), "aaaaaaaaaaaaaaaaaaaa");
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], updatedAt: 2_500 }], "rc/beta", deployedAt), /redeploy before mutating evidence/);
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "https://example.com" }], "rc/beta", deployedAt), /identify a Supabase project/);
 });
