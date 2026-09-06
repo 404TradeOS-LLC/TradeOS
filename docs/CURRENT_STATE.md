@@ -194,6 +194,7 @@ Security-sensitive maintenance already landed includes:
 - exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
 - browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 - server-only staff API response handling preserves structured backend error status/details, normalizes non-JSON upstream failures into `ApiClientError`, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+- project-file Storage deletion resolves authoritative tenant-scoped metadata and completes the backend `crm.write` ownership/delete gate before any object removal; submitted Storage paths are ignored, cleanup is limited to generated paths for the exact project, and failed document metadata writes best-effort remove their newly uploaded object
 
 The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 
