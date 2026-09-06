@@ -269,6 +269,10 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
   let storageUploaded = false;
 
   try {
+    // Prove tenant/project visibility before creating any Storage object. The
+    // crm.write gate remains authoritative when metadata is persisted below.
+    await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token });
+
     const supabase = await createSupabaseClient();
     const fileBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, fileBuffer, {
@@ -294,14 +298,25 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
     });
   } catch (err) {
     if (storageUploaded) {
+      let confirmedUnpersisted = false;
       try {
-        const supabase = await createSupabaseClient();
-        const { error: cleanupError } = await supabase.storage.from(bucket).remove([storagePath]);
-        if (cleanupError) {
-          console.error("uploadProjectDocumentAction: failed to clean up unpersisted storage object", cleanupError);
+        const projectFiles = await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token });
+        confirmedUnpersisted = !projectFiles.some((projectFile) => projectFile.storagePath === storagePath);
+      } catch {
+        // A failed reconciliation is ambiguous: preserve the object rather than
+        // risk deleting user data that may already have committed metadata.
+      }
+
+      if (confirmedUnpersisted) {
+        try {
+          const supabase = await createSupabaseClient();
+          const { error: cleanupError } = await supabase.storage.from(bucket).remove([storagePath]);
+          if (cleanupError) {
+            console.error("uploadProjectDocumentAction: failed to clean up confirmed orphan storage object", cleanupError);
+          }
+        } catch (cleanupError) {
+          console.error("uploadProjectDocumentAction: storage cleanup threw", cleanupError);
         }
-      } catch (cleanupError) {
-        console.error("uploadProjectDocumentAction: storage cleanup threw", cleanupError);
       }
     }
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
