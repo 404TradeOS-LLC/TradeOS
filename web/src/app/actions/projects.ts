@@ -6,7 +6,11 @@ import { apiFetch, ApiClientError, Estimate, ProjectFile } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
-import { buildProjectFilePath, isGeneratedProjectFileStoragePath, isSafeProjectId } from "@/lib/projectFileStorage";
+import { buildProjectFilePath, isSafeProjectId } from "@/lib/projectFileStorage";
+import {
+  cleanupUploadedProjectFileAfterMetadataFailure,
+  deleteAuthorizedProjectFileStorage,
+} from "@/lib/projectFileStorageWorkflow";
 import { FormActionState } from "./customers";
 
 const MAX_PROJECT_PHOTOS = 4;
@@ -223,8 +227,6 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
           token: token ?? undefined,
         });
       } catch {
-        // Preserve the storage object when metadata cleanup fails so the
-        // surviving metadata row never points at an object we just deleted.
         storagePathsToRemove.delete(persistedFile.path);
       }
     }
@@ -269,8 +271,6 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
   let storageUploaded = false;
 
   try {
-    // Prove tenant/project visibility before creating any Storage object. The
-    // crm.write gate remains authoritative when metadata is persisted below.
     await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token });
 
     const supabase = await createSupabaseClient();
@@ -298,25 +298,19 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
     });
   } catch (err) {
     if (storageUploaded) {
-      let confirmedUnpersisted = false;
       try {
-        const projectFiles = await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token });
-        confirmedUnpersisted = !projectFiles.some((projectFile) => projectFile.storagePath === storagePath);
-      } catch {
-        // A failed reconciliation is ambiguous: preserve the object rather than
-        // risk deleting user data that may already have committed metadata.
-      }
-
-      if (confirmedUnpersisted) {
-        try {
-          const supabase = await createSupabaseClient();
-          const { error: cleanupError } = await supabase.storage.from(bucket).remove([storagePath]);
-          if (cleanupError) {
-            console.error("uploadProjectDocumentAction: failed to clean up confirmed orphan storage object", cleanupError);
-          }
-        } catch (cleanupError) {
-          console.error("uploadProjectDocumentAction: storage cleanup threw", cleanupError);
-        }
+        await cleanupUploadedProjectFileAfterMetadataFailure({
+          projectId,
+          storagePath,
+          listProjectFiles: () => apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token }),
+          removeStorage: async (path) => {
+            const supabase = await createSupabaseClient();
+            const { error: cleanupError } = await supabase.storage.from(bucket).remove([path]);
+            if (cleanupError) throw new Error(cleanupError.message);
+          },
+        });
+      } catch (cleanupError) {
+        console.error("uploadProjectDocumentAction: confirmed-orphan storage cleanup failed", cleanupError);
       }
     }
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
@@ -484,37 +478,28 @@ export async function deleteProjectFileAction(formData: FormData): Promise<void>
     throw new Error("Invalid project file reference.");
   }
 
-  // Resolve the authoritative file record through the backend before any
-  // Storage mutation. This proves tenant/project visibility and prevents a
-  // crafted Server Action request from substituting an arbitrary storagePath.
-  const projectFiles = await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, {
-    token,
-  });
-  const projectFile = projectFiles.find((file) => file.id === fileId);
-  if (!projectFile) throw new Error("Project file not found.");
+  let deleteResult;
+  try {
+    deleteResult = await deleteAuthorizedProjectFileStorage({
+      projectId,
+      fileId,
+      listProjectFiles: () => apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token }),
+      deleteMetadata: () =>
+        apiFetch(`/api/v1/projects/${projectId}/files/${fileId}`, {
+          method: "DELETE",
+          token,
+        }),
+      removeStorage: async (storagePath) => {
+        const supabase = await createSupabaseClient();
+        const { error: removeError } = await supabase.storage.from(bucket).remove([storagePath]);
+        if (removeError) throw new Error(removeError.message);
+      },
+    });
+  } catch (err) {
+    throw err;
+  }
 
-  // Delete metadata through the crm.write-protected backend first. If this
-  // authorization or ownership check fails, no Storage side effect occurs.
-  await apiFetch(`/api/v1/projects/${projectId}/files/${fileId}`, {
-    method: "DELETE",
-    token,
-  });
-
-  // Storage cleanup is best-effort after the authoritative delete. Only paths
-  // generated by TradeOS for this exact project may be removed; legacy or
-  // malformed metadata fails closed and leaves an orphan rather than risking
-  // deletion of an unrelated object.
-  if (projectFile.storagePath && isGeneratedProjectFileStoragePath(projectId, projectFile.storagePath)) {
-    try {
-      const supabase = await createSupabaseClient();
-      const { error: removeError } = await supabase.storage.from(bucket).remove([projectFile.storagePath]);
-      if (removeError) {
-        console.error("deleteProjectFileAction: failed to remove authorized storage object", removeError);
-      }
-    } catch (removeError) {
-      console.error("deleteProjectFileAction: storage cleanup threw", removeError);
-    }
-  } else if (projectFile.storagePath) {
+  if (deleteResult.reason === "unexpected-path") {
     console.warn("deleteProjectFileAction: refused to remove unexpected storage path", { fileId });
   }
 
