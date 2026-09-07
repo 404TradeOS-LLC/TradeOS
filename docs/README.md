@@ -291,3 +291,7 @@ architecture.
 ### Automated maintenance
 
 The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.
+
+### GitHub Actions runtime maintenance
+
+`.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.

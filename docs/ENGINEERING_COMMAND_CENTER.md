@@ -250,3 +250,7 @@ S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`
 ## Automated maintenance lanes
 
 TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
+
+### GitHub Actions runtime maintenance
+
+The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
