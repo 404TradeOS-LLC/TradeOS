@@ -143,6 +143,10 @@ signature audit, live rate-limit smoke test, and package audit pass with zero vu
 the former `knowledge-engine/knowledge-engine/` duplicate was removed in the founder-approved
 2026-08-24 cleanup; the canonical example remains under this package's top-level tree.
 
+Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend lockfile's `qs`
+resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
+make the sample runtime-critical or TradeOS-authored.
+
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.
@@ -184,7 +188,7 @@ canonical summary:
 - `runtime/README.md` — describes "10 real-time execution engines" that do not exist as
   subdirectories here. The equivalent, currently-shipped concepts live in
   `app/modules/knowledge-runtime/{loader,repository,matcher}.ts`.
-- `review/runtime/README.md` — describes a reviewer workflow that can "lock, sign, and generate
+- `review/runtime/README.md` — describes "reviewer" workflow that can "lock, sign, and generate
   PDF" for an estimate autonomously. The actual shipped `app/modules/knowledge-runtime/README.md`
   is explicit that the runtime is file-based, read-only, does not write to Prisma/Supabase, and
   does not call external AI APIs. This conflicts with
@@ -257,27 +261,3 @@ canonical summary:
   generic/non-TradeOS content on inspection. Full per-directory classification is not complete.
 - **Deletion is prohibited until a later, evidence-backed migration phase** with founder approval.
   This document exists to make future cleanup safer, not to authorize it.
-
-## 9. Where to look next
-
-- [`PATHS.md`](PATHS.md) for the detailed canonical path contract and exactly what Phase B and the
-  bounded 2026-08-14 assembly-path repair changed vs. deliberately left alone.
-- [`path-manifest.json`](path-manifest.json) for the machine-readable version of the same
-  contract (canonical roots, runtime-critical assets, deprecated roots, unresolved risks).
-- Full audit findings, phased migration plan (Phase A/B/C/D), and the top-25 prioritized action
-  list live in the session record that produced this file (2026-07-16 multi-agent audit).
-- For anything runtime-facing, start at
-  [`app/modules/knowledge-runtime/README.md`](../../app/modules/knowledge-runtime/README.md), not
-  the READMEs inside this package.
-
-## 10. A note on branch coordination
-
-While researching this phase, a separate, local-only, unmerged git branch
-(`worktree-memoized-brewing-acorn`, last touched 2026-07-14, not pushed to any remote) was found
-containing commits described as relocating "tree-service authored content out of app/modules" and
-fixing "path references after authored-content relocation" — i.e., independent work touching the
-same duplicate/canonical-path confusion this document addresses. That branch was not merged into
-`main`, does not share history with this Phase B branch, and was left completely untouched by
-this phase. Flagging it here so a founder reviewing this PR can decide whether that branch's work
-should be coordinated with, superseded by, or discarded relative to this one — it was not
-investigated further since it falls outside this phase's scope.
