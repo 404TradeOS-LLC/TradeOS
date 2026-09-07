@@ -128,6 +128,15 @@ describe("requireProjectCustomerScope", () => {
 
     expect(next).not.toHaveBeenCalled();
   });
+
+  it("delegates malformed pricing region IDs without a region lookup", async () => {
+    const next = jest.fn() as unknown as NextFunction;
+
+    await requireProjectCustomerScope(request({ regionId: "not-a-uuid" }), response, next);
+
+    expect(mockPrisma.region.findFirst).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("projectCustomerScopeRouter", () => {
