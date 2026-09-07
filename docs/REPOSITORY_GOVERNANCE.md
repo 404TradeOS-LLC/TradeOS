@@ -50,7 +50,7 @@ related_code:
 The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
 and runtime-authentication seam. It verifies a Ready non-production web
 deployment and its full commit through Vercel before and after capture, requires
-sanitized test-tenant confirmation for equipment fixtures, and removes only
+confirmation that the test tenant is sanitized before creating equipment fixtures, and removes only
 fixtures created by that run. Session files remain outside the repository and
 uploaded artifacts; failure diagnostics are published only after credential
 scanning. Passing runner tests alone are not S027 completion evidence.
