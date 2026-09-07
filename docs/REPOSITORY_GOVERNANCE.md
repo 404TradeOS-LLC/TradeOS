@@ -480,3 +480,5 @@ Labels should be applied consistently during triage. Do not create one-off label
 ## CodeQL and code-quality autofix
 
 Scheduled and manually dispatched maintenance workflows may generate isolated pull requests for bounded CodeQL remediations or deterministic frontend ESLint fixes. They must preserve required repository checks, immutable action pinning, branch-current validation, and documentation governance. They may not write directly to `main` or autonomously change product behavior, database/schema/migrations, authentication/authorization/RLS, billing semantics, or production trust boundaries.
+
+The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable commit. Its embedded script must remain compatible with the v9 execution contract: use the injected `github`, `context`, and `core` objects; do not call CommonJS `require('@actions/github')`; and do not redeclare the injected `getOctokit` parameter with `const` or `let`. Moving the action runtime major does not by itself authorize permission, trigger, product, schema, auth/RLS, billing, or production-trust changes.
