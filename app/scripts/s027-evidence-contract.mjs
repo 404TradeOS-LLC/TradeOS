@@ -18,13 +18,35 @@ const FOCUS_STYLE_KEYS = [
   "textDecorationThickness",
 ];
 
+function hasVisibleCssPaint(value) {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || normalized === "none" || normalized === "transparent") return false;
+  const colors = [...normalized.matchAll(/(?:rgba?|hsla?)\([^)]*\)/g)];
+  if (colors.length === 0) return !normalized.includes("transparent");
+  return colors.some(match => {
+    const body = match[0].slice(match[0].indexOf("(") + 1, -1);
+    const parts = body.split(/[,\s/]+/).filter(Boolean);
+    const alpha = parts.length >= 4 ? parts[3] : null;
+    if (alpha === null) return true;
+    const numeric = alpha.endsWith("%") ? Number.parseFloat(alpha) / 100 : Number.parseFloat(alpha);
+    return !Number.isFinite(numeric) || numeric > 0;
+  });
+}
+
 export function hasVisibleFocusIndicator(before, after) {
-  const outlineChanged = before.outlineStyle !== after.outlineStyle || before.outlineWidth !== after.outlineWidth;
+  const outlineChanged =
+    before.outlineStyle !== after.outlineStyle ||
+    before.outlineWidth !== after.outlineWidth ||
+    before.outlineColor !== after.outlineColor;
   const shadowChanged = before.boxShadow !== after.boxShadow;
-  if (
-    (outlineChanged && after.outlineStyle !== "none" && Number.parseFloat(after.outlineWidth) > 0) ||
-    (shadowChanged && after.boxShadow !== "none")
-  ) return true;
+  const outlineVisible =
+    outlineChanged &&
+    after.outlineStyle !== "none" &&
+    Number.parseFloat(after.outlineWidth) > 0 &&
+    hasVisibleCssPaint(after.outlineColor);
+  const shadowVisible = shadowChanged && hasVisibleCssPaint(after.boxShadow);
+  if (outlineVisible || shadowVisible) return true;
   return FOCUS_STYLE_KEYS.some(key => before[key] !== after[key]);
 }
 
