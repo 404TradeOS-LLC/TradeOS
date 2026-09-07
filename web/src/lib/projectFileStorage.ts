@@ -32,15 +32,17 @@ export function isGeneratedProjectFileStoragePath(projectId: string, storagePath
   return GENERATED_PROJECT_FILE_OBJECT_PATTERN.test(storagePath.slice(prefix.length));
 }
 
-async function tryRemoveStorage(
+async function removeStorageOrThrow(
   storagePath: string,
   removeStorage: (storagePath: string) => Promise<void>
 ): Promise<StorageMutationResult> {
   try {
     await removeStorage(storagePath);
     return { removed: true, reason: "removed" };
-  } catch {
-    return { removed: false, reason: "cleanup-failed" };
+  } catch (error) {
+    throw new Error("Project file metadata was deleted, but Storage cleanup failed. Retry the deletion cleanup.", {
+      cause: error,
+    });
   }
 }
 
@@ -90,5 +92,5 @@ export async function deleteAuthorizedProjectFileStorage(options: {
     return { removed: false, reason: "unexpected-path" };
   }
 
-  return tryRemoveStorage(projectFile.storagePath, options.removeStorage);
+  return removeStorageOrThrow(projectFile.storagePath, options.removeStorage);
 }
