@@ -19,10 +19,12 @@ test("rejects failed responses and missing or overflowing dimensions", () => {
   assert.throws(() => assertCostbookPage({ ...valid, scrollWidth: 420 }));
   assert.throws(() => assertCostbookPage({ ...valid, clientWidth: undefined }));
 });
-test("accepts only focus-induced outline, shadow, or visual style changes", () => {
+test("accepts only focus-induced visible paint changes", () => {
   const base = {
     color: "rgb(100, 100, 100)", backgroundColor: "rgba(0, 0, 0, 0)",
     borderTopColor: "rgb(0, 0, 0)", borderRightColor: "rgb(0, 0, 0)", borderBottomColor: "rgb(0, 0, 0)", borderLeftColor: "rgb(0, 0, 0)",
+    borderTopWidth: "0px", borderRightWidth: "0px", borderBottomWidth: "0px", borderLeftWidth: "0px",
+    borderTopStyle: "none", borderRightStyle: "none", borderBottomStyle: "none", borderLeftStyle: "none",
     textDecorationLine: "none", textDecorationColor: "rgb(100, 100, 100)", textDecorationThickness: "auto",
     outlineStyle: "none", outlineWidth: "0px", outlineColor: "rgb(0, 0, 0)", boxShadow: "none",
   };
@@ -32,6 +34,11 @@ test("accepts only focus-induced outline, shadow, or visual style changes", () =
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 2px" }), false);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.62 0.06 0.10 / 0.5) 0px 0px 0px 3px" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgb(20, 20, 20)" }), true);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgba(20, 20, 20, 0)" }), false);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, backgroundColor: "rgba(255, 255, 255, 0)" }), false);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, textDecorationLine: "underline", textDecorationColor: "rgba(0, 0, 0, 0)" }), false);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, borderTopColor: "rgba(0, 0, 0, 0)", borderTopWidth: "2px", borderTopStyle: "solid" }), false);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, borderTopColor: "rgb(20, 20, 20)", borderTopWidth: "2px", borderTopStyle: "solid" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base }), false);
 
   const persistentOutline = { ...base, outlineStyle: "solid", outlineWidth: "2px", outlineColor: "rgba(0, 0, 0, 0)" };
@@ -50,4 +57,5 @@ test("binds Supabase attestation to applicable Preview configuration", () => {
   assert.equal(deploymentSupabaseProjectRef([envs[0]], "rc/beta", deployedAt), "aaaaaaaaaaaaaaaaaaaa");
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], updatedAt: 2_500 }], "rc/beta", deployedAt), /redeploy before mutating evidence/);
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "https://example.com" }], "rc/beta", deployedAt), /identify a Supabase project/);
+  assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "http://bbbbbbbbbbbbbbbbbbbb.supabase.co" }], "rc/beta", deployedAt), /must use HTTPS/);
 });
