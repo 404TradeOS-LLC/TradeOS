@@ -189,6 +189,7 @@ Security-sensitive maintenance already landed includes:
 - organization bootstrap/RLS lookup repairs
 - tenant-boundary regression coverage
 - protected storage/server-action session checks
+- project-file Storage deletion resolves tenant-scoped metadata and completes the `crm.write`-protected metadata delete before removing only exact generated, project-scoped Storage objects; ambiguous metadata-create failures preserve Storage so a late commit cannot point at deleted data, and cleanup failures abort instead of reporting a successful deletion
 - bounded database transaction acquisition under serverless contention
 - safe audit/security event capture
 - exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
