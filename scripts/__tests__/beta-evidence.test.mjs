@@ -95,8 +95,10 @@ test("a malformed RC URL is never echoed back, because it may carry credentials"
 });
 
 test("an approved preview host is accepted", () => {
-  const parsed = assertApprovedRcUrl("https://tradeos-costbook-web-git-fix-contracts-09eca2-billykshowalters.vercel.app");
-  assert.equal(parsed.origin, "https://tradeos-costbook-web-git-fix-contracts-09eca2-billykshowalters.vercel.app");
+  const legacySlug = "https://tradeos-costbook-web-git-fix-contracts-09eca2-billykshowalters.vercel.app";
+  const currentSlug = "https://tradeos-costbook-ot04eq22u-billykshowalters.vercel.app";
+  assert.equal(assertApprovedRcUrl(legacySlug).origin, legacySlug);
+  assert.equal(assertApprovedRcUrl(currentSlug).origin, currentSlug);
 });
 
 test("environment identity must be explicit, supported, and self-consistent", () => {
