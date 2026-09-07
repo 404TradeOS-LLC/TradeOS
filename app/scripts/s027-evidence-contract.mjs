@@ -6,17 +6,7 @@ export const COSTBOOK_ROUTES = [
   ["assemblies", "Assemblies"], ["pricing", "Pricing Preview"], ["price-history", "Price History"],
 ].map(([slug, title]) => ({ slug: slug || "costbook", path: `/costbook${slug ? `/${slug}` : ""}`, title }));
 
-const FOCUS_STYLE_KEYS = [
-  "color",
-  "backgroundColor",
-  "borderTopColor",
-  "borderRightColor",
-  "borderBottomColor",
-  "borderLeftColor",
-  "textDecorationLine",
-  "textDecorationColor",
-  "textDecorationThickness",
-];
+const BORDER_SIDES = ["Top", "Right", "Bottom", "Left"];
 
 function hasVisibleCssPaint(value) {
   if (typeof value !== "string") return false;
@@ -40,6 +30,16 @@ function hasVisibleCssPaint(value) {
   });
 }
 
+function borderFocusChanged(before, after) {
+  return BORDER_SIDES.some(side => {
+    const colorKey = `border${side}Color`;
+    if (before[colorKey] === after[colorKey] || !hasVisibleCssPaint(after[colorKey])) return false;
+    const width = Number.parseFloat(after[`border${side}Width`]);
+    const style = after[`border${side}Style`];
+    return Number.isFinite(width) && width > 0 && style && style !== "none" && style !== "hidden";
+  });
+}
+
 export function hasVisibleFocusIndicator(before, after) {
   const outlineChanged =
     before.outlineStyle !== after.outlineStyle ||
@@ -53,7 +53,17 @@ export function hasVisibleFocusIndicator(before, after) {
     hasVisibleCssPaint(after.outlineColor);
   const shadowVisible = shadowChanged && hasVisibleCssPaint(after.boxShadow);
   if (outlineVisible || shadowVisible) return true;
-  return FOCUS_STYLE_KEYS.some(key => before[key] !== after[key]);
+
+  const foregroundChanged = before.color !== after.color && hasVisibleCssPaint(after.color);
+  const backgroundChanged = before.backgroundColor !== after.backgroundColor && hasVisibleCssPaint(after.backgroundColor);
+  const decorationChanged =
+    (before.textDecorationLine !== after.textDecorationLine ||
+      before.textDecorationColor !== after.textDecorationColor ||
+      before.textDecorationThickness !== after.textDecorationThickness) &&
+    after.textDecorationLine !== "none" &&
+    hasVisibleCssPaint(after.textDecorationColor);
+
+  return foregroundChanged || backgroundChanged || decorationChanged || borderFocusChanged(before, after);
 }
 
 function hasPreviewTarget(target) {
@@ -71,13 +81,14 @@ export function deploymentSupabaseProjectRef(envs, branch, deploymentCreatedAt) 
   const configuredAt = Number(candidate.updatedAt ?? candidate.createdAt ?? 0);
   assert.ok(Number.isFinite(configuredAt) && configuredAt > 0, "Vercel Supabase environment timestamp is required");
   assert.ok(configuredAt <= Number(deploymentCreatedAt), "Vercel Supabase environment changed after this deployment; redeploy before mutating evidence");
-  let hostname;
+  let parsed;
   try {
-    hostname = new URL(candidate.value).hostname.toLowerCase();
+    parsed = new URL(candidate.value);
   } catch {
     assert.fail("Vercel Preview NEXT_PUBLIC_SUPABASE_URL must be a valid URL");
   }
-  const match = hostname.match(/^([a-z0-9]{20})\.supabase\.co$/);
+  assert.equal(parsed.protocol, "https:", "Vercel Preview NEXT_PUBLIC_SUPABASE_URL must use HTTPS");
+  const match = parsed.hostname.toLowerCase().match(/^([a-z0-9]{20})\.supabase\.co$/);
   assert.ok(match, "Vercel Preview NEXT_PUBLIC_SUPABASE_URL must identify a Supabase project");
   return match[1];
 }
