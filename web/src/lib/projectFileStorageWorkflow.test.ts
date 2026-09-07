@@ -126,18 +126,19 @@ test("successful deletion authorizes metadata before storage cleanup", async () 
   assert.deepEqual(calls, ["list", "delete", `remove:${STORAGE_PATH}`]);
 });
 
-test("cleanup failure is surfaced to the caller instead of reporting storage removal", async () => {
-  const result = await deleteAuthorizedProjectFileStorage({
-    projectId: PROJECT_ID,
-    fileId: FILE_ID,
-    listProjectFiles: async () => [{ id: FILE_ID, storagePath: STORAGE_PATH }],
-    deleteMetadata: async () => {},
-    removeStorage: async () => {
-      throw new Error("storage unavailable");
-    },
-  });
-
-  assert.deepEqual(result, { removed: false, reason: "cleanup-failed" });
+test("cleanup failure aborts the action path instead of reporting deletion success", async () => {
+  await assert.rejects(
+    deleteAuthorizedProjectFileStorage({
+      projectId: PROJECT_ID,
+      fileId: FILE_ID,
+      listProjectFiles: async () => [{ id: FILE_ID, storagePath: STORAGE_PATH }],
+      deleteMetadata: async () => {},
+      removeStorage: async () => {
+        throw new Error("storage unavailable");
+      },
+    }),
+    /Storage cleanup failed/
+  );
 });
 
 test("unexpected storage path is never removed after authorized metadata deletion", async () => {
