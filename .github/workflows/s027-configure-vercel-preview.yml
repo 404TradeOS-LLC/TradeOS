@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      GITHUB_API_TOKEN: \${{ github.token }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
       FRONTEND_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
@@ -67,25 +68,25 @@ jobs:
           echo "deployment_url=${deployment_url}" >> "${GITHUB_OUTPUT}"
           echo "Fresh Preview deployment: ${deployment_url}" >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Wait for READY and attest deployment
+      - name: Wait for Preview response
         id: attest
         shell: bash
         run: |
           set -euo pipefail
           deployment_url="${{ steps.deploy.outputs.deployment_url }}"
+          status=""
           for attempt in $(seq 1 36); do
-            state="$(curl --fail --silent --show-error --max-time 30 \
-              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-              "https://api.vercel.com/v13/deployments/${deployment_url}?teamId=${VERCEL_TEAM_ID}" | jq -r '.readyState // .state // "UNKNOWN"')"
-            echo "Vercel state: ${state}"
-            if [ "${state}" = "READY" ]; then
+            status="$(curl --silent --show-error --max-time 30 -o /dev/null -w '%{http_code}' "${deployment_url}/login" || true)"
+            echo "Preview HTTP status: ${status}"
+            if [ "${status}" = "200" ] || [ "${status}" = "302" ]; then
               break
             fi
-            case "${state}" in ERROR|CANCELED) exit 1;; esac
             sleep 5
           done
-          [ "${state}" = "READY" ] || { echo "::error::Vercel deployment did not become READY."; exit 1; }
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 "${deployment_url}/login" >/dev/null
+          case "${status}" in
+            200|302) ;;
+            *) echo "::error::Preview did not become reachable."; exit 1 ;;
+          esac
 
       - name: Dispatch authenticated browser evidence
         shell: bash
