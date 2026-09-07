@@ -22,12 +22,18 @@ function hasVisibleCssPaint(value) {
   if (typeof value !== "string") return false;
   const normalized = value.trim().toLowerCase();
   if (!normalized || normalized === "none" || normalized === "transparent") return false;
-  const colors = [...normalized.matchAll(/(?:rgba?|hsla?)\([^)]*\)/g)];
+  const colors = [...normalized.matchAll(/([a-z-]+)\(([^)]*)\)/g)];
   if (colors.length === 0) return !normalized.includes("transparent");
   return colors.some(match => {
-    const body = match[0].slice(match[0].indexOf("(") + 1, -1);
-    const parts = body.split(/[,\s/]+/).filter(Boolean);
-    const alpha = parts.length >= 4 ? parts[3] : null;
+    const functionName = match[1];
+    const body = match[2];
+    const commaParts = body.split(",").map(part => part.trim()).filter(Boolean);
+    const slashParts = body.split("/").map(part => part.trim()).filter(Boolean);
+    const alpha = slashParts.length > 1
+      ? slashParts.at(-1)
+      : /^(?:rgba|hsla)$/.test(functionName) && commaParts.length >= 4
+        ? commaParts[3]
+        : null;
     if (alpha === null) return true;
     const numeric = alpha.endsWith("%") ? Number.parseFloat(alpha) / 100 : Number.parseFloat(alpha);
     return !Number.isFinite(numeric) || numeric > 0;
