@@ -143,6 +143,10 @@ signature audit, live rate-limit smoke test, and package audit pass with zero vu
 the former `knowledge-engine/knowledge-engine/` duplicate was removed in the founder-approved
 2026-08-24 cleanup; the canonical example remains under this package's top-level tree.
 
+Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend lockfile's `qs`
+resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
+make the sample runtime-critical or TradeOS-authored.
+
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.
