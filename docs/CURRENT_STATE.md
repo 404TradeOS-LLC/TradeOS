@@ -121,7 +121,7 @@ The implementation that older revisions of this document labeled **Unreleased** 
 - PR #274 added the real PostgreSQL `connection_limit=1` contention regression and hermetic timeout coverage.
 - PR #278 supplied the production deployment/replay evidence referenced by the S027 readiness record.
 
-The S027 readiness record therefore remains `PARTIAL`, **not because those repository/runtime repairs are unreleased**, but because exact authenticated rendered evidence is still missing at **1440 / 1024 / 768 / 390 px**, including keyboard-focus and mutation/error-state coverage. The production replay already reached all nine canonical Costbook routes with `200` API responses and no warning/error/fatal entries in the exact-deployment logs; exact viewport evidence remains the final promotion gate. See `docs/architecture/COSTBOOK_S027_READINESS.md`.
+The S027 readiness record therefore remains `PARTIAL`, **not because those repository/runtime repairs are unreleased**, but because the retained authenticated rendered evidence run is not green at **1440 / 1024 / 768 / 390 px**: `/costbook/price-history` failed the keyboard-focus assertion after the runner used an invalid Shift+Tab/Tab sequence from a pre-focused element. The repair now walks the real document tab order from `BODY`; fresh multi-viewport evidence is still required, including mutation/error-state coverage. The production replay already reached all nine canonical Costbook routes with `200` API responses and no warning/error/fatal entries in the exact-deployment logs; exact viewport evidence remains the final promotion gate. See `docs/architecture/COSTBOOK_S027_READINESS.md`.
 
 Cold/concurrent Costbook requests in the retained production evidence reached approximately 12.6 seconds in the worst observed case. Treat that as performance follow-up, not as proof of an incomplete response.
 
@@ -194,7 +194,6 @@ Security-sensitive maintenance already landed includes:
 - exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
 - browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 - server-only staff API response handling preserves structured backend error status/details, normalizes non-JSON upstream failures into `ApiClientError`, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
-- project-file Storage deletion resolves authoritative tenant-scoped metadata and completes the backend `crm.write` ownership/delete gate before any object removal; submitted Storage paths are ignored, cleanup is limited to generated paths for the exact project, and failed document metadata writes best-effort remove their newly uploaded object
 
 The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 

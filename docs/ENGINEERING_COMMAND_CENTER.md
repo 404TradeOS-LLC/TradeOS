@@ -39,6 +39,13 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+S027 continuation: the Costbook browser-evidence lane now covers all nine routes
+at all four required widths, visible keyboard focus, equipment mutations and
+validation errors, and calculated pricing preview. Runtime Beta authentication
+replaces the missing stored-session secret. The lane requires a verified Preview
+deployment and sanitized smoke tenant; S027 stays blocked until live evidence
+passes and the screenshots are reviewed.
+
 ## Purpose
 
 This is the concise operating overview for TradeOS engineering. It does not replace the Bible, Current State, Sprint Backlog, Session Handoff, module contracts, ADRs, or research evidence.
@@ -149,7 +156,7 @@ Production repair should use the health split first:
 
 CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
 
-The authenticated S027 browser workflow remains operator-triggered and requires its scoped Playwright storage-state secret. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+The authenticated S027 browser workflow remains operator-triggered and uses the Beta smoke credentials to create fresh runtime authentication state outside the checkout; no serialized Playwright storage-state secret is required. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-*.vercel.app` and `tradeos-costbook-web-*.vercel.app` Preview host patterns, excludes `-git-main-` previews and Production aliases, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
 RC smoke run #11 identified a staging deployment configuration failure before credential evaluation: the stable backend returned `SUPABASE_URL is not configured`. The guarded `Repair staging Supabase auth configuration` workflow owns that exact recovery by restoring the public TradeOS Staging URL only to Preview scope for the `staging` branch, redeploying the stable backend, and checking `/ready`. It does not copy Production configuration or change application auth policy.
 
