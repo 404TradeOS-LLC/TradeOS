@@ -42,7 +42,7 @@ test("ambiguous reconciliation failure preserves an uploaded storage object", as
   assert.equal(removed, false);
 });
 
-test("confirmed metadata non-persistence compensates the uploaded storage object", async () => {
+test("an immediate empty metadata list remains ambiguous while create may still commit", async () => {
   const calls: string[] = [];
   const result = await cleanupUploadedProjectFileAfterMetadataFailure({
     projectId: PROJECT_ID,
@@ -56,8 +56,8 @@ test("confirmed metadata non-persistence compensates the uploaded storage object
     },
   });
 
-  assert.deepEqual(result, { removed: true, reason: "removed" });
-  assert.deepEqual(calls, ["list", `remove:${STORAGE_PATH}`]);
+  assert.deepEqual(result, { removed: false, reason: "ambiguous" });
+  assert.deepEqual(calls, ["list"]);
 });
 
 test("missing authoritative file metadata blocks delete and storage side effects", async () => {
@@ -124,6 +124,20 @@ test("successful deletion authorizes metadata before storage cleanup", async () 
 
   assert.deepEqual(result, { removed: true, reason: "removed" });
   assert.deepEqual(calls, ["list", "delete", `remove:${STORAGE_PATH}`]);
+});
+
+test("cleanup failure is surfaced to the caller instead of reporting storage removal", async () => {
+  const result = await deleteAuthorizedProjectFileStorage({
+    projectId: PROJECT_ID,
+    fileId: FILE_ID,
+    listProjectFiles: async () => [{ id: FILE_ID, storagePath: STORAGE_PATH }],
+    deleteMetadata: async () => {},
+    removeStorage: async () => {
+      throw new Error("storage unavailable");
+    },
+  });
+
+  assert.deepEqual(result, { removed: false, reason: "cleanup-failed" });
 });
 
 test("unexpected storage path is never removed after authorized metadata deletion", async () => {
