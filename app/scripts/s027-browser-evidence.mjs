@@ -55,12 +55,24 @@ async function keyboardEvidence(page) {
       boxShadow: style.boxShadow,
     };
   });
-  await first.focus();
-  // Enter the first content control by keyboard, including read-only pages
-  // whose only content control is the back link (Tab forward would leave it).
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Tab");
-  assert.ok(await first.evaluate(el => document.activeElement === el), "Tab must reach the first content control");
+  // Start from the document body and walk the browser's actual tab order.
+  // This proves the first main control is keyboard-reachable even on read-only
+  // pages whose only content control is a back link. Focusing it first and
+  // using Shift+Tab/Tab can leave focus on BODY instead of exercising tab order.
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body) active.blur();
+  });
+  const focusableCount = await page.locator("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])").count();
+  let reached = false;
+  for (let index = 0; index <= focusableCount; index += 1) {
+    await page.keyboard.press("Tab");
+    if (await first.evaluate(el => document.activeElement === el)) {
+      reached = true;
+      break;
+    }
+  }
+  assert.ok(reached, "Tab must reach the first content control");
   const focus = await page.evaluate(() => {
     const el = document.activeElement;
     const rect = el.getBoundingClientRect();
