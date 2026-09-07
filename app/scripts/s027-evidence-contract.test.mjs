@@ -24,14 +24,17 @@ test("accepts only focus-induced outline, shadow, or visual style changes", () =
     color: "rgb(100, 100, 100)", backgroundColor: "rgba(0, 0, 0, 0)",
     borderTopColor: "rgb(0, 0, 0)", borderRightColor: "rgb(0, 0, 0)", borderBottomColor: "rgb(0, 0, 0)", borderLeftColor: "rgb(0, 0, 0)",
     textDecorationLine: "none", textDecorationColor: "rgb(100, 100, 100)", textDecorationThickness: "auto",
-    outlineStyle: "none", outlineWidth: "0px", boxShadow: "none",
+    outlineStyle: "none", outlineWidth: "0px", outlineColor: "rgb(0, 0, 0)", boxShadow: "none",
   };
   assert.equal(hasVisibleFocusIndicator(base, { ...base, outlineStyle: "solid", outlineWidth: "2px" }), true);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, outlineStyle: "solid", outlineWidth: "2px", outlineColor: "rgba(0, 0, 0, 0)" }), false);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" }), true);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 2px" }), false);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgb(20, 20, 20)" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base }), false);
 
-  const persistentOutline = { ...base, outlineStyle: "solid", outlineWidth: "2px" };
+  const persistentOutline = { ...base, outlineStyle: "solid", outlineWidth: "2px", outlineColor: "rgba(0, 0, 0, 0)" };
+  assert.equal(hasVisibleFocusIndicator(persistentOutline, { ...persistentOutline, outlineColor: "rgb(20, 20, 20)" }), true);
   const persistentShadow = { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" };
   assert.equal(hasVisibleFocusIndicator(persistentOutline, { ...persistentOutline }), false);
   assert.equal(hasVisibleFocusIndicator(persistentShadow, { ...persistentShadow }), false);
