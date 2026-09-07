@@ -30,6 +30,7 @@ test("accepts only focus-induced outline, shadow, or visual style changes", () =
   assert.equal(hasVisibleFocusIndicator(base, { ...base, outlineStyle: "solid", outlineWidth: "2px", outlineColor: "rgba(0, 0, 0, 0)" }), false);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgb(0, 0, 0) 0px 0px 0px 2px" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 2px" }), false);
+  assert.equal(hasVisibleFocusIndicator(base, { ...base, boxShadow: "rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.62 0.06 0.10 / 0.5) 0px 0px 0px 3px" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base, color: "rgb(20, 20, 20)" }), true);
   assert.equal(hasVisibleFocusIndicator(base, { ...base }), false);
 
