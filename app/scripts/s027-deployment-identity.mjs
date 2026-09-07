@@ -8,9 +8,10 @@ const TEAM_ID = "team_nY1VrcaEYEr4rcW7Gxweq7LP";
 const WEB_PROJECT_ID = "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36";
 const url = assertApprovedRcUrl(process.env.S027_BASE_URL);
 const expectedSupabaseRef = assertNonProductionDataPlane(process.env.BETA_RC_SUPABASE_PROJECT_REF);
+const expectedSha = process.env.S027_EXPECTED_SHA?.trim() ?? "";
 assert.equal(process.env.S027_SANITIZED_TENANT, "true", "Sanitized smoke tenant confirmation required");
 assert.match(process.env.BETA_SMOKE_ORG_ID ?? "", /^[0-9a-f-]{36}$/, "Canonical smoke organization ID required");
-assert.match(process.env.S027_EXPECTED_SHA ?? "", /^[a-f0-9]{40}$/, "Full deployed SHA required");
+assert.match(expectedSha, /^[a-f0-9]{40}$/, "Full deployed SHA required");
 assert.ok(process.env.VERCEL_TOKEN, "Vercel read access required for deployment identity");
 const headers = { Authorization: `Bearer ${process.env.VERCEL_TOKEN}` };
 const response = await fetch(`https://api.vercel.com/v13/deployments/${url.hostname}?teamId=${TEAM_ID}`, {
