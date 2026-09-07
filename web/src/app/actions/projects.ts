@@ -6,6 +6,11 @@ import { apiFetch, ApiClientError, Estimate, ProjectFile } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
+import { buildProjectFilePath, isSafeProjectId } from "@/lib/projectFileStorage";
+import {
+  cleanupUploadedProjectFileAfterMetadataFailure,
+  deleteAuthorizedProjectFileStorage,
+} from "@/lib/projectFileStorageWorkflow";
 import { FormActionState } from "./customers";
 
 const MAX_PROJECT_PHOTOS = 4;
@@ -222,8 +227,6 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
           token: token ?? undefined,
         });
       } catch {
-        // Preserve the storage object when metadata cleanup fails so the
-        // surviving metadata row never points at an object we just deleted.
         storagePathsToRemove.delete(persistedFile.path);
       }
     }
@@ -251,6 +254,10 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
   const fileType = String(formData.get("fileType") ?? "document").trim();
   const file = formData.get("file");
 
+  if (!isSafeProjectId(projectId)) {
+    return { error: "Invalid project." };
+  }
+
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Select a file to upload." };
   }
@@ -261,8 +268,11 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
 
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "project-files";
   const storagePath = buildProjectFilePath(projectId, file.name);
+  let storageUploaded = false;
 
   try {
+    await apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token });
+
     const supabase = await createSupabaseClient();
     const fileBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabase.storage.from(bucket).upload(storagePath, fileBuffer, {
@@ -273,6 +283,7 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
     if (uploadError) {
       throw new Error(uploadError.message);
     }
+    storageUploaded = true;
 
     const fileUrl = buildStorageObjectUrl(bucket, storagePath, isPublicStorageBucket());
     await apiFetch(`/api/v1/projects/${projectId}/files`, {
@@ -286,6 +297,22 @@ export async function uploadProjectDocumentAction(_prev: FormActionState, formDa
       }),
     });
   } catch (err) {
+    if (storageUploaded) {
+      try {
+        await cleanupUploadedProjectFileAfterMetadataFailure({
+          projectId,
+          storagePath,
+          listProjectFiles: () => apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token }),
+          removeStorage: async (path) => {
+            const supabase = await createSupabaseClient();
+            const { error: cleanupError } = await supabase.storage.from(bucket).remove([path]);
+            if (cleanupError) throw new Error(cleanupError.message);
+          },
+        });
+      } catch (cleanupError) {
+        console.error("uploadProjectDocumentAction: confirmed-orphan storage cleanup failed", cleanupError);
+      }
+    }
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
   }
 
@@ -445,27 +472,40 @@ export async function deleteProjectFileAction(formData: FormData): Promise<void>
   if (!token) throw new Error("Authentication is required.");
   const projectId = String(formData.get("projectId") ?? "");
   const fileId = String(formData.get("fileId") ?? "");
-  const storagePath = String(formData.get("storagePath") ?? "").trim();
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "project-files";
 
-  if (storagePath) {
-    const supabase = await createSupabaseClient();
-    await supabase.storage.from(bucket).remove([storagePath]);
+  if (!isSafeProjectId(projectId) || !isSafeProjectId(fileId)) {
+    throw new Error("Invalid project file reference.");
   }
 
-  await apiFetch(`/api/v1/projects/${projectId}/files/${fileId}`, {
-    method: "DELETE",
-    token: token ?? undefined,
-  });
+  let deleteResult;
+  try {
+    deleteResult = await deleteAuthorizedProjectFileStorage({
+      projectId,
+      fileId,
+      listProjectFiles: () => apiFetch<ProjectFile[]>(`/api/v1/projects/${projectId}/files`, { token }),
+      deleteMetadata: () =>
+        apiFetch(`/api/v1/projects/${projectId}/files/${fileId}`, {
+          method: "DELETE",
+          token,
+        }),
+      removeStorage: async (storagePath) => {
+        const supabase = await createSupabaseClient();
+        const { error: removeError } = await supabase.storage.from(bucket).remove([storagePath]);
+        if (removeError) throw new Error(removeError.message);
+      },
+    });
+  } catch (err) {
+    throw err;
+  }
+
+  if (deleteResult.reason === "unexpected-path") {
+    console.warn("deleteProjectFileAction: refused to remove unexpected storage path", { fileId });
+  }
 
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/intake`);
   redirect(`/projects/${projectId}/intake`);
-}
-
-function buildProjectFilePath(projectId: string, fileName: string) {
-  const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
-  return `${projectId}/${crypto.randomUUID()}-${sanitizedName}`;
 }
 
 function splitTextareaLines(value: string) {
