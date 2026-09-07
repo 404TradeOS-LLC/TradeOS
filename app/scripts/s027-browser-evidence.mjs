@@ -21,6 +21,11 @@ await fs.mkdir(outDir, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 
 async function screenshot(page, name) {
+  // Keyboard navigation and CRUD interactions can scroll a long page to the
+  // focused control. Reset before full-page capture so fixed header/dock
+  // chrome is recorded at the top-level viewport instead of over page content.
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+  await page.waitForFunction(() => window.scrollY === 0);
   const file = `${name}.png`;
   const buffer = await page.screenshot({ path: path.join(outDir, file), fullPage: true });
   assert.equal(readPngDimensions(buffer)?.width, page.viewportSize().width, "Screenshot width must match viewport");
