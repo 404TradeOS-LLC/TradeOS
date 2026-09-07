@@ -61,7 +61,11 @@ export async function cleanupUploadedProjectFileAfterMetadataFailure(options: {
     return { removed: false, reason: "persisted" };
   }
 
-  return tryRemoveStorage(options.storagePath, options.removeStorage);
+  // A failed metadata POST can still be committing after the client observes the
+  // error. An immediate empty list therefore cannot prove non-persistence. Keep
+  // the Storage object so a late metadata commit can never point at deleted data.
+  // Orphan reconciliation can remove it later once non-persistence is durable.
+  return { removed: false, reason: "ambiguous" };
 }
 
 export async function deleteAuthorizedProjectFileStorage(options: {
