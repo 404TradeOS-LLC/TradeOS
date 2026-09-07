@@ -52,6 +52,7 @@ async function keyboardEvidence(page) {
       textDecorationThickness: style.textDecorationThickness,
       outlineStyle: style.outlineStyle,
       outlineWidth: style.outlineWidth,
+      outlineColor: style.outlineColor,
       boxShadow: style.boxShadow,
     };
   });
@@ -95,6 +96,7 @@ async function keyboardEvidence(page) {
         textDecorationThickness: style.textDecorationThickness,
         outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth,
+        outlineColor: style.outlineColor,
         boxShadow: style.boxShadow,
       },
     };
