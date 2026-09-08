@@ -48,7 +48,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `96caffc8877f77b96f8c3ae099d147c839be355f` on 2026-09-08 after PR #476 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `dc0c5ab746a7831fabfdeb0841f86f702eca8ca1` on 2026-09-08 after PR #477 reconciled S036 completion and next-sprint state. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
