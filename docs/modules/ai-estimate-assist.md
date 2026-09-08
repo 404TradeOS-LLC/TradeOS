@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-09-08
 source_of_truth: false
 related_code:
   - app/modules/ai-estimate-assist
@@ -66,11 +66,13 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - `app/tests/knowledge-runtime.service.test.ts`
 - `app/tests/knowledge-runtime.matcher.test.ts`
 - `app/tests/knowledge-runtime.controller.test.ts`
+- `app/tests/knowledge-runtime.trade-inference.test.ts`
 
 ## Implementation notes
 
 - `knowledge-runtime/repository.ts` now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining a duplicate private copy (cleanup only; matcher/scoring behavior unchanged)
 - `StructuredAIEstimatorService` is the backend orchestration layer for contractor-language-to-estimate drafts. It is deterministic today, tool-run-oriented, and reuses `KnowledgeRuntimeService`, `CostDatabaseService`, `AssembliesDatabaseService`, and `EstimateEngineService`.
+- `knowledge-runtime/repository.ts`'s `inferTrade()` was rewritten (2026-09-08) from raw substring matching plus array-order resolution to a deterministic, word-boundary/token-aware classifier that checks `category` before `name`, ranks matches by specificity instead of array position, and returns `null` on a genuine tie rather than guessing. This fixed a real defect (trade `"Trim"` matched inside the word `"trimming"`, misclassifying the sole Tree Service assembly-index record), corrected 152 other cost-item/assembly trade attributions to match their own curated `category` field, and left 89 genuinely multi-trade assemblies (`"Remodel – Kitchen/Bathroom/Exterior/Misc – N"`) reporting `null` instead of an arbitrary guess. Zero cost items lost classification; no pricing value or Costbook record changed. See `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md` for the full corpus audit and `app/tests/knowledge-runtime.trade-inference.test.ts` for the regression coverage.
 
 ## Known limitations
 
@@ -87,4 +89,4 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 
 ## Last verified date
 
-2026-08-09
+2026-09-08
