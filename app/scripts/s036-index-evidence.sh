@@ -83,7 +83,7 @@ verify_index_contract() {
   INDEX_DEFINITION="$(run_sql "select pg_get_indexdef(c.oid) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = '${SCHEMA}' and c.relname = '${INDEX_NAME}'")"
 
   if [[ "$INDEX_COLUMNS" != "org_id,job_id" || "$INDEX_UNIQUE" != "f" || "$INDEX_PREDICATE" != *"removed_at IS NULL"* || "$INDEX_PREDICATE" != *"declined_at IS NULL"* ]]; then
-    echo "S036 ${fixture_name} index contract verification failed" >&2
+    echo "S036 ${fixture_name} index contract verification failed: columns=${INDEX_COLUMNS}, predicate=${INDEX_PREDICATE}, unique=${INDEX_UNIQUE}, definition=${INDEX_DEFINITION}" >&2
     exit 1
   fi
 }
