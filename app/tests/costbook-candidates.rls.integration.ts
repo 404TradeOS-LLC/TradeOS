@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import { CostbookCandidateService } from "../modules/costbook/candidateCostItemService";
 
@@ -39,9 +40,12 @@ describe("Costbook research candidate RLS", () => {
         { id: orgBMembership, orgId: orgB, userId: orgBOwner, role: "owner", status: "active" },
       ],
     });
-    await adminClient.division.create({ data: { id: divisionA, orgId: orgA, code: "07", name: "Roofing Division" } });
-    await adminClient.category.create({ data: { id: categoryA, divisionId: divisionA, code: "07-10", name: "Roofing" } });
-    await adminClient.subcategory.create({ data: { id: subcategoryA, categoryId: categoryA, code: "07-10-10", name: "Roofing" } });
+    const ownerA = { userId: orgAOwner, orgId: orgA, role: "owner" as const };
+    await runWithDatabaseSession(appClient, ownerA, async () => {
+      await prisma.division.create({ data: { id: divisionA, orgId: orgA, code: "07", name: "Roofing Division" } });
+      await prisma.category.create({ data: { id: categoryA, divisionId: divisionA, code: "07-10", name: "Roofing" } });
+      await prisma.subcategory.create({ data: { id: subcategoryA, categoryId: categoryA, code: "07-10-10", name: "Roofing" } });
+    }, "candidate-rls-fixture");
     await adminClient.costbookResearchCandidate.create({
       data: {
         id: candidateA,
