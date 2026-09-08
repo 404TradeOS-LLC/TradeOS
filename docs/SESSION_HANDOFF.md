@@ -1,14 +1,14 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-05
+last_verified: 2026-09-08
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
-  - docs/architecture/S043_SECURITY_EVENT_AUDIT_TRAIL_PLAN.md
-  - docs/architecture/S043_COMPLETION_EVIDENCE.md
-  - docs/architecture/S047_RELEASE_CANDIDATE_SMOKE_SUITE_PLAN.md
-  - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
+  - docs/CURRENT_STATE.md
+  - docs/ENGINEERING_COMMAND_CENTER.md
+  - docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md
+  - docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -16,82 +16,31 @@ related_docs:
 
 ## Mission
 
-Active bounded continuation: S027 evidence reconciliation is complete.
-The evidence runner/workflow covered the nine-route, four-viewport matrix with
-runtime Beta authentication, deployment identity, keyboard focus, equipment
-CRUD/error states, and pricing preview. Workflow run `#22` passed on `main` at
-`c7003f3` and uploaded the credential-scanned artifact `#10042902412`. Shared
-checkout dashboard edits and draft PR #453 remain outside this worktree and
-mission.
-
-S043 and S047 are DONE. The out-of-band RC dashboard/beta-evidence repair
-lineage (PRs #440, #442, #443, #444, #445, #446, #449, #451, #452, #454, #455,
-#456, #457, #458) is merged to `origin/main`; there is no in-progress
-`fix/rc-dashboard-api-error` work left open.
-S027 is DONE; S036 is the next dependency-safe numbered sprint. S044/S045
-remain blocked on production access.
+S036 database index hardening is complete. PR #476 merged on 2026-09-08
+through squash commit
+`96caffc8877f77b96f8c3ae099d147c839be355f`. The repository now contains the
+verified active JobAssignment lookup index, its migration contract, disposable
+before/after evidence, write-cost observations, and rollback rehearsal.
 
 ## Current truth
 
-- `origin/main` is `cb8469f43484ce1df6b416ebbc2f2bcb8319a07a` (#458, "promote
-  validated estimate-to-invoice RC repairs"). S043 implementation PR #395 and
-  S047 implementation PR #397 remain merged with completion evidence in
-  `docs/architecture/S043_COMPLETION_EVIDENCE.md` and
-  `docs/architecture/S047_COMPLETION_EVIDENCE.md`.
-- PR #458 promoted the RC-proven browser API proxy path normalization,
-  proposal-cents preservation, invoice Decimal-to-number display
-  normalization, mobile `PageHeader` 390px-overflow fix, and a custom
-  estimate line-item source-constraint migration
-  (`20260905050000_allow_custom_estimate_line_items`). Beta Evidence run
-  `33945411532` passed authentication, tenant isolation, 1440/1024/768/390
-  browser capture, and the full estimate→proposal→contract→invoice path
-  against a non-production RC preview correlated to deployment
-  `ee2300a438311e50f6813510578c125073a1f850`.
-- The dashboard "Needs attention" / "Estimates in progress" surface already
-  renders a truthful per-section degraded state (`SectionError` in
-  `web/src/components/dashboard/needs-attention-card.tsx`) instead of a raw
-  "Internal server error," and dashboard project-detail fan-out already
-  preserves healthy project data when one detail request fails (see
-  `docs/CURRENT_STATE.md`). Historical task input describing that dashboard
-  symptom as open is stale; verify against a fresh Vercel log/error before
-  treating it as a live defect.
-- S040 (tenant boundary regression suite) and S041 (RLS policy coverage
-  audit) are both DONE (PR #346, PR #351); there is no known 13-table RLS gap
-  on `origin/main`. Verify against `mcp__Supabase__get_advisors` /
-  `list_tables` before assuming otherwise.
-- Existing RC Playwright route and golden-workflow seams are the implementation
-  baseline. No new product behavior, credential storage, schema, migration,
-  role, permission, RLS redesign, or launch approval is authorized by S047.
-- S044/S045 require production control-plane access; S046 is blocked by S045.
-  S048 requires a later founder decision for beta tenants and rollout date.
-- Open PRs on `origin/main` as of 2026-09-05: #453 (draft, `chore/contract-
-  invoice-line-price-columns`) intentionally remains unmergeable pending
-  production rollout/rehearsal evidence for the expand-phase invoice line
-  price columns; #447 (dependabot, `qs` 6.15.3→6.16.0 in a nested
-  `packages/knowledge-engine` example app) is pending checks and is not a
-  production-code dependency.
-- The founder accepted ADR-009 on 2026-08-28: with no qualified independent
-  reviewer available, a PR may use the documented founder-only merge-review
-  exception after all required technical gates pass. The exception does not
-  waive CI, branch freshness, thread resolution, linear history, deletion or
-  non-fast-forward protection, and the live ruleset still needs its narrow
-  extra-approval setting updated before auto-merge can use the policy.
-
-## S047 readiness contract
-
-Automate and document repeatable release-candidate smoke evidence over existing
-authenticated auth, customer, estimate, proposal, contract, job, invoice, and
-portal flows. Reuse the existing Playwright and artifact seams without changing
-product behavior, credentials, schema, migrations, RLS, or RBAC.
-
-Forbidden: production credentials in the repository, live customer-data
-mutation outside an explicitly selected smoke environment, product behavior,
-schema/migrations, RLS/RBAC redesign, S027, S036, S044, S045, S046, S048, or
-destructive data work.
+- `origin/main` is `96caffc8877f77b96f8c3ae099d147c839be355f`.
+- The S036 migration is merged but is not production-applied. Production
+  application remains gated by the documented write-maintenance window,
+  rollback plan, and production cost-budget acceptance.
+- The only open PR currently visible is draft PR #470, the
+  Costbook/Knowledge Engine audit. Its own scope explicitly says it is an audit
+  record and must not be merged.
+- S039, S044, and S045 remain blocked on production access. S046 depends on
+  S039/S045. S048 requires a founder decision selecting beta tenants and a
+  rollout date.
+- S049 is the next cleanup candidate, but it requires a governance-only
+  readiness promotion after re-verifying open PRs, remote branches, and active
+  worktrees.
 
 ## Next Eligible Sprint
-Sprint ID: S036
-Eligibility: `READY`; S027 and S035 are DONE, and S036 has no founder or production-access dependency. The RC dashboard/beta-evidence repair lineage through PR #458 is bounded out-of-band maintenance and is fully merged.
-Dependencies: S027 and S035 are DONE. Draft PR #453 remains intentionally held for production rollout/rehearsal evidence on the invoice line-price column drop, not repository implementation. S044/S045 are blocked on production access and S046 is blocked by S045.
-Overlap check: PR #397, #436, #437, #438, #440, #442-#446, #449, #451, #452, and #454-#458 are all merged. No open PR implements S036 work.
-Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` and `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md`. Keep its isolated index/migration evidence independent of draft #453, S044/S045, S046, S048, and launch approval.
+Sprint ID: NONE
+Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 remains PLANNED pending readiness promotion; S048 is PLANNED pending founder decision; S039/S044/S045 are BLOCKED on production access.
+Dependencies: S036 is DONE; S044/S045 remain blocked on production access and S046 is blocked by S045.
+Overlap check: PR #470 is the only open PR currently visible and does not implement S049.
+Startup prompt: Promote S049 through a governance-only PR only after re-verifying open PRs, remote branches, and active worktrees; then execute the cleanup in one isolated branch under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
