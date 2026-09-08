@@ -282,6 +282,13 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
 
+  // Real-time validity for inline feedback - errors show only once a field
+  // has a value (never on the untouched "1" default), rather than only
+  // surfacing on submit.
+  const quantityInvalid = quantity !== "" && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0);
+  const customQuantityInvalid = custom.quantity !== "" && (!Number.isFinite(Number(custom.quantity)) || Number(custom.quantity) <= 0);
+  const customUnitCostInvalid = custom.unitCost !== "" && (!Number.isFinite(Number(custom.unitCost)) || Number(custom.unitCost) < 0);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
@@ -433,6 +440,8 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             min="0"
             step="any"
             value={quantity}
+            aria-invalid={quantityInvalid}
+            aria-describedby={quantityInvalid ? "quantity-error" : undefined}
             onChange={(e) => setQuantity(e.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -446,6 +455,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               }
             }}
           />
+          {quantityInvalid ? (
+            <p id="quantity-error" className="text-xs text-destructive">
+              Quantity must be a positive number.
+            </p>
+          ) : null}
         </div>
 
         <Button type="button" onClick={() => commitLineItem(selected ?? activeResult)} disabled={addLineItem.isPending || (!selected && !activeResult)}>
@@ -460,13 +474,41 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         </div>
         <div>
           <Label htmlFor="custom-quantity">Qty</Label>
-          <Input id="custom-quantity" type="number" min="0" step="any" value={custom.quantity} onChange={(e) => setCustom({ ...custom, quantity: e.target.value })} />
+          <Input
+            id="custom-quantity"
+            type="number"
+            min="0"
+            step="any"
+            value={custom.quantity}
+            aria-invalid={customQuantityInvalid}
+            aria-describedby={customQuantityInvalid ? "custom-quantity-error" : undefined}
+            onChange={(e) => setCustom({ ...custom, quantity: e.target.value })}
+          />
+          {customQuantityInvalid ? (
+            <p id="custom-quantity-error" className="mt-1 text-xs text-destructive">
+              Must be positive.
+            </p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor="custom-unit-cost">Unit cost</Label>
-          <Input id="custom-unit-cost" type="number" min="0" step="0.01" value={custom.unitCost} onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })} />
+          <Input
+            id="custom-unit-cost"
+            type="number"
+            min="0"
+            step="0.01"
+            value={custom.unitCost}
+            aria-invalid={customUnitCostInvalid}
+            aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : undefined}
+            onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })}
+          />
+          {customUnitCostInvalid ? (
+            <p id="custom-unit-cost-error" className="mt-1 text-xs text-destructive">
+              Can&apos;t be negative.
+            </p>
+          ) : null}
         </div>
-        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending}>
+        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customQuantityInvalid || customUnitCostInvalid}>
           {customAdd.isPending ? "Adding…" : "Add custom"}
         </Button>
         <div>
