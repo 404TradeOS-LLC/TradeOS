@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { InfoPanel } from "@/components/shared/info-panel";
 import type { SiteVisit } from "@/lib/api";
 import { AIConfidenceMeter } from "./ai-confidence-meter";
@@ -25,7 +26,10 @@ export function SiteVisitSummaryCard({ visit }: SiteVisitSummaryCardProps) {
             </InfoPanel>
           </>
         ) : (
-          <p className="text-muted-foreground">No site visit saved yet.</p>
+          <EmptyState
+            title="No site visit saved yet"
+            description="Site visit notes will appear here once one is logged for this project."
+          />
         )}
       </CardContent>
     </Card>
