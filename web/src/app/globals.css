@@ -243,3 +243,54 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Printing an invoice/proposal/contract today captures the raw app chrome -
+   sticky header, Control Dock, every button, card shadows - none of which
+   belong on a customer-facing printed page. Hide site chrome broadly by the
+   markers components already carry (data-slot="button" from ui/button.tsx,
+   the app header/nav elements) rather than adding a no-print class to every
+   call site, and force light, ink-cheap colors regardless of the viewer's
+   current theme. .print-only content (none yet) can opt back in. */
+@media print {
+  /* :root.dark (specificity 0,2,0) beats the normal .dark rule (0,1,0)
+     regardless of source order, so this wins even when the viewer is in
+     dark mode - every component reads these as CSS custom properties, so
+     resetting body's own background/color alone would miss all of them. */
+  :root,
+  :root.dark {
+    --background: #ffffff;
+    --foreground: #111111;
+    --card: #ffffff;
+    --card-foreground: #111111;
+    --popover: #ffffff;
+    --popover-foreground: #111111;
+    --muted: #f4f4f4;
+    --muted-foreground: #555555;
+    --secondary: #f4f4f4;
+    --secondary-foreground: #111111;
+    --border: #dddddd;
+    --input: #dddddd;
+  }
+
+  header,
+  nav,
+  [data-slot="button"],
+  a[href^="#main-content"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
