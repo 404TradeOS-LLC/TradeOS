@@ -178,15 +178,15 @@ Captured at: \`${captured_at}\`
 
 ## Before plan
 
-```json
+\`\`\`json
 ${before_plan_json}
-```
+\`\`\`
 
 ## After plan
 
-```json
+\`\`\`json
 ${after_plan_json}
-```
+\`\`\`
 
 Planner selected the candidate index after creation: \`${after_uses_index}\`.
 
@@ -204,9 +204,9 @@ disposable fixture, not production latency or SLO measurements.
 
 ## Rollback rehearsal
 
-```sql
+\`\`\`sql
 drop index if exists ${INDEX_NAME};
-```
+\`\`\`
 
 Rollback verification: \`${rollback_index}\`.
 
