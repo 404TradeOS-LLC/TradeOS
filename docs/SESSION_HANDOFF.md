@@ -16,19 +16,20 @@ related_docs:
 
 ## Mission
 
-Active bounded continuation: S027 authenticated Costbook browser evidence.
-The evidence runner/workflow now covers the nine-route, four-viewport matrix
-with runtime Beta authentication, deployment identity, keyboard focus, equipment
-CRUD/error states, and pricing preview. Live execution and screenshot review
-are pending; S027 is not yet DONE. Shared checkout dashboard edits and draft
-PR #453 remain outside this worktree and mission.
+Active bounded continuation: S027 evidence reconciliation is complete.
+The evidence runner/workflow covered the nine-route, four-viewport matrix with
+runtime Beta authentication, deployment identity, keyboard focus, equipment
+CRUD/error states, and pricing preview. Workflow run `#22` passed on `main` at
+`c7003f3` and uploaded the credential-scanned artifact `#10042902412`. Shared
+checkout dashboard edits and draft PR #453 remain outside this worktree and
+mission.
 
 S043 and S047 are DONE. The out-of-band RC dashboard/beta-evidence repair
 lineage (PRs #440, #442, #443, #444, #445, #446, #449, #451, #452, #454, #455,
 #456, #457, #458) is merged to `origin/main`; there is no in-progress
 `fix/rc-dashboard-api-error` work left open.
-S027 remains independently BLOCKED on authenticated rendered Costbook evidence;
-S036 remains blocked by S027; S044/S045 remain blocked on production access.
+S027 is DONE; S036 is the next dependency-safe numbered sprint. S044/S045
+remain blocked on production access.
 
 ## Current truth
 
@@ -89,8 +90,8 @@ schema/migrations, RLS/RBAC redesign, S027, S036, S044, S045, S046, S048, or
 destructive data work.
 
 ## Next Eligible Sprint
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently READY; S022, S028, S033, S040, S041, and S047 are DONE with merged evidence. The RC dashboard/beta-evidence repair lineage through PR #458 is bounded out-of-band maintenance, not a new numbered sprint, and is fully merged (nothing left in flight). S044/S045 are blocked on production access, S046 is blocked by S045, and S048/S049/S050 are PLANNED pending their stated dependencies/founder decisions.
-Dependencies: S022, S028, S033, S040, and S041 are DONE; repository implementation requires no founder decision for any currently-open lane. Draft PR #453 is intentionally held for production rollout/rehearsal evidence on the invoice line-price column drop, not repository implementation.
-Overlap check: PR #397, #436, #437, #438, #440, #442-#446, #449, #451, #452, and #454-#458 are all merged. No open PR implements S027 browser evidence, S036, S044, S045, S046, or S048 work. Keep those independent of any new lane.
-Startup prompt: No numbered sprint is currently eligible. The only open, non-dependabot PR is draft #453, which stays blocked until production rollout/rehearsal evidence is supplied — do not merge it or reopen the RC-repair lineage that #458 already promoted. Verify S027 authenticated Costbook browser evidence or production/Supabase access (S044/S045) before starting any new bounded lane.
+Sprint ID: S036
+Eligibility: `READY`; S027 and S035 are DONE, and S036 has no founder or production-access dependency. The RC dashboard/beta-evidence repair lineage through PR #458 is bounded out-of-band maintenance and is fully merged.
+Dependencies: S027 and S035 are DONE. Draft PR #453 remains intentionally held for production rollout/rehearsal evidence on the invoice line-price column drop, not repository implementation. S044/S045 are blocked on production access and S046 is blocked by S045.
+Overlap check: PR #397, #436, #437, #438, #440, #442-#446, #449, #451, #452, and #454-#458 are all merged. No open PR implements S036 work.
+Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` and `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md`. Keep its isolated index/migration evidence independent of draft #453, S044/S045, S046, S048, and launch approval.
