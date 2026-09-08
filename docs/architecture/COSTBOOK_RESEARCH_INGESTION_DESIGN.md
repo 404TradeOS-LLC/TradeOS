@@ -37,8 +37,9 @@ or a tool such as Gemini Deep Research or Claude) should enter TradeOS
 **without** repeating that mistake: no researched number reaches a
 tenant's live estimate, or becomes the next "unverified-legacy" pile,
 without a recorded source and an explicit human review decision in
-between. It is a design document only. It does not implement an ingestion
-service, a route, or a Prisma model.
+between. The candidate contract and the reviewed Stage 6 persistence,
+review, and promotion service are now implemented; normalization and
+Knowledge Engine regeneration remain deferred below.
 
 ## Target pipeline
 

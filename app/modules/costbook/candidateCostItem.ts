@@ -43,6 +43,26 @@ export type CostbookCandidateConfidence = (typeof costbookCandidateConfidence)[n
 
 const costOptional = z.number().finite().nonnegative().optional();
 
+const isoCalendarDate = z.string().trim().refine(
+  (value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return false;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    );
+  },
+  "must be a valid ISO calendar date"
+);
+
+const isoTimestamp = z.string().trim().datetime({ offset: true });
 export const costbookResearchCandidateSchema = z
   .object({
     // --- What the item is ---
@@ -64,8 +84,8 @@ export const costbookResearchCandidateSchema = z
     sourceName: z.string().trim().min(1, "sourceName is required"),
     sourceUrl: z.string().trim().url().optional(),
     sourceIdentifier: z.string().trim().min(1).optional(),
-    sourceDate: z.string().trim().min(1, "sourceDate is required"),
-    retrievedAt: z.string().trim().min(1, "retrievedAt is required"),
+    sourceDate: isoCalendarDate,
+    retrievedAt: isoTimestamp,
     regionalBasis: z.string().trim().min(1, "regionalBasis is required"),
     confidence: z.enum(costbookCandidateConfidence),
     researchNotes: z.string().trim().optional(),
@@ -74,7 +94,7 @@ export const costbookResearchCandidateSchema = z
     provenanceStatus: z.enum(costDataProvenanceStatus).default("unverified-legacy"),
     reviewStatus: z.enum(costbookCandidateReviewStatus).default("candidate"),
     reviewedBy: z.string().trim().min(1).optional(),
-    reviewedAt: z.string().trim().min(1).optional(),
+    reviewedAt: isoTimestamp.optional(),
     reviewNotes: z.string().trim().optional(),
   })
   .superRefine((data, ctx) => {
@@ -132,9 +152,12 @@ export function safeParseCostbookResearchCandidate(input: unknown) {
  * describe the research; they are not a substitute for review.
  */
 export function isEligibleForCostbookPromotion(candidate: CostbookResearchCandidate): boolean {
+  const validatedCandidate = costbookResearchCandidateSchema.safeParse(candidate);
+  if (!validatedCandidate.success) return false;
+
   return (
-    candidate.reviewStatus === "approved" &&
-    Boolean(candidate.reviewedBy && candidate.reviewedBy.trim().length > 0) &&
-    Boolean(candidate.reviewedAt && candidate.reviewedAt.trim().length > 0)
+    validatedCandidate.data.reviewStatus === "approved" &&
+    Boolean(validatedCandidate.data.reviewedBy && validatedCandidate.data.reviewedBy.trim().length > 0) &&
+    Boolean(validatedCandidate.data.reviewedAt && validatedCandidate.data.reviewedAt.trim().length > 0)
   );
 }

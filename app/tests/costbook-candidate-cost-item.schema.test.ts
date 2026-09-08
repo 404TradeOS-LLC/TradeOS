@@ -48,6 +48,24 @@ describe("costbookResearchCandidateSchema", () => {
     }
   );
 
+  it("rejects malformed sourceDate and retrievedAt values", () => {
+    expect(safeParseCostbookResearchCandidate(validCandidateInput({ sourceDate: "2026-02-30" })).success).toBe(false);
+    expect(safeParseCostbookResearchCandidate(validCandidateInput({ sourceDate: "2026/08/01" })).success).toBe(false);
+    expect(safeParseCostbookResearchCandidate(validCandidateInput({ retrievedAt: "2026-09-08" })).success).toBe(false);
+    expect(safeParseCostbookResearchCandidate(validCandidateInput({ retrievedAt: "not-a-timestamp" })).success).toBe(false);
+  });
+
+  it("rejects a malformed reviewedAt timestamp", () => {
+    expect(
+      safeParseCostbookResearchCandidate(
+        validCandidateInput({
+          reviewStatus: "approved",
+          reviewedBy: "user-42",
+          reviewedAt: "not-a-timestamp",
+        })
+      ).success
+    ).toBe(false);
+  });
   it("rejects a candidate with neither sourceUrl nor sourceIdentifier", () => {
     const input = validCandidateInput({ sourceUrl: undefined });
     const result = safeParseCostbookResearchCandidate(input);
