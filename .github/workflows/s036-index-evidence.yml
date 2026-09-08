@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
         env:
-          POSTGRES_PASSWORD: tradeos_test
           POSTGRES_DB: tradeos_evidence
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -44,7 +44,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client jq
       - name: Capture disposable S036 evidence
         env:
-          DATABASE_URL: postgresql://postgres:tradeos_test@127.0.0.1:5432/tradeos_evidence
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/tradeos_evidence
           S036_EVIDENCE_OUTPUT: ../artifacts/s036-index-evidence/evidence.md
         run: bash scripts/s036-index-evidence.sh
       - name: Upload S036 evidence
