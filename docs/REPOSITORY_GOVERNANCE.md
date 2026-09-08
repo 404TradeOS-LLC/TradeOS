@@ -24,6 +24,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -391,6 +393,16 @@ The temporary `.github/workflows/reconcile-production-migration.yml` workflow ex
 PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
 
 CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
+
+The `.github/workflows/s036-index-evidence.yml` workflow is a supplemental,
+pull-request-scoped evidence lane for the S036 index candidate. It uses a
+disposable PostgreSQL service and an isolated synthetic schema, applies the
+tracked migration unmodified, captures redacted before/after planner output,
+records index size and controlled write observations, rehearses rollback, and
+uploads the generated artifact for review. The companion
+`app/scripts/s036-index-evidence.sh` cleans up the synthetic schema on exit.
+This lane must never use production credentials or data and does not by itself
+authorize production application, merge, or an S036 completion claim.
 
 ## Session continuity
 
