@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BriefcaseBusiness } from "lucide-react";
 import { listProjects } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export default async function ProjectsPage() {
 
       {projects.length === 0 ? (
         <EmptyState
+          icon={BriefcaseBusiness}
           title="No projects yet"
           description="Create the first job so TradeOS can carry the work from field intake through estimating, proposal, contract, invoicing, and closeout."
           action={

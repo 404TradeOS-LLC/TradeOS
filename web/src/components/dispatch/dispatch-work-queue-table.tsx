@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarClock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DispatchJobActions } from "@/components/dispatch/dispatch-job-actions";
@@ -67,6 +68,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
           />
         ) : (
           <EmptyState
+            icon={CalendarClock}
             title="No jobs yet"
             description="This organization has no jobs recorded yet. Jobs created from a project will appear here once they exist - nothing here is fabricated."
           />
