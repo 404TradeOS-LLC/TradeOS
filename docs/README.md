@@ -36,6 +36,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -189,6 +191,13 @@ The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview
 The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL` using the current non-interactive Vercel CLI contract, redeploys the recorded staging backend, and requires `/ready` before the authenticated RC smoke can resume.
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
+
+The `s036-index-evidence.yml` workflow is the disposable PostgreSQL evidence
+lane for S036. It applies the tracked migration inside an isolated synthetic
+schema, captures redacted plan and write-cost observations, rehearses index
+rollback, and retains the generated artifact for review. It never uses
+production credentials or data and does not establish production rollout or
+merge authority.
 
 The enforcement flow is:
 
