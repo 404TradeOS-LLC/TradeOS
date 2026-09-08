@@ -94,4 +94,4 @@ Sprint ID: S036
 Eligibility: `READY`; S027 and S035 are DONE, and S036 has no founder or production-access dependency. The RC dashboard/beta-evidence repair lineage through PR #458 is bounded out-of-band maintenance and is fully merged.
 Dependencies: S027 and S035 are DONE. Draft PR #453 remains intentionally held for production rollout/rehearsal evidence on the invoice line-price column drop, not repository implementation. S044/S045 are blocked on production access and S046 is blocked by S045.
 Overlap check: PR #397, #436, #437, #438, #440, #442-#446, #449, #451, #452, and #454-#458 are all merged. No open PR implements S036 work.
-Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Keep its isolated index/migration evidence independent of draft #453, S044/S045, S046, S048, and launch approval.
+Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` and `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md`. Keep its isolated index/migration evidence independent of draft #453, S044/S045, S046, S048, and launch approval.
