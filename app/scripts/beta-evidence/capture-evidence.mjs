@@ -306,11 +306,11 @@ try {
   assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
 
   // The invoice must bill the customer-facing sell price, not the direct cost.
-  const invoiceText = await page.locator("body").innerText();
+  const invoiceTotalText = await page.getByText("Total", { exact: true }).locator("..").innerText();
   assertBusiness(
     "invoice bills sell price rather than direct cost",
-    invoiceText.includes("$7,105.07") && !invoiceText.includes("$5,100.00"),
-    "expected the sell price $7,105.07 and not the raw direct cost $5,100.00",
+    invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
+    `expected the invoice Total row to show the sell price $7,105.07; rendered row was ${invoiceTotalText}`,
   );
   await checkpoint("08", "downstream-state", { optional: true });
 
