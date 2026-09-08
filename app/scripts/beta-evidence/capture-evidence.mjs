@@ -250,7 +250,7 @@ try {
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$7,105.07", { exact: true }).waitFor({ timeout: 60_000 });
+  await page.getByText("$7,105.07", { exact: true }).first().waitFor({ timeout: 60_000 });
   const markedUpPricingText = await page.locator("body").innerText();
   assertBusiness(
     "post-markup pricing matches the shipped formula",
