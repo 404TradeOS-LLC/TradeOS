@@ -24,13 +24,14 @@ before/after evidence, write-cost observations, and rollback rehearsal.
 
 ## Current truth
 
-- `origin/main` is `96caffc8877f77b96f8c3ae099d147c839be355f`.
+- `origin/main` is `dc0c5ab746a7831fabfdeb0841f86f702eca8ca1`.
 - The S036 migration is merged but is not production-applied. Production
   application remains gated by the documented write-maintenance window,
   rollback plan, and production cost-budget acceptance.
-- The only open PR currently visible is draft PR #470, the
-  Costbook/Knowledge Engine audit. Its own scope explicitly says it is an audit
-  record and must not be merged.
+- The currently open PRs are draft PR #470, the Costbook/Knowledge Engine
+  audit, and draft PR #478, the frontend UI polish pass. PR #470's own scope
+  explicitly says it is an audit record and must not be merged; neither PR
+  implements S049.
 - S039, S044, and S045 remain blocked on production access. S046 depends on
   S039/S045. S048 requires a founder decision selecting beta tenants and a
   rollout date.
