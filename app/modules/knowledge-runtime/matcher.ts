@@ -17,7 +17,8 @@ export function matchScopeDeterministically(input: DeterministicMatchInput): Sco
   const assumptions = buildAssumptions(scopeText, detectedTrade, matchedAssemblies, matchedCostItems);
   const reviewWarnings = buildReviewWarnings(scopeText, intake.confidenceScore.score, missingInformation, matchedAssemblies, matchedCostItems);
   const rationale = buildRationale(scopeText, intake.trade, matchedAssemblies, matchedCostItems, missingInformation);
-  const confidenceScore = calculateConfidence(intake.confidenceScore.score, matchedAssemblies, matchedCostItems, reviewWarnings.length);
+  const confidenceWarningCount = reviewWarnings.filter((warning) => !isInformationalProvenanceWarning(warning)).length;
+  const confidenceScore = calculateConfidence(intake.confidenceScore.score, matchedAssemblies, matchedCostItems, confidenceWarningCount);
 
   return {
     detectedTrade,
@@ -61,6 +62,10 @@ function calculateConfidence(
   const retrievalLift = Math.min(25, Math.round((bestAssembly + bestCostItem) / 10));
   const warningPenalty = warningCount * 4;
   return Math.max(18, Math.min(99, baseScore + retrievalLift - warningPenalty));
+}
+
+function isInformationalProvenanceWarning(warning: string) {
+  return warning.startsWith("Matched pricing includes ");
 }
 
 function buildAssumptions(
