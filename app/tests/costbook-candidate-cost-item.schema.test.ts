@@ -55,6 +55,18 @@ describe("costbookResearchCandidateSchema", () => {
     expect(safeParseCostbookResearchCandidate(validCandidateInput({ retrievedAt: "not-a-timestamp" })).success).toBe(false);
   });
 
+  it("rejects a malformed reviewedAt timestamp", () => {
+    expect(
+      safeParseCostbookResearchCandidate(
+        validCandidateInput({
+          reviewStatus: "approved",
+          reviewedBy: "user-42",
+          reviewedAt: "not-a-timestamp",
+        })
+      ).success
+    ).toBe(false);
+  });
+
   it("rejects a candidate with neither sourceUrl nor sourceIdentifier", () => {
     const input = validCandidateInput({ sourceUrl: undefined });
     const result = safeParseCostbookResearchCandidate(input);
