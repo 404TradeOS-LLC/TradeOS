@@ -48,7 +48,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `e872fa40f6e32175a80284f44c768d3307bdc22f` on 2026-09-01 after PR #425 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled against `origin/main` commit `96caffc8877f77b96f8c3ae099d147c839be355f` on 2026-09-08 after PR #476 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -287,15 +287,14 @@ Repository governance additionally uses documentation consistency, dependency re
 
 ## Known blockers and unresolved technical debt
 
-- S036 has a review-only active JobAssignment lookup candidate in
-  `app/prisma/migrations/20260908120000_add_active_job_assignment_lookup`.
-  It targets the S035-observed dispatch queue assignment scan with a partial
-  `(org_id, job_id)` index for non-removed, non-declined assignments. The
-  candidate is present in the repository but remains review-only and not
-  production-applied until its attached isolated before/after plans, measured
-  write-cost, rollback rehearsal, and production cost budget are accepted. The
-  selective synthetic fixture shows a conditional plan benefit; the
-  representative fixture does not select the index.
+- S036's active JobAssignment lookup index is merged in PR #476
+  (`96caffc8877f77b96f8c3ae099d147c839be355f`). It targets the S035-observed
+  dispatch queue assignment scan with a partial `(org_id, job_id)` index for
+  non-removed, non-declined assignments. The migration is repository-complete
+  but remains unapplied to production until its attached isolated before/after
+  plans, measured write-cost, rollback rehearsal, and production cost budget
+  are accepted. The selective synthetic fixture shows a conditional plan
+  benefit; the representative fixture does not select the index.
 - Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
 - Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
