@@ -27,6 +27,8 @@ related_code:
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -156,6 +158,8 @@ Production repair should use the health split first:
 ### CI acceleration operating mode
 
 CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
+
+The S036 disposable index-evidence workflow is a supplemental, pull-request-scoped PostgreSQL evidence lane. It uses a disposable PostgreSQL service and an isolated synthetic schema, applies the tracked S036 migration unmodified, captures redacted before/after JSON plans, records index size and controlled write observations, rehearses rollback, and uploads the artifact for review. It never uses production credentials or data and does not by itself authorize production application, merge, or an S036 completion claim.
 
 The authenticated S027 browser workflow remains operator-triggered and uses the Beta smoke credentials to create fresh runtime authentication state outside the checkout; no serialized Playwright storage-state secret is required. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-*.vercel.app` and `tradeos-costbook-web-*.vercel.app` Preview host patterns, excludes `-git-main-` previews and Production aliases, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
