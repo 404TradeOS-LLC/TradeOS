@@ -61,12 +61,12 @@ current scope; it does not itself promote S027 to `READY`.
 
 The dedicated S027 readiness pass is complete. PR #257 records a bounded supplier price-proposal concurrency repair: approval and rejection use an atomic, organization-scoped pending claim inside the existing transaction before Material/audit mutation. Only the successful claimant proceeds; a competing reviewer fails closed, and downstream failure restores `pending`. Supplier feeds remain review-first with no automatic Material pricing mutation, and the repair changes neither Costbook architecture nor permissions. PostgreSQL-backed integration verification closes the former RLS execution gate. PR #260 merged the standardized server-side catalog pagination/search/filter/sort contract. GitHub Actions S027 run `#22` then passed all 36 authenticated route/viewport captures at 1440/1024/768/390px, including keyboard focus, equipment mutation/error states, pricing preview, deployment immutability, and credential scanning. S027 is `DONE`; S036 is the next eligible sprint.
 
-Live queue reconciliation on 2026-08-28: S037, S038, S043, and S047 are DONE
-with merged completion evidence. S038 implementation evidence is recorded in
+Live queue reconciliation: S027, S037, S038, S043, and S047 are DONE with
+merged evidence. S038 implementation evidence is recorded in
 `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S047 implementation evidence
-is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. No numbered
-sprint is currently READY; S027 browser evidence and S036 remain independent
-blockers.
+is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now
+READY under its governed readiness plan; S044/S045 remain blocked on production
+access.
 
 S047 implementation evidence is constrained to the existing Playwright seams:
 the operator-triggered workflow now requires dedicated Preview/Staging
