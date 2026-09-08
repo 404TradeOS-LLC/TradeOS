@@ -38,7 +38,7 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, estimateId }: { projectId: string; estimateId: string }) {
+export function EstimateBuilder({ projectId, projectName, estimateId }: { projectId: string; projectName: string; estimateId: string }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
 
@@ -95,8 +95,10 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
       <PageHeader
         title={`Estimate v${estimate.version}`}
         description="Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback."
-        backHref={`/projects/${projectId}`}
-        backLabel="Back to project"
+        breadcrumbs={[
+          { label: projectName, href: `/projects/${projectId}` },
+          { label: `Estimate v${estimate.version}` },
+        ]}
         action={
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
