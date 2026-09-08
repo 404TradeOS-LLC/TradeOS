@@ -4,7 +4,7 @@ import { KnowledgeAssemblyRecord, KnowledgeCostItemRecord, KnowledgeRepositorySn
 import { round2 } from "../estimate-engine/formulas";
 
 const TRADE_ALIASES: Record<string, string[]> = {
-  "Tree Service": ["tree", "stump", "grind", "arborist", "brush", "debris"],
+  "Tree Service": ["tree", "stump", "grind", "grinding", "arborist", "brush", "debris"],
   Concrete: ["concrete", "driveway", "patio", "slab", "flatwork", "broom"],
   Deck: ["deck", "decking", "railing", "stairs", "ledger", "joist", "composite"],
   Roofing: ["roof", "roofing", "shingle", "tear-off", "reroof", "flashing", "ridge", "sheathing"],
@@ -225,20 +225,153 @@ function normalizeTradeName(value: string) {
   return value === "Flatwork" ? "Concrete" : value;
 }
 
-function inferTrade(name: string, category: string, candidateTrades: string[], trades: KnowledgeTrade[]): string | null {
-  const normalized = normalizeText(`${name} ${category} ${candidateTrades.join(" ")}`);
+/**
+ * Deterministic, word-boundary/token-aware trade classifier.
+ *
+ * Replaces a prior raw-substring implementation that matched trade names
+ * and aliases anywhere inside the input text, including inside unrelated
+ * words (e.g. trade "Trim" matched inside "trimming"), and picked
+ * whichever trade happened to appear earliest in trades.find()'s array
+ * order when more than one trade's name/alias matched - an
+ * order-dependent result with no relationship to which match was more
+ * specific. See docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md
+ * for the full before/after corpus audit this rewrite was built against.
+ *
+ * Strategy:
+ *   1. Tokenize the input into whole words (same tokenizer used for
+ *      search keywords), so matching is case-insensitive and punctuation
+ *      cannot join or split words unexpectedly.
+ *   2. A trade or alias phrase (itself tokenized) "matches" only when its
+ *      exact token sequence appears contiguously in the input tokens -
+ *      never a raw substring test, so "trim" cannot match inside
+ *      "trimming" and multi-word names like "Tree Service" or
+ *      "General Conditions" require both words adjacent, not merely
+ *      present anywhere in the text.
+ *   3. Every trade is checked (not just the first in array order); the
+ *      trade's own name is a higher-priority match than one of its
+ *      aliases, and a longer (more specific) phrase outranks a shorter
+ *      one at the same priority level.
+ *   4. `category` is checked before `name` and, if it names any trade at
+ *      all, wins outright (uniquely or ambiguously) without ever
+ *      consulting `name`. For the canonical corpus, `category` is
+ *      curated ground truth (it already equals a real trade name for
+ *      essentially every legacy cost item), while `name` is a free-text
+ *      description that can incidentally contain a different trade's
+ *      word (e.g. "Wall Straightening And Plumbing" filed under category
+ *      "Framing"). `name` is consulted only when `category` names no
+ *      trade at all - the situation for every assembly, whose `category`
+ *      is a descriptive label like "Assemblies - Bathroom", not a trade.
+ *   5. If candidateTrades (the actual trades of an assembly's own linked
+ *      cost items) has a single most-common value, that outranks both
+ *      of the above - it is grounded in real linked data, not inference.
+ *   6. When more than one trade ties for the single highest-ranked
+ *      match within whichever field was consulted, the result is
+ *      ambiguous: return null rather than guess. A record with no match
+ *      at all also returns null. Callers already treat a null trade as
+ *      "could not be determined" (see resolveTradeProvenanceStatus and
+ *      every trade?/trade === null check in this file and matcher.ts) -
+ *      this function has never guaranteed a non-null result, so
+ *      returning null more often is a safe, compatible change in the
+ *      failure direction.
+ */
+export function inferTrade(name: string, category: string, candidateTrades: string[], trades: KnowledgeTrade[]): string | null {
+  const dominantCandidateTrade = pickDominantCandidateTrade(candidateTrades);
+  if (dominantCandidateTrade) return dominantCandidateTrade;
 
-  for (const candidate of candidateTrades) {
-    if (candidate && normalized.includes(normalizeText(candidate))) {
-      return candidate;
+  // `category` is curated ground truth for the canonical Knowledge Engine
+  // corpus - for every legacy cost item it already equals a real trade
+  // name exactly - while `name` is a free-text description that can
+  // incidentally contain another trade's word (e.g. "Wall Straightening
+  // And Plumbing" filed under category "Framing"). Resolving against
+  // category first, and only falling through to name when category
+  // itself named no trade at all, uses the more authoritative field
+  // instead of treating both as one undifferentiated bag of words.
+  const categoryMatch = resolveTextMatch(category, trades);
+  if (categoryMatch.status !== "none") {
+    return categoryMatch.status === "unique" ? categoryMatch.tradeName : null;
+  }
+
+  const nameMatch = resolveTextMatch(name, trades);
+  return nameMatch.status === "unique" ? nameMatch.tradeName : null;
+}
+
+type TextMatchResult = { status: "none" } | { status: "ambiguous" } | { status: "unique"; tradeName: string };
+
+function resolveTextMatch(text: string, trades: KnowledgeTrade[]): TextMatchResult {
+  const inputTokens = tokenizeToWords(text);
+  if (inputTokens.length === 0) return { status: "none" };
+
+  type Match = { tradeName: string; priority: 1 | 0; phraseLength: number };
+  const matches: Match[] = [];
+
+  for (const trade of trades) {
+    const nameTokens = tokenizeToWords(trade.name);
+    if (nameTokens.length > 0 && containsSubsequence(inputTokens, nameTokens)) {
+      matches.push({ tradeName: trade.name, priority: 1, phraseLength: nameTokens.length });
+    }
+
+    for (const alias of TRADE_ALIASES[trade.name] ?? []) {
+      const aliasTokens = tokenizeToWords(alias);
+      if (aliasTokens.length > 0 && containsSubsequence(inputTokens, aliasTokens)) {
+        matches.push({ tradeName: trade.name, priority: 0, phraseLength: aliasTokens.length });
+      }
     }
   }
 
-  const exactTrade = trades.find((trade) => normalized.includes(normalizeText(trade.name)));
-  if (exactTrade) return exactTrade.name;
+  if (matches.length === 0) return { status: "none" };
 
-  const aliasTrade = trades.find((trade) => buildTradeKeywords(trade.name).some((keyword) => normalized.includes(keyword)));
-  return aliasTrade?.name ?? null;
+  const bestByTrade = new Map<string, Match>();
+  for (const match of matches) {
+    const existing = bestByTrade.get(match.tradeName);
+    if (!existing || match.priority > existing.priority || (match.priority === existing.priority && match.phraseLength > existing.phraseLength)) {
+      bestByTrade.set(match.tradeName, match);
+    }
+  }
+
+  const ranked = [...bestByTrade.values()].sort(
+    (a, b) => b.priority - a.priority || b.phraseLength - a.phraseLength || a.tradeName.localeCompare(b.tradeName)
+  );
+  const [best, runnerUp] = ranked;
+  const isAmbiguous = runnerUp != null && runnerUp.priority === best.priority && runnerUp.phraseLength === best.phraseLength;
+
+  return isAmbiguous ? { status: "ambiguous" } : { status: "unique", tradeName: best.tradeName };
+}
+
+/**
+ * candidateTrades are the actual, already-resolved trades of an
+ * assembly's own linked cost items - real linked data, not text
+ * inference. A single trade with strictly more occurrences than every
+ * other is a reliable, order-independent signal; a tie (including a
+ * tie among all-distinct single occurrences) is ambiguous and falls
+ * through to text-based matching instead of picking arbitrarily.
+ */
+function pickDominantCandidateTrade(candidateTrades: string[]): string | null {
+  const nonEmpty = candidateTrades.filter(Boolean);
+  if (nonEmpty.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const trade of nonEmpty) counts.set(trade, (counts.get(trade) ?? 0) + 1);
+
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const [[topTrade, topCount], second] = ranked;
+  return !second || topCount > second[1] ? topTrade : null;
+}
+
+function containsSubsequence(haystack: string[], needle: string[]): boolean {
+  if (needle.length > haystack.length) return false;
+  outer: for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      if (haystack[start + offset] !== needle[offset]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+function tokenizeToWords(value: string): string[] {
+  return normalizeText(value)
+    .split(/[^a-z0-9]+/g)
+    .filter((token) => token.length > 0);
 }
 
 function buildTaxonomyKeywords(taxonomyText: string, trades: KnowledgeTrade[]) {
