@@ -577,7 +577,7 @@ Protected boundary: Keep S044/S045 deployment inventory, S046 migration gates, S
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: `NONE`; S039/S044/S045 are BLOCKED on production access, S048 is PLANNED and requires a founder decision for beta tenants and rollout date, and S049 is PLANNED pending a governance-only readiness promotion.
+Eligibility: `NONE`; No numbered sprint is currently `READY`. S039/S044/S045 are BLOCKED on production access, S048 is PLANNED and requires a founder decision for beta tenants and rollout date, and S049 is PLANNED pending a governance-only readiness promotion.
 Dependencies: S036 is DONE after PR #476. S044/S045 remain blocked on production access and S046 is blocked by S045.
 Overlap check: PR #470 is the only open PR currently visible; it is a draft audit record explicitly marked not to merge. No implementation PR overlaps S049.
 Startup prompt: Promote S049 through a governance-only PR only after re-verifying open PRs, remote branches, and active worktrees; then execute the cleanup in one isolated branch under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.

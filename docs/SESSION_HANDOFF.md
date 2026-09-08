@@ -39,15 +39,8 @@ before/after evidence, write-cost observations, and rollback rehearsal.
   worktrees.
 
 ## Next Eligible Sprint
-
 Sprint ID: NONE
-Eligibility: `NONE`; no numbered sprint is currently READY. S049 remains
-PLANNED pending readiness promotion; S048 is PLANNED pending founder decision;
-S039/S044/S045 are BLOCKED on production access.
-Dependencies: S036 is DONE; S044/S045 remain blocked on production access and
-S046 is blocked by S045.
-Overlap check: PR #470 is the only open PR currently visible and does not
-implement S049.
-Startup prompt: Promote S049 through a governance-only PR only after re-verifying
-open PRs, remote branches, and active worktrees; then execute the cleanup in one
-isolated branch under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
+Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 remains PLANNED pending readiness promotion; S048 is PLANNED pending founder decision; S039/S044/S045 are BLOCKED on production access.
+Dependencies: S036 is DONE; S044/S045 remain blocked on production access and S046 is blocked by S045.
+Overlap check: PR #470 is the only open PR currently visible and does not implement S049.
+Startup prompt: Promote S049 through a governance-only PR only after re-verifying open PRs, remote branches, and active worktrees; then execute the cleanup in one isolated branch under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
