@@ -196,6 +196,8 @@ RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
+`/api/v1/knowledge/*` results' `trade` field (on trades, search results, and matcher output) is computed by `knowledge-runtime/repository.ts`'s `inferTrade()`, rewritten 2026-09-08 to a deterministic, word-boundary/token-aware classifier — see `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md` for the full before/after corpus audit. This is a classification-accuracy fix, not a response-shape change: `trade` was already typed nullable and every consumer already handled `null`; the fix simply makes more records resolve correctly (matching their own curated `category`) and makes genuinely ambiguous assemblies report `null` instead of an arbitrary guess.
+
 AI estimating routes under `/api/v1/estimates`:
 
 - `POST /api/v1/estimates/:id/ai-suggestions`
