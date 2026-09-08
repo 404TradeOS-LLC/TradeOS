@@ -79,6 +79,12 @@ validation/create/edit/reload/delete plus pricing preview. Only test equipment
 created by that run is deleted. Failure artifacts are retained after a credential
 scan; runtime session state is removed. Run `#22` passed the complete contract
 and uploaded the redacted artifact; the S027 browser-evidence gate is closed.
+Screenshot review: I reviewed all 52 PNG captures in artifact `#10042902412`,
+including the nine routes across 1440/1024/768/390px plus equipment mutation
+and pricing-preview checkpoints. Disposition: PASS. The captures show the
+expected tenant-scoped empty/preview states, readable responsive layouts,
+visible focus/error states, and no observed clipped content or horizontal
+overflow at the required widths.
 
 The bootstrap recognizes the responsive Control Dock More menu and can verify
 the canonical organization ID through the authenticated settings API. S027
