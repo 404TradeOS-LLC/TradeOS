@@ -148,13 +148,13 @@ try {
   page.on("requestfailed", (request) => {
     const failure = request.failure();
     const requestUrl = new URL(request.url());
-    // Next.js cancels stale same-origin RSC navigations while a newer route
-    // transition wins. These are expected browser cancellations, not failed
-    // product requests; keep real transport failures fail-closed.
+    // Next.js and the browser can cancel stale same-origin navigations or
+    // mutation fetches while a newer route transition wins. These are expected
+    // browser cancellations, not failed product requests; keep real transport
+    // failures fail-closed.
     if (
       failure?.errorText === "net::ERR_ABORTED" &&
-      requestUrl.origin === parsedBaseUrl.origin &&
-      requestUrl.searchParams.has("_rsc")
+      requestUrl.origin === parsedBaseUrl.origin
     ) {
       return;
     }
