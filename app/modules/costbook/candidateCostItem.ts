@@ -95,7 +95,7 @@ export const costbookResearchCandidateSchema = z
     provenanceStatus: z.enum(costDataProvenanceStatus).default("unverified-legacy"),
     reviewStatus: z.enum(costbookCandidateReviewStatus).default("candidate"),
     reviewedBy: z.string().trim().min(1).optional(),
-    reviewedAt: z.string().trim().min(1).optional(),
+    reviewedAt: isoTimestamp.optional(),
     reviewNotes: z.string().trim().optional(),
   })
   .superRefine((data, ctx) => {
