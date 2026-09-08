@@ -12,7 +12,7 @@ INDEX_NAME="idx_job_assignments_active_org_job"
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 rm -f "$OUTPUT_PATH"
 
-psql_args=(-X "$DATABASE_URL" -v ON_ERROR_STOP=1)
+psql_args=(-X --dbname="$DATABASE_URL" -v ON_ERROR_STOP=1)
 
 run_sql() {
   psql "${psql_args[@]}" -Atqc "$1"
@@ -122,8 +122,18 @@ after_update="$(run_sql "set search_path = ${SCHEMA}, public; begin; explain (an
 index_bytes="$(run_sql "select pg_relation_size('${SCHEMA}.${INDEX_NAME}')")"
 index_tuples="$(run_sql "select reltuples::bigint from pg_class where oid = '${SCHEMA}.${INDEX_NAME}'::regclass")"
 
+if [[ -z "$before_plan" || -z "$after_plan" ]]; then
+  echo "S036 evidence capture produced an empty before or after plan" >&2
+  exit 1
+fi
+
 run_sql "set search_path = ${SCHEMA}, public; drop index if exists ${INDEX_NAME}"
 rollback_index="$(run_sql "select coalesce(to_regclass('${SCHEMA}.${INDEX_NAME}')::text, 'absent')")"
+
+if [[ "$rollback_index" != "absent" ]]; then
+  echo "S036 rollback verification failed: ${rollback_index}" >&2
+  exit 1
+fi
 
 captured_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 before_plan_json="$(compact_json "$before_plan")"
