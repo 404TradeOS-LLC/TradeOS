@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
+import { KeyboardShortcutsOverlay } from "@/components/shared/keyboard-shortcuts-overlay";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -376,6 +377,8 @@ export function AppNav({
         </button>
       </div>
     </nav>
+
+    <KeyboardShortcutsOverlay />
     </>
   );
 }
