@@ -3,10 +3,40 @@ set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required for disposable S036 evidence}"
 
+case "$DATABASE_URL" in
+  postgresql://*|postgres://*)
+    ;;
+  *)
+    echo "S036 evidence requires a PostgreSQL disposable target" >&2
+    exit 1
+    ;;
+esac
+
+DATABASE_AUTHORITY="${DATABASE_URL#*://}"
+DATABASE_AUTHORITY="${DATABASE_AUTHORITY%%/*}"
+DATABASE_HOST="${DATABASE_AUTHORITY##*@}"
+DATABASE_HOST="${DATABASE_HOST%%:*}"
+DATABASE_NAME="${DATABASE_URL##*/}"
+DATABASE_NAME="${DATABASE_NAME%%\?*}"
+
+if [[ "$DATABASE_HOST" != "127.0.0.1" && "$DATABASE_HOST" != "localhost" ]]; then
+  echo "S036 evidence refuses non-local database targets" >&2
+  exit 1
+fi
+
+if [[ -z "$DATABASE_NAME" || "$DATABASE_NAME" != *_evidence ]]; then
+  echo "S036 evidence requires a database name ending in _evidence" >&2
+  exit 1
+fi
+
+RUN_TOKEN_RAW="${GITHUB_RUN_ID:-local_$(date +%s)_${RANDOM}}"
+RUN_TOKEN="$(printf '%s' "$RUN_TOKEN_RAW" | tr -cd '[:alnum:]_' | cut -c1-32)"
+RUN_TOKEN="${RUN_TOKEN:-local}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATION_PATH="$SCRIPT_DIR/../prisma/migrations/20260908120000_add_active_job_assignment_lookup/migration.sql"
 OUTPUT_PATH="${S036_EVIDENCE_OUTPUT:-$SCRIPT_DIR/../../artifacts/s036-index-evidence/evidence.md}"
-SCHEMA="s036_evidence"
+SCHEMA="s036_evidence_${RUN_TOKEN}"
 INDEX_NAME="idx_job_assignments_active_org_job"
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
@@ -42,6 +72,20 @@ plan_uses_index() {
   extract_json "$1" | jq -r --arg name "$INDEX_NAME" '
     [.. | strings | select(contains($name))] | length > 0
   '
+}
+
+verify_index_contract() {
+  local fixture_name="$1"
+
+  INDEX_COLUMNS="$(run_sql "select string_agg(a.attname, ',' order by key_position) from pg_index i join pg_class c on c.oid = i.indexrelid join pg_class t on t.oid = i.indrelid join pg_namespace n on n.oid = t.relnamespace cross join lateral unnest(i.indkey) with ordinality as keys(attnum, key_position) join pg_attribute a on a.attrelid = t.oid and a.attnum = keys.attnum where n.nspname = '${SCHEMA}' and c.relname = '${INDEX_NAME}'")"
+  INDEX_PREDICATE="$(run_sql "select pg_get_expr(indpred, indrelid) from pg_index i join pg_class c on c.oid = i.indexrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = '${SCHEMA}' and c.relname = '${INDEX_NAME}'")"
+  INDEX_UNIQUE="$(run_sql "select indisunique::text from pg_index i join pg_class c on c.oid = i.indexrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = '${SCHEMA}' and c.relname = '${INDEX_NAME}'")"
+  INDEX_DEFINITION="$(run_sql "select pg_get_indexdef(c.oid) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = '${SCHEMA}' and c.relname = '${INDEX_NAME}'")"
+
+  if [[ "$INDEX_COLUMNS" != "org_id,job_id" || "$INDEX_UNIQUE" != "f" || "$INDEX_PREDICATE" != *"removed_at IS NULL"* || "$INDEX_PREDICATE" != *"declined_at IS NULL"* ]]; then
+    echo "S036 ${fixture_name} index contract verification failed" >&2
+    exit 1
+  fi
 }
 
 cleanup() {
@@ -133,6 +177,10 @@ after_insert="$(run_sql "begin; explain (analyze, format json) insert into job_a
 after_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
 index_bytes="$(run_sql "select pg_relation_size('${SCHEMA}.${INDEX_NAME}')")"
 index_tuples="$(run_sql "select reltuples::bigint from pg_class where oid = '${SCHEMA}.${INDEX_NAME}'::regclass")"
+verify_index_contract representative
+representative_index_columns="$INDEX_COLUMNS"
+representative_index_predicate="$INDEX_PREDICATE"
+representative_index_unique="$INDEX_UNIQUE"
 
 if [[ -z "$before_plan" || -z "$after_plan" ]]; then
   echo "S036 evidence capture produced an empty before or after plan" >&2
@@ -234,6 +282,10 @@ selective_after_insert="$(run_sql "begin; explain (analyze, format json) insert 
 selective_after_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
 selective_index_bytes="$(run_sql "select pg_relation_size('${SCHEMA}.${INDEX_NAME}')")"
 selective_index_tuples="$(run_sql "select reltuples::bigint from pg_class where oid = '${SCHEMA}.${INDEX_NAME}'::regclass")"
+verify_index_contract selective
+selective_index_columns="$INDEX_COLUMNS"
+selective_index_predicate="$INDEX_PREDICATE"
+selective_index_unique="$INDEX_UNIQUE"
 
 if [[ -z "$selective_before_plan" || -z "$selective_after_plan" ]]; then
   echo "S036 selective evidence capture produced an empty before or after plan" >&2
@@ -302,6 +354,9 @@ Planner selected the candidate index after creation: \`${after_uses_index}\`.
 
 - Candidate index size after creation: \`${index_bytes}\` bytes.
 - Candidate index estimated tuples after creation: \`${index_tuples}\`.
+- Candidate index columns: \`${representative_index_columns}\`.
+- Candidate index predicate: \`${representative_index_predicate}\`.
+- Candidate index unique flag: \`${representative_index_unique}\`.
 - Baseline insert timing: \`${before_insert_timing}\`.
 - Indexed insert timing: \`${after_insert_timing}\`.
 - Baseline active-to-declined update timing: \`${before_update_timing}\`.
@@ -335,6 +390,9 @@ Planner selected the candidate index after creation: \`${selective_after_uses_in
 
 - Candidate index size after creation: \`${selective_index_bytes}\` bytes.
 - Candidate index estimated tuples after creation: \`${selective_index_tuples}\`.
+- Candidate index columns: \`${selective_index_columns}\`.
+- Candidate index predicate: \`${selective_index_predicate}\`.
+- Candidate index unique flag: \`${selective_index_unique}\`.
 - Baseline insert timing: \`${selective_before_insert_timing}\`.
 - Indexed insert timing: \`${selective_after_insert_timing}\`.
 - Baseline active-to-declined update timing: \`${selective_before_update_timing}\`.
