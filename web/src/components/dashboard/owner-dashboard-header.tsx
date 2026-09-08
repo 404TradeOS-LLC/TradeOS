@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { DashboardFreshnessLabel } from "@/components/dashboard/dashboard-freshness-label";
 import { OwnerDashboardGreeting, OwnerDashboardSynthesis } from "@/components/dashboard/owner-dashboard-greeting";
 import { buildReviewQueueMetrics, type ReviewQueueCounts } from "@/components/dashboard/owner-dashboard-header-model";
 
@@ -65,6 +66,8 @@ export function OwnerDashboardHeader({
               {currentDateLabel}
             </span>
             <span>{projectScopeLabel}</span>
+            <span aria-hidden="true">·</span>
+            <DashboardFreshnessLabel />
           </div>
           {metrics.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
