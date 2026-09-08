@@ -45,7 +45,7 @@ interface OwnerKpiGridProps {
 
 export function OwnerKpiGrid({ kpis }: OwnerKpiGridProps) {
   return (
-    <section aria-labelledby="owner-kpis-heading" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <section aria-labelledby="owner-kpis-heading" className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
       <h2 id="owner-kpis-heading" className="sr-only">
         Owner dashboard key metrics
       </h2>
