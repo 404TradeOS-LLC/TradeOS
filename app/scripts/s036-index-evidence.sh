@@ -150,6 +150,107 @@ if [[ "$rollback_index" != "absent" ]]; then
   exit 1
 fi
 
+run_sql "drop schema if exists ${SCHEMA} cascade; create schema ${SCHEMA}"
+
+psql "${psql_args[@]}" <<SQL
+set search_path = ${SCHEMA}, public;
+
+create table jobs (
+  id bigint primary key,
+  org_id text not null,
+  status text not null,
+  archived_at timestamptz,
+  scheduled_start timestamptz not null
+);
+
+create table job_assignments (
+  id bigint primary key,
+  org_id text not null,
+  job_id bigint not null,
+  user_id bigint not null,
+  assignment_role text not null,
+  is_lead boolean not null default false,
+  assigned_by_id bigint not null,
+  declined_at timestamptz,
+  removed_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+insert into jobs (id, org_id, status, archived_at, scheduled_start)
+select
+  job_id,
+  format('synthetic-org-%s', ((job_id - 1) % 100) + 1),
+  case when job_id % 4 = 0 then 'scheduled' else 'unscheduled' end,
+  case when job_id % 25 = 0 then now() else null end,
+  now() + make_interval(secs => job_id)
+from generate_series(1, 100000) as job_id;
+
+insert into job_assignments (
+  id, org_id, job_id, user_id, assignment_role, is_lead, assigned_by_id,
+  declined_at, removed_at
+)
+select
+  assignment_id,
+  format('synthetic-org-%s', (((assignment_id - 1) % 100000) % 100) + 1),
+  ((assignment_id - 1) % 100000) + 1,
+  ((assignment_id - 1) % 250) + 1,
+  'technician',
+  assignment_id % 25 = 1,
+  1,
+  case when assignment_id % 20 between 5 and 8 then now() else null end,
+  case when assignment_id % 20 between 1 and 4 then now() else null end
+from generate_series(1, 500000) as assignment_id;
+
+analyze jobs;
+analyze job_assignments;
+SQL
+
+SELECTIVE_QUERY="
+select j.id, ja.user_id
+from jobs j
+join job_assignments ja
+  on ja.org_id = j.org_id
+ and ja.job_id = j.id
+where j.org_id = 'synthetic-org-1'
+  and j.status in ('scheduled', 'unscheduled')
+  and j.archived_at is null
+  and ja.removed_at is null
+  and ja.declined_at is null
+order by j.scheduled_start, j.id
+limit 50
+"
+
+selective_before_plan="$(run_sql "explain (format json) ${SELECTIVE_QUERY}")"
+selective_before_insert="$(run_sql "begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (500001, 'synthetic-org-1', 100001, 251, 'technician', 1); rollback")"
+selective_before_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
+
+psql "${psql_args[@]}" <<SQL
+set search_path = ${SCHEMA}, public;
+\i ${MIGRATION_PATH}
+SQL
+
+selective_after_plan="$(run_sql "explain (format json) ${SELECTIVE_QUERY}")"
+selective_after_insert="$(run_sql "begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (500001, 'synthetic-org-1', 100001, 251, 'technician', 1); rollback")"
+selective_after_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
+selective_index_bytes="$(run_sql "select pg_relation_size('${SCHEMA}.${INDEX_NAME}')")"
+selective_index_tuples="$(run_sql "select reltuples::bigint from pg_class where oid = '${SCHEMA}.${INDEX_NAME}'::regclass")"
+
+if [[ -z "$selective_before_plan" || -z "$selective_after_plan" ]]; then
+  echo "S036 selective evidence capture produced an empty before or after plan" >&2
+  exit 1
+fi
+
+printf '%s\n' "$selective_before_plan" > "${OUTPUT_PATH}.selective-before-plan.raw"
+printf '%s\n' "$selective_after_plan" > "${OUTPUT_PATH}.selective-after-plan.raw"
+
+run_sql "drop index if exists ${INDEX_NAME}"
+selective_rollback_index="$(run_sql "select coalesce(to_regclass('${SCHEMA}.${INDEX_NAME}')::text, 'absent')")"
+
+if [[ "$selective_rollback_index" != "absent" ]]; then
+  echo "S036 selective rollback verification failed: ${selective_rollback_index}" >&2
+  exit 1
+fi
+
 captured_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 before_plan_json="$(compact_json "$before_plan")"
 after_plan_json="$(compact_json "$after_plan")"
@@ -158,6 +259,13 @@ after_insert_timing="$(write_timing "$after_insert")"
 before_update_timing="$(write_timing "$before_update")"
 after_update_timing="$(write_timing "$after_update")"
 after_uses_index="$(plan_uses_index "$after_plan")"
+selective_before_plan_json="$(compact_json "$selective_before_plan")"
+selective_after_plan_json="$(compact_json "$selective_after_plan")"
+selective_before_insert_timing="$(write_timing "$selective_before_insert")"
+selective_after_insert_timing="$(write_timing "$selective_after_insert")"
+selective_before_update_timing="$(write_timing "$selective_before_update")"
+selective_after_update_timing="$(write_timing "$selective_after_update")"
+selective_after_uses_index="$(plan_uses_index "$selective_after_plan")"
 
 cat > "$OUTPUT_PATH" <<EOF
 # S036 Disposable PostgreSQL Evidence
@@ -202,13 +310,44 @@ Planner selected the candidate index after creation: \`${after_uses_index}\`.
 These are single controlled \`EXPLAIN (ANALYZE, FORMAT JSON)\` operations in a
 disposable fixture, not production latency or SLO measurements.
 
+## Larger selective fixture
+
+- 100,000 synthetic jobs and 500,000 synthetic assignments across 100
+  synthetic organizations.
+- The target organization contains approximately 1,000 jobs and 5,000
+  assignments, so the query filters a small tenant slice of the larger table.
+
+### Before plan
+
+\`\`\`json
+${selective_before_plan_json}
+\`\`\`
+
+### After plan
+
+\`\`\`json
+${selective_after_plan_json}
+\`\`\`
+
+Planner selected the candidate index after creation: \`${selective_after_uses_index}\`.
+
+## Larger fixture index size and write-cost observations
+
+- Candidate index size after creation: \`${selective_index_bytes}\` bytes.
+- Candidate index estimated tuples after creation: \`${selective_index_tuples}\`.
+- Baseline insert timing: \`${selective_before_insert_timing}\`.
+- Indexed insert timing: \`${selective_after_insert_timing}\`.
+- Baseline active-to-declined update timing: \`${selective_before_update_timing}\`.
+- Indexed active-to-declined update timing: \`${selective_after_update_timing}\`.
+
 ## Rollback rehearsal
 
 \`\`\`sql
 drop index if exists ${INDEX_NAME};
 \`\`\`
 
-Rollback verification: \`${rollback_index}\`.
+Representative fixture rollback verification: \`${rollback_index}\`.
+Larger selective fixture rollback verification: \`${selective_rollback_index}\`.
 
 The schema cleanup trap then dropped the entire synthetic fixture. This artifact
 is evidence for review; it does not authorize production application or merge
