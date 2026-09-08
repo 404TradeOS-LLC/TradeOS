@@ -145,7 +145,21 @@ try {
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
-  page.on("requestfailed", (request) => failedRequests.push(`${request.method()} ${request.url()}`));
+  page.on("requestfailed", (request) => {
+    const failure = request.failure();
+    const requestUrl = new URL(request.url());
+    // Next.js cancels stale same-origin RSC navigations while a newer route
+    // transition wins. These are expected browser cancellations, not failed
+    // product requests; keep real transport failures fail-closed.
+    if (
+      failure?.errorText === "net::ERR_ABORTED" &&
+      requestUrl.origin === parsedBaseUrl.origin &&
+      requestUrl.searchParams.has("_rsc")
+    ) {
+      return;
+    }
+    failedRequests.push(`${request.method()} ${request.url()}`);
+  });
 
   // ---- 01 authenticated shell -------------------------------------------
   await page.goto(new URL("/dashboard", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
