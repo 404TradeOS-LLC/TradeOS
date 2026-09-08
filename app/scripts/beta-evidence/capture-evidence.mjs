@@ -250,9 +250,13 @@ try {
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$6,732.00", { exact: true }).waitFor({ timeout: 60_000 });
   await page.getByText("$7,105.07", { exact: true }).waitFor({ timeout: 60_000 });
-  assertions.push({ name: "post-markup pricing matches the shipped formula", passed: true });
+  const markedUpPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "post-markup pricing matches the shipped formula",
+    markedUpPricingText.includes("$6,732.00") && markedUpPricingText.includes("$7,105.07"),
+    "expected the rendered pre-tax $6,732.00 and total $7,105.07 after markup",
+  );
 
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
