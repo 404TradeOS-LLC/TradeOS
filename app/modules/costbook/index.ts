@@ -1,6 +1,26 @@
 export { CostbookService } from "./service";
 export { CostbookRepository } from "./repository";
 export { costbookPermissions, getCostbookPermissionSummary } from "./permissions";
+export {
+  costDataProvenanceStatus,
+  DEFAULT_COST_DATA_PROVENANCE_STATUS,
+  isCostDataProvenanceStatus,
+  normalizeCostDataProvenanceStatus,
+} from "./provenance";
+export type { CostDataProvenanceStatus } from "./provenance";
+export {
+  costbookCandidateConfidence,
+  costbookCandidateReviewStatus,
+  costbookResearchCandidateSchema,
+  isEligibleForCostbookPromotion,
+  parseCostbookResearchCandidate,
+  safeParseCostbookResearchCandidate,
+} from "./candidateCostItem";
+export type {
+  CostbookCandidateConfidence,
+  CostbookCandidateReviewStatus,
+  CostbookResearchCandidate,
+} from "./candidateCostItem";
 export type {
   CostbookCategoryDTO,
   CostbookCategoryInput,

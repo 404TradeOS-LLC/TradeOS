@@ -2,6 +2,7 @@ import { getCachedKnowledgeRepositorySnapshot, resetKnowledgeRuntimeCache } from
 import { loadKnowledgeEngineSnapshot } from "./loader";
 import { KnowledgeAssemblyRecord, KnowledgeCostItemRecord, KnowledgeRepositorySnapshot, KnowledgeSearchInput, KnowledgeSearchResult, KnowledgeStats, KnowledgeTrade, RawKnowledgeAssembly, RawKnowledgeCostItem } from "./types";
 import { round2 } from "../estimate-engine/formulas";
+import { CostDataProvenanceStatus, normalizeCostDataProvenanceStatus } from "../costbook/provenance";
 
 const TRADE_ALIASES: Record<string, string[]> = {
   "Tree Service": ["tree", "stump", "grind", "grinding", "arborist", "brush", "debris"],
@@ -28,6 +29,7 @@ export function getKnowledgeRepositorySnapshot(): KnowledgeRepositorySnapshot {
         coverage: entry.coverage,
         notes: entry.notes,
         keywords: buildTradeKeywords(normalizedName, entry.notes),
+        provenanceStatus: normalizeCostDataProvenanceStatus(entry.provenanceStatus),
       } satisfies KnowledgeTrade;
     });
 
@@ -118,6 +120,7 @@ export function searchKnowledgeRecords(
         matchedKeywords,
         rationale: buildSearchRationale(record.name, record.trade, matchedKeywords),
         metadata: record.metadata,
+        provenanceStatus: record.metadata.provenanceStatus,
       } satisfies KnowledgeSearchResult;
     })
     .filter((result) => result.confidence > 0)
@@ -156,6 +159,7 @@ function toAssemblyRecord(
       source: "knowledge-engine",
       lineItemsCount: assembly.lineItems?.length ?? 0,
       schemaRefs: schemaRefs.filter((schema) => schema.includes("assembly")),
+      provenanceStatus: resolveTradeProvenanceStatus(trade, trades),
     },
   };
 }
@@ -186,6 +190,7 @@ function toCostItemRecord(item: RawKnowledgeCostItem, trades: KnowledgeTrade[], 
       equipmentCost,
       totalUnitCost: round2(laborCost + materialCost + equipmentCost),
       schemaRefs: schemaRefs.filter((schema) => schema.includes("cost-item")),
+      provenanceStatus: resolveTradeProvenanceStatus(trade, trades),
     },
   };
 }
@@ -217,8 +222,23 @@ function toAssemblyIndexRecord(
       source: "knowledge-engine",
       lineItemsCount: count,
       schemaRefs: schemaRefs.filter((schema) => schema.includes("assembly")),
+      provenanceStatus: resolveTradeProvenanceStatus(trade, trades),
     },
   };
+}
+
+/**
+ * A record's provenance is resolved from its inferred trade rather than
+ * carried on the flat Knowledge Engine item/assembly itself (the canonical
+ * export has no per-item provenance fields today — see the 2026-09-08
+ * audit). A record whose trade could not be inferred at all gets the same
+ * safe default as an unrecognized trade: "unverified-legacy", never
+ * "documented" by omission.
+ */
+export function resolveTradeProvenanceStatus(tradeName: string | null, trades: KnowledgeTrade[]): CostDataProvenanceStatus {
+  if (!tradeName) return normalizeCostDataProvenanceStatus(undefined);
+  const trade = trades.find((candidate) => candidate.name === tradeName);
+  return trade ? trade.provenanceStatus : normalizeCostDataProvenanceStatus(undefined);
 }
 
 function normalizeTradeName(value: string) {

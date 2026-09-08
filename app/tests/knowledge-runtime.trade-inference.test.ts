@@ -15,6 +15,7 @@ function fakeTrade(name: string): KnowledgeTrade {
     coverage: "100%",
     notes: "",
     keywords: [],
+    provenanceStatus: "unverified-legacy",
   };
 }
 

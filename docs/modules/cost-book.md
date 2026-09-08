@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-29
+last_verified: 2026-09-08
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -258,7 +258,8 @@ Current behavior:
 - expanded historical pricing analytics/filters beyond the current read model
 - Athena Costbook writes or autonomous Costbook mutation only after the existing approval/risk/governance boundaries explicitly authorize such behavior; the current Athena Costbook tools are read-only/recommendation-only
 - evaluate trigram indexing for `code` search paths if substring code lookup becomes a measurable bottleneck
+- `app/modules/costbook/candidateCostItem.ts` (added 2026-09-08) defines a types/Zod-only contract for a researched candidate cost item (`reviewStatus: candidate -> needs-review -> approved | rejected`, gated by `isEligibleForCostbookPromotion()`) and `app/modules/costbook/provenance.ts` defines the shared `documented | unverified-legacy | placeholder` trust vocabulary the Knowledge Runtime now also uses. Neither has a route, service, or Prisma model yet, and neither changed any existing Costbook record or pricing value. See `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` for the intended full pipeline and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md` for why it exists.
 
 ## Last verified date
 
-2026-08-29
+2026-09-08

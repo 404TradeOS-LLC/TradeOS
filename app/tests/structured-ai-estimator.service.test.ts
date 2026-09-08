@@ -182,6 +182,86 @@ describe("StructuredAIEstimatorService", () => {
     ]);
   });
 
+  it("propagates the Knowledge Engine match's provenanceStatus onto the draft line item", async () => {
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Tree Service",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched tree removal keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "tree-cost-item-1",
+          type: "costItem",
+          name: "Tree Removal Labor",
+          category: "Tree Service",
+          trade: "Tree Service",
+          unitOfMeasure: "HR",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["tree"],
+          rationale: "Tree Service match.",
+          metadata: {},
+          provenanceStatus: "placeholder",
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new StructuredAIEstimatorService().generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Remove a large oak tree and grind the stump.",
+    });
+
+    expect(result.lineItems[0]?.provenanceStatus).toBe("placeholder");
+  });
+
+  it("defaults a draft line item's provenanceStatus to unverified-legacy when the match omits it", async () => {
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched concrete keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "concrete-cost-item-1",
+          type: "costItem",
+          name: "Concrete Slab Pour",
+          category: "Concrete",
+          trade: "Concrete",
+          unitOfMeasure: "CY",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["concrete"],
+          rationale: "Concrete match.",
+          metadata: {},
+          // provenanceStatus intentionally omitted, as a legacy caller might.
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new StructuredAIEstimatorService().generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Pour a new concrete slab.",
+    });
+
+    expect(result.lineItems[0]?.provenanceStatus).toBe("unverified-legacy");
+  });
+
   it("retrieves labor, material, and equipment cost breakdowns through costbook services", async () => {
     mockKnowledgeRuntime.matchScope.mockReturnValue({
       detectedTrade: "Deck",

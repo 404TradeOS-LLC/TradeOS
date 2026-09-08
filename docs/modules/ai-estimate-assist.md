@@ -6,6 +6,7 @@ source_of_truth: false
 related_code:
   - app/modules/ai-estimate-assist
   - app/modules/knowledge-runtime
+  - app/modules/costbook/provenance.ts
   - app/scripts/vendor-knowledge-engine.js
   - app/backend/routes/aiEstimateAssist.routes.ts
   - web/src/app/(app)/projects/[id]/estimates/[estimateId]/assist/page.tsx
@@ -66,12 +67,16 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - `app/tests/knowledge-runtime.service.test.ts`
 - `app/tests/knowledge-runtime.matcher.test.ts`
 - `app/tests/knowledge-runtime.controller.test.ts`
+- `app/tests/knowledge-runtime.provenance.test.ts`
+- `app/tests/costbook-candidate-cost-item.schema.test.ts`
 - `app/tests/knowledge-runtime.trade-inference.test.ts`
 
 ## Implementation notes
 
 - `knowledge-runtime/repository.ts` now imports the shared `round2()` helper from `estimate-engine/formulas.ts` instead of defining a duplicate private copy (cleanup only; matcher/scoring behavior unchanged)
 - `StructuredAIEstimatorService` is the backend orchestration layer for contractor-language-to-estimate drafts. It is deterministic today, tool-run-oriented, and reuses `KnowledgeRuntimeService`, `CostDatabaseService`, `AssembliesDatabaseService`, and `EstimateEngineService`.
+- Every Knowledge Runtime record, search result, matcher output, `AIEstimateSuggestion`, and `StructuredEstimateDraftLineItem` now carries a `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`, defined once in `app/modules/costbook/provenance.ts` and re-exported from `knowledge-runtime/types.ts` and `ai-estimate-assist/types.ts`). It is resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json`'s new `provenanceStatus` field (`knowledge-runtime/repository.ts`'s `resolveTradeProvenanceStatus()`), defaulting to `"unverified-legacy"` for any trade the field is missing or unrecognized on, or whose trade could not be inferred at all — never silently to `"documented"`. Per the 2026-09-08 Costbook/Knowledge Engine audit (`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`), all 24 legacy "Stable" trades are currently `"unverified-legacy"` (no per-item source/timestamp/confidence trail exists for them) and the Tree Service trade is `"placeholder"` (its own per-item files self-label `pricingStatus: "PLACEHOLDER"`); no trade is currently `"documented"`. `matchScopeDeterministically()` (`knowledge-runtime/matcher.ts`) also appends an explicit `reviewWarnings` entry naming the non-`"documented"` status whenever a match includes one, so this caution reaches `/api/v1/knowledge/match` and the structured estimator's aggregated `validation.warnings` without changing any pricing, confidence score, or matched-target behavior. This is additive to every response shape it touches; no existing field was removed or renamed.
+- `app/modules/costbook/candidateCostItem.ts` defines the first governed contract for a *researched candidate* cost item on its way toward the relational Costbook (`costbookResearchCandidateSchema`, a Zod schema requiring trade/category/item/unit/cost-range/source/date/region/confidence fields, plus `provenanceStatus` and a `reviewStatus` of `"candidate" | "needs-review" | "approved" | "rejected"`). It is a types/validation module only — no route, service, or Prisma model exists yet, and nothing in the module can set `reviewStatus: "approved"` on its own; `isEligibleForCostbookPromotion()` is the single gate a future ingestion service must call, and it requires a named `reviewedBy` and `reviewedAt` in addition to `reviewStatus === "approved"`. See `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` for the full intended pipeline this is the first slice of.
 - `knowledge-runtime/repository.ts`'s `inferTrade()` was rewritten (2026-09-08) from raw substring matching plus array-order resolution to a deterministic, word-boundary/token-aware classifier that checks `category` before `name`, ranks matches by specificity instead of array position, and returns `null` on a genuine tie rather than guessing. This fixed a real defect (trade `"Trim"` matched inside the word `"trimming"`, misclassifying the sole Tree Service assembly-index record), corrected 152 other cost-item/assembly trade attributions to match their own curated `category` field, and left 89 genuinely multi-trade assemblies (`"Remodel – Kitchen/Bathroom/Exterior/Misc – N"`) reporting `null` instead of an arbitrary guess. Zero cost items lost classification; no pricing value or Costbook record changed. See `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md` for the full corpus audit and `app/tests/knowledge-runtime.trade-inference.test.ts` for the regression coverage.
 
 ## Known limitations
@@ -86,6 +91,8 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 ## Deferred work
 
 - any broader learning loop or external-model expansion beyond the current advisory scope
+- the candidate ingestion contract in `app/modules/costbook/candidateCostItem.ts` has no service, route, or persistence layer yet; wiring a reviewed ingestion service that actually writes an approved candidate into `CostItem`/`Material`/`LaborRate` remains future work, gated by `isEligibleForCostbookPromotion()`
+- provenance is resolved per-trade today, not per-item; the canonical `packages/knowledge-engine/exports/json/costbook.json` export still carries no per-item provenance fields (see the 2026-09-08 audit), so a future item-level provenance pass remains open
 
 ## Last verified date
 
