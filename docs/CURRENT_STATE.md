@@ -293,7 +293,6 @@ Repository governance additionally uses documentation consistency, dependency re
   `(org_id, job_id)` index for non-removed, non-declined assignments. The
   candidate is not yet merged or production-applied; its isolated before/after
   plan, measured write-cost, and rollback rehearsal remain required evidence.
-- S027 exact authenticated rendered evidence at 1440 / 1024 / 768 / 390 px remains incomplete; repository/runtime repairs are merged and production replay is already evidenced.
 - Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
 - Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
