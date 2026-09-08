@@ -15,7 +15,7 @@ rm -f "$OUTPUT_PATH"
 psql_args=(-X --dbname="$DATABASE_URL" -v ON_ERROR_STOP=1)
 
 run_sql() {
-  psql "${psql_args[@]}" --tuples-only --no-align --command="$1"
+  PGOPTIONS="-c search_path=${SCHEMA},public" psql "${psql_args[@]}" --tuples-only --no-align --command="$1"
 }
 
 compact_json() {
@@ -107,18 +107,18 @@ order by j.scheduled_start, j.id
 limit 50
 "
 
-before_plan="$(run_sql "set search_path = ${SCHEMA}, public; explain (format json) ${QUERY}")"
-before_insert="$(run_sql "set search_path = ${SCHEMA}, public; begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (1001, 'synthetic-org', 1001, 26, 'technician', 1); rollback")"
-before_update="$(run_sql "set search_path = ${SCHEMA}, public; begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
+before_plan="$(run_sql "explain (format json) ${QUERY}")"
+before_insert="$(run_sql "begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (1001, 'synthetic-org', 1001, 26, 'technician', 1); rollback")"
+before_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
 
 psql "${psql_args[@]}" <<SQL
 set search_path = ${SCHEMA}, public;
 \i ${MIGRATION_PATH}
 SQL
 
-after_plan="$(run_sql "set search_path = ${SCHEMA}, public; explain (format json) ${QUERY}")"
-after_insert="$(run_sql "set search_path = ${SCHEMA}, public; begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (1001, 'synthetic-org', 1001, 26, 'technician', 1); rollback")"
-after_update="$(run_sql "set search_path = ${SCHEMA}, public; begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
+after_plan="$(run_sql "explain (format json) ${QUERY}")"
+after_insert="$(run_sql "begin; explain (analyze, format json) insert into job_assignments (id, org_id, job_id, user_id, assignment_role, assigned_by_id) values (1001, 'synthetic-org', 1001, 26, 'technician', 1); rollback")"
+after_update="$(run_sql "begin; explain (analyze, format json) update job_assignments set declined_at = now() where id = 1; rollback")"
 index_bytes="$(run_sql "select pg_relation_size('${SCHEMA}.${INDEX_NAME}')")"
 index_tuples="$(run_sql "select reltuples::bigint from pg_class where oid = '${SCHEMA}.${INDEX_NAME}'::regclass")"
 
@@ -127,7 +127,7 @@ if [[ -z "$before_plan" || -z "$after_plan" ]]; then
   exit 1
 fi
 
-run_sql "set search_path = ${SCHEMA}, public; drop index if exists ${INDEX_NAME}"
+run_sql "drop index if exists ${INDEX_NAME}"
 rollback_index="$(run_sql "select coalesce(to_regclass('${SCHEMA}.${INDEX_NAME}')::text, 'absent')")"
 
 if [[ "$rollback_index" != "absent" ]]; then
