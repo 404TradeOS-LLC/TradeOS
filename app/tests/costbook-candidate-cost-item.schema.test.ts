@@ -66,7 +66,6 @@ describe("costbookResearchCandidateSchema", () => {
       ).success
     ).toBe(false);
   });
-
   it("rejects a candidate with neither sourceUrl nor sourceIdentifier", () => {
     const input = validCandidateInput({ sourceUrl: undefined });
     const result = safeParseCostbookResearchCandidate(input);

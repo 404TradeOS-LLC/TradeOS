@@ -29,6 +29,7 @@ model Organization {
   membershipAudits OrganizationMembershipAudit[]
   materialPriceAudits MaterialPriceAudit[]
   supplierPriceUpdates SupplierPriceUpdate[]
+  costbookResearchCandidates CostbookResearchCandidate[]
   divisions      Division[]
   regions        Region[]
   suppliers      Supplier[]
@@ -251,6 +252,9 @@ model AppUser {
 
   memberships  OrganizationMembership[]
   reviewedSupplierPriceUpdates SupplierPriceUpdate[]
+  createdCostbookResearchCandidates CostbookResearchCandidate[] @relation("CostbookCandidateCreatedBy")
+  reviewedCostbookResearchCandidates CostbookResearchCandidate[] @relation("CostbookCandidateReviewedBy")
+  promotedCostbookResearchCandidates CostbookResearchCandidate[] @relation("CostbookCandidatePromotedBy")
   settingsAssetUploads SettingsAssetUpload[]
   activityEvents ActivityEvent[]
   proposalDeliveries ProposalDelivery[]
@@ -473,6 +477,70 @@ model SupplierPriceUpdate {
   @@map("supplier_price_updates")
 }
 
+// Stage 6 of docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md: a
+// persisted, org-scoped research candidate awaiting human review before any
+// of its fields may be copied into a real CostItem/Material/LaborRate/
+// Equipment row. Mirrors the SupplierPriceUpdate staged-review precedent
+// (queued proposal -> named human reviewer -> approved/rejected) rather than
+// inventing a new review-queue shape. A candidate is never itself a
+// production Costbook record; promotedCostItemId is set only after an
+// approved candidate is copied through the existing cost-database/costbook
+// services (see app/modules/costbook/candidateCostItemService.ts).
+model CostbookResearchCandidate {
+  id                 String    @id @default(uuid())
+  orgId              String    @map("org_id")
+
+  // --- What the item is (mirrors costbookResearchCandidateSchema) ---
+  trade              String
+  category           String
+  itemName           String    @map("item_name")
+  description        String?
+  unitOfMeasure      String    @map("unit_of_measure")
+
+  // --- Observed cost evidence ---
+  materialCostLow      Decimal? @map("material_cost_low") @db.Decimal(12, 4)
+  materialCostTypical  Decimal  @map("material_cost_typical") @db.Decimal(12, 4)
+  materialCostHigh     Decimal? @map("material_cost_high") @db.Decimal(12, 4)
+  laborHours           Decimal? @map("labor_hours") @db.Decimal(10, 4)
+  laborRateAssumption  Decimal? @map("labor_rate_assumption") @db.Decimal(10, 2)
+  equipmentCost        Decimal  @default(0) @map("equipment_cost") @db.Decimal(10, 2)
+
+  // --- Provenance / audit trail ---
+  sourceName         String    @map("source_name")
+  sourceUrl          String?   @map("source_url")
+  sourceIdentifier   String?   @map("source_identifier")
+  sourceDate         String    @map("source_date")
+  retrievedAt        DateTime  @map("retrieved_at")
+  regionalBasis      String    @map("regional_basis")
+  confidence         String
+  researchNotes      String?   @map("research_notes")
+  provenanceStatus   String    @default("unverified-legacy") @map("provenance_status")
+
+  // --- Review lifecycle: candidate -> needs-review -> approved | rejected ---
+  reviewStatus       String    @default("candidate") @map("review_status")
+  reviewedByUserId   String?   @map("reviewed_by_user_id")
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewNotes        String?   @map("review_notes")
+
+  // --- Promotion linkage: set only once, by the reviewed promotion path ---
+  promotedAt           DateTime? @map("promoted_at")
+  promotedByUserId     String?   @map("promoted_by_user_id")
+  promotedCostItemId   String?   @unique @map("promoted_cost_item_id")
+
+  createdByUserId    String?   @map("created_by_user_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy        AppUser?     @relation("CostbookCandidateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reviewedBy       AppUser?     @relation("CostbookCandidateReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  promotedBy       AppUser?     @relation("CostbookCandidatePromotedBy", fields: [promotedByUserId], references: [id], onDelete: Restrict)
+  promotedCostItem CostItem?    @relation(fields: [promotedCostItemId], references: [id], onDelete: SetNull)
+
+  @@index([orgId, reviewStatus, createdAt])
+  @@map("costbook_research_candidates")
+}
+
 model LaborRate {
   id              String   @id @default(uuid())
   orgId           String   @map("org_id")
@@ -557,6 +625,7 @@ model CostItem {
   assemblyItems    AssemblyItem[]
   estimateLineItems EstimateLineItem[]
   changeOrderLineItems ChangeOrderLineItem[]
+  promotedFromCandidate CostbookResearchCandidate?
 
   @@unique([orgId, code])
   @@index([subcategoryId])

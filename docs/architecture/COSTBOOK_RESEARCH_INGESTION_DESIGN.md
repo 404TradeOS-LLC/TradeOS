@@ -6,6 +6,10 @@ source_of_truth: true
 related_code:
   - app/modules/costbook/provenance.ts
   - app/modules/costbook/candidateCostItem.ts
+  - app/modules/costbook/candidateCostItemService.ts
+  - app/prisma/migrations/20260908050000_add_costbook_research_candidates
+  - app/backend/controllers/costbookCandidates.controller.ts
+  - app/backend/routes/costbook.routes.ts
   - app/modules/knowledge-runtime/repository.ts
   - app/modules/knowledge-runtime/matcher.ts
   - app/modules/cost-database
@@ -33,8 +37,9 @@ or a tool such as Gemini Deep Research or Claude) should enter TradeOS
 **without** repeating that mistake: no researched number reaches a
 tenant's live estimate, or becomes the next "unverified-legacy" pile,
 without a recorded source and an explicit human review decision in
-between. It is a design document only. It does not implement an ingestion
-service, a route, or a Prisma model.
+between. The candidate contract and the reviewed Stage 6 persistence,
+review, and promotion service are now implemented; normalization and
+Knowledge Engine regeneration remain deferred below.
 
 ## Target pipeline
 
@@ -44,13 +49,15 @@ Research / source evidence
   -> normalization                (future: shared unit/trade normalization helpers)
   -> provenance + timestamp + confidence   (already required fields on the candidate)
   -> validation / review          (human reviewer; isEligibleForCostbookPromotion() gate)
-  -> approved production Costbook item     (future: writes CostItem/Material/LaborRate)
+  -> approved production Costbook item     [LANDED: app/modules/costbook/candidateCostItemService.ts]
   -> Knowledge Engine index/export         (future: regenerated from governed Costbook data)
 ```
 
-Landed today (this slice): the **candidate** stage's type/schema contract
-and the **provenance** vocabulary it shares with the Knowledge Engine.
-Everything else in the diagram is future work — see "Deferred work" below.
+Landed: the **candidate** stage's type/schema contract, the **provenance**
+vocabulary it shares with the Knowledge Engine, and Stage 6's persisted
+review queue and promotion service. Stage 3 (normalization) and Stage 7
+(Knowledge Engine regeneration) remain future work — see "Deferred work"
+below.
 
 ## Stage 1 — Research / source evidence
 
@@ -163,21 +170,66 @@ already established for AI Estimate Assist
 (`docs/modules/ai-estimate-assist.md`: "all generated drafts require human
 review before line items are applied").
 
-## Stage 6 — Approved production Costbook item (deferred)
+## Stage 6 — Approved production Costbook item (landed)
 
-Not implemented in this slice. When built, this stage is an ordinary,
-reviewed application change: a service that takes an approved candidate
-passing `isEligibleForCostbookPromotion()` and writes it through the
-**existing** `app/modules/cost-database` / `material-database` /
-`labor-database` services — the same organization-scoped, RLS-forced,
-`costbook.write`/`costbook.manage`-gated write paths every other Costbook
-mutation already uses. It must not introduce a second write path, a second
-`CostItem` shape, or a bypass of existing tenant scoping. An approved
-candidate is a *starting point* an organization's estimator reviews and
-adds to their own catalog — it does not appear automatically in any
-tenant's live Costbook without that organization's own action, consistent
-with the existing tenant-scoped Costbook model
-(`docs/architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md`).
+Implemented by `app/modules/costbook/candidateCostItemService.ts`
+(`CostbookCandidateService`) and migration
+`20260908050000_add_costbook_research_candidates`.
+
+**Persistence.** `CostbookResearchCandidate` is a new, org-scoped Prisma
+model persisting the Stage 2 contract's fields plus a review/promotion
+lifecycle, mirroring the `SupplierPriceUpdate` staged-review precedent
+(queued proposal -> named human reviewer -> approved/rejected) rather than
+inventing a new review-queue shape. Forced RLS matches
+`materials_write_policy`: any org member with `costbook.read` may see the
+queue; insert/update requires `current_app_can_manage_costbook()`
+(owner/admin), matching `costbook.write`/`costbook.manage` both being
+owner/admin-only today. Database check constraints independently require a
+named human `reviewedByUserId`/`reviewedAt` whenever `reviewStatus` is
+`approved`/`rejected`, and require an approved review plus
+`promotedAt`/`promotedByUserId` whenever `promotedCostItemId` is set — this
+holds even if the application-layer gate is somehow bypassed.
+
+**Review.** `POST /api/v1/costbook/candidates/:id/review` (`costbook.manage`,
+mirroring supplier-integration's approve/reject boundary) records
+`reviewedByUserId` as the authenticated caller's own user id — never a
+free-text field, so a synthetic identity like `"AI"`, `"system"`, or
+`"Claude"` can never be recorded as a reviewer. A claim predicate
+(`updateMany` scoped to the row's current `reviewStatus`) makes concurrent
+review attempts mutually exclusive, the same pattern
+`SupplierIntegrationService.approve/reject` already uses.
+
+**Promotion.** `POST /api/v1/costbook/candidates/:id/promote`
+(`costbook.manage`) is the *only* code path that may copy a candidate's
+fields into a real `CostItem`. It:
+
+1. acquires a per-candidate Postgres advisory lock so two concurrent
+   promote calls cannot both pass the "not yet promoted" check;
+2. re-validates `isEligibleForCostbookPromotion()` against the persisted
+   row — never trusting `reviewStatus` alone;
+3. resolves an existing Subcategory in the organization's Costbook
+   hierarchy whose name matches the candidate's `category`
+   (case-insensitive); if none exists, it fails with a 422 explaining what
+   to create rather than inventing Division/Category/Subcategory structure
+   on the candidate's behalf;
+4. writes any evidenced cost components (Material/LaborRate/Equipment)
+   through the **existing** `CostbookService.createMaterial`/
+   `createLaborRate`/`createEquipment` methods, then the `CostItem` itself
+   through the **existing** `CostDatabaseService.create` — the same
+   organization-scoped, RLS-forced write paths every other Costbook
+   mutation already uses. No second write path or parallel pricing store is
+   introduced;
+5. records `promotedAt`/`promotedByUserId`/`promotedCostItemId` on the
+   candidate in the same transaction, so a candidate can promote to at most
+   one `CostItem`.
+
+An approved candidate is a *starting point* an organization's estimator
+reviews and adds to their own catalog — it does not appear automatically in
+any tenant's live Costbook without that organization's own `promote` action,
+consistent with the existing tenant-scoped Costbook model
+(`docs/architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md`). See
+`docs/API_REFERENCE.md` for the full route contract and
+`docs/CURRENT_STATE.md` for the plain-language summary.
 
 ## Stage 7 — Knowledge Engine index/export (deferred)
 
@@ -193,36 +245,43 @@ attempt that regeneration; the Knowledge Engine's static corpus is
 unchanged in content (only `trade-progress.json`'s new `provenanceStatus`
 field was added — see the audit-follow-up PR).
 
-## What this slice deliberately does not do
+## What this design deliberately does not do
 
-- It does not create a database table, migration, or Prisma model for
-  candidates. A candidate is a runtime/validation object today, not
-  persisted state.
-- It does not expose an HTTP route. There is no way to submit a candidate
-  over the network yet — this is intentional; a route is Stage 5/6's
-  future implementation, not this contract's.
 - It does not let any code path — AI-authored or otherwise — set
-  `reviewStatus` to `"approved"` without a human `reviewedBy`.
-- It does not change any existing Knowledge Engine cost value, any
-  production `CostItem`/`Material`/`LaborRate` row, or any Estimate's
-  persisted pricing.
+  `reviewStatus` to `"approved"` without a human `reviewedBy`, and it does
+  not let anything other than `promote()` write a candidate's fields into a
+  production `CostItem`/`Material`/`LaborRate`/`Equipment` row.
+- It does not change any existing Knowledge Engine cost value, any existing
+  production `CostItem`/`Material`/`LaborRate`/`Equipment` row, or any
+  Estimate's persisted pricing. Promotion only ever creates new rows from an
+  already-approved candidate.
+- Promotion does not create Division/Category/Subcategory hierarchy on a
+  candidate's behalf — it requires an existing Subcategory matching the
+  candidate's `category` and fails with a 422 otherwise.
 - It does not scrape, store, or reproduce licensed/proprietary cost-data
   content. A future ingestion tool must independently confirm it has the
   right to use whatever source it cites.
+- It does not regenerate the Knowledge Engine's static corpus (Stage 7) —
+  see below.
 
 ## Deferred work
 
 - Stage 3 normalization helpers (unit/trade canonicalization for
   candidates).
-- Stage 6: the actual reviewed ingestion service and its route, wired to
-  `isEligibleForCostbookPromotion()` as its only promotion gate.
 - Stage 7: regenerating Knowledge Engine export data from governed
-  Costbook records instead of hand-authored seed files.
-- A persistence layer for candidates (today they are pure in-memory/
-  validation objects; a real research queue needs a table, most likely a
-  new `CostbookResearchCandidate`-shaped model scoped the same way
-  `SupplierPriceUpdate` already stages proposed Material price changes for
-  human approval — reuse that precedent rather than inventing a new
-  review-queue pattern).
+  Costbook/candidate records instead of hand-authored seed files.
 - Item-level (not just trade-level) provenance once individual Knowledge
   Engine items carry their own source/date/confidence fields.
+- Autonomous research integration (Gemini Deep Research, Claude, scrapers,
+  or scheduled jobs submitting candidates) — Stage 6 is the controlled
+  intake and promotion mechanism those systems would use; none of them are
+  wired up yet, and every candidate today is submitted by whatever
+  authenticated, owner/admin-permissioned caller invokes
+  `POST /api/v1/costbook/candidates`.
+- A richer normalization of the candidate's cost-evidence fields into
+  Costbook components: today `promote()` maps `materialCostTypical` to a
+  zero-waste Material, `laborHours`/`laborRateAssumption` to a LaborRate
+  with `billRate` equal to the researched `hourlyCost` (no markup assumed),
+  and the flat `equipmentCost` entirely to `operatingCostPerHour` (no
+  ownership/operating split). An org can adjust any of these after
+  promotion via the existing Costbook endpoints.

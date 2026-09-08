@@ -306,6 +306,18 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+## Costbook research candidates (Stage 6 ingestion)
+
+`CostbookResearchCandidate` (new model, 2026-09-08) is the persisted form of the Stage 5 `CostbookResearchCandidate` type contract (`app/modules/costbook/candidateCostItem.ts`), per `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`. It is not a production Costbook entity — it is a staged, org-scoped research proposal awaiting a named human review decision, mirroring the `SupplierPriceUpdate` staged-review precedent rather than a new review-queue shape.
+
+- belongs to one organization (`orgId`, cascade-deleted with it); carries the same evidence fields as the Stage 5 contract (trade/category/item/unit, material/labor/equipment cost evidence, source name/URL/identifier/date, retrieval timestamp, regional basis, qualitative confidence, research notes) plus the shared `provenanceStatus` vocabulary (`app/modules/costbook/provenance.ts`)
+- lifecycle: `reviewStatus` moves `candidate -> needs-review -> approved | rejected`; every candidate starts as `candidate`, and no code path defaults it to `approved` — a database check constraint additionally requires `reviewedByUserId`/`reviewedAt` whenever `reviewStatus` is `approved` or `rejected`, and requires an `approved` review plus `promotedAt`/`promotedByUserId` whenever `promotedCostItemId` is set, independent of the application-layer `isEligibleForCostbookPromotion()` gate
+- `reviewedByUserId`/`promotedByUserId`/`createdByUserId` are foreign keys to `AppUser` (`onDelete: SetNull`), never a free-text field — a reviewer or promoter is always a real authenticated user id, so a synthetic string like `"AI"` or `"system"` can never appear there
+- `promotedCostItemId` is a unique, nullable foreign key to `CostItem`, set only once by the reviewed promotion service (`app/modules/costbook/candidateCostItemService.ts`) after it re-validates `isEligibleForCostbookPromotion()` against the persisted row inside a transaction serialized by a per-candidate Postgres advisory lock — a candidate can promote to at most one `CostItem`, and promotion writes through the existing `CostbookService`/`CostDatabaseService` methods (Material/LaborRate/Equipment/CostItem), never a second parallel pricing store
+- promotion requires an existing `Subcategory` in the organization's Costbook hierarchy whose name matches the candidate's `category` (case-insensitive); it does not create Division/Category/Subcategory structure on the candidate's behalf
+- select/write RLS policies mirror the `materials_write_policy` shape: any org member may read the queue (`costbook.read`), but insert/update is restricted to `current_app_can_manage_costbook()` (owner/admin), matching `costbook.write`/`costbook.manage` both being owner/admin-only today
+- Stage 7 (regenerating the Knowledge Engine's static corpus from governed Costbook/candidate data) remains unimplemented; this model does not touch `packages/knowledge-engine/**`
+
 ## Core relationships
 
 Canonical relationship flow:

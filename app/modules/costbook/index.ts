@@ -21,6 +21,13 @@ export type {
   CostbookCandidateReviewStatus,
   CostbookResearchCandidate,
 } from "./candidateCostItem";
+export { CostbookCandidateService } from "./candidateCostItemService";
+export type {
+  CandidateCostItemDTO,
+  CandidateListFilters,
+  CreateCandidateInput,
+  ReviewCandidateInput,
+} from "./candidateCostItemService";
 export type {
   CostbookCategoryDTO,
   CostbookCategoryInput,

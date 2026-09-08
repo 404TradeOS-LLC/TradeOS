@@ -63,7 +63,6 @@ const isoCalendarDate = z.string().trim().refine(
 );
 
 const isoTimestamp = z.string().trim().datetime({ offset: true });
-
 export const costbookResearchCandidateSchema = z
   .object({
     // --- What the item is ---
