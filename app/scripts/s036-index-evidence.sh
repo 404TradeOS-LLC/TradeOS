@@ -18,7 +18,7 @@ run_sql() {
   PGOPTIONS="-c search_path=${SCHEMA},public" psql "${psql_args[@]}" --tuples-only --no-align --command="$1"
 }
 
-compact_json() {
+extract_json() {
   printf '%s\n' "$1" |
     awk '
       BEGIN { started = 0 }
@@ -26,15 +26,20 @@ compact_json() {
       started { print }
       started && /^\]$/ { exit }
     ' |
-    jq -c .
+    cat
+}
+
+compact_json() {
+  extract_json "$1" | jq -c .
 }
 
 write_timing() {
-  printf '%s' "$1" | jq -c '.[0] | {planning_ms: .["Planning Time"], execution_ms: .["Execution Time"]}'
+  extract_json "$1" |
+    jq -c '.[0] | {planning_ms: .["Planning Time"], execution_ms: .["Execution Time"]}'
 }
 
 plan_uses_index() {
-  printf '%s' "$1" | jq -r --arg name "$INDEX_NAME" '
+  extract_json "$1" | jq -r --arg name "$INDEX_NAME" '
     [.. | strings | select(contains($name))] | length > 0
   '
 }
