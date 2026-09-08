@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-09-08
 source_of_truth: false
 related_code:
   - app/modules/intelligence
@@ -83,4 +83,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-10
+2026-09-08
