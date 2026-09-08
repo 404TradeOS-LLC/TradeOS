@@ -33,12 +33,20 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+function CardTitle({
+  className,
+  size = "default",
+  ...props
+}: React.ComponentProps<"div"> & { size?: "default" | "lg" }) {
   return (
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        "font-heading leading-snug font-medium group-data-[size=sm]/card:text-sm",
+        // "lg" is for a card that IS the primary section header on a dense
+        // page (TableSection) - everything else stays the default weight so
+        // nested/minor card titles don't compete with it.
+        size === "lg" ? "text-lg font-semibold" : "text-base",
         className
       )}
       {...props}

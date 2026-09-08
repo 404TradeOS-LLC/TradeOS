@@ -382,6 +382,8 @@ export default async function DashboardPage() {
         }}
       />
 
+      <OwnerQuickActions actions={ownerQuickActions} />
+
       <NeedsAttentionCard
         estimates={attentionEstimates}
         proposals={attentionProposals}
@@ -420,8 +422,6 @@ export default async function DashboardPage() {
           }
         />
       </div>
-
-      <OwnerQuickActions actions={ownerQuickActions} />
 
       <Card className="border-border/70">
         <CardHeader>
