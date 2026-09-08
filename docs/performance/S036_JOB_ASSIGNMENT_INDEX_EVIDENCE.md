@@ -1,8 +1,9 @@
 # S036 Active Job-Assignment Index Evidence
 
-Status: `PARTIAL` — disposable evidence is captured, but the candidate is not
-yet proven to improve the representative query plan. S036 remains incomplete
-pending the merge decision for this candidate.
+Status: `PARTIAL` — disposable evidence shows a conditional plan benefit for a
+larger, selective tenant workload, but does not validate production behavior.
+S036 remains incomplete pending review of the storage/write-cost tradeoff and
+merge decision for this candidate.
 
 ## Candidate
 
@@ -71,15 +72,38 @@ The rollback rehearsal dropped `idx_job_assignments_active_org_job` and
 verified it was absent. The schema cleanup trap then removed the full
 synthetic fixture.
 
+## Larger selective fixture result
+
+The follow-up [S036 disposable PostgreSQL workflow](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34206382438)
+also applied the exact migration unmodified against 100,000 synthetic jobs and
+500,000 synthetic assignments across 100 synthetic organizations. The target
+organization represented approximately 1,000 jobs and 5,000 assignments. The
+[uploaded evidence artifact](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34206382438/artifacts/10047932635)
+contains the full redacted plans and measurements.
+
+In this selective workload, the plan changed from a parallel nested loop with
+a sequential scan of `job_assignments` to a hash join with a bitmap heap scan
+driven by `idx_job_assignments_active_org_job`. Estimated total cost decreased
+from approximately 13,351 to 8,280, and PostgreSQL selected the candidate
+index. The index measured 5,169,152 bytes with approximately 300,000 estimated
+tuples. The single controlled insert comparison was 0.309 ms execution before
+versus 0.490 ms with the index; the active-to-declined update was 0.196 ms
+before versus 0.252 ms with the index.
+
+This narrows the evidence gap: the candidate is conditionally useful when a
+tenant query is selective within a materially larger assignment table, but the
+result does not establish production performance or an acceptable production
+write/storage budget.
+
 ## Required follow-up before merge
 
-Review the captured result before merge. It does not establish a plan benefit
-at the representative fixture, so the candidate should remain unmerged unless
-the owning engineer documents why the production cardinality/selectivity is
-materially different and provides an additional authorized disposable plan
-comparison. Any follow-up should retain redacted `EXPLAIN (FORMAT JSON)` output
-before and after the index, planner cost, estimated rows, index size, controlled
-write-cost observations, and migration rollback evidence.
+Review both captured results before merge. The candidate should remain
+review-only until the owning engineer confirms that production tenant
+cardinality/selectivity and the approximately 5 MB per 300,000 active-row
+index are acceptable, and accepts the measured write-cost tradeoff. Any
+follow-up should retain redacted `EXPLAIN (FORMAT JSON)` output before and
+after the index, planner cost, estimated rows, index size, controlled write-cost
+observations, and migration rollback evidence.
 
 The rollback command used was:
 
@@ -89,4 +113,5 @@ drop index if exists idx_job_assignments_active_org_job;
 
 No production database, customer workload, production credentials, or
 production `EXPLAIN ANALYZE` was used for this candidate. This document remains
-`PARTIAL`, and the migration must not be represented as completed S036 work.
+`PARTIAL`, and the migration must not be represented as completed S036 work
+until the conditional benefit and production cost budget are accepted.
