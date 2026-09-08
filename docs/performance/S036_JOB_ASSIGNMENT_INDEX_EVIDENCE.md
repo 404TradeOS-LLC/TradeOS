@@ -1,7 +1,8 @@
 # S036 Active Job-Assignment Index Evidence
 
-Status: `PARTIAL` — candidate implementation prepared for review; S036 is not
-complete until the isolated plan comparison and rollback rehearsal are attached.
+Status: `PARTIAL` — disposable evidence is captured, but the candidate is not
+yet proven to improve the representative query plan. S036 remains incomplete
+pending the merge decision for this candidate.
 
 ## Candidate
 
@@ -48,20 +49,44 @@ and makes no production latency claim.
 These are schema-level write-cost expectations, not a measured production
 workload claim.
 
+## Disposable fixture result
+
+The supplemental [S036 disposable PostgreSQL workflow](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34204415735)
+applied the exact migration unmodified in an isolated `s036_evidence` schema
+with the S035 representative fixture: 1,000 synthetic jobs, 500 synthetic
+assignments, 100 active assignments, 200 removed assignments, and 200
+declined assignments. The [uploaded evidence artifact](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34204415735/artifacts/10047147281)
+contains the redacted JSON plans, write-cost observations, and rollback result.
+
+At this cardinality, the before and after plans are identical: a hash join
+with a sequential scan of `job_assignments` and approximately 180 estimated
+active rows. PostgreSQL did not select the candidate index after creation.
+The candidate measured 16,384 bytes with approximately 100 estimated tuples.
+The single controlled insert comparison was 0.294 ms execution before versus
+0.429 ms with the index; the active-to-declined update was 0.231 ms before
+versus 0.197 ms with the index. These are disposable `EXPLAIN (ANALYZE,
+FORMAT JSON)` observations, not production latency or SLO measurements.
+
+The rollback rehearsal dropped `idx_job_assignments_active_org_job` and
+verified it was absent. The schema cleanup trap then removed the full
+synthetic fixture.
+
 ## Required follow-up before merge
 
-Run the candidate against an authorized disposable PostgreSQL fixture with the
-S035 synthetic cardinalities and `ANALYZE`, then retain redacted
-`EXPLAIN (FORMAT JSON)` output before and after the index. Record planner cost,
-estimated rows, whether the active-assignment scan changes, index size, and a
-controlled insert/update write-cost comparison. Rehearse migration apply and
-rollback with:
+Review the captured result before merge. It does not establish a plan benefit
+at the representative fixture, so the candidate should remain unmerged unless
+the owning engineer documents why the production cardinality/selectivity is
+materially different and provides an additional authorized disposable plan
+comparison. Any follow-up should retain redacted `EXPLAIN (FORMAT JSON)` output
+before and after the index, planner cost, estimated rows, index size, controlled
+write-cost observations, and migration rollback evidence.
+
+The rollback command used was:
 
 ```sql
 drop index if exists idx_job_assignments_active_org_job;
 ```
 
 No production database, customer workload, production credentials, or
-`EXPLAIN ANALYZE` was used for this candidate. Until that evidence is attached,
-this document remains `PARTIAL` and the migration must not be represented as
-completed S036 work.
+production `EXPLAIN ANALYZE` was used for this candidate. This document remains
+`PARTIAL`, and the migration must not be represented as completed S036 work.
