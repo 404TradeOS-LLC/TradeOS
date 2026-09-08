@@ -46,6 +46,11 @@ and makes no production latency claim.
   the trailing `reset lock_timeout` prevents the setting from leaking into later
   migration statements. A timeout fails the migration rather than silently
   proceeding under an unsafe lock.
+- Production application must occur only during a documented write-maintenance
+  window because transactional `CREATE INDEX` can block writes while the index
+  builds. The migration path must retain ordinary transactional `CREATE INDEX`;
+  `CREATE INDEX CONCURRENTLY` is not valid for the repository's Prisma deploy
+  path.
 
 These are schema-level write-cost expectations, not a measured production
 workload claim.
@@ -56,8 +61,8 @@ The supplemental [S036 disposable PostgreSQL workflow](https://github.com/404Tra
 applied the exact migration unmodified in an isolated `s036_evidence` schema
 with the S035 representative fixture: 1,000 synthetic jobs, 500 synthetic
 assignments, 100 active assignments, 200 removed assignments, and 200
-declined assignments. The [uploaded evidence artifact](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34204415735/artifacts/10047147281)
-contains the redacted JSON plans, write-cost observations, and rollback result.
+declined assignments. The workflow run page contains the redacted JSON plans,
+write-cost observations, and rollback result.
 
 At this cardinality, the before and after plans are identical: a hash join
 with a sequential scan of `job_assignments` and approximately 180 estimated
@@ -78,8 +83,7 @@ The follow-up [S036 disposable PostgreSQL workflow](https://github.com/404TradeO
 also applied the exact migration unmodified against 100,000 synthetic jobs and
 500,000 synthetic assignments across 100 synthetic organizations. The target
 organization represented approximately 1,000 jobs and 5,000 assignments. The
-[uploaded evidence artifact](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34206382438/artifacts/10047932635)
-contains the full redacted plans and measurements.
+workflow run page contains the full redacted plans and measurements.
 
 In this selective workload, the plan changed from a parallel nested loop with
 a sequential scan of `job_assignments` to a hash join with a bitmap heap scan
