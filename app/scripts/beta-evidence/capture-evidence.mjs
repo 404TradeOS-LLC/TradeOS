@@ -238,9 +238,12 @@ try {
   // share is 4037.50/5100, so tax = 5610 * 0.7916667 * 0.07 = 310.89 and the
   // customer-facing total is 5920.89. These are the numbers the estimate engine
   // must produce, not merely numbers that happen to be on screen.
-  await page.getByText("$310.89", { exact: true }).waitFor({ timeout: 60_000 });
-  await page.getByText("$5,920.89", { exact: true }).waitFor({ timeout: 60_000 });
-  assertions.push({ name: "pre-markup tax and total match the shipped formula", passed: true });
+  const reloadedPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "pre-markup tax and total match the shipped formula",
+    reloadedPricingText.includes("$310.89") && reloadedPricingText.includes("$5,920.89"),
+    "expected the rendered tax $310.89 and total $5,920.89 after reload",
+  );
   await checkpoint("05", "estimate-reloaded");
 
   // ---- 06 markup + finalize ---------------------------------------------
