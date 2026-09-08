@@ -133,7 +133,7 @@ A billing document stored in `Invoice`.
 - invoice line items store the issued selling-price allocation as `unitPrice`
   and `lineTotal`; estimate and change-order line items retain their separate
   cost-oriented `unitCost`/`lineCost` fields
-- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; synchronized `unit_cost`/`line_cost` aliases remain temporarily in production during the expand/contract rollout. The tracked contraction is verified by disposable PostgreSQL migration coverage and is pending protected production approval/execution; its rehearsal confirms canonical values, the invoice-line index/constraints, and forced RLS survive.
+- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08 and removed the synchronized `unit_cost`/`line_cost` aliases plus their sync trigger/function. Disposable PostgreSQL migration coverage confirms canonical values, the invoice-line index/constraints, and tenant-scoped forced RLS survive; live production schema verification confirms the canonical columns, required indexes, and forced RLS.
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
