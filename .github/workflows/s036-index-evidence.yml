@@ -1,0 +1,57 @@
+name: S036 disposable index evidence
+
+on:
+  pull_request:
+    paths:
+      - "app/prisma/migrations/20260908120000_add_active_job_assignment_lookup/migration.sql"
+      - "app/scripts/s036-index-evidence.sh"
+      - "docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md"
+      - ".github/workflows/s036-index-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s036-index-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evidence:
+    name: Disposable PostgreSQL plan and rollback evidence
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: tradeos_test
+          POSTGRES_DB: tradeos_evidence
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tradeos_evidence"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PostgreSQL client and jq
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client jq
+      - name: Capture disposable S036 evidence
+        env:
+          DATABASE_URL: postgresql://postgres:tradeos_test@127.0.0.1:5432/tradeos_evidence
+          S036_EVIDENCE_OUTPUT: ../artifacts/s036-index-evidence/evidence.md
+        run: bash scripts/s036-index-evidence.sh
+      - name: Upload S036 evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: s036-index-evidence
+          path: artifacts/s036-index-evidence
+          if-no-files-found: warn
+          retention-days: 30
