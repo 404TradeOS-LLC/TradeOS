@@ -189,7 +189,7 @@ try {
     waitUntil: "networkidle",
     timeout: 60_000,
   });
-  await page.getByRole("button", { name: /create first estimate|new estimate/i }).click();
+  await page.getByRole("button", { name: "Create first estimate", exact: true }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/estimates/[^/]+$`), { timeout: 60_000 });
   const estimateId = /\/estimates\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("estimate resolves an id", Boolean(estimateId), `url was ${page.url()}`);
