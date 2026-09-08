@@ -40,12 +40,12 @@ create table costbook_research_candidates (
 
     review_status          text not null default 'candidate'
                            check (review_status in ('candidate', 'needs-review', 'approved', 'rejected')),
-    reviewed_by_user_id    uuid references users(id) on delete set null,
+    reviewed_by_user_id    uuid references users(id) on delete restrict,
     reviewed_at            timestamptz,
     review_notes           text,
 
     promoted_at            timestamptz,
-    promoted_by_user_id    uuid references users(id) on delete set null,
+    promoted_by_user_id    uuid references users(id) on delete restrict,
     promoted_cost_item_id  uuid unique references cost_items(id) on delete set null,
 
     created_by_user_id     uuid references users(id) on delete set null,

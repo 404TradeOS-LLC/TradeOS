@@ -255,6 +255,17 @@ describe("CostbookCandidateService", () => {
       expect(mockPrisma.costItem.create).not.toHaveBeenCalled();
     });
 
+    it("rejects equipment-only promotion before creating an unpriced equipment link", async () => {
+      transaction.costbookResearchCandidate.findFirst.mockResolvedValue(
+        approvedRow({ laborHours: null, equipmentCost: 15 })
+      );
+      mockPrisma.subcategory.findFirst.mockResolvedValue({ id: "subcategory-1" });
+
+      await expect(new CostbookCandidateService().promote(auth, "cand-1")).rejects.toMatchObject({ statusCode: 422 });
+      expect(mockPrisma.equipment.create).not.toHaveBeenCalled();
+      expect(mockPrisma.costItem.create).not.toHaveBeenCalled();
+    });
+
     it("promotes an approved, eligible candidate through the existing Costbook services and records promotion linkage", async () => {
       transaction.costbookResearchCandidate.findFirst.mockResolvedValue(
         approvedRow({ laborHours: 1.5, laborRateAssumption: 65, equipmentCost: 15 })

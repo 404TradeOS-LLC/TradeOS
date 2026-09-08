@@ -275,6 +275,15 @@ export class CostbookCandidateService {
         );
       }
 
+      const laborHours = row.laborHours != null ? Number(row.laborHours) : null;
+      const equipmentCostValue = Number(row.equipmentCost);
+      if (equipmentCostValue > 0 && !(laborHours && laborHours > 0)) {
+        throw new ApiError(
+          422,
+          `Costbook research candidate ${id} includes equipment cost but no positive laborHours/production rate; supply a production-rate basis before promoting it.`
+        );
+      }
+
       // Reuse the existing, org-scoped Costbook write paths for each
       // component instead of a second parallel pricing store - the same
       // requirement Stage 6 places on the CostItem write itself below.
@@ -288,7 +297,6 @@ export class CostbookCandidateService {
         })).id
         : null;
 
-      const laborHours = row.laborHours != null ? Number(row.laborHours) : null;
       const laborRateAssumption = row.laborRateAssumption != null ? Number(row.laborRateAssumption) : null;
       // billRate is set equal to the researched hourlyCost - the candidate
       // carries no markup assumption, so no markup is invented here; an org
@@ -302,7 +310,6 @@ export class CostbookCandidateService {
         })).id
         : null;
 
-      const equipmentCostValue = Number(row.equipmentCost);
       // The candidate carries a single flat equipmentCost with no
       // ownership/operating split, so it is recorded entirely as operating
       // cost per hour; an org can rebalance it after promotion.

@@ -26,6 +26,11 @@ describe("costbook research candidates migration", () => {
     expect(migration).toContain("review_status = 'approved' and promoted_at is not null and promoted_by_user_id is not null");
   });
 
+  it("preserves reviewer and promoter identities for the audit trail", () => {
+    expect(migration).toContain("reviewed_by_user_id    uuid references users(id) on delete restrict");
+    expect(migration).toContain("promoted_by_user_id    uuid references users(id) on delete restrict");
+  });
+
   it("forces row-level security scoped to the authenticated organization", () => {
     expect(migration).toContain("alter table costbook_research_candidates enable row level security");
     expect(migration).toContain("alter table costbook_research_candidates force row level security");

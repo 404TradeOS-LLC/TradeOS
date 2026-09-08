@@ -533,8 +533,8 @@ model CostbookResearchCandidate {
 
   organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   createdBy        AppUser?     @relation("CostbookCandidateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  reviewedBy       AppUser?     @relation("CostbookCandidateReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
-  promotedBy       AppUser?     @relation("CostbookCandidatePromotedBy", fields: [promotedByUserId], references: [id], onDelete: SetNull)
+  reviewedBy       AppUser?     @relation("CostbookCandidateReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  promotedBy       AppUser?     @relation("CostbookCandidatePromotedBy", fields: [promotedByUserId], references: [id], onDelete: Restrict)
   promotedCostItem CostItem?    @relation(fields: [promotedCostItemId], references: [id], onDelete: SetNull)
 
   @@index([orgId, reviewStatus, createdAt])
