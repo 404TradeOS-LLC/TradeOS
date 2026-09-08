@@ -153,11 +153,23 @@ try {
       if (settings.status() !== 200 || (await settings.json()).orgId !== expectedOrgId) {
         throw new Error("Authenticated settings API did not match the expected canonical smoke organization ID.");
       }
-    } else if (!settingsText.includes(expectedOrg)) {
-      throw new Error(
-        `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
-          "Refusing to capture evidence against an unexpected organization.",
-      );
+    } else {
+      // The Settings page keeps the organization label in the editable
+      // companyName field; it is not guaranteed to be visible in body text
+      // until the user opens the relevant panel. Read the rendered field value
+      // as the tenant signal too, while retaining the visible-text fallback
+      // for deployments that expose the label in their shell or preview cards.
+      const companyName = await page
+        .locator('input[id$="-companyName-input"]')
+        .first()
+        .inputValue()
+        .catch(() => "");
+      if (!settingsText.includes(expectedOrg) && companyName !== expectedOrg) {
+        throw new Error(
+          `Authenticated session is not scoped to the expected smoke tenant "${expectedOrg}". ` +
+            "Refusing to capture evidence against an unexpected organization.",
+        );
+      }
     }
     record("session is scoped to the expected smoke tenant", true);
   }
