@@ -1,6 +1,7 @@
 export default function CustomersLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6">
+      <span className="sr-only">Loading customers</span>
       <div className="h-16 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (

@@ -702,20 +702,45 @@ function PricingPanel({
             Target margin %
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {mode === "markup"
+            ? (() => {
+                const pct = Number(value) || 20;
+                const cost = 100;
+                const price = cost * (1 + pct / 100);
+                return `$${cost} cost at ${pct}% markup = $${price.toFixed(2)} price.`;
+              })()
+            : (() => {
+                const pct = Math.min(Number(value) || 20, 99);
+                const cost = 100;
+                const price = cost / (1 - pct / 100);
+                return `$${cost} cost at ${pct}% target margin = $${price.toFixed(2)} price.`;
+              })()}
+        </p>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div className="space-y-2">
             <Label htmlFor="pricing-value">Percentage</Label>
             <Input id="pricing-value" type="number" min="0" step="any" value={value} onChange={(e) => setValue(e.target.value)} />
           </div>
+          <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={() => setPricingMode.mutate()} disabled={!isDraft || setPricingMode.isPending}>
-            {setPricingMode.isPending ? "Applying…" : "Apply"}
-          </Button>
+              {setPricingMode.isPending ? "Applying…" : "Apply"}
+            </Button>
+            {setPricingMode.isSuccess && !setPricingMode.isPending ? (
+              <span className="text-xs text-success">Saved</span>
+            ) : null}
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2"><Label htmlFor="overhead-value">Overhead %</Label><Input id="overhead-value" type="number" min="0" step="any" value={overhead} onChange={(e) => setOverhead(e.target.value)} disabled={!isDraft} /></div>
           <div className="space-y-2"><Label htmlFor="tax-value">Tax %</Label><Input id="tax-value" type="number" min="0" max="100" step="any" value={tax} onChange={(e) => setTax(e.target.value)} disabled={!isDraft} /></div>
         </div>
-        <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>
+            {updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}
+          </Button>
+          {updateSettings.isSuccess && !updateSettings.isPending ? <span className="text-xs text-success">Saved</span> : null}
+        </div>
         {Number(tax) > 0 && !hasTaxableLineItems ? (
           <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
             A tax rate is set, but no estimate line is marked taxable. Tax will calculate to $0.00 until you mark the applicable line items as taxable.

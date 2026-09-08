@@ -1,6 +1,7 @@
 export default function OverdueTasksLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading overdue tasks">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6" aria-label="Loading overdue tasks">
+      <span className="sr-only">Loading overdue tasks</span>
       <div className="space-y-2">
         <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
         <div className="h-4 w-80 max-w-full animate-pulse rounded-md bg-muted" />

@@ -1,6 +1,7 @@
 export default function ProjectsLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading projects">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6" aria-label="Loading projects">
+      <span className="sr-only">Loading projects</span>
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-2">
           <div className="h-8 w-32 animate-pulse rounded-md bg-muted" />

@@ -1,6 +1,7 @@
 export default function CostbookDivisionsLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6">
+      <span className="sr-only">Loading divisions</span>
       <div className="space-y-2">
         <div className="h-4 w-24 rounded-md bg-muted animate-pulse" />
         <div className="h-8 w-44 rounded-md bg-muted animate-pulse" />

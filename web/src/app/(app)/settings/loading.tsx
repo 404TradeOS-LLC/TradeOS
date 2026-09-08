@@ -1,6 +1,7 @@
 export default function SettingsLoading() {
   return (
-    <div className="space-y-6">
+    <div role="status" aria-live="polite" aria-busy="true" className="space-y-6">
+      <span className="sr-only">Loading settings</span>
       <div className="h-40 animate-pulse rounded-[28px] border border-border/70 bg-muted/30" />
       <div className="h-20 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
       <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
