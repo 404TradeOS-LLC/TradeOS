@@ -41,11 +41,28 @@ Those simply re-export the new module entrypoints so existing imports keep worki
 
 - `packages/knowledge-engine/exports/json/costbook.json`
 - `packages/knowledge-engine/knowledge/knowledge/assembly-index.json`
-- `packages/knowledge-engine/knowledge/knowledge/trade-progress.json`
+- `packages/knowledge-engine/knowledge/knowledge/trade-progress.json` — now also the source of each trade's `provenanceStatus` (see "Provenance status" below)
 - `packages/knowledge-engine/knowledge/knowledge/trade-taxonomy/taxonomy.md`
 - `packages/knowledge-engine/knowledge/knowledge/assemblies/*.json`
 - `packages/knowledge-engine/knowledge/knowledge/cost-items/*.json`
 - `packages/knowledge-engine/schemas/*.json`
+
+## Provenance status
+
+Every trade, cost item, assembly, and search result carries a `provenanceStatus`
+(`"documented" | "unverified-legacy" | "placeholder"`, defined in
+`app/modules/costbook/provenance.ts`). `repository.ts` resolves it per-trade from
+`trade-progress.json`'s `provenanceStatus` field, defaulting to `"unverified-legacy"`
+when that field is missing, unrecognized, or the record's trade could not be
+inferred at all — never silently defaulting to `"documented"`. `matcher.ts`
+appends an explicit review warning to `reviewWarnings` whenever a match
+includes non-`"documented"` pricing. As of 2026-09-08, all 24 legacy "Stable"
+trades resolve to `"unverified-legacy"` and Tree Service resolves to
+`"placeholder"`; no trade is `"documented"` yet. See
+`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md` for the evidence
+behind that classification and
+`packages/knowledge-engine/README.md`'s "Provenance status" section for the
+package-level record.
 
 ## Runtime behavior
 

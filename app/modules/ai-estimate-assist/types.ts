@@ -1,3 +1,7 @@
+import { CostDataProvenanceStatus } from "../costbook/provenance";
+
+export type { CostDataProvenanceStatus } from "../costbook/provenance";
+
 export type AIEstimateSuggestionKind = "assembly" | "costItem";
 export type AIEstimateSuggestionStatus = "pending" | "accepted" | "rejected";
 
@@ -27,6 +31,10 @@ export interface AIEstimateSuggestion {
   unit: string;
   confidence: number;
   resolution: AIEstimateSuggestionResolution;
+  // Trust state of the Knowledge Engine pricing this suggestion was
+  // matched from. Additive field — see app/modules/costbook/provenance.ts.
+  // Never implies verified/current/local/nationally-authoritative pricing.
+  provenanceStatus: CostDataProvenanceStatus;
 }
 
 export interface GenerateAIEstimateSuggestionsInput {
@@ -122,6 +130,8 @@ export interface StructuredEstimateDraftLineItem {
   rationale: string;
   reviewWarnings: string[];
   costBreakdown: AIEstimatorCostBreakdown | null;
+  // See AIEstimateSuggestion.provenanceStatus above.
+  provenanceStatus: CostDataProvenanceStatus;
 }
 
 export interface StructuredEstimateDraftValidation {

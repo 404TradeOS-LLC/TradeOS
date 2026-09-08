@@ -16,6 +16,7 @@ import {
   AIEstimateSuggestionTarget,
   AIEstimatorToolRun,
   ApplyStructuredEstimateInput,
+  CostDataProvenanceStatus,
   GenerateStructuredEstimateInput,
   ParsedContractorScope,
   ParsedScopeQuantity,
@@ -427,6 +428,7 @@ export class StructuredAIEstimatorService {
       unitOfMeasure: string | null;
       confidence: number;
       rationale: string;
+      provenanceStatus?: CostDataProvenanceStatus;
     },
     parsedScope: ParsedContractorScope,
     estimateId: string,
@@ -478,6 +480,7 @@ export class StructuredAIEstimatorService {
       rationale: candidate.rationale,
       reviewWarnings,
       costBreakdown,
+      provenanceStatus: candidate.provenanceStatus ?? "unverified-legacy",
     };
   }
 

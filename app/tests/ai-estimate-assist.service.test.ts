@@ -154,6 +154,96 @@ describe("AIEstimateAssistService", () => {
     );
   });
 
+  it("propagates the Knowledge Engine match's provenanceStatus onto the suggestion", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      project: { simpleScope: null },
+    });
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Tree Service",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched tree removal keywords."],
+      missingInformation: [],
+      reviewWarnings: ["Matched pricing includes placeholder Knowledge Engine data that has not been through the documented provenance/review pipeline; confirm current market costs before relying on it."],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "tree-cost-item-1",
+          type: "costItem",
+          name: "Tree Removal Labor",
+          category: "Tree Service",
+          trade: "Tree Service",
+          unitOfMeasure: "HR",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["tree"],
+          rationale: "Tree Service match.",
+          metadata: {},
+          provenanceStatus: "placeholder",
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new AIEstimateAssistService().generateSuggestions({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Remove a large oak tree and grind the stump.",
+    });
+
+    expect(result.suggestions[0]?.provenanceStatus).toBe("placeholder");
+  });
+
+  it("defaults a suggestion's provenanceStatus to unverified-legacy when the match omits it", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      project: { simpleScope: null },
+    });
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched concrete keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "concrete-cost-item-1",
+          type: "costItem",
+          name: "Concrete Slab Pour",
+          category: "Concrete",
+          trade: "Concrete",
+          unitOfMeasure: "CY",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["concrete"],
+          rationale: "Concrete match.",
+          metadata: {},
+          // provenanceStatus intentionally omitted, as a legacy caller might.
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new AIEstimateAssistService().generateSuggestions({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Pour a new concrete slab.",
+    });
+
+    expect(result.suggestions[0]?.provenanceStatus).toBe("unverified-legacy");
+  });
+
   it("skips accepted suggestions that do not have a resolved estimate target", async () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
