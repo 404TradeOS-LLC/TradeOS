@@ -40,8 +40,10 @@ and makes no production latency claim.
   not maintain an index entry.
 - This is a non-unique lookup index. It does not alter assignment cardinality,
   authorization, RLS, status semantics, or delete behavior.
-- `lock_timeout = '5s'` bounds migration lock waiting; a timeout fails the
-  migration rather than silently proceeding under an unsafe lock.
+- The session-level `lock_timeout = '5s'` applies during `CREATE INDEX`, and
+  the trailing `reset lock_timeout` prevents the setting from leaking into later
+  migration statements. A timeout fails the migration rather than silently
+  proceeding under an unsafe lock.
 
 These are schema-level write-cost expectations, not a measured production
 workload claim.
