@@ -291,8 +291,11 @@ Repository governance additionally uses documentation consistency, dependency re
   `app/prisma/migrations/20260908120000_add_active_job_assignment_lookup`.
   It targets the S035-observed dispatch queue assignment scan with a partial
   `(org_id, job_id)` index for non-removed, non-declined assignments. The
-  candidate is not yet merged or production-applied; its isolated before/after
-  plan, measured write-cost, and rollback rehearsal remain required evidence.
+  candidate is present in the repository but remains review-only and not
+  production-applied until its attached isolated before/after plans, measured
+  write-cost, rollback rehearsal, and production cost budget are accepted. The
+  selective synthetic fixture shows a conditional plan benefit; the
+  representative fixture does not select the index.
 - Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
 - Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
