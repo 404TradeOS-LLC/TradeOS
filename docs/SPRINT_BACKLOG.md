@@ -398,7 +398,7 @@ Evidence: Inventory PR #377 merged as `34a079bdd45aaf73c144682b6650a59a8d513d91`
 
 ### S036 — Database index hardening
 
-Status: READY
+Status: DONE
 Dependencies: S027, S035
 Objective: Add only verified indexes with migration and rollback evidence.
 Acceptance: improved plans without excessive write/index cost.
@@ -406,6 +406,8 @@ Readiness contract: `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md` bo
 Founder-decision boundary: NO for repository and disposable PostgreSQL evidence. Production database access, production index application, or a latency/write-cost SLO requires separate authorization.
 Required implementation validation: candidate-by-candidate `EXPLAIN`/plan evidence; index size and write-cost review; migration apply and rollback rehearsal against disposable PostgreSQL; focused query-contract and tenant/RLS regression tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app lint, typecheck, build, unit, and integration checks.
 Forbidden in S036: production database changes, unapproved customer workload capture, speculative indexes, query rewrites, ORM replacement, schema/domain redesign, permissions/auth/RLS redesign, runtime tracing, provider work, S027 browser evidence, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval.
+Evidence: Implementation PR #476 merged on 2026-09-08 as `96caffc8877f77b96f8c3ae099d147c839be355f`; isolated plan, write-cost, migration apply/rollback, and focused regression evidence are recorded in `docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md`.
+Implementation status: DONE after PR #476 merged; production application remains separately gated by the documented maintenance window and production cost-budget review.
 
 ### S037 — Application observability baseline
 
@@ -561,19 +563,21 @@ The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
+S036 is complete through PR #476. The only open PR currently visible is draft PR #470, a Costbook/Knowledge Engine audit that explicitly remains an audit record and is not a merge candidate.
+
 ## Active Sprint and Next Eligibility
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S027, S043, and S047 are DONE with merged implementation and completion evidence. S044/S045 remain blocked on production access.
+Completion status: S027, S036, S043, and S047 are DONE with merged implementation and completion evidence. S044/S045 remain blocked on production access.
 Dependencies: S022, S028, S033, and S040 are DONE; no founder decision or external credential is required to implement the bounded smoke-suite contract.
-Protected boundary: Keep S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval independent of one another.
+Protected boundary: Keep S044/S045 deployment inventory, S046 migration gates, S048 beta selection, launch approval, and S049 cleanup independent of one another.
 
 ## Next Eligible Sprint
 
-Sprint ID: S036
-Eligibility: `READY`; S027 and S035 are DONE, and S036 has no founder or production-access dependency.
-Dependencies: S027 and S035 are DONE. S044/S045 remain blocked on production access and S046 is blocked by S045.
-Overlap check: No open PR implements S036. Keep S036 index work independent of S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval.
-Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Use the S035 inventory only as candidate evidence; every index must have an isolated plan, write-cost review, migration/rollback proof, and focused regression coverage before merge.
+Sprint ID: NONE
+Eligibility: `NONE`; S039/S044/S045 are BLOCKED on production access, S048 is PLANNED and requires a founder decision for beta tenants and rollout date, and S049 is PLANNED pending a governance-only readiness promotion.
+Dependencies: S036 is DONE after PR #476. S044/S045 remain blocked on production access and S046 is blocked by S045.
+Overlap check: PR #470 is the only open PR currently visible; it is a draft audit record explicitly marked not to merge. No implementation PR overlaps S049.
+Startup prompt: Promote S049 through a governance-only PR only after re-verifying open PRs, remote branches, and active worktrees; then execute the cleanup in one isolated branch under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`.
