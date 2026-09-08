@@ -26,8 +26,8 @@ import { loadDashboardWeather, selectDashboardWeatherAddress } from "@/lib/dashb
 import { getWeatherForAddress } from "@/lib/weather";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CollapsibleCard } from "@/components/shared/collapsible-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { isTerminalStatus, jobStatuses } from "@/domain";
 import { NeedsAttentionCard, type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
@@ -423,29 +423,27 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <Card className="border-border/70">
-        <CardHeader>
-          <CardTitle>Knowledge Runtime Coverage</CardTitle>
-          <CardDescription>Live read-only estimating knowledge coverage. Open the diagnostic view for trade coverage and runtime health.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+      <CollapsibleCard
+        id="knowledge-coverage"
+        title="Knowledge Runtime Coverage"
+        description="Live read-only estimating knowledge coverage. Open the diagnostic view for trade coverage and runtime health."
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="font-mono text-lg font-medium tabular-nums text-foreground">
             {knowledgeStats ? `${knowledgeStats.tradesCount} trades / ${knowledgeStats.assembliesCount} assemblies` : "Unavailable"}
           </p>
           <Link href="/dashboard/knowledge-coverage" className={buttonVariants({ variant: "outline", size: "sm" })}>
             View coverage
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleCard>
 
-      <Card className="border-border/70">
-        <CardHeader>
-          <CardTitle>Recent project lifecycle</CardTitle>
-          <CardDescription>
-            Signed in as {session?.email}. Latest proposal, contract, invoice, and change-order state for the {projectScopeLabel}; this is a recent-project snapshot, not an organization-wide work queue.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+      <CollapsibleCard
+        id="recent-project-lifecycle"
+        title="Recent project lifecycle"
+        description={`Signed in as ${session?.email}. Latest proposal, contract, invoice, and change-order state for the ${projectScopeLabel}; this is a recent-project snapshot, not an organization-wide work queue.`}
+      >
+        <div className="flex flex-col gap-3">
           {projectDetails.length === 0 ? (
             <p className="text-sm text-muted-foreground">No projects yet.</p>
           ) : (
@@ -487,8 +485,8 @@ export default async function DashboardPage() {
               );
             })
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleCard>
     </div>
   );
 }
