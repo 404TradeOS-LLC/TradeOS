@@ -15,7 +15,7 @@ rm -f "$OUTPUT_PATH"
 psql_args=(-X --dbname="$DATABASE_URL" -v ON_ERROR_STOP=1)
 
 run_sql() {
-  psql "${psql_args[@]}" -Atqc "$1"
+  psql "${psql_args[@]}" --tuples-only --no-align --command="$1"
 }
 
 compact_json() {
