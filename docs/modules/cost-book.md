@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-29
+last_verified: 2026-09-08
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -69,6 +69,7 @@ Athena A12 also exposes three read-only Costbook Intelligence tools under `app/m
 - `AssemblyItem`
 - `CostbookWorkspace`
 - `CostbookWorkspaceEvent`
+- `CostbookResearchCandidate` (Stage 6 research-candidate review queue; see below)
 
 ## Routes
 
@@ -107,6 +108,10 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies/:id/items`
 - `/api/v1/costbook/pricing/preview`
 - `/api/v1/costbook/price-history`
+- `/api/v1/costbook/candidates`
+- `/api/v1/costbook/candidates/:id`
+- `/api/v1/costbook/candidates/:id/review`
+- `/api/v1/costbook/candidates/:id/promote`
 
 `GET /api/v1/costbook/workspace` is a read-only workspace summary. It requires `costbook.read`, returns Costbook permission flags for the authenticated role, and returns organization-scoped counts for existing catalog records.
 
@@ -175,6 +180,17 @@ The unified Assembly surface reuses `AssembliesDatabaseService` and the existing
 
 `POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
 
+### Research candidate review queue (Stage 6)
+
+`docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` Stage 6: a persisted, org-scoped queue for researched candidates awaiting human review before any of their fields may become a real `CostItem`/`Material`/`LaborRate`/`Equipment` row.
+
+- `GET /api/v1/costbook/candidates` and `GET /api/v1/costbook/candidates/:id` require `costbook.read`.
+- `POST /api/v1/costbook/candidates` requires `costbook.write`; every candidate starts in the `candidate` review state — the request body cannot set `reviewStatus`, `reviewedBy`, `reviewedAt`, or promotion fields.
+- `POST /api/v1/costbook/candidates/:id/review` requires `costbook.manage` (mirrors supplier-integration's approve/reject boundary); `reviewedByUserId` is always the authenticated caller's own user id, never a caller-supplied string.
+- `POST /api/v1/costbook/candidates/:id/promote` requires `costbook.manage`; the only path that copies a candidate into a real `CostItem`. It re-checks `isEligibleForCostbookPromotion()` against the persisted row, requires an existing Subcategory matching the candidate's `category` (422 otherwise — it does not create hierarchy), and writes through the existing `CostbookService`/`CostDatabaseService` methods, serialized per-candidate by a Postgres advisory lock so repeated calls cannot duplicate the production record.
+
+See `docs/API_REFERENCE.md` for the full route/DTO contract.
+
 ## Permissions
 
 See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
@@ -234,6 +250,10 @@ Current behavior:
 - `app/tests/costbook-pricing.test.ts`
 - `app/tests/estimate-costbook-snapshot.test.ts`
 - `app/tests/supplier-integration.feed.test.ts`
+- `app/tests/costbook-candidate-cost-item.schema.test.ts`
+- `app/tests/costbook-candidate.service.test.ts`
+- `app/tests/costbook-research-candidates.migration.test.ts`
+- `app/tests/costbook-candidates.rls.integration.ts`
 
 ## Implementation notes
 
@@ -242,6 +262,7 @@ Current behavior:
 - CostItem and Assembly write validation are defense in depth over RLS: application checks give deterministic client errors while RLS remains the database-level tenant boundary.
 - Existing Estimate line records are historical pricing snapshots; recalculation does not re-fetch current Costbook unit cost for existing lines, while newly added lines capture current Costbook/Assembly pricing.
 - Athena Costbook Intelligence is currently read-only/recommendation-only: `lookup` uses CostItem/Assembly search services, while `analyzeMargin` and `recommendPrice` use `CostDatabaseService.getUnitCost()` plus the shared Estimate formula helpers. These tools do not define new pricing math or write through Costbook services.
+- The Stage 6 candidate-promotion path (`CostbookCandidateService.promote()`) reuses `CostbookService.createMaterial`/`createLaborRate`/`createEquipment` and `CostDatabaseService.create()` rather than writing Prisma directly, so candidate promotion is subject to the same tenant/reference validation as any other Costbook write.
 
 ## Known limitations
 
@@ -250,6 +271,8 @@ Current behavior:
 - supplier feed transport requires explicit operator configuration per Supplier; no supplier-SKU matching layer is implemented
 - pricing preview is not a persisted organization-wide pricing-policy/rules system
 - Material price-audit events and Estimate snapshots remain intentionally distinct history concepts
+- candidate promotion requires an existing Subcategory whose name matches the candidate's `category`; it does not create Division/Category/Subcategory hierarchy, so a candidate for a category with no matching Subcategory cannot promote until one is created
+- promoted labor rates set `billRate` equal to the researched `hourlyCost` (no markup assumed) and promoted equipment records the candidate's single flat `equipmentCost` entirely as `operatingCostPerHour` (no ownership/operating split); an org can adjust either after promotion via the existing endpoints
 
 ## Deferred work
 
@@ -258,7 +281,8 @@ Current behavior:
 - expanded historical pricing analytics/filters beyond the current read model
 - Athena Costbook writes or autonomous Costbook mutation only after the existing approval/risk/governance boundaries explicitly authorize such behavior; the current Athena Costbook tools are read-only/recommendation-only
 - evaluate trigram indexing for `code` search paths if substring code lookup becomes a measurable bottleneck
+- `app/modules/costbook/candidateCostItem.ts` (added 2026-09-08) defines a types/Zod-only contract for a researched candidate cost item (`reviewStatus: candidate -> needs-review -> approved | rejected`, gated by `isEligibleForCostbookPromotion()`) and `app/modules/costbook/provenance.ts` defines the shared `documented | unverified-legacy | placeholder` trust vocabulary the Knowledge Runtime now also uses. Neither has a route, service, or Prisma model yet, and neither changed any existing Costbook record or pricing value. See `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` for the intended full pipeline and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md` for why it exists.
 
 ## Last verified date
 
-2026-08-29
+2026-09-08

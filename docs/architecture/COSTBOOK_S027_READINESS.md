@@ -1,10 +1,10 @@
 # S027 — Intelligent Costbook Production Readiness
 
-Status: `PARTIAL` — dedicated readiness pass completed; promotion is not asserted.
+Status: `DONE` — dedicated readiness pass and authenticated browser evidence are complete.
 
-Baseline: `06c48933a7ad17322bb36bdcbf10f4471a5d891f` (`origin/main` and the audit branch at task start).
+Baseline: `c7003f35006197e66e68ef3a45181f0f9d1732da` (`origin/main` at the final evidence run).
 
-Current reconciliation head: `9d227a4345914dc4247629738e06ca631d2704ca` (`main`, merged PR `#278`). Production evidence below is tied to that exact deployed commit.
+Current reconciliation head: `c7003f35006197e66e68ef3a45181f0f9d1732da` (`main`, merged PR `#474`). Earlier production replay evidence remains tied to its stated deployment; the fresh browser evidence is tied to workflow run `#22` on this head.
 
 ## Current implementation inventory
 
@@ -39,7 +39,7 @@ and does not write Costbook records.
 | Catalog-query continuation verification | PASS | PR `#260` merged as `cb4ebed`; its required GitHub checks and PostgreSQL-backed integration rehearsal were green before merge. |
 | Request-transaction acquisition regression evidence | PASS | PR `#273` merged the bounded acquisition-wait repair as `3de3f98`. PR `#274` then added a real PostgreSQL single-connection contention regression and hermetic timeout tests; exact-head `63e0031d23d3137f2c677c80761bd9a15fc10bb1` passed Docs consistency, Dependency review, and Verify repository before merge as `9800069`. Production replay remains a separate deployment evidence gate. |
 | Production deployment and authenticated route replay | PASS | Vercel Production deployment `BQnTC3VzUij5TktsebTPYAda5Qrr` reached Ready on exact `main` commit `9d227a4`; `/health` reported that full SHA and `/ready` reported database status `ok`. An authenticated replay reached all nine Costbook routes, their API requests returned `200`, and exact-deployment logs showed zero warning, error, or fatal entries during the replay. |
-| Authenticated rendered browser verification at 1440/1024/768/390 | PARTIAL | After exact deployment, an authenticated production session rendered all nine Costbook routes at the cloud browser's actual viewport with truthful tenant-scoped empty or preview states. The cloud browser does not expose exact viewport emulation, so 1440/1024/768/390 rendering, keyboard focus, and mutation/error-state evidence remain unclaimed. |
+| Authenticated rendered browser verification at 1440/1024/768/390 | PASS | GitHub Actions S027 run [#22](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34192905774) checked out `main` at `c7003f3`, verified the RC Preview deployment identity, authenticated the sanitized smoke tenant, and passed all 36 route/viewport captures across 1440/1024/768/390px, including keyboard focus, equipment validation/create/edit/reload/delete, and pricing preview. The credential-scanned evidence artifact is [#10042902412](https://github.com/404TradeOS-LLC/TradeOS/actions/runs/34192905774/artifacts/10042902412). |
 | PostgreSQL/RLS integration execution | PASS | Prior prerequisite evidence: GitHub Actions Verify repository run `32449419590`, App integration tests job: 14 suites / 122 tests passed against the disposable PostgreSQL rehearsal database, including Costbook workspace, hierarchy, CostItem, equipment, and assembly RLS suites. PRs `#260`, `#273`, and `#274` independently passed their final-head PostgreSQL-backed verification; `#274` specifically exercises transaction acquisition under `connection_limit=1`. |
 | Full backend/frontend test, lint, and build execution | PASS | GitHub Actions Verify repository runs `32449419590`, `32586823430`, and PR `#274` run `32587490086` passed the applicable backend/frontend lint, unit, build, and integration lanes. PR `#278` exact-head run `32611298220` also passed app typecheck, unit, build, and PostgreSQL integration/RLS lanes before the production deployment repair merged. |
 
@@ -67,14 +67,38 @@ wait past Prisma's former two-second acquisition window on a real PostgreSQL
 single-connection pool; and exact `main` commit `9d227a4` completed an
 authenticated production replay without transaction-acquisition `500`s.
 
-## Smallest remaining S027 blockers
+## S027 evidence completion
 
-1. Authenticated browser evidence: render and exercise the nine Costbook routes
-   at 1440px, 1024px, 768px, and 390px, including keyboard focus and mutation/error
-   states. This requires an available authenticated environment, not a product
-   decision. PostgreSQL/RLS execution is independently verified by CI; that
-   database evidence must not be treated as a substitute for rendered browser
-   verification.
+The S027 evidence workflow uses the existing Beta smoke credentials to generate
+a fresh tenant-verified session outside the repository. It requires an approved
+non-production Preview host, sanitized smoke tenant, RC data-plane identifier,
+and Vercel verification of the full deployed commit before and after capture.
+The runner checks all nine routes at all four required widths, rejects HTTP-200
+error shells, records visible keyboard focus, and exercises real equipment
+validation/create/edit/reload/delete plus pricing preview. Only test equipment
+created by that run is deleted. Failure artifacts are retained after a credential
+scan; runtime session state is removed. Run `#22` passed the complete contract
+and uploaded the redacted artifact; the S027 browser-evidence gate is closed.
+Screenshot review: I reviewed all 52 PNG captures in artifact `#10042902412`,
+including the nine routes across 1440/1024/768/390px plus equipment mutation
+and pricing-preview checkpoints. Disposition: PASS. The captures show the
+expected tenant-scoped empty/preview states, readable responsive layouts,
+visible focus/error states, and no observed clipped content or horizontal
+overflow at the required widths.
+
+The bootstrap recognizes the responsive Control Dock More menu and can verify
+the canonical organization ID through the authenticated settings API. S027
+requires that ID; existing callers without it retain the organization-name
+check. This carries forward the RC-proven authentication helper repairs from
+`e937a1a`, `152a976`, and `84d8157` without changing application authentication.
+
+The final browser run used the verified non-production Preview deployment
+`dpl_GykcKwNNCi2hQWq8BKMjQapdQ7pM`, whose deployed frontend commit was
+`023c097c31f7cbfe81d91b1135d9295ac3ed4d19`; the workflow itself ran from
+`main` at `c7003f35006197e66e68ef3a45181f0f9d1732da`. This distinction is
+recorded so deployment identity is not overstated; the merged head changed only
+the reviewed candidate service surface, while the browser contract and deployed
+Costbook frontend remained unchanged.
 
 Authenticated production replay on 2026-08-23 covered `/costbook`,
 `/costbook/materials`, `/costbook/labor-rates`, `/costbook/equipment`,
@@ -87,13 +111,12 @@ or fatal entries during the replay. This closes the production reliability
 gate that the initial 2026-08-22 pass opened. Cold/concurrent requests were
 still slow in this evidence window, with observed Costbook API latency up to
 approximately 12.6 seconds; treat that as a performance follow-up rather than
-evidence of a failed or incomplete response. Exact required viewports remain
-the final promotion gate.
+evidence of a failed or incomplete response. The exact required viewport gate
+is now closed by workflow run `#22`.
 
-S027 should remain `PARTIAL`; promotion remains blocked until the exact
-authenticated viewport gate is closed. The remaining gap does not require a
-founder decision, but it does require an authenticated rendered environment
-that supports exact viewport emulation.
+S027 is `DONE`. Production access and deployment inventory remain separately
+tracked by S044/S045 and are not prerequisites for the completed browser-evidence
+contract.
 
 ## Numbered-sprint sequencing
 

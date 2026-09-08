@@ -196,6 +196,8 @@ RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
+`/api/v1/knowledge/*` results' `trade` field (on trades, search results, and matcher output) is computed by `knowledge-runtime/repository.ts`'s `inferTrade()`, rewritten 2026-09-08 to a deterministic, word-boundary/token-aware classifier — see `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md` for the full before/after corpus audit. This is a classification-accuracy fix, not a response-shape change: `trade` was already typed nullable and every consumer already handled `null`; the fix simply makes more records resolve correctly (matching their own curated `category`) and makes genuinely ambiguous assemblies report `null` instead of an arbitrary guess.
+
 AI estimating routes under `/api/v1/estimates`:
 
 - `POST /api/v1/estimates/:id/ai-suggestions`
@@ -204,6 +206,8 @@ AI estimating routes under `/api/v1/estimates`:
 - `POST /api/v1/estimates/:id/ai-estimator/apply`
 
 `ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
+
+Every `/api/v1/knowledge/*` search/match result, and every `ai-suggestions`/`ai-estimator/draft` line item, now includes an additive `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`). It reflects the trust state of the Knowledge Engine pricing behind the suggestion, resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json` — currently `"unverified-legacy"` for all 24 legacy trades and `"placeholder"` for Tree Service; no trade is `"documented"` yet. This field does not change any existing response field, pricing value, confidence score, or matched target; a caller that ignores it sees no behavior change. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md) and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`.
 
 Estimate lifecycle behavior:
 
@@ -397,6 +401,45 @@ Costbook division DTO:
 Category and Subcategory DTOs are the same shape, replacing `organizationId`-only with `divisionId`/`organizationId` (Category) or `categoryId`/`organizationId` (Subcategory); `organizationId` on both is derived through the parent join, not a stored column.
 
 C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` require `costbook.write` at the controller layer too. C005 does not add pricing calculations, a first-class assembly builder, supplier synchronization, or Athena recommendation behavior.
+
+Stage 6 research-candidate review queue under `/api/v1/costbook` (see [architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md](architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md)):
+
+- `GET /api/v1/costbook/candidates` — requires `costbook.read`; catalog page of the authenticated organization's research candidates, with an optional `reviewStatus` filter and safe `createdAt`/`updatedAt`/`reviewStatus` sorts.
+- `GET /api/v1/costbook/candidates/:id` — requires `costbook.read`; one candidate in the authenticated organization or 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/candidates` — requires `costbook.write`; creates a candidate for the authenticated organization, re-validated through the Stage 5 `costbookResearchCandidateSchema` contract. The request body cannot set `reviewStatus`, `reviewedBy`, `reviewedAt`, or any promotion field — every candidate is created in the `candidate` review state, and the creator's `createdByUserId` is always the authenticated caller's own user id.
+- `POST /api/v1/costbook/candidates/:id/review` — requires `costbook.manage` (mirrors supplier-integration's approve/reject boundary); strict body `{ decision: "approved" | "rejected", reviewNotes? }`. `reviewedByUserId` is always `auth.userId`, never a caller-supplied string, so a synthetic reviewer identity (`"AI"`, `"system"`, etc.) can never be recorded. Fails with 409 if the candidate is not currently `candidate`/`needs-review`, or if a concurrent reviewer claims it first.
+- `POST /api/v1/costbook/candidates/:id/promote` — requires `costbook.manage`; the only path that may copy a candidate's fields into a real `CostItem`. Re-validates `isEligibleForCostbookPromotion()` against the persisted row (never trusting `reviewStatus` alone), requires an existing Subcategory in the organization matching the candidate's `category` (422 if none exists — promotion never creates hierarchy on the candidate's behalf), rejects equipment-only evidence without a positive labor-hours/production-rate basis before creating any component rows, and is serialized per-candidate by a Postgres advisory lock so a repeated call cannot create a second `CostItem`. Returns 409 for an unreviewed, rejected, or already-promoted candidate.
+
+Candidate DTO (fields mirror the Stage 5 contract plus review/promotion linkage):
+
+```json
+{
+  "id": "uuid",
+  "orgId": "uuid",
+  "trade": "Roofing",
+  "category": "Roofing",
+  "itemName": "30-Year Architectural Shingle Installation",
+  "unitOfMeasure": "SQ",
+  "materialCostTypical": 95,
+  "sourceName": "Manufacturer published price sheet",
+  "sourceUrl": "https://example.com/pricing/asphalt-shingles",
+  "sourceDate": "2026-08-01",
+  "retrievedAt": "2026-09-08T00:00:00.000Z",
+  "regionalBasis": "US national average",
+  "confidence": "medium",
+  "provenanceStatus": "unverified-legacy",
+  "reviewStatus": "candidate",
+  "reviewedByUserId": null,
+  "reviewedAt": null,
+  "promotedAt": null,
+  "promotedByUserId": null,
+  "promotedCostItemId": null,
+  "createdAt": "2026-09-08T00:00:00.000Z",
+  "updatedAt": "2026-09-08T00:00:00.000Z"
+}
+```
+
+Promotion writes exclusively through existing Costbook services — `CostbookService.createMaterial`/`createLaborRate`/`createEquipment` for any evidenced cost components, then `CostDatabaseService.create` for the `CostItem` itself, tagged with an auditable `notes` string referencing the source candidate. No parallel pricing store is introduced, no existing production `CostItem`/`Material`/`LaborRate`/`Equipment` row is modified, and no Knowledge Engine export data changes. Stage 7 (regenerating the Knowledge Engine corpus from governed Costbook data) is not implemented by this endpoint set.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-10
+last_verified: 2026-09-08
 source_of_truth: false
 related_code:
   - app/modules/intelligence
@@ -70,6 +70,8 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - the follow-up Vercel function packaging fix explicitly includes `app/vendor/knowledge-engine/**` in the backend function bundle and teaches the loader to resolve both source-style and compiled `dist/` runtime layouts; this keeps `/api/v1/knowledge/*` available in hosted runtime packaging without creating new activity events, notifications, search behavior, or intelligence write paths
 - the structured AI estimator records non-sensitive activity events for draft generation and reviewed apply actions; its authenticated draft path also persists redacted generation metadata, and owner/admin review applies persist append-only review provenance without storing complete contractor prompts in activity metadata
 - project-task create/update/delete now record their matching activity row inside the same database transaction as the task mutation, so the API cannot return a task-write failure after the task row has already committed
+- the 2026-09-08 Costbook provenance-status work (see `modules/ai-estimate-assist.md`) added a `provenanceStatus` field to Knowledge Runtime records, search results, matcher output, and AI Estimate Assist suggestions/draft line items, and a new candidate-cost-item validation contract in `app/modules/costbook/`; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
+- the 2026-09-08 `knowledge-runtime` trade-inference fix (see `modules/ai-estimate-assist.md` and `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`) rewrote `repository.ts`'s trade classifier; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
 
 ## Known limitations
 
@@ -81,4 +83,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-10
+2026-09-08

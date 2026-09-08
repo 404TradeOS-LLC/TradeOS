@@ -24,6 +24,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -46,6 +48,14 @@ related_code:
 ---
 
 # Repository Governance
+
+The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
+and runtime-authentication seam. It verifies a Ready non-production web
+deployment and its full commit through Vercel before and after capture, requires
+confirmation that the test tenant is sanitized before creating equipment fixtures, and removes only
+fixtures created by that run. Session files remain outside the repository and
+uploaded artifacts; failure diagnostics are published only after credential
+scanning. Passing runner tests alone are not S027 completion evidence.
 
 This document defines the required repository workflow for TradeOS. The Bible defines doctrine, the Sprint Backlog defines executable work, and this file defines repository controls and merge discipline.
 
@@ -384,6 +394,16 @@ PR #30 has landed, but the temporary reconciliation workflow still materializes 
 
 CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
 
+The `.github/workflows/s036-index-evidence.yml` workflow is a supplemental,
+pull-request-scoped evidence lane for the S036 index candidate. It uses a
+disposable PostgreSQL service and an isolated synthetic schema, applies the
+tracked migration unmodified, captures redacted before/after planner output,
+records index size and controlled write observations, rehearses rollback, and
+uploads the generated artifact for review. The companion
+`app/scripts/s036-index-evidence.sh` cleans up the synthetic schema on exit.
+This lane must never use production credentials or data and does not by itself
+authorize production application, merge, or an S036 completion claim.
+
 ## Session continuity
 
 Every contributor uses the [Canonical Startup Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-startup-flow) and [Canonical Completion Flow](agent-prompts/NEXT_SPRINT_PROTOCOL.md#canonical-completion-flow). Those sections own the reading order, live-state checks, handoff requirements, and completion report; this policy does not define a competing checklist.
@@ -472,3 +492,5 @@ Labels should be applied consistently during triage. Do not create one-off label
 ## CodeQL and code-quality autofix
 
 Scheduled and manually dispatched maintenance workflows may generate isolated pull requests for bounded CodeQL remediations or deterministic frontend ESLint fixes. They must preserve required repository checks, immutable action pinning, branch-current validation, and documentation governance. They may not write directly to `main` or autonomously change product behavior, database/schema/migrations, authentication/authorization/RLS, billing semantics, or production trust boundaries.
+
+The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable commit. Its embedded script must remain compatible with the v9 execution contract: use the injected `github`, `context`, and `core` objects; do not call CommonJS `require('@actions/github')`; and do not redeclare the injected `getOctokit` parameter with `const` or `let`. Moving the action runtime major does not by itself authorize permission, trigger, product, schema, auth/RLS, billing, or production-trust changes.

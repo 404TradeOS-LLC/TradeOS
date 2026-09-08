@@ -36,6 +36,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -47,6 +49,11 @@ related_code:
 ---
 
 # TradeOS Documentation
+
+S027's authenticated evidence workflow captures all nine Costbook routes at
+1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
+deployment identity, test-tenant, mutation, and artifact controls are described
+in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 
@@ -185,6 +192,13 @@ The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer r
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
+The `s036-index-evidence.yml` workflow is the disposable PostgreSQL evidence
+lane for S036. It applies the tracked migration inside an isolated synthetic
+schema, captures redacted plan and write-cost observations, rehearses index
+rollback, and retains the generated artifact for review. It never uses
+production credentials or data and does not establish production rollout or
+merge authority.
+
 The enforcement flow is:
 
 1. `scripts/pr-body-check.mjs` validates the required PR-description structure on pull-request events.
@@ -286,3 +300,7 @@ architecture.
 ### Automated maintenance
 
 The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.
+
+### GitHub Actions runtime maintenance
+
+`.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.

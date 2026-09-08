@@ -3,6 +3,7 @@ import { costbookController as ctrl } from "../controllers/costbook.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
+import { costbookCandidatesController as candidateCtrl } from "../controllers/costbookCandidates.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const costbookRouter = Router();
@@ -60,3 +61,13 @@ costbookRouter.get("/subcategories/:id", asyncHandler(ctrl.getSubcategory));
 costbookRouter.post("/subcategories", asyncHandler(ctrl.createSubcategory));
 costbookRouter.patch("/subcategories/:id", asyncHandler(ctrl.updateSubcategory));
 costbookRouter.delete("/subcategories/:id", asyncHandler(ctrl.removeSubcategory));
+
+// Stage 6 research-candidate review queue (see
+// docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md). A candidate is
+// never a production Costbook record; only /promote writes one, and only
+// for a candidate a named human reviewer already approved.
+costbookRouter.get("/candidates", asyncHandler(candidateCtrl.list));
+costbookRouter.post("/candidates", asyncHandler(candidateCtrl.create));
+costbookRouter.get("/candidates/:id", asyncHandler(candidateCtrl.getById));
+costbookRouter.post("/candidates/:id/review", asyncHandler(candidateCtrl.review));
+costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promote));

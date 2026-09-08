@@ -1,3 +1,7 @@
+import { CostDataProvenanceStatus } from "../costbook/provenance";
+
+export type { CostDataProvenanceStatus } from "../costbook/provenance";
+
 export interface KnowledgeEnginePaths {
   repoRoot: string;
   exportsDir: string;
@@ -43,6 +47,12 @@ export interface RawKnowledgeTradeProgressEntry {
   status: string;
   coverage: string;
   notes: string;
+  // Untyped/optional because this is parsed directly from JSON on disk; an
+  // older or hand-edited trade-progress.json entry may omit it or carry an
+  // unrecognized value. repository.ts normalizes this to a known
+  // CostDataProvenanceStatus (defaulting to "unverified-legacy") rather than
+  // trusting the raw string.
+  provenanceStatus?: string;
 }
 
 export interface RawAssemblyIndexEntry {
@@ -75,6 +85,7 @@ export interface KnowledgeTrade {
   coverage: string;
   notes: string;
   keywords: string[];
+  provenanceStatus: CostDataProvenanceStatus;
 }
 
 export interface KnowledgeStats {
@@ -105,6 +116,7 @@ export interface KnowledgeAssemblyRecord {
     source: "knowledge-engine";
     lineItemsCount: number;
     schemaRefs: string[];
+    provenanceStatus: CostDataProvenanceStatus;
   };
 }
 
@@ -123,6 +135,7 @@ export interface KnowledgeCostItemRecord {
     equipmentCost: number;
     totalUnitCost: number;
     schemaRefs: string[];
+    provenanceStatus: CostDataProvenanceStatus;
   };
 }
 
@@ -147,6 +160,13 @@ export interface KnowledgeSearchResult {
   matchedKeywords: string[];
   rationale: string;
   metadata: Record<string, unknown>;
+  // Trust state of this record's pricing, per the Costbook provenance
+  // vocabulary (see app/modules/costbook/provenance.ts). Additive field:
+  // "documented" never implies current/local/nationally-authoritative
+  // pricing on its own — it only means the item traces to the documented
+  // Knowledge Engine generation/review pipeline. Consumers must not treat
+  // "unverified-legacy" or "placeholder" pricing as verified.
+  provenanceStatus: CostDataProvenanceStatus;
 }
 
 export interface ScopeMatchResult {

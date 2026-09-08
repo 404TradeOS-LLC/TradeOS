@@ -1,10 +1,11 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-31
+last_verified: 2026-09-05
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
   - app/modules/athena-memory
@@ -96,6 +97,7 @@ A priced commercial draft stored in `Estimate`.
 
 - belongs to one project and organization
 - owns estimate line items
+- estimate line items may reference zero or one Costbook source (`costItemId` or `assemblyId`): zero is a valid custom line item, while referencing both sources simultaneously is prohibited by the database constraint
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
 - lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
@@ -131,7 +133,7 @@ A billing document stored in `Invoice`.
 - invoice line items store the issued selling-price allocation as `unitPrice`
   and `lineTotal`; estimate and change-order line items retain their separate
   cost-oriented `unitCost`/`lineCost` fields
-- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; synchronized `unit_cost`/`line_cost` aliases remain temporarily so old and new backend versions can roll out safely without changing values, indexes, constraints, or RLS policies
+- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08 and removed the synchronized `unit_cost`/`line_cost` aliases plus their sync trigger/function. Disposable PostgreSQL migration coverage confirms canonical values, the invoice-line index/constraints, and tenant-scoped forced RLS survive; live production schema verification confirms the canonical columns, required indexes, and forced RLS.
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
@@ -304,6 +306,18 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+## Costbook research candidates (Stage 6 ingestion)
+
+`CostbookResearchCandidate` (new model, 2026-09-08) is the persisted form of the Stage 5 `CostbookResearchCandidate` type contract (`app/modules/costbook/candidateCostItem.ts`), per `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`. It is not a production Costbook entity — it is a staged, org-scoped research proposal awaiting a named human review decision, mirroring the `SupplierPriceUpdate` staged-review precedent rather than a new review-queue shape.
+
+- belongs to one organization (`orgId`, cascade-deleted with it); carries the same evidence fields as the Stage 5 contract (trade/category/item/unit, material/labor/equipment cost evidence, source name/URL/identifier/date, retrieval timestamp, regional basis, qualitative confidence, research notes) plus the shared `provenanceStatus` vocabulary (`app/modules/costbook/provenance.ts`)
+- lifecycle: `reviewStatus` moves `candidate -> needs-review -> approved | rejected`; every candidate starts as `candidate`, and no code path defaults it to `approved` — a database check constraint additionally requires `reviewedByUserId`/`reviewedAt` whenever `reviewStatus` is `approved` or `rejected`, and requires an `approved` review plus `promotedAt`/`promotedByUserId` whenever `promotedCostItemId` is set, independent of the application-layer `isEligibleForCostbookPromotion()` gate
+- `reviewedByUserId`/`promotedByUserId`/`createdByUserId` are foreign keys to `AppUser` (`onDelete: SetNull`), never a free-text field — a reviewer or promoter is always a real authenticated user id, so a synthetic string like `"AI"` or `"system"` can never appear there
+- `promotedCostItemId` is a unique, nullable foreign key to `CostItem`, set only once by the reviewed promotion service (`app/modules/costbook/candidateCostItemService.ts`) after it re-validates `isEligibleForCostbookPromotion()` against the persisted row inside a transaction serialized by a per-candidate Postgres advisory lock — a candidate can promote to at most one `CostItem`, and promotion writes through the existing `CostbookService`/`CostDatabaseService` methods (Material/LaborRate/Equipment/CostItem), never a second parallel pricing store
+- promotion requires an existing `Subcategory` in the organization's Costbook hierarchy whose name matches the candidate's `category` (case-insensitive); it does not create Division/Category/Subcategory structure on the candidate's behalf
+- select/write RLS policies mirror the `materials_write_policy` shape: any org member may read the queue (`costbook.read`), but insert/update is restricted to `current_app_can_manage_costbook()` (owner/admin), matching `costbook.write`/`costbook.manage` both being owner/admin-only today
+- Stage 7 (regenerating the Knowledge Engine's static corpus from governed Costbook/candidate data) remains unimplemented; this model does not touch `packages/knowledge-engine/**`
+
 ## Core relationships
 
 Canonical relationship flow:
@@ -338,6 +352,7 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 
 - Job remains organization-owned through orgId and retains the existing project, customer, service-address, scheduling, lifecycle, and archive relationships.
 - JobAssignment is the active technician relationship when both removedAt and declinedAt are null. Declined assignments remain provenance/history but are not active dispatch ownership, technician job access, queue assignment, or conflict participation.
+- S036's review-only index candidate adds a partial `(org_id, job_id)` lookup for active JobAssignment rows (`removed_at IS NULL AND declined_at IS NULL`); it changes no entity, relationship, authorization, RLS, or assignment lifecycle semantics and is not production-applied until its plan, write-cost, and rollback evidence is accepted.
 - Dispatcher mutations continue to use the established manager authorization and owner/admin conflict-override rules. The browser surface calls the authenticated same-origin proxy; it does not hold backend bearer credentials.
 - The S030 RLS hardening migration aligns the forced jobs and job_equipment policies with the active-assignment invariant. It changes existing policy predicates only and does not add entities or alter tenant ownership.
 - S030 does not introduce persisted derived lifecycle states, route optimization, GPS, notifications, billing behavior, or concurrency semantics.

@@ -28,7 +28,7 @@ interface PageHeaderProps {
  */
 export function PageHeader({ title, description, backHref, backLabel = "Back", breadcrumbs, action, className }: PageHeaderProps) {
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("min-w-0 space-y-2", className)}>
       {breadcrumbs && breadcrumbs.length > 0 ? (
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
           {breadcrumbs.map((crumb, index) => (
@@ -55,9 +55,9 @@ export function PageHeader({ title, description, backHref, backLabel = "Back", b
           {backLabel}
         </Link>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+        {action ? <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">{action}</div> : null}
       </div>
       {description ? <p className="max-w-2xl text-sm text-muted-foreground">{description}</p> : null}
     </div>

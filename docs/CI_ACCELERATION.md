@@ -41,11 +41,7 @@ Additional targeted workflows provide:
 
 ## Authenticated browser evidence
 
-`S027 authenticated browser evidence` is manual because it requires authenticated state and a chosen deployment URL. Add repository secret:
-
-`S027_E2E_STORAGE_STATE_B64`
-
-The value must be a base64-encoded Playwright storage-state JSON file for a non-production test account with only the permissions needed to view Costbook. The workflow captures full-page screenshots at 1440, 1024, 768, and 390 pixels and uploads a JSON report plus screenshots.
+`S027 authenticated browser evidence` is manual because it requires authenticated state and a chosen deployment URL. It uses the Beta smoke credentials to create fresh runtime authentication state on the runner; no serialized Playwright storage-state secret is required. The workflow captures full-page screenshots at 1440, 1024, 768, and 390 pixels and uploads a JSON report plus screenshots.
 
 `Release candidate authenticated smoke` uses:
 

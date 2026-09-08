@@ -289,7 +289,7 @@ Founder-decision boundary: NO. Stop only if implementation would change customer
 
 ### S027 — Intelligent Costbook production readiness
 
-Status: BLOCKED
+Status: DONE
 Dependencies: none
 Objective: Transform Costbook into a production-ready, AI-assisted estimating system grounded in live tenant APIs, supplier/regional pricing, Knowledge Runtime retrieval, and review-first AI workflows.
 Allowed paths: established Costbook/pricing/supplier/Knowledge Runtime/AI Estimate Assist backend modules and routes; matching Costbook/dashboard/estimate-assist frontend surfaces; required schema/migrations/tests when explicitly reviewed; canonical Knowledge Engine Costbook exports/metadata only when required; and required owner documentation.
@@ -297,8 +297,9 @@ Forbidden paths: broad application redesign; autonomous AI database writes; dire
 Required verification: backend unit/type/build/integration/RLS coverage; frontend unit/lint/build coverage; docs tests/ownership; focused Costbook search/browse/pricing/supplier/Knowledge Runtime/AI behavior tests; and E2E coverage for representative contractor Costbook workflows before production-readiness claims.
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
-Reconciled continuation: the server-side catalog pagination/search/filter/sort blocker is closed in the stacked S027 catalog-query continuation. Canonical Costbook collection routes now use the shared bounded `{items,total,nextCursor}` contract with opaque organization/query-bound cursors, deterministic ordering, allowlisted sorting, and server-side query execution; legacy typeahead search routes remain explicitly compatibility-scoped. The remaining S027 gate is authenticated rendered browser evidence at 1440/1024/768/390px, which is an environment/evidence gate, not a founder decision.
-Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 remains `BLOCKED` until the remaining browser-evidence gate is closed.
+Reconciled continuation: the server-side catalog pagination/search/filter/sort blocker is closed in the stacked S027 catalog-query continuation. Canonical Costbook collection routes now use the shared bounded `{items,total,nextCursor}` contract with opaque organization/query-bound cursors, deterministic ordering, allowlisted sorting, and server-side query execution; legacy typeahead search routes remain explicitly compatibility-scoped. The authenticated rendered browser gate is also closed: S027 workflow run `#22` on `main` at `c7003f3` passed all 36 route/viewport captures at 1440/1024/768/390px, including keyboard focus, equipment mutation/error states, pricing preview, deployment immutability, and credential scanning; artifact `#10042902412` was uploaded.
+Evidence: PR #260 merged as `cb4ebedc38e0591ae2d7703c15f66a541cf7a8c8`; the final authenticated browser-evidence gate passed in workflow run `#22` with artifact `#10042902412`.
+Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 is `DONE` after the authenticated browser evidence run.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -397,10 +398,14 @@ Evidence: Inventory PR #377 merged as `34a079bdd45aaf73c144682b6650a59a8d513d91`
 
 ### S036 — Database index hardening
 
-Status: PLANNED
+Status: READY
 Dependencies: S027, S035
 Objective: Add only verified indexes with migration and rollback evidence.
 Acceptance: improved plans without excessive write/index cost.
+Readiness contract: `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md` bounds S036 to candidate indexes justified by the S035 inventory, isolated PostgreSQL plan evidence, measured write-cost review, reversible migration/rollback proof, and focused regression coverage. The implementation must use a new isolated worktree and implementation PR after this governance promotion; no production database change, live-customer workload capture, unrelated query rewrite, schema redesign, or S027/S044/S045/S046/S048/launch work is authorized.
+Founder-decision boundary: NO for repository and disposable PostgreSQL evidence. Production database access, production index application, or a latency/write-cost SLO requires separate authorization.
+Required implementation validation: candidate-by-candidate `EXPLAIN`/plan evidence; index size and write-cost review; migration apply and rollback rehearsal against disposable PostgreSQL; focused query-contract and tenant/RLS regression tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app lint, typecheck, build, unit, and integration checks.
+Forbidden in S036: production database changes, unapproved customer workload capture, speculative indexes, query rewrites, ORM replacement, schema/domain redesign, permissions/auth/RLS redesign, runtime tracing, provider work, S027 browser evidence, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval.
 
 ### S037 — Application observability baseline
 
@@ -550,7 +555,7 @@ Acceptance: launch decision, known-risk register, and successor backlog approved
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, the S027 server-side catalog continuation has landed through PR #260 and S027 remains blocked only on authenticated rendered browser evidence. That evidence work does not occupy lifecycle-normalization scope.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S036 is the next dependency-safe numbered sprint.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
@@ -561,14 +566,14 @@ Out-of-band work does not silently change numbered sprint status. It must still 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
 Active Sprint: NONE
-Completion status: S043 and S047 are DONE with merged implementation and completion evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
+Completion status: S027, S043, and S047 are DONE with merged implementation and completion evidence. S044/S045 remain blocked on production access.
 Dependencies: S022, S028, S033, and S040 are DONE; no founder decision or external credential is required to implement the bounded smoke-suite contract.
-Protected boundary: Do not mix S027 browser evidence, S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, or launch approval into the S047 implementation lane.
+Protected boundary: Keep S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval independent of one another.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S022, S028, S033, S040, and S047 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
-Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: PR #397 is merged and no open S047 implementation lane remains. Keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
-Startup prompt: No numbered sprint is currently eligible. Resume only after a lower-numbered READY sprint is promoted under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` or after the external evidence blockers are removed.
+Sprint ID: S036
+Eligibility: `READY`; S027 and S035 are DONE, and S036 has no founder or production-access dependency.
+Dependencies: S027 and S035 are DONE. S044/S045 remain blocked on production access and S046 is blocked by S045.
+Overlap check: No open PR implements S036. Keep S036 index work independent of S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval.
+Startup prompt: Begin S036 under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Use the S035 inventory only as candidate evidence; every index must have an isolated plan, write-cost review, migration/rollback proof, and focused regression coverage before merge.

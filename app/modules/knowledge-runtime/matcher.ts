@@ -17,7 +17,8 @@ export function matchScopeDeterministically(input: DeterministicMatchInput): Sco
   const assumptions = buildAssumptions(scopeText, detectedTrade, matchedAssemblies, matchedCostItems);
   const reviewWarnings = buildReviewWarnings(scopeText, intake.confidenceScore.score, missingInformation, matchedAssemblies, matchedCostItems);
   const rationale = buildRationale(scopeText, intake.trade, matchedAssemblies, matchedCostItems, missingInformation);
-  const confidenceScore = calculateConfidence(intake.confidenceScore.score, matchedAssemblies, matchedCostItems, reviewWarnings.length);
+  const confidenceWarningCount = reviewWarnings.filter((warning) => !isInformationalProvenanceWarning(warning)).length;
+  const confidenceScore = calculateConfidence(intake.confidenceScore.score, matchedAssemblies, matchedCostItems, confidenceWarningCount);
 
   return {
     detectedTrade,
@@ -61,6 +62,10 @@ function calculateConfidence(
   const retrievalLift = Math.min(25, Math.round((bestAssembly + bestCostItem) / 10));
   const warningPenalty = warningCount * 4;
   return Math.max(18, Math.min(99, baseScore + retrievalLift - warningPenalty));
+}
+
+function isInformationalProvenanceWarning(warning: string) {
+  return warning.startsWith("Matched pricing includes ");
 }
 
 function buildAssumptions(
@@ -107,7 +112,31 @@ function buildReviewWarnings(
   if (assemblies.length === 0) warnings.push("No strong assembly match was found. Cost-item suggestions may need manual packaging.");
   if (costItems.length === 0) warnings.push("No strong cost-item match was found. Review the scope wording or fall back to manual estimate entry.");
   if (!hasQuantityCue(scopeText)) warnings.push("No clear quantity cue was detected in the scope. Suggested quantities should be treated as placeholders.");
+  const provenanceWarning = buildProvenanceWarning(assemblies, costItems);
+  if (provenanceWarning) warnings.push(provenanceWarning);
   return warnings;
+}
+
+/**
+ * Never let a match imply verified/current/local/nationally-authoritative
+ * pricing when its provenanceStatus says otherwise (2026-09-08 audit). Only
+ * "documented" is silent here; "unverified-legacy" and "placeholder" always
+ * surface an explicit caution in the same reviewWarnings list every other
+ * human-review-first signal already flows through.
+ */
+export function buildProvenanceWarning(
+  assemblies: ScopeMatchResult["matchedAssemblies"],
+  costItems: ScopeMatchResult["matchedCostItems"]
+): string | null {
+  const statuses = new Set(
+    [...assemblies, ...costItems]
+      .map((match) => match.provenanceStatus)
+      .filter((status) => status !== "documented")
+  );
+  if (statuses.size === 0) return null;
+
+  const label = [...statuses].sort().join(" and ");
+  return `Matched pricing includes ${label} Knowledge Engine data that has not been through the documented provenance/review pipeline; confirm current market costs before relying on it.`;
 }
 
 function buildRationale(

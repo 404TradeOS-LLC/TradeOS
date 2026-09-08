@@ -10,6 +10,7 @@ import {
   AIEstimateSuggestionTarget,
   ApplyAIEstimateSuggestionsInput,
   AppliedAIEstimateSuggestion,
+  CostDataProvenanceStatus,
   GenerateAIEstimateSuggestionsInput,
   SkippedAIEstimateSuggestion,
 } from "./types";
@@ -62,6 +63,7 @@ export class AIEstimateAssistService {
               reason: "No matching assembly or cost item was found in the active TradeOS estimate database.",
               target: null,
             },
+            provenanceStatus: "unverified-legacy",
           },
         ],
       };
@@ -128,7 +130,15 @@ export class AIEstimateAssistService {
   }
 
   private toSuggestion(
-    candidate: { id: string; type: "assembly" | "costItem"; name: string; unitOfMeasure: string | null; confidence: number; rationale: string },
+    candidate: {
+      id: string;
+      type: "assembly" | "costItem";
+      name: string;
+      unitOfMeasure: string | null;
+      confidence: number;
+      rationale: string;
+      provenanceStatus?: CostDataProvenanceStatus;
+    },
     scope: string,
     orgId: string
   ): Promise<AIEstimateSuggestion> {
@@ -144,6 +154,7 @@ export class AIEstimateAssistService {
       unit: candidate.unitOfMeasure ?? "job",
       confidence,
       resolution,
+      provenanceStatus: candidate.provenanceStatus ?? "unverified-legacy",
     }));
   }
 

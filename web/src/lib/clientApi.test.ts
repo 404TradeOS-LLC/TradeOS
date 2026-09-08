@@ -8,6 +8,20 @@ test.afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+test("normalizes canonical API paths before calling the browser proxy", async () => {
+  let requestedUrl = "";
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  await clientFetch("/api/v1/jobs/dispatch-summary");
+  assert.equal(requestedUrl, "/api/proxy/jobs/dispatch-summary");
+});
+
 test("preserves structured proxy errors", async () => {
   globalThis.fetch = async () =>
     new Response(JSON.stringify({ error: "Forbidden" }), {

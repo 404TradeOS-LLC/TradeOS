@@ -1,16 +1,20 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-09-08
 source_of_truth: true
 related_code:
   - app/modules/knowledge-runtime/README.md
   - app/modules/knowledge-runtime/loader.ts
+  - app/modules/knowledge-runtime/repository.ts
+  - app/modules/costbook/provenance.ts
   - app/modules/trainingless-estimate-demo/knowledgeLoader.ts
   - docs/bible/VOLUME_3_ENGINEERING.md
   - docs/bible/VOLUME_7_KNOWLEDGE_RUNTIME.md
   - docs/ARCHITECTURE.md
   - docs/DOC_OWNERSHIP.yml
+  - docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md
+  - docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md
   - packages/knowledge-engine/PATHS.md
   - packages/knowledge-engine/path-manifest.json
   - packages/knowledge-engine/pipelines/package_root.py
@@ -143,6 +147,10 @@ signature audit, live rate-limit smoke test, and package audit pass with zero vu
 the former `knowledge-engine/knowledge-engine/` duplicate was removed in the founder-approved
 2026-08-24 cleanup; the canonical example remains under this package's top-level tree.
 
+Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend lockfile's `qs`
+resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
+make the sample runtime-critical or TradeOS-authored.
+
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.
@@ -257,6 +265,26 @@ canonical summary:
   generic/non-TradeOS content on inspection. Full per-directory classification is not complete.
 - **Deletion is prohibited until a later, evidence-backed migration phase** with founder approval.
   This document exists to make future cleanup safer, not to authorize it.
+
+## 8a. Provenance status (added 2026-09-08)
+
+Following the 2026-09-08 audit's finding that 1,770 of this package's 1,795 canonical cost items
+carry no source/timestamp/confidence trail, `knowledge/knowledge/trade-progress.json` now carries a
+`provenanceStatus` field per trade: `"documented"`, `"unverified-legacy"`, or `"placeholder"`. All 24
+legacy "Stable" trades are `"unverified-legacy"` (no per-item source file, timestamp, or review-batch
+record exists for any of them — confirmed exhaustively for the canonical export's field set, and the
+`roofing_cost_items_batch_1.json` fixture was confirmed to be an unrelated single-item sample, not a
+Roofing source). Tree Service is `"placeholder"`, matching its own per-item files' self-declared
+`pricingStatus: "PLACEHOLDER"`. No trade is `"documented"` yet.
+
+`app/modules/knowledge-runtime/repository.ts` resolves this per-trade status onto every cost item,
+assembly, and search result at runtime (defaulting to `"unverified-legacy"` for any trade the field
+is missing/unrecognized on, or that cannot be inferred at all — never silently to `"documented"`),
+and `matcher.ts` surfaces an explicit review warning whenever a match includes non-`"documented"`
+pricing. The shared vocabulary lives in `app/modules/costbook/provenance.ts` — Costbook owns it
+because the relational Costbook, not this package, is the target authoritative pricing source (see
+`docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`). This is metadata only: no cost item,
+assembly, or export value in this package changed.
 
 ## 9. Where to look next
 
