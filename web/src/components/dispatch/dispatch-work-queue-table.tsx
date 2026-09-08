@@ -84,7 +84,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
       >
         {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
         <table className="min-w-[820px] text-left text-sm">
-        <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <thead className="sticky top-16 z-10 border-b border-border bg-card text-xs uppercase tracking-[0.18em] text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2">Customer / Project</th>
             <th scope="col" className="px-3 py-2">Status</th>
