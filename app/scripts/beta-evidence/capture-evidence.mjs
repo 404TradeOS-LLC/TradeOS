@@ -174,10 +174,14 @@ try {
   await page.getByRole("button", { name: "Create project" }).click();
   await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
 
-  await page.getByText(projectName, { exact: true }).first().click();
+  const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
+  const projectHref = await projectLink.getAttribute("href");
+  const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
+  assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
+  await projectLink.click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
   await page.waitForLoadState("networkidle");
-  const projectId = /\/projects\/([^/?]+)/.exec(page.url())?.[1];
-  assertBusiness("project workspace resolves an id", Boolean(projectId), `url was ${page.url()}`);
+  assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
   await checkpoint("02", "project-or-customer");
 
   // ---- 03 estimate line items -------------------------------------------
