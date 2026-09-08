@@ -121,7 +121,14 @@ The implementation that older revisions of this document labeled **Unreleased** 
 - PR #274 added the real PostgreSQL `connection_limit=1` contention regression and hermetic timeout coverage.
 - PR #278 supplied the production deployment/replay evidence referenced by the S027 readiness record.
 
-The S027 readiness record therefore remains `PARTIAL`, **not because those repository/runtime repairs are unreleased**, but because the retained authenticated rendered evidence run is not green at **1440 / 1024 / 768 / 390 px**: `/costbook/price-history` failed the keyboard-focus assertion after the runner used an invalid Shift+Tab/Tab sequence from a pre-focused element. The repair now walks the real document tab order from `BODY`; fresh multi-viewport evidence is still required, including mutation/error-state coverage. The production replay already reached all nine canonical Costbook routes with `200` API responses and no warning/error/fatal entries in the exact-deployment logs; exact viewport evidence remains the final promotion gate. See `docs/architecture/COSTBOOK_S027_READINESS.md`.
+The S027 readiness record is now `DONE`. GitHub Actions workflow run `#22` on
+`main` at `c7003f3` passed all 36 authenticated route/viewport captures at
+**1440 / 1024 / 768 / 390 px**, including keyboard focus, equipment
+validation/create/edit/reload/delete, pricing preview, deployment immutability,
+and credential scanning. The redacted evidence artifact is `#10042902412`.
+The earlier production replay still records the nine canonical Costbook routes
+with `200` API responses and no warning/error/fatal entries in the exact-
+deployment logs. See `docs/architecture/COSTBOOK_S027_READINESS.md`.
 
 Cold/concurrent Costbook requests in the retained production evidence reached approximately 12.6 seconds in the worst observed case. Treat that as performance follow-up, not as proof of an incomplete response.
 
