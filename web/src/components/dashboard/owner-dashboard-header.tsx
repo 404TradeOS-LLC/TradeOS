@@ -34,6 +34,13 @@ export function OwnerDashboardHeader({
 }: OwnerDashboardHeaderProps) {
   const hasAttention = notificationCount > 0;
   const metrics = buildReviewQueueMetrics(reviewQueue);
+  const attentionTone =
+    notificationCount >= 15 ? "destructive" : notificationCount >= 5 ? "warning" : "info";
+  const attentionClasses: Record<"info" | "warning" | "destructive", string> = {
+    info: "border-info/30 bg-info/10 text-info",
+    warning: "border-warning/30 bg-warning/10 text-warning",
+    destructive: "border-destructive/30 bg-destructive/10 text-destructive",
+  };
 
   return (
     <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-(--elev-1) sm:p-6">
@@ -45,11 +52,7 @@ export function OwnerDashboardHeader({
             </p>
             <Badge
               variant="outline"
-              className={
-                hasAttention
-                  ? "border-primary/20 bg-primary/8 text-accent-foreground"
-                  : "border-border/70 bg-muted/30 text-muted-foreground"
-              }
+              className={hasAttention ? attentionClasses[attentionTone] : "border-border/70 bg-muted/30 text-muted-foreground"}
             >
               {hasAttention ? `Needs attention · ${notificationCount}` : "On track"}
             </Badge>

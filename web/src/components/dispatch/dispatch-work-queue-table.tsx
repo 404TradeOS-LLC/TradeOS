@@ -2,6 +2,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DispatchJobActions } from "@/components/dispatch/dispatch-job-actions";
+import { AssignedTechnicians } from "@/components/shared/assigned-technicians";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
 import type { DispatchJob } from "@/lib/api";
@@ -122,11 +123,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
                 {job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : <span className="text-muted-foreground">Unscheduled</span>}
               </td>
               <td className="px-3 py-3 text-sm text-foreground">
-                {job.assignedTechnicians.length > 0 ? (
-                  job.assignedTechnicians.map((tech) => tech.name).join(", ")
-                ) : (
-                  <span className="text-muted-foreground">Unassigned</span>
-                )}
+                <AssignedTechnicians technicians={job.assignedTechnicians} />
               </td>
               <td className="px-3 py-3">{job.priority ? <StatusBadge status={job.priority} /> : <span className="text-sm text-muted-foreground">—</span>}</td>
               <td className="px-3 py-3">
@@ -173,9 +170,9 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Assigned</p>
-                <p className="mt-1 text-foreground">
-                  {job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned"}
-                </p>
+                <div className="mt-1 text-foreground">
+                  <AssignedTechnicians technicians={job.assignedTechnicians} />
+                </div>
               </div>
             </div>
 
