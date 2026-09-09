@@ -22,11 +22,23 @@ const mockPrisma = {
   },
 };
 
+const transaction = {
+  $executeRaw: jest.fn().mockResolvedValue(0),
+  changeOrder: {
+    aggregate: jest.fn(),
+    create: jest.fn(),
+  },
+};
+
+const basePrisma = {
+  $transaction: jest.fn((operation: (client: typeof transaction) => unknown) => operation(transaction)),
+};
+
 const mockCostDatabase = {
   getUnitCost: jest.fn(),
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma }));
 jest.mock("../modules/cost-database/service", () => ({
   CostDatabaseService: jest.fn().mockImplementation(() => mockCostDatabase),
 }));
@@ -38,11 +50,11 @@ describe("ChangeOrdersService", () => {
     jest.clearAllMocks();
   });
 
-  it("creates a project-scoped change order and numbers it sequentially", async () => {
+  it("serializes project-scoped numbering before assigning the next change-order number", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "project-1", orgId: "org-1" });
     mockPrisma.estimate.findFirst.mockResolvedValue({ id: "estimate-1", projectId: "project-1", orgId: "org-1" });
-    mockPrisma.changeOrder.aggregate.mockResolvedValue({ _max: { coNumber: 3 } });
-    mockPrisma.changeOrder.create.mockResolvedValue({
+    transaction.changeOrder.aggregate.mockResolvedValue({ _max: { coNumber: 3 } });
+    transaction.changeOrder.create.mockResolvedValue({
       id: "co-1",
       projectId: "project-1",
       estimateId: "estimate-1",
@@ -61,6 +73,17 @@ describe("ChangeOrdersService", () => {
     });
 
     expect(changeOrder.coNumber).toBe(4);
+    expect(basePrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(transaction.changeOrder.aggregate).toHaveBeenCalledWith({
+      where: { projectId: "project-1" },
+      _max: { coNumber: true },
+    });
+    expect(transaction.changeOrder.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ projectId: "project-1", coNumber: 4 }),
+    });
+    expect(mockPrisma.changeOrder.aggregate).not.toHaveBeenCalled();
+    expect(mockPrisma.changeOrder.create).not.toHaveBeenCalled();
   });
 
   it("adds a priced line item and recalculates the change order amount", async () => {
