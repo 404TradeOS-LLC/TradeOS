@@ -82,5 +82,8 @@ export interface AthenaPluginCapabilityDecision {
     | "manifest_changed"
     | "permission_not_granted"
     | "network_host_not_granted"
-    | "event_not_granted";
+    | "event_not_granted"
+    | "tool_not_declared"
+    | "context_provider_not_declared"
+    | "event_not_registered";
 }
