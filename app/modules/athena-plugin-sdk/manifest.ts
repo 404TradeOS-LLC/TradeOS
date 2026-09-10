@@ -34,10 +34,16 @@ function semverMajor(version: string): number | null {
 function pushDuplicateIssues(values: string[], path: string, issues: AthenaPluginManifestValidationIssue[]): void {
   const seen = new Set<string>();
   for (const value of values) {
-    if (seen.has(value)) {
-      issues.push({ code: "duplicate_capability", path, message: `Duplicate capability: ${value}` });
-    }
+    if (seen.has(value)) issues.push({ code: "duplicate_capability", path, message: `Duplicate capability: ${value}` });
     seen.add(value);
+  }
+}
+
+function pushNamespaceIssues(values: string[], pluginId: string, path: string, issues: AthenaPluginManifestValidationIssue[]): void {
+  for (const value of values) {
+    if (!value.startsWith(`${pluginId}.`)) {
+      issues.push({ code: "invalid_manifest", path, message: `${path} capability must be namespaced under ${pluginId}: ${value}` });
+    }
   }
 }
 
@@ -49,11 +55,7 @@ export function validateAthenaPluginManifest(
   if (!parsed.success) {
     return {
       ok: false,
-      issues: parsed.error.issues.map((issue) => ({
-        code: "invalid_manifest" as const,
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
+      issues: parsed.error.issues.map((issue) => ({ code: "invalid_manifest" as const, path: issue.path.join("."), message: issue.message })),
     };
   }
 
@@ -79,15 +81,15 @@ export function validateAthenaPluginManifest(
     });
   }
 
-  if (!manifest.publisher.trim()) {
-    issues.push({ code: "invalid_publisher", path: "publisher", message: "Publisher is required." });
-  }
+  if (!manifest.publisher.trim()) issues.push({ code: "invalid_publisher", path: "publisher", message: "Publisher is required." });
 
   pushDuplicateIssues(manifest.tools, "tools", issues);
   pushDuplicateIssues(manifest.contextProviders, "contextProviders", issues);
   pushDuplicateIssues(manifest.eventsConsumed, "eventsConsumed", issues);
   pushDuplicateIssues(manifest.eventsPublished, "eventsPublished", issues);
   pushDuplicateIssues(manifest.permissions, "permissions", issues);
+  pushNamespaceIssues(manifest.tools, manifest.id, "tools", issues);
+  pushNamespaceIssues(manifest.contextProviders, manifest.id, "contextProviders", issues);
 
   for (const host of manifest.network?.allowedHosts ?? []) {
     const normalized = host.trim().toLowerCase();
