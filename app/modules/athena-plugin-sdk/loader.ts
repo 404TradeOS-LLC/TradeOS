@@ -37,6 +37,7 @@ export function loadApprovedPlugin(input: {
     review: input.review,
     grant: input.grant,
   };
+  const expectedOwner = `plugin:${input.plugin.manifest.id}`;
 
   assertPluginMayLoad(ctx);
 
@@ -47,6 +48,7 @@ export function loadApprovedPlugin(input: {
     if (!packageToolIds.has(declaredToolId)) throw new Error(`ATHENA_PLUGIN_PACKAGE_MISSING_TOOL:${declaredToolId}`);
   }
   for (const tool of input.plugin.tools) {
+    if (tool.owner !== expectedOwner) throw new Error(`ATHENA_PLUGIN_OWNER_MISMATCH:${tool.id}`);
     assertPluginToolMayExecute(ctx, tool.id, tool.permissions);
   }
 
@@ -54,11 +56,10 @@ export function loadApprovedPlugin(input: {
     if (!packageProviderIds.has(declaredProviderId)) throw new Error(`ATHENA_PLUGIN_PACKAGE_MISSING_PROVIDER:${declaredProviderId}`);
   }
   for (const provider of input.plugin.contextProviders) {
+    if (provider.owner !== expectedOwner) throw new Error(`ATHENA_PLUGIN_OWNER_MISMATCH:${provider.id}`);
     assertPluginContextProviderMayRun(ctx, provider.id);
     for (const permission of provider.permissions) {
-      if (!input.grant.permissions.includes(permission)) {
-        throw new Error("ATHENA_PLUGIN_SANDBOX_DENIED:permission_not_granted");
-      }
+      if (!input.grant.permissions.includes(permission)) throw new Error("ATHENA_PLUGIN_SANDBOX_DENIED:permission_not_granted");
     }
   }
 
