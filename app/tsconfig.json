@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "supertest"],
     "declaration": false,
     "sourceMap": true
   },
