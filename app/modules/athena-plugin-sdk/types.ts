@@ -37,3 +37,50 @@ export interface AthenaPluginManifestValidationIssue {
 export type AthenaPluginManifestValidationResult =
   | { ok: true; manifest: AthenaPluginManifest }
   | { ok: false; issues: AthenaPluginManifestValidationIssue[] };
+
+export type AthenaPluginReviewStatus = "submitted" | "approved" | "rejected" | "revoked";
+export type AthenaPluginInstallStatus = "installed" | "disabled" | "revoked" | "uninstalled";
+
+export interface AthenaPluginReviewRecord {
+  pluginId: string;
+  pluginVersion: string;
+  publisher: string;
+  manifestHash: string;
+  status: AthenaPluginReviewStatus;
+  approvedPermissions: string[];
+  approvedHosts: string[];
+  approvedEventsConsumed: string[];
+  approvedEventsPublished: string[];
+  reviewedBy: string;
+  reviewedAt: string;
+  reason?: string;
+}
+
+export interface AthenaPluginGrant {
+  orgId: string;
+  pluginId: string;
+  pluginVersion: string;
+  manifestHash: string;
+  permissions: string[];
+  allowedHosts: string[];
+  eventsConsumed: string[];
+  eventsPublished: string[];
+  status: AthenaPluginInstallStatus;
+  installedBy: string;
+  installedAt: string;
+  updatedAt: string;
+}
+
+export interface AthenaPluginCapabilityDecision {
+  allowed: boolean;
+  reasonCode:
+    | "approved"
+    | "review_required"
+    | "plugin_not_installed"
+    | "plugin_disabled"
+    | "plugin_revoked"
+    | "manifest_changed"
+    | "permission_not_granted"
+    | "network_host_not_granted"
+    | "event_not_granted";
+}
