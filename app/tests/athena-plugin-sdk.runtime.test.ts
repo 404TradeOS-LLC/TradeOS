@@ -1,4 +1,5 @@
 import {
+  assertPluginContextProviderMayRun,
   assertPluginEventSubscriptionMayRun,
   assertPluginNetworkAllowed,
   assertPluginToolMayExecute,
@@ -29,10 +30,17 @@ function installedRuntime() {
 }
 
 describe("A13 plugin runtime sandbox", () => {
-  test("allows only reviewed tool permissions", () => {
+  test("allows only declared tools with reviewed permissions", () => {
     const ctx = installedRuntime();
-    expect(() => assertPluginToolMayExecute(ctx, ["dispatch.manage"])).not.toThrow();
-    expect(() => assertPluginToolMayExecute(ctx, ["billing.write"])).toThrow("permission_not_granted");
+    expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.assessJob", ["dispatch.manage"])).not.toThrow();
+    expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.undeclared", ["dispatch.manage"])).toThrow("tool_not_declared");
+    expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.assessJob", ["billing.write"])).toThrow("permission_not_granted");
+  });
+
+  test("allows only declared context providers", () => {
+    const ctx = installedRuntime();
+    expect(() => assertPluginContextProviderMayRun(ctx, "com.example.weather-risk.forecast")).not.toThrow();
+    expect(() => assertPluginContextProviderMayRun(ctx, "com.example.weather-risk.hidden")).toThrow("context_provider_not_declared");
   });
 
   test("network is deny-by-default outside reviewed host list", () => {
@@ -41,15 +49,17 @@ describe("A13 plugin runtime sandbox", () => {
     expect(() => assertPluginNetworkAllowed({ ...ctx, networkHost: "metadata.google.internal" })).toThrow("network_host_not_granted");
   });
 
-  test("event subscriptions require an explicit grant", () => {
+  test("event subscriptions require both A8 registration and explicit grant", () => {
     const ctx = installedRuntime();
-    expect(() => assertPluginEventSubscriptionMayRun(ctx, "JobScheduled")).not.toThrow();
-    expect(() => assertPluginEventSubscriptionMayRun(ctx, "InvoicePaid")).toThrow("event_not_granted");
+    const registered = new Set(["JobScheduled", "InvoicePaid"]);
+    expect(() => assertPluginEventSubscriptionMayRun(ctx, "JobScheduled", registered)).not.toThrow();
+    expect(() => assertPluginEventSubscriptionMayRun(ctx, "InvoicePaid", registered)).toThrow("event_not_granted");
+    expect(() => assertPluginEventSubscriptionMayRun(ctx, "PluginInventedEvent", registered)).toThrow("event_not_registered");
   });
 
   test("disabled grants cannot execute any capability", () => {
     const ctx = installedRuntime();
     const disabled = transitionPluginGrant(ctx.grant, "disabled");
-    expect(() => assertPluginToolMayExecute({ ...ctx, grant: disabled }, ["dispatch.manage"])).toThrow("plugin_disabled");
+    expect(() => assertPluginToolMayExecute({ ...ctx, grant: disabled }, "com.example.weather-risk.assessJob", ["dispatch.manage"])).toThrow("plugin_disabled");
   });
 });
