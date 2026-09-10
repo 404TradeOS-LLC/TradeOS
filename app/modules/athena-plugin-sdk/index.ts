@@ -3,6 +3,8 @@ export { createApprovedPluginReview, hashAthenaPluginManifest, reviewMatchesMani
 export { evaluatePluginCapability, installApprovedPlugin, transitionPluginGrant } from "./lifecycle";
 export { assertPluginEventAllowed, assertPluginNetworkAllowed, assertPluginPermissionAllowed, assertPluginSandboxAllows } from "./sandbox";
 export { assertPluginContextProviderMayRun, assertPluginEventPublicationMayRun, assertPluginEventSubscriptionMayRun, assertPluginMayLoad, assertPluginToolMayExecute } from "./runtime";
+export { AthenaPluginService } from "./service";
+export type { AthenaPluginRepository } from "./service";
 export type {
   AthenaPluginCapabilityDecision,
   AthenaPluginGrant,
