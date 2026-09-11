@@ -350,3 +350,7 @@ The standing dashboard weather selector in `web/src/lib/dashboard-weather.ts` re
 - RC defects repaired for promotion are browser API proxy path normalization, proposal cents preservation, invoice Decimal-to-number display normalization, and mobile `PageHeader` wrapping that removes 390px horizontal overflow.
 - Custom estimate line items are valid without a Costbook source. Migration `20260905050000_allow_custom_estimate_line_items` changes the database invariant from exactly-one-source to at-most-one-source, preserving mutual exclusivity while allowing source-less custom lines.
 - Tenant-isolation evidence now asserts denial at the authenticated same-origin API proxy/backend boundary (403/404 required) and treats the browser page as a secondary UX signal, avoiding false failures from Next.js error boundaries that can retain an outer HTTP 200 after a denied server-component fetch.
+
+### Athena A14 context interaction hardening
+The Athena context assembler now preserves the existing A14 interaction metadata across the provider boundary, so mobile and voice-aware providers receive the channel context declared by `AthenaContextAssemblyRequest`. Regression coverage guards this propagation.
+

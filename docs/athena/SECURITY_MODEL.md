@@ -228,3 +228,7 @@ and forced-RLS boundaries remain authoritative for text, mobile, and voice.
 A14 does not introduce a speech-provider credential surface, a second approval
 mechanism, offline autonomous execution, or a channel-specific permission
 engine.
+
+### Interaction metadata boundary
+Interaction metadata is propagated only inside the authenticated Athena context-assembly boundary. Passing it to providers does not bypass provider permissions, feature flags, organization scope, cache isolation, or failure controls; those checks remain owned by the context assembler.
+

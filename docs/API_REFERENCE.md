@@ -639,3 +639,7 @@ ordinary scheduling and assignments but cannot override conflicts. Conflict
 checks and the subsequent mutation run under transaction-scoped,
 organization/technician-keyed PostgreSQL advisory locks so concurrent scheduling
 attempts cannot both pass the check for the same technician.
+
+### Athena interaction context propagation
+Athena context assembly forwards the request interaction metadata (such as channel, platform, viewport class, and connectivity) to activated context providers. This is an existing typed contract; providers may use the metadata to shape channel-aware context without changing authorization or tenant scope.
+

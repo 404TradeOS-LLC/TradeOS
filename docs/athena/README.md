@@ -174,3 +174,7 @@ omitting customer contact details, full street address, and assignment identity.
 The backend A14 contract accepts text plus safe channel metadata; it does not
 accept or persist raw audio. A14 is readiness infrastructure, not a production
 speech provider integration or an offline execution engine.
+
+### A14 channel context
+Athena context providers receive the interaction metadata already carried by the assembly request. This keeps mobile and voice/channel-aware behavior aligned with the A14 runtime contract without widening permissions or changing persistence.
+

@@ -188,3 +188,7 @@ The request context may now carry safe interaction metadata for `text`,
 never a permission grant. Voice availability and voice tool narrowing are
 handled outside context assembly. Raw audio is not part of C001 and is not
 persisted by the A14 backend contract.
+
+### Interaction metadata
+When an assembly request includes interaction metadata, the assembler passes that same metadata to each activated provider through `AthenaContextProviderInput.interaction`. Providers can use channel, platform, viewport, and connectivity context while the assembler continues to enforce the normal permission, feature-flag, timeout, cache, and failure-behavior gates.
+
