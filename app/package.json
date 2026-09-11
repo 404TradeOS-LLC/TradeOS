@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "build": "node scripts/vendor-knowledge-engine.js && tsc -p tsconfig.json",
     "start": "node dist/backend/start.js",
-    "dev": "nodemon --watch src --watch modules --watch backend --watch db --ext ts --exec ts-node backend/start.ts",
+    "dev": "nodemon --watch src --watch modules --watch backend --ext ts --exec ts-node backend/start.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -23,7 +23,7 @@
     "demo:trainingless-estimate": "ts-node modules/trainingless-estimate-demo/demo.ts",
     "test": "jest --runInBand",
     "test:integration": "bash scripts/test-integration-db.sh",
-    "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|tools\\.[a-z.-]+)\\.contracts\\.test\\.ts$\"",
+    "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|plugin-sdk(?:\\.[a-z.-]+)?|tools\\.[a-z.-]+)\\.(contracts|runtime|import-boundary)\\.test\\.ts$\"",
     "athena:smoke": "jest --runInBand --testPathPatterns \"athena-kernel\\.smoke\\.test\\.ts$\"",
     "lint": "tsc --noEmit",
     "beta:evidence": "node scripts/beta-evidence/run.mjs"
