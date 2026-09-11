@@ -2,6 +2,7 @@ import type { AthenaPluginGrant, AthenaPluginManifest, AthenaPluginReviewRecord 
 import { evaluatePluginCapability } from "./lifecycle";
 
 export interface AthenaPluginSandboxRequest {
+  activeOrgId: string;
   manifest: AthenaPluginManifest;
   review?: AthenaPluginReviewRecord;
   grant?: AthenaPluginGrant;
@@ -10,6 +11,7 @@ export interface AthenaPluginSandboxRequest {
   event?: { direction: "consume" | "publish"; type: string };
 }
 
+/** Throws a stable fail-closed error when the requested plugin capability is not authorized. */
 export function assertPluginSandboxAllows(request: AthenaPluginSandboxRequest): void {
   const decision = evaluatePluginCapability(request);
   if (!decision.allowed) {
@@ -17,14 +19,17 @@ export function assertPluginSandboxAllows(request: AthenaPluginSandboxRequest): 
   }
 }
 
+/** Checks an outbound hostname against the exact active organization grant. */
 export function assertPluginNetworkAllowed(request: Omit<AthenaPluginSandboxRequest, "networkHost"> & { networkHost: string }): void {
   assertPluginSandboxAllows(request);
 }
 
+/** Checks a permission against the exact active organization grant. */
 export function assertPluginPermissionAllowed(request: Omit<AthenaPluginSandboxRequest, "permission"> & { permission: string }): void {
   assertPluginSandboxAllows(request);
 }
 
+/** Checks an event direction/type against the exact active organization grant. */
 export function assertPluginEventAllowed(request: Omit<AthenaPluginSandboxRequest, "event"> & { event: { direction: "consume" | "publish"; type: string } }): void {
   assertPluginSandboxAllows(request);
 }
