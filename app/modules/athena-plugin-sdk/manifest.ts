@@ -5,7 +5,9 @@ import type {
   AthenaPluginManifestValidationResult,
 } from "./types";
 
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// SemVer 2.0.0 core rules: no leading zeroes in numeric core/prerelease
+// identifiers and no empty prerelease/build identifiers.
+const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)+$/;
 const HOST_PATTERN = /^(?!-)(?:[a-z0-9-]+\.)+[a-z]{2,}$/i;
 
@@ -47,6 +49,7 @@ function pushNamespaceIssues(values: string[], pluginId: string, path: string, i
   }
 }
 
+/** Validates unknown third-party input against C012 and the supported Athena contract major. */
 export function validateAthenaPluginManifest(
   input: unknown,
   supportedAthenaContractVersion = "1.0.0",
@@ -66,13 +69,13 @@ export function validateAthenaPluginManifest(
     issues.push({ code: "invalid_plugin_id", path: "id", message: "Plugin id must be a reverse-domain-style lowercase identifier." });
   }
   if (!SEMVER_PATTERN.test(manifest.version)) {
-    issues.push({ code: "invalid_version", path: "version", message: "Plugin version must be semantic versioning." });
+    issues.push({ code: "invalid_version", path: "version", message: "Plugin version must be valid Semantic Versioning 2.0.0." });
   }
 
   const requestedMajor = semverMajor(manifest.athenaContractVersion);
   const supportedMajor = semverMajor(supportedAthenaContractVersion);
   if (requestedMajor === null) {
-    issues.push({ code: "invalid_contract_version", path: "athenaContractVersion", message: "Athena contract version must be semantic versioning." });
+    issues.push({ code: "invalid_contract_version", path: "athenaContractVersion", message: "Athena contract version must be valid Semantic Versioning 2.0.0." });
   } else if (supportedMajor === null || requestedMajor !== supportedMajor) {
     issues.push({
       code: "incompatible_contract_major",
