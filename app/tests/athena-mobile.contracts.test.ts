@@ -70,13 +70,15 @@ describe("A14 voice/mobile channel policy", () => {
     }).decision).toBe("confirm");
   });
 
-  test("voice registry never discovers medium/high risk tools", () => {
+  test("voice registry only narrows discovery/resolution and never executes confirmation itself", () => {
     const registry = createAthenaToolRegistry();
     registry.register(tool());
+    registry.register(tool({ id: "tradeos.athena.fixture.contextual", confirmationPolicy: "contextual" }));
     registry.register(tool({ id: "tradeos.athena.fixture.danger", risk: "high", confirmationPolicy: "always" }));
-    const voice = createChannelAwareAthenaToolRegistry(registry, { channel: "voice" }, { ATHENA_VOICE_ENABLED: "true" });
+    const voice = createChannelAwareAthenaToolRegistry(registry, { channel: "voice" });
     const discovered = voice.discover({ role: "owner", featureFlags: [] });
-    expect(discovered.map((item) => item.id)).toEqual(["tradeos.athena.fixture.mobile-read"]);
+    expect(discovered.map((item) => item.id).sort()).toEqual(["tradeos.athena.fixture.contextual", "tradeos.athena.fixture.mobile-read"]);
+    expect(voice.resolve("tradeos.athena.fixture.contextual", "1.0.0").outcome).toBe("found");
     expect(voice.resolve("tradeos.athena.fixture.danger", "1.0.0").outcome).toBe("tool_not_found");
   });
 });
