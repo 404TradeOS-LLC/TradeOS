@@ -2,15 +2,18 @@ import type { AthenaPluginGrant, AthenaPluginManifest, AthenaPluginReviewRecord 
 import { assertPluginEventAllowed, assertPluginPermissionAllowed, assertPluginSandboxAllows } from "./sandbox";
 
 export interface AthenaPluginRuntimeContext {
+  activeOrgId: string;
   manifest: AthenaPluginManifest;
   review: AthenaPluginReviewRecord;
   grant: AthenaPluginGrant;
 }
 
+/** Verifies an installed plugin remains approved and enabled for the active tenant. */
 export function assertPluginMayLoad(ctx: AthenaPluginRuntimeContext): void {
   assertPluginSandboxAllows(ctx);
 }
 
+/** Verifies a tool is declared and all of its permissions remain granted for the active tenant. */
 export function assertPluginToolMayExecute(
   ctx: AthenaPluginRuntimeContext,
   toolId: string,
@@ -25,6 +28,7 @@ export function assertPluginToolMayExecute(
   }
 }
 
+/** Verifies a context provider is declared for the active tenant's installed manifest. */
 export function assertPluginContextProviderMayRun(
   ctx: AthenaPluginRuntimeContext,
   providerId: string,
@@ -35,6 +39,7 @@ export function assertPluginContextProviderMayRun(
   }
 }
 
+/** Verifies a consumed event is both A8-registered and explicitly granted. */
 export function assertPluginEventSubscriptionMayRun(
   ctx: AthenaPluginRuntimeContext,
   eventType: string,
@@ -46,6 +51,7 @@ export function assertPluginEventSubscriptionMayRun(
   assertPluginEventAllowed({ ...ctx, event: { direction: "consume", type: eventType } });
 }
 
+/** Verifies a published event is both A8-registered and explicitly granted. */
 export function assertPluginEventPublicationMayRun(
   ctx: AthenaPluginRuntimeContext,
   eventType: string,
