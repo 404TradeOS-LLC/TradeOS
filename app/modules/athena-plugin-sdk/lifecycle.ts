@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import { hashAthenaPluginManifest, reviewMatchesManifest } from "./review";
 
+/** Creates the least-privilege organization grant from one exact approved manifest review. */
 export function installApprovedPlugin(input: {
   orgId: string;
   manifest: AthenaPluginManifest;
@@ -33,6 +34,7 @@ export function installApprovedPlugin(input: {
   };
 }
 
+/** Produces the next grant state while making revoke and uninstall terminal. */
 export function transitionPluginGrant(
   grant: AthenaPluginGrant,
   status: "installed" | "disabled" | "revoked" | "uninstalled",
@@ -44,7 +46,9 @@ export function transitionPluginGrant(
   return { ...grant, status, updatedAt };
 }
 
+/** Evaluates one plugin capability against the exact review, current grant, and active organization. */
 export function evaluatePluginCapability(input: {
+  activeOrgId: string;
   manifest: AthenaPluginManifest;
   review?: AthenaPluginReviewRecord;
   grant?: AthenaPluginGrant;
@@ -55,6 +59,8 @@ export function evaluatePluginCapability(input: {
   const { manifest, review, grant } = input;
   if (!review || !reviewMatchesManifest(review, manifest)) return { allowed: false, reasonCode: "review_required" };
   if (!grant) return { allowed: false, reasonCode: "plugin_not_installed" };
+  if (grant.orgId !== input.activeOrgId) return { allowed: false, reasonCode: "organization_mismatch" };
+  if (grant.pluginId !== manifest.id || grant.pluginVersion !== manifest.version) return { allowed: false, reasonCode: "plugin_not_installed" };
   if (grant.status === "disabled") return { allowed: false, reasonCode: "plugin_disabled" };
   if (grant.status === "revoked" || grant.status === "uninstalled") return { allowed: false, reasonCode: "plugin_revoked" };
   if (grant.manifestHash !== hashAthenaPluginManifest(manifest)) return { allowed: false, reasonCode: "manifest_changed" };
