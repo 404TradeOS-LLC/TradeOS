@@ -9,6 +9,8 @@ import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } 
 import { buildAthenaSecurityAuditEvent } from "../../modules/athena-audit/securityEvents";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
+import { isAthenaVoiceEnabled } from "../../modules/athena-mobile/policy";
+import { createChannelAwareAthenaToolRegistry } from "../../modules/athena-mobile/toolRegistry";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
 import { requireAuthContext, requireOrgId } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
@@ -35,10 +37,7 @@ function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlatio
     async complete(scopeKey, outcome) { await store.complete(scopeKey, outcome); claimed.delete(scopeKey); },
     async release(scopeKey) { await store.release(scopeKey); claimed.delete(scopeKey); },
   };
-  return {
-    store: requestStore,
-    async releaseIncomplete() { for (const scopeKey of [...claimed]) await requestStore.release(scopeKey); },
-  };
+  return { store: requestStore, async releaseIncomplete() { for (const scopeKey of [...claimed]) await requestStore.release(scopeKey); } };
 }
 
 function resolveStatusCode(result: AthenaKernelResult): number {
@@ -58,44 +57,29 @@ function resolveStatusCode(result: AthenaKernelResult): number {
 }
 
 const selectedScopeSchema = z.object({
-  customerId: z.string().uuid().optional(),
-  projectId: z.string().uuid().optional(),
-  jobId: z.string().uuid().optional(),
-  estimateId: z.string().uuid().optional(),
-  invoiceId: z.string().uuid().optional(),
-  page: z.string().trim().max(200).optional(),
+  customerId: z.string().uuid().optional(), projectId: z.string().uuid().optional(), jobId: z.string().uuid().optional(), estimateId: z.string().uuid().optional(), invoiceId: z.string().uuid().optional(), page: z.string().trim().max(200).optional(),
 }).optional();
-
 const voiceConfirmationSchema = z.object({
-  toolId: z.string().trim().min(1).max(200),
-  toolVersion: z.string().trim().min(1).max(100),
-  inputHash: z.string().regex(/^[a-f0-9]{64}$/),
-  confirmed: z.literal(true),
+  toolId: z.string().trim().min(1).max(200), toolVersion: z.string().trim().min(1).max(100), inputHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal(true),
 }).strict();
-
 const interactionSchema = z.object({
-  channel: z.enum(["text", "mobile", "voice"]),
-  platform: z.enum(["ios", "android", "web"]).optional(),
-  viewportClass: z.enum(["compact", "regular"]).optional(),
-  connectivity: z.enum(["online", "degraded", "offline"]).optional(),
-  voiceConfirmation: voiceConfirmationSchema.optional(),
+  channel: z.enum(["text", "mobile", "voice"]), platform: z.enum(["ios", "android", "web"]).optional(), viewportClass: z.enum(["compact", "regular"]).optional(), connectivity: z.enum(["online", "degraded", "offline"]).optional(), voiceConfirmation: voiceConfirmationSchema.optional(),
 }).strict().optional();
 
 export const athenaChatRequestSchema = z.object({
-  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH),
-  conversationId: z.string().uuid().optional(),
-  selectedScope: selectedScopeSchema,
-  interaction: interactionSchema,
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH), conversationId: z.string().uuid().optional(), selectedScope: selectedScopeSchema, interaction: interactionSchema, idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 
 export const athenaController = {
   async chat(req: Request, res: Response): Promise<void> {
     if (!isAthenaKernelEnabled()) throw new ApiError(404, `Route not found: ${req.method} ${req.path}`);
-
     const auth = requireAuthContext(req);
     const orgId = requireOrgId(req);
     const body = athenaChatRequestSchema.parse(req.body);
+    if (body.interaction?.channel === "voice" && !isAthenaVoiceEnabled()) {
+      throw new ApiError(404, "Athena voice is not enabled in this environment");
+    }
+
     const canonicalRole = normalizeRole(auth.role);
     const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : randomUUID();
     const controller = new AbortController();
@@ -106,35 +90,18 @@ export const athenaController = {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
       try {
         await requestAuditStore.record(buildAthenaSecurityAuditEvent({
-          eventType: "authentication_succeeded",
-          organization: orgId,
-          actor: { userId: auth.userId, role: canonicalRole },
-          outcome: "allowed",
-          metadata: { eventSource: "athena_controller", channel: body.interaction?.channel ?? "text" },
-          requestId,
+          eventType: "authentication_succeeded", organization: orgId, actor: { userId: auth.userId, role: canonicalRole }, outcome: "allowed", metadata: { eventSource: "athena_controller", channel: body.interaction?.channel ?? "text" }, requestId,
         }));
-      } catch {
-        // Best effort; authorization remains server-side and authoritative.
-      }
+      } catch {}
 
       const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
+      const requestToolRegistry = createChannelAwareAthenaToolRegistry(toolRegistry, body.interaction);
       const result = await service.handleRequest({
-        request: {
-          message: body.message,
-          conversationId: body.conversationId,
-          selectedScope: body.selectedScope,
-          requestSource: "http",
-          interaction: body.interaction,
-        },
-        actor: {
-          userId: auth.userId,
-          orgId,
-          role: canonicalRole,
-          permissions: [...(auth.permissions ?? getRolePermissions(auth.role))],
-        },
+        request: { message: body.message, conversationId: body.conversationId, selectedScope: body.selectedScope, requestSource: "http", interaction: body.interaction },
+        actor: { userId: auth.userId, orgId, role: canonicalRole, permissions: [...(auth.permissions ?? getRolePermissions(auth.role))] },
         requestId,
         clientSignal: controller.signal,
-        toolRegistry,
+        toolRegistry: requestToolRegistry,
         idempotencyKey: body.idempotencyKey,
         idempotencyStore: requestIdempotency.store,
         auditStore: requestAuditStore,
@@ -143,19 +110,9 @@ export const athenaController = {
       await requestIdempotency.releaseIncomplete();
       if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
         await requestAuditStore.record({
-          id: randomUUID(),
-          timestamp: new Date(),
-          actor: { userId: auth.userId, role: canonicalRole },
-          organization: orgId,
-          eventType: result.success ? "execution_completed" : "failure",
-          metadata: {
-            finalState: result.state,
-            reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
-            channel: body.interaction?.channel ?? "text",
-          },
-          requestId,
-          traceId: result.traceId,
-          executionId: result.executionId,
+          id: randomUUID(), timestamp: new Date(), actor: { userId: auth.userId, role: canonicalRole }, organization: orgId, eventType: result.success ? "execution_completed" : "failure",
+          metadata: { finalState: result.state, reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"), channel: body.interaction?.channel ?? "text" },
+          requestId, traceId: result.traceId, executionId: result.executionId,
         });
       }
       res.status(resolveStatusCode(result)).json(result);
