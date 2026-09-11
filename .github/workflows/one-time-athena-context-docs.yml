@@ -1,0 +1,49 @@
+name: One-time Athena context docs alignment
+
+on:
+  push:
+    branches:
+      - fix/athena-context-interaction-propagation
+    paths:
+      - .github/workflows/one-time-athena-context-docs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/athena-context-interaction-propagation
+          fetch-depth: 0
+      - name: Align Athena context documentation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          updates = {
+              'docs/API_REFERENCE.md': '\n\n### Athena interaction context propagation\nAthena context assembly forwards the request interaction metadata (such as channel, platform, viewport class, and connectivity) to activated context providers. This is an existing typed contract; providers may use the metadata to shape channel-aware context without changing authorization or tenant scope.\n',
+              'docs/CURRENT_STATE.md': '\n\n### Athena A14 context interaction hardening\nThe Athena context assembler now preserves the existing A14 interaction metadata across the provider boundary, so mobile and voice-aware providers receive the channel context declared by `AthenaContextAssemblyRequest`. Regression coverage guards this propagation.\n',
+              'docs/athena/07-context-engine/README.md': '\n\n### Interaction metadata\nWhen an assembly request includes interaction metadata, the assembler passes that same metadata to each activated provider through `AthenaContextProviderInput.interaction`. Providers can use channel, platform, viewport, and connectivity context while the assembler continues to enforce the normal permission, feature-flag, timeout, cache, and failure-behavior gates.\n',
+              'docs/athena/README.md': '\n\n### A14 channel context\nAthena context providers receive the interaction metadata already carried by the assembly request. This keeps mobile and voice/channel-aware behavior aligned with the A14 runtime contract without widening permissions or changing persistence.\n',
+              'docs/athena/SECURITY_MODEL.md': '\n\n### Interaction metadata boundary\nInteraction metadata is propagated only inside the authenticated Athena context-assembly boundary. Passing it to providers does not bypass provider permissions, feature flags, organization scope, cache isolation, or failure controls; those checks remain owned by the context assembler.\n',
+          }
+
+          for name, addition in updates.items():
+              path = Path(name)
+              text = path.read_text()
+              marker = addition.strip().splitlines()[0]
+              if marker not in text:
+                  path.write_text(text.rstrip() + addition + '\n')
+          PY
+      - name: Remove one-time workflow
+        run: rm .github/workflows/one-time-athena-context-docs.yml
+      - name: Commit docs alignment
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/API_REFERENCE.md docs/CURRENT_STATE.md docs/athena/07-context-engine/README.md docs/athena/README.md docs/athena/SECURITY_MODEL.md .github/workflows/one-time-athena-context-docs.yml
+          git commit -m "docs(athena): document interaction context propagation"
+          git push origin HEAD:fix/athena-context-interaction-propagation
