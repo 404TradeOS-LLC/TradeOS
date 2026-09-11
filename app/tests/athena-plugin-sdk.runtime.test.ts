@@ -26,7 +26,7 @@ const manifest = {
 function installedRuntime() {
   const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
   const grant = installApprovedPlugin({ orgId: "org-1", manifest, review, installedBy: "owner-1" });
-  return { manifest, review, grant };
+  return { activeOrgId: "org-1", manifest, review, grant };
 }
 
 describe("A13 plugin runtime sandbox", () => {
@@ -35,6 +35,12 @@ describe("A13 plugin runtime sandbox", () => {
     expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.assessJob", ["dispatch.manage"])).not.toThrow();
     expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.undeclared", ["dispatch.manage"])).toThrow("tool_not_declared");
     expect(() => assertPluginToolMayExecute(ctx, "com.example.weather-risk.assessJob", ["billing.write"])).toThrow("permission_not_granted");
+  });
+
+  test("rejects a valid grant belonging to another organization", () => {
+    const ctx = installedRuntime();
+    expect(() => assertPluginToolMayExecute({ ...ctx, activeOrgId: "org-2" }, "com.example.weather-risk.assessJob", ["dispatch.manage"]))
+      .toThrow("organization_mismatch");
   });
 
   test("allows only declared context providers", () => {
