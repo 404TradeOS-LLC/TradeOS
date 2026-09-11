@@ -27,15 +27,31 @@ describe("A13 plugin SDK governance", () => {
     expect(validateAthenaPluginManifest(manifest)).toEqual({ ok: true, manifest });
   });
 
+  test.each(["01.0.0", "1.0.0-alpha..1", "1.0.0-01", "1.0.0+"])("rejects malformed Semantic Version %s", (version) => {
+    const result = validateAthenaPluginManifest({ ...manifest, version });
+    expect(result.ok).toBe(false);
+  });
+
+  test("accepts valid prerelease and build metadata", () => {
+    expect(validateAthenaPluginManifest({ ...manifest, version: "1.2.3-alpha.1+build.7" }).ok).toBe(true);
+  });
+
   test("rejects incompatible Athena contract major", () => {
     const result = validateAthenaPluginManifest({ ...manifest, athenaContractVersion: "2.0.0" });
     expect(result.ok).toBe(false);
   });
 
+  test("invalid manifests cannot be approved", () => {
+    expect(() => createApprovedPluginReview({
+      manifest: { ...manifest, network: { allowedHosts: ["localhost"] } },
+      reviewedBy: "reviewer",
+    })).toThrow("ATHENA_PLUGIN_INVALID_MANIFEST");
+  });
+
   test("binds approval to exact manifest", () => {
     const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
     expect(review.manifestHash).toBe(hashAthenaPluginManifest(manifest));
-    expect(evaluatePluginCapability({ manifest: { ...manifest, permissions: ["dispatch.manage", "billing.read"] }, review })).toEqual({
+    expect(evaluatePluginCapability({ activeOrgId: "org-1", manifest: { ...manifest, permissions: ["dispatch.manage", "billing.read"] }, review })).toEqual({
       allowed: false,
       reasonCode: "review_required",
     });
@@ -51,17 +67,33 @@ describe("A13 plugin SDK governance", () => {
     })).toThrow("ATHENA_PLUGIN_REVIEW_REQUIRED");
   });
 
+  test("rejects a review that grants capabilities absent from the manifest", () => {
+    const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
+    const escalated = { ...review, approvedPermissions: [...review.approvedPermissions, "billing.write"] };
+    expect(() => installApprovedPlugin({ orgId: "org-1", manifest, review: escalated, installedBy: "owner-1" }))
+      .toThrow("ATHENA_PLUGIN_REVIEW_REQUIRED");
+  });
+
   test("installed plugin receives only reviewed capabilities", () => {
     const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
     const grant = installApprovedPlugin({ orgId: "org-1", manifest, review, installedBy: "owner-1" });
-    expect(evaluatePluginCapability({ manifest, review, grant, permission: "dispatch.manage" }).allowed).toBe(true);
-    expect(evaluatePluginCapability({ manifest, review, grant, permission: "billing.write" })).toEqual({
+    expect(evaluatePluginCapability({ activeOrgId: "org-1", manifest, review, grant, permission: "dispatch.manage" }).allowed).toBe(true);
+    expect(evaluatePluginCapability({ activeOrgId: "org-1", manifest, review, grant, permission: "billing.write" })).toEqual({
       allowed: false,
       reasonCode: "permission_not_granted",
     });
-    expect(evaluatePluginCapability({ manifest, review, grant, networkHost: "evil.example.com" })).toEqual({
+    expect(evaluatePluginCapability({ activeOrgId: "org-1", manifest, review, grant, networkHost: "evil.example.com" })).toEqual({
       allowed: false,
       reasonCode: "network_host_not_granted",
+    });
+  });
+
+  test("capabilities are tenant-bound", () => {
+    const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
+    const grant = installApprovedPlugin({ orgId: "org-1", manifest, review, installedBy: "owner-1" });
+    expect(evaluatePluginCapability({ activeOrgId: "org-2", manifest, review, grant })).toEqual({
+      allowed: false,
+      reasonCode: "organization_mismatch",
     });
   });
 
@@ -69,7 +101,7 @@ describe("A13 plugin SDK governance", () => {
     const review = createApprovedPluginReview({ manifest, reviewedBy: "reviewer" });
     const installed = installApprovedPlugin({ orgId: "org-1", manifest, review, installedBy: "owner-1" });
     const revoked = transitionPluginGrant(installed, "revoked");
-    expect(evaluatePluginCapability({ manifest, review, grant: revoked })).toEqual({ allowed: false, reasonCode: "plugin_revoked" });
+    expect(evaluatePluginCapability({ activeOrgId: "org-1", manifest, review, grant: revoked })).toEqual({ allowed: false, reasonCode: "plugin_revoked" });
     expect(() => transitionPluginGrant(revoked, "installed")).toThrow("ATHENA_PLUGIN_TERMINAL_STATE");
   });
 });
