@@ -228,6 +228,7 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
             orgId: request.orgId,
             actor: request.actor,
             selectedScope: request.selectedScope,
+            interaction: request.interaction,
             deadline,
             cancellationSignal: signal,
           }),
