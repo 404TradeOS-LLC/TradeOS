@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-09-11
 source_of_truth: true
 ---
 
@@ -36,25 +36,26 @@ freshness policy.
 | `knowledgeEngine` | Read-only Knowledge Runtime facts and retrieval metadata |
 | `inventory` | Materials, reservations, order constraints |
 | `notifications` | Unread alerts, reminders, follow-up queue |
+| `mobile` | Minimized actor-scoped field context for mobile/voice interactions |
 | `telemetry` | Correlation IDs, trace IDs, model/tool budget hints |
 
 ## Live Today Versus Contract Surface
 
-As of Friday, August 14, 2026, Athena recognizes the full contract surface
-above. The production-readiness slice in PR #202 adds first-party customer,
-estimate, and Costbook providers alongside the existing dispatch,
-knowledge-engine, and memory provider seams. These providers remain bounded by
+Athena recognizes the full contract surface above. The live registry includes
+first-party customer, estimate, Costbook, dispatch, knowledge-engine, memory,
+and A14 mobile-field provider seams. These providers remain bounded by
 server-derived organization/user context, permission checks, selected resource
-scope, and the existing Athena feature flags; merging the code does not by
-itself prove that Athena is enabled in production.
+scope, and existing Athena feature flags; merged code does not by itself prove
+that Athena is enabled in production.
 
 - minimal request/organization/user/permissions/conversation/telemetry context
   is always available through the kernel;
 - `dispatch` and `knowledgeEngine` are live provider-backed sections;
-- `customers`, `estimates`, and `costbook` now have first-party provider
+- `customers`, `estimates`, and `costbook` have first-party provider
   implementations available to the live context registry;
 - `memory` is a real provider registration seam but remains gated/dormant for
   ordinary runtime use;
+- `mobile` is an explicit-only A14 provider for minimized field context;
 - `workspace`, `dashboard`, `weather`, `calendar`, `inventory`, and
   `notifications` remain contract-recognized future sections.
 
@@ -76,6 +77,13 @@ must enforce:
 High-PII sections such as customers, dispatch, invoices, notifications,
 calendar, and memory-backed preferences are lazy and intent-gated by default.
 They are not included merely because they exist in the organization.
+
+A14's `mobile` provider is intentionally smaller than normal dispatch/customer
+context. It delegates selected-job lookup to `JobsService`, preserving existing
+actor scope and RLS. It may expose job identity/status/priority, city/state,
+schedule windows, and selected page, while omitting customer email/phone, full
+street address, and assignment identity. A missing selected job does not trigger
+broad hydration.
 
 ## Selected Scope
 
@@ -169,7 +177,14 @@ not persist raw prompts, model output, tool arguments, or tool results; review
 provenance cannot authorize a business write outside the existing application
 services.
 
-
 ## S028 boundary
 
 Estimate-to-proposal verification in PR #338 uses the existing authenticated Athena context, permission, and audit/event seams. It does not authorize autonomous AI writes, provider changes, or cross-tenant context expansion.
+
+## A14 channel boundary
+
+The request context may now carry safe interaction metadata for `text`,
+`mobile`, or `voice` channels. Channel metadata is descriptive context only and
+never a permission grant. Voice availability and voice tool narrowing are
+handled outside context assembly. Raw audio is not part of C001 and is not
+persisted by the A14 backend contract.

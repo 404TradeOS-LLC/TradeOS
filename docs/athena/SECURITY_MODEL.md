@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-09-11
 source_of_truth: true
 related_code:
   - app/backend/controllers/athena.controller.ts
@@ -10,6 +10,7 @@ related_code:
   - app/modules/athena-action-engine/**
   - app/modules/athena-context-engine/**
   - app/modules/athena-tool-registry/**
+  - app/modules/athena-mobile/**
   - app/modules/athena-approvals/**
   - app/modules/athena-audit/**
   - app/prisma/schema.prisma
@@ -198,7 +199,32 @@ append-only. No generation record can authorize a business mutation outside
 the existing authenticated, permission-checked, review-first application
 service path.
 
-
 ## S028 security boundary
 
 The S028 implementation in PR #338 preserves server-derived organization context, existing permission checks, forced PostgreSQL RLS, direct-object denial, and secret-free audit/event payloads. No authentication bypass or autonomous AI write path is introduced.
+
+## A14 voice/mobile security boundary
+
+A14 treats interaction channel as a narrowing signal, never as authority. The
+same authenticated organization, role, permission, resource-scope, A6 action,
+and forced-RLS boundaries remain authoritative for text, mobile, and voice.
+
+- voice requests are independently disabled unless `ATHENA_VOICE_ENABLED=true`;
+  disabling voice does not disable text/mobile Athena;
+- the voice-specific registry view can only remove capabilities from the
+  existing registry; it cannot make an otherwise unavailable tool resolvable;
+- medium/high-risk tools do not resolve through the voice-only tool surface and
+  remain on the existing visual/text approval path;
+- low-risk tools with contextual/always confirmation policy require an exact
+  confirmation proof bound to the registered tool id/version and A6 canonical
+  hash of validated input; a changed payload invalidates the proof;
+- A4 permissions and A6 execution remain authoritative after any channel gate;
+- the mobile field provider reaches selected-job data only through `JobsService`
+  and existing RLS/object scope and deliberately omits customer contact details,
+  full street address, and assignment identity;
+- channel metadata is safe structural metadata only. Raw audio is not accepted
+  or persisted by the A14 backend contract.
+
+A14 does not introduce a speech-provider credential surface, a second approval
+mechanism, offline autonomous execution, or a channel-specific permission
+engine.

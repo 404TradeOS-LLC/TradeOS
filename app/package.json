@@ -23,14 +23,12 @@
     "demo:trainingless-estimate": "ts-node modules/trainingless-estimate-demo/demo.ts",
     "test": "jest --runInBand",
     "test:integration": "bash scripts/test-integration-db.sh",
-    "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|plugin-sdk(?:\\.[a-z.-]+)?|tools\\.[a-z.-]+)\\.(contracts|runtime|import-boundary)\\.test\\.ts$\"",
+    "athena:contracts": "jest --runInBand --testPathPatterns \"athena-(kernel|tool-registry|context-engine|permissions|planner|action-engine|memory|events|security|tool-sdk|plugin-sdk(?:\\.[a-z.-]+)?|mobile(?:-context)?|tools\\.[a-z.-]+)\\.(contracts|runtime|import-boundary)\\.test\\.ts$\"",
     "athena:smoke": "jest --runInBand --testPathPatterns \"athena-kernel\\.smoke\\.test\\.ts$\"",
     "lint": "tsc --noEmit",
     "beta:evidence": "node scripts/beta-evidence/run.mjs"
   },
-  "prisma": {
-    "seed": "ts-node db/seed/seed.ts"
-  },
+  "prisma": { "seed": "ts-node db/seed/seed.ts" },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
@@ -60,8 +58,5 @@
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
-  "overrides": {
-    "deepmerge-ts": "8.0.0",
-    "qs": "6.16.0"
-  }
+  "overrides": { "deepmerge-ts": "8.0.0", "qs": "6.16.0" }
 }

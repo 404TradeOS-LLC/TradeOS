@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-11
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -218,8 +218,7 @@ Estimate lifecycle behavior:
 
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
-`POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
-of Friday, August 14, 2026, it:
+`POST /api/v1/athena/chat` remains the single production Athena entrypoint. It:
 - requires standard authenticated organization access;
 - derives actor/org/role from server-trusted auth context, not request body;
 - resolves exact granted permissions from the authenticated TradeOS session when
@@ -234,21 +233,37 @@ of Friday, August 14, 2026, it:
   hash, plan id, and step id;
 - exposes no separate tool-specific mutation endpoints.
 
-**Unreleased (PR #214):** the optional `idempotencyKey` request contract and durable A6 action-idempotency behavior below exist on PR #214 and must not be treated as shipped on `main` or available in production until that PR is merged and deployed.
+The chat request body accepts `message`, optional `conversationId`, optional
+`selectedScope`, optional `idempotencyKey`, and the additive optional A14
+`interaction` object. `interaction.channel` is one of `text`, `mobile`, or
+`voice`; optional structural metadata includes `platform` (`ios`, `android`,
+`web`), `viewportClass` (`compact`, `regular`), and `connectivity` (`online`,
+`degraded`, `offline`). Voice requests may also supply `voiceConfirmation` with
+`toolId`, `toolVersion`, a 64-character lowercase SHA-256 `inputHash`, and
+`confirmed: true`. This proof grants no permission: A4/A6 and the registered
+tool metadata remain authoritative.
 
-PR #214 adds an optional `idempotencyKey` request field: a caller-generated,
-trimmed, non-empty retry key of at most 200 characters. It is not an approval
-token and grants no permission. The controller forwards that stable retry key
-through the existing kernel seam to A6, which binds it to the server-derived
-organization and actor, registered tool/version, and canonical hash of validated
-tool input before tool execution.
+Voice requests are independently disabled unless `ATHENA_VOICE_ENABLED=true`.
+The voice request-scoped registry view only narrows the existing tool surface:
+medium/high-risk tools cannot resolve through the voice-only path and remain on
+the visual/text approval surface. A low-risk tool with `confirmationPolicy:
+never` can continue normally after the existing policy/security checks. A
+low-risk tool with contextual/always confirmation performs a no-mutation
+confirmation pass unless the supplied proof matches the exact registered tool
+id/version and A6 canonical hash of the validated input; changing the payload
+invalidates the proof. The A14 HTTP contract accepts text plus safe interaction
+metadata only; it does not accept or persist raw audio.
 
-Under PR #214, durable action idempotency adds no new REST route. A completed
-duplicate with the same actor/org/tool/version/key/input identity returns the
-original persisted action result without invoking the tool again; reusing the
-same key for different validated input fails closed. The durable store runs
-inside the authenticated request-scoped RLS transaction, while the process-local
-store remains a test/local fixture.
+The optional `idempotencyKey` is a caller-generated, trimmed, non-empty retry key
+of at most 200 characters. It is not an approval token and grants no permission.
+The controller forwards that stable retry key through the existing kernel seam
+to A6, which binds it to the server-derived organization and actor, registered
+tool/version, and canonical hash of validated tool input before tool execution.
+A completed duplicate with the same actor/org/tool/version/key/input identity
+returns the original persisted action result without invoking the tool again;
+reusing the same key for different validated input fails closed. The durable
+store runs inside the authenticated request-scoped RLS transaction, while the
+process-local store remains a test/local fixture.
 
 Approval persistence for Athena remains an internal implementation detail.
 Owner/admin operators may query the bounded security-event view at
@@ -520,7 +535,6 @@ organization-scoped database query; the web catalog screens submit those
 criteria to the server and expose next-page navigation rather than treating a
 bounded response as a complete catalog.
 
-
 **Unreleased (PR `#257`):** Supplier price-proposal approval and rejection use an atomic pending-status claim inside the existing transaction: only the reviewer that successfully claims the organization-scoped pending row may continue, and a competing reviewer receives conflict/fail-closed behavior. A downstream Material or audit failure rolls the claim back to `pending`; feeds remain review-first and never auto-apply Material pricing. Approve/reject routes require `costbook.manage`. This is a concurrency repair only: it changes neither the Costbook architecture nor its permission model.
 
 `POST /api/v1/costbook/pricing/preview` requires `costbook.read`. `GET /api/v1/costbook/price-history` requires `costbook.manage`; that permission is granted to owner and admin roles, and the controller does not apply a separate manager-role check.
@@ -565,7 +579,6 @@ The existing AI Estimate Assist routes expose this contract:
   (reviewer, outcome, and bounded apply counts). The organization is derived
   server-side, and accepted business writes still use the existing
   review-first Estimate Engine path.
-
 
 ## Estimate-backed invoice value transfer
 

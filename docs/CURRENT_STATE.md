@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-08
+last_verified: 2026-09-11
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -25,6 +25,7 @@ related_code:
   - app/modules/athena-events
   - app/modules/athena-observability
   - app/modules/athena-action-engine
+  - app/modules/athena-mobile
   - web/src/app
   - web/src/app/(app)/dashboard
   - web/src/components/dashboard
@@ -48,7 +49,7 @@ related_code:
 
 # Current State
 
-Last reconciled against `origin/main` commit `96caffc8877f77b96f8c3ae099d147c839be355f` on 2026-09-08 after PR #476 merged. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-11 for the A14 voice/mobile-readiness slice based on `main` commit `32f94e6ec7c0a333e72279f20ddc6fe6f1407d54`. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -195,6 +196,7 @@ A follow-up slice implements Stage 6 of `docs/architecture/COSTBOOK_RESEARCH_ING
 - New routes under `/api/v1/costbook/candidates` (`GET`/`POST` list+create requiring `costbook.write`/`costbook.read`, `GET /:id`, `POST /:id/review` and `POST /:id/promote` requiring `costbook.manage`, mirroring supplier-integration's approve/reject boundary). See `docs/API_REFERENCE.md`.
 - AI may prepare and submit candidates (as an authenticated owner/admin-permissioned caller); AI may never approve or promote one — both actions require an authenticated human's `costbook.manage` session, and the reviewer/promoter identity is always that user's real id.
 - No existing production `CostItem`/`Material`/`LaborRate`/`Equipment` row is modified by this slice; promotion only ever creates new rows from an already-approved candidate. No Knowledge Engine export data changed. Stage 7 (regenerating the Knowledge Engine corpus from governed Costbook data) remains unimplemented.
+
 ## Lifecycle normalization status
 
 The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.
@@ -233,8 +235,29 @@ Landed foundations include:
 - first-party business tools routed through existing application services
 - safe background/retry/correlation semantics
 - security audit-event coverage
+- governed first-party plugin/runtime boundaries through A13
+- A14 channel-aware voice/mobile readiness primitives
 
 Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
+
+### A14 voice/mobile readiness
+
+A14 extends the existing Athena kernel rather than creating a second assistant or
+channel-specific execution engine. The request contract can carry additive safe
+interaction metadata for text, mobile, or voice. Voice can be disabled
+independently with `ATHENA_VOICE_ENABLED` without disabling text/mobile Athena.
+The request-scoped voice registry view only narrows the existing A2/A12 tool
+surface: medium/high-risk tools are unavailable through the voice-only path,
+while low-risk tools with contextual confirmation bind confirmation to the exact
+registered tool/version and A6 canonical validated-input hash.
+
+The A14 mobile C010 provider delegates selected-job reads to `JobsService`, so
+existing actor scope and forced RLS remain authoritative. It exposes only
+minimized field context (job identity/status/priority, city/state, schedule
+windows, selected page) and omits customer contact details, full street address,
+and assignment identity. The backend does not accept or persist raw audio. A14
+is backend readiness infrastructure; it does not claim a production speech
+provider integration, offline autonomous execution, or production enablement.
 
 Repository merge state does not by itself prove Athena is enabled in production; feature flags and deployment configuration remain authoritative.
 
@@ -350,7 +373,6 @@ The web forgot-password flow uses Supabase Auth recovery: the recovery request i
 The callback attaches Supabase recovery session cookies directly to its redirect response before navigating to `/reset-password`, preventing the reset form from losing the recovery session between requests. `/reset-password` binds the HttpOnly recovery marker to the user returned by the recovery exchange and requires that same live user before rendering the native form, so a stale marker or unrelated sign-in session fails closed at page load. Malformed or unrecognized recovery callbacks log only a static diagnostic; recovery query strings, PKCE codes, and token hashes are never written to server logs.
 
 `/reset-password` verifies a valid recovery session server-side (the `tradeos-recovery` cookie set by `/auth/confirm`, or a legacy invite token) before ever rendering the password form. A missing session, or an `?error=` from a failed `/auth/confirm` exchange (expired, reused, or scanner-consumed link), renders a recovery-error card with a link back to `/forgot-password` instead of the form — the form is never shown to a caller without a valid session. `resetPasswordForEmail`, the `/auth/confirm` exchange, and `updateUser` each log their real Supabase error server-side (`console.error`) on failure while returning a generic, safe message to the client.
-
 
 ## Dashboard weather compatibility seam
 

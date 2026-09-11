@@ -9,29 +9,19 @@ import { createPrismaAthenaAuditStore, createTerminalTrackingAthenaAuditStore } 
 import { buildAthenaSecurityAuditEvent } from "../../modules/athena-audit/securityEvents";
 import { ATHENA_MAX_MESSAGE_LENGTH, AthenaKernelService } from "../../modules/athena-kernel/service";
 import { isAthenaKernelEnabled } from "../../modules/athena-kernel/flags";
+import { isAthenaVoiceEnabled } from "../../modules/athena-mobile/policy";
+import { createChannelAwareAthenaToolRegistry } from "../../modules/athena-mobile/toolRegistry";
 import { createProductionAthenaToolRegistry } from "../../modules/athena-tools/registry";
 import { requireAuthContext, requireOrgId } from "../requestContext";
 import { ApiError } from "../middleware/errorHandler";
 import { AthenaKernelResult } from "../../modules/athena-kernel/types";
 
 const service = new AthenaKernelService();
-// A12 (docs/athena/roadmap/A12-business-tool-rollout-implementation-plan.md):
-// first production tool registry - built once at module load, reused across
-// requests the same way `service` above is. Passed explicitly into every
-// handleRequest() call rather than relying on the kernel's empty default
-// (see athena-kernel/service.ts's `toolRegistry` module comment).
 const toolRegistry = createProductionAthenaToolRegistry();
 const auditStore = createPrismaAthenaAuditStore();
-// A6 durable idempotency: production never relies on the Action Engine's
-// process-local test fallback. This infrastructure adapter executes through
-// the request-scoped Prisma proxy, so reservation/result persistence shares
-// the same RLS transaction as the business service invoked by the tool.
 const idempotencyStore = createPrismaAthenaIdempotencyStore();
 
-function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlationId: string): {
-  store: AthenaIdempotencyStore;
-  releaseIncomplete(): Promise<void>;
-} {
+function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlationId: string): { store: AthenaIdempotencyStore; releaseIncomplete(): Promise<void> } {
   const claimed = new Set<string>();
   const requestStore: AthenaIdempotencyStore = {
     async reserve<TData = unknown>(scopeKey: string, inputHash: string) {
@@ -40,30 +30,14 @@ function createRequestIdempotencyStore(store: AthenaIdempotencyStore, correlatio
         if (reservation.outcome === "new") claimed.add(scopeKey);
         return reservation;
       } catch (error) {
-        if (error instanceof AthenaIdempotencyConflictError) {
-          throw athenaActionIdempotencyConflictError(correlationId);
-        }
+        if (error instanceof AthenaIdempotencyConflictError) throw athenaActionIdempotencyConflictError(correlationId);
         throw error;
       }
     },
-    async complete(scopeKey, outcome) {
-      await store.complete(scopeKey, outcome);
-      claimed.delete(scopeKey);
-    },
-    async release(scopeKey) {
-      await store.release(scopeKey);
-      claimed.delete(scopeKey);
-    },
+    async complete(scopeKey, outcome) { await store.complete(scopeKey, outcome); claimed.delete(scopeKey); },
+    async release(scopeKey) { await store.release(scopeKey); claimed.delete(scopeKey); },
   };
-
-  return {
-    store: requestStore,
-    async releaseIncomplete() {
-      for (const scopeKey of [...claimed]) {
-        await requestStore.release(scopeKey);
-      }
-    },
-  };
+  return { store: requestStore, async releaseIncomplete() { for (const scopeKey of [...claimed]) await requestStore.release(scopeKey); } };
 }
 
 function resolveStatusCode(result: AthenaKernelResult): number {
@@ -72,142 +46,75 @@ function resolveStatusCode(result: AthenaKernelResult): number {
   if (result.state === "expired") return 504;
   if (result.state === "cancelled") return 499;
   switch (result.error?.category) {
-    case "validation":
-      return 400;
-    case "authorization":
-      return 403;
-    case "conflict":
-      return 409;
-    case "timeout":
-      return 504;
+    case "validation": return 400;
+    case "authorization": return 403;
+    case "conflict": return 409;
+    case "timeout": return 504;
     case "provider":
-    case "service":
-      return 502;
-    default:
-      return 500;
+    case "service": return 502;
+    default: return 500;
   }
 }
 
-const selectedScopeSchema = z
-  .object({
-    customerId: z.string().uuid().optional(),
-    projectId: z.string().uuid().optional(),
-    jobId: z.string().uuid().optional(),
-    estimateId: z.string().uuid().optional(),
-    invoiceId: z.string().uuid().optional(),
-    page: z.string().trim().max(200).optional(),
-  })
-  .optional();
+const selectedScopeSchema = z.object({
+  customerId: z.string().uuid().optional(), projectId: z.string().uuid().optional(), jobId: z.string().uuid().optional(), estimateId: z.string().uuid().optional(), invoiceId: z.string().uuid().optional(), page: z.string().trim().max(200).optional(),
+}).optional();
+const voiceConfirmationSchema = z.object({
+  toolId: z.string().trim().min(1).max(200), toolVersion: z.string().trim().min(1).max(100), inputHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal(true),
+}).strict();
+const interactionSchema = z.object({
+  channel: z.enum(["text", "mobile", "voice"]), platform: z.enum(["ios", "android", "web"]).optional(), viewportClass: z.enum(["compact", "regular"]).optional(), connectivity: z.enum(["online", "degraded", "offline"]).optional(), voiceConfirmation: voiceConfirmationSchema.optional(),
+}).strict().optional();
 
-const chatRequestSchema = z.object({
-  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH),
-  conversationId: z.string().uuid().optional(),
-  selectedScope: selectedScopeSchema,
-  // Stable caller-generated retry key for A6 deduplication. This is not an
-  // approval token and grants no permission; the Action Engine binds it to
-  // org + actor + registered tool/version + canonical validated input.
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+export const athenaChatRequestSchema = z.object({
+  message: z.string().trim().min(1).max(ATHENA_MAX_MESSAGE_LENGTH), conversationId: z.string().uuid().optional(), selectedScope: selectedScopeSchema, interaction: interactionSchema, idempotencyKey: z.string().trim().min(1).max(200).optional(),
 });
 
-// docs/athena/roadmap/A1-ai-kernel-implementation-plan.md "Required Backend
-// Seams": controller owns HTTP + Zod validation, then hands server-derived
-// actor context to the kernel service. The kernel is never reachable unless
-// ATHENA_KERNEL_ENABLED is true - A1 ships dark by default.
 export const athenaController = {
   async chat(req: Request, res: Response): Promise<void> {
-    if (!isAthenaKernelEnabled()) {
-      throw new ApiError(404, `Route not found: ${req.method} ${req.path}`);
-    }
-
+    if (!isAthenaKernelEnabled()) throw new ApiError(404, `Route not found: ${req.method} ${req.path}`);
     const auth = requireAuthContext(req);
     const orgId = requireOrgId(req);
-    const body = chatRequestSchema.parse(req.body);
+    const body = athenaChatRequestSchema.parse(req.body);
+    if (body.interaction?.channel === "voice" && !isAthenaVoiceEnabled()) {
+      throw new ApiError(404, "Athena voice is not enabled in this environment");
+    }
+
     const canonicalRole = normalizeRole(auth.role);
     const requestId = typeof res.locals.requestId === "string" ? res.locals.requestId : randomUUID();
-
-    // res (ServerResponse), not req (IncomingMessage), is the correct
-    // client-disconnect signal here: req's "close" fires once the request
-    // has been fully received - which happens before this controller even
-    // runs, since body-parsing middleware precedes route handlers - and
-    // says nothing about whether the client is still connected while Athena
-    // is generating the response. res only closes early (before
-    // writableEnded) when the client actually disconnects mid-response.
     const controller = new AbortController();
-    const onResponseClose = () => {
-      if (!res.writableEnded) {
-        controller.abort();
-      }
-    };
+    const onResponseClose = () => { if (!res.writableEnded) controller.abort(); };
     res.once("close", onResponseClose);
 
     try {
       const requestAuditStore = createTerminalTrackingAthenaAuditStore(auditStore);
       try {
         await requestAuditStore.record(buildAthenaSecurityAuditEvent({
-          eventType: "authentication_succeeded",
-          organization: orgId,
-          actor: { userId: auth.userId, role: canonicalRole },
-          outcome: "allowed",
-          metadata: { eventSource: "athena_controller" },
-          requestId,
+          eventType: "authentication_succeeded", organization: orgId, actor: { userId: auth.userId, role: canonicalRole }, outcome: "allowed", metadata: { eventSource: "athena_controller", channel: body.interaction?.channel ?? "text" }, requestId,
         }));
-      } catch {
-        // Security-audit persistence is best effort and must not change the
-        // authenticated request's business result.
-      }
+      } catch {}
+
       const requestIdempotency = createRequestIdempotencyStore(idempotencyStore, requestId);
+      const requestToolRegistry = createChannelAwareAthenaToolRegistry(toolRegistry, body.interaction);
       const result = await service.handleRequest({
-        request: {
-          message: body.message,
-          conversationId: body.conversationId,
-          selectedScope: body.selectedScope,
-          requestSource: "http",
-        },
-        actor: {
-          userId: auth.userId,
-          orgId,
-          role: canonicalRole,
-          permissions: [...(auth.permissions ?? getRolePermissions(auth.role))],
-        },
+        request: { message: body.message, conversationId: body.conversationId, selectedScope: body.selectedScope, requestSource: "http", interaction: body.interaction },
+        actor: { userId: auth.userId, orgId, role: canonicalRole, permissions: [...(auth.permissions ?? getRolePermissions(auth.role))] },
         requestId,
         clientSignal: controller.signal,
-        toolRegistry,
+        toolRegistry: requestToolRegistry,
         idempotencyKey: body.idempotencyKey,
         idempotencyStore: requestIdempotency.store,
         auditStore: requestAuditStore,
       });
 
-      // If A6 claimed a reservation but returned through a path that never
-      // completed it, remove that claim before the request-scoped database
-      // transaction can commit. Completed outcomes have already removed their
-      // key from the request-local claimed set.
       await requestIdempotency.releaseIncomplete();
-
-      // The kernel records terminal audit events for action outcomes. Some
-      // non-action terminal paths (for example draft-only success, permission
-      // denial, and cancellation) historically returned without one. Add the
-      // request-level terminal event only when the kernel did not already
-      // emit one, preserving the exactly-one terminal audit invariant without
-      // duplicating successful/failed action events. Because this fallback is
-      // the only durable terminal record for those paths, persistence failure
-      // fails the request rather than returning without terminal audit state.
       if (!requestAuditStore.hasTerminalEvent(result.executionId)) {
         await requestAuditStore.record({
-          id: randomUUID(),
-          timestamp: new Date(),
-          actor: { userId: auth.userId, role: canonicalRole },
-          organization: orgId,
-          eventType: result.success ? "execution_completed" : "failure",
-          metadata: {
-            finalState: result.state,
-            reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"),
-          },
-          requestId,
-          traceId: result.traceId,
-          executionId: result.executionId,
+          id: randomUUID(), timestamp: new Date(), actor: { userId: auth.userId, role: canonicalRole }, organization: orgId, eventType: result.success ? "execution_completed" : "failure",
+          metadata: { finalState: result.state, reasonCode: result.error?.code ?? (result.success ? "request_completed" : "athena_request_failed"), channel: body.interaction?.channel ?? "text" },
+          requestId, traceId: result.traceId, executionId: result.executionId,
         });
       }
-
       res.status(resolveStatusCode(result)).json(result);
     } finally {
       res.removeListener("close", onResponseClose);
