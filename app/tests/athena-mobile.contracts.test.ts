@@ -70,13 +70,36 @@ describe("A14 voice/mobile channel policy", () => {
     }).decision).toBe("confirm");
   });
 
-  test("voice registry never discovers medium/high risk tools", () => {
+  test("voice registry only narrows discovery/resolution and never executes confirmation itself", async () => {
     const registry = createAthenaToolRegistry();
     registry.register(tool());
+    registry.register(tool({ id: "tradeos.athena.fixture.contextual", confirmationPolicy: "contextual" }));
     registry.register(tool({ id: "tradeos.athena.fixture.danger", risk: "high", confirmationPolicy: "always" }));
-    const voice = createChannelAwareAthenaToolRegistry(registry, { channel: "voice" }, { ATHENA_VOICE_ENABLED: "true" });
+    const voice = createChannelAwareAthenaToolRegistry(registry, { channel: "voice" });
     const discovered = voice.discover({ role: "owner", featureFlags: [] });
-    expect(discovered.map((item) => item.id)).toEqual(["tradeos.athena.fixture.mobile-read"]);
+    expect(discovered.map((item) => item.id).sort()).toEqual(["tradeos.athena.fixture.contextual", "tradeos.athena.fixture.mobile-read"]);
+
+    const contextual = voice.resolve("tradeos.athena.fixture.contextual", "1.0.0");
+    expect(contextual.outcome).toBe("found");
+    if (contextual.outcome !== "found") throw new Error("expected contextual tool to resolve");
+
+    const execution = await contextual.definition.execute(
+      { jobId: "job-1" },
+      {} as never,
+      {
+        executionId: "exec-1",
+        requestId: "req-1",
+        traceId: "trace-1",
+        orgId: "org-1",
+        actor: { type: "user", id: "user-1" },
+        role: "owner",
+        deadline: new Date("2026-09-11T12:00:00.000Z"),
+        cancellationSignal: new AbortController().signal,
+        featureFlags: [],
+      }
+    );
+    expect(execution).toMatchObject({ success: true, summary: "ok" });
+    expect(execution).not.toHaveProperty("voiceConfirmation");
     expect(voice.resolve("tradeos.athena.fixture.danger", "1.0.0").outcome).toBe("tool_not_found");
   });
 });

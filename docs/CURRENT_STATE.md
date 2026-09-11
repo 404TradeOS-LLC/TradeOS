@@ -259,6 +259,15 @@ and assignment identity. The backend does not accept or persist raw audio. A14
 is backend readiness infrastructure; it does not claim a production speech
 provider integration, offline autonomous execution, or production enablement.
 
+The A14 post-merge correctness repair aligns runtime behavior with those
+contracts: an unconfirmed contextual voice action returns a kernel-level
+`needs_clarification` challenge before A6/idempotency, so the confirmation pass
+cannot be persisted or replayed as a completed action; the mobile provider
+remains `explicit_only` and is requested only for `mobile`/`voice`, not ordinary
+`text`; and the assembled bounded context is carried forward into both tool
+execution and the model-provider seam. These changes do not broaden authority,
+tenant scope, or PII exposure.
+
 Repository merge state does not by itself prove Athena is enabled in production; feature flags and deployment configuration remain authoritative.
 
 ## Security and tenant-boundary posture

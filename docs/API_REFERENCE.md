@@ -254,6 +254,15 @@ id/version and A6 canonical hash of the validated input; changing the payload
 invalidates the proof. The A14 HTTP contract accepts text plus safe interaction
 metadata only; it does not accept or persist raw audio.
 
+The A14 post-merge correctness repair makes that confirmation pass a
+kernel-level `needs_clarification` result before A6/idempotency, so an
+unconfirmed no-op is never persisted as a completed action and cannot be
+replayed as if execution succeeded. Mobile field context remains
+`explicit_only` and is activated only for `mobile`/`voice` interactions; normal
+`text` requests do not hydrate it. The assembled bounded context snapshot is
+forwarded into downstream tool execution and the model-provider seam without
+changing authorization, selected scope, or the public request shape.
+
 The optional `idempotencyKey` is a caller-generated, trimmed, non-empty retry key
 of at most 200 characters. It is not an approval token and grants no permission.
 The controller forwards that stable retry key through the existing kernel seam

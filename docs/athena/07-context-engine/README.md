@@ -188,3 +188,11 @@ The request context may now carry safe interaction metadata for `text`,
 never a permission grant. Voice availability and voice tool narrowing are
 handled outside context assembly. Raw audio is not part of C001 and is not
 persisted by the A14 backend contract.
+
+The A14 post-merge correctness repair keeps `mobile` explicit-only in practice:
+ordinary `text` requests do not activate or hydrate the mobile provider, while
+`mobile` and `voice` requests may request it deliberately. Once assembled, the
+same bounded immutable context snapshot is forwarded to downstream tool
+execution and the model-provider seam rather than being gathered and then
+dropped. These changes do not widen provider authorization, selected scope, or
+PII exposure.
