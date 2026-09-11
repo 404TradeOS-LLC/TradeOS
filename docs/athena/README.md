@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-30
+last_verified: 2026-09-11
 source_of_truth: true
 related_docs:
   - ../TRADEOS_BIBLE.md
@@ -154,3 +154,23 @@ S028 implementation PR #338 merged as
 persistence and proposal handoff through existing Athena-aware service
 boundaries. Review-first AI behavior, organization context, permission checks,
 and audit evidence remain unchanged.
+
+## A14 voice and mobile readiness
+
+A14 adds a governed interaction envelope for `text`, `mobile`, and `voice`
+requests without creating a second Athena runtime. Voice requests are disabled
+independently unless `ATHENA_VOICE_ENABLED=true`. The request-scoped voice view
+of the existing tool registry exposes low-risk tools only; medium/high-risk
+operations remain on the visual/text approval path. Low-risk actions whose tool
+metadata requires confirmation use the existing A6 canonical input hash so a
+voice confirmation is bound to the exact tool id, tool version, and validated
+input and becomes invalid if that payload changes.
+
+Mobile field context is provided through the existing C010 context-provider
+architecture and delegates selected-job access to `JobsService`, preserving the
+current actor scope and forced-RLS boundary. That minimized context includes job
+identity/status/priority, city/state, schedule windows, and selected page while
+omitting customer contact details, full street address, and assignment identity.
+The backend A14 contract accepts text plus safe channel metadata; it does not
+accept or persist raw audio. A14 is readiness infrastructure, not a production
+speech provider integration or an offline execution engine.
