@@ -79,6 +79,7 @@ export interface AthenaPluginCapabilityDecision {
     | "plugin_not_installed"
     | "plugin_disabled"
     | "plugin_revoked"
+    | "organization_mismatch"
     | "manifest_changed"
     | "permission_not_granted"
     | "network_host_not_granted"
