@@ -49,8 +49,9 @@ export function createApprovedPluginReview(input: {
   };
 }
 
-/** Verifies review identity/hash and proves every granted capability was declared by the reviewed manifest. */
+/** Verifies review identity/hash and proves every granted capability was declared by a valid manifest. */
 export function reviewMatchesManifest(review: AthenaPluginReviewRecord, manifest: AthenaPluginManifest): boolean {
+  if (!validateAthenaPluginManifest(manifest).ok) return false;
   return review.status === "approved"
     && review.pluginId === manifest.id
     && review.pluginVersion === manifest.version
