@@ -400,22 +400,23 @@ export class AthenaKernelService {
           // reservation or action-success audit can be created for a no-op.
           if (input.request.interaction?.channel === "voice") {
             const parsed = parseToolInput(tool.inputSchema, step.input);
-            if (parsed.success) {
-              const channelDecision = evaluateAthenaChannelToolPolicy({ interaction: input.request.interaction, tool, validatedInput: parsed.data, env });
-              if (channelDecision.decision === "deny") {
-                await recordSecurityAudit("security_decision", "denied", { layer: "athena_channel_policy", reasonCode: channelDecision.reasonCode, toolId: tool.id, toolVersion: tool.version, planId: plan.planId, stepId: step.stepId });
-                await applyTransition("denied", channelDecision.reasonCode);
-                const denied = this.buildDeniedResult(executionId, traceId, channelDecision.reasonCode);
-                await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
-                return denied;
-              }
-              if (channelDecision.decision === "confirm") {
-                await emitSpan("approval", "degraded", Date.now() - policyStart, { layer: "athena_channel_policy", reasonCode: channelDecision.reasonCode, toolId: tool.id, toolVersion: tool.version, planId: plan.planId, stepId: step.stepId });
-                await enterRoundTripState("needs_clarification", channelDecision.reasonCode);
-                const confirmation = this.buildVoiceConfirmationResult(executionId, traceId, channelDecision.challenge);
-                await executionStore.finalizeExecutionRecord({ executionId, safeSummary: confirmation.summary });
-                return confirmation;
-              }
+            if (!parsed.success) {
+              throw athenaValidationError("Athena could not validate the input for this action.", "athena_action_invalid_input");
+            }
+            const channelDecision = evaluateAthenaChannelToolPolicy({ interaction: input.request.interaction, tool, validatedInput: parsed.data, env });
+            if (channelDecision.decision === "deny") {
+              await recordSecurityAudit("security_decision", "denied", { layer: "athena_channel_policy", reasonCode: channelDecision.reasonCode, toolId: tool.id, toolVersion: tool.version, planId: plan.planId, stepId: step.stepId });
+              await applyTransition("denied", channelDecision.reasonCode);
+              const denied = this.buildDeniedResult(executionId, traceId, channelDecision.reasonCode);
+              await executionStore.finalizeExecutionRecord({ executionId, safeSummary: denied.summary, safeErrorCode: denied.error?.code });
+              return denied;
+            }
+            if (channelDecision.decision === "confirm") {
+              await emitSpan("approval", "degraded", Date.now() - policyStart, { layer: "athena_channel_policy", reasonCode: channelDecision.reasonCode, toolId: tool.id, toolVersion: tool.version, planId: plan.planId, stepId: step.stepId });
+              await enterRoundTripState("needs_clarification", channelDecision.reasonCode);
+              const confirmation = this.buildVoiceConfirmationResult(executionId, traceId, channelDecision.challenge);
+              await executionStore.finalizeExecutionRecord({ executionId, safeSummary: confirmation.summary });
+              return confirmation;
             }
           }
 
