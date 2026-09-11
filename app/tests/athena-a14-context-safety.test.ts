@@ -2,18 +2,19 @@ import { assembleAthenaContext } from "../modules/athena-context-engine/assemble
 import { ATHENA_CONTEXT_BUDGET, ATHENA_PROVIDER_AGGREGATE_BUDGET } from "../modules/athena-context-engine/budget";
 import { createTestContextProvider } from "../modules/athena-context-engine/fixtures/testContextProvider";
 import { createAthenaContextRegistry } from "../modules/athena-context-engine/registry";
+import type { AthenaContextAssemblyRequest } from "../modules/athena-context-engine/types";
 import { buildMinimalAthenaContext } from "../modules/athena-kernel/context";
 
-function request(channel: "text" | "mobile" | "voice" = "text") {
+function request(channel: "text" | "mobile" | "voice" = "text"): AthenaContextAssemblyRequest {
   return {
     orgId: "org-1",
-    actor: { userId: "user-1", role: "owner" as const },
+    actor: { userId: "user-1", role: "owner" },
     permissions: ["crm.read"],
     selectedScope: {},
     interaction: { channel },
     featureFlags: [],
     requestedIntents: ["dispatch_overview"],
-    explicitSections: channel === "mobile" || channel === "voice" ? (["mobile"] as const) : [],
+    explicitSections: channel === "mobile" || channel === "voice" ? ["mobile"] : [],
   };
 }
 
