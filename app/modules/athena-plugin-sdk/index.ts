@@ -4,7 +4,13 @@ export { evaluatePluginCapability, installApprovedPlugin, transitionPluginGrant 
 export { assertPluginEventAllowed, assertPluginNetworkAllowed, assertPluginPermissionAllowed, assertPluginSandboxAllows } from "./sandbox";
 export { assertPluginContextProviderMayRun, assertPluginEventPublicationMayRun, assertPluginEventSubscriptionMayRun, assertPluginMayLoad, assertPluginToolMayExecute } from "./runtime";
 export { loadApprovedPlugin } from "./loader";
-export type { AthenaLoadedPlugin, AthenaPluginPackage } from "./loader";
+export type {
+  AthenaLoadedPlugin,
+  AthenaPluginIsolatedExecutor,
+  AthenaPluginPackage,
+  AthenaPluginRuntimeAuthorization,
+  AthenaPluginRuntimeAuthorizer,
+} from "./loader";
 export { AthenaPluginService } from "./service";
 export type { AthenaPluginRepository } from "./service";
 export type {
