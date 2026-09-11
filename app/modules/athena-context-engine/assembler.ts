@@ -1,5 +1,6 @@
 import { scanContextSectionForInjection } from "../athena-security/contextTrust";
 import type { AthenaProviderSection, AthenaWarning } from "../athena-kernel/types";
+import { ATHENA_PROVIDER_AGGREGATE_BUDGET } from "./budget";
 import { AthenaContextCache, buildAthenaContextCacheKey } from "./cache";
 import {
   AthenaContextProviderFetchError,
@@ -56,7 +57,19 @@ async function raceWithTimeout<T>(work: (signal: AbortSignal) => Promise<T>, tim
   }
 }
 
+function isFieldInteraction(request: AthenaContextAssemblyRequest): boolean {
+  return request.interaction?.channel === "mobile" || request.interaction?.channel === "voice";
+}
+
 function isActivated(provider: AthenaContextProviderDefinition<unknown>, request: AthenaContextAssemblyRequest): boolean {
+  if (
+    isFieldInteraction(request)
+    && provider.section !== "mobile"
+    && (provider.sensitivity === "confidential" || provider.sensitivity === "restricted")
+  ) {
+    return false;
+  }
+
   switch (provider.activation) {
     case "eager_minimal": return true;
     case "lazy_intent": return provider.allowedIntents.some((intent) => request.requestedIntents.includes(intent));
@@ -127,6 +140,33 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
   const warnings: AthenaWarning[] = [];
   const audit: AthenaContextAssemblyAudit[] = [];
   let stoppedByCriticalFailure = false;
+  let providerCount = 0;
+  let aggregateBytes = 0;
+  let aggregateEstimatedTokens = 0;
+
+  const tryIncludeProviderSection = (
+    provider: AthenaContextProviderDefinition<unknown>,
+    section: AthenaProviderSection,
+    now: string
+  ): boolean => {
+    const sectionBytes = estimateBytes(section);
+    const sectionEstimatedTokens = Math.ceil(sectionBytes / 4);
+    if (
+      providerCount + 1 > ATHENA_PROVIDER_AGGREGATE_BUDGET.maxProviderCount
+      || aggregateBytes + sectionBytes > ATHENA_PROVIDER_AGGREGATE_BUDGET.maxBytes
+      || aggregateEstimatedTokens + sectionEstimatedTokens > ATHENA_PROVIDER_AGGREGATE_BUDGET.maxEstimatedTokens
+    ) {
+      sections[provider.section] = buildOmittedSection(provider, now, "aggregate_context_budget_exceeded");
+      audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "omitted" });
+      return false;
+    }
+
+    sections[provider.section] = { ...section, estimatedTokens: sectionEstimatedTokens };
+    providerCount += 1;
+    aggregateBytes += sectionBytes;
+    aggregateEstimatedTokens += sectionEstimatedTokens;
+    return true;
+  };
 
   for (const provider of registry.list()) {
     if (stoppedByCriticalFailure) {
@@ -145,6 +185,12 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
       continue;
     }
 
+    if (providerCount >= ATHENA_PROVIDER_AGGREGATE_BUDGET.maxProviderCount) {
+      sections[provider.section] = buildOmittedSection(provider, new Date().toISOString(), "aggregate_context_provider_limit_exceeded");
+      audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "omitted" });
+      continue;
+    }
+
     const scopedInput = { selectedScope: request.selectedScope };
     const cacheKey = provider.cacheKeyPolicy === "tenant_actor_permission_input"
       ? buildAthenaContextCacheKey({
@@ -159,7 +205,8 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
       : undefined;
     const cached = cacheKey ? cache.get(cacheKey) : undefined;
     if (cached) {
-      sections[provider.section] = cacheHitSection(cached);
+      const cachedSection = cacheHitSection(cached);
+      if (!tryIncludeProviderSection(provider, cachedSection, new Date().toISOString())) continue;
       if (cached.injectionScan?.suspicious) warnings.push(athenaContextPossibleInjectionWarning(provider.id, cached.injectionScan.matchedPatternNames));
       audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "activated" });
       continue;
@@ -225,7 +272,7 @@ export async function assembleAthenaContext(registry: AthenaContextRegistry, req
     }
 
     if (outcome.ok) {
-      sections[provider.section] = outcome.section;
+      if (!tryIncludeProviderSection(provider, outcome.section, fetchedAt.toISOString())) continue;
       audit.push({ section: provider.section, providerId: provider.id, version: provider.version, reasonCode: "activated" });
       continue;
     }
