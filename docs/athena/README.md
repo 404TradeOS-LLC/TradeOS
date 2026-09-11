@@ -174,3 +174,12 @@ omitting customer contact details, full street address, and assignment identity.
 The backend A14 contract accepts text plus safe channel metadata; it does not
 accept or persist raw audio. A14 is readiness infrastructure, not a production
 speech provider integration or an offline execution engine.
+
+The A14 post-merge correctness repair tightens the runtime to match those
+contracts: a voice action that still needs confirmation returns a kernel-level
+`needs_clarification` challenge before A6/idempotency so a confirmation no-op is
+never persisted as a completed action; mobile field context remains
+`explicit_only` and is requested only for `mobile`/`voice`, not ordinary
+`text`; and the assembled bounded context is forwarded into both downstream
+tool execution and the model-provider seam. These are correctness fixes inside
+the existing A14 architecture, not a new milestone or broader authority grant.
