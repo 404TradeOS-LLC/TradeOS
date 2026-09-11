@@ -13,20 +13,10 @@ export interface AthenaMobileFieldContextData {
     status: string;
     priority: string;
     serviceArea: { city: string; state: string };
-    schedule: {
-      scheduledStart: string | null;
-      scheduledEnd: string | null;
-      arrivalWindowStart: string | null;
-      arrivalWindowEnd: string | null;
-    };
+    schedule: { scheduledStart: string | null; scheduledEnd: string | null; arrivalWindowStart: string | null; arrivalWindowEnd: string | null };
   };
 }
 
-/**
- * A14 C010 provider for compact field context. It deliberately uses
- * JobsService.getById() so technician assignment/object scope and RLS remain
- * authoritative; customer contact details and full street address are omitted.
- */
 export function createMobileFieldProvider(
   overrides: Partial<AthenaContextProviderDefinition<AthenaMobileFieldContextData>> = {},
   jobsService: Pick<JobsService, "getById"> = new JobsService(),
@@ -40,8 +30,8 @@ export function createMobileFieldProvider(
     section: "mobile",
     description: "Minimized actor-scoped field context for mobile and voice Athena requests.",
     permissions: [],
-    activation: "explicit_only",
-    allowedIntents: [],
+    activation: "lazy_intent",
+    allowedIntents: ["dispatch_overview"],
     freshnessTtlMs: 0,
     timeoutMs: 1_500,
     maxItems: 1,
@@ -58,7 +48,6 @@ export function createMobileFieldProvider(
           omittedFields: ["customer.email", "customer.phone", "serviceAddress.addressLine1", "serviceAddress.addressLine2", "assignedTechnicians"],
         };
       }
-
       const auth: AuthContext = {
         userId: input.actor.userId,
         orgId: input.orgId,
@@ -78,12 +67,7 @@ export function createMobileFieldProvider(
             status: job.status,
             priority: job.priority,
             serviceArea: { city: job.serviceAddress.city, state: job.serviceAddress.state },
-            schedule: {
-              scheduledStart: job.scheduledStart,
-              scheduledEnd: job.scheduledEnd,
-              arrivalWindowStart: job.arrivalWindowStart,
-              arrivalWindowEnd: job.arrivalWindowEnd,
-            },
+            schedule: { scheduledStart: job.scheduledStart, scheduledEnd: job.scheduledEnd, arrivalWindowStart: job.arrivalWindowStart, arrivalWindowEnd: job.arrivalWindowEnd },
           },
         },
         itemCount: 1,
