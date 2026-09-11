@@ -75,7 +75,7 @@ describe("A14 voice/mobile channel policy", () => {
     registry.register(tool());
     registry.register(tool({ id: "tradeos.athena.fixture.danger", risk: "high", confirmationPolicy: "always" }));
     const voice = createChannelAwareAthenaToolRegistry(registry, { channel: "voice" }, { ATHENA_VOICE_ENABLED: "true" });
-    const discovered = voice.discover({ role: "owner", permissions: [], featureFlags: [] });
+    const discovered = voice.discover({ role: "owner", featureFlags: [] });
     expect(discovered.map((item) => item.id)).toEqual(["tradeos.athena.fixture.mobile-read"]);
     expect(voice.resolve("tradeos.athena.fixture.danger", "1.0.0").outcome).toBe("tool_not_found");
   });
