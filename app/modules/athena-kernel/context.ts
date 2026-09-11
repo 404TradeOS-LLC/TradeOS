@@ -1,10 +1,5 @@
+import { ATHENA_CONTEXT_BUDGET } from "../athena-context-engine/budget";
 import { AthenaActorContext, AthenaAIContext, AthenaKernelRequest, AthenaSelectedScope } from "./types";
-
-const ATHENA_A1_CONTEXT_BUDGET = {
-  maxBytes: 8_192,
-  maxEstimatedTokens: 2_048,
-  maxProviderCount: 0,
-} as const;
 
 export interface BuildMinimalContextInput {
   requestId: string;
@@ -41,7 +36,7 @@ export function buildMinimalAthenaContext(input: BuildMinimalContextInput): Athe
     user: { userId: input.actor.userId, role: input.actor.role },
     permissions: { role: input.actor.role, permissions: [...input.actor.permissions] },
     selectedScope,
-    budget: { ...ATHENA_A1_CONTEXT_BUDGET },
+    budget: { ...ATHENA_CONTEXT_BUDGET },
     telemetry: { traceId: input.traceId, executionId: input.executionId },
   };
 

@@ -218,10 +218,18 @@ and forced-RLS boundaries remain authoritative for text, mobile, and voice.
 - low-risk tools with contextual/always confirmation policy require an exact
   confirmation proof bound to the registered tool id/version and A6 canonical
   hash of validated input; a changed payload invalidates the proof;
+- a missing or invalid voice confirmation returns a kernel-level
+  `needs_clarification` challenge before A6/idempotency, so a confirmation
+  no-op cannot be recorded as a completed action and later replayed;
 - A4 permissions and A6 execution remain authoritative after any channel gate;
 - the mobile field provider reaches selected-job data only through `JobsService`
   and existing RLS/object scope and deliberately omits customer contact details,
   full street address, and assignment identity;
+- mobile field context is `explicit_only` and is activated only for `mobile` or
+  `voice` interactions, never merely because an ordinary `text` request exists;
+- assembled context remains bounded and is forwarded to both tool execution and
+  the model-provider seam; forwarding does not expand permissions, scope, or
+  fields;
 - channel metadata is safe structural metadata only. Raw audio is not accepted
   or persisted by the A14 backend contract.
 

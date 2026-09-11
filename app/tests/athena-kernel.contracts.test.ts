@@ -1,3 +1,4 @@
+import { ATHENA_CONTEXT_BUDGET } from "../modules/athena-context-engine/budget";
 import { assertValidTelemetryRecord, buildTelemetryRecord } from "../modules/athena-kernel/telemetry";
 import { buildMinimalAthenaContext } from "../modules/athena-kernel/context";
 import { evaluateAthenaPolicy } from "../modules/athena-kernel/policy";
@@ -73,9 +74,9 @@ describe("athena:contracts", () => {
     expect(context.user.userId).toBe("user-1");
     expect(context.permissions.role).toBe("technician");
     expect(context.selectedScope).toEqual({});
-    expect(context.budget.maxProviderCount).toBe(0);
+    expect(context.budget).toEqual(ATHENA_CONTEXT_BUDGET);
     expect(context.telemetry.traceId).toBe("trace-1");
-    // No A3+ business provider sections may ever appear on the A1 context type.
+    // No A3+ business provider sections appear until live context assembly runs.
     expect(context).not.toHaveProperty("customers");
     expect(context).not.toHaveProperty("costbook");
     expect(context).not.toHaveProperty("knowledgeEngine");
