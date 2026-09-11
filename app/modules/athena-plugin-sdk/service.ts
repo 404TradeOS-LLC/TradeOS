@@ -6,8 +6,16 @@ export interface AthenaPluginRepository {
   saveReview(review: AthenaPluginReviewRecord): Promise<void>;
   getGrant(orgId: string, pluginId: string): Promise<AthenaPluginGrant | null>;
   saveGrant(grant: AthenaPluginGrant): Promise<void>;
+  /** Atomically replaces a grant only when its persisted updatedAt still matches expectedUpdatedAt. */
+  compareAndSetGrant(input: {
+    orgId: string;
+    pluginId: string;
+    expectedUpdatedAt: string;
+    next: AthenaPluginGrant;
+  }): Promise<boolean>;
 }
 
+/** Application-facing lifecycle service for governed A13 plugin review and tenant grants. */
 export class AthenaPluginService {
   constructor(private readonly repository: AthenaPluginRepository) {}
 
@@ -43,7 +51,8 @@ export class AthenaPluginService {
     const grant = await this.repository.getGrant(orgId, pluginId);
     if (!grant) throw new Error("ATHENA_PLUGIN_NOT_INSTALLED");
     const next = transitionPluginGrant(grant, status);
-    await this.repository.saveGrant(next);
+    const committed = await this.repository.compareAndSetGrant({ orgId, pluginId, expectedUpdatedAt: grant.updatedAt, next });
+    if (!committed) throw new Error("ATHENA_PLUGIN_GRANT_CONFLICT");
     return next;
   }
 }
