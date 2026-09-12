@@ -7,7 +7,9 @@ import type { AuthContext } from "../../backend/auth/context";
 export const compositeBenchmarkReviewStatuses = ["reference", "needs-review", "reviewed", "rejected"] as const;
 
 const MAX_NUMERIC_14_4 = 9_999_999_999.9999;
-const MAX_NUMERIC_18_4 = 99_999_999_999_999.9999;
+// numeric(18,4) max is 99_999_999_999_999.9999, but JS Number rounds that
+// to 100_000_000_000_000. Use the greatest representable Number below it.
+const MAX_NUMERIC_18_4 = 99_999_999_999_999.98;
 const MAX_INT32 = 2_147_483_647;
 
 function hasAtMostFourDecimalPlaces(value: number): boolean {
