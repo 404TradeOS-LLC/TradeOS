@@ -48,7 +48,7 @@ replaces the missing stored-session secret. Workflow run `#22` passed the live
 evidence contract on `main` at `c7003f3`; its credential-scanned artifact
 `#10042902412` was uploaded. S027 and S036 are complete; S036 implementation PR #476 merged on 2026-09-08. Production application of the index remains separately gated.
 
-S049 (stale branch/PR/worktree retirement) is `IN_REVIEW` as of 2026-09-12: a governance-only readiness promotion reconciled live GitHub state (open PRs #482, #489, #491, #492; PR #470 closed unmerged) and classified 24 remote branches `SAFE_TO_DELETE` and 21 `REQUIRES_REVIEW`. The agent session's credentials cannot delete remote refs, so the deletions are pending maintainer execution. The same reconciliation flagged `feat/stripe-connect-payments`/open PR #491 as an ungoverned Stripe billing implementation needing a founder decision.
+S049 (stale branch/PR/worktree retirement) is `DONE` as of 2026-09-12: a governance-only readiness promotion (PR #494, merged `0b6f98ad`) reconciled live GitHub state (open PRs #482, #489, #491, #492, #493; PR #470 closed unmerged) and classified 23 remote branches `SAFE_TO_DELETE` and 23 `REQUIRES_REVIEW`. The agent session's credentials could not delete remote refs, so the founder executed the deletions directly; this was independently confirmed against live `origin` state (all 23 gone, everything else untouched) before closing the sprint. The same reconciliation flagged `feat/stripe-connect-payments` (no open PR) and open PR #491 (`feat/stripe-billing-subscriptions`, a separate branch) as two related Stripe billing items still needing a founder decision.
 
 ## Purpose
 

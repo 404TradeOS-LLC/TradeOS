@@ -14,41 +14,46 @@ related_docs:
 
 ## Mission
 
-S049 (stale branch, PR, and worktree retirement) is `IN_REVIEW`. This
-governance-only PR reconciles live GitHub state — `origin/main`, open PRs,
-remote branches, and worktrees — against the stale 2026-09-08 snapshot
-previously recorded here, and classifies every remote branch without a
-currently-open PR as `SAFE_TO_DELETE`, `REQUIRES_REVIEW`, or `RETAIN`.
+S049 (stale branch, PR, and worktree retirement) is `DONE`. Readiness PR #494
+reconciled live GitHub state and classified every remote branch without a
+currently-open PR; the founder then executed the recorded branch deletions
+directly. This session independently confirmed the deletions against live
+`origin` state before marking the sprint complete.
 
 ## Current truth
 
-- `origin/main` is `eaa3144b648ed7cbaf2b580cc31fcc42ba3ebf3a` (PR #480,
-  Costbook item/assembly provenance contract, merged 2026-09-12).
+- `origin/main` is at squash commit `0b6f98ad309df62ff729d7303d18c09d5ae59f49`
+  (PR #494, S049 readiness/documentation, merged 2026-09-12), itself built on
+  `eaa3144b648ed7cbaf2b580cc31fcc42ba3ebf3a` (PR #480, Costbook provenance
+  contract).
 - Open PRs: #482 (canonical design-contract docs), #489 draft (Costbook
   materials-catalog active/deactivate state), #491 (Stripe subscription
   billing — protected billing/money-movement scope per `AGENTS.md`; a
   founder decision is needed before merge), #492 (BLS OEWS labor candidate
-  source). PR #470 (Costbook/Knowledge Engine audit) closed unmerged
-  2026-09-12 without landing its findings.
-- S049 classified 24 remote branches `SAFE_TO_DELETE` and 21
-  `REQUIRES_REVIEW` (see `docs/SPRINT_BACKLOG.md`'s S049 entry for the full
-  list and reasoning). Deletion could not be executed from this session: the
-  agent's git/GitHub credentials do not carry ref-deletion permission. A
-  maintainer must run the deletions before S049 can be marked `DONE`.
-- `feat/stripe-connect-payments` (no open PR) contains a complete,
+  source), #493 draft (trusted Knowledge Engine pricing pipeline). None
+  overlap a numbered sprint.
+- S049's 23 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
+  S049 entry) are confirmed gone from `origin` via `git fetch --prune` +
+  `git branch -r`. All 23 `REQUIRES_REVIEW` branches, `main` (protected by
+  the live default-branch ruleset), `staging` (unprotected but retained as
+  the deployment branch), and every branch behind an open PR remain
+  present, untouched.
+- `feat/stripe-connect-payments` (no open PR) still contains a complete,
   previously-ungoverned Stripe billing implementation; combined with open PR
-  #491, this is a founder-decision item outside S049's scope.
-- 18 `codeql-autofix/alert-3-*` branches are orphaned artifacts of a CodeQL
-  autofix workflow whose PR-creation step appears to be failing silently;
-  the underlying alert remains unaddressed on `main`. This is a separate
-  CI-repair finding, not covered by this PR.
+  #491, this remains a founder-decision item.
+- 20 `codeql-autofix/alert-3-*` branches remain as orphaned artifacts of a
+  CodeQL autofix workflow whose PR-creation step appears to be failing
+  silently; the underlying alert remains unaddressed on `main`. Separate
+  CI-repair finding, not yet actioned.
+- `docs/tradeos-design-system` still carries ~104 unabsorbed brand-asset
+  files never merged anywhere; not yet reviewed for disposition.
 - S039, S044, and S045 remain blocked on production access. S046 depends on
   S045. S048 requires a founder decision selecting beta tenants and a
   rollout date.
 
 ## Next Eligible Sprint
 Sprint ID: NONE
-Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 is `IN_REVIEW` pending a maintainer executing its recorded branch-deletion list; S048 needs a founder decision; S039/S044/S045 are `BLOCKED` on production access.
-Dependencies: S036 is `DONE`. S044/S045 remain blocked on production access and S046 is blocked by S045.
-Overlap check: open PRs at this reconciliation are #482, #489, #491, and #492; none overlap S049 or any other numbered sprint.
-Startup prompt: After a maintainer executes S049's recorded `SAFE_TO_DELETE` branch-deletion list and it is confirmed landed, record a completion-evidence update marking S049 `DONE`.
+Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 is `DONE`. S048 needs a founder decision; S039/S044/S045 are `BLOCKED` on production access.
+Dependencies: S036 and S049 are `DONE`. S044/S045 remain blocked on production access and S046 is blocked by S045.
+Overlap check: open PRs at this reconciliation are #482, #489, #491, #492, and #493; none overlap any numbered sprint.
+Startup prompt: No numbered sprint is `READY`. S048 requires a founder decision (beta tenants and rollout date) before it can be promoted.
