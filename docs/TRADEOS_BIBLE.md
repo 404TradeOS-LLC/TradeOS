@@ -68,13 +68,15 @@ is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now `DON
 `96caffc8877f77b96f8c3ae099d147c839be355f`; its repository evidence is recorded
 in `docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md`. S044/S045 remain
 blocked on production access. S049 (stale branch/PR/worktree retirement) is
-`IN_REVIEW`: a 2026-09-12 governance-only readiness promotion reconciled live
-GitHub state and classified 24 remote branches `SAFE_TO_DELETE` and 21
-`REQUIRES_REVIEW`, but agent credentials cannot delete refs, so a maintainer
-must execute the deletions before S049 reaches `DONE`. That reconciliation
-also surfaced `feat/stripe-connect-payments` and open PR #491 as a real,
-previously-ungoverned Stripe billing implementation requiring a founder
-decision outside S049's scope.
+`DONE`: a 2026-09-12 governance-only readiness promotion (PR #494, merged
+`0b6f98ad`) reconciled live GitHub state and classified 24 remote branches
+`SAFE_TO_DELETE` and 21 `REQUIRES_REVIEW`; agent credentials could not delete
+refs, so the founder executed the deletions directly, and this session
+independently confirmed all 24 were gone (and every other branch untouched)
+via a live `origin` fetch before marking the sprint complete. That
+reconciliation also surfaced `feat/stripe-connect-payments` and open PR #491
+as a real, previously-ungoverned Stripe billing implementation requiring a
+founder decision outside S049's scope.
 
 S047 implementation evidence is constrained to the existing Playwright seams:
 the operator-triggered workflow now requires dedicated Preview/Staging
