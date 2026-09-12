@@ -39,7 +39,7 @@ The parser:
 - validates the workbook boundaries against first pay item `105-06807` and last pay item `809-94971`;
 - emits `app/data/indot-cy2025-unit-prices.json` with row count, distinct units, source metadata, and the complete normalized row set.
 
-A full-workbook read of the current CY2025 source reports 782 data rows and 18 distinct unit codes. The checked-in parser computes the authoritative row count from the workbook at execution time rather than trusting extractor-generated counts.
+An independent full-workbook inspection of the current CY2025 source reported 782 non-header rows, 18 distinct unit codes, first pay item `105-06807`, and last pay item `809-94971`. A separate AI row-extraction response returned an incomplete 330-row count, which is why TradeOS does not use extractor-reported counts as authoritative. The checked-in parser computes the row count directly from the workbook at execution time.
 
 ## Source-verified regression sample
 
