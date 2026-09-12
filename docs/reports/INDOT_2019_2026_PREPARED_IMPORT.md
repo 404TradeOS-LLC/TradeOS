@@ -33,7 +33,7 @@ INDOT unit prices are installed/composite awarded-bid benchmarks. They are not r
 
 The prepared workbook must be imported as INDOT benchmark/reference evidence. Do not map `unit_cost` or `weighted_avg_price` into raw `materialCostTypical`, labor rate, equipment-only cost, or customer bill rate.
 
-A production ingestion endpoint should be organization-scoped from authenticated context, idempotent by source + year + item code, preserve all provenance, and require named-human review before any operational Costbook promotion.
+The implemented ingestion endpoint is organization-scoped from authenticated context, idempotent by source + year + item code, preserves provenance, and remains isolated from production Material/LaborRate/Equipment/customer-price writes.
 
 ## Idempotency keys
 
@@ -45,10 +45,10 @@ Recommended history key:
 
 `INDOT:HISTORY:{price_year}:{item_code}`
 
-## Next implementation
+## Implementation status
 
-1. Add a composite installed-unit-price benchmark persistence model/migration.
-2. Add authenticated owner/admin bulk import service.
-3. Stream/parse the prepared workbook without trusting client-supplied organization IDs.
-4. Upsert current reference rows and historical observations using the deterministic keys above.
-5. Add counts for created/updated/skipped/rejected rows and expose human-review state before Costbook use.
+1. Composite installed-unit-price benchmark persistence model/migration: implemented.
+2. Authenticated owner/admin bulk import service: implemented.
+3. Prepared-workbook loader that rejects caller-supplied organization scope: implemented.
+4. Idempotent current/history upsert path using deterministic source/year/item identity: implemented.
+5. Production tenant import evidence and read/query UI remain follow-up after merge and migration deployment.
