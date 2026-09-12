@@ -32,16 +32,16 @@ directly. This session independently confirmed the deletions against live
   founder decision is needed before merge), #492 (BLS OEWS labor candidate
   source), #493 draft (trusted Knowledge Engine pricing pipeline). None
   overlap a numbered sprint.
-- S049's 24 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
+- S049's 23 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
   S049 entry) are confirmed gone from `origin` via `git fetch --prune` +
-  `git branch -r`. All 21 `REQUIRES_REVIEW` branches, `main` (protected by
+  `git branch -r`. All 23 `REQUIRES_REVIEW` branches, `main` (protected by
   the live default-branch ruleset), `staging` (unprotected but retained as
   the deployment branch), and every branch behind an open PR remain
   present, untouched.
 - `feat/stripe-connect-payments` (no open PR) still contains a complete,
   previously-ungoverned Stripe billing implementation; combined with open PR
   #491, this remains a founder-decision item.
-- 18 `codeql-autofix/alert-3-*` branches remain as orphaned artifacts of a
+- 20 `codeql-autofix/alert-3-*` branches remain as orphaned artifacts of a
   CodeQL autofix workflow whose PR-creation step appears to be failing
   silently; the underlying alert remains unaddressed on `main`. Separate
   CI-repair finding, not yet actioned.

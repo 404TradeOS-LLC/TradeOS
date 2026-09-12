@@ -69,8 +69,8 @@ is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now `DON
 in `docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md`. S044/S045 remain
 blocked on production access. S049 (stale branch/PR/worktree retirement) is
 `DONE`: a 2026-09-12 governance-only readiness promotion (PR #494, merged
-`0b6f98ad`) reconciled live GitHub state and classified 24 remote branches
-`SAFE_TO_DELETE` and 21 `REQUIRES_REVIEW`; agent credentials could not delete
+`0b6f98ad`) reconciled live GitHub state and classified 23 remote branches
+`SAFE_TO_DELETE` and 23 `REQUIRES_REVIEW`; agent credentials could not delete
 refs, so the founder executed the deletions directly, and this session
 independently confirmed all 24 were gone (and every other branch untouched)
 via a live `origin` fetch before marking the sprint complete. That
