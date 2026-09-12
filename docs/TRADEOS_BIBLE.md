@@ -72,11 +72,12 @@ blocked on production access. S049 (stale branch/PR/worktree retirement) is
 `0b6f98ad`) reconciled live GitHub state and classified 23 remote branches
 `SAFE_TO_DELETE` and 23 `REQUIRES_REVIEW`; agent credentials could not delete
 refs, so the founder executed the deletions directly, and this session
-independently confirmed all 24 were gone (and every other branch untouched)
+independently confirmed all 23 were gone (and every other branch untouched)
 via a live `origin` fetch before marking the sprint complete. That
-reconciliation also surfaced `feat/stripe-connect-payments` and open PR #491
-as a real, previously-ungoverned Stripe billing implementation requiring a
-founder decision outside S049's scope.
+reconciliation also flagged `feat/stripe-connect-payments` (no open PR) and
+open PR #491 (`feat/stripe-billing-subscriptions`, a separate branch) as two
+related Stripe billing items requiring a founder decision outside S049's
+scope.
 
 S047 implementation evidence is constrained to the existing Playwright seams:
 the operator-triggered workflow now requires dedicated Preview/Staging
