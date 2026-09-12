@@ -32,4 +32,10 @@ describe("INDOT 2025 unit-price benchmarks", () => {
     expect(getIndot2025UnitPriceBenchmark("203-02000")?.averagePrice).toBe(27.29);
     expect(getIndot2025UnitPriceBenchmark("missing")).toBeUndefined();
   });
+
+  it("keeps installed unit-price evidence separate from raw Costbook material pricing", () => {
+    expect(INDOT_2025_UNIT_PRICE_BENCHMARKS[0]).not.toHaveProperty("materialCostTypical");
+    expect(INDOT_2025_UNIT_PRICE_BENCHMARKS[0]).not.toHaveProperty("laborRateAssumption");
+    expect(INDOT_2025_UNIT_PRICE_BENCHMARKS[0]).not.toHaveProperty("equipmentCost");
+  });
 });
