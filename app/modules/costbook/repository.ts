@@ -165,6 +165,7 @@ export class CostbookRepository {
       orgId: organizationId,
       ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { sku: { contains: query.q, mode: "insensitive" } }] } : {}),
       ...(query.filters.supplierId ? { supplierId: query.filters.supplierId } : {}),
+      ...(query.filters.active !== undefined ? { isActive: query.filters.active } : {}),
     };
     const field = catalogField(query.sort, { name: "name", createdAt: "createdAt", updatedAt: "updatedAt" });
     return pageCatalogRows<any>({
@@ -232,6 +233,7 @@ export class CostbookRepository {
           unitCost: input.unitCost,
           wasteFactorPct: input.wasteFactorPct,
           supplierId: input.supplierId === undefined ? undefined : normalizeOptionalString(input.supplierId),
+          isActive: input.isActive,
           ...(priceChanged ? { lastPriceUpdate: new Date() } : {}),
         },
         include: { supplier: { select: { id: true, name: true } } },
@@ -254,6 +256,14 @@ export class CostbookRepository {
 
       return toMaterialRecord(row);
     });
+  }
+
+  async deactivateMaterial(organizationId: string, id: string): Promise<boolean> {
+    const existing = await prisma.material.findFirst({ where: { id, orgId: organizationId } });
+    if (!existing) return false;
+
+    await prisma.material.update({ where: { id }, data: { isActive: false } });
+    return true;
   }
 
   private async assertSupplierBelongsToOrganization(organizationId: string, supplierId?: string | null): Promise<void> {
@@ -542,6 +552,7 @@ function toMaterialRecord(row: {
   supplierId: string | null;
   supplier?: { id: string; name: string } | null;
   lastPriceUpdate: Date | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }): CostbookMaterialRecord {
@@ -560,6 +571,7 @@ function toMaterialRecord(row: {
     supplierId: row.supplierId,
     supplierName: row.supplier?.name ?? null,
     lastPriceUpdate: row.lastPriceUpdate,
+    isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

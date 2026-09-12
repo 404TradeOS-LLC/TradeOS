@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-08
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -27,6 +27,7 @@ related_code:
   - app/prisma/migrations/20260811150000_restrict_costbook_equipment_writes/migration.sql
   - app/prisma/migrations/20260812120000_add_costbook_hierarchy_foundation/migration.sql
   - app/prisma/migrations/20260812173000_harden_costbook_hierarchy_rls/migration.sql
+  - app/prisma/migrations/20260912120000_add_material_active_state/migration.sql
   - app/modules/admin-dashboard
   - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
   - app/backend/routes/costDatabase.routes.ts
@@ -127,12 +128,13 @@ consumers.
 
 ### Materials
 
-- `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`.
-- `POST /api/v1/costbook/materials` and `PATCH /api/v1/costbook/materials/:id` require `costbook.write`.
+- `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`; the list route accepts an `active` filter.
+- `POST /api/v1/costbook/materials` and `PATCH /api/v1/costbook/materials/:id` require `costbook.write`; a PATCH that includes `isActive` additionally requires `costbook.manage`.
+- `DELETE /api/v1/costbook/materials/:id` requires `costbook.manage` and soft-deactivates the row (sets `isActive: false`) so historical CostItem/Estimate references are preserved.
 - Material request bodies are strict and do not accept caller-supplied organization IDs.
 - Unit-cost changes use the existing material price-audit behavior.
 
-The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists.
+The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `isActive`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists.
 
 ### Labor rates
 
@@ -213,7 +215,7 @@ Current behavior:
 - assemblies may be marked `isTemplate` for reusable quick-add behavior
 - materials participate in supplier review queue history through related audit records
 - labor rates use `active`; delete is soft deactivate
-- material archive/deactivate is not exposed because the existing `Material` schema has no active/archive column
+- materials use `isActive` (migration `20260912120000_add_material_active_state`); API delete is soft deactivate and `materials_write_policy` (already `costbook.manage`-gated) covers the new column without any RLS change
 - Costbook workspace foundation state uses `foundation`, `active`, and `archived`
 - Division/Category/Subcategory use `isActive`; API delete is soft deactivate and active descendants cannot be stranded beneath inactive parents
 - CostItem uses `isActive`; API delete is soft deactivate so historical Estimate/Change Order references remain valid
@@ -222,7 +224,7 @@ Current behavior:
 
 - Estimate Builder and AI Estimate Assist consume existing organization-scoped CostItems/Assemblies through estimating services; Estimate lines preserve the source IDs and pricing values captured at line creation
 - `/costbook` shows the workspace summary, permissions, organization-scoped catalog counts, and links to implemented management surfaces
-- `/costbook/materials` provides real-data material management
+- `/costbook/materials` provides real-data material create/edit/deactivate management with an Active/Inactive status badge and a manager-only Deactivate action
 - `/costbook/labor-rates` provides real-data labor-rate management
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management

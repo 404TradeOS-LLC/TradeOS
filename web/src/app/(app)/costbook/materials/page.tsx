@@ -17,7 +17,7 @@ function toErrorMessage(error: unknown) {
   return "Unable to load Costbook materials from the backend.";
 }
 
-type MaterialsQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; supplierId?: string };
+type MaterialsQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; supplierId?: string; active?: string };
 
 export default async function CostbookMaterialsPage({ searchParams }: { searchParams: Promise<MaterialsQuery> }) {
   const token = await getSessionToken();
@@ -31,9 +31,10 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
     loadError = "You need to be signed in to view Costbook materials.";
   } else {
     try {
+      const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
       const [loadedWorkspace, loadedPage] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, supplierId: query.supplierId }),
+        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, supplierId: query.supplierId, active }),
       ]);
       workspace = loadedWorkspace;
       materials = loadedPage.items;
@@ -76,8 +77,8 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
             </div>
           </section>
 
-          <CatalogQueryControls pathname="/costbook/materials" query={query} total={page.total} shown={materials.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} />
-          <MaterialsCatalog initialMaterials={materials} canWrite={workspace.permissions.canWrite} />
+          <CatalogQueryControls pathname="/costbook/materials" query={query} total={page.total} shown={materials.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }]} />
+          <MaterialsCatalog initialMaterials={materials} canWrite={workspace.permissions.canWrite} canManage={workspace.permissions.canManage} />
         </>
       ) : null}
     </div>

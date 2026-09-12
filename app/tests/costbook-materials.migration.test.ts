@@ -21,3 +21,24 @@ describe("costbook materials catalog migration", () => {
     expect(migration).toContain("public.current_app_can_manage_costbook()");
   });
 });
+
+describe("costbook materials active-state migration", () => {
+  const migration = fs.readFileSync(
+    path.resolve(__dirname, "../prisma/migrations/20260912120000_add_material_active_state/migration.sql"),
+    "utf8"
+  );
+
+  it("adds a non-null is_active column defaulting to true, matching the hierarchy/CostItem/LaborRate soft-delete pattern", () => {
+    expect(migration).toContain("alter table materials");
+    expect(migration).toContain("add column if not exists is_active boolean not null default true");
+  });
+
+  it("indexes materials by organization and active state", () => {
+    expect(migration).toContain("create index if not exists idx_materials_org_active on materials(org_id, is_active)");
+  });
+
+  it("does not touch materials_write_policy, since it already gates every material write behind costbook.manage", () => {
+    expect(migration).not.toContain("create policy");
+    expect(migration).not.toContain("drop policy");
+  });
+});

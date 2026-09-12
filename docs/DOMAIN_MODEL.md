@@ -265,7 +265,7 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
 - a material may link to a supplier only when that supplier belongs to the same authenticated organization
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
-- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+- a later follow-up (migration `20260912120000_add_material_active_state`) adds an `isActive` flag to `Material`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern; deactivating a material (`DELETE /api/v1/costbook/materials/:id`, or a PATCH that sets `isActive`) requires `costbook.manage` and never deletes the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 ## Costbook labor-rates foundation
 
