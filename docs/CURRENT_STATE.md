@@ -1,15 +1,17 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/modules/auth
+  - app/modules/billing
   - app/backend/controllers/auth.controller.ts
   - app/backend/controllers/adminDashboard.controller.ts
   - app/backend/server.ts
   - app/domain/contracts.ts
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260912044500_add_stripe_billing
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/prisma/migrations/20260908120000_add_active_job_assignment_lookup
   - app/backend/routes
@@ -28,6 +30,7 @@ related_code:
   - app/modules/athena-mobile
   - web/src/app
   - web/src/app/(app)/dashboard
+  - web/src/app/(app)/settings/billing
   - web/src/components/dashboard
   - web/src/app/(app)/costbook
   - web/src/app/(app)/dispatch
@@ -37,6 +40,7 @@ related_code:
   - web/src/app/(app)/portal
   - web/src/app/api/proxy/[...path]/route.ts
   - web/src/proxy.ts
+  - web/src/lib/billing-api.ts
   - web/src/lib/supabase/proxy.ts
   - web/src/lib/api.ts
   - web/src/lib/api-response.ts
@@ -49,7 +53,7 @@ related_code:
 
 # Current State
 
-Last reconciled on 2026-09-11 for the A14 voice/mobile-readiness slice based on `main` commit `32f94e6ec7c0a333e72279f20ddc6fe6f1407d54`. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-12 for the Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -122,6 +126,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
 - Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
+- Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. Stripe—not the browser return URL—is authoritative for subscription state. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration. `knowledge-runtime/repository.ts`'s trade classifier (`inferTrade()`) was rewritten 2026-09-08 from raw substring matching (which misclassified the Tree Service assembly-index record as trade "Trim") to a deterministic, word-boundary/token-aware matcher that prioritizes each record's own curated `category` field and returns `null` on genuine ambiguity rather than guessing. Full before/after audit of the entire Knowledge Engine corpus: `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`. No pricing value or Costbook record changed.
 
@@ -298,6 +303,7 @@ Security-sensitive maintenance already landed includes:
 - exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
 - browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 - server-only staff API response handling preserves structured backend error status/details, normalizes non-JSON upstream failures into `ApiClientError`, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+- Stripe Billing webhooks are mounted before JSON parsing, verify the exact raw body against `Stripe-Signature` with timestamp tolerance and timing-safe HMAC comparison, persist event IDs for idempotent retry handling, and enter an explicit tenant RLS context only after resolving `tradeos_org_id` from Stripe metadata
 
 The authenticated-proxy origin check closes the same-site sibling-origin CSRF gap that `SameSite=Lax` cookies do not cover by themselves without changing backend JWT, membership, permission, or RLS policy.
 
@@ -308,6 +314,8 @@ This document does not treat a passing unit test or route-level organization pre
 Repository state and production state are separate evidence domains.
 
 Known retained deployment evidence includes the S027 production Costbook replay described above and later production/auth fixes recorded by their owning PRs. Exact release-candidate browser evidence, environment configuration, credentials/storage states, and retained multi-viewport artifacts must be proven through the approved deployment/evidence workflows rather than inferred from merged code.
+
+The Stripe Billing implementation in PR #491 is repository/preview work until its migration is applied and sandbox environment configuration is complete. The connected Stripe sandbox already has the four subscription products and eight monthly/annual prices, but the current integration still requires a runtime Stripe API credential, webhook endpoint/signing secret, `TRADEOS_APP_URL`, and an active sandbox Customer Portal configuration before end-to-end Checkout/renewal/cancellation evidence can be retained. Live-mode price IDs/secrets must be configured explicitly; production code refuses to fall back to sandbox price IDs.
 
 RC smoke run #10 on 2026-09-02 proved the repaired workflow now passes its
 non-production configuration gate without serialized storage-state secrets, but
@@ -376,6 +384,7 @@ Repository governance additionally uses documentation consistency, dependency re
 - Persisted organization-wide Costbook pricing-policy/rule governance is not implemented; `/costbook/pricing` remains calculation-only preview behavior.
 - Supplier feeds remain review-first and do not auto-apply prices; supplier-SKU matching and provider-specific connector depth remain future work.
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
+- Stripe Billing sandbox runtime configuration is incomplete until an API credential, webhook-signing secret, webhook endpoint, app URL, and active Customer Portal configuration are installed and exercised. Stripe Connect/direct contractor customer payments remain a separate follow-up integration and are not provided by PR #491.
 - Production environment values, Preview isolation, runtime-authenticated RC sessions, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
 - Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
 
