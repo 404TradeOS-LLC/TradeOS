@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-05
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260912044500_add_stripe_billing
   - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
+  - app/modules/billing
   - app/modules/athena-memory
   - app/modules/athena-events
   - app/modules/athena-observability
@@ -23,7 +25,7 @@ This file defines the canonical business entities as implemented in the reposito
 The tenant boundary for all application data.
 
 - persistent model: `Organization`
-- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, and branding
+- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, branding, and synchronized subscription billing state
 - Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
 
 ## User
@@ -143,6 +145,18 @@ A recorded payment event stored in `Payment`.
 - belongs to one invoice and organization
 - tracks amount, payment date, method, reference, notes, and status
 - only `recorded` payments count toward reconciliation and queue balance derivation; concurrent payment reconciliation serializes on the Invoice row and preserves the Payment/status/audit transaction boundary
+
+## Organization subscription billing
+
+TradeOS SaaS subscription state is projected into `organization_billing`, one row per organization, by the Stripe Billing integration introduced in migration `20260912044500_add_stripe_billing`.
+
+- Stripe is authoritative for subscription/payment lifecycle; browser Checkout redirects never grant plan access by themselves
+- the row stores Stripe customer/subscription identifiers, the normalized internal TradeOS plan (`starter`, `pro`, `business`, or `scale`), billing interval, Stripe status, active price id, trial/period boundaries, cancellation-at-period-end state, and last invoice status
+- plan entitlements are resolved inside TradeOS from the normalized plan and are deliberately independent of Stripe price identifiers
+- `organization_billing` uses forced organization-scoped RLS; authenticated reads are tenant-scoped and writes require the existing organization-admin boundary
+- signed Stripe webhook processing establishes an explicit tenant database context from immutable `tradeos_org_id` metadata before mutating billing state
+- `stripe_webhook_events` stores processed Stripe event ids per organization so retries are idempotent; it is also forced-RLS protected and is control-plane synchronization history rather than customer/project accounting data
+- subscription billing is distinct from contractor invoice payments: this entity family pays 404 TradeOS LLC for the SaaS product and does not make TradeOS the merchant of record for a contractor's customer transaction
 
 ## Change Order
 
@@ -330,6 +344,8 @@ Operational sub-relationships:
 - `Project -> SiteVisit`
 - `Project -> ProjectTask`
 - `Invoice -> Payment`
+- `Organization -> organization_billing`
+- `Organization -> stripe_webhook_events`
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
 

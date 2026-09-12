@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { CreditCard } from "lucide-react";
 import { SettingsConsole } from "@/components/settings/settings-console";
 import { getOrganizationSettings } from "@/lib/api";
 import { mergeTradeOsSettingsDraft } from "@/lib/settings";
@@ -18,23 +20,34 @@ export default async function SettingsPage() {
     "local-dev";
 
   return (
-    <SettingsConsole
-      initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
-      initialWorkspaceData={{
-        currentRole: persisted?.currentRole ?? "technician",
-        canManageWorkspace: persisted?.canManageWorkspace ?? false,
-        teamMembers: persisted?.teamMembers ?? [],
-        roleProfiles: persisted?.roleProfiles ?? [],
-      }}
-      developerMeta={{
-        version: "0.1.0",
-        environment: process.env.NODE_ENV === "production" ? "Production" : "Development",
-        gitCommit,
-        buildNumber: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "2026.07.03-rc1",
-        databaseVersion: "Awaiting backend diagnostics endpoint",
-        featureFlags: "project-workspace, ai-estimate-assist, estimate-compare",
-        healthStatus: "Nominal",
-      }}
-    />
+    <>
+      <div className="mx-auto mb-4 flex w-full max-w-7xl justify-end">
+        <Link
+          href="/settings/billing"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-(--elev-1) transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <CreditCard className="size-4 text-primary" aria-hidden="true" />
+          Billing & Plan
+        </Link>
+      </div>
+      <SettingsConsole
+        initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
+        initialWorkspaceData={{
+          currentRole: persisted?.currentRole ?? "technician",
+          canManageWorkspace: persisted?.canManageWorkspace ?? false,
+          teamMembers: persisted?.teamMembers ?? [],
+          roleProfiles: persisted?.roleProfiles ?? [],
+        }}
+        developerMeta={{
+          version: "0.1.0",
+          environment: process.env.NODE_ENV === "production" ? "Production" : "Development",
+          gitCommit,
+          buildNumber: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "2026.07.03-rc1",
+          databaseVersion: "Awaiting backend diagnostics endpoint",
+          featureFlags: "project-workspace, ai-estimate-assist, estimate-compare",
+          healthStatus: "Nominal",
+        }}
+      />
+    </>
   );
 }
