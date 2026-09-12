@@ -4,6 +4,7 @@ import { costbookPricingController as pricingCtrl } from "../controllers/costboo
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
 import { costbookCandidatesController as candidateCtrl } from "../controllers/costbookCandidates.controller";
+import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const costbookRouter = Router();
@@ -61,6 +62,11 @@ costbookRouter.get("/subcategories/:id", asyncHandler(ctrl.getSubcategory));
 costbookRouter.post("/subcategories", asyncHandler(ctrl.createSubcategory));
 costbookRouter.patch("/subcategories/:id", asyncHandler(ctrl.updateSubcategory));
 costbookRouter.delete("/subcategories/:id", asyncHandler(ctrl.removeSubcategory));
+
+// Composite installed-price benchmark/history ingestion. These records are
+// reference evidence only and are intentionally isolated from material,
+// labor, equipment, and customer bill-rate tables.
+costbookRouter.post("/benchmarks/composite/import", asyncHandler(compositeBenchmarkCtrl.importRows));
 
 // Stage 6 research-candidate review queue (see
 // docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md). A candidate is
