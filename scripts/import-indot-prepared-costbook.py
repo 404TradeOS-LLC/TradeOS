@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Import the prepared INDOT 2019-2026 workbook into TradeOS composite benchmarks.
 
-The script is intentionally stdlib-only. It reads `Costbook_Import` and
-`Price_History`, normalizes rows into the governed composite benchmark API
-contract, de-duplicates by source/year/item, and posts bounded idempotent
-batches to `/api/v1/costbook/benchmarks/composite/import`.
+Reads `Costbook_Import` and `Price_History`, normalizes rows into the governed
+composite benchmark API contract, de-duplicates by source/year/item, and posts
+bounded idempotent batches to `/api/v1/costbook/benchmarks/composite/import`.
 
 INDOT values are composite installed awarded-bid prices. This script never
 writes Material, LaborRate, Equipment, CostItem, estimate, invoice, or bill-rate
@@ -36,25 +35,27 @@ IMPORT_PATH = "/api/v1/costbook/benchmarks/composite/import"
 
 HEADER_ALIASES = {
     "year": {"year", "source_year", "price_year"},
-    "section": {"section"},
+    "section": {"section", "section_code"},
     "item_code": {"item", "item_code", "pay_item", "pay_item_number", "item number"},
-    "description": {"description", "item_description", "name"},
-    "unit": {"unit", "unit_of_measure", "uom"},
+    "description": {"description", "description_as_published", "item_description", "name"},
+    "unit": {"unit", "canonical_unit", "unit_of_measure", "uom"},
     "low_price": {"low price", "low_price", "low"},
     "high_price": {"high price", "high_price", "high"},
     "weighted_avg_price": {
         "wgt avg", "weighted avg", "weighted_average", "weighted_avg_price",
-        "weighted average price", "weighted_average_price", "reference_price",
+        "weighted average price", "weighted_average_price", "reference_price", "unit_cost",
     },
-    "source_quantity": {"no items", "no_items", "quantity", "total_quantity", "source_quantity", "bid_count"},
-    "total_extended": {"total", "total_extended", "extended_total"},
+    "source_quantity": {
+        "no items", "no_items", "quantity", "total_quantity", "source_quantity", "bid_count",
+    },
+    "total_extended": {"total", "total_extended", "extended_total", "total_bid_amount"},
     "geography": {"geography", "regional_basis"},
     "price_basis": {"price_basis", "basis"},
     "source_file": {"source_file", "file", "workbook"},
     "source_row": {"source_row", "row", "row_number"},
     "source_url": {"source_url", "url"},
-    "catalog_status": {"catalog_status", "status"},
-    "review_status": {"review_status"},
+    "catalog_status": {"catalog_status", "status", "current_catalog"},
+    "review_status": {"review_status", "row_status"},
 }
 
 
@@ -77,10 +78,7 @@ def shared_strings(zf: zipfile.ZipFile) -> list[str]:
         root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
     except KeyError:
         return []
-    values: list[str] = []
-    for si in root.findall("a:si", NS):
-        values.append("".join(t.text or "" for t in si.findall(".//a:t", NS)))
-    return values
+    return ["".join(t.text or "" for t in si.findall(".//a:t", NS)) for si in root.findall("a:si", NS)]
 
 
 def sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
@@ -90,9 +88,9 @@ def sheet_targets(zf: zipfile.ZipFile) -> dict[str, str]:
     result: dict[str, str] = {}
     for sheet in workbook.findall("a:sheets/a:sheet", NS):
         rel_id = sheet.attrib[f"{{{OFFICE_REL_NS}}}id"]
-        target = rel_map[rel_id]
+        target = rel_map[rel_id].lstrip("/")
         if not target.startswith("xl/"):
-            target = "xl/" + target.lstrip("/")
+            target = "xl/" + target
         result[sheet.attrib["name"]] = target
     return result
 
@@ -128,10 +126,7 @@ def read_sheet(zf: zipfile.ZipFile, target: str, strings: list[str]) -> list[lis
                 continue
             cells[idx] = parse_cell(cell, strings)
             max_col = max(max_col, idx)
-        if max_col >= 0:
-            rows.append([cells.get(i) for i in range(max_col + 1)])
-        else:
-            rows.append([])
+        rows.append([cells.get(i) for i in range(max_col + 1)] if max_col >= 0 else [])
     return rows
 
 
@@ -186,14 +181,22 @@ def normalize_review_status(value: Any) -> str:
         "candidate review": "needs-review",
         "pending": "needs-review",
         "approved": "reviewed",
+        "ready": "reference",
     }
     text = aliases.get(text, text)
+    if text.startswith("review:"):
+        return "needs-review"
     if text not in {"reference", "needs-review", "reviewed", "rejected"}:
         return "reference"
     return text
 
 
-def normalize_row(row: list[Any], mapping: dict[str, int], default_source_file: str, fallback_row: int) -> dict[str, Any] | None:
+def normalize_row(
+    row: list[Any],
+    mapping: dict[str, int],
+    default_source_file: str,
+    fallback_row: int,
+) -> dict[str, Any] | None:
     item_code = str(get(row, mapping, "item_code") or "").strip()
     description = str(get(row, mapping, "description") or "").strip()
     unit = str(get(row, mapping, "unit") or "").strip()
@@ -224,11 +227,10 @@ def normalize_row(row: list[Any], mapping: dict[str, int], default_source_file: 
     source_row = integer(get(row, mapping, "source_row")) or fallback_row
     geography = str(get(row, mapping, "geography") or DEFAULT_GEOGRAPHY).strip()
     price_basis = str(get(row, mapping, "price_basis") or DEFAULT_PRICE_BASIS).strip()
-    source_identifier = f"INDOT-{year}-{item_code}"
 
     result: dict[str, Any] = {
         "sourceName": SOURCE_NAME,
-        "sourceIdentifier": source_identifier,
+        "sourceIdentifier": f"INDOT-{year}-{item_code}",
         "sourceYear": year,
         "sourceFile": source_file,
         "sourceRow": source_row,
@@ -261,8 +263,8 @@ def load_rows(path: Path) -> list[dict[str, Any]]:
             raise ValueError(f"Prepared workbook missing required sheets: {', '.join(sorted(missing))}")
 
         deduped: dict[tuple[str, int, str], dict[str, Any]] = {}
-        # Historical observations first; current Costbook_Import rows then win
-        # for overlapping source/year/item keys because they carry current-catalog metadata.
+        # Historical observations first; current Costbook_Import rows then win for
+        # overlapping source/year/item keys because they carry current-catalog metadata.
         for sheet_name in ("Price_History", "Costbook_Import"):
             rows = read_sheet(zf, targets[sheet_name], strings)
             header_index, mapping = find_header(rows)
@@ -316,7 +318,10 @@ def main() -> int:
     print(f"Validated {len(rows)} unique INDOT source/year/item benchmark rows for years {years}")
 
     if args.json_out:
-        args.json_out.write_text(json.dumps({"rowCount": len(rows), "years": years, "rows": rows}, indent=2) + "\n", encoding="utf-8")
+        args.json_out.write_text(
+            json.dumps({"rowCount": len(rows), "years": years, "rows": rows}, indent=2) + "\n",
+            encoding="utf-8",
+        )
         print(f"Wrote normalized evidence: {args.json_out}")
 
     if args.dry_run:
