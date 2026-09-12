@@ -5,7 +5,7 @@ export interface IndotUnitPriceBenchmark {
   lowPrice: number;
   averagePrice: number;
   highPrice: number;
-  observationCount: number;
+  totalQuantity: number;
 }
 
 export const INDOT_2025_UNIT_PRICE_SOURCE_URL =
@@ -17,7 +17,8 @@ export const INDOT_2025_UNIT_PRICE_INDEX_URL =
 export const INDOT_2025_REGIONAL_BASIS = "Indiana statewide awarded INDOT contracts";
 
 /**
- * First vetted slice of INDOT CY2025 unit-price benchmarks.
+ * Small source-verified sample used as an in-code regression anchor while the
+ * full workbook is parsed by scripts/parse-indot-cy2025-unit-prices.py.
  *
  * INDOT states these summaries contain high, low, and average unit bid prices
  * for pay items included in awarded INDOT projects during the prior year, with
@@ -36,7 +37,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 5000,
     averagePrice: 33043.33,
     highPrice: 120000,
-    observationCount: 10,
+    totalQuantity: 10,
   },
   {
     payItemNumber: "203-02000",
@@ -45,7 +46,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 1,
     averagePrice: 27.29,
     highPrice: 505,
-    observationCount: 1304735,
+    totalQuantity: 1304735,
   },
   {
     payItemNumber: "211-09194",
@@ -54,7 +55,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 125,
     averagePrice: 125,
     highPrice: 125,
-    observationCount: 10,
+    totalQuantity: 10,
   },
   {
     payItemNumber: "301-12231",
@@ -63,7 +64,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 47,
     averagePrice: 86.71,
     highPrice: 1200,
-    observationCount: 5909,
+    totalQuantity: 5909,
   },
   {
     payItemNumber: "301-12232",
@@ -72,7 +73,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 45,
     averagePrice: 91.9,
     highPrice: 490,
-    observationCount: 7362,
+    totalQuantity: 7362,
   },
   {
     payItemNumber: "301-12234",
@@ -81,7 +82,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
     lowPrice: 50,
     averagePrice: 100,
     highPrice: 600,
-    observationCount: 8000,
+    totalQuantity: 8000,
   },
 ] as const;
 
