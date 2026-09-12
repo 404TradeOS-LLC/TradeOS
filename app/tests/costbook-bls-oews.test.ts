@@ -9,10 +9,10 @@ import {
 describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
   const retrievedAt = "2026-09-12T08:00:00.000Z";
 
-  it("maps the first contractor-trade wage slice into valid governed candidates", () => {
+  it("maps the contractor-trade wage slice into valid governed candidates", () => {
     const candidates = buildTerreHauteBlsOewsLaborCandidates(retrievedAt);
 
-    expect(candidates).toHaveLength(5);
+    expect(candidates).toHaveLength(7);
     for (const candidate of candidates) {
       const parsed = costbookResearchCandidateSchema.parse(candidate);
       expect(parsed.reviewStatus).toBe("candidate");
@@ -38,6 +38,8 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
       { soc: "47-2031", p10: 18.72, p25: 23.77, p50: 29.12, p75: 35.55, p90: 38.75 },
       { soc: "49-9021", p10: 18.35, p25: 23.29, p50: 26.11, p75: 33.04, p90: 39.06 },
       { soc: "47-2141", p10: 17.13, p25: 18.37, p50: 22.06, p75: 28.0, p90: 29.49 },
+      { soc: "47-2073", p10: 20.85, p25: 24.17, p50: 29.63, p75: 40.4, p90: 44.46 },
+      { soc: "47-2211", p10: 17.73, p25: 22.71, p50: 36.44, p75: 42.77, p90: 47.39 },
     ];
 
     expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.map((row) => ({
