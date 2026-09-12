@@ -47,6 +47,12 @@ const reviewSchema = z.object({
   reviewNotes: z.string().trim().min(1).max(4000).optional(),
 }).strict();
 
+// The Knowledge Engine corpus is keyed by its own record ids, which are uuids
+// in the canonical export. Validated here so a malformed id fails at the edge.
+const ingestFromKnowledgeSchema = z.object({
+  knowledgeItemId: z.string().uuid(),
+}).strict();
+
 export const costbookCandidatesController = {
   async create(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
@@ -68,6 +74,34 @@ export const costbookCandidatesController = {
     const auth = requirePermissions(req, ["costbook.read"]);
     const { id } = idParamSchema.parse(req.params);
     res.json(await service.getById(auth, id));
+  },
+
+  async summary(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await service.summary(auth));
+  },
+
+  async corpusReport(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(service.knowledgeCorpusReport(auth));
+  },
+
+  async match(req: Request, res: Response) {
+    // Read-only duplicate analysis. costbook.read is sufficient because it
+    // reveals nothing the caller cannot already read from their own catalog,
+    // and it mutates nothing.
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await service.matchPreview(auth, id));
+  },
+
+  async ingestFromKnowledge(req: Request, res: Response) {
+    // Creating a candidate is a costbook.write action, exactly like the
+    // hand-submitted path above. Ingestion can never approve or promote: the
+    // resulting row always starts in the "candidate" state.
+    const auth = requirePermissions(req, ["costbook.write"]);
+    const { knowledgeItemId } = ingestFromKnowledgeSchema.parse(req.body);
+    res.status(201).json(await service.createFromKnowledgeItem(auth, knowledgeItemId));
   },
 
   async review(req: Request, res: Response) {

@@ -5,6 +5,7 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import type { AuthContext } from "../../backend/auth/context";
 import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { CostDatabaseService } from "../cost-database/service";
+import { getKnowledgeRepositorySnapshot } from "../knowledge-runtime/repository";
 import { CostbookService } from "./service";
 import {
   costbookResearchCandidateSchema,
@@ -12,6 +13,16 @@ import {
   type CostbookCandidateReviewStatus,
   type CostbookResearchCandidate,
 } from "./candidateCostItem";
+import {
+  analyzeCandidateMatch,
+  type CandidateMatchAnalysis,
+  type ExistingCostbookItem,
+} from "./candidateMatch";
+import {
+  buildKnowledgeCorpusReport,
+  normalizeKnowledgeCostItem,
+  type KnowledgeCorpusReport,
+} from "./knowledgeCandidateNormalizer";
 
 /**
  * Stage 6 of docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md: the
@@ -92,9 +103,42 @@ export interface CandidateCostItemDTO {
   updatedAt: string;
 }
 
+export interface CandidateQueueSummaryDTO {
+  /** Open work: candidates nobody has decided on yet. */
+  pendingReview: number;
+  approved: number;
+  rejected: number;
+  promoted: number;
+  /** Approved but not yet copied into the catalog. */
+  awaitingPromotion: number;
+  documented: number;
+  unverifiedLegacy: number;
+  placeholder: number;
+  total: number;
+}
+
+export interface KnowledgeCorpusReportDTO extends KnowledgeCorpusReport {
+  /**
+   * Restates the honest reading of the numbers above so a caller cannot
+   * present a research corpus as production-ready pricing.
+   */
+  interpretation: string;
+}
+
 type CandidateRow = Awaited<ReturnType<typeof prisma.costbookResearchCandidate.findFirstOrThrow>>;
 
 const OPEN_REVIEW_STATUSES: CostbookCandidateReviewStatus[] = ["candidate", "needs-review"];
+
+/**
+ * The Knowledge Engine corpus is a static, read-only file tree shared by every
+ * organization, so its classification is identical for all callers and is
+ * computed once per process rather than per request.
+ */
+let cachedCorpusReport: KnowledgeCorpusReport | null = null;
+
+export function resetKnowledgeCorpusReportCache(): void {
+  cachedCorpusReport = null;
+}
 
 export class CostbookCandidateService {
   private readonly costDatabase = new CostDatabaseService();
@@ -187,6 +231,162 @@ export class CostbookCandidateService {
     return toDTO(row);
   }
 
+  /**
+   * Real counts for the review dashboard, derived from persisted rows in this
+   * organization only. Never a projection or a sample - an empty queue reports
+   * zeroes rather than placeholder figures.
+   */
+  async summary(auth: AuthContext): Promise<CandidateQueueSummaryDTO> {
+    const [byReviewStatus, byProvenanceStatus, promoted, awaitingPromotion, total] = await Promise.all([
+      prisma.costbookResearchCandidate.groupBy({
+        by: ["reviewStatus"],
+        where: { orgId: auth.orgId },
+        _count: { _all: true },
+      }),
+      prisma.costbookResearchCandidate.groupBy({
+        by: ["provenanceStatus"],
+        where: { orgId: auth.orgId },
+        _count: { _all: true },
+      }),
+      prisma.costbookResearchCandidate.count({ where: { orgId: auth.orgId, promotedCostItemId: { not: null } } }),
+      prisma.costbookResearchCandidate.count({
+        where: { orgId: auth.orgId, reviewStatus: "approved", promotedCostItemId: null },
+      }),
+      prisma.costbookResearchCandidate.count({ where: { orgId: auth.orgId } }),
+    ]);
+
+    const reviewCount = (status: string) =>
+      byReviewStatus.find((row) => row.reviewStatus === status)?._count._all ?? 0;
+    const provenanceCount = (status: string) =>
+      byProvenanceStatus.find((row) => row.provenanceStatus === status)?._count._all ?? 0;
+
+    return {
+      pendingReview: reviewCount("candidate") + reviewCount("needs-review"),
+      approved: reviewCount("approved"),
+      rejected: reviewCount("rejected"),
+      promoted,
+      awaitingPromotion,
+      documented: provenanceCount("documented"),
+      unverifiedLegacy: provenanceCount("unverified-legacy"),
+      placeholder: provenanceCount("placeholder"),
+      total,
+    };
+  }
+
+  /**
+   * Deterministic classification of the shared Knowledge Engine corpus. This
+   * reads static files, not tenant data, so it is identical for every
+   * organization - but it still requires an authenticated costbook.read caller
+   * because it is surfaced inside the Costbook workspace.
+   */
+  knowledgeCorpusReport(_auth: AuthContext): KnowledgeCorpusReportDTO {
+    if (!cachedCorpusReport) {
+      cachedCorpusReport = buildKnowledgeCorpusReport(getKnowledgeRepositorySnapshot().costItems);
+    }
+
+    return {
+      ...cachedCorpusReport,
+      interpretation:
+        cachedCorpusReport.candidateReady === 0
+          ? "No Knowledge Engine item currently carries the cited source, date, and confidence a Costbook candidate requires. This corpus is research reference data, not production-trusted pricing."
+          : `${cachedCorpusReport.candidateReady} of ${cachedCorpusReport.totalItems} Knowledge Engine items carry enough cited evidence to enter the review queue. Entering the queue is not approval; each still requires an explicit human decision.`,
+    };
+  }
+
+  /**
+   * Read-only duplicate analysis for a persisted candidate. Uses the canonical
+   * CostDatabaseService search and unit-cost calculation, so it sees exactly
+   * what the Costbook itself sees - and only within the caller's organization.
+   * Nothing is written; this exists so a reviewer can see the collision before
+   * deciding, not so the system can decide for them.
+   */
+  async matchPreview(auth: AuthContext, id: string): Promise<CandidateMatchAnalysis> {
+    const candidate = await this.getById(auth, id);
+
+    const searchResults = await this.costDatabase.search(candidate.itemName, auth.orgId);
+
+    const existingItems: ExistingCostbookItem[] = await Promise.all(
+      searchResults.map(async (item) => {
+        let currentUnitCost: number | null = null;
+        try {
+          currentUnitCost = (await this.costDatabase.getUnitCost(item.id, 1, undefined, auth.orgId)).totalUnitCost;
+        } catch {
+          // A cost item whose components can no longer be priced still matters
+          // for duplicate detection; report it without a comparable price
+          // rather than dropping it or inventing one.
+          currentUnitCost = null;
+        }
+
+        return {
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          unitOfMeasure: item.unitOfMeasure,
+          currentUnitCost,
+          isActive: item.isActive,
+        };
+      })
+    );
+
+    return analyzeCandidateMatch(
+      {
+        itemName: candidate.itemName,
+        unitOfMeasure: candidate.unitOfMeasure,
+        proposedUnitCost: candidate.materialCostTypical,
+      },
+      existingItems
+    );
+  }
+
+  /**
+   * Stage 2/3 ingestion: turn one Knowledge Engine corpus item into a persisted
+   * review candidate. Fails closed with a 422 listing exactly what evidence is
+   * missing, so an unsourced legacy record can never enter the queue and be
+   * mistaken for reviewed pricing.
+   *
+   * This creates a *candidate*, never a Costbook record. It is the same
+   * unreviewed starting state as a hand-submitted candidate, and it still
+   * requires a human costbook.manage decision before anything is promoted.
+   */
+  async createFromKnowledgeItem(auth: AuthContext, knowledgeItemId: string): Promise<CandidateCostItemDTO> {
+    const record = getKnowledgeRepositorySnapshot().costItems.find((item) => item.id === knowledgeItemId);
+    if (!record) {
+      throw new ApiError(404, `Knowledge Engine cost item ${knowledgeItemId} not found`);
+    }
+
+    const normalized = normalizeKnowledgeCostItem(record);
+    if (normalized.outcome !== "ready") {
+      throw new ApiError(
+        422,
+        `Knowledge Engine cost item ${knowledgeItemId} cannot become a Costbook candidate: ${normalized.classification.blockReasons.join(", ")}. Supply the missing source evidence in the Knowledge Engine before ingesting it.`
+      );
+    }
+
+    const candidate = normalized.candidate;
+    return this.create(auth, {
+      trade: candidate.trade,
+      category: candidate.category,
+      itemName: candidate.itemName,
+      description: candidate.description,
+      unitOfMeasure: candidate.unitOfMeasure,
+      materialCostLow: candidate.materialCostLow,
+      materialCostTypical: candidate.materialCostTypical,
+      materialCostHigh: candidate.materialCostHigh,
+      laborHours: candidate.laborHours,
+      laborRateAssumption: candidate.laborRateAssumption,
+      equipmentCost: candidate.equipmentCost,
+      sourceName: candidate.sourceName,
+      sourceUrl: candidate.sourceUrl,
+      sourceIdentifier: candidate.sourceIdentifier,
+      sourceDate: candidate.sourceDate,
+      retrievedAt: candidate.retrievedAt,
+      regionalBasis: candidate.regionalBasis,
+      confidence: candidate.confidence,
+      researchNotes: candidate.researchNotes,
+      provenanceStatus: candidate.provenanceStatus,
+    });
+  }
+
   async review(auth: AuthContext, id: string, input: ReviewCandidateInput): Promise<CandidateCostItemDTO> {
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
       const existing = await transaction.costbookResearchCandidate.findFirst({ where: { id, orgId: auth.orgId } });
@@ -211,6 +411,28 @@ export class CostbookCandidateService {
       if (claimed.count !== 1) {
         throw new ApiError(409, `Costbook research candidate ${id} is no longer open for review`);
       }
+
+      // Immutable evidence of who decided what, and when. The candidate row
+      // itself records the current decision; this append-only event preserves
+      // the decision even if the candidate is later re-reviewed or deleted.
+      await recordCandidateAuditEvent(transaction, {
+        orgId: auth.orgId,
+        candidateId: id,
+        eventType: `costbook.candidate.${input.decision}`,
+        title: `Research candidate ${input.decision}: ${existing.itemName}`,
+        actorUserId: auth.userId,
+        metadata: {
+          decision: input.decision,
+          previousReviewStatus: existing.reviewStatus,
+          reviewNotes: input.reviewNotes ?? null,
+          provenanceStatus: existing.provenanceStatus,
+          sourceName: existing.sourceName,
+          sourceDate: existing.sourceDate,
+          confidence: existing.confidence,
+          proposedUnitCost: Number(existing.materialCostTypical),
+          unitOfMeasure: existing.unitOfMeasure,
+        },
+      });
 
       return toDTO({
         ...existing,
@@ -346,9 +568,79 @@ export class CostbookCandidateService {
         throw new ApiError(409, `Costbook research candidate ${id} was promoted concurrently`);
       }
 
+      // Immutable promotion evidence: which candidate, which reviewer, which
+      // Costbook record it became, and the provenance that justified it. This
+      // is written inside the same transaction as the CostItem creation, so a
+      // promotion can never land without its audit trail.
+      await recordCandidateAuditEvent(transaction, {
+        orgId: auth.orgId,
+        candidateId: id,
+        eventType: "costbook.candidate.promoted",
+        title: `Research candidate promoted to Costbook: ${row.itemName}`,
+        actorUserId: auth.userId,
+        metadata: {
+          promotedCostItemId: costItem.id,
+          costItemCode: costItem.code,
+          // Promotion only ever creates a new CostItem, so there is no prior
+          // value to record. Stated explicitly rather than omitted.
+          previousUnitCost: null,
+          promotedUnitCost: materialCostTypical,
+          unitOfMeasure: row.unitOfMeasure,
+          reviewedByUserId: row.reviewedByUserId,
+          reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+          provenanceStatus: row.provenanceStatus,
+          sourceName: row.sourceName,
+          sourceUrl: row.sourceUrl,
+          sourceIdentifier: row.sourceIdentifier,
+          sourceDate: row.sourceDate,
+          regionalBasis: row.regionalBasis,
+          confidence: row.confidence,
+          createdMaterialId: materialId,
+          createdLaborRateId: laborRateId,
+          createdEquipmentId: equipmentId,
+        },
+      });
+
       return toDTO({ ...row, promotedAt, promotedByUserId: auth.userId, promotedCostItemId: costItem.id });
     });
   }
+}
+
+/**
+ * Appends an immutable review/promotion record to the organization's existing
+ * activity feed rather than introducing a second audit store. Written inside
+ * the caller's transaction so a decision and its evidence commit together.
+ *
+ * `activityEvent` is optional on the transaction type only so that the
+ * lightweight mocked-Prisma unit tests do not have to stub every unrelated
+ * model; in a real request it is always present.
+ */
+async function recordCandidateAuditEvent(
+  transaction: Prisma.TransactionClient,
+  input: {
+    orgId: string;
+    candidateId: string;
+    eventType: string;
+    title: string;
+    actorUserId: string;
+    metadata: Record<string, unknown>;
+  }
+): Promise<void> {
+  const activityEvent = (transaction as Prisma.TransactionClient | undefined)?.activityEvent;
+  if (!activityEvent || typeof activityEvent.create !== "function") return;
+
+  await activityEvent.create({
+    data: {
+      orgId: input.orgId,
+      entityType: "costbook_research_candidate",
+      entityId: input.candidateId,
+      eventType: input.eventType,
+      title: input.title,
+      actorUserId: input.actorUserId,
+      metadataJson: input.metadata as Prisma.InputJsonValue,
+      occurredAt: new Date(),
+    },
+  });
 }
 
 function toContractShape(row: CandidateRow): CostbookResearchCandidate {
