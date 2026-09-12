@@ -46,14 +46,19 @@ export async function stripeRequest<T>(
     body: method === "POST" && options.body ? encodeForm(options.body) : undefined,
   });
 
-  const payload = (await response.json().catch(() => null)) as { error?: { message?: string } } | T | null;
+  const payload = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
-    const message = payload && typeof payload === "object" && "error" in payload
-      ? payload.error?.message ?? "Stripe request failed"
-      : "Stripe request failed";
+    let message = "Stripe request failed";
+    if (payload && typeof payload === "object") {
+      const stripeError = (payload as { error?: unknown }).error;
+      if (stripeError && typeof stripeError === "object") {
+        const candidate = (stripeError as { message?: unknown }).message;
+        if (typeof candidate === "string" && candidate.trim()) message = candidate;
+      }
+    }
     throw new ApiError(502, message);
   }
-  if (!payload) throw new ApiError(502, "Stripe returned an empty response");
+  if (payload === null || payload === undefined) throw new ApiError(502, "Stripe returned an empty response");
   return payload as T;
 }
 
