@@ -11,20 +11,24 @@ labor, equipment, overhead, or margin components.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import re
 import sys
+import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable
 from xml.etree import ElementTree as ET
 
 SOURCE_URL = "https://www.in.gov/indot/doing-business-with-indot/files/CY2025-Unit-Price-Summary.xlsx"
 INDEX_URL = "https://www.in.gov/indot/doing-business-with-indot/home/contracts/standards/indot-pay-items-listunit-price-summaries/"
 REGIONAL_BASIS = "Indiana statewide awarded INDOT contracts"
+LOCAL_INPUT_BASIS = "Local workbook input; not independently verified as official INDOT CY2025 data"
 PAY_ITEM_RE = re.compile(r"^\d{3}-\d{5}$")
 EXPECTED_FIRST_PAY_ITEM = "105-06807"
 EXPECTED_LAST_PAY_ITEM = "809-94971"
@@ -154,6 +158,8 @@ def _number(value: str, field: str, pay_item: str) -> float:
         number = float(cleaned)
     except ValueError as exc:
         raise ValueError(f"{pay_item}: invalid {field}: {value!r}") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{pay_item}: non-finite {field}: {value!r}")
     if number < 0:
         raise ValueError(f"{pay_item}: negative {field}: {number}")
     return number
@@ -211,6 +217,9 @@ def parse_workbook_bytes(payload: bytes) -> list[IndotUnitPriceRow]:
 
 
 def download_workbook(url: str = SOURCE_URL) -> bytes:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "www.in.gov" or url != SOURCE_URL:
+        raise ValueError("Only the canonical HTTPS INDOT CY2025 workbook URL is permitted")
     request = urllib.request.Request(url, headers={"User-Agent": "TradeOS-Costbook/1.0"})
     with urllib.request.urlopen(request, timeout=60) as response:
         return response.read()
@@ -222,14 +231,35 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("app/data/indot-cy2025-unit-prices.json"))
     args = parser.parse_args()
 
-    payload = args.input.read_bytes() if args.input else download_workbook()
+    is_local_input = args.input is not None
+    payload = args.input.read_bytes() if is_local_input else download_workbook()
+    content_sha256 = hashlib.sha256(payload).hexdigest()
     rows = parse_workbook_bytes(payload)
     units = sorted({row.unit for row in rows})
+
+    if is_local_input:
+        provenance = {
+            "sourceUrl": None,
+            "indexUrl": None,
+            "sourceYear": None,
+            "regionalBasis": LOCAL_INPUT_BASIS,
+            "sourceFile": str(args.input),
+            "contentSha256": content_sha256,
+            "officialSourceVerified": False,
+        }
+    else:
+        provenance = {
+            "sourceUrl": SOURCE_URL,
+            "indexUrl": INDEX_URL,
+            "sourceYear": 2025,
+            "regionalBasis": REGIONAL_BASIS,
+            "sourceFile": SOURCE_URL.rsplit("/", 1)[-1],
+            "contentSha256": content_sha256,
+            "officialSourceVerified": True,
+        }
+
     snapshot = {
-        "sourceUrl": SOURCE_URL,
-        "indexUrl": INDEX_URL,
-        "sourceYear": 2025,
-        "regionalBasis": REGIONAL_BASIS,
+        **provenance,
         "rowCount": len(rows),
         "units": units,
         "firstPayItem": rows[0].payItemNumber,
@@ -246,6 +276,8 @@ def main() -> int:
                 "firstPayItem": rows[0].payItemNumber,
                 "lastPayItem": rows[-1].payItemNumber,
                 "units": units,
+                "officialSourceVerified": provenance["officialSourceVerified"],
+                "contentSha256": content_sha256,
             },
             indent=2,
         )
