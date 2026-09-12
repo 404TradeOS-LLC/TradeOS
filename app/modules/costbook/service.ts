@@ -187,6 +187,11 @@ export class CostbookService {
     return toMaterialDTO(row);
   }
 
+  async deactivateMaterial(auth: AuthContext, id: string): Promise<void> {
+    const deactivated = await this.repository.deactivateMaterial(auth.orgId, id);
+    if (!deactivated) throw new ApiError(404, `Material ${id} not found`);
+  }
+
   async listDivisions(auth: AuthContext): Promise<CostbookDivisionDTO[]> {
     const rows = await this.repository.listDivisions(auth.orgId);
     return rows.map(toDivisionDTO);
@@ -297,6 +302,7 @@ function toMaterialDTO(row: CostbookMaterialRecord): CostbookMaterialDTO {
     supplierId: row.supplierId,
     supplierName: row.supplierName,
     lastPriceUpdate: row.lastPriceUpdate?.toISOString() ?? null,
+    isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

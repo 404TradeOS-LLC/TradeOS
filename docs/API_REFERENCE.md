@@ -356,12 +356,15 @@ Costbook material DTO:
   "supplierId": null,
   "supplierName": null,
   "lastPriceUpdate": "2026-08-11T00:00:00.000Z",
+  "isActive": true,
   "createdAt": "2026-08-10T00:00:00.000Z",
   "updatedAt": "2026-08-11T00:00:00.000Z"
 }
 ```
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the existing `Material` table has no active/archive state, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+
+A later follow-up (migration `20260912120000_add_material_active_state`) adds an `is_active` column to `materials`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern: `GET /api/v1/costbook/materials` accepts an `active` filter (`true`/`false`), a PATCH that changes `isActive` additionally requires `costbook.manage` (matching the hierarchy activation boundary), and `DELETE /api/v1/costbook/materials/:id` requires `costbook.manage` and soft-deactivates the material (sets `isActive: false`) rather than deleting the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 Costbook labor-rate DTO:
 

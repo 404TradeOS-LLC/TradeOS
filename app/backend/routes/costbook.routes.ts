@@ -46,6 +46,7 @@ costbookRouter.get("/materials", asyncHandler(ctrl.listMaterials));
 costbookRouter.get("/materials/:id", asyncHandler(ctrl.getMaterial));
 costbookRouter.post("/materials", asyncHandler(ctrl.createMaterial));
 costbookRouter.patch("/materials/:id", asyncHandler(ctrl.updateMaterial));
+costbookRouter.delete("/materials/:id", asyncHandler(ctrl.removeMaterial));
 costbookRouter.get("/divisions", asyncHandler(ctrl.listDivisions));
 costbookRouter.get("/divisions/:id", asyncHandler(ctrl.getDivision));
 costbookRouter.post("/divisions", asyncHandler(ctrl.createDivision));

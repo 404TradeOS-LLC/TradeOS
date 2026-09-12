@@ -147,6 +147,8 @@ Costbook permissions, organization scope, request-scoped sessions, and forced RL
 
 Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
+Material catalog rows now carry an `isActive` flag (migration `20260912120000_add_material_active_state`), matching the Division/Category/Subcategory/CostItem/LaborRate soft-delete pattern. `GET /api/v1/costbook/materials` accepts an `active` filter, a PATCH changing `isActive` requires `costbook.manage`, and the authenticated `/costbook/materials` page shows an Active/Inactive status badge with a manager-only Deactivate action. No RLS policy changed: `materials_write_policy` already restricted every material write to the `costbook.manage` boundary.
+
 ### S027 production-readiness truth
 
 The implementation that older revisions of this document labeled **Unreleased** is merged repository state:

@@ -337,6 +337,50 @@ describe("CostbookService", () => {
     expect(mockPrisma.material.update).not.toHaveBeenCalled();
   });
 
+  it("updates a material's isActive flag through the update path", async () => {
+    mockPrisma.material.findFirst.mockResolvedValue(materialRow({ id: "material-1", orgId: "org-tenant-a" }));
+    mockPrisma.material.update.mockResolvedValue(materialRow({ id: "material-1", orgId: "org-tenant-a", isActive: false }));
+
+    await new CostbookService().updateMaterial(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "material-1",
+      { isActive: false }
+    );
+
+    expect(mockPrisma.material.update).toHaveBeenCalledWith({
+      where: { id: "material-1" },
+      data: expect.objectContaining({ isActive: false }),
+      include: { supplier: { select: { id: true, name: true } } },
+    });
+  });
+
+  it("deactivates a material only inside the authenticated organization", async () => {
+    mockPrisma.material.findFirst.mockResolvedValue(materialRow({ id: "material-1", orgId: "org-tenant-a" }));
+
+    await new CostbookService().deactivateMaterial(
+      { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+      "material-1"
+    );
+
+    expect(mockPrisma.material.update).toHaveBeenCalledWith({
+      where: { id: "material-1" },
+      data: { isActive: false },
+    });
+  });
+
+  it("returns not found instead of deactivating a cross-organization material", async () => {
+    mockPrisma.material.findFirst.mockResolvedValue(null);
+
+    await expect(
+      new CostbookService().deactivateMaterial(
+        { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
+        "material-from-org-b"
+      )
+    ).rejects.toThrow("Material material-from-org-b not found");
+
+    expect(mockPrisma.material.update).not.toHaveBeenCalled();
+  });
+
   it("creates a division only inside the authenticated organization", async () => {
     await new CostbookService().createDivision(
       { userId: "admin-1", orgId: "org-tenant-a", role: "admin" },
@@ -509,6 +553,7 @@ function materialRow(overrides: Record<string, unknown> = {}) {
     supplierId: null,
     supplier: null,
     lastPriceUpdate: new Date("2026-08-11T00:00:00.000Z"),
+    isActive: true,
     createdAt: new Date("2026-08-10T00:00:00.000Z"),
     updatedAt: new Date("2026-08-11T00:00:00.000Z"),
     ...overrides,
