@@ -40,9 +40,10 @@ describe("Costbook composite price benchmark ingestion", () => {
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 40 })).toThrow();
   });
 
-  it("rejects values PostgreSQL numeric(14,4) and integer columns cannot represent", () => {
+  it("rejects values PostgreSQL numeric columns and integer columns cannot represent", () => {
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 1.23456 })).toThrow();
-    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, sourceQuantity: 10_000_000_000 })).toThrow();
+    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 10_000_000_000 })).toThrow();
+    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, sourceQuantity: 100_000_000_000_000 })).toThrow();
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, sourceRow: 2_147_483_648 })).toThrow();
   });
 
