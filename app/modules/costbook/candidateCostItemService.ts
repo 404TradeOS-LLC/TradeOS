@@ -101,6 +101,10 @@ export class CostbookCandidateService {
   private readonly costbook = new CostbookService();
 
   async create(auth: AuthContext, input: CreateCandidateInput): Promise<CandidateCostItemDTO> {
+    // Re-validate through the Stage 5 contract so a candidate can never be
+    // persisted in a shape the schema itself would reject - the API layer's
+    // own zod schema additionally strips any client-supplied review fields
+    // before this input ever reaches here (see the controller).
     const parsed = costbookResearchCandidateSchema.parse({
       trade: input.trade,
       category: input.category,
@@ -122,6 +126,8 @@ export class CostbookCandidateService {
       confidence: input.confidence,
       researchNotes: input.researchNotes,
       provenanceStatus: input.provenanceStatus,
+      // reviewStatus/reviewedBy/reviewedAt are never accepted from a caller
+      // at creation time; every candidate starts as "candidate".
     });
 
     const row = await prisma.costbookResearchCandidate.create({
@@ -190,6 +196,9 @@ export class CostbookCandidateService {
       }
 
       const reviewedAt = new Date();
+      // Claim the review before mutating anything else, mirroring the
+      // supplier-price-update review pattern: the status predicate makes
+      // approve/reject mutually exclusive under concurrent review.
       const claimed = await transaction.costbookResearchCandidate.updateMany({
         where: { id, orgId: auth.orgId, reviewStatus: existing.reviewStatus },
         data: {
@@ -213,8 +222,18 @@ export class CostbookCandidateService {
     });
   }
 
+  /**
+   * The sole path from an approved candidate to a real, org-scoped
+   * CostItem. Requires an existing Subcategory in this organization's
+   * Costbook hierarchy matching the candidate's category - it does not
+   * invent Division/Category/Subcategory structure, by design (see the
+   * design doc's Stage 6 "what this does not do" notes).
+   */
   async promote(auth: AuthContext, id: string): Promise<CandidateCostItemDTO> {
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      // Serialize concurrent promote attempts for the same candidate so two
+      // simultaneous requests cannot both pass the promotedCostItemId-is-null
+      // check and each create a production CostItem.
       if (typeof transaction.$executeRaw === "function") {
         await transaction.$executeRaw(
           Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-candidate-promote:${id}`}, 0))`
@@ -227,6 +246,11 @@ export class CostbookCandidateService {
         throw new ApiError(409, `Costbook research candidate ${id} has already been promoted to cost item ${row.promotedCostItemId}`);
       }
 
+      // Defensively re-validate the persisted row through the Stage 5
+      // contract's own eligibility gate rather than trusting reviewStatus
+      // alone - fails closed (as an ApiError, not a raw ZodError) even
+      // against a row that is somehow missing reviewedBy/reviewedAt despite
+      // an "approved" status.
       let eligible: boolean;
       try {
         eligible = isEligibleForCostbookPromotion(toContractShape(row));
@@ -260,6 +284,9 @@ export class CostbookCandidateService {
         );
       }
 
+      // Reuse the existing, org-scoped Costbook write paths for each
+      // component instead of a second parallel pricing store - the same
+      // requirement Stage 6 places on the CostItem write itself below.
       const materialCostTypical = Number(row.materialCostTypical);
       const materialId = materialCostTypical > 0
         ? (await this.costbook.createMaterial(auth, {
@@ -271,6 +298,9 @@ export class CostbookCandidateService {
         : null;
 
       const laborRateAssumption = row.laborRateAssumption != null ? Number(row.laborRateAssumption) : null;
+      // billRate is set equal to the researched hourlyCost - the candidate
+      // carries no markup assumption, so no markup is invented here; an org
+      // can adjust the bill rate after promotion via the labor-rate endpoints.
       const laborRateId = laborHours && laborHours > 0 && laborRateAssumption && laborRateAssumption > 0
         ? (await this.costbook.createLaborRate(auth, {
           role: row.trade,
@@ -280,6 +310,9 @@ export class CostbookCandidateService {
         })).id
         : null;
 
+      // The candidate carries a single flat equipmentCost with no
+      // ownership/operating split, so it is recorded entirely as operating
+      // cost per hour; an org can rebalance it after promotion.
       const equipmentId = equipmentCostValue > 0
         ? (await this.costbook.createEquipment(auth, {
           name: `${row.itemName} equipment`,
@@ -288,9 +321,8 @@ export class CostbookCandidateService {
         })).id
         : null;
 
-      // Candidate UUIDs are globally unique; preserving the full UUID avoids
-      // collisions between distinct candidates that happen to share an
-      // 8-character prefix while keeping the generated code deterministic.
+      // Preserve the full candidate UUID in the deterministic generated code;
+      // truncating to eight characters can collide for distinct candidates.
       const code = `RC-${row.id.toUpperCase()}`;
       const costItem = await this.costDatabase.create({
         orgId: auth.orgId,
@@ -311,6 +343,8 @@ export class CostbookCandidateService {
         data: { promotedAt, promotedByUserId: auth.userId, promotedCostItemId: costItem.id },
       });
       if (claimed.count !== 1) {
+        // Should be unreachable under the advisory lock; fail loudly if it
+        // ever happens rather than silently leaving an orphaned CostItem.
         throw new ApiError(409, `Costbook research candidate ${id} was promoted concurrently`);
       }
 
