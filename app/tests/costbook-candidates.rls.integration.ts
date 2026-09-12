@@ -18,8 +18,13 @@ const candidateA = "41000000-0000-0000-0000-000000000051";
 const divisionA = "41000000-0000-0000-0000-000000000061";
 const categoryA = "41000000-0000-0000-0000-000000000071";
 const subcategoryA = "41000000-0000-0000-0000-000000000081";
-const candidateB = "41000000-0000-0000-0000-000000000091";
-const candidateRejected = "41000000-0000-0000-0000-000000000101";
+// The first eight characters of a candidate id must differ between any two
+// candidates promoted in the same organization: promote() derives the Cost
+// Item code as `RC-${id.slice(0, 8).toUpperCase()}`, and CostItem carries a
+// unique (orgId, code) constraint. Keep the leading "41" org-A marker, but
+// vary the rest of the first block.
+const candidateB = "41000002-0000-0000-0000-000000000091";
+const candidateRejected = "41000003-0000-0000-0000-000000000101";
 
 describe("Costbook research candidate RLS", () => {
   beforeAll(async () => {
