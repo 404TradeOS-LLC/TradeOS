@@ -1,19 +1,23 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 source_of_truth: true
 related_code:
   - app/modules/knowledge-runtime/README.md
   - app/modules/knowledge-runtime/loader.ts
   - app/modules/knowledge-runtime/repository.ts
   - app/modules/costbook/provenance.ts
+  - app/modules/costbook/candidateCostItem.ts
   - app/modules/trainingless-estimate-demo/knowledgeLoader.ts
+  - packages/knowledge-engine/schemas/cost-item.schema.json
+  - scripts/costbook-provenance-audit.mjs
   - docs/bible/VOLUME_3_ENGINEERING.md
   - docs/bible/VOLUME_7_KNOWLEDGE_RUNTIME.md
   - docs/ARCHITECTURE.md
   - docs/DOC_OWNERSHIP.yml
   - docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md
+  - docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md
   - docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md
   - packages/knowledge-engine/PATHS.md
   - packages/knowledge-engine/path-manifest.json
@@ -285,6 +289,50 @@ pricing. The shared vocabulary lives in `app/modules/costbook/provenance.ts` —
 because the relational Costbook, not this package, is the target authoritative pricing source (see
 `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`). This is metadata only: no cost item,
 assembly, or export value in this package changed.
+
+## 8b. Item-level provenance/source metadata contract (added 2026-09-09)
+
+`schemas/cost-item.schema.json` now defines nine **optional**, backward-compatible
+per-item fields: `provenanceStatus`, `sourceName`, `sourceUrl`, `sourceIdentifier`,
+`sourceDate`, `retrievedAt`, `confidence`, `reviewedBy`, `reviewedAt` — the same
+vocabulary the relational Costbook's research-candidate contract already uses
+(`app/modules/costbook/candidateCostItem.ts`). None of this package's 1,795
+canonical cost items in `exports/json/costbook.json` carry any of these fields
+yet; adding them here only *permits* a future ingestion pipeline or manual
+review pass to record real, cited provenance per item without breaking the
+existing schema (`additionalProperties: false` previously made this impossible)
+or requiring every item to be rewritten. `app/modules/knowledge-runtime/repository.ts`
+prefers an item's own well-formed `provenanceStatus` over its trade-level
+default when present. A new deterministic, read-only validator —
+`node scripts/costbook-provenance-audit.mjs` (repo root; `npm run
+costbook:audit-provenance`) — reports missing/invalid provenance, source,
+confidence, and timestamp fields plus structural checks (duplicate IDs,
+non-numeric costs, dangling assembly references) as counts with examples. It
+never edits data and never fails the run on a missing-metadata warning, only
+on genuine structural defects. See
+`docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md` for the full
+before/after coverage report and recommended next enrichment slice.
+
+## 8c. Assembly-level provenance/source metadata contract (added 2026-09-10)
+
+`schemas/assembly.schema.json` now defines the same nine optional fields as
+`cost-item.schema.json`, closing the schema-symmetry gap the 2026-09-09 report
+called out as deferred. None of this package's 289 canonical assemblies carry
+any of these fields yet — this is a contract addition only, mirroring item-level
+provenance exactly (`resolveAssemblyProvenance()` in
+`app/modules/knowledge-runtime/repository.ts`). `npm run
+costbook:audit-provenance` now also reports the assembly-level counterparts of
+every item-level warning (missing provenanceStatus/source
+citation/confidence/retrievedAt), never failing the run on them.
+
+Separately, the two batch-generation entry points that actually write into
+`knowledge/cost-items/costbook.json` and `exports/json/costbook.json` —
+`scripts/approve-batch.py` (the real merge gate) and the older parallel
+`scripts/validate_batch.py` — now reject any newly submitted `cost-items`
+batch missing or misusing `provenanceStatus`/`sourceName`/`sourceDate`/
+`retrievedAt`/`confidence`, and `scripts/next-batch.py`'s generated
+worker-agent prompt states the requirement up front. This only gates new
+submissions; it never touches items already merged.
 
 ## 9. Where to look next
 

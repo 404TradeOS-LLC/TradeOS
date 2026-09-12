@@ -262,6 +262,59 @@ describe("StructuredAIEstimatorService", () => {
     expect(result.lineItems[0]?.provenanceStatus).toBe("unverified-legacy");
   });
 
+  it("surfaces the matched cost item's source citation as provenanceDetail on the draft line item", async () => {
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched concrete keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "concrete-cost-item-2",
+          type: "costItem",
+          name: "Concrete Slab Pour",
+          category: "Concrete",
+          trade: "Concrete",
+          unitOfMeasure: "CY",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["concrete"],
+          rationale: "Concrete match.",
+          metadata: {
+            provenanceStatus: "documented",
+            sourceName: "RS Means-independent regional survey",
+            sourceUrl: "https://example.gov/regional-cost-survey",
+            sourceDate: "2026-06-01",
+            retrievedAt: "2026-09-10T00:00:00Z",
+            confidence: "high",
+          },
+          provenanceStatus: "documented",
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new StructuredAIEstimatorService().generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Pour a new concrete slab.",
+    });
+
+    expect(result.lineItems[0]?.provenanceDetail).toEqual({
+      sourceName: "RS Means-independent regional survey",
+      sourceUrl: "https://example.gov/regional-cost-survey",
+      sourceDate: "2026-06-01",
+      retrievedAt: "2026-09-10T00:00:00Z",
+      confidence: "high",
+    });
+  });
+
   it("retrieves labor, material, and equipment cost breakdowns through costbook services", async () => {
     mockKnowledgeRuntime.matchScope.mockReturnValue({
       detectedTrade: "Deck",

@@ -76,8 +76,19 @@ def prepare_next_batch():
         f"2. Ensure all fields required by the JSON schema are present and valid.\n"
         f"3. Generate unique UUIDs for all item/assembly IDs.\n"
         f"4. Format the output file cleanly as a JSON array.\n"
-        f"5. Save the result directly into `{output_file}`.\n\n"
-        f"Please execute this generation task now and write the file. When completed, let the user know."
+        f"5. Save the result directly into `{output_file}`.\n"
+        + (
+            "6. Every item must also carry the Costbook item-level provenance contract: "
+            "`provenanceStatus` (\"documented\" | \"unverified-legacy\" | \"placeholder\"), "
+            "`sourceName`, `sourceDate` (YYYY-MM-DD), `retrievedAt` (ISO 8601 timestamp), and "
+            "`confidence` (\"low\" | \"medium\" | \"high\"). Do not invent a price and then mark it "
+            "\"documented\" — use \"unverified-legacy\" or \"placeholder\" honestly when no real "
+            "cited source exists yet. `scripts/approve-batch.py` will reject this batch if any "
+            "of these fields are missing or invalid.\n\n"
+            if run_type == "cost-items"
+            else "\n"
+        )
+        + f"Please execute this generation task now and write the file. When completed, let the user know."
     )
     
     with open(CURRENT_TASK_PATH, "w") as f:

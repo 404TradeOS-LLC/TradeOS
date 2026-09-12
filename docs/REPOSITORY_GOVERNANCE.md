@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-10
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -95,7 +95,7 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency` (validates required PR-description structure first, then runs PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation);
-- `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
+- `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, the root-level `costbook:audit-provenance` Costbook Knowledge Engine provenance/data-quality audit (blocking on structural defects — duplicate IDs, missing identity fields, non-numeric costs, dangling assembly references — never on missing-provenance/source/confidence warnings), and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
 - `App integration tests` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests; for unrelated pull-request diffs the same required job reports success without expensive setup and no longer waits for the ordinary app lane before starting);
 - `Web lint and build` (for pull requests that change `web/**`, runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup).
 

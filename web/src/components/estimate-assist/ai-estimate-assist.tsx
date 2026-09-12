@@ -22,7 +22,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { AIEstimateSuggestion, KnowledgeScopeMatch, KnowledgeSearchResult, KnowledgeStats, KnowledgeTrade } from "@/lib/api";
+import type {
+  AIEstimateProvenanceDetail,
+  AIEstimateSuggestion,
+  CostDataProvenanceStatus,
+  KnowledgeScopeMatch,
+  KnowledgeSearchResult,
+  KnowledgeStats,
+  KnowledgeTrade,
+} from "@/lib/api";
 import { clientFetch } from "@/lib/clientApi";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
@@ -64,6 +72,49 @@ function confidenceTone(confidence: number) {
   if (confidence >= 90) return "default";
   if (confidence >= 80) return "secondary";
   return "outline";
+}
+
+function provenanceStatusLabel(status: CostDataProvenanceStatus): string {
+  if (status === "documented") return "Documented source";
+  if (status === "placeholder") return "Placeholder pricing";
+  return "Unverified pricing";
+}
+
+function provenanceStatusTone(status: CostDataProvenanceStatus): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "documented") return "default";
+  if (status === "placeholder") return "destructive";
+  return "outline";
+}
+
+function readProvenanceStatus(metadata: Record<string, unknown>): CostDataProvenanceStatus | null {
+  const value = metadata.provenanceStatus;
+  return value === "documented" || value === "unverified-legacy" || value === "placeholder" ? value : null;
+}
+
+function ProvenanceBadge({ status }: { status: CostDataProvenanceStatus }) {
+  return (
+    <Badge variant={provenanceStatusTone(status)} title="Trust state of the underlying Knowledge Engine pricing — never implies verified/current/local pricing on its own.">
+      {provenanceStatusLabel(status)}
+    </Badge>
+  );
+}
+
+function ProvenanceSourceNote({ detail }: { detail?: AIEstimateProvenanceDetail }) {
+  if (!detail || (!detail.sourceName && !detail.sourceUrl && !detail.confidence)) return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Source:{" "}
+      {detail.sourceUrl ? (
+        <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">
+          {detail.sourceName ?? detail.sourceUrl}
+        </a>
+      ) : (
+        (detail.sourceName ?? "cited, no URL provided")
+      )}
+      {detail.sourceDate ? ` · ${detail.sourceDate}` : ""}
+      {detail.confidence ? ` · ${detail.confidence} confidence` : ""}
+    </p>
+  );
 }
 
 function toDraft(suggestion: AIEstimateSuggestion): SuggestionDraft {
@@ -530,6 +581,7 @@ function SuggestionCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{suggestion.kind === "assembly" ? "Assembly suggestion" : "Cost item suggestion"}</Badge>
             <Badge variant={confidenceTone(suggestion.confidence)}>{suggestion.confidence}% confidence</Badge>
+            <ProvenanceBadge status={suggestion.provenanceStatus} />
             <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{suggestion.code}</span>
           </div>
           <div className="space-y-2">
@@ -539,6 +591,7 @@ function SuggestionCard({
               aria-label="Suggestion title"
             />
             <p className="max-w-2xl text-sm text-muted-foreground">{suggestion.rationale}</p>
+            <ProvenanceSourceNote detail={suggestion.provenanceDetail} />
           </div>
         </div>
 
@@ -710,15 +763,19 @@ function MatchList({ title, results }: { title: string; results: KnowledgeSearch
         {results.length === 0 ? (
           <p className="text-sm text-muted-foreground">No matches found.</p>
         ) : (
-          results.map((result) => (
-            <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{result.name}</span>
-                <Badge variant="outline">{result.confidence}%</Badge>
+          results.map((result) => {
+            const provenanceStatus = readProvenanceStatus(result.metadata);
+            return (
+              <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground">{result.name}</span>
+                  <Badge variant="outline">{result.confidence}%</Badge>
+                  {provenanceStatus ? <ProvenanceBadge status={provenanceStatus} /> : null}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -764,16 +821,20 @@ function SearchResultsList({ results, emptyLabel }: { results: KnowledgeSearchRe
 
   return (
     <div className="space-y-3">
-      {results.map((result) => (
-        <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-foreground">{result.name}</span>
-            <Badge variant="outline">{result.type === "assembly" ? "Assembly" : "Cost item"}</Badge>
-            <Badge variant={confidenceTone(result.confidence)}>{result.confidence}%</Badge>
+      {results.map((result) => {
+        const provenanceStatus = readProvenanceStatus(result.metadata);
+        return (
+          <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-foreground">{result.name}</span>
+              <Badge variant="outline">{result.type === "assembly" ? "Assembly" : "Cost item"}</Badge>
+              <Badge variant={confidenceTone(result.confidence)}>{result.confidence}%</Badge>
+              {provenanceStatus ? <ProvenanceBadge status={provenanceStatus} /> : null}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
