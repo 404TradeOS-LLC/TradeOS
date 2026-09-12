@@ -68,6 +68,14 @@ costbookRouter.delete("/subcategories/:id", asyncHandler(ctrl.removeSubcategory)
 // for a candidate a named human reviewer already approved.
 costbookRouter.get("/candidates", asyncHandler(candidateCtrl.list));
 costbookRouter.post("/candidates", asyncHandler(candidateCtrl.create));
+// Static segments must precede "/:id" so they are not parsed as a candidate id.
+costbookRouter.get("/candidates/summary", asyncHandler(candidateCtrl.summary));
+costbookRouter.get("/candidates/corpus-report", asyncHandler(candidateCtrl.corpusReport));
+// Stage 2/3 ingestion: normalizes one Knowledge Engine corpus item into an
+// unreviewed candidate, or fails closed listing the missing source evidence.
+costbookRouter.post("/candidates/from-knowledge", asyncHandler(candidateCtrl.ingestFromKnowledge));
 costbookRouter.get("/candidates/:id", asyncHandler(candidateCtrl.getById));
+// Read-only duplicate/price-delta analysis against this organization's catalog.
+costbookRouter.get("/candidates/:id/match", asyncHandler(candidateCtrl.match));
 costbookRouter.post("/candidates/:id/review", asyncHandler(candidateCtrl.review));
 costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promote));

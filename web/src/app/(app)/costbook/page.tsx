@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, Check, CircleDollarSign, ClipboardList, Hammer, History, Package, ShieldCheck, Wrench, X } from "lucide-react";
+import { Boxes, Check, CircleDollarSign, ClipboardList, FlaskConical, Hammer, History, Package, ShieldCheck, Wrench, X } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -196,6 +196,25 @@ export default async function CostbookPage() {
                 </Link>
               );
             })}
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2" aria-label="Costbook governance workflows">
+            <Link href="/costbook/research-review" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+              <div className="h-full rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-border">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 place-items-center rounded-md border border-border/70 bg-background">
+                    <FlaskConical aria-hidden="true" className="size-5 text-muted-foreground" />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Research Review</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Review researched pricing candidates and their source evidence before any of it becomes Costbook
+                      pricing. Approval and promotion require Costbook manage access.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Link>
           </section>
         </>
       ) : null}
