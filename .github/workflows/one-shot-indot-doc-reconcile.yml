@@ -1,0 +1,52 @@
+name: One-shot reconcile INDOT Costbook docs
+on:
+  push:
+    branches:
+      - feature/costbook-indot-unit-price-benchmarks
+permissions:
+  contents: write
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/costbook-indot-unit-price-benchmarks
+          fetch-depth: 0
+      - name: Reconcile canonical Costbook docs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          current = Path('docs/CURRENT_STATE.md')
+          marker = '### Costbook composite installed-price benchmarks (INDOT)'
+          text = current.read_text()
+          if marker not in text:
+              insert = '''\n\n### Costbook composite installed-price benchmarks (INDOT)\n\nThe INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.\n'''
+              anchor = '\n### S027 production-readiness truth\n'
+              if anchor in text:
+                  text = text.replace(anchor, insert + anchor, 1)
+              else:
+                  text += insert
+              current.write_text(text)
+
+          domain = Path('docs/DOMAIN_MODEL.md')
+          marker = '## Costbook composite installed-price benchmarks'
+          text = domain.read_text()
+          if marker not in text:
+              insert = '''\n\n## Costbook composite installed-price benchmarks\n\n`CostbookCompositePriceBenchmark` is an organization-scoped reference entity for externally sourced installed/composite unit-price evidence such as INDOT awarded-bid summaries. It is deliberately separate from `Material`, `LaborRate`, `Equipment`, `CostItem`, estimate snapshots, and customer selling-price records.\n\n- belongs to one organization and stores source name/identifier/year, item code/description/unit, low/weighted-average/high price, optional bid count/total quantity/extended total, geography, price-basis text, source URL/file/row, retrieval timestamp, and importer identity\n- unique by `(orgId, sourceName, sourceYear, itemCode)` so repeated imports update the same benchmark observation instead of duplicating it\n- forced RLS limits reads to the authenticated organization and writes to the established owner/admin Costbook management boundary\n- import endpoints derive `orgId` and importer identity from authenticated context; callers cannot choose another tenant\n- benchmark values are installed/composite evidence and are not raw material cost, employee wage, equipment-only cost, or customer bill rate; this entity has no autonomous promotion path into those pricing tables\n'''
+              anchor = '\n## Core relationships\n'
+              if anchor in text:
+                  text = text.replace(anchor, insert + anchor, 1)
+              else:
+                  text += insert
+              domain.write_text(text)
+          PY
+          git rm .github/workflows/one-shot-indot-doc-reconcile.yml
+          git config user.name "tradeos-doc-reconcile-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/CURRENT_STATE.md docs/DOMAIN_MODEL.md
+          git commit -m "docs(costbook): reconcile composite benchmark model"
+          git push origin HEAD:feature/costbook-indot-unit-price-benchmarks
