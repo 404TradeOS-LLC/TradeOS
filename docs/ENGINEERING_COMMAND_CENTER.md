@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -47,6 +47,8 @@ validation errors, and calculated pricing preview. Runtime Beta authentication
 replaces the missing stored-session secret. Workflow run `#22` passed the live
 evidence contract on `main` at `c7003f3`; its credential-scanned artifact
 `#10042902412` was uploaded. S027 and S036 are complete; S036 implementation PR #476 merged on 2026-09-08. Production application of the index remains separately gated.
+
+S049 (stale branch/PR/worktree retirement) is `IN_REVIEW` as of 2026-09-12: a governance-only readiness promotion reconciled live GitHub state (open PRs #482, #489, #491, #492; PR #470 closed unmerged) and classified 24 remote branches `SAFE_TO_DELETE` and 21 `REQUIRES_REVIEW`. The agent session's credentials cannot delete remote refs, so the deletions are pending maintainer execution. The same reconciliation flagged `feat/stripe-connect-payments`/open PR #491 as an ungoverned Stripe billing implementation needing a founder decision.
 
 ## Purpose
 
