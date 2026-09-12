@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../db/client";
@@ -5,7 +6,20 @@ import type { AuthContext } from "../../backend/auth/context";
 
 export const compositeBenchmarkReviewStatuses = ["reference", "needs-review", "reviewed", "rejected"] as const;
 
-const finiteNonNegative = z.number().finite().nonnegative();
+const MAX_NUMERIC_14_4 = 9_999_999_999.9999;
+const MAX_INT32 = 2_147_483_647;
+
+function hasAtMostFourDecimalPlaces(value: number): boolean {
+  const scaled = value * 10_000;
+  return Math.abs(scaled - Math.round(scaled)) < 1e-7;
+}
+
+const finiteNonNegativeNumeric14_4 = z
+  .number()
+  .finite()
+  .nonnegative()
+  .max(MAX_NUMERIC_14_4)
+  .refine(hasAtMostFourDecimalPlaces, "must have at most four decimal places");
 
 export const compositePriceBenchmarkInputSchema = z.object({
   sourceName: z.string().trim().min(1).max(300),
@@ -13,17 +27,17 @@ export const compositePriceBenchmarkInputSchema = z.object({
   sourceYear: z.number().int().min(1900).max(2200),
   sourceUrl: z.string().trim().url().optional(),
   sourceFile: z.string().trim().min(1).max(500).optional(),
-  sourceRow: z.number().int().positive().optional(),
+  sourceRow: z.number().int().positive().max(MAX_INT32).optional(),
   retrievedAt: z.string().trim().datetime({ offset: true }).optional(),
   section: z.string().trim().min(1).max(120).optional(),
   itemCode: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(2000),
   unitOfMeasure: z.string().trim().min(1).max(40),
-  lowPrice: finiteNonNegative.optional(),
-  weightedAvgPrice: finiteNonNegative,
-  highPrice: finiteNonNegative.optional(),
-  sourceQuantity: finiteNonNegative.optional(),
-  totalExtended: finiteNonNegative.optional(),
+  lowPrice: finiteNonNegativeNumeric14_4.optional(),
+  weightedAvgPrice: finiteNonNegativeNumeric14_4,
+  highPrice: finiteNonNegativeNumeric14_4.optional(),
+  sourceQuantity: finiteNonNegativeNumeric14_4.optional(),
+  totalExtended: finiteNonNegativeNumeric14_4.optional(),
   geography: z.string().trim().min(1).max(300),
   priceBasis: z.string().trim().min(1).max(500),
   catalogStatus: z.string().trim().min(1).max(120).optional(),
@@ -55,8 +69,27 @@ export function buildCompositeBenchmarkSourceIdentifier(row: Pick<CompositePrice
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return `${sourceKey}-${row.sourceYear}-${row.itemCode}`;
+    .slice(0, 80) || "SOURCE";
+  const sourceHash = createHash("sha256").update(row.sourceName, "utf8").digest("hex").slice(0, 12).toUpperCase();
+  return `${sourceKey}-${sourceHash}-${row.sourceYear}-${row.itemCode}`;
+}
+
+function assertNoDuplicateUpsertKeys(rows: CompositePriceBenchmarkInput[]): void {
+  const firstSeen = new Map<string, number>();
+  rows.forEach((row, index) => {
+    const key = JSON.stringify([row.sourceName, row.sourceYear, row.itemCode]);
+    const prior = firstSeen.get(key);
+    if (prior != null) {
+      throw new z.ZodError([
+        {
+          code: z.ZodIssueCode.custom,
+          path: [index],
+          message: `duplicate composite benchmark upsert key also present at row ${prior + 1}: ${row.sourceName} / ${row.sourceYear} / ${row.itemCode}`,
+        },
+      ]);
+    }
+    firstSeen.set(key, index);
+  });
 }
 
 /**
@@ -67,6 +100,8 @@ export function buildCompositeBenchmarkSourceIdentifier(row: Pick<CompositePrice
 export class CompositePriceBenchmarkService {
   async importRows(auth: AuthContext, inputRows: unknown[]): Promise<CompositeBenchmarkImportResult> {
     const rows = inputRows.map((row) => compositePriceBenchmarkInputSchema.parse(row));
+    assertNoDuplicateUpsertKeys(rows);
+
     let upserted = 0;
     let batches = 0;
 
