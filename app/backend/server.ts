@@ -45,6 +45,8 @@ import { paymentsRouter } from "./routes/payments.routes";
 import { athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
 import { customerPortalRouter } from "./routes/customerPortal.routes";
+import { billingRouter } from "./routes/billing.routes";
+import { stripeWebhookRouter } from "./routes/stripeWebhook.routes";
 
 export function createServer() {
   const app = express();
@@ -55,6 +57,13 @@ export function createServer() {
   app.use(requestLogger);
   app.use(securityHeaders);
   app.use(cors({ origin: buildCorsOriginHandler() }));
+
+  // Stripe signature verification requires the exact request bytes. Mount the
+  // webhook before JSON/urlencoded parsing and before authenticated /api/v1
+  // middleware. The handler resolves TradeOS tenant metadata from Stripe and
+  // establishes its own tenant-scoped database session before writing.
+  app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
 
@@ -73,6 +82,7 @@ export function createServer() {
   app.use("/api/v1/customer-portal", customerPortalRouter);
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
+  app.use("/api/v1/billing", billingRouter);
   app.use("/api/v1/costbook", costbookRouter);
   app.use("/api/v1/cost-database", costDatabaseRouter);
   app.use("/api/v1/labor-rates", laborDatabaseRouter);
