@@ -21,10 +21,13 @@ export const BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS =
 /**
  * May 2025 OEWS wage estimates for a first contractor-trade ingestion slice.
  *
- * Values are wage observations, not customer-facing bill rates. They enter
- * TradeOS only as Costbook research candidates and still require the normal
- * named-human review + explicit promotion path before they can create an
- * organization-scoped LaborRate/CostItem.
+ * These are employee wage benchmarks, not organization-specific loaded labor
+ * costs or customer-facing bill rates. They enter TradeOS as source-backed
+ * research candidates for review context only. This adapter deliberately does
+ * not populate laborHours or laborRateAssumption because the existing
+ * candidate promotion flow maps laborRateAssumption into both hourlyCost and
+ * billRate; doing that with an OEWS wage would incorrectly turn an employee
+ * wage benchmark into a customer bill rate.
  */
 export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   {
@@ -86,10 +89,12 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
 
 /**
  * Converts one official OEWS wage observation into the existing governed
- * Costbook research-candidate contract. The BLS median is used as the labor
- * cost assumption; percentile observations remain attached in researchNotes
- * for human review. No markup, burden, overhead, or bill-rate assumption is
- * invented here.
+ * Costbook research-candidate contract as benchmark evidence only.
+ *
+ * The wage distribution is retained in researchNotes. No promotable labor
+ * cost/bill-rate assumption is created here; an organization-specific loaded
+ * labor cost and bill rate need their own reviewed inputs before LaborRate
+ * creation is safe.
  */
 export function toBlsOewsLaborCandidate(
   wage: BlsOewsWageRecord,
@@ -98,12 +103,10 @@ export function toBlsOewsLaborCandidate(
   return {
     trade: wage.trade,
     category: wage.category,
-    itemName: `${wage.trade} labor — BLS OEWS median wage`,
-    description: `${wage.occupation}; May 2025 OEWS wage estimate for the Terre Haute, IN MSA.`,
+    itemName: `${wage.trade} labor — BLS OEWS wage benchmark`,
+    description: `${wage.occupation}; May 2025 OEWS employee wage benchmark for the Terre Haute, IN MSA.`,
     unitOfMeasure: "HR",
     materialCostTypical: 0,
-    laborHours: 1,
-    laborRateAssumption: wage.hourlyMedian,
     equipmentCost: 0,
     sourceName: "U.S. Bureau of Labor Statistics — Occupational Employment and Wage Statistics",
     sourceUrl: BLS_OEWS_TERRE_HAUTE_2025_SOURCE_URL,
@@ -120,8 +123,9 @@ export function toBlsOewsLaborCandidate(
       `Official BLS OEWS wage observation for SOC ${wage.socCode}. ` +
       `Hourly percentiles: P10 $${wage.hourlyP10.toFixed(2)}, P25 $${wage.hourlyP25.toFixed(2)}, ` +
       `P50 $${wage.hourlyMedian.toFixed(2)}, P75 $${wage.hourlyP75.toFixed(2)}, P90 $${wage.hourlyP90.toFixed(2)}. ` +
-      "The values are BLS 2025 wage data for the Terre Haute MSA; the official BLS area release is retained as the canonical government source URL. " +
-      "This is an employee wage benchmark only. TradeOS must not infer payroll burden, overhead, markup, margin, or customer bill rate from BLS data without organization-specific inputs.",
+      "The values are BLS 2025 employee wage data for the Terre Haute MSA; the official BLS area release is retained as the canonical government source URL. " +
+      "Benchmark only: this candidate intentionally omits laborRateAssumption and laborHours so the current promotion path cannot convert the raw wage into an organization LaborRate bill rate. " +
+      "TradeOS must not infer payroll burden, benefits, overhead, markup, margin, or customer bill rate from BLS data without organization-specific inputs.",
   };
 }
 
