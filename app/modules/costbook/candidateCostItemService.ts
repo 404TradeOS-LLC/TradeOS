@@ -12,6 +12,7 @@ import {
   type CostbookCandidateReviewStatus,
   type CostbookResearchCandidate,
 } from "./candidateCostItem";
+import { candidateCostItemCode } from "./candidateCostItemCode";
 
 /**
  * Stage 6 of docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md: the
@@ -321,9 +322,7 @@ export class CostbookCandidateService {
         })).id
         : null;
 
-      // Preserve the full candidate UUID in the deterministic generated code;
-      // truncating to eight characters can collide for distinct candidates.
-      const code = `RC-${row.id.toUpperCase()}`;
+      const code = candidateCostItemCode(row.id);
       const costItem = await this.costDatabase.create({
         orgId: auth.orgId,
         subcategoryId: subcategory.id,
