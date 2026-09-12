@@ -34,8 +34,10 @@ directly. This session independently confirmed the deletions against live
   overlap a numbered sprint.
 - S049's 24 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
   S049 entry) are confirmed gone from `origin` via `git fetch --prune` +
-  `git branch -r`. All 21 `REQUIRES_REVIEW` branches, both protected
-  branches, and every branch behind an open PR remain present, untouched.
+  `git branch -r`. All 21 `REQUIRES_REVIEW` branches, `main` (protected by
+  the live default-branch ruleset), `staging` (unprotected but retained as
+  the deployment branch), and every branch behind an open PR remain
+  present, untouched.
 - `feat/stripe-connect-payments` (no open PR) still contains a complete,
   previously-ungoverned Stripe billing implementation; combined with open PR
   #491, this remains a founder-decision item.
