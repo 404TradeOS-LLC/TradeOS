@@ -1,6 +1,7 @@
 export default function DashboardLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6">
+      <span className="sr-only">Loading dashboard</span>
       <div className="h-44 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
       <div className="h-40 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

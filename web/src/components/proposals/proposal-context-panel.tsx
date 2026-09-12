@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { ProjectFile, SiteVisit } from "@/lib/api";
 import { ProjectPhotoPanel } from "@/components/projects/project-photo-panel";
 import { InfoPanel } from "@/components/shared/info-panel";
@@ -20,7 +21,10 @@ export async function ProposalContextPanel({ latestVisit, projectFiles }: Propos
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           {!latestVisit ? (
-            <p className="text-muted-foreground">No site visit saved yet. The proposal can still be drafted, but it will be stronger once field notes are attached.</p>
+            <EmptyState
+              title="No site visit saved yet"
+              description="The proposal can still be drafted, but it will be stronger once field notes are attached."
+            />
           ) : (
             <>
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4">

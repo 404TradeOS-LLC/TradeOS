@@ -17,7 +17,7 @@ export function TableSection({ title, description, action, children, className, 
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle>{title}</CardTitle>
+            <CardTitle size="lg">{title}</CardTitle>
             {description ? <CardDescription>{description}</CardDescription> : null}
           </div>
           {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}

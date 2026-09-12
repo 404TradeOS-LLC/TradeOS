@@ -1,6 +1,7 @@
 export default function DispatchLoading() {
   return (
-    <div className="flex flex-col gap-6">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6">
+      <span className="sr-only">Loading dispatch</span>
       <div className="h-14 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (

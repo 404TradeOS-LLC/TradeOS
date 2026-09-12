@@ -75,6 +75,41 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Route-level loading states expose concise status announcements while keeping
   visual skeletons decorative. Document skeleton grid ratios normalize
   Tailwind-encoded underscores for valid CSS at the wide-screen breakpoint.
+  Every loading.tsx in the app now carries this pattern (`role="status"
+  aria-live="polite" aria-busy="true"` plus an sr-only label), not just the
+  document-detail skeletons.
+- A personal, per-browser Light/System/Dark theme toggle lives in the nav
+  (desktop header and the mobile More sheet); it is stored in localStorage,
+  not organization settings, applies before first paint via a blocking script
+  in the root layout to avoid a flash of the wrong theme, and live-updates
+  when "System" tracks an OS scheme change. The `.dark` token set existed
+  beforehand but was never applied anywhere before this.
+- The light-theme focus ring/border (`--ring`) is a darker copper shade
+  (`#5c3814`) than `--copper` itself, computed to clear WCAG 1.4.11's 3:1
+  non-text contrast against background/card/input surfaces; the previous
+  value only reached 1.7-1.93:1. Dark theme's ring is unchanged.
+- `PageHeader` supports an optional `breadcrumbs` trail (in addition to the
+  existing single-level `backHref`); the estimate builder and the invoice,
+  proposal, and contract detail pages use it to show the parent project by
+  name, not just a generic "Back to project" link.
+- Costbook catalog tables and the Dispatch work-queue table have sticky
+  column headers (`top-16`, matching the app header's height) with an opaque
+  background so scrolled row content doesn't show through.
+- A `@media print` stylesheet hides site chrome (header, nav, every button)
+  and forces light, ink-safe colors regardless of the viewer's theme, for
+  invoices, proposals, and contracts.
+- The global error boundary (`web/src/app/error.tsx`) and a new
+  `(app)/not-found.tsx` use plain contractor-facing copy (no "API logs"/
+  engineering language) and always offer a link back to the dashboard rather
+  than stranding the viewer.
+- A "?" keyboard-shortcuts overlay and a bell-style "what's new" popover
+  (real shipped-change summaries in `web/src/lib/changelog.ts`, never
+  invented copy) are mounted once in the nav shell.
+- Two dashboard sections (Knowledge Runtime Coverage, Recent project
+  lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
+  Needs Attention, the KPI grid, and Quick Actions always stay expanded.
+- `EmptyState` supports an optional decorative `icon`, applied only to
+  genuinely-empty (not filtered) list views.
 
 ## Implemented product areas
 

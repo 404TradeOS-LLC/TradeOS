@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
+import { KeyboardShortcutsOverlay } from "@/components/shared/keyboard-shortcuts-overlay";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
@@ -250,6 +253,14 @@ export function AppNav({
 
           <div className="flex items-center gap-2">
             <div className="hidden 2xl:block">
+              <WhatsNewPopover />
+            </div>
+
+            <div className="hidden 2xl:block">
+              <ThemeToggle />
+            </div>
+
+            <div className="hidden 2xl:block">
               <CommandPaletteTrigger />
             </div>
 
@@ -319,6 +330,8 @@ export function AppNav({
                 <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
                 <div className="text-xs text-muted-foreground">Secure workspace</div>
               </div>
+              <WhatsNewPopover />
+              <ThemeToggle />
               <form action={logoutAction}>
                 <Button type="submit" variant="outline" size="sm">
                   Sign out
@@ -370,6 +383,8 @@ export function AppNav({
         </button>
       </div>
     </nav>
+
+    <KeyboardShortcutsOverlay />
     </>
   );
 }

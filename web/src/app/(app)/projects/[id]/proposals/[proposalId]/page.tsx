@@ -26,8 +26,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
       <PageHeader
         title="Proposal Review"
         description="Review the final scope, pricing, and payment milestones before the proposal goes out. Keep this page as the source of truth from internal review through customer decision."
-        backHref={`/projects/${projectId}`}
-        backLabel="Back to project"
+        breadcrumbs={[{ label: project.name, href: `/projects/${projectId}` }, { label: "Proposal Review" }]}
         action={<StatusBadge status={displayStatus} />}
       />
 

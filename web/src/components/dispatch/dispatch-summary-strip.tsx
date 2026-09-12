@@ -26,7 +26,7 @@ export function DispatchSummaryStrip({ summary }: DispatchSummaryStripProps) {
       <h2 id="dispatch-summary-heading" className="sr-only">
         Dispatch summary
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         {metrics.map((metric) => (
           <SummaryMetricCard key={metric.label} label={metric.label} value={metric.value} />
         ))}

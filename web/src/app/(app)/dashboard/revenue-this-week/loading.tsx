@@ -1,6 +1,7 @@
 export default function RevenueThisWeekLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading revenue this week">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6" aria-label="Loading revenue this week">
+      <span className="sr-only">Loading revenue this week</span>
       <div className="space-y-2">
         <div className="h-8 w-56 animate-pulse rounded-md bg-muted" />
         <div className="h-4 w-80 max-w-full animate-pulse rounded-md bg-muted" />

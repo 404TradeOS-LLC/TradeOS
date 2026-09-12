@@ -24,8 +24,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     <div className="flex flex-col gap-6">
       <PageHeader
         title={`Invoice #${invoice.invoiceNumber}`}
-        backHref={`/projects/${projectId}`}
-        backLabel="Back to project"
+        breadcrumbs={[{ label: project.name, href: `/projects/${projectId}` }, { label: `Invoice #${invoice.invoiceNumber}` }]}
         action={<StatusBadge status={displayStatus} />}
       />
 

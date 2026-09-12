@@ -11,7 +11,7 @@ export function ProjectMetricsCard({ metrics }: ProjectMetricsCardProps) {
       <CardHeader>
         <CardTitle>At a glance</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <CardContent className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         {metrics.map((metric) => (
           <SummaryMetricCard key={metric.label} label={metric.label} value={metric.value} />
         ))}

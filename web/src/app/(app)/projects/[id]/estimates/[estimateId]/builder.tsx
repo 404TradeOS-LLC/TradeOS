@@ -38,7 +38,7 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, estimateId }: { projectId: string; estimateId: string }) {
+export function EstimateBuilder({ projectId, projectName, estimateId }: { projectId: string; projectName: string; estimateId: string }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
 
@@ -95,8 +95,10 @@ export function EstimateBuilder({ projectId, estimateId }: { projectId: string; 
       <PageHeader
         title={`Estimate v${estimate.version}`}
         description="Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback."
-        backHref={`/projects/${projectId}`}
-        backLabel="Back to project"
+        breadcrumbs={[
+          { label: projectName, href: `/projects/${projectId}` },
+          { label: `Estimate v${estimate.version}` },
+        ]}
         action={
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link href={`/projects/${projectId}/estimates/compare`} className={buttonVariants({ variant: "outline" })}>
@@ -280,6 +282,13 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
 
+  // Real-time validity for inline feedback - errors show only once a field
+  // has a value (never on the untouched "1" default), rather than only
+  // surfacing on submit.
+  const quantityInvalid = quantity !== "" && (!Number.isFinite(Number(quantity)) || Number(quantity) <= 0);
+  const customQuantityInvalid = custom.quantity !== "" && (!Number.isFinite(Number(custom.quantity)) || Number(custom.quantity) <= 0);
+  const customUnitCostInvalid = custom.unitCost !== "" && (!Number.isFinite(Number(custom.unitCost)) || Number(custom.unitCost) < 0);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
@@ -431,6 +440,8 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
             min="0"
             step="any"
             value={quantity}
+            aria-invalid={quantityInvalid}
+            aria-describedby={quantityInvalid ? "quantity-error" : undefined}
             onChange={(e) => setQuantity(e.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -444,6 +455,11 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               }
             }}
           />
+          {quantityInvalid ? (
+            <p id="quantity-error" className="text-xs text-destructive">
+              Quantity must be a positive number.
+            </p>
+          ) : null}
         </div>
 
         <Button type="button" onClick={() => commitLineItem(selected ?? activeResult)} disabled={addLineItem.isPending || (!selected && !activeResult)}>
@@ -458,13 +474,41 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         </div>
         <div>
           <Label htmlFor="custom-quantity">Qty</Label>
-          <Input id="custom-quantity" type="number" min="0" step="any" value={custom.quantity} onChange={(e) => setCustom({ ...custom, quantity: e.target.value })} />
+          <Input
+            id="custom-quantity"
+            type="number"
+            min="0"
+            step="any"
+            value={custom.quantity}
+            aria-invalid={customQuantityInvalid}
+            aria-describedby={customQuantityInvalid ? "custom-quantity-error" : undefined}
+            onChange={(e) => setCustom({ ...custom, quantity: e.target.value })}
+          />
+          {customQuantityInvalid ? (
+            <p id="custom-quantity-error" className="mt-1 text-xs text-destructive">
+              Must be positive.
+            </p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor="custom-unit-cost">Unit cost</Label>
-          <Input id="custom-unit-cost" type="number" min="0" step="0.01" value={custom.unitCost} onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })} />
+          <Input
+            id="custom-unit-cost"
+            type="number"
+            min="0"
+            step="0.01"
+            value={custom.unitCost}
+            aria-invalid={customUnitCostInvalid}
+            aria-describedby={customUnitCostInvalid ? "custom-unit-cost-error" : undefined}
+            onChange={(e) => setCustom({ ...custom, unitCost: e.target.value })}
+          />
+          {customUnitCostInvalid ? (
+            <p id="custom-unit-cost-error" className="mt-1 text-xs text-destructive">
+              Can&apos;t be negative.
+            </p>
+          ) : null}
         </div>
-        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending}>
+        <Button type="button" variant="secondary" onClick={() => addCustomLineItem()} disabled={customAdd.isPending || customQuantityInvalid || customUnitCostInvalid}>
           {customAdd.isPending ? "Adding…" : "Add custom"}
         </Button>
         <div>
@@ -702,20 +746,45 @@ function PricingPanel({
             Target margin %
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {mode === "markup"
+            ? (() => {
+                const pct = Number(value) || 20;
+                const cost = 100;
+                const price = cost * (1 + pct / 100);
+                return `$${cost} cost at ${pct}% markup = $${price.toFixed(2)} price.`;
+              })()
+            : (() => {
+                const pct = Math.min(Number(value) || 20, 99);
+                const cost = 100;
+                const price = cost / (1 - pct / 100);
+                return `$${cost} cost at ${pct}% target margin = $${price.toFixed(2)} price.`;
+              })()}
+        </p>
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div className="space-y-2">
             <Label htmlFor="pricing-value">Percentage</Label>
             <Input id="pricing-value" type="number" min="0" step="any" value={value} onChange={(e) => setValue(e.target.value)} />
           </div>
+          <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={() => setPricingMode.mutate()} disabled={!isDraft || setPricingMode.isPending}>
-            {setPricingMode.isPending ? "Applying…" : "Apply"}
-          </Button>
+              {setPricingMode.isPending ? "Applying…" : "Apply"}
+            </Button>
+            {setPricingMode.isSuccess && !setPricingMode.isPending ? (
+              <span className="text-xs text-success">Saved</span>
+            ) : null}
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2"><Label htmlFor="overhead-value">Overhead %</Label><Input id="overhead-value" type="number" min="0" step="any" value={overhead} onChange={(e) => setOverhead(e.target.value)} disabled={!isDraft} /></div>
           <div className="space-y-2"><Label htmlFor="tax-value">Tax %</Label><Input id="tax-value" type="number" min="0" max="100" step="any" value={tax} onChange={(e) => setTax(e.target.value)} disabled={!isDraft} /></div>
         </div>
-        <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>{updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}</Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" onClick={() => updateSettings.mutate()} disabled={!isDraft || updateSettings.isPending}>
+            {updateSettings.isPending ? "Saving settings…" : "Save overhead / tax"}
+          </Button>
+          {updateSettings.isSuccess && !updateSettings.isPending ? <span className="text-xs text-success">Saved</span> : null}
+        </div>
         {Number(tax) > 0 && !hasTaxableLineItems ? (
           <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning" role="alert">
             A tax rate is set, but no estimate line is marked taxable. Tax will calculate to $0.00 until you mark the applicable line items as taxable.
