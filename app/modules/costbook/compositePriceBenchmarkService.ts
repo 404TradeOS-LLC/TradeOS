@@ -7,6 +7,7 @@ import type { AuthContext } from "../../backend/auth/context";
 export const compositeBenchmarkReviewStatuses = ["reference", "needs-review", "reviewed", "rejected"] as const;
 
 const MAX_NUMERIC_14_4 = 9_999_999_999.9999;
+const MAX_NUMERIC_18_4 = 99_999_999_999_999.9999;
 const MAX_INT32 = 2_147_483_647;
 
 function hasAtMostFourDecimalPlaces(value: number): boolean {
@@ -14,12 +15,17 @@ function hasAtMostFourDecimalPlaces(value: number): boolean {
   return Math.abs(scaled - Math.round(scaled)) < 1e-7;
 }
 
-const finiteNonNegativeNumeric14_4 = z
-  .number()
-  .finite()
-  .nonnegative()
-  .max(MAX_NUMERIC_14_4)
-  .refine(hasAtMostFourDecimalPlaces, "must have at most four decimal places");
+function boundedNumeric(max: number) {
+  return z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(max)
+    .refine(hasAtMostFourDecimalPlaces, "must have at most four decimal places");
+}
+
+const finiteNonNegativeNumeric14_4 = boundedNumeric(MAX_NUMERIC_14_4);
+const finiteNonNegativeNumeric18_4 = boundedNumeric(MAX_NUMERIC_18_4);
 
 export const compositePriceBenchmarkInputSchema = z.object({
   sourceName: z.string().trim().min(1).max(300),
@@ -36,8 +42,8 @@ export const compositePriceBenchmarkInputSchema = z.object({
   lowPrice: finiteNonNegativeNumeric14_4.optional(),
   weightedAvgPrice: finiteNonNegativeNumeric14_4,
   highPrice: finiteNonNegativeNumeric14_4.optional(),
-  sourceQuantity: finiteNonNegativeNumeric14_4.optional(),
-  totalExtended: finiteNonNegativeNumeric14_4.optional(),
+  sourceQuantity: finiteNonNegativeNumeric18_4.optional(),
+  totalExtended: finiteNonNegativeNumeric18_4.optional(),
   geography: z.string().trim().min(1).max(300),
   priceBasis: z.string().trim().min(1).max(500),
   catalogStatus: z.string().trim().min(1).max(120).optional(),
