@@ -1,6 +1,7 @@
 import {
   INDOT_2025_REGIONAL_BASIS,
   INDOT_2025_UNIT_PRICE_BENCHMARKS,
+  INDOT_2025_UNIT_PRICE_INDEX_URL,
   INDOT_2025_UNIT_PRICE_SOURCE_URL,
   getIndot2025UnitPriceBenchmark,
 } from "../modules/costbook/indotUnitPrice2025";
@@ -20,6 +21,9 @@ describe("INDOT 2025 unit-price benchmarks", () => {
   it("preserves source and regional provenance", () => {
     expect(INDOT_2025_UNIT_PRICE_SOURCE_URL).toBe(
       "https://www.in.gov/indot/doing-business-with-indot/files/CY2025-Unit-Price-Summary.xlsx"
+    );
+    expect(INDOT_2025_UNIT_PRICE_INDEX_URL).toBe(
+      "https://www.in.gov/indot/doing-business-with-indot/home/contracts/standards/indot-pay-items-listunit-price-summaries/"
     );
     expect(INDOT_2025_REGIONAL_BASIS).toBe("Indiana statewide awarded INDOT contracts");
   });
