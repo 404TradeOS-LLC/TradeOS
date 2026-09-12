@@ -120,6 +120,7 @@ export function toBlsOewsLaborCandidate(
       `Official BLS OEWS wage observation for SOC ${wage.socCode}. ` +
       `Hourly percentiles: P10 $${wage.hourlyP10.toFixed(2)}, P25 $${wage.hourlyP25.toFixed(2)}, ` +
       `P50 $${wage.hourlyMedian.toFixed(2)}, P75 $${wage.hourlyP75.toFixed(2)}, P90 $${wage.hourlyP90.toFixed(2)}. ` +
+      "The values are BLS 2025 wage data for the Terre Haute MSA; the official BLS area release is retained as the canonical government source URL. " +
       "This is an employee wage benchmark only. TradeOS must not infer payroll burden, overhead, markup, margin, or customer bill rate from BLS data without organization-specific inputs.",
   };
 }
