@@ -318,6 +318,17 @@ Cost Item and Assembly lookup semantics remain unchanged: both services support 
 - select/write RLS policies mirror the `materials_write_policy` shape: any org member may read the queue (`costbook.read`), but insert/update is restricted to `current_app_can_manage_costbook()` (owner/admin), matching `costbook.write`/`costbook.manage` both being owner/admin-only today
 - Stage 7 (regenerating the Knowledge Engine's static corpus from governed Costbook/candidate data) remains unimplemented; this model does not touch `packages/knowledge-engine/**`
 
+
+## Costbook composite installed-price benchmarks
+
+`CostbookCompositePriceBenchmark` is an organization-scoped reference entity for externally sourced installed/composite unit-price evidence such as INDOT awarded-bid summaries. It is deliberately separate from `Material`, `LaborRate`, `Equipment`, `CostItem`, estimate snapshots, and customer selling-price records.
+
+- belongs to one organization and stores source name/identifier/year, item code/description/unit, low/weighted-average/high price, optional bid count/total quantity/extended total, geography, price-basis text, source URL/file/row, retrieval timestamp, and importer identity
+- unique by `(orgId, sourceName, sourceYear, itemCode)` so repeated imports update the same benchmark observation instead of duplicating it
+- forced RLS limits reads to the authenticated organization and writes to the established owner/admin Costbook management boundary
+- import endpoints derive `orgId` and importer identity from authenticated context; callers cannot choose another tenant
+- benchmark values are installed/composite evidence and are not raw material cost, employee wage, equipment-only cost, or customer bill rate; this entity has no autonomous promotion path into those pricing tables
+
 ## Core relationships
 
 Canonical relationship flow:
