@@ -28,21 +28,17 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
   });
 
   it("uses the published May 2025 Terre Haute medians as labor cost assumptions", () => {
-    const bySoc = new Map(
-      buildTerreHauteBlsOewsLaborCandidates(retrievedAt).map((candidate) => [
-        candidate.sourceIdentifier?.split("-").slice(-2, -1)[0],
-        candidate,
-      ])
+    const mediansBySoc = Object.fromEntries(
+      BLS_OEWS_TERRE_HAUTE_2025_WAGES.map((row) => [row.socCode, row.hourlyMedian])
     );
 
-    // Verify directly from the canonical source records as well as through
-    // the candidate mapper, so a future refactor cannot silently alter the
-    // source values while keeping structurally valid candidates.
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2111")?.hourlyMedian).toBe(37.33);
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2152")?.hourlyMedian).toBe(43.39);
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2031")?.hourlyMedian).toBe(29.12);
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "49-9021")?.hourlyMedian).toBe(26.11);
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2141")?.hourlyMedian).toBe(22.06);
+    expect(mediansBySoc).toEqual({
+      "47-2111": 37.33,
+      "47-2152": 43.39,
+      "47-2031": 29.12,
+      "49-9021": 26.11,
+      "47-2141": 22.06,
+    });
 
     expect(buildTerreHauteBlsOewsLaborCandidates(retrievedAt).map((candidate) => candidate.laborRateAssumption)).toEqual([
       37.33,
@@ -51,10 +47,6 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
       26.11,
       22.06,
     ]);
-
-    // Keep the map referenced so TypeScript catches accidental identifier
-    // shape changes without relying on a production database.
-    expect(bySoc.size).toBeGreaterThan(0);
   });
 
   it("does not invent burden, overhead, markup, margin, or bill rate", () => {
