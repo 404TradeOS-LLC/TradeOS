@@ -7,10 +7,11 @@ const mockPrisma = {
     groupBy: jest.fn(),
   },
   subcategory: { findFirst: jest.fn() },
-  material: { create: jest.fn(), findFirst: jest.fn() },
-  laborRate: { create: jest.fn(), findFirst: jest.fn() },
-  equipment: { create: jest.fn(), findFirst: jest.fn() },
-  costItem: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
+  material: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+  laborRate: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+  equipment: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+  costItem: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+  materialPriceAudit: { create: jest.fn() },
   supplier: { findFirst: jest.fn() },
   activityEvent: { create: jest.fn() },
 };
@@ -316,6 +317,46 @@ describe("CostbookCandidateService review/promote audit evidence", () => {
         }),
       }),
     });
+  });
+
+  it("only ever creates new Costbook rows, so historical estimate snapshots cannot be repriced", async () => {
+    const approved = candidateRow({
+      reviewStatus: "approved",
+      reviewedByUserId: "reviewer-9",
+      reviewedAt: new Date("2026-09-09T00:00:00.000Z"),
+    });
+    transaction.costbookResearchCandidate.findFirst.mockResolvedValue(approved);
+    transaction.costbookResearchCandidate.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.subcategory.findFirst.mockResolvedValue({ id: "subcategory-1" });
+    mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", orgId: "org-1" });
+    mockPrisma.material.create.mockResolvedValue({ id: "material-1", name: "x", unitOfMeasure: "SQ", unitCost: 95, wasteFactorPct: 0, supplier: null, sku: null, lastPriceUpdate: null, orgId: "org-1", createdAt: new Date(), updatedAt: new Date(), supplierId: null });
+    mockPrisma.costItem.create.mockResolvedValue({
+      id: "cost-item-1",
+      orgId: "org-1",
+      subcategoryId: "subcategory-1",
+      code: "RC-11111111",
+      name: "30-Year Architectural Shingle Installation",
+      unitOfMeasure: "SQ",
+      productionRate: null,
+      laborRateId: null,
+      materialId: "material-1",
+      equipmentId: null,
+      subcontractorId: null,
+      isActive: true,
+    });
+
+    await new CostbookCandidateService().promote(auth, "11111111-1111-4111-8111-111111111111");
+
+    // Promotion never updates an existing Material or CostItem. Estimate line
+    // items hold their own captured unitCost/lineCost, so a promotion cannot
+    // reach an existing estimate, proposal, contract, or invoice.
+    expect(mockPrisma.material.update).not.toHaveBeenCalled();
+    expect(mockPrisma.laborRate.update).not.toHaveBeenCalled();
+    expect(mockPrisma.equipment.update).not.toHaveBeenCalled();
+    expect(mockPrisma.costItem.update).not.toHaveBeenCalled();
+    // No existing price changed, so there is no price-audit row to write either.
+    expect(mockPrisma.materialPriceAudit.create).not.toHaveBeenCalled();
+    expect(mockPrisma.costItem.create).toHaveBeenCalledTimes(1);
   });
 
   it("writes no audit event when an unapproved candidate is refused promotion", async () => {
