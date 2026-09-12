@@ -3,6 +3,7 @@ import path from "path";
 import {
   buildCompositeBenchmarkSourceIdentifier,
   compositePriceBenchmarkInputSchema,
+  CompositePriceBenchmarkService,
 } from "../modules/costbook/compositePriceBenchmarkService";
 
 describe("Costbook composite price benchmark ingestion", () => {
@@ -39,14 +40,39 @@ describe("Costbook composite price benchmark ingestion", () => {
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 40 })).toThrow();
   });
 
-  it("builds a deterministic source/year/item idempotency identifier", () => {
+  it("rejects values PostgreSQL numeric(14,4) and integer columns cannot represent", () => {
+    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 1.23456 })).toThrow();
+    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, sourceQuantity: 10_000_000_000 })).toThrow();
+    expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, sourceRow: 2_147_483_648 })).toThrow();
+  });
+
+  it("builds a deterministic collision-resistant source/year/item identifier", () => {
     expect(buildCompositeBenchmarkSourceIdentifier(validRow)).toBe(
-      "INDIANA-DEPARTMENT-OF-TRANSPORTATION-INDOT-2025-301-12234"
+      "INDIANA-DEPARTMENT-OF-TRANSPORTATION-INDOT-98165CC4CCEE-2025-301-12234"
     );
+
+    const normalizedCollision = buildCompositeBenchmarkSourceIdentifier({
+      ...validRow,
+      sourceName: "Indiana Department of Transportation INDOT",
+    });
+    expect(normalizedCollision).not.toBe(buildCompositeBenchmarkSourceIdentifier(validRow));
   });
 
   it("does not accept caller-supplied org scope", () => {
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, orgId: "00000000-0000-0000-0000-000000000000" })).toThrow();
+  });
+
+  it("rejects duplicate upsert keys before issuing a database statement", async () => {
+    const service = new CompositePriceBenchmarkService();
+    await expect(
+      service.importRows(
+        {
+          orgId: "11111111-1111-4111-8111-111111111111",
+          userId: "22222222-2222-4222-8222-222222222222",
+        } as never,
+        [validRow, { ...validRow }]
+      )
+    ).rejects.toThrow(/duplicate composite benchmark upsert key/i);
   });
 
   it("locks the database/RLS boundary and deterministic uniqueness", () => {
