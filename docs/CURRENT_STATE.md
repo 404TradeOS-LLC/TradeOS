@@ -197,6 +197,17 @@ A follow-up slice implements Stage 6 of `docs/architecture/COSTBOOK_RESEARCH_ING
 - AI may prepare and submit candidates (as an authenticated owner/admin-permissioned caller); AI may never approve or promote one — both actions require an authenticated human's `costbook.manage` session, and the reviewer/promoter identity is always that user's real id.
 - No existing production `CostItem`/`Material`/`LaborRate`/`Equipment` row is modified by this slice; promotion only ever creates new rows from an already-approved candidate. No Knowledge Engine export data changed. Stage 7 (regenerating the Knowledge Engine corpus from governed Costbook data) remains unimplemented.
 
+### Costbook item/assembly provenance trust layer (2026-09-11)
+
+The reconciled provenance slice extends the existing trade-level trust marker without changing any pricing value:
+
+- Cost-item and assembly schemas accept the same nine optional provenance/source fields: `provenanceStatus`, `sourceName`, `sourceUrl`, `sourceIdentifier`, `sourceDate`, `retrievedAt`, `confidence`, `reviewedBy`, and `reviewedAt`.
+- Knowledge Runtime resolves record-level provenance when present, otherwise preserving the existing trade-level fallback. Invalid provenance/confidence values and blank optional metadata are ignored rather than promoted into trusted output.
+- AI Estimate Assist suggestion and structured-draft records expose optional `provenanceDetail`, and the UI shows the status/source/date/confidence context without changing the match-confidence score or pricing decision.
+- The new-batch approval/validation pipeline requires provenance fields for newly submitted cost-item batches; existing canonical data is not rewritten.
+- `npm run costbook:audit-provenance` is wired into repository CI as a structural audit. Missing source metadata remains an explicit warning; structural corruption fails the check.
+- Coverage remains deliberately honest: the current canonical corpus has no real item- or assembly-level source citations populated, so the new detail fields remain absent until authoritative/licensed or qualified-estimator-reviewed data is supplied.
+
 ## Lifecycle normalization status
 
 The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.

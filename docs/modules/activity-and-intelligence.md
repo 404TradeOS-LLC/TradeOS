@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 source_of_truth: false
 related_code:
   - app/modules/intelligence
@@ -72,6 +72,8 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - project-task create/update/delete now record their matching activity row inside the same database transaction as the task mutation, so the API cannot return a task-write failure after the task row has already committed
 - the 2026-09-08 Costbook provenance-status work (see `modules/ai-estimate-assist.md`) added a `provenanceStatus` field to Knowledge Runtime records, search results, matcher output, and AI Estimate Assist suggestions/draft line items, and a new candidate-cost-item validation contract in `app/modules/costbook/`; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
 - the 2026-09-08 `knowledge-runtime` trade-inference fix (see `modules/ai-estimate-assist.md` and `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`) rewrote `repository.ts`'s trade classifier; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
+- the 2026-09-09 item-level provenance/source metadata contract (see `modules/ai-estimate-assist.md` and `docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md`) added optional per-item fields to `cost-item.schema.json` and a `resolveItemProvenance()` fallback in `knowledge-runtime/repository.ts`; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
+- the 2026-09-10 provenance follow-up slice (see `modules/ai-estimate-assist.md`) extended the same contract to assemblies, added a generation-pipeline enforcement gate, surfaced source/confidence detail on AI suggestion/draft-line responses and the Estimate Assist UI, and added a required blocking CI job for the provenance validator; noted here only because this doc shares the same `DOC_OWNERSHIP.yml` grouping — it did not change activity events, notifications, or anything in `app/modules/intelligence/*`
 
 ## Known limitations
 
@@ -83,4 +85,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-09-08
+2026-09-10

@@ -2,7 +2,9 @@ import { getCachedKnowledgeRepositorySnapshot, resetKnowledgeRuntimeCache } from
 import { loadKnowledgeEngineSnapshot } from "./loader";
 import { KnowledgeAssemblyRecord, KnowledgeCostItemRecord, KnowledgeRepositorySnapshot, KnowledgeSearchInput, KnowledgeSearchResult, KnowledgeStats, KnowledgeTrade, RawKnowledgeAssembly, RawKnowledgeCostItem } from "./types";
 import { round2 } from "../estimate-engine/formulas";
-import { CostDataProvenanceStatus, normalizeCostDataProvenanceStatus } from "../costbook/provenance";
+import { CostDataProvenanceStatus, isCostDataProvenanceStatus, normalizeCostDataProvenanceStatus } from "../costbook/provenance";
+import { costbookCandidateConfidence, CostbookCandidateConfidence } from "../costbook/candidateCostItem";
+import { KnowledgeCostItemProvenanceMetadata } from "./types";
 
 const TRADE_ALIASES: Record<string, string[]> = {
   "Tree Service": ["tree", "stump", "grind", "grinding", "arborist", "brush", "debris"],
@@ -159,9 +161,43 @@ function toAssemblyRecord(
       source: "knowledge-engine",
       lineItemsCount: assembly.lineItems?.length ?? 0,
       schemaRefs: schemaRefs.filter((schema) => schema.includes("assembly")),
-      provenanceStatus: resolveTradeProvenanceStatus(trade, trades),
+      ...resolveAssemblyProvenance(assembly, trade, trades),
     },
   };
+}
+
+/**
+ * Assembly-level counterpart to resolveItemProvenance() (see below), mirroring the
+ * same field set added to assembly.schema.json (2026-09-10). Additive: the canonical
+ * export carries none of these per-assembly fields today, so this currently always
+ * resolves to exactly the same trade-derived provenanceStatus and no optional fields.
+ */
+export function resolveAssemblyProvenance(
+  assembly: RawKnowledgeAssembly,
+  trade: string | null,
+  trades: KnowledgeTrade[]
+): KnowledgeCostItemProvenanceMetadata {
+  const provenanceStatus = isCostDataProvenanceStatus(assembly.provenanceStatus)
+    ? assembly.provenanceStatus
+    : resolveTradeProvenanceStatus(trade, trades);
+
+  const metadata: KnowledgeCostItemProvenanceMetadata = { provenanceStatus };
+  const sourceName = nonEmptyString(assembly.sourceName);
+  const sourceUrl = nonEmptyString(assembly.sourceUrl);
+  const sourceIdentifier = nonEmptyString(assembly.sourceIdentifier);
+  const sourceDate = nonEmptyString(assembly.sourceDate);
+  const retrievedAt = nonEmptyString(assembly.retrievedAt);
+  const reviewedBy = nonEmptyString(assembly.reviewedBy);
+  const reviewedAt = nonEmptyString(assembly.reviewedAt);
+  if (sourceName) metadata.sourceName = sourceName;
+  if (sourceUrl) metadata.sourceUrl = sourceUrl;
+  if (sourceIdentifier) metadata.sourceIdentifier = sourceIdentifier;
+  if (sourceDate) metadata.sourceDate = sourceDate;
+  if (retrievedAt) metadata.retrievedAt = retrievedAt;
+  if (reviewedBy) metadata.reviewedBy = reviewedBy;
+  if (reviewedAt) metadata.reviewedAt = reviewedAt;
+  if (isCostbookCandidateConfidence(assembly.confidence)) metadata.confidence = assembly.confidence;
+  return metadata;
 }
 
 function toCostItemRecord(item: RawKnowledgeCostItem, trades: KnowledgeTrade[], schemaRefs: string[]): KnowledgeCostItemRecord {
@@ -190,9 +226,55 @@ function toCostItemRecord(item: RawKnowledgeCostItem, trades: KnowledgeTrade[], 
       equipmentCost,
       totalUnitCost: round2(laborCost + materialCost + equipmentCost),
       schemaRefs: schemaRefs.filter((schema) => schema.includes("cost-item")),
-      provenanceStatus: resolveTradeProvenanceStatus(trade, trades),
+      ...resolveItemProvenance(item, trade, trades),
     },
   };
+}
+
+/**
+ * Resolves an item's own provenance/source metadata when the raw record
+ * carries well-formed values, falling back to the item's trade-level
+ * provenanceStatus otherwise (see resolveTradeProvenanceStatus). Additive:
+ * the canonical export carries none of these per-item fields today, so this
+ * currently always resolves to exactly the same trade-derived
+ * provenanceStatus and no optional fields - see
+ * docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md.
+ */
+export function resolveItemProvenance(
+  item: RawKnowledgeCostItem,
+  trade: string | null,
+  trades: KnowledgeTrade[]
+): KnowledgeCostItemProvenanceMetadata {
+  const provenanceStatus = isCostDataProvenanceStatus(item.provenanceStatus)
+    ? item.provenanceStatus
+    : resolveTradeProvenanceStatus(trade, trades);
+
+  const metadata: KnowledgeCostItemProvenanceMetadata = { provenanceStatus };
+  const sourceName = nonEmptyString(item.sourceName);
+  const sourceUrl = nonEmptyString(item.sourceUrl);
+  const sourceIdentifier = nonEmptyString(item.sourceIdentifier);
+  const sourceDate = nonEmptyString(item.sourceDate);
+  const retrievedAt = nonEmptyString(item.retrievedAt);
+  const reviewedBy = nonEmptyString(item.reviewedBy);
+  const reviewedAt = nonEmptyString(item.reviewedAt);
+  if (sourceName) metadata.sourceName = sourceName;
+  if (sourceUrl) metadata.sourceUrl = sourceUrl;
+  if (sourceIdentifier) metadata.sourceIdentifier = sourceIdentifier;
+  if (sourceDate) metadata.sourceDate = sourceDate;
+  if (retrievedAt) metadata.retrievedAt = retrievedAt;
+  if (reviewedBy) metadata.reviewedBy = reviewedBy;
+  if (reviewedAt) metadata.reviewedAt = reviewedAt;
+  if (isCostbookCandidateConfidence(item.confidence)) metadata.confidence = item.confidence;
+  return metadata;
+}
+
+function nonEmptyString(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function isCostbookCandidateConfidence(value: string | undefined): value is CostbookCandidateConfidence {
+  return typeof value === "string" && (costbookCandidateConfidence as readonly string[]).includes(value);
 }
 
 function toAssemblyIndexRecord(

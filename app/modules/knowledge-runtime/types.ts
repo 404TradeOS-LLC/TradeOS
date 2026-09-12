@@ -1,6 +1,8 @@
 import { CostDataProvenanceStatus } from "../costbook/provenance";
+import { CostbookCandidateConfidence } from "../costbook/candidateCostItem";
 
 export type { CostDataProvenanceStatus } from "../costbook/provenance";
+export type { CostbookCandidateConfidence } from "../costbook/candidateCostItem";
 
 export interface KnowledgeEnginePaths {
   repoRoot: string;
@@ -28,6 +30,19 @@ export interface RawKnowledgeAssembly {
   name: string;
   category: string;
   lineItems?: RawKnowledgeAssemblyLineItem[];
+  // Assembly-level provenance/source metadata, mirroring RawKnowledgeCostItem's
+  // fields below (added 2026-09-10; see assembly.schema.json). Untyped/loose for
+  // the same reason: parsed directly from JSON on disk, and no assembly in the
+  // canonical export carries any of these fields today.
+  provenanceStatus?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceIdentifier?: string;
+  sourceDate?: string;
+  retrievedAt?: string;
+  confidence?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface RawKnowledgeCostItem {
@@ -39,6 +54,21 @@ export interface RawKnowledgeCostItem {
   materialCost?: number | string | null;
   equipmentCost?: number | string | null;
   notes?: string | null;
+  // Item-level provenance/source metadata, per the shared Costbook vocabulary
+  // (app/modules/costbook/provenance.ts, candidateCostItem.ts). Untyped/loose
+  // because this is parsed directly from JSON on disk - almost every item in
+  // the canonical export carries none of these fields today (see the
+  // 2026-09-08 audit), so repository.ts normalizes/falls back to the item's
+  // trade-level provenanceStatus rather than trusting or requiring them.
+  provenanceStatus?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceIdentifier?: string;
+  sourceDate?: string;
+  retrievedAt?: string;
+  confidence?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface RawKnowledgeTradeProgressEntry {
@@ -117,7 +147,30 @@ export interface KnowledgeAssemblyRecord {
     lineItemsCount: number;
     schemaRefs: string[];
     provenanceStatus: CostDataProvenanceStatus;
+    sourceName?: string;
+    sourceUrl?: string;
+    sourceIdentifier?: string;
+    sourceDate?: string;
+    retrievedAt?: string;
+    confidence?: CostbookCandidateConfidence;
+    reviewedBy?: string;
+    reviewedAt?: string;
   };
+}
+
+export interface KnowledgeCostItemProvenanceMetadata {
+  provenanceStatus: CostDataProvenanceStatus;
+  // Present only when the raw item itself carries a well-formed value for
+  // the field; absent (not null/empty-string) otherwise, so a consumer can
+  // tell "not asserted" apart from "asserted as empty."
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceIdentifier?: string;
+  sourceDate?: string;
+  retrievedAt?: string;
+  confidence?: CostbookCandidateConfidence;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface KnowledgeCostItemRecord {
@@ -136,6 +189,14 @@ export interface KnowledgeCostItemRecord {
     totalUnitCost: number;
     schemaRefs: string[];
     provenanceStatus: CostDataProvenanceStatus;
+    sourceName?: string;
+    sourceUrl?: string;
+    sourceIdentifier?: string;
+    sourceDate?: string;
+    retrievedAt?: string;
+    confidence?: CostbookCandidateConfidence;
+    reviewedBy?: string;
+    reviewedAt?: string;
   };
 }
 

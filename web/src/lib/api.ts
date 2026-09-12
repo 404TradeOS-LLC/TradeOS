@@ -523,6 +523,24 @@ export function listEstimateQueue(token: string, params: EstimateQueueParams = {
   }));
 }
 
+// Trust state of the Knowledge Engine pricing a suggestion or draft line item was
+// matched from. See app/modules/costbook/provenance.ts. "documented" never implies
+// verified/current/local/nationally-authoritative pricing on its own.
+export type CostDataProvenanceStatus = "documented" | "unverified-legacy" | "placeholder";
+
+// Item-level source citation, present only when the matched Knowledge Engine record
+// carries real provenance metadata (see cost-item.schema.json).
+export interface AIEstimateProvenanceDetail {
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceIdentifier?: string;
+  sourceDate?: string;
+  retrievedAt?: string;
+  confidence?: "low" | "medium" | "high";
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 export interface AIEstimateSuggestion {
   id: string;
   kind: "assembly" | "costItem";
@@ -545,6 +563,8 @@ export interface AIEstimateSuggestion {
       matchScore: number;
     } | null;
   };
+  provenanceStatus: CostDataProvenanceStatus;
+  provenanceDetail?: AIEstimateProvenanceDetail;
 }
 
 export function getAIEstimateSuggestions(token: string, estimateId: string, scopeOfWork: string) {

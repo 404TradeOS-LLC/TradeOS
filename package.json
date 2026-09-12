@@ -9,6 +9,8 @@
     "autonomy:test": "node --test scripts/__tests__/reconcile-task.test.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "docs:test": "node --test scripts/__tests__/docs-check.test.mjs",
+    "costbook:audit-provenance": "node scripts/costbook-provenance-audit.mjs",
+    "costbook:audit-provenance:test": "node --test scripts/__tests__/costbook-provenance-audit.test.mjs",
     "pr:body-check": "node scripts/pr-body-check.mjs",
     "pr:preflight": "node scripts/pr-preflight.mjs",
     "pr:preflight:run": "node scripts/pr-preflight.mjs --run",

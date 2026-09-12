@@ -1,6 +1,54 @@
 import { CostDataProvenanceStatus } from "../costbook/provenance";
+import { CostbookCandidateConfidence, costbookCandidateConfidence } from "../costbook/candidateCostItem";
 
 export type { CostDataProvenanceStatus } from "../costbook/provenance";
+
+// Item-level source/citation detail for the Knowledge Engine record a suggestion or
+// draft line item was matched from (see cost-item.schema.json and
+// docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md). Deliberately not named
+// `confidence` — that name is already the 0-100 match-confidence score on the suggestion
+// itself; this is the separate low/medium/high data-quality confidence for the source.
+export interface AIEstimateProvenanceDetail {
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceIdentifier?: string;
+  sourceDate?: string;
+  retrievedAt?: string;
+  confidence?: CostbookCandidateConfidence;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export function extractProvenanceDetail(metadata: Record<string, unknown> | undefined): AIEstimateProvenanceDetail | undefined {
+  if (!metadata) return undefined;
+  const stringField = (key: string): string | undefined => {
+    const value = metadata[key];
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  };
+
+  const detail: AIEstimateProvenanceDetail = {};
+  const sourceName = stringField("sourceName");
+  const sourceUrl = stringField("sourceUrl");
+  const sourceIdentifier = stringField("sourceIdentifier");
+  const sourceDate = stringField("sourceDate");
+  const retrievedAt = stringField("retrievedAt");
+  const reviewedBy = stringField("reviewedBy");
+  const reviewedAt = stringField("reviewedAt");
+  if (sourceName) detail.sourceName = sourceName;
+  if (sourceUrl) detail.sourceUrl = sourceUrl;
+  if (sourceIdentifier) detail.sourceIdentifier = sourceIdentifier;
+  if (sourceDate) detail.sourceDate = sourceDate;
+  if (retrievedAt) detail.retrievedAt = retrievedAt;
+  if (reviewedBy) detail.reviewedBy = reviewedBy;
+  if (reviewedAt) detail.reviewedAt = reviewedAt;
+
+  const confidenceValue = metadata["confidence"];
+  if (typeof confidenceValue === "string" && (costbookCandidateConfidence as readonly string[]).includes(confidenceValue)) {
+    detail.confidence = confidenceValue as CostbookCandidateConfidence;
+  }
+
+  return Object.keys(detail).length > 0 ? detail : undefined;
+}
 
 export type AIEstimateSuggestionKind = "assembly" | "costItem";
 export type AIEstimateSuggestionStatus = "pending" | "accepted" | "rejected";
@@ -35,6 +83,9 @@ export interface AIEstimateSuggestion {
   // matched from. Additive field — see app/modules/costbook/provenance.ts.
   // Never implies verified/current/local/nationally-authoritative pricing.
   provenanceStatus: CostDataProvenanceStatus;
+  // Item-level source citation, when the matched record carries one. Additive
+  // field, present only when the underlying record has real provenance metadata.
+  provenanceDetail?: AIEstimateProvenanceDetail;
 }
 
 export interface GenerateAIEstimateSuggestionsInput {
@@ -132,6 +183,8 @@ export interface StructuredEstimateDraftLineItem {
   costBreakdown: AIEstimatorCostBreakdown | null;
   // See AIEstimateSuggestion.provenanceStatus above.
   provenanceStatus: CostDataProvenanceStatus;
+  // See AIEstimateSuggestion.provenanceDetail above.
+  provenanceDetail?: AIEstimateProvenanceDetail;
 }
 
 export interface StructuredEstimateDraftValidation {

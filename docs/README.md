@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-10
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -174,7 +174,7 @@ is skipped when the diff has no `web/**` changes. Pushes to `main` still run
 all lanes. This keeps branch-protection semantics stable while avoiding
 unrelated installs/tests/builds on single-lane PRs.
 
-The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
+The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. A `Costbook provenance audit` child job (2026-09-10) runs the root-level `npm run costbook:audit-provenance` deterministic validator against the canonical Knowledge Engine export whenever `app/**` or `packages/knowledge-engine/**` changes; it fails the `App lint, unit tests, and build` summary only on structural defects (duplicate IDs, missing identity fields, non-numeric costs, dangling assembly references), never on missing-provenance/source/confidence warnings. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
 
 `Docs consistency` also validates that the PR body contains every required default-template section and a real non-placeholder Summary before installing the docs checker dependencies. It then runs the focused PR-preflight tests, autonomy-reconciliation tests, and documentation ownership validation. This converts missing PR-template sections and missing owner docs into early, deterministic failures rather than late review churn.
 

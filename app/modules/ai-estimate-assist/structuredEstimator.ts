@@ -22,6 +22,7 @@ import {
   ParsedScopeQuantity,
   StructuredEstimateDraft,
   StructuredEstimateDraftLineItem,
+  extractProvenanceDetail,
 } from "./types";
 
 const DEFAULT_DRAFT_LIMIT = 6;
@@ -429,6 +430,7 @@ export class StructuredAIEstimatorService {
       confidence: number;
       rationale: string;
       provenanceStatus?: CostDataProvenanceStatus;
+      metadata?: Record<string, unknown>;
     },
     parsedScope: ParsedContractorScope,
     estimateId: string,
@@ -481,6 +483,7 @@ export class StructuredAIEstimatorService {
       reviewWarnings,
       costBreakdown,
       provenanceStatus: candidate.provenanceStatus ?? "unverified-legacy",
+      provenanceDetail: extractProvenanceDetail(candidate.metadata),
     };
   }
 

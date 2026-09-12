@@ -13,6 +13,7 @@ import {
   CostDataProvenanceStatus,
   GenerateAIEstimateSuggestionsInput,
   SkippedAIEstimateSuggestion,
+  extractProvenanceDetail,
 } from "./types";
 
 const DEFAULT_SCOPE =
@@ -138,6 +139,7 @@ export class AIEstimateAssistService {
       confidence: number;
       rationale: string;
       provenanceStatus?: CostDataProvenanceStatus;
+      metadata?: Record<string, unknown>;
     },
     scope: string,
     orgId: string
@@ -155,6 +157,7 @@ export class AIEstimateAssistService {
       confidence,
       resolution,
       provenanceStatus: candidate.provenanceStatus ?? "unverified-legacy",
+      provenanceDetail: extractProvenanceDetail(candidate.metadata),
     }));
   }
 

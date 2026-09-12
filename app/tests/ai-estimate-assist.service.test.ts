@@ -244,6 +244,109 @@ describe("AIEstimateAssistService", () => {
     expect(result.suggestions[0]?.provenanceStatus).toBe("unverified-legacy");
   });
 
+  it("surfaces the matched cost item's source citation as provenanceDetail", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      project: { simpleScope: null },
+    });
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched concrete keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "concrete-cost-item-2",
+          type: "costItem",
+          name: "Concrete Slab Pour",
+          category: "Concrete",
+          trade: "Concrete",
+          unitOfMeasure: "CY",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["concrete"],
+          rationale: "Concrete match.",
+          metadata: {
+            provenanceStatus: "documented",
+            sourceName: "RS Means-independent regional survey",
+            sourceUrl: "https://example.gov/regional-cost-survey",
+            sourceDate: "2026-06-01",
+            retrievedAt: "2026-09-10T00:00:00Z",
+            confidence: "high",
+          },
+          provenanceStatus: "documented",
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new AIEstimateAssistService().generateSuggestions({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Pour a new concrete slab.",
+    });
+
+    expect(result.suggestions[0]?.provenanceDetail).toEqual({
+      sourceName: "RS Means-independent regional survey",
+      sourceUrl: "https://example.gov/regional-cost-survey",
+      sourceDate: "2026-06-01",
+      retrievedAt: "2026-09-10T00:00:00Z",
+      confidence: "high",
+    });
+  });
+
+  it("omits provenanceDetail when the matched record carries no source citation", async () => {
+    mockPrisma.estimate.findFirst.mockResolvedValue({
+      id: "estimate-1",
+      orgId: "org-1",
+      project: { simpleScope: null },
+    });
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete",
+      confidenceScore: 80,
+      assumptions: [],
+      rationale: ["Matched concrete keywords."],
+      missingInformation: [],
+      reviewWarnings: [],
+      matchedAssemblies: [],
+      matchedCostItems: [
+        {
+          id: "concrete-cost-item-3",
+          type: "costItem",
+          name: "Concrete Slab Pour",
+          category: "Concrete",
+          trade: "Concrete",
+          unitOfMeasure: "CY",
+          description: "",
+          confidence: 70,
+          matchedKeywords: ["concrete"],
+          rationale: "Concrete match.",
+          metadata: {},
+          provenanceStatus: "unverified-legacy",
+        },
+      ],
+      missingInputs: [],
+      humanReviewWarnings: [],
+    });
+    mockCostDatabase.getById.mockRejectedValue(new Error("not found"));
+    mockCostDatabase.search.mockResolvedValue([]);
+
+    const result = await new AIEstimateAssistService().generateSuggestions({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Pour a new concrete slab.",
+    });
+
+    expect(result.suggestions[0]?.provenanceDetail).toBeUndefined();
+  });
+
   it("skips accepted suggestions that do not have a resolved estimate target", async () => {
     mockPrisma.estimate.findFirst.mockResolvedValue({
       id: "estimate-1",
