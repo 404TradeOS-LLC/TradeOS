@@ -46,18 +46,21 @@ Knowledge Engine regeneration remain deferred below.
 ```text
 Research / source evidence
   -> candidate cost item          (app/modules/costbook/candidateCostItem.ts)
-  -> normalization                (future: shared unit/trade normalization helpers)
+  -> normalization + matching     (app/modules/costbook/knowledgeCandidateNormalizer.ts, candidateMatch.ts)
   -> provenance + timestamp + confidence   (already required fields on the candidate)
   -> validation / review          (human reviewer; isEligibleForCostbookPromotion() gate)
+                                  (UI: web/src/app/(app)/costbook/research-review)
   -> approved production Costbook item     [LANDED: app/modules/costbook/candidateCostItemService.ts]
+  -> promotion audit trail        (ActivityEvent, written in the promoting transaction)
   -> Knowledge Engine index/export         (future: regenerated from governed Costbook data)
 ```
 
 Landed: the **candidate** stage's type/schema contract, the **provenance**
-vocabulary it shares with the Knowledge Engine, and Stage 6's persisted
-review queue and promotion service. Stage 3 (normalization) and Stage 7
-(Knowledge Engine regeneration) remain future work — see "Deferred work"
-below.
+vocabulary it shares with the Knowledge Engine, Stage 3's normalization and
+duplicate matching, Stage 6's persisted review queue and promotion service,
+the human review surface at `/costbook/research-review`, and the immutable
+review/promotion audit trail. Stage 7 (Knowledge Engine regeneration) remains
+future work — see "Deferred work" below.
 
 ## Stage 1 — Research / source evidence
 
@@ -127,15 +130,48 @@ side-effect-free operation. It does not touch Prisma, does not touch an
 organization, and does not require authentication — a candidate is not
 tenant data yet; it is a proposal for the platform's own reference corpus.
 
-## Stage 3 — Normalization (deferred)
+## Stage 3 — Normalization and matching (landed)
 
-Not implemented in this slice. Future normalization work should reuse, not
-duplicate, exact patterns already established for the relational Costbook:
-unit-of-measure conventions from `CostItem.unitOfMeasure`
-(`app/prisma/schema.prisma`), and rounding via the shared `round2()`
-helper (`app/modules/estimate-engine/formulas.ts`) that `cost-database`,
-`assemblies-database`, and `knowledge-runtime` already share. A
-normalization pass should not invent a third rounding or unit convention.
+Implemented by `app/modules/costbook/knowledgeCandidateNormalizer.ts` and
+`app/modules/costbook/candidateMatch.ts`. Both are pure: no Prisma, no
+organization, no I/O, no clock. Normalizing or matching is never a Costbook
+mutation.
+
+**Normalization.** `normalizeKnowledgeCostItem()` converts one
+`KnowledgeCostItemRecord` into a contract-valid candidate draft, reusing the
+existing conventions rather than inventing new ones: the `SF/LF/EA/HR/CY/SQ/CF`
+unit vocabulary the corpus and `scripts/costbook-provenance-audit.mjs` already
+share, and the shared `round2()` helper (`app/modules/estimate-engine/formulas.ts`)
+that `cost-database`, `assemblies-database`, and `knowledge-runtime` use.
+
+It **fails closed**. A record missing any evidence the Stage 2 contract
+requires is returned as `blocked` with explicit, machine-readable reasons
+(`missing-source`, `missing-source-date`, `missing-retrieved-at`,
+`missing-confidence`, `unverified-provenance`, `placeholder-pricing`,
+`unsupported-unit`, `missing-cost`, and so on) rather than having the missing
+field defaulted. Nothing here invents a source name, infers one from a
+generator filename, or back-dates a retrieval timestamp: a record that asserts
+no source stays `unverified-legacy` and cannot become a candidate. Because the
+corpus carries no per-item market field, `regionalBasis` is recorded as an
+explicit "national/default … no market specified" so national research is never
+presented as local pricing. A draft always carries the contract default
+`reviewStatus: "candidate"` — normalization can never substitute for review.
+
+**Matching.** `analyzeCandidateMatch()` compares a candidate against rows the
+caller already fetched through the canonical `CostDatabaseService` search and
+`getUnitCost()`, returning `new-candidate`, `probable-match`,
+`ambiguous-match`, or `conflict` with signed price deltas. An
+`ambiguous-match` deliberately reports no best match, and a `conflict`
+(same name, different unit) reports none either — so name similarity alone can
+never steer a reviewer into overwriting a tenant's price. Deactivated catalog
+rows are excluded. A zero current price reports a null percentage rather than
+infinity.
+
+**Corpus report.** `buildKnowledgeCorpusReport()` classifies the whole corpus
+with the same normalizer the ingestion route uses, so the report can never
+claim an item is candidate-ready that ingestion would then reject. Today it
+reports 1,795 total items, 0 documented, 1,795 unverified-legacy, and 0
+candidate-ready.
 
 ## Stage 4 — Provenance, timestamp, confidence
 
@@ -266,8 +302,6 @@ field was added — see the audit-follow-up PR).
 
 ## Deferred work
 
-- Stage 3 normalization helpers (unit/trade canonicalization for
-  candidates).
 - Stage 7: regenerating Knowledge Engine export data from governed
   Costbook/candidate records instead of hand-authored seed files.
 - Item-level (not just trade-level) provenance once individual Knowledge
