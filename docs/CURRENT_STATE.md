@@ -147,6 +147,11 @@ Costbook permissions, organization scope, request-scoped sessions, and forced RL
 
 Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
+
+### Costbook composite installed-price benchmarks (INDOT)
+
+The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
+
 ### S027 production-readiness truth
 
 The implementation that older revisions of this document labeled **Unreleased** is merged repository state:
