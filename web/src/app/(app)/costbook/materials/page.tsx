@@ -78,7 +78,12 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
           </section>
 
           <CatalogQueryControls pathname="/costbook/materials" query={query} total={page.total} shown={materials.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }]} />
-          <MaterialsCatalog initialMaterials={materials} canWrite={workspace.permissions.canWrite} canManage={workspace.permissions.canManage} />
+          <MaterialsCatalog
+            initialMaterials={materials}
+            canWrite={workspace.permissions.canWrite}
+            canManage={workspace.permissions.canManage}
+            activeFilter={query.active === "true" ? true : query.active === "false" ? false : undefined}
+          />
         </>
       ) : null}
     </div>

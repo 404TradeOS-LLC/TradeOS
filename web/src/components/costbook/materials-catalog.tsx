@@ -29,10 +29,12 @@ export function MaterialsCatalog({
   initialMaterials,
   canWrite,
   canManage,
+  activeFilter,
 }: {
   initialMaterials: CostbookMaterial[];
   canWrite: boolean;
   canManage: boolean;
+  activeFilter?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
@@ -100,7 +102,11 @@ export function MaterialsCatalog({
     setError(null);
     try {
       await clientFetch<void>(`/costbook/materials/${id}`, { method: "DELETE" });
-      setMaterials((current) => sortMaterials(current.map((material) => (material.id === id ? { ...material, isActive: false } : material))));
+      setMaterials((current) =>
+        activeFilter === true
+          ? current.filter((material) => material.id !== id)
+          : sortMaterials(current.map((material) => (material.id === id ? { ...material, isActive: false } : material)))
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Material could not be deactivated.");
     } finally {
