@@ -141,6 +141,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
+- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, enforces 1–500 row batches, and delegates authorization, tenant scope, validation, and idempotent upsert semantics to the existing backend import boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections
 
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
@@ -150,7 +151,7 @@ Cost Item and Assembly case-insensitive substring search is supported on both `n
 
 ### Costbook composite installed-price benchmarks (INDOT)
 
-The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
+The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. The authenticated `/costbook/import` surface streams a locally selected normalized file in bounded batches through a same-origin proxy; it does not embed the source dataset or expose the session token to browser JavaScript. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
 
 ### S027 production-readiness truth
 
