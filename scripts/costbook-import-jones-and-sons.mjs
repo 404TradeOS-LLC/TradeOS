@@ -47,7 +47,9 @@ const NORMALIZED_DIR = path.join(DATA_DIR, "normalized");
 const PROGRESS_PATH = path.join(RAW_DIR, "progress.json");
 
 const BASE_URL = "https://jonesandsons.com";
+const ALLOWED_HOST = new URL(BASE_URL).hostname;
 const REQUEST_DELAY_MS = 1500; // polite, low-concurrency default
+const REQUEST_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
 const RETRY_BACKOFF_MS = [2000, 5000, 12000];
 
@@ -78,13 +80,20 @@ const BRANCH_EVIDENCE_PATTERN = new RegExp(
   `(pickup[^.]{0,40}(${BRANCH_NAMES.join("|")})|(${BRANCH_NAMES.join("|")})[^.]{0,40}pickup)`,
   "i"
 );
+// A negation anywhere in the matched evidence (e.g. "pickup unavailable at
+// Terre Haute", "Terre Haute pickup is not available") must veto the match -
+// erring toward unconfirmed on ambiguity is the safe direction, never the
+// other way.
+const NEGATION_PATTERN = /\b(not|no|never|unavailable|discontinued)\b/i;
 const READY_MIX_PATTERN = /ready[\s-]?mix(ed)?\s+concrete/i;
 
-/** Finds branch-pickup evidence in text and identifies which branch it names. */
+/** Finds branch-pickup evidence in text and identifies which branch it names.
+ * Returns null if the only match found is negated (pickup NOT available). */
 function extractBranchEvidence(text) {
   const match = BRANCH_EVIDENCE_PATTERN.exec(text);
   if (!match) return null;
   const evidence = match[0];
+  if (NEGATION_PATTERN.test(evidence)) return null;
   const branch = BRANCH_NAMES.find((name) => evidence.toLowerCase().includes(name.toLowerCase())) ?? null;
   return { evidence, branch };
 }
@@ -125,21 +134,55 @@ async function sleep(ms) {
 }
 
 async function fetchWithRetry(url) {
+  // Refuse anything but a plain https:// request to the known supplier host.
+  // Sitemap <loc> values are supplier-controlled input; a compromised or
+  // malicious sitemap must not be able to redirect this tool to an
+  // unapproved host (SSRF). `redirect: "error"` below closes the same gap
+  // for any redirect encountered mid-request.
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, status: 0, reason: "malformed_page" };
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== ALLOWED_HOST) {
+    return { ok: false, status: 0, reason: "malformed_page" };
+  }
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    const response = await fetch(url, {
-      headers: { "User-Agent": "TradeOS-Costbook-SupplierImport/1.0 (+https://github.com/404TradeOS-LLC/TradeOS)" },
-    });
-    if (response.status === 429) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "TradeOS-Costbook-SupplierImport/1.0 (+https://github.com/404TradeOS-LLC/TradeOS)" },
+        redirect: "error",
+        signal: controller.signal,
+      });
+      const retryable = response.status === 429 || (response.status >= 500 && response.status < 600);
+      if (retryable) {
+        if (attempt === MAX_RETRIES) {
+          return { ok: false, status: response.status, reason: "rate_limited" };
+        }
+        await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1));
+        continue;
+      }
+      if (!response.ok) {
+        return { ok: false, status: response.status, reason: "malformed_page" };
+      }
+      const body = await response.text();
+      return { ok: true, status: response.status, body };
+    } catch {
+      // Network error, timeout, or a redirect refused by `redirect: "error"`.
+      // Treated as transient and retried with backoff, same as a 429/5xx,
+      // so a flaky connection can't crash the whole crawl before progress
+      // is saved.
       if (attempt === MAX_RETRIES) {
-        return { ok: false, status: 429, reason: "rate_limited" };
+        return { ok: false, status: 0, reason: "rate_limited" };
       }
       await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1));
-      continue;
+    } finally {
+      clearTimeout(timeout);
     }
-    if (!response.ok) {
-      return { ok: false, status: response.status, reason: "malformed_page" };
-    }
-    return { ok: true, status: response.status, body: await response.text() };
   }
   return { ok: false, status: 0, reason: "rate_limited" };
 }
@@ -275,6 +318,7 @@ async function loadProgress() {
       importedProducts: 0,
       skippedProducts: [],
       failedProducts: [],
+      importedProductUrls: [],
       terreHauteVerified: 0,
       genericSupplierPrices: 0,
       quoteRequired: 0,
@@ -292,11 +336,17 @@ async function main() {
   await mkdir(NORMALIZED_DIR, { recursive: true });
 
   const progress = await loadProgress();
-  // Only permanently-skipped products (irrelevant, no price) are excluded on
-  // resume. Failed products (rate-limited, transient fetch/parse errors)
-  // must remain eligible for retry on the next run, or a resumed crawl can
-  // never recover them without manually editing progress.json.
-  const alreadyAttempted = new Set(progress.skippedProducts.map((entry) => entry.url));
+  // Permanently-skipped products (irrelevant, no price) and products already
+  // successfully imported in a prior run are excluded on resume - a product
+  // whose materials are already in progress.json must not be re-fetched and
+  // re-counted every run. Failed products (rate-limited, transient
+  // fetch/parse errors) must remain eligible for retry, or a resumed crawl
+  // can never recover them without manually editing progress.json.
+  const previouslyImportedUrls = new Set(progress.importedProductUrls ?? []);
+  const alreadyAttempted = new Set([
+    ...progress.skippedProducts.map((entry) => entry.url),
+    ...previouslyImportedUrls,
+  ]);
 
   console.log("Discovering product handles from sitemap...");
   const handles = await discoverProductHandles();
@@ -307,6 +357,7 @@ async function main() {
   const skipped = [];
   const failed = [];
   const retried = new Set();
+  const newlyImportedUrls = new Set();
   let attempted = 0;
 
   for (const handle of handles) {
@@ -332,8 +383,10 @@ async function main() {
         skipped.push({ url: sourceUrl, reason: record.reason });
       } else if (record.kind === "ready-mix") {
         readyMixNotes.push(record);
+        newlyImportedUrls.add(sourceUrl);
       } else {
         materials.push(record);
+        newlyImportedUrls.add(sourceUrl);
       }
     }
   }
@@ -354,6 +407,10 @@ async function main() {
       ...progress.failedProducts.filter((entry) => !retried.has(entry.url)),
       ...failed,
     ],
+    // Successfully-processed URLs are excluded from every future crawl (see
+    // alreadyAttempted above), so re-running the script never re-fetches or
+    // double-counts a product it already imported.
+    importedProductUrls: [...previouslyImportedUrls, ...newlyImportedUrls],
     terreHauteVerified: progress.terreHauteVerified + terreHauteVerified,
     genericSupplierPrices: progress.genericSupplierPrices + genericSupplierPrices,
     quoteRequired: progress.quoteRequired + readyMixNotes.length,
@@ -364,10 +421,13 @@ async function main() {
     return;
   }
 
-  const dateStamp = new Date().toISOString().slice(0, 10);
-  await writeFile(path.join(RAW_DIR, `${dateStamp}-crawl.json`), JSON.stringify({ materials, readyMixNotes }, null, 2));
+  // A full timestamp (not just the date) keeps same-day reruns from
+  // overwriting each other's raw/normalized snapshot, preserving every run
+  // as its own historical observation.
+  const runStamp = new Date().toISOString().replace(/[:.]/g, "-");
+  await writeFile(path.join(RAW_DIR, `${runStamp}-crawl.json`), JSON.stringify({ materials, readyMixNotes }, null, 2));
   await writeFile(
-    path.join(NORMALIZED_DIR, `${dateStamp}-crawl.json`),
+    path.join(NORMALIZED_DIR, `${runStamp}-crawl.json`),
     JSON.stringify(buildNormalizedSnapshot(materials, readyMixNotes), null, 2)
   );
   await writeFile(PROGRESS_PATH, JSON.stringify(updatedProgress, null, 2));

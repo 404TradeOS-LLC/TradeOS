@@ -56,13 +56,15 @@ data/supplier-imports/jones-and-sons/
 
 `scripts/costbook-import-jones-and-sons.mjs` implements the discovery →
 fetch → parse → validate → checkpoint pipeline described in the task this
-import was built from (low concurrency, retry/backoff on HTTP 429,
-resumable via `raw/progress.json`, dedup by SKU + URL). It has **not been
-executed** from this session — there was nothing to execute it against.
-Running it from an environment with outbound access to jonesandsons.com
-will populate new dated files under `raw/` and `normalized/` without
-overwriting these seed files; each run is a new dated snapshot, not a
-mutation of prior evidence, so historical observations are preserved.
+import was built from (low concurrency, retry/backoff on HTTP 429 and 5xx,
+resumable via `raw/progress.json` — a successfully-imported product URL is
+excluded from every future run, so re-running the script never re-fetches
+or double-counts it). It has **not been executed** from this session —
+there was nothing to execute it against. Running it from an environment
+with outbound access to jonesandsons.com will populate new timestamped
+files under `raw/` and `normalized/` without overwriting these seed files
+or any prior run's snapshot; each run is its own historical observation,
+never a mutation of prior evidence.
 
 ## Trust rules encoded here
 

@@ -1,5 +1,5 @@
 {
-  "note": "Hand-derived to mirror app/modules/costbook/jonesAndSonsTerreHaute.ts exactly, for audit purposes. The TS module is the single source of truth consumed by the ingestion path; this file documents what it computes and will be regenerated automatically by scripts/costbook-import-jones-and-sons.mjs once that script is run against real crawl output.",
+  "note": "Hand-derived selected-field summary of app/modules/costbook/jonesAndSonsTerreHaute.ts, for audit purposes - not an exact or complete mirror (e.g. regionalBasis is abbreviated here, and generated candidate fields are omitted). The TS module is the single source of truth consumed by the ingestion path; this file will be regenerated automatically by scripts/costbook-import-jones-and-sons.mjs once that script is run against real crawl output.",
   "generatedFrom": "app/modules/costbook/jonesAndSonsTerreHaute.ts",
   "terreHauteVerified": [
     {

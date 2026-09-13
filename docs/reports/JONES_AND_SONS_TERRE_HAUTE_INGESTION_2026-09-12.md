@@ -38,9 +38,10 @@ few) records, not as a completed 100-record catalog import.
 - Other known branches: Vincennes, Washington, Bloomfield — pricing and
   availability are branch-dependent, so a bare Jones & Sons web price is
   never assumed to be Terre Haute pricing.
-- Platform: Shopify (public per-product JSON confirmed available via the
-  standard `<handle>.json` endpoint convention, used by the unexecuted
-  crawl script).
+- Platform: Shopify (public per-product JSON is expected via the standard
+  `<handle>.json` endpoint convention used by the unexecuted crawl script;
+  no live request ever reached jonesandsons.com in this session, so a
+  real crawl run must confirm the storefront actually exposes it).
 
 ## Imported records
 
