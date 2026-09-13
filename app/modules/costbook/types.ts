@@ -50,6 +50,7 @@ export interface CostbookMaterialRecord {
   supplierId: string | null;
   supplierName: string | null;
   lastPriceUpdate: Date | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +66,7 @@ export interface CostbookMaterialDTO {
   supplierId: string | null;
   supplierName: string | null;
   lastPriceUpdate: string | null;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,7 +80,7 @@ export interface CostbookMaterialInput {
   supplierId?: string | null;
 }
 
-export type CostbookMaterialUpdateInput = Partial<CostbookMaterialInput>;
+export type CostbookMaterialUpdateInput = Partial<CostbookMaterialInput> & { isActive?: boolean };
 
 export interface CostbookLaborRateRecord {
   id: string;

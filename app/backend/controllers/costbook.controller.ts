@@ -33,9 +33,10 @@ const materialSchema = z.object({
   supplierId: z.string().uuid().nullable().optional(),
 }).strict();
 
-const materialUpdateSchema = materialSchema.partial().refine((value) => Object.keys(value).length > 0, {
-  message: "At least one material field is required",
-});
+const materialUpdateSchema = materialSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "At least one material field is required" }
+);
 
 const laborRateSchema = z.object({
   role: z.string().trim().min(1).max(120),
@@ -87,7 +88,7 @@ const equipmentUpdateSchema = z.object({
   message: "At least one equipment field is required",
 });
 
-const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.string().uuid().optional() }).strict();
+const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
 const laborListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), trade: z.string().trim().max(120).optional() }).strict();
 const equipmentListQuerySchema = catalogQuerySchema.strict();
 const divisionsListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional() }).strict();
@@ -137,7 +138,7 @@ export const costbookController = {
   async listMaterials(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     const parsed = materialsListQuerySchema.parse(req.query);
-    res.json(await service.listMaterialsPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], { supplierId: parsed.supplierId })));
+    res.json(await service.listMaterialsPage(auth.orgId, toCatalogQuery(parsed, "name", ["name", "createdAt", "updatedAt"], { supplierId: parsed.supplierId, active: parsed.active })));
   },
   async getMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
@@ -201,7 +202,15 @@ export const costbookController = {
   async updateMaterial(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.write"]);
     const { id } = idParamSchema.parse(req.params);
-    res.json(await service.updateMaterial(auth, id, materialUpdateSchema.parse(req.body)));
+    const input = materialUpdateSchema.parse(req.body);
+    if (input.isActive !== undefined) requirePermissions(req, ["costbook.manage"]);
+    res.json(await service.updateMaterial(auth, id, input));
+  },
+  async removeMaterial(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    await service.deactivateMaterial(auth, id);
+    res.status(204).send();
   },
   async listDivisions(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);

@@ -2,7 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Check, Pencil, Plus, X } from "lucide-react";
+import { Ban, Check, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,11 @@ const emptyForm: MaterialFormState = {
 export function MaterialsCatalog({
   initialMaterials,
   canWrite,
+  canManage,
 }: {
   initialMaterials: CostbookMaterial[];
   canWrite: boolean;
+  canManage: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
@@ -82,12 +84,25 @@ export function MaterialsCatalog({
         const next = editingId
           ? current.map((material) => (material.id === saved.id ? saved : material))
           : [...current, saved];
-        return next.sort((a, b) => a.name.localeCompare(b.name) || (a.sku ?? "").localeCompare(b.sku ?? ""));
+        return sortMaterials(next);
       });
       setEditingId(null);
       setForm(emptyForm);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Material could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeactivate(id: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      await clientFetch<void>(`/costbook/materials/${id}`, { method: "DELETE" });
+      setMaterials((current) => sortMaterials(current.map((material) => (material.id === id ? { ...material, isActive: false } : material))));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Material could not be deactivated.");
     } finally {
       setSaving(false);
     }
@@ -183,6 +198,7 @@ export function MaterialsCatalog({
                   <th scope="col" className="px-4 py-3 text-right font-medium">Unit Cost</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Waste</th>
                   <th scope="col" className="px-4 py-3 font-medium">Supplier</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
                   {canWrite ? <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th> : null}
                 </tr>
               </thead>
@@ -195,12 +211,21 @@ export function MaterialsCatalog({
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{formatCurrency(material.unitCost)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{material.wasteFactorPct}%</td>
                     <td className="px-4 py-3 text-muted-foreground">{material.supplierName ?? "None"}</td>
+                    <td className="px-4 py-3"><StatusPill active={material.isActive} /></td>
                     {canWrite ? (
                       <td className="px-4 py-3 text-right">
-                        <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
-                          <Pencil className="size-4" aria-hidden="true" />
-                          Edit
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
+                            <Pencil className="size-4" aria-hidden="true" />
+                            Edit
+                          </Button>
+                          {canManage && material.isActive ? (
+                            <Button type="button" variant="outline" size="sm" onClick={() => handleDeactivate(material.id)} disabled={saving}>
+                              <Ban className="size-4" aria-hidden="true" />
+                              Deactivate
+                            </Button>
+                          ) : null}
+                        </div>
                       </td>
                     ) : null}
                   </tr>
@@ -214,7 +239,10 @@ export function MaterialsCatalog({
               <article key={material.id} className="grid gap-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-foreground">{material.name}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-semibold text-foreground">{material.name}</h2>
+                      <StatusPill active={material.isActive} />
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">{material.sku ?? "Unassigned SKU"}</p>
                   </div>
                   <div className="text-right font-mono text-sm font-semibold tabular-nums">{formatCurrency(material.unitCost)}</div>
@@ -226,10 +254,18 @@ export function MaterialsCatalog({
                   <Metric label="Updated" value={formatDate(material.updatedAt)} />
                 </dl>
                 {canWrite ? (
-                  <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                    Edit
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
+                      <Pencil className="size-4" aria-hidden="true" />
+                      Edit
+                    </Button>
+                    {canManage && material.isActive ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => handleDeactivate(material.id)} disabled={saving}>
+                        <Ban className="size-4" aria-hidden="true" />
+                        Deactivate
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
               </article>
             ))}
@@ -274,4 +310,19 @@ function formatCurrency(value: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function sortMaterials(materials: CostbookMaterial[]): CostbookMaterial[] {
+  return [...materials].sort((a, b) => {
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    return a.name.localeCompare(b.name) || (a.sku ?? "").localeCompare(b.sku ?? "");
+  });
+}
+
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${active ? "border-success/30 bg-success/10 text-success" : "border-border/70 bg-muted text-muted-foreground"}`}>
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
 }
