@@ -1,0 +1,41 @@
+{
+  "lastRunAt": "2026-09-12T10:00:00Z",
+  "runNotes": "No live crawl executed. This file records what was actually possible from a sandboxed session with no outbound access to jonesandsons.com (confirmed via a blocked control request to an unrelated domain). discoveredProducts includes only URLs actually observed via WebSearch result snippets plus the 2 URLs supplied directly in the task prompt -- it is not the output of a systematic site crawl and must not be read as catalog coverage.",
+  "discoveredProducts": [
+    { "url": "https://jonesandsons.com/products/8-ca-11-crushed-limestone-1-to-1-2", "discoveredVia": "task-supplied seed evidence" },
+    { "url": "https://jonesandsons.com/products/11-ca-16-crushed-limestone-1-2-to-3-32", "discoveredVia": "task-supplied seed evidence" },
+    { "url": "https://jonesandsons.com/products/9-crushed-limestone-3-4-to-3-32", "discoveredVia": "web search snippet, this session" },
+    { "url": "https://jonesandsons.com/products/2-crushed-limestone-2-to-1-2", "discoveredVia": "web search snippet, this session" },
+    { "url": "https://jonesandsons.com/products/12-crushed-limestone-3-8-to-3-16", "discoveredVia": "web search snippet, this session" },
+    { "url": "https://jonesandsons.com/products/7-8-crushed-limestone-1-to-1-2", "discoveredVia": "web search snippet, this session" }
+  ],
+  "attemptedProducts": 0,
+  "importedProducts": 8,
+  "skippedProducts": [],
+  "failedProducts": [
+    {
+      "url": "https://jonesandsons.com/products/9-crushed-limestone-3-4-to-3-32",
+      "reason": "rate_limited",
+      "detail": "Not literally rate-limited by the supplier; this session's outbound network egress proxy blocked jonesandsons.com entirely (EGRESS_BLOCKED), so the page was never requested. Logged under the closest available reason code from the task's own taxonomy. Confirmed as a general sandbox restriction, not a site-specific block, via an identical failure fetching an unrelated domain (bls.gov)."
+    },
+    {
+      "url": "https://jonesandsons.com/products/2-crushed-limestone-2-to-1-2",
+      "reason": "rate_limited",
+      "detail": "Same environment-level egress block as above; not attempted."
+    },
+    {
+      "url": "https://jonesandsons.com/products/12-crushed-limestone-3-8-to-3-16",
+      "reason": "rate_limited",
+      "detail": "Same environment-level egress block as above; not attempted."
+    },
+    {
+      "url": "https://jonesandsons.com/products/7-8-crushed-limestone-1-to-1-2",
+      "reason": "rate_limited",
+      "detail": "Same environment-level egress block as above; not attempted."
+    }
+  ],
+  "terreHauteVerified": 2,
+  "genericSupplierPrices": 6,
+  "quoteRequired": 1,
+  "readyMixExcludedFromCandidates": true
+}

@@ -1,0 +1,49 @@
+{
+  "note": "Hand-derived to mirror app/modules/costbook/jonesAndSonsTerreHaute.ts exactly, for audit purposes. The TS module is the single source of truth consumed by the ingestion path; this file documents what it computes and will be regenerated automatically by scripts/costbook-import-jones-and-sons.mjs once that script is run against real crawl output.",
+  "generatedFrom": "app/modules/costbook/jonesAndSonsTerreHaute.ts",
+  "terreHauteVerified": [
+    {
+      "normalizedMaterialName": "Crushed Limestone #8 / CA-11",
+      "supplierProductName": "#8/CA-11 Crushed Limestone (1\" to 1/2\")",
+      "supplierSku": "XX8.07",
+      "trade": "Sitework",
+      "category": "Aggregate",
+      "unitOfMeasure": "ton",
+      "materialCostTypical": 29.75,
+      "sourceUrl": "https://jonesandsons.com/products/8-ca-11-crushed-limestone-1-to-1-2",
+      "regionalBasis": "Jones & Sons — Terre Haute, IN branch",
+      "confidence": "high",
+      "provenanceStatus": "documented"
+    },
+    {
+      "normalizedMaterialName": "Crushed Limestone #11 / CA-16",
+      "supplierProductName": "#11/CA-16 Crushed Limestone (1/2\" to 3/32\")",
+      "supplierSku": "XX11.07",
+      "trade": "Sitework",
+      "category": "Aggregate",
+      "unitOfMeasure": "ton",
+      "materialCostTypical": 30.95,
+      "sourceUrl": "https://jonesandsons.com/products/11-ca-16-crushed-limestone-1-2-to-3-32",
+      "regionalBasis": "Jones & Sons — Terre Haute, IN branch",
+      "confidence": "high",
+      "provenanceStatus": "documented"
+    }
+  ],
+  "observedUnverified": [
+    { "normalizedMaterialName": "Crushed Limestone #53", "supplierSku": "XX53.01", "trade": "Sitework", "category": "Aggregate", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 23.95, "confidence": "low", "provenanceStatus": "documented" },
+    { "normalizedMaterialName": "Crushed Limestone #11", "supplierSku": "XX11.01", "trade": "Sitework", "category": "Aggregate", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 31.95, "confidence": "low", "provenanceStatus": "documented" },
+    { "normalizedMaterialName": "Crushed Limestone #5", "supplierSku": "XX5.01", "trade": "Sitework", "category": "Aggregate", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 29.50, "confidence": "low", "provenanceStatus": "documented" },
+    { "normalizedMaterialName": "Washed Sand (Coarse) #23", "supplierSku": "XXWS.01", "trade": "Concrete", "category": "Aggregate", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 16.95, "confidence": "low", "provenanceStatus": "documented" },
+    { "normalizedMaterialName": "Pea Gravel", "supplierSku": "XXPG.01", "trade": "Sitework", "category": "Aggregate", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 24.75, "confidence": "low", "provenanceStatus": "documented" },
+    { "normalizedMaterialName": "Mortar Sand (Fine)", "supplierSku": "XXMS.01", "trade": "Masonry", "category": "Sand", "unitOfMeasure": "ton", "unitAssumed": true, "materialCostTypical": 37.00, "confidence": "low", "provenanceStatus": "documented" }
+  ],
+  "quoteRequired": [
+    {
+      "productName": "Ready Mixed Concrete",
+      "supplierBranch": "Terre Haute",
+      "pricingModel": "per_yard_via_dispatch",
+      "price": null,
+      "note": "Not a candidate; see JONES_AND_SONS_READY_MIX_AVAILABILITY in the TS module."
+    }
+  ]
+}
