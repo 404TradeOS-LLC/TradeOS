@@ -67,14 +67,27 @@ const EXCLUDE_KEYWORDS = [
 ];
 
 const BRANCH_NAMES = ["Terre Haute", "Vincennes", "Washington", "Bloomfield"];
+const TERRE_HAUTE_BRANCH = "Terre Haute";
 // Matches explicit branch-pickup language such as "Pickup available at
-// Terre Haute" or "Terre Haute pickup". Deliberately conservative: this is
-// the ONLY thing allowed to set regionalScope to "branch_verified".
+// Terre Haute" or "Terre Haute pickup", for ANY of the four branches - the
+// matched branch name is then compared against TERRE_HAUTE_BRANCH before a
+// record can ever be marked "branch_verified" (see extractBranchEvidence).
+// This is deliberately conservative: it is the ONLY thing allowed to set
+// regionalScope to "branch_verified".
 const BRANCH_EVIDENCE_PATTERN = new RegExp(
   `(pickup[^.]{0,40}(${BRANCH_NAMES.join("|")})|(${BRANCH_NAMES.join("|")})[^.]{0,40}pickup)`,
   "i"
 );
 const READY_MIX_PATTERN = /ready[\s-]?mix(ed)?\s+concrete/i;
+
+/** Finds branch-pickup evidence in text and identifies which branch it names. */
+function extractBranchEvidence(text) {
+  const match = BRANCH_EVIDENCE_PATTERN.exec(text);
+  if (!match) return null;
+  const evidence = match[0];
+  const branch = BRANCH_NAMES.find((name) => evidence.toLowerCase().includes(name.toLowerCase())) ?? null;
+  return { evidence, branch };
+}
 
 function classifyTier(name) {
   const lower = name.toLowerCase();
@@ -85,19 +98,26 @@ function classifyTier(name) {
   return null;
 }
 
+const KNOWN_UNITS = {
+  tn: "ton", tons: "ton", ton: "ton",
+  ea: "each", each: "each",
+  lb: "lb", lbs: "lb",
+  cy: "cubic_yard", "yd3": "cubic_yard", "yd³": "cubic_yard",
+  sf: "sq_ft", sqft: "sq_ft",
+  lf: "linear_ft", linft: "linear_ft",
+  bag: "bag", bags: "bag",
+};
+
+// Only a recognized unit token counts as source-confirmed. Shopify variants
+// have no reliable dedicated unit field, so callers may pass a fallback
+// like option1 (frequently "Default Title", a size, or an unrelated
+// product option) - if it doesn't match a known unit exactly, it must be
+// treated as unresolved/assumed rather than accepted at face value.
 function normalizeUnit(rawUnit) {
   if (!rawUnit) return { unit: undefined, assumed: true };
-  const table = {
-    tn: "ton", tons: "ton", ton: "ton",
-    ea: "each", each: "each",
-    lb: "lb", lbs: "lb",
-    cy: "cubic_yard", "yd3": "cubic_yard", "yd³": "cubic_yard",
-    sf: "sq_ft", sqft: "sq_ft",
-    lf: "linear_ft", linft: "linear_ft",
-    bag: "bag", bags: "bag",
-  };
   const key = rawUnit.trim().toLowerCase();
-  return { unit: table[key] ?? key, assumed: false };
+  if (key in KNOWN_UNITS) return { unit: KNOWN_UNITS[key], assumed: false };
+  return { unit: undefined, assumed: true };
 }
 
 async function sleep(ms) {
@@ -157,46 +177,90 @@ async function fetchProductJson(handle) {
   }
 }
 
-function toRawRecord({ product, sourceUrl }) {
-  if (!product) return null;
+/** Returns an array of raw records for one product: one "material" entry per
+ * priced variant, or a single "ready-mix"/"skip" marker. A multi-variant
+ * material product (e.g. distinct bag sizes or grades) must not silently
+ * collapse to just its first variant. */
+function toRawRecords({ product, sourceUrl }) {
+  if (!product) return [];
   const tier = classifyTier(product.title ?? "");
   if (READY_MIX_PATTERN.test(product.title ?? "")) {
-    return { kind: "ready-mix", productName: product.title, sourceUrl };
+    return [{ kind: "ready-mix", productName: product.title, sourceUrl }];
   }
   if (tier === null) {
-    return { kind: "skip", reason: "irrelevant_product", productName: product.title, sourceUrl };
+    return [{ kind: "skip", reason: "irrelevant_product", productName: product.title, sourceUrl }];
   }
 
-  const variant = (product.variants ?? [])[0];
-  if (!variant || variant.price == null) {
-    return { kind: "skip", reason: "no_price", productName: product.title, sourceUrl };
-  }
-  const price = Number(variant.price);
-  if (!(price > 0)) {
-    return { kind: "skip", reason: "no_price", productName: product.title, sourceUrl };
+  const pricedVariants = (product.variants ?? []).filter(
+    (variant) => variant.price != null && Number(variant.price) > 0
+  );
+  if (pricedVariants.length === 0) {
+    return [{ kind: "skip", reason: "no_price", productName: product.title, sourceUrl }];
   }
 
   const descriptionText = `${product.body_html ?? ""} ${(product.tags ?? []).join(" ")}`;
-  const branchMatch = BRANCH_EVIDENCE_PATTERN.exec(descriptionText);
-  const branchEvidence = branchMatch ? branchMatch[0] : null;
-  const { unit, assumed } = normalizeUnit(variant.unit ?? variant.option1);
+  const branchMatch = extractBranchEvidence(descriptionText);
+  const isTerreHauteVerified = branchMatch?.branch === TERRE_HAUTE_BRANCH;
+
+  return pricedVariants.map((variant) => {
+    const price = Number(variant.price);
+    const { unit, assumed } = normalizeUnit(variant.unit ?? variant.option1);
+    return {
+      kind: "material",
+      supplier: "Jones & Sons",
+      supplierSku: variant.sku || null,
+      supplierVariant: variant.title !== "Default Title" ? variant.title : null,
+      productName: product.title,
+      unit,
+      unitAssumed: assumed,
+      price,
+      priceUnit: unit,
+      currency: "USD",
+      sourceUrl,
+      sourceType: "supplier_product_page",
+      regionalScope: isTerreHauteVerified ? "branch_verified" : "unconfirmed",
+      branchEvidence: isTerreHauteVerified ? branchMatch.evidence : null,
+      tier,
+    };
+  });
+}
+
+/** Buckets crawled materials into the same terreHauteVerified/observedUnverified/
+ * quoteRequired shape as normalized/2026-09-12-seed.json. `trade` and `category`
+ * are curated classifications (see JonesAndSonsRecord in jonesAndSonsTerreHaute.ts)
+ * that this crawler cannot reliably derive from raw Shopify product JSON, so they
+ * are left for the human review step rather than guessed. */
+function buildNormalizedSnapshot(materials, readyMixNotes) {
+  const toEntry = (m) => ({
+    supplierProductName: m.productName,
+    supplierSku: m.supplierSku,
+    supplierVariant: m.supplierVariant,
+    trade: null,
+    category: null,
+    unitOfMeasure: m.unit ?? null,
+    unitAssumed: m.unitAssumed,
+    materialCostTypical: m.price,
+    sourceUrl: m.sourceUrl,
+    regionalBasis: m.branchEvidence,
+    confidence: m.regionalScope === "branch_verified" ? "high" : "low",
+    provenanceStatus: "documented",
+  });
 
   return {
-    kind: "material",
-    supplier: "Jones & Sons",
-    supplierSku: variant.sku || null,
-    supplierVariant: variant.title !== "Default Title" ? variant.title : null,
-    productName: product.title,
-    unit,
-    unitAssumed: assumed,
-    price,
-    priceUnit: unit,
-    currency: "USD",
-    sourceUrl,
-    sourceType: "supplier_product_page",
-    regionalScope: branchEvidence ? "branch_verified" : "unconfirmed",
-    branchEvidence,
-    tier,
+    note:
+      "Generated by scripts/costbook-import-jones-and-sons.mjs from raw crawl output. " +
+      "trade/category are left null pending human classification - toJonesAndSonsCandidate() " +
+      "and the curated JonesAndSonsRecord entries in jonesAndSonsTerreHaute.ts remain the " +
+      "governed path into the Costbook candidate pipeline.",
+    generatedAt: new Date().toISOString(),
+    terreHauteVerified: materials.filter((m) => m.regionalScope === "branch_verified").map(toEntry),
+    observedUnverified: materials.filter((m) => m.regionalScope !== "branch_verified").map(toEntry),
+    quoteRequired: readyMixNotes.map((r) => ({
+      productName: r.productName,
+      sourceUrl: r.sourceUrl,
+      pricingModel: "per_yard_via_dispatch",
+      price: null,
+    })),
   };
 }
 
@@ -228,9 +292,11 @@ async function main() {
   await mkdir(NORMALIZED_DIR, { recursive: true });
 
   const progress = await loadProgress();
-  const alreadyAttempted = new Set(
-    [...progress.skippedProducts, ...progress.failedProducts].map((entry) => entry.url)
-  );
+  // Only permanently-skipped products (irrelevant, no price) are excluded on
+  // resume. Failed products (rate-limited, transient fetch/parse errors)
+  // must remain eligible for retry on the next run, or a resumed crawl can
+  // never recover them without manually editing progress.json.
+  const alreadyAttempted = new Set(progress.skippedProducts.map((entry) => entry.url));
 
   console.log("Discovering product handles from sitemap...");
   const handles = await discoverProductHandles();
@@ -240,6 +306,7 @@ async function main() {
   const readyMixNotes = [];
   const skipped = [];
   const failed = [];
+  const retried = new Set();
   let attempted = 0;
 
   for (const handle of handles) {
@@ -247,6 +314,7 @@ async function main() {
     if (alreadyAttempted.has(sourceUrl)) continue;
     if (attempted >= limit) break;
 
+    retried.add(sourceUrl);
     await sleep(REQUEST_DELAY_MS);
     attempted += 1;
     const result = await fetchProductJson(handle);
@@ -255,15 +323,18 @@ async function main() {
       continue;
     }
 
-    const record = toRawRecord(result);
-    if (!record) {
+    const records = toRawRecords(result);
+    if (records.length === 0) {
       failed.push({ url: sourceUrl, reason: "malformed_page" });
-    } else if (record.kind === "skip") {
-      skipped.push({ url: sourceUrl, reason: record.reason });
-    } else if (record.kind === "ready-mix") {
-      readyMixNotes.push(record);
-    } else {
-      materials.push(record);
+    }
+    for (const record of records) {
+      if (record.kind === "skip") {
+        skipped.push({ url: sourceUrl, reason: record.reason });
+      } else if (record.kind === "ready-mix") {
+        readyMixNotes.push(record);
+      } else {
+        materials.push(record);
+      }
     }
   }
 
@@ -276,7 +347,13 @@ async function main() {
     attemptedProducts: progress.attemptedProducts + attempted,
     importedProducts: progress.importedProducts + materials.length,
     skippedProducts: [...progress.skippedProducts, ...skipped],
-    failedProducts: [...progress.failedProducts, ...failed],
+    // Drop stale entries for URLs retried this run before appending their
+    // fresh outcome, so a URL that finally succeeds (or fails again) isn't
+    // duplicated or stuck under its old result.
+    failedProducts: [
+      ...progress.failedProducts.filter((entry) => !retried.has(entry.url)),
+      ...failed,
+    ],
     terreHauteVerified: progress.terreHauteVerified + terreHauteVerified,
     genericSupplierPrices: progress.genericSupplierPrices + genericSupplierPrices,
     quoteRequired: progress.quoteRequired + readyMixNotes.length,
@@ -289,6 +366,10 @@ async function main() {
 
   const dateStamp = new Date().toISOString().slice(0, 10);
   await writeFile(path.join(RAW_DIR, `${dateStamp}-crawl.json`), JSON.stringify({ materials, readyMixNotes }, null, 2));
+  await writeFile(
+    path.join(NORMALIZED_DIR, `${dateStamp}-crawl.json`),
+    JSON.stringify(buildNormalizedSnapshot(materials, readyMixNotes), null, 2)
+  );
   await writeFile(PROGRESS_PATH, JSON.stringify(updatedProgress, null, 2));
 
   console.log(`Imported ${materials.length} materials (${terreHauteVerified} Terre Haute verified, ${genericSupplierPrices} generic).`);
