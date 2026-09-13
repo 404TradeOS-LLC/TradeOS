@@ -63,7 +63,20 @@ export async function GET(request: NextRequest) {
     return resetRedirect(request, "invalid-link");
   }
 
-  response.cookies.set("tradeos-recovery", "1", {
+  // Bind the short-lived recovery marker to the identity Supabase just
+  // authenticated. resetPasswordAction re-verifies the active Supabase user
+  // and requires this exact ID before allowing updateUser({ password }).
+  // A constant marker would make every legitimate recovery fail closed.
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    if (userError) console.error("Password recovery identity validation failed:", userError.message);
+    return resetRedirect(request, "invalid-link");
+  }
+
+  response.cookies.set("tradeos-recovery", user.id, {
     httpOnly: true,
     maxAge: 600,
     path: "/",
