@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { NextRequest } from "next/server";
-import { handleRecoveryRequest } from "./route.ts";
+import { verifyRecoveryIdentity } from "./recovery-core.ts";
 
 const routeUrl = new URL("./route.ts", import.meta.url);
 
@@ -32,56 +31,47 @@ function createRecoveryClient(options: { userId?: string; calls: string[] }) {
   };
 }
 
-async function executeRecovery(url: string, options: { userId?: string; calls: string[] }) {
-  return handleRecoveryRequest(new NextRequest(url), () => createRecoveryClient(options));
-}
-
-test("PKCE recovery binds the marker cookie to the verified user after exchange", async () => {
+test("PKCE recovery verifies the session before returning the recovered user id", async () => {
   const calls: string[] = [];
-  const response = await executeRecovery("https://app.404tradeos.com/auth/confirm?code=pkce-code", {
-    userId: "11111111-1111-4111-8111-111111111111",
-    calls,
-  });
+  const result = await verifyRecoveryIdentity(
+    createRecoveryClient({ userId: "11111111-1111-4111-8111-111111111111", calls }),
+    { code: "pkce-code", tokenHash: null, type: null },
+  );
 
   assert.deepEqual(calls, ["exchange:pkce-code", "getUser"]);
-  assert.equal(response.cookies.get("tradeos-recovery")?.value, "11111111-1111-4111-8111-111111111111");
-  assert.equal(response.headers.get("location"), "https://app.404tradeos.com/reset-password");
+  assert.deepEqual(result, { ok: true, userId: "11111111-1111-4111-8111-111111111111" });
 });
 
-test("token-hash recovery binds the marker cookie to the verified user after OTP verification", async () => {
+test("token-hash recovery verifies the OTP before returning the recovered user id", async () => {
   const calls: string[] = [];
-  const response = await executeRecovery(
-    "https://app.404tradeos.com/auth/confirm?token_hash=recovery-hash&type=recovery",
-    {
-      userId: "22222222-2222-4222-8222-222222222222",
-      calls,
-    }
+  const result = await verifyRecoveryIdentity(
+    createRecoveryClient({ userId: "22222222-2222-4222-8222-222222222222", calls }),
+    { code: null, tokenHash: "recovery-hash", type: "recovery" },
   );
 
   assert.deepEqual(calls, ["verify:recovery-hash:recovery", "getUser"]);
-  assert.equal(response.cookies.get("tradeos-recovery")?.value, "22222222-2222-4222-8222-222222222222");
-  assert.equal(response.headers.get("location"), "https://app.404tradeos.com/reset-password");
+  assert.deepEqual(result, { ok: true, userId: "22222222-2222-4222-8222-222222222222" });
 });
 
-test("recovery callback fails closed when the exchanged session has no verified user", async () => {
+test("recovery verification fails closed when the exchanged session has no verified user", async () => {
   const calls: string[] = [];
-  const response = await executeRecovery("https://app.404tradeos.com/auth/confirm?code=pkce-code", { calls });
+  const result = await verifyRecoveryIdentity(createRecoveryClient({ calls }), {
+    code: "pkce-code",
+    tokenHash: null,
+    type: null,
+  });
 
   assert.deepEqual(calls, ["exchange:pkce-code", "getUser"]);
-  assert.equal(response.cookies.get("tradeos-recovery"), undefined);
-  assert.equal(response.headers.get("location"), "https://app.404tradeos.com/reset-password?error=invalid-link");
+  assert.deepEqual(result, { ok: false, stage: "identity", message: undefined });
 });
 
-test("recovery route keeps the verified-user ordering contract in source", async () => {
+test("recovery route writes only the verified identity into the HttpOnly marker", async () => {
   const source = await readRecoveryRouteSource();
-  const exchangeIndex = source.indexOf("exchangeCodeForSession(code)");
-  const getUserIndex = source.indexOf("supabase.auth.getUser()");
-  const cookieIndex = source.indexOf('response.cookies.set("tradeos-recovery", user.id');
 
-  assert.notEqual(exchangeIndex, -1, "expected PKCE recovery exchange");
-  assert.notEqual(getUserIndex, -1, "expected server-side identity verification");
-  assert.notEqual(cookieIndex, -1, "expected recovery marker to contain the verified user id");
-  assert.ok(exchangeIndex < getUserIndex, "identity must be read only after the recovery exchange succeeds");
-  assert.ok(getUserIndex < cookieIndex, "the marker must be written only after identity verification");
+  assert.match(source, /verifyRecoveryIdentity\(supabase, \{ code, tokenHash, type \}\)/);
+  assert.match(source, /response\.cookies\.set\("tradeos-recovery", verification\.userId,/);
+  assert.match(source, /httpOnly:\s*true/);
   assert.doesNotMatch(source, /cookies\.set\(\s*["']tradeos-recovery["']\s*,\s*["']1["']/);
+  assert.match(source, /request\.cookies\.set\(name, value\)/);
+  assert.match(source, /response\.cookies\.set\(name, value, options\)/);
 });
