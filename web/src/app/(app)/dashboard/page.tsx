@@ -36,6 +36,8 @@ import { buildContinueWorkingRows } from "@/components/dashboard/continue-workin
 import { ContinueWorkingPanel } from "@/components/dashboard/continue-working-panel";
 import { buildReceivablesSummary } from "@/components/dashboard/receivables-model";
 import { ReceivablesCard } from "@/components/dashboard/receivables-card";
+import { FinancialIntelligenceCard } from "@/components/dashboard/financial-intelligence-card";
+import { buildFinancialIntelligenceSummary } from "@/components/dashboard/financial-intelligence-model";
 import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
 import { buildProjectActivityEntries, mergeActivityEntries } from "@/components/dashboard/project-activity-model";
 import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
@@ -336,6 +338,14 @@ export default async function DashboardPage() {
     overdueInvoiceTotal: invoiceAttentionQueues.overdue.total,
     openInvoiceTotal: invoiceAttentionQueues.unpaid.total,
   });
+  const financialIntelligenceSummary = buildFinancialIntelligenceSummary({
+    paymentLedger,
+    receivables: receivablesSummary,
+    proposals: attentionProposals,
+    unsignedProposalTotal: proposalAttentionQueues.unsigned.total,
+    invoiceError: invoiceAttentionQueues.error,
+    proposalError: proposalAttentionQueues.error,
+  });
   const mergedActivityEntries = mergeActivityEntries(taskActivityError ? [] : taskActivityEntries, projectActivityError ? [] : projectActivityEntries);
   const activityErrorMessage =
     taskActivityError && projectActivityError
@@ -401,6 +411,8 @@ export default async function DashboardPage() {
       </div>
 
       <OwnerKpiGrid kpis={ownerKpis} />
+
+      <FinancialIntelligenceCard summary={financialIntelligenceSummary} />
 
       <ReceivablesCard summary={receivablesSummary} errorMessage={invoiceAttentionQueues.error} />
 
