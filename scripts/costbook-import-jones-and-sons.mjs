@@ -88,12 +88,19 @@ const NEGATION_PATTERN = /\b(not|no|never|unavailable|discontinued)\b/i;
 const READY_MIX_PATTERN = /ready[\s-]?mix(ed)?\s+concrete/i;
 
 /** Finds branch-pickup evidence in text and identifies which branch it names.
- * Returns null if the only match found is negated (pickup NOT available). */
+ * Returns null if the containing clause is negated (pickup NOT available).
+ * The negation check inspects the whole sentence around the match, not just
+ * the regex capture itself - "No pickup at Terre Haute" and "Terre Haute
+ * pickup is not available" both put the negation word outside match[0]. */
 function extractBranchEvidence(text) {
   const match = BRANCH_EVIDENCE_PATTERN.exec(text);
   if (!match) return null;
   const evidence = match[0];
-  if (NEGATION_PATTERN.test(evidence)) return null;
+  const clauseStart = text.lastIndexOf(".", match.index) + 1;
+  const periodAfter = text.indexOf(".", match.index + evidence.length);
+  const clauseEnd = periodAfter === -1 ? text.length : periodAfter;
+  const clause = text.slice(clauseStart, clauseEnd);
+  if (NEGATION_PATTERN.test(clause)) return null;
   const branch = BRANCH_NAMES.find((name) => evidence.toLowerCase().includes(name.toLowerCase())) ?? null;
   return { evidence, branch };
 }
@@ -158,10 +165,11 @@ async function fetchWithRetry(url) {
         redirect: "error",
         signal: controller.signal,
       });
-      const retryable = response.status === 429 || (response.status >= 500 && response.status < 600);
+      const isServerError = response.status >= 500 && response.status < 600;
+      const retryable = response.status === 429 || isServerError;
       if (retryable) {
         if (attempt === MAX_RETRIES) {
-          return { ok: false, status: response.status, reason: "rate_limited" };
+          return { ok: false, status: response.status, reason: response.status === 429 ? "rate_limited" : "server_error" };
         }
         await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1));
         continue;
@@ -171,20 +179,23 @@ async function fetchWithRetry(url) {
       }
       const body = await response.text();
       return { ok: true, status: response.status, body };
-    } catch {
+    } catch (error) {
       // Network error, timeout, or a redirect refused by `redirect: "error"`.
-      // Treated as transient and retried with backoff, same as a 429/5xx,
-      // so a flaky connection can't crash the whole crawl before progress
-      // is saved.
+      // Treated as transient and retried with backoff, same as a 429/5xx, so
+      // a flaky connection can't crash the whole crawl before progress is
+      // saved - but the reason is preserved distinctly rather than
+      // collapsed into "rate_limited" so progress.json reflects what
+      // actually happened.
+      const reason = error.name === "AbortError" ? "timeout" : "network_error";
       if (attempt === MAX_RETRIES) {
-        return { ok: false, status: 0, reason: "rate_limited" };
+        return { ok: false, status: 0, reason };
       }
       await sleep(RETRY_BACKOFF_MS[attempt] ?? RETRY_BACKOFF_MS.at(-1));
     } finally {
       clearTimeout(timeout);
     }
   }
-  return { ok: false, status: 0, reason: "rate_limited" };
+  return { ok: false, status: 0, reason: "network_error" };
 }
 
 /** Discovers product handles from Shopify's public sitemap index. */
