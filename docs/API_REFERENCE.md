@@ -54,6 +54,9 @@ Public routes are limited to:
 requires `documents.manage`. Its body is `{ customerId }`; it returns a raw,
 high-entropy `token` exactly once to the authenticated caller, along with its
 customer scope and expiration. The raw token is never persisted or logged.
+After the token row is created, the service schedules a server-side
+transactional email to the customer record through the shared Resend adapter;
+email delivery does not expand the endpoint's `documents.manage` boundary.
 `POST /api/v1/customer-portal/access-tokens/:id/revoke` is staff-authenticated,
 requires `documents.manage`, and revokes the access value plus every session
 redeemed from it.

@@ -76,6 +76,10 @@ scope. Public requests use a dedicated portal database session with
 lookups re-check the project/customer relationship. The portal does not reuse a
 staff role. Its only write policy is the exact pending-contract signing
 transition, with a separate contract-event insert policy.
+Issuance also schedules the raw one-time value for server-side transactional
+email delivery after the hashed token record exists. The provider API key and
+message construction remain in the backend email adapter; no browser or portal
+principal receives provider credentials or gains staff-route authority.
 
 The S018/S042 hardening keeps this three-layer boundary intact: locally issued access JWTs expire after a finite default lifetime and reject malformed registered claims, refresh rotation is single-use under concurrency, local refresh sessions are revoked at logout/password reset/inactive-account rejection, and inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path with finite `exp`/`iat` required; captured access JWTs remain valid until expiry by policy. S043 records server-derived authentication outcomes, authorization denials, security decisions, and sensitive-action terminal outcomes in the durable Athena audit trail when a verified organization context exists; malformed tokens without trustworthy tenant context remain fail-closed and are never enriched from client input.
 
