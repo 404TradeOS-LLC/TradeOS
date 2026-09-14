@@ -13,11 +13,10 @@ const MAX_NUMERIC_18_4 = 99_999_999_999_999.98;
 const MAX_INT32 = 2_147_483_647;
 
 function hasAtMostFourDecimalPlaces(value: number): boolean {
-  // Compare the parsed Number against its four-decimal representation instead
-  // of multiplying by 10,000. Multiplication introduces binary floating-point
-  // error for otherwise valid large values (for example 77,468,232.54), which
-  // previously caused false validation failures during governed imports.
-  return Number(value.toFixed(4)) === value;
+  const scaled = value * 10_000;
+  const nearestInteger = Math.round(scaled);
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(scaled));
+  return Math.abs(scaled - nearestInteger) <= tolerance;
 }
 
 function boundedNumeric(max: number) {
