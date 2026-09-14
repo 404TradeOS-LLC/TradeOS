@@ -108,6 +108,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Two dashboard sections (Knowledge Runtime Coverage, Recent project
   lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
   Needs Attention, the KPI grid, and Quick Actions always stay expanded.
+- Owner-dashboard KPI icon metadata crosses the React Server Component boundary as serializable identifiers; the client-side KPI grid resolves those identifiers to Lucide components locally so dashboard rendering never passes component functions from the server into a client component.
 - `EmptyState` supports an optional decorative `icon`, applied only to
   genuinely-empty (not filtered) list views.
 
