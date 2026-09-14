@@ -43,7 +43,7 @@ export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntel
         </div>
         <div className="grid gap-3 md:grid-cols-3">
           <Link href="/dashboard#invoices-waiting" className="flex items-center gap-3 rounded-xl border border-border/60 p-4 transition-colors hover:bg-muted/30"><AlertTriangle className="size-5 text-warning" /><span><strong className="block text-sm">Protect collections</strong><small className="text-muted-foreground">Review overdue and open invoices</small></span></Link>
-          <Link href="/dashboard#proposals-waiting" className="flex items-center gap-3 rounded-xl border border-border/60 p-4 transition-colors hover:bg-muted/30"><FileSignature className="size-5 text-primary" /><span><strong className="block text-sm">Convert proposals</strong><small className="text-muted-foreground">Follow up on unsigned work</small></span></Link>
+          <Link href="/projects" className="flex items-center gap-3 rounded-xl border border-border/60 p-4 transition-colors hover:bg-muted/30"><FileSignature className="size-5 text-primary" /><span><strong className="block text-sm">Convert proposals</strong><small className="text-muted-foreground">Follow up on unsigned work</small></span></Link>
           <div className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4"><CircleDollarSign className="size-5 text-muted-foreground" /><span><strong className="block text-sm">Margin unavailable</strong><small className="text-muted-foreground">Awaiting an org-wide verified job-cost source</small></span></div>
         </div>
       </CardContent>
