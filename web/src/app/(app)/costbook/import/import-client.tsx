@@ -13,7 +13,8 @@ interface ImportFileShape {
   rejections?: unknown[];
 }
 
-const BATCH_SIZE = 500;
+// Keep each request comfortably below the backend JSON body-parser limit.
+const BATCH_SIZE = 100;
 
 export function CompositeImportClient() {
   const [fileName, setFileName] = useState<string | null>(null);
