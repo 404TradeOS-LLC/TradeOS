@@ -53,6 +53,16 @@ describe("Costbook composite price benchmark ingestion", () => {
     expect(quantity.sourceQuantity).toBe(131_689.33);
   });
 
+  it("accepts computed values that differ only by binary floating-point noise", () => {
+    const computed = compositePriceBenchmarkInputSchema.parse({
+      ...validRow,
+      lowPrice: 0.1 + 0.2,
+      weightedAvgPrice: 100,
+      highPrice: 600,
+    });
+    expect(computed.lowPrice).toBe(0.1 + 0.2);
+  });
+
   it("rejects weighted averages outside the stated low/high range", () => {
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 700 })).toThrow();
     expect(() => compositePriceBenchmarkInputSchema.parse({ ...validRow, weightedAvgPrice: 40 })).toThrow();
