@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   getDispatchSummary,
+  getFinancialSummary,
   getKnowledgeStats,
   getOrganizationSettings,
   getProject,
@@ -235,7 +236,7 @@ export default async function DashboardPage() {
   const { projects, settingsResponse } = token
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
-  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
+  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue, financialSummary] = token
     ? await Promise.all([
         loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
         getKnowledgeStats(token).catch(() => null),
@@ -244,6 +245,7 @@ export default async function DashboardPage() {
         loadInvoiceAttentionQueues(token),
         loadProposalAttentionQueues(token, staleProposalCutoffIso),
         loadEstimateAttentionQueue(token),
+        getFinancialSummary(token).catch(() => null),
       ])
     : [
         { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
@@ -253,6 +255,7 @@ export default async function DashboardPage() {
         { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), unpaidFailed: false, error: null as string | null },
         { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
+        null,
       ];
   const projectDetails = projectDetailsResult.items;
 
@@ -345,6 +348,7 @@ export default async function DashboardPage() {
     unsignedProposalTotal: proposalAttentionQueues.unsigned.total,
     invoiceError: invoiceAttentionQueues.error,
     proposalError: proposalAttentionQueues.error,
+    backendSummary: financialSummary,
   });
   const mergedActivityEntries = mergeActivityEntries(taskActivityError ? [] : taskActivityEntries, projectActivityError ? [] : projectActivityEntries);
   const activityErrorMessage =

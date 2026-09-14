@@ -4,6 +4,7 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 export const intelligenceRouter = Router();
 
+intelligenceRouter.get("/financial-summary", asyncHandler(intelligenceController.financialSummary));
 intelligenceRouter.get("/search", asyncHandler(intelligenceController.search));
 intelligenceRouter.get("/activity", asyncHandler(intelligenceController.listActivity));
 intelligenceRouter.post("/activity", asyncHandler(intelligenceController.createActivity));

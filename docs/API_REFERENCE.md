@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -166,6 +166,8 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/athena/observability`
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+
+`GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero.
 
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization

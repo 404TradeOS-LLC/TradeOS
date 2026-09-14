@@ -20,6 +20,7 @@ import { ContractsService } from "../modules/contracts/service";
 import { JobsService } from "../modules/jobs/service";
 import { AuthService } from "../modules/auth/service";
 import { OrganizationSettingsService } from "../modules/settings/service";
+import { FinancialSummaryService } from "../modules/intelligence/financialSummary";
 
 const appDatabaseUrl = requiredEnvironment("TEST_DATABASE_URL");
 const adminDatabaseUrl = requiredEnvironment("TEST_DATABASE_ADMIN_URL");
@@ -1794,7 +1795,7 @@ describe("live organization row-level security", () => {
       // Canonical status value "sent" remains distinct from "ready" in queue
       // reads; historical rows are still returned without cross-org leakage.
       await adminClient.estimate.create({
-        data: { id: estimateQueueA2, orgId: orgA, projectId: projectA, version: 11, status: "sent", totalPrice: 1000 },
+        data: { id: estimateQueueA2, orgId: orgA, projectId: projectA, version: 11, status: "sent", subtotalCost: 600, overheadPct: 10, totalPrice: 1000 },
       });
       await adminClient.estimate.create({
         data: { id: estimateQueueB1, orgId: orgB, projectId: projectB, version: 1, status: "draft", totalPrice: 777 },
@@ -1968,6 +1969,32 @@ describe("live organization row-level security", () => {
     it("invoices queue: never returns another organization's invoices, even unfiltered", async () => {
       const result = await inSession(adminUser, orgA, "admin", async () => new InvoicesService().listOrganizationQueue({ orgId: orgA }));
       expect(result.items.map((item) => item.id)).not.toContain(invoiceQueueB1);
+    });
+
+    it("financial summary: aggregates the session organization and forced RLS rejects a guessed organization", async () => {
+      const generatedAt = new Date();
+      const own = await inSession(adminUser, orgA, "admin", async () =>
+        new FinancialSummaryService().getOrganizationSummary(orgA, generatedAt)
+      );
+
+      expect(own.receivables.coverage.status).toBe("complete");
+      expect(own.receivables.openAmount).toBeGreaterThanOrEqual(1600);
+      expect(own.receivables.overdueAmount).toBeGreaterThanOrEqual(1600);
+      expect(own.unsignedOpportunity.amount).toBeGreaterThanOrEqual(750);
+      expect(own.projectedCommittedMargin).toMatchObject({
+        coverage: { status: "complete" },
+        estimateCount: expect.any(Number),
+      });
+      expect(own.projectedCommittedMargin.estimateCount).toBeGreaterThanOrEqual(1);
+      expect(own.projectedCommittedMargin.costAmount).toBeGreaterThanOrEqual(660);
+      expect(own.actualJobCosts).toMatchObject({ amount: null, coverage: { status: "unavailable" } });
+
+      const guessed = await inSession(adminUser, orgA, "admin", async () =>
+        new FinancialSummaryService().getOrganizationSummary(orgB, generatedAt)
+      );
+      expect(guessed.receivables).toMatchObject({ openAmount: 0, overdueAmount: 0, openInvoiceCount: 0, overdueInvoiceCount: 0 });
+      expect(guessed.unsignedOpportunity).toMatchObject({ amount: 0, proposalCount: 0 });
+      expect(guessed.projectedCommittedMargin).toMatchObject({ sellAmount: 0, costAmount: 0, estimateCount: 0 });
     });
 
     it("invoice detail: returns recorded payment history for the same org and fails closed across orgs", async () => {

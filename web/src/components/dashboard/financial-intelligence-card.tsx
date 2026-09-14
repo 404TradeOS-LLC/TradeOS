@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, CircleDollarSign, FileSignature, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, FileSignature, ShieldCheck, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/document-workflow";
 import type { FinancialIntelligenceSummary } from "./financial-intelligence-model";
@@ -19,6 +19,9 @@ function Metric({ label, value, helper, attention = false }: { label: string; va
 }
 
 export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntelligenceSummary }) {
+  const projectedMargin = summary.projectedMarginPct == null ? "Unavailable" : `${summary.projectedMarginPct.toFixed(1)}%`;
+  const generatedLabel = summary.generatedAt ? "Generated from live records" : "Live fallback sources";
+
   return (
     <Card className="overflow-hidden border-border/70">
       <CardHeader className="bg-foreground text-background">
@@ -26,11 +29,11 @@ export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntel
           <div>
             <CardTitle className="text-background">Financial intelligence</CardTitle>
             <CardDescription className="mt-2 max-w-2xl text-background/70">
-              Live, organization-scoped signals from recorded payments, invoice balances, and proposal queues.
+              Live organization-wide cash, exposure, opportunity, and estimate-backed margin signals.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-background/20 px-3 py-1.5 text-xs text-background/80">
-            <ShieldCheck className="size-4" aria-hidden="true" /> Verified sources
+            <ShieldCheck className="size-4" aria-hidden="true" /> {summary.exactOrganizationSummary ? "Organization-wide" : "Verified fallback"}
           </div>
         </div>
       </CardHeader>
@@ -44,7 +47,21 @@ export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntel
         <div className="grid gap-3 md:grid-cols-3">
           <Link href="/dashboard#invoices-waiting" className="flex items-center gap-3 rounded-xl border border-border/60 p-4 transition-colors hover:bg-muted/30"><AlertTriangle className="size-5 text-warning" /><span><strong className="block text-sm">Protect collections</strong><small className="text-muted-foreground">Review overdue and open invoices</small></span></Link>
           <Link href="/projects" className="flex items-center gap-3 rounded-xl border border-border/60 p-4 transition-colors hover:bg-muted/30"><FileSignature className="size-5 text-primary" /><span><strong className="block text-sm">Convert proposals</strong><small className="text-muted-foreground">Follow up on unsigned work</small></span></Link>
-          <div className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4"><CircleDollarSign className="size-5 text-muted-foreground" /><span><strong className="block text-sm">Margin unavailable</strong><small className="text-muted-foreground">Awaiting an org-wide verified job-cost source</small></span></div>
+          <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-primary/[0.04] p-4">
+            {summary.projectedMarginPct == null ? <CircleDollarSign className="size-5 text-muted-foreground" /> : <TrendingUp className="size-5 text-primary" />}
+            <span>
+              <strong className="block text-sm">Projected committed margin · {projectedMargin}</strong>
+              <small className="text-muted-foreground">
+                {summary.committedEstimateCount == null
+                  ? summary.projectedMarginCoverage.detail
+                  : `${summary.committedEstimateCount} accepted estimate snapshot${summary.committedEstimateCount === 1 ? "" : "s"}${summary.projectedGrossProfit == null ? "" : ` · ${formatCurrency(summary.projectedGrossProfit)} projected gross profit`}`}
+              </small>
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
+          <span>{generatedLabel}</span>
+          <span>Actual job margin remains locked until field labor, material, and equipment costs are captured.</span>
         </div>
       </CardContent>
     </Card>

@@ -50,5 +50,30 @@ test("failed sources stay unknown instead of becoming zero", () => {
   assert.equal(summary.collectedThisWeek, null);
   assert.equal(summary.outstandingReceivables, null);
   assert.equal(summary.unsignedProposalOpportunity, null);
-  assert.equal(summary.marginAvailable, false);
+  assert.equal(summary.projectedMarginPct, null);
+  assert.equal(summary.exactOrganizationSummary, false);
+});
+
+test("prefers the exact backend summary and exposes projected margin without claiming actual job cost", () => {
+  const summary = buildFinancialIntelligenceSummary({
+    paymentLedger: null,
+    receivables,
+    proposals: [],
+    unsignedProposalTotal: 0,
+    backendSummary: {
+      generatedAt: "2026-09-14T12:00:00.000Z",
+      cashCollected: { period: "current_week", amount: 1200, paymentCount: 3, rangeUtc: null, timezone: null, coverage: { status: "complete", detail: "complete" } },
+      receivables: { openAmount: 4200, overdueAmount: 700, openInvoiceCount: 4, overdueInvoiceCount: 1, coverage: { status: "complete", detail: "complete" } },
+      unsignedOpportunity: { amount: 9000, proposalCount: 2, pricedProposalCount: 2, coverage: { status: "complete", detail: "complete" } },
+      projectedCommittedMargin: { sellAmount: 10000, costAmount: 7000, grossProfit: 3000, marginPct: 30, estimateCount: 2, coverage: { status: "complete", detail: "estimate snapshots" } },
+      actualJobCosts: { amount: null, coverage: { status: "unavailable", detail: "not persisted" } },
+    },
+  });
+
+  assert.equal(summary.outstandingReceivables, 4200);
+  assert.equal(summary.unsignedProposalOpportunity, 9000);
+  assert.equal(summary.projectedMarginPct, 30);
+  assert.equal(summary.projectedGrossProfit, 3000);
+  assert.equal(summary.actualJobCostCoverage.status, "unavailable");
+  assert.equal(summary.exactOrganizationSummary, true);
 });

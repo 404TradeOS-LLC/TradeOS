@@ -1,28 +1,29 @@
 # Financial intelligence
 
-## Current production increment
+## Current implementation
 
-The owner dashboard derives its first financial-intelligence summary from existing organization-scoped sources:
+The owner dashboard prefers `GET /api/v1/intelligence/financial-summary`, a read-only organization-scoped aggregate built from existing persisted sources:
 
-- recorded payments from `GET /api/v1/payments/current-week`;
-- backend-computed invoice `balanceDue` values from the invoice work queue;
-- unsigned proposal amounts from the proposal work queue.
+- all recorded payments in the current organization week;
+- all open and overdue invoice balances after recorded payments;
+- all unsigned proposals and the sum of their known final prices;
+- unique estimate snapshots linked to accepted proposals, including pre-tax sell, overhead-adjusted cost, projected gross profit, and projected margin.
 
-The dashboard does not recompute invoice balances, infer missing proposal prices, or treat a failed request as zero. Bounded queue dollar totals are labeled as floors when the exact organization-wide count exceeds the loaded rows. Proposal opportunity is labeled as known prices only when records are missing an amount or the queue is paginated.
+Each source carries `complete`, `partial`, or `unavailable` coverage plus an explanation. The endpoint uses the authenticated organization id, requires `billing.read`, and runs inside the established request-scoped database session and forced-RLS boundary. Independent source failures return `null` values with unavailable coverage instead of replacing unknown money with zero or blanking healthy sources.
+
+The dashboard retains the earlier payment/invoice/proposal queue calculation as a degraded fallback if the aggregate endpoint itself is unavailable. It labels that state as fallback coverage rather than organization-wide exact coverage.
 
 ## Deliberately unavailable
 
-Committed margin and job profitability remain unavailable until TradeOS has an organization-wide, verified job-cost summary. The dashboard must not derive margin from a bounded recent-project fan-out or from estimate sell price alone.
+Realized job margin and job profitability remain unavailable because TradeOS does not yet persist actual labor, material, and equipment costs against jobs. The displayed projected committed margin is explicitly estimate-based: accepted proposals select the unique persisted estimate snapshots, cost includes persisted overhead, and sell excludes persisted tax. It is not presented as actual job margin.
 
 ## Next increment
 
-Add a read-only, organization-scoped financial summary endpoint that returns:
+Add an organization-scoped actual job-cost ledger that can capture verified:
 
-- recognized payments by period;
-- open and overdue receivables;
-- accepted and unsigned proposal value;
-- committed estimate cost and sell totals;
-- verified actual job costs;
-- source coverage and generated-at timestamps.
+- field labor time and burdened labor cost;
+- material usage and purchase cost;
+- equipment usage cost;
+- approved adjustments and source provenance.
 
-All values must preserve unknown/partial states and existing tenant/RLS boundaries.
+Only after that source exists should the summary expose realized gross profit, variance from estimate, or actual job margin.
