@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-09-14
 source_of_truth: false
 related_code:
   - app/modules/intelligence
@@ -17,7 +17,7 @@ related_code:
 
 ## Purpose
 
-Provide the shared activity, notification, recent-item, feature-flag, and search-oriented primitives that connect multiple product areas.
+Provide the shared activity, notification, recent-item, feature-flag, search, and read-only cross-domain summary primitives that connect multiple product areas.
 
 ## Source code locations
 
@@ -37,6 +37,7 @@ Provide the shared activity, notification, recent-item, feature-flag, and search
 ## Routes
 
 - `/api/v1/intelligence/*`
+- `GET /api/v1/intelligence/financial-summary` requires `billing.read` and returns source-aware organization-wide cash, receivables, unsigned opportunity, and projected accepted-estimate margin. Actual job costs remain explicitly unavailable until a verified job-cost ledger exists.
 - `GET /api/v1/intelligence/activity` returns org-scoped activity rows ordered by `occurredAt`/`createdAt`, capped server-side, and now requires `crm.read` whenever the request can include task events (explicit `entityType=task` or omitted `entityType`).
 
 ## Permissions
@@ -58,10 +59,13 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - notification center
 - project activity feed and related timeline surfaces
 - the owner dashboard's "Recent task movement" panel, sourced from `/api/v1/intelligence/activity?entityType=task`
+- the owner dashboard's Financial Intelligence card, sourced primarily from `/api/v1/intelligence/financial-summary`
 
 ## Tests
 
 - `app/tests/intelligence.service.test.ts`
+- `app/tests/financial-summary.service.test.ts`
+- `app/tests/financial-summary.controller.test.ts`
 
 ## Implementation notes
 
@@ -85,4 +89,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-09-10
+2026-09-14

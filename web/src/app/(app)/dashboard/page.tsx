@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   getDispatchSummary,
+  getFinancialSummary,
   getKnowledgeStats,
   getOrganizationSettings,
   getProject,
@@ -36,6 +37,8 @@ import { buildContinueWorkingRows } from "@/components/dashboard/continue-workin
 import { ContinueWorkingPanel } from "@/components/dashboard/continue-working-panel";
 import { buildReceivablesSummary } from "@/components/dashboard/receivables-model";
 import { ReceivablesCard } from "@/components/dashboard/receivables-card";
+import { FinancialIntelligenceCard } from "@/components/dashboard/financial-intelligence-card";
+import { buildFinancialIntelligenceSummary } from "@/components/dashboard/financial-intelligence-model";
 import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
 import { buildProjectActivityEntries, mergeActivityEntries } from "@/components/dashboard/project-activity-model";
 import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
@@ -233,7 +236,7 @@ export default async function DashboardPage() {
   const { projects, settingsResponse } = token
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
-  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
+  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue, financialSummary] = token
     ? await Promise.all([
         loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
         getKnowledgeStats(token).catch(() => null),
@@ -242,6 +245,7 @@ export default async function DashboardPage() {
         loadInvoiceAttentionQueues(token),
         loadProposalAttentionQueues(token, staleProposalCutoffIso),
         loadEstimateAttentionQueue(token),
+        getFinancialSummary(token).catch(() => null),
       ])
     : [
         { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
@@ -251,6 +255,7 @@ export default async function DashboardPage() {
         { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), unpaidFailed: false, error: null as string | null },
         { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
+        null,
       ];
   const projectDetails = projectDetailsResult.items;
 
@@ -336,6 +341,15 @@ export default async function DashboardPage() {
     overdueInvoiceTotal: invoiceAttentionQueues.overdue.total,
     openInvoiceTotal: invoiceAttentionQueues.unpaid.total,
   });
+  const financialIntelligenceSummary = buildFinancialIntelligenceSummary({
+    paymentLedger,
+    receivables: receivablesSummary,
+    proposals: attentionProposals,
+    unsignedProposalTotal: proposalAttentionQueues.unsigned.total,
+    invoiceError: invoiceAttentionQueues.error,
+    proposalError: proposalAttentionQueues.error,
+    backendSummary: financialSummary,
+  });
   const mergedActivityEntries = mergeActivityEntries(taskActivityError ? [] : taskActivityEntries, projectActivityError ? [] : projectActivityEntries);
   const activityErrorMessage =
     taskActivityError && projectActivityError
@@ -401,6 +415,8 @@ export default async function DashboardPage() {
       </div>
 
       <OwnerKpiGrid kpis={ownerKpis} />
+
+      <FinancialIntelligenceCard summary={financialIntelligenceSummary} />
 
       <ReceivablesCard summary={receivablesSummary} errorMessage={invoiceAttentionQueues.error} />
 

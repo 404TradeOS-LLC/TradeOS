@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -466,3 +466,6 @@ The standing dashboard weather selector in `web/src/lib/dashboard-weather.ts` re
 - RC defects repaired for promotion are browser API proxy path normalization, proposal cents preservation, invoice Decimal-to-number display normalization, and mobile `PageHeader` wrapping that removes 390px horizontal overflow.
 - Custom estimate line items are valid without a Costbook source. Migration `20260905050000_allow_custom_estimate_line_items` changes the database invariant from exactly-one-source to at-most-one-source, preserving mutual exclusivity while allowing source-less custom lines.
 - Tenant-isolation evidence now asserts denial at the authenticated same-origin API proxy/backend boundary (403/404 required) and treats the browser page as a secondary UX signal, avoiding false failures from Next.js error boundaries that can retain an outer HTTP 200 after a denied server-component fetch.
+
+
+- The owner dashboard includes a Financial Intelligence summary that prefers the `billing.read`-protected organization-wide `/api/v1/intelligence/financial-summary` aggregate. It reports current-week recorded cash, exact open/overdue balances, unsigned proposal opportunity, and projected committed margin from unique accepted-proposal Estimate snapshots. Every source reports complete/partial/unavailable coverage, failed reads remain unknown instead of zero, and the previous bounded queue calculations remain a labeled degraded fallback. Projected margin excludes tax and includes persisted estimate overhead; it is not actual job margin. Actual job costs remain unavailable until TradeOS persists verified labor, material, and equipment usage against jobs.

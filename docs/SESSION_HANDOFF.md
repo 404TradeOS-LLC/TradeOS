@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -14,46 +14,41 @@ related_docs:
 
 ## Mission
 
-S049 (stale branch, PR, and worktree retirement) is `DONE`. Readiness PR #494
-reconciled live GitHub state and classified every remote branch without a
-currently-open PR; the founder then executed the recorded branch deletions
-directly. This session independently confirmed the deletions against live
-`origin` state before marking the sprint complete.
+Continue draft PR #507, `codex/financial-intelligence-live-data`, with the
+first organization-wide Financial Intelligence backend summary and connect the
+owner dashboard to it without claiming that estimated cost is actual job cost.
 
 ## Current truth
 
-- `origin/main` is at squash commit `0b6f98ad309df62ff729d7303d18c09d5ae59f49`
-  (PR #494, S049 readiness/documentation, merged 2026-09-12), itself built on
-  `eaa3144b648ed7cbaf2b580cc31fcc42ba3ebf3a` (PR #480, Costbook provenance
-  contract).
-- Open PRs: #482 (canonical design-contract docs), #489 draft (Costbook
-  materials-catalog active/deactivate state), #491 (Stripe subscription
-  billing — protected billing/money-movement scope per `AGENTS.md`; a
-  founder decision is needed before merge), #492 (BLS OEWS labor candidate
-  source), #493 draft (trusted Knowledge Engine pricing pipeline). None
-  overlap a numbered sprint.
-- S049's 23 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
-  S049 entry) are confirmed gone from `origin` via `git fetch --prune` +
-  `git branch -r`. All 23 `REQUIRES_REVIEW` branches, `main` (protected by
-  the live default-branch ruleset), `staging` (unprotected but retained as
-  the deployment branch), and every branch behind an open PR remain
-  present, untouched.
-- `feat/stripe-connect-payments` (no open PR) still contains a complete,
-  previously-ungoverned Stripe billing implementation; combined with open PR
-  #491, this remains a founder-decision item.
-- 20 `codeql-autofix/alert-3-*` branches remain as orphaned artifacts of a
-  CodeQL autofix workflow whose PR-creation step appears to be failing
-  silently; the underlying alert remains unaddressed on `main`. Separate
-  CI-repair finding, not yet actioned.
-- `docs/tradeos-design-system` still carries ~104 unabsorbed brand-asset
-  files never merged anywhere; not yet reviewed for disposition.
-- S039, S044, and S045 remain blocked on production access. S046 depends on
-  S045. S048 requires a founder decision selecting beta tenants and a
-  rollout date.
+- `origin/main` is `5c1eb6c99fb3e2310fb91ddcb112f69765ab2d4e`.
+- Draft PR #507 is the single active financial-intelligence implementation.
+  Autonomy reconciliation classified this session `EXISTING_WORK_FOUND`; no
+  competing branch or PR was created.
+- `GET /api/v1/intelligence/financial-summary` now requires `billing.read`,
+  derives organization scope from authenticated request context, and runs
+  inside the existing request-scoped database session and forced RLS boundary.
+- The summary returns source-aware current-week recorded cash, exact open and
+  overdue receivables, unsigned proposal opportunity, and projected committed
+  margin from unique persisted Estimate snapshots linked to accepted
+  proposals. Independent source failures remain null/unavailable.
+- The dashboard prefers the exact aggregate and retains its prior bounded
+  queue logic as a visibly labeled degraded fallback.
+- Actual job margin remains unavailable. The current schema does not persist
+  actual field labor, material usage/purchases, or equipment usage against a
+  Job, so no realized margin is inferred.
+- Local verification passed backend unit tests (262 suites / 2,285 tests),
+  backend lint/typecheck and build, frontend unit tests (280), frontend lint
+  and build, PR/docs tests, docs ownership, preflight, and diff whitespace.
+  The focused financial suites passed 10 backend tests and 4 frontend model
+  tests. The PostgreSQL/RLS regression is committed but local integration was
+  blocked because this environment has neither Docker nor PostgreSQL; required
+  CI remains authoritative for that lane.
+- Other open PRs observed during reconciliation: #506, #503, #502, #500, #497,
+  #491, #489, and #482. None substantially overlaps PR #507.
 
 ## Next Eligible Sprint
 Sprint ID: NONE
-Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 is `DONE`. S048 needs a founder decision; S039/S044/S045 are `BLOCKED` on production access.
-Dependencies: S036 and S049 are `DONE`. S044/S045 remain blocked on production access and S046 is blocked by S045.
-Overlap check: open PRs at this reconciliation are #482, #489, #491, #492, and #493; none overlap any numbered sprint.
-Startup prompt: No numbered sprint is `READY`. S048 requires a founder decision (beta tenants and rollout date) before it can be promoted.
+Eligibility: `NONE`; no numbered sprint is currently authorized by this non-sprint continuation.
+Dependencies: PR #507 must pass exact-head required CI before it can leave draft status.
+Overlap check: PR #507 remains the single active financial-intelligence lane; no competing implementation was found.
+Startup prompt: Inspect PR #507 exact-head CI and review state, repair only deterministic findings, and retain draft status until rendered browser evidence is available.
