@@ -149,10 +149,13 @@ Costbook permissions, organization scope, request-scoped sessions, and forced RL
 
 Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
-
 ### Costbook composite installed-price benchmarks (INDOT)
 
 The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. The authenticated `/costbook/import` surface streams a locally selected normalized file in bounded batches through a same-origin proxy; it does not embed the source dataset or expose the session token to browser JavaScript. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
+
+### Material active/deactivate state
+
+Material catalog rows now carry an `isActive` flag (migration `20260912120000_add_material_active_state`), matching the Division/Category/Subcategory/CostItem/LaborRate soft-delete pattern. `GET /api/v1/costbook/materials` accepts an `active` filter, a PATCH changing `isActive` requires `costbook.manage`, and the authenticated `/costbook/materials` page shows an Active/Inactive status badge with a manager-only Deactivate action. No RLS policy changed: `materials_write_policy` already restricted every material write to the `costbook.manage` boundary.
 
 ### S027 production-readiness truth
 
