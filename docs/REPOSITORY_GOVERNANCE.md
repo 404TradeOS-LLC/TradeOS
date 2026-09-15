@@ -1,11 +1,10 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-09-15
 source_of_truth: true
 related_code:
   - AGENTS.md
-  - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
   - scripts/sprint-state-check.mjs
@@ -266,7 +265,7 @@ Once a PR exists, use one continuous repair loop:
 
 1. inspect current-head CI plus every unresolved review thread;
 2. automatically repair deterministic, scoped findings such as objective documentation drift, formatting, lint/type failures, missing behavioral regression coverage, and low-risk localized correctness issues;
-3. for CodeRabbit findings with structured fix instructions, `@coderabbitai autofix` may commit the proposed repair directly to the current PR branch, after which the resulting diff and tests must still be inspected;
+3. for automated-review findings with structured fix instructions, apply the proposed repair directly to the current PR branch, after which the resulting diff and tests must still be inspected;
 4. do not auto-apply findings that would change migrations/schema/data, authentication or authorization policy, RLS, billing/money semantics, destructive operations, major architecture/repository boundaries, production trust boundaries, or other protected decisions;
 5. prefer tests that execute the real behavior or mocked failure path; source-text assertions are appropriate only when source shape itself is the deliberate repository contract;
 6. resolve a review thread only after its fix is present and verified on the current head;

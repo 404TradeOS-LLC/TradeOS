@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-15
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,7 +15,6 @@ related_code:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
   - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
-  - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
   - scripts/sprint-state-check.mjs
@@ -84,7 +83,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
 - **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
-- **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
+- **CodeRabbit repository policy (reversed 2026-09-15):** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run. Its repository-level configuration (`.coderabbit.yaml`) was deleted on 2026-09-15 after its per-hour review-quota limits repeatedly left stale, uncleared `CHANGES_REQUESTED` reviews blocking otherwise-green, already-repaired PRs. Configuration removal does not by itself revoke the GitHub App's installation or repository access; until an organization administrator uninstalls it (see Known Limitations in the removal PR), it may continue to auto-review with its own default settings. The CI-required checks and manual/agent review in `AGENTS.md` and this document remain the authoritative merge gate regardless of whether the app is still installed.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
 - **Artifact upload runtime maintenance:** PR #308 updates the authenticated RC smoke and S027 browser-evidence artifact publication steps from `actions/upload-artifact@v6` to `@v7`. Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
@@ -140,7 +139,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 
 1. inspect required CI and every unresolved review thread on the current head;
 2. treat deterministic, scoped automated-review findings as auto-fix candidates;
-3. for CodeRabbit findings with structured fix instructions, prefer `@coderabbitai autofix` on the current PR branch, then inspect the resulting diff and verification evidence;
+3. for automated-review findings with structured fix instructions, apply the proposed repair directly on the current PR branch, then inspect the resulting diff and verification evidence;
 4. repair objective docs drift, formatting, lint/type errors, missing behavioral regression coverage, and other low-risk deterministic findings without a separate product-decision pause;
 5. do **not** auto-apply findings that would change migrations/schema/data, authentication/authorization/RLS, billing/money semantics, major architecture, production trust boundaries, destructive operations, or other protected decisions;
 6. resolve a review thread only after the fix is present and verified on the current head;
@@ -148,7 +147,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 8. enable GitHub auto-merge when the PR is otherwise safe so the required ruleset remains the final gate instead of requiring another manual merge round trip;
 9. finish the oldest/highest-value viable PR before opening competing work unless explicit priority says otherwise.
 
-Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; `.coderabbit.yaml` now tells automated review to flag source-text substitutes for behavioral coverage.
+Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; review (human or agent) should flag source-text substitutes for behavioral coverage.
 
 Production repair should use the health split first:
 
