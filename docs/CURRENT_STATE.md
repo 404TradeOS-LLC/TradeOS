@@ -112,6 +112,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Two dashboard sections (Knowledge Runtime Coverage, Recent project
   lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
   Needs Attention, the KPI grid, and Quick Actions always stay expanded.
+- Owner-dashboard KPI icon metadata crosses the React Server Component boundary as serializable identifiers; the client-side KPI grid resolves those identifiers to Lucide components locally so dashboard rendering never passes component functions from the server into a client component.
 - `EmptyState` supports an optional decorative `icon`, applied only to
   genuinely-empty (not filtered) list views.
 
@@ -146,7 +147,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
-- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, enforces 1–500 row batches, and delegates authorization, tenant scope, validation, and idempotent upsert semantics to the existing backend import boundary
+- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client deliberately sends 100-row batches so production requests remain below the backend JSON parser limit while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections
 
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
