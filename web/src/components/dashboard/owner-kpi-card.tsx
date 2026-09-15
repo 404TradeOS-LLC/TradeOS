@@ -1,12 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CircleDollarSign,
+  ClipboardCheck,
+  ListTodo,
+  ReceiptText,
+  type LucideIcon,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCountUp } from "@/hooks/use-count-up";
 import { cn } from "@/lib/utils";
-import type { OwnerKpi } from "./owner-dashboard-data";
+import type { OwnerKpi, OwnerKpiIcon } from "./owner-dashboard-data";
 
 const CURRENCY_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+const KPI_ICONS: Record<OwnerKpiIcon, LucideIcon> = {
+  "calendar-clock": CalendarClock,
+  "clipboard-check": ClipboardCheck,
+  "circle-dollar-sign": CircleDollarSign,
+  "receipt-text": ReceiptText,
+  "alert-triangle": AlertTriangle,
+  "list-todo": ListTodo,
+};
 
 /** Animates kpi.value if it's a plain number or currency string; otherwise renders it as-is. */
 function AnimatedKpiValue({ value }: { value: string }) {
@@ -32,7 +50,7 @@ const toneClasses: Record<OwnerKpi["tone"], string> = {
 };
 
 export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
-  const Icon = kpi.icon;
+  const Icon = KPI_ICONS[kpi.icon];
 
   return (
     <Card className={cn("relative border-border/70 bg-card/98", kpi.href && "transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-(--elev-2)")}>

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-08
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -22,6 +22,13 @@ related_code:
   - web/src/components/costbook/equipment-catalog.tsx
   - web/src/components/costbook/hierarchy-catalog.tsx
   - web/src/components/costbook/cost-item-catalog.tsx
+  - web/src/app/(app)/costbook/research-review/page.tsx
+  - web/src/components/costbook/research-review-model.ts
+  - web/src/app/actions/costbook-candidates.ts
+  - app/modules/costbook/knowledgeCandidateNormalizer.ts
+  - app/modules/costbook/candidateMatch.ts
+  - app/modules/costbook/candidateCostItemService.ts
+  - app/backend/controllers/costbookCandidates.controller.ts
   - app/prisma/migrations/20260811120000_add_costbook_workspace_foundation/migration.sql
   - app/prisma/migrations/20260811130000_restrict_costbook_material_writes/migration.sql
   - app/prisma/migrations/20260811150000_restrict_costbook_equipment_writes/migration.sql
@@ -189,6 +196,16 @@ The unified Assembly surface reuses `AssembliesDatabaseService` and the existing
 - `POST /api/v1/costbook/candidates/:id/review` requires `costbook.manage` (mirrors supplier-integration's approve/reject boundary); `reviewedByUserId` is always the authenticated caller's own user id, never a caller-supplied string.
 - `POST /api/v1/costbook/candidates/:id/promote` requires `costbook.manage`; the only path that copies a candidate into a real `CostItem`. It re-checks `isEligibleForCostbookPromotion()` against the persisted row, requires an existing Subcategory matching the candidate's `category` (422 otherwise — it does not create hierarchy), and writes through the existing `CostbookService`/`CostDatabaseService` methods, serialized per-candidate by a Postgres advisory lock so repeated calls cannot duplicate the production record.
 
+Normalization, matching, and audit (added 2026-09-12):
+
+- `GET /api/v1/costbook/candidates/summary` (`costbook.read`) returns real per-organization queue counts; an empty queue reports zeroes.
+- `GET /api/v1/costbook/candidates/corpus-report` (`costbook.read`) returns a deterministic classification of the shared read-only Knowledge Engine corpus, produced by the same normalizer the ingestion route uses.
+- `GET /api/v1/costbook/candidates/:id/match` (`costbook.read`) returns read-only duplicate analysis against this organization's own catalog through `CostDatabaseService.search`/`getUnitCost` — `new-candidate` / `probable-match` / `ambiguous-match` / `conflict` with signed price deltas. An ambiguous or conflicting match names no target, so name similarity alone can never steer an overwrite.
+- `POST /api/v1/costbook/candidates/from-knowledge` (`costbook.write`) normalizes one Knowledge Engine corpus item into an unreviewed candidate, or fails with 422 naming the missing evidence. It can never approve or promote.
+- Review and promotion append an immutable `ActivityEvent` (`entityType: "costbook_research_candidate"`) inside the deciding transaction, recording the reviewer, outcome, provenance, and the Cost Item a candidate became. This reuses the existing org-scoped, RLS-protected activity feed rather than adding a second audit store.
+
+`app/modules/costbook/knowledgeCandidateNormalizer.ts` and `app/modules/costbook/candidateMatch.ts` are pure modules — no Prisma, no organization, no I/O — so normalization and matching cannot mutate Costbook state. Normalization fails closed and never fabricates provenance: a record asserting no source stays `unverified-legacy` and cannot become a candidate.
+
 See `docs/API_REFERENCE.md` for the full route/DTO contract.
 
 ## Permissions
@@ -230,10 +247,17 @@ Current behavior:
 - `/costbook/assemblies` provides Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
+- `/costbook/research-review` is the human review surface for researched pricing candidates: real queue and corpus counts, a paginated/searchable/filterable candidate table, and a detail panel showing complete provenance beside the current Costbook price and the difference. Approve/reject/promote render only for `costbook.manage`; read-only viewers get a truthful explanation rather than disabled controls
 
 ## Tests
 
 - `app/tests/cost-database.service.test.ts`
+- `app/tests/costbook-knowledge-candidate-normalizer.test.ts`
+- `app/tests/costbook-candidate-match.test.ts`
+- `app/tests/costbook-candidate-pipeline.service.test.ts`
+- `app/tests/costbook-candidates.controller.test.ts`
+- `web/src/components/costbook/research-review-model.test.ts`
+- `web/src/app/(app)/costbook/research-review/research-review-route.test.ts`
 - `app/tests/cost-database.tenant-references.test.ts`
 - `app/tests/costbook-cost-items.rls.integration.ts`
 - `app/tests/costbook.service.test.ts`
@@ -281,8 +305,9 @@ Current behavior:
 - expanded historical pricing analytics/filters beyond the current read model
 - Athena Costbook writes or autonomous Costbook mutation only after the existing approval/risk/governance boundaries explicitly authorize such behavior; the current Athena Costbook tools are read-only/recommendation-only
 - evaluate trigram indexing for `code` search paths if substring code lookup becomes a measurable bottleneck
-- `app/modules/costbook/candidateCostItem.ts` (added 2026-09-08) defines a types/Zod-only contract for a researched candidate cost item (`reviewStatus: candidate -> needs-review -> approved | rejected`, gated by `isEligibleForCostbookPromotion()`) and `app/modules/costbook/provenance.ts` defines the shared `documented | unverified-legacy | placeholder` trust vocabulary the Knowledge Runtime now also uses. Neither has a route, service, or Prisma model yet, and neither changed any existing Costbook record or pricing value. See `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` for the intended full pipeline and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md` for why it exists.
+- Stage 7 of `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`: regenerating the Knowledge Engine export from governed Costbook/candidate records instead of hand-authored seed files. Stages 1-6 have landed — `app/modules/costbook/candidateCostItem.ts` (the contract), `provenance.ts` (the shared `documented | unverified-legacy | placeholder` vocabulary), `knowledgeCandidateNormalizer.ts` and `candidateMatch.ts` (normalization and matching), `candidateCostItemService.ts` plus the `CostbookResearchCandidate` model and routes (persistence, review, promotion, audit), and `/costbook/research-review` (the review UI). No existing Costbook record or pricing value changed in any of that work. See `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md` for why the pipeline exists.
+- populating real, cited provenance for Knowledge Engine corpus items: no item carries one today, so the corpus report returns 0 candidate-ready and ingestion correctly rejects every canonical item.
 
 ## Last verified date
 
-2026-09-08
+2026-09-12

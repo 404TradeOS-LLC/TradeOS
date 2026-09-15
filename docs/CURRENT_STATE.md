@@ -108,6 +108,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Two dashboard sections (Knowledge Runtime Coverage, Recent project
   lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
   Needs Attention, the KPI grid, and Quick Actions always stay expanded.
+- Owner-dashboard KPI icon metadata crosses the React Server Component boundary as serializable identifiers; the client-side KPI grid resolves those identifiers to Lucide components locally so dashboard rendering never passes component functions from the server into a client component.
 - `EmptyState` supports an optional decorative `icon`, applied only to
   genuinely-empty (not filtered) list views.
 
@@ -141,6 +142,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
+- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client deliberately sends 100-row batches so production requests remain below the backend JSON parser limit while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections
 
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
@@ -150,7 +152,7 @@ Cost Item and Assembly case-insensitive substring search is supported on both `n
 
 ### Costbook composite installed-price benchmarks (INDOT)
 
-The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
+The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. The authenticated `/costbook/import` surface streams a locally selected normalized file in bounded batches through a same-origin proxy; it does not embed the source dataset or expose the session token to browser JavaScript. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
 
 ### S027 production-readiness truth
 
@@ -186,7 +188,7 @@ Those adapters call existing `CostDatabaseService` / `AssembliesDatabaseService`
 
 ### Costbook ↔ Knowledge Engine: provenance status and candidate ingestion contract
 
-The 2026-09-08 audit (`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`) established that the relational Costbook above and the read-only Knowledge Engine corpus (`packages/knowledge-engine/`) are independent systems with no write path between them, and that 1,770 of 1,795 canonical Knowledge Engine cost items carry no provenance/timestamp/confidence trail. A follow-up slice landed a provenance-aware foundation without changing either system's pricing:
+The 2026-09-08 audit (`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`) established that the relational Costbook above and the read-only Knowledge Engine corpus (`packages/knowledge-engine/`) are independent systems with no write path between them, and that the canonical Knowledge Engine cost items carry no provenance/timestamp/confidence trail. The figure previously recorded here as "1,770 of 1,795" was wrong and is corrected as of 2026-09-12: the canonical export holds 1,795 items across 24 categories, **all 1,795** of which lack item-level provenance, and it contains **zero** Tree Service items (the 25 Tree Service files are staged under `packages/knowledge-engine/knowledge/knowledge/cost-items/tree-service/` and have never been merged into `exports/json/costbook.json`). `npm run costbook:audit-provenance` reports the same 1,795/1,795 figure. A follow-up slice landed a provenance-aware foundation without changing either system's pricing:
 
 - Every Knowledge Runtime trade, search result, matcher output, and AI Estimate Assist suggestion/draft line item now carries `provenanceStatus` (`"documented" | "unverified-legacy" | "placeholder"`), defined once in `app/modules/costbook/provenance.ts`. It is resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json`'s new `provenanceStatus` field, defaulting to `"unverified-legacy"` when missing/unrecognized. All 24 legacy "Stable" trades resolve to `"unverified-legacy"`; Tree Service resolves to `"placeholder"` (its own per-item files self-label `pricingStatus: "PLACEHOLDER"`); no trade is currently `"documented"`.
 - `app/modules/costbook/candidateCostItem.ts` defines the governed candidate contract, and `CostbookCandidateService` now persists it through Stage 6's reviewed queue. Candidates remain unapproved until a human `costbook.manage` reviewer records the decision; promotion is explicit, org-scoped, and requires an existing matching Subcategory before it creates new Costbook component rows.
@@ -212,6 +214,61 @@ The reconciled provenance slice extends the existing trade-level trust marker wi
 - The new-batch approval/validation pipeline requires provenance fields for newly submitted cost-item batches; existing canonical data is not rewritten.
 - `npm run costbook:audit-provenance` is wired into repository CI as a structural audit. Missing source metadata remains an explicit warning; structural corruption fails the check.
 - Coverage remains deliberately honest: the current canonical corpus has no real item- or assembly-level source citations populated, so the new detail fields remain absent until authoritative/licensed or qualified-estimator-reviewed data is supplied.
+
+### Costbook research review: normalization, matching, UI, and promotion audit (2026-09-12)
+
+A follow-up slice closes the pipeline gap between the landed Stage 6 candidate
+queue and a reviewer who can actually use it. No schema change was required:
+the existing `CostbookResearchCandidate` model, its forced RLS policies, and
+its review/promotion check constraints already cover this work.
+
+- **Stage 3 landed.** `app/modules/costbook/knowledgeCandidateNormalizer.ts`
+  converts a Knowledge Engine corpus record into a typed candidate, and
+  `app/modules/costbook/candidateMatch.ts` performs deterministic duplicate
+  analysis (`new-candidate` / `probable-match` / `ambiguous-match` /
+  `conflict`) with signed price deltas. Both are pure — no Prisma, no
+  organization, no I/O — so neither can mutate Costbook state. An ambiguous or
+  conflicting match deliberately names no target, so name similarity alone can
+  never steer an overwrite.
+- **Fails closed, and fabricates nothing.** Normalization refuses any record
+  missing a cited source, source date, retrieval timestamp, confidence, a
+  supported unit, or a usable cost, and reports machine-readable block reasons
+  instead of defaulting the missing field. A record that asserts no source
+  stays `unverified-legacy`. Because the corpus carries no per-item market
+  field, `regionalBasis` is recorded as an explicit national/default basis
+  rather than presenting national research as local pricing.
+- **New read-only endpoints.** `GET /api/v1/costbook/candidates/summary`
+  (real per-organization queue counts), `GET .../candidates/corpus-report`
+  (deterministic classification of the shared corpus), and
+  `GET .../candidates/:id/match` (duplicate analysis through the canonical
+  `CostDatabaseService`). `POST .../candidates/from-knowledge`
+  (`costbook.write`) ingests a single corpus item as an unreviewed candidate or
+  fails with 422 naming the missing evidence. Ingestion can never approve or
+  promote.
+- **Promotion audit trail.** Review and promotion now append an immutable
+  `ActivityEvent` (`entityType: "costbook_research_candidate"`) inside the same
+  transaction as the decision, recording the reviewer, the outcome, the
+  provenance that justified it, and the Cost Item a candidate became. Reusing
+  the existing org-scoped, RLS-protected activity feed rather than introducing
+  a second audit store.
+- **Review UI.** `/costbook/research-review` is the first real human review
+  surface for researched pricing. Every count comes from live data; an empty
+  queue reports zeroes. The detail panel shows complete provenance beside the
+  current Costbook price and the difference. Approve, reject, and promote
+  render only for `costbook.manage`; read-only viewers get a truthful
+  explanation rather than disabled controls. The forms submit no reviewer
+  identity or organization id — the API records the authenticated caller.
+- **Nothing historical moved.** Promotion only ever creates new rows, so no
+  existing `Material`, `CostItem`, `LaborRate`, `Equipment`, estimate snapshot,
+  proposal, contract, or invoice price changed, and no Knowledge Engine export
+  data changed. Stage 7 (regenerating the corpus from governed Costbook data)
+  remains unimplemented.
+
+Honest coverage note: because **no** Knowledge Engine item currently carries a
+cited source, the corpus report returns 1,795 total / 0 documented / 0
+candidate-ready, and `POST .../candidates/from-knowledge` correctly rejects
+every item in the canonical corpus today. The end-to-end ready path is proven
+by deterministic fixtures, not by a claim that the research corpus is usable.
 
 ## Lifecycle normalization status
 
