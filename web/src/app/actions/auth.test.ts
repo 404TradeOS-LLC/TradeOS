@@ -169,14 +169,21 @@ function readRecoveryRouteSource(): string {
   return fs.readFileSync(path.join(here, "..", "auth", "confirm", "route.ts"), "utf8");
 }
 
+function readRecoveryCoreSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "auth", "confirm", "recovery-core.ts"), "utf8");
+}
+
 test("web password recovery uses Supabase Auth and exchanges recovery links before updating the password", () => {
   const authSource = readAuthActionsSource();
   const routeSource = readRecoveryRouteSource();
+  const coreSource = readRecoveryCoreSource();
 
   assert.match(authSource, /resetPasswordForEmail/);
   assert.match(authSource, /updateUser\(\{ password \}\)/);
-  assert.match(routeSource, /exchangeCodeForSession/);
-  assert.match(routeSource, /verifyOtp/);
+  assert.match(coreSource, /exchangeCodeForSession/);
+  assert.match(coreSource, /verifyOtp/);
+  assert.match(routeSource, /verifyRecoveryIdentity/);
   assert.match(routeSource, /tradeos-recovery/);
   assert.match(routeSource, /reset-password/);
 });
@@ -193,45 +200,49 @@ function readResetPasswordFormSource(): string {
 
 test("/auth/confirm exchanges a PKCE code for a session before marking the recovery cookie", () => {
   const routeSource = readRecoveryRouteSource();
-  const codeBranchIndex = routeSource.indexOf("if (code) {");
-  assert.notEqual(codeBranchIndex, -1);
-
+  const coreSource = readRecoveryCoreSource();
+  const verificationIndex = routeSource.indexOf("verifyRecoveryIdentity(supabase");
   const cookieSetIndex = routeSource.indexOf('response.cookies.set("tradeos-recovery"');
+
+  assert.notEqual(verificationIndex, -1);
   assert.notEqual(cookieSetIndex, -1);
-  assert.ok(codeBranchIndex < cookieSetIndex, "the PKCE code exchange must run before the recovery cookie is set");
-  assert.match(routeSource, /supabase\.auth\.exchangeCodeForSession\(code\)/);
+  assert.ok(verificationIndex < cookieSetIndex, "recovery verification must complete before the recovery cookie is set");
+  assert.match(coreSource, /if \(input\.code\) \{/);
+  assert.match(coreSource, /supabase\.auth\.exchangeCodeForSession\(input\.code\)/);
 });
 
 test("/auth/confirm verifies a recovery token_hash via verifyOtp before marking the recovery cookie", () => {
   const routeSource = readRecoveryRouteSource();
-  const tokenHashBranchIndex = routeSource.indexOf('tokenHash && type === "recovery"');
-  assert.notEqual(tokenHashBranchIndex, -1);
-
+  const coreSource = readRecoveryCoreSource();
+  const verificationIndex = routeSource.indexOf("verifyRecoveryIdentity(supabase");
   const cookieSetIndex = routeSource.indexOf('response.cookies.set("tradeos-recovery"');
-  assert.ok(tokenHashBranchIndex < cookieSetIndex, "token_hash verification must run before the recovery cookie is set");
-  assert.match(routeSource, /supabase\.auth\.verifyOtp\(\{ token_hash: tokenHash, type \}\)/);
+
+  assert.notEqual(verificationIndex, -1);
+  assert.notEqual(cookieSetIndex, -1);
+  assert.ok(verificationIndex < cookieSetIndex, "token_hash verification must complete before the recovery cookie is set");
+  assert.match(coreSource, /input\.tokenHash && input\.type === "recovery"/);
+  assert.match(coreSource, /supabase\.auth\.verifyOtp\(\{ token_hash: input\.tokenHash, type: "recovery" \}\)/);
 });
 
 test("/auth/confirm redirects to a generic invalid-link error, with server-side diagnostics, when neither code nor a recovery token_hash is present", () => {
   const routeSource = readRecoveryRouteSource();
-  const elseBranchIndex = routeSource.indexOf("} else {");
-  const nextIfIndex = routeSource.indexOf("if (error) {");
-  assert.notEqual(elseBranchIndex, -1);
-  const elseBranch = routeSource.slice(elseBranchIndex, nextIfIndex);
+  const coreSource = readRecoveryCoreSource();
 
-  assert.match(elseBranch, /console\.error\(/);
-  assert.match(elseBranch, /resetRedirect\(request, "invalid-link"\)/);
+  assert.match(coreSource, /stage: "missing-parameters"/);
+  assert.match(routeSource, /verification\.stage === "missing-parameters"/);
+  assert.match(routeSource, /console\.error\("Password recovery callback missing recognized recovery parameters"\)/);
+  assert.match(routeSource, /resetRedirect\(request, "invalid-link"\)/);
 });
 
 test("/auth/confirm logs the Supabase error server-side but redirects with a generic invalid-link error (expired or reused links included)", () => {
   const routeSource = readRecoveryRouteSource();
-  const errorBranchIndex = routeSource.indexOf("if (error) {\n    // Server-side diagnostic");
-  assert.notEqual(errorBranchIndex, -1, "expected the post-exchange error branch with its diagnostic comment");
+  const coreSource = readRecoveryCoreSource();
 
-  const errorBranch = routeSource.slice(errorBranchIndex, errorBranchIndex + 400);
-  assert.match(errorBranch, /console\.error\("Password recovery exchange failed:", error\.message\)/);
-  assert.match(errorBranch, /resetRedirect\(request, "invalid-link"\)/);
-  assert.doesNotMatch(errorBranch, /searchParams\.set\(["']error["'],\s*error\.message\)/);
+  assert.match(coreSource, /stage: "exchange", message: error\.message/);
+  assert.match(routeSource, /verification\.stage === "exchange"/);
+  assert.match(routeSource, /console\.error\("Password recovery exchange failed:", verification\.message \?\? "unknown error"\)/);
+  assert.match(routeSource, /resetRedirect\(request, "invalid-link"\)/);
+  assert.doesNotMatch(routeSource, /searchParams\.set\(["']error["'],\s*verification\.message\)/);
 });
 
 test("/auth/confirm restricts the redirect target to the /reset-password allowlist regardless of the requested next param", () => {
