@@ -210,6 +210,8 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance (`app/backend/**` auth/tenant-isolation/RLS focus, Athena boundary preservation in `app/modules/athena-*/**`, `app/tests/**` behavioral-coverage checks, `web/src/**` server/client boundary and secret-exposure checks) with no replacement configured; manual/agent review now carries that scrutiny unassisted on every PR touching those paths.
+- The CodeRabbit GitHub App's repository access was not revoked by the `.coderabbit.yaml` deletion; it may keep auto-reviewing PRs under its own default settings, including possibly reintroducing stale `CHANGES_REQUESTED` review blocks, until an org admin uninstalls or revokes its access under GitHub → Settings → Integrations → Applications.
 
 ## Session execution
 
