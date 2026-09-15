@@ -285,7 +285,7 @@ describe("CostbookCandidateService", () => {
         createdAt: new Date("2026-09-08T00:00:00.000Z"),
         updatedAt: new Date("2026-09-08T00:00:00.000Z"),
       });
-      mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1" });
+      mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", isActive: true });
       mockPrisma.laborRate.create.mockResolvedValue({
         id: "labor-rate-1",
         orgId: "org-1",
