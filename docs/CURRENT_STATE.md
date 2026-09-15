@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-13
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -49,7 +49,7 @@ related_code:
 
 # Current State
 
-Last reconciled on 2026-09-11 for the A14 voice/mobile-readiness slice based on `main` commit `32f94e6ec7c0a333e72279f20ddc6fe6f1407d54`. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-13 for the password-recovery identity-binding repair, building on the A14 voice/mobile-readiness state at `main` commit `35c72f8c9c97e9a1a9505c232bc7759b6f51b06c`. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -187,7 +187,7 @@ Athena A12 includes three landed **read-only/recommendation-only** Costbook Inte
 - margin analysis
 - price recommendation
 
-Those adapters call existing `CostDatabaseService` / `AssembliesDatabaseService` methods and shared Estimate formulas. They do not reach Prisma directly, do not define competing pricing math, and do not mutate Costbook or stored pricing state. Athena Costbook writes/autonomous Costbook mutation remain outside the landed architecture and require separate governance.
+Those adapters call existing `CostDatabaseService` / `AssembliesDatabaseService` methods and shared Estimate formulas. They do not reach Prisma directly, do not define competing pricing math, and do not mutate Costbook or stored pricing state. Athena Costbook writes/autonomous Costbook mutation remain outside the intended module boundary and require separate governance.
 
 ### Costbook ↔ Knowledge Engine: provenance status and candidate ingestion contract
 
@@ -455,7 +455,7 @@ See `docs/modules/` for the maintained domain/module records and `docs/architect
 ## Web password recovery
 
 The web forgot-password flow uses Supabase Auth recovery: the recovery request is sent through Supabase, `/auth/confirm` exchanges the PKCE or token-hash link for a server-side session, and the reset form updates the Supabase password. Legacy backend-token reset links remain supported. This avoids requiring the web recovery flow to reach Prisma or the backend Resend adapter.
-The callback attaches Supabase recovery session cookies directly to its redirect response before navigating to `/reset-password`, preventing the reset form from losing the recovery session between requests. `/reset-password` binds the HttpOnly recovery marker to the user returned by the recovery exchange and requires that same live user before rendering the native form, so a stale marker or unrelated sign-in session fails closed at page load. Malformed or unrecognized recovery callbacks log only a static diagnostic; recovery query strings, PKCE codes, and token hashes are never written to server logs.
+The callback attaches Supabase recovery session cookies directly to its redirect response before navigating to `/reset-password`, preventing the reset form from losing the recovery session between requests. After a successful exchange it resolves the authenticated Supabase user server-side and stores that verified `user.id` in the short-lived HttpOnly `tradeos-recovery` marker. `/reset-password` requires that same live user before rendering the native form or updating the password, so a stale marker, unrelated sign-in session, or unresolved recovery identity fails closed. Malformed or unrecognized recovery callbacks log only a static diagnostic; recovery query strings, PKCE codes, and token hashes are never written to server logs.
 
 `/reset-password` verifies a valid recovery session server-side (the `tradeos-recovery` cookie set by `/auth/confirm`, or a legacy invite token) before ever rendering the password form. A missing session, or an `?error=` from a failed `/auth/confirm` exchange (expired, reused, or scanner-consumed link), renders a recovery-error card with a link back to `/forgot-password` instead of the form — the form is never shown to a caller without a valid session. `resetPasswordForEmail`, the `/auth/confirm` exchange, and `updateUser` each log their real Supabase error server-side (`console.error`) on failure while returning a generic, safe message to the client.
 

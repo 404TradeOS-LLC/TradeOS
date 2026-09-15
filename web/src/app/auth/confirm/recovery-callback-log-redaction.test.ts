@@ -6,7 +6,7 @@ const routeUrl = new URL("./route.ts", import.meta.url);
 
 test("malformed recovery callbacks never log recovery query credentials", async () => {
   const source = await readFile(routeUrl, "utf8");
-  const fallbackStart = source.indexOf("} else {");
+  const fallbackStart = source.indexOf('verification.stage === "missing-parameters"');
   const fallbackEnd = source.indexOf('return resetRedirect(request, "invalid-link");', fallbackStart);
 
   assert.notEqual(fallbackStart, -1, "expected unrecognized recovery-parameter branch");
