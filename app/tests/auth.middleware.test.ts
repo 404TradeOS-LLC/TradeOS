@@ -1,5 +1,6 @@
 import express from "express";
 import request from "supertest";
+import rateLimit from "express-rate-limit";
 
 const mockPrisma = {
   $transaction: jest.fn(),
@@ -20,7 +21,11 @@ import { errorHandler } from "../backend/middleware/errorHandler";
 
 function buildApp() {
   const app = express();
-  app.get("/secure", requireAuth, databaseSession, (req, res) => {
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+  });
+  app.get("/secure", authLimiter, requireAuth, databaseSession, (req, res) => {
     const authed = req as express.Request & {
       auth?: { userId: string; orgId: string; role: string; email?: string; canonicalRole?: string };
       orgId?: string;
