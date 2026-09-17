@@ -9,8 +9,10 @@ import {
   AssemblyItemDTO,
   AssemblyUnitCostResult,
   CreateAssemblyInput,
+  InstallCatalogAssemblyInput,
   UpdateAssemblyInput,
 } from "./types";
+import { ASSEMBLY_CATALOG, getAssemblyCatalogTemplate, type AssemblyCatalogTemplate } from "./catalog";
 
 // Assemblies Database module: composes multiple cost items (and, recursively,
 // other assemblies) into a single sellable unit. Pricing is never duplicated;
@@ -54,6 +56,61 @@ export class AssembliesDatabaseService {
   async listTemplatesPage(orgId: string, query: CatalogQuery): Promise<CatalogPage<AssemblyDTO>> {
     query = { ...query, scope: orgId };
     return this.pageAssemblies(query, { orgId, isTemplate: true, isActive: true });
+  }
+
+  listStarterCatalog(): readonly AssemblyCatalogTemplate[] {
+    return ASSEMBLY_CATALOG;
+  }
+
+  async installStarterCatalogAssembly(input: InstallCatalogAssemblyInput): Promise<AssemblyDTO> {
+    const template = getAssemblyCatalogTemplate(input.templateId);
+    if (!template) throw new ApiError(404, `Assembly catalog template ${input.templateId} not found`);
+
+    const mappingByKey = new Map(input.componentMappings.map((mapping) => [mapping.componentKey, mapping.costItemId]));
+    if (mappingByKey.size !== input.componentMappings.length) {
+      throw new ApiError(400, "Each catalog component may be mapped only once");
+    }
+    const requiredKeys = new Set(template.components.map((component) => component.key));
+    const missing = template.components.filter((component) => !mappingByKey.has(component.key)).map((component) => component.label);
+    const unexpected = [...mappingByKey.keys()].filter((key) => !requiredKeys.has(key));
+    if (missing.length || unexpected.length) {
+      throw new ApiError(400, [
+        missing.length ? `Missing mappings: ${missing.join(", ")}` : "",
+        unexpected.length ? `Unknown component keys: ${unexpected.join(", ")}` : "",
+      ].filter(Boolean).join(". "));
+    }
+
+    const existing = await prisma.assembly.findFirst({ where: { orgId: input.orgId, code: template.code } });
+    if (existing) throw new ApiError(409, `Assembly code ${template.code} already exists in this organization`);
+
+    const costItemIds = [...new Set(input.componentMappings.map((mapping) => mapping.costItemId))];
+    const activeCostItems = await prisma.costItem.findMany({
+      where: { id: { in: costItemIds }, orgId: input.orgId, isActive: true },
+      select: { id: true },
+    });
+    const activeIds = new Set(activeCostItems.map((item) => item.id));
+    const invalidIds = costItemIds.filter((id) => !activeIds.has(id));
+    if (invalidIds.length) throw new ApiError(404, "One or more mapped Cost Items are inactive or outside this organization");
+
+    const assembly = await prisma.assembly.create({
+      data: {
+        orgId: input.orgId,
+        code: template.code,
+        name: template.name,
+        unitOfMeasure: template.unitOfMeasure,
+        description: `${template.description} CSI ${template.csiDivision} ${template.csiTitle}; NAHB ${template.nahbGroup}. ${template.wasteGuidance}`,
+        isTemplate: true,
+      },
+    });
+    await prisma.assemblyItem.createMany({
+      data: template.components.map((component, index) => ({
+        assemblyId: assembly.id,
+        costItemId: mappingByKey.get(component.key) as string,
+        quantityPerUnit: component.quantityPerUnit,
+        sortOrder: index + 1,
+      })),
+    });
+    return toDTO(assembly);
   }
 
   private async pageAssemblies(

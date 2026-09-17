@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { BookOpen, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,21 @@ type AssemblyItem = {
 type AssemblyCost = { unitCost: number; componentCount: number };
 type AssemblyItemsPage = { items: AssemblyItem[]; total: number; nextCursor: string | null };
 type AssemblyForm = { code: string; name: string; unitOfMeasure: string; description: string; isTemplate: boolean };
+type StarterCatalogComponent = { key: string; label: string; quantityPerUnit: number; help: string };
+type StarterCatalogTemplate = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  unitOfMeasure: string;
+  csiDivision: string;
+  csiTitle: string;
+  nahbGroup: string;
+  trade: string;
+  measurementBasis: string;
+  wasteGuidance: string;
+  components: StarterCatalogComponent[];
+};
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
@@ -212,7 +227,21 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     }
   }
 
-  return <div className="grid gap-6 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,2fr)]">
+  return <div className="grid gap-6">
+    <StarterAssemblyCatalog
+      costItems={costItems}
+      canWrite={canWrite}
+      installedCodes={new Set(assemblies.map((assembly) => assembly.code))}
+      saving={saving}
+      onSaving={setSaving}
+      onError={setError}
+      onInstalled={(created) => {
+        setAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+        setAvailableChildAssemblies((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+        selectAssembly(created.id);
+      }}
+    />
+    <div className="grid gap-6 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,2fr)]">
     <aside className="grid content-start gap-4">
       {canWrite ? <form onSubmit={createAssembly} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4">
         <div><h2 className="font-semibold text-foreground">New Assembly</h2><p className="mt-1 text-sm text-muted-foreground">Create a reusable Costbook composition.</p></div>
@@ -251,7 +280,104 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
         {loadingItems && items.length === 0 ? <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading components…</div> : items.length === 0 ? <EmptyState title="No components yet" description={canWrite ? "Add active CostItems or child Assemblies to build this composition." : "This assembly does not have any components."} /> : <div className="overflow-hidden rounded-lg border border-border/70 bg-card"><div className="border-b border-border/70 px-4 py-3 text-sm text-muted-foreground">Showing {items.length} of {itemsTotal} components</div><div className="divide-y divide-border/70">{items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-foreground">{item.componentName}</p><p className="font-mono text-xs text-muted-foreground">{item.componentCode} · {item.componentType === "cost_item" ? "Cost item" : "Assembly"} · {item.quantityPerUnit} {item.componentUnitOfMeasure}</p></div>{canWrite ? <Button type="button" variant="ghost" size="sm" onClick={() => removeComponent(item.id)} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Remove</Button> : null}</div>)}</div>{itemsNextCursor ? <div className="border-t border-border/70 p-3"><Button type="button" variant="outline" size="sm" onClick={loadMoreComponents} disabled={loadingItems}>{loadingItems ? "Loading" : "Load more components"}</Button></div> : null}</div>}
       </>}
     </section>
+    </div>
   </div>;
+}
+
+function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, onSaving, onError, onInstalled }: {
+  costItems: CostItemCatalogRecord[];
+  canWrite: boolean;
+  installedCodes: Set<string>;
+  saving: boolean;
+  onSaving: (value: boolean) => void;
+  onError: (value: string | null) => void;
+  onInstalled: (assembly: CostbookAssembly) => void;
+}) {
+  const [templates, setTemplates] = useState<StarterCatalogTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [query, setQuery] = useState("");
+  const [nahbGroup, setNahbGroup] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const selected = templates.find((template) => template.id === selectedTemplateId) ?? null;
+  const groups = useMemo(() => [...new Set(templates.map((template) => template.nahbGroup))], [templates]);
+  const filtered = useMemo(() => templates.filter((template) => {
+    const text = `${template.name} ${template.code} ${template.trade} ${template.csiTitle} ${template.nahbGroup}`.toLowerCase();
+    return (nahbGroup === "all" || template.nahbGroup === nahbGroup) && text.includes(query.trim().toLowerCase());
+  }), [templates, query, nahbGroup]);
+
+  useEffect(() => {
+    let active = true;
+    clientFetch<{ items: StarterCatalogTemplate[] }>("/costbook/assemblies/starter-catalog")
+      .then((result) => {
+        if (!active) return;
+        setTemplates(result.items);
+        setSelectedTemplateId(result.items[0]?.id ?? "");
+      })
+      .catch((err) => { if (active) onError(err instanceof Error ? err.message : "Starter assembly catalog could not be loaded."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [onError]);
+
+  async function install() {
+    if (!selected) return;
+    const componentMappings = selected.components.map((component) => ({
+      componentKey: component.key,
+      costItemId: mappings[component.key],
+    }));
+    if (componentMappings.some((mapping) => !mapping.costItemId)) {
+      onError("Map every component to an active Cost Item before installing the assembly.");
+      return;
+    }
+    onSaving(true);
+    onError(null);
+    try {
+      const created = await clientFetch<CostbookAssembly>("/costbook/assemblies/starter-catalog/install", {
+        method: "POST",
+        body: JSON.stringify({ templateId: selected.id, componentMappings }),
+      });
+      onInstalled(created);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Starter assembly could not be installed.");
+    } finally {
+      onSaving(false);
+    }
+  }
+
+  return <section className="overflow-hidden rounded-xl border border-primary/25 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+    <div className="grid gap-4 border-b border-border/70 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div className="flex gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="size-5" aria-hidden="true" /></div>
+        <div><h2 className="text-lg font-semibold text-foreground">Residential Assembly Catalog</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Browse by familiar NAHB work group with CSI MasterFormat classification underneath. Map every recipe slot to your own Costbook before installation, so pricing stays organization-specific and reviewable.</p></div>
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full border border-border bg-background px-2.5 py-1">{templates.length} starters</span><span className="rounded-full border border-border bg-background px-2.5 py-1">No embedded prices</span></div>
+    </div>
+    {loading ? <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading starter catalog…</div> : <div className="grid lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.6fr)]">
+      <div className="border-b border-border/70 lg:border-b-0 lg:border-r">
+        <div className="grid gap-2 border-b border-border/70 p-3 sm:grid-cols-2 lg:grid-cols-1">
+          <Input aria-label="Search starter assemblies" placeholder="Search assemblies, trades, or CSI…" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <select aria-label="Filter by NAHB group" className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={nahbGroup} onChange={(event) => setNahbGroup(event.target.value)}><option value="all">All residential groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
+        </div>
+        <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
+          const installed = installedCodes.has(template.code);
+          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+            <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
+            <span className="mt-1 block text-xs text-muted-foreground">{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}</span>
+          </button>;
+        })}{filtered.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No starter assemblies match those filters.</p> : null}</div>
+      </div>
+      {!selected ? <EmptyState title="Choose a starter assembly" description="Select a recipe to review its measurement basis and component mapping." /> : <div className="grid content-start gap-5 p-4 sm:p-5">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+          <div><p className="font-mono text-xs text-primary">{selected.code} · CSI {selected.csiDivision} {selected.csiTitle}</p><h3 className="mt-1 text-xl font-semibold text-foreground">{selected.name}</h3><p className="mt-2 text-sm text-muted-foreground">Measured by {selected.measurementBasis.toLowerCase()}. {selected.wasteGuidance}</p></div>
+          <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB · {selected.nahbGroup}</span>
+        </div>
+        <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
+          {selected.components.map((component) => <label key={component.key} className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.9fr)] sm:items-center"><span><span className="block text-sm font-medium text-foreground">{component.label} · {component.quantityPerUnit}</span><span className="mt-0.5 block text-xs text-muted-foreground">{component.help}</span></span><select className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={mappings[component.key] ?? ""} onChange={(event) => setMappings((current) => ({ ...current, [component.key]: event.target.value }))} disabled={!canWrite || saving}><option value="">Select a Cost Item</option>{costItems.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></label>)}
+        </div>
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code) || costItems.length === 0}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
+      </div>}
+    </div>}
+  </section>;
 }
 
 function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {

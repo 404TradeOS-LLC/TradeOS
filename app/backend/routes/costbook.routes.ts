@@ -24,6 +24,8 @@ costbookRouter.delete("/cost-items/:id", asyncHandler(costItemCtrl.remove));
 costbookRouter.get("/assemblies", asyncHandler(assemblyCtrl.list));
 costbookRouter.get("/assemblies/search", asyncHandler(assemblyCtrl.search));
 costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates));
+costbookRouter.get("/assemblies/starter-catalog", asyncHandler(assemblyCtrl.starterCatalog));
+costbookRouter.post("/assemblies/starter-catalog/install", asyncHandler(assemblyCtrl.installStarterCatalog));
 costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
 costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
 costbookRouter.get("/assemblies/:id", asyncHandler(assemblyCtrl.getById));

@@ -34,8 +34,24 @@ const templateListSchema = catalogQuerySchema.strict();
 const itemsListSchema = catalogQuerySchema.omit({ q: true }).strict();
 const searchSchema = z.object({ q: z.string().trim().max(200).optional() }).strict();
 const unitCostQuerySchema = z.object({ regionId: z.string().uuid().optional() }).strict();
+const installCatalogSchema = z.object({
+  templateId: z.string().trim().min(1).max(100),
+  componentMappings: z.array(z.object({
+    componentKey: z.string().trim().min(1).max(100),
+    costItemId: z.string().uuid(),
+  }).strict()).min(1).max(50),
+}).strict();
 
 export const assembliesDatabaseController = {
+  async starterCatalog(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.read"]);
+    res.json({ items: service.listStarterCatalog() });
+  },
+  async installStarterCatalog(req: Request, res: Response) {
+    requirePermissions(req, ["costbook.write"]);
+    const body = installCatalogSchema.parse(req.body);
+    res.status(201).json(await service.installStarterCatalogAssembly({ ...body, orgId: requireOrgId(req) }));
+  },
   async list(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     const parsed = listSchema.parse(req.query);
