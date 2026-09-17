@@ -2,6 +2,7 @@ import { ASSEMBLY_CATALOG, CSI_DIVISIONS, NAHB_GROUPS } from "../modules/assembl
 
 describe("assembly starter catalog", () => {
   it("has unique ids and CSI-coded assembly codes", () => {
+    expect(ASSEMBLY_CATALOG).toHaveLength(14);
     expect(new Set(ASSEMBLY_CATALOG.map((item) => item.id)).size).toBe(ASSEMBLY_CATALOG.length);
     expect(new Set(ASSEMBLY_CATALOG.map((item) => item.code)).size).toBe(ASSEMBLY_CATALOG.length);
     for (const item of ASSEMBLY_CATALOG) {

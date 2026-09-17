@@ -231,7 +231,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
     <StarterAssemblyCatalog
       costItems={costItems}
       canWrite={canWrite}
-      installedCodes={new Set(assemblies.map((assembly) => assembly.code))}
+      installedCodes={new Set(availableChildAssemblies.map((assembly) => assembly.code))}
       saving={saving}
       onSaving={setSaving}
       onError={setError}
