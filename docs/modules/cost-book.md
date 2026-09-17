@@ -111,6 +111,8 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies`
 - `/api/v1/costbook/assemblies/search`
 - `/api/v1/costbook/assemblies/templates`
+- `/api/v1/costbook/assemblies/starter-catalog`
+- `/api/v1/costbook/assemblies/starter-catalog/install`
 - `/api/v1/costbook/assemblies/:id`
 - `/api/v1/costbook/assemblies/:id/unit-cost`
 - `/api/v1/costbook/assemblies/:id/items`
@@ -187,6 +189,8 @@ Cost remains derived rather than stored as a flat CostItem price. `UnitCostBreak
 
 The unified Assembly surface reuses `AssembliesDatabaseService` and the existing `Assembly`/`AssemblyItem` models. Reads require `costbook.read`; ordinary Assembly/component edits require `costbook.write`; lifecycle deactivation requires `costbook.manage`. New components must be active and belong to the authenticated organization, cycle prevention remains enforced, and the database independently validates the parent Assembly plus referenced CostItem/child Assembly tenant scope.
 
+The residential starter catalog adds a read-only TradeOS recipe library organized by NAHB work groups and CSI section codes. It stores no tenant prices. Installation requires `costbook.write`, a complete mapping from every recipe slot to an active same-organization Cost Item, and an unused organization assembly code. A successful install writes the recipe into the existing tenant-scoped `Assembly`/`AssemblyItem` tables as a reusable template; the existing unit-cost resolver and Estimate snapshot behavior remain authoritative. See `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
+
 `POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
 
 ### Research candidate review queue (Stage 6)
@@ -246,7 +250,7 @@ Current behavior:
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management
 - `/costbook/cost-items` provides real-data CostItem create/edit/deactivate management, read-only behavior for actors without writes, responsive desktop/mobile presentation, and honest empty/load/error/mutation states
-- `/costbook/assemblies` provides Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
+- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
 - `/costbook/research-review` is the human review surface for researched pricing candidates: real queue and corpus counts, a paginated/searchable/filterable candidate table, and a detail panel showing complete provenance beside the current Costbook price and the difference. Approve/reject/promote render only for `costbook.manage`; read-only viewers get a truthful explanation rather than disabled controls
@@ -271,6 +275,7 @@ Current behavior:
 - `app/tests/costbook.rls.integration.ts`
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
+- `app/tests/assembly-starter-catalog.test.ts`
 - `app/tests/estimate-engine.formulas.test.ts`
 - `app/tests/costbook-assemblies.rls.integration.ts`
 - `app/tests/costbook-pricing.test.ts`
@@ -292,7 +297,7 @@ Current behavior:
 
 ## Known limitations
 
-- system-wide shared template catalogs are not the current model; assemblies are tenant-scoped
+- the starter recipe definitions are shared read-only application data, but every installed Assembly remains tenant-scoped and must map to that tenant's active Cost Items
 - only `name` columns are trigram-indexed today, so combined name-or-code substring search may still scan when the planner has to satisfy the `code` branch
 - supplier feed transport requires explicit operator configuration per Supplier; no supplier-SKU matching layer is implemented
 - pricing preview is not a persisted organization-wide pricing-policy/rules system

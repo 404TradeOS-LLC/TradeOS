@@ -8,10 +8,12 @@ const mockPrisma = {
   assemblyItem: {
     findMany: jest.fn(),
     create: jest.fn(),
+    createMany: jest.fn(),
     delete: jest.fn(),
   },
   costItem: {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
   },
 };
 
@@ -193,6 +195,78 @@ describe("AssembliesDatabaseService", () => {
         data: expect.objectContaining({ isTemplate: true }),
       });
       expect(result.isTemplate).toBe(true);
+    });
+  });
+
+  describe("starter catalog", () => {
+    it("installs a fully mapped starter as a tenant-scoped reusable assembly", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: "11111111-1111-4111-8111-111111111111" },
+        { id: "22222222-2222-4222-8222-222222222222" },
+      ]);
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "assembly-installed",
+        orgId: "org-1",
+        code: "31 23 16-TOS-001",
+        name: "General excavation",
+        unitOfMeasure: "CY",
+        description: "classified",
+        isTemplate: true,
+        isActive: true,
+      });
+      mockPrisma.assemblyItem.createMany.mockResolvedValue({ count: 2 });
+
+      const result = await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+          { componentKey: "haul", costItemId: "22222222-2222-4222-8222-222222222222" },
+        ],
+      });
+
+      expect(mockPrisma.costItem.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"] },
+          orgId: "org-1",
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ costItemId: "11111111-1111-4111-8111-111111111111", quantityPerUnit: 1, sortOrder: 1 }),
+          expect.objectContaining({ costItemId: "22222222-2222-4222-8222-222222222222", quantityPerUnit: 1, sortOrder: 2 }),
+        ],
+      });
+      expect(result).toEqual(expect.objectContaining({ code: "31 23 16-TOS-001", isTemplate: true }));
+    });
+
+    it("fails closed when a required recipe slot is not mapped", async () => {
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+        ],
+      })).rejects.toThrow(/Missing mappings: Haul and disposal allowance/);
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects cross-organization or inactive mapped Cost Items", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([{ id: "11111111-1111-4111-8111-111111111111" }]);
+
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+          { componentKey: "haul", costItemId: "22222222-2222-4222-8222-222222222222" },
+        ],
+      })).rejects.toThrow(/inactive or outside this organization/);
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
     });
   });
 });

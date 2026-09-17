@@ -138,7 +138,7 @@ Implemented Costbook surfaces include:
 - labor rates
 - equipment
 - Cost Items
-- Assemblies and components
+- Assemblies and components, including a 14-recipe residential starter catalog browsed by NAHB work group and classified with CSI section codes. Installation requires an estimator to map every slot to active same-organization Cost Items before real reusable Assembly/AssemblyItem records are created; the shared catalog carries no prices.
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
