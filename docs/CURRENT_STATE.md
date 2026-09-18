@@ -479,3 +479,8 @@ The authenticated contractor customer detail workflow now exposes the existing s
 ## Today command board
 
 The owner dashboard now composes the highest-frequency operational sources into one synthesized Today command board. It preserves the existing authenticated API loaders and model builders while presenting four ordered sections—Now, Needs you, Coming up, and Money—as full-width action rows with one dominant destination per row. The previous quick-action strip, Needs Attention card, schedule/Continue Working grid, KPI tile grid, and receivables card are no longer rendered as separate primary dashboard surfaces; task/activity and diagnostic material remain below the operational queue.
+
+
+## Universal creation entry point
+
+The mobile Control Dock Create action now opens a keyboard-accessible bottom creation sheet instead of navigating directly to project creation. Estimate from scope is the featured first action, followed by Job, Customer, Invoice, Change Order, and Schedule; each option reuses an existing production route and closes the sheet before navigation. The existing More sheet behavior and Control Dock touch targets remain unchanged.
