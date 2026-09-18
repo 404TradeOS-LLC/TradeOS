@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { deleteCustomerAction } from "@/app/actions/customers";
+import { CustomerPortalLink } from "./customer-portal-link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -24,6 +25,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </CardHeader>
         <CardContent>
           <EditCustomerForm customer={customer} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-md">
+        <CardHeader>
+          <CardTitle>Customer portal</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Create a single-use link for this customer. The raw link is shown only once.</p>
+          <CustomerPortalLink customerId={customer.id} />
         </CardContent>
       </Card>
 
