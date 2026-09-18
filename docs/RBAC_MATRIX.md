@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-24
+last_verified: 2026-09-14
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -80,6 +80,18 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
   contention handling; verified JWT and organization-membership authorization
   remain enforced upstream, and the transaction-local `app.*` RLS settings
   are still established inside the acquired transaction
+- background/operator scripts identify their actor by `--user-id`, never by a
+  supplied role: `runWithBackgroundDatabaseSession` independently re-verifies
+  that user has an active membership in `--org-id` and resolves the role from
+  that membership before anything runs. It now also passes that resolved
+  identity to the operation it invokes, purely so a background caller can
+  hand it to a service method that expects an explicit `AuthContext` (for
+  example, `app/scripts/ingest-jones-and-sons-candidates.ts` submitting a
+  Costbook research candidate) — this widens what data a caller can read, not
+  what a role can do, and every write it triggers still passes through the
+  same RLS write policies (for candidates, `costbook_research_candidates_write_policy`,
+  which independently requires owner/admin) as if a human had made the call
+  over the API.
 
 ## Assigned-technician restrictions
 
