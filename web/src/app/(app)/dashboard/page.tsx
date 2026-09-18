@@ -30,21 +30,17 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CollapsibleCard } from "@/components/shared/collapsible-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { isTerminalStatus, jobStatuses } from "@/domain";
-import { NeedsAttentionCard, type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
+import { type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
 import { buildAttentionEstimateRows, buildAttentionInvoiceRows, buildAttentionProposalRows, getStaleProposalCutoffIso } from "@/components/dashboard/needs-attention-model";
 import { buildContinueWorkingRows } from "@/components/dashboard/continue-working-model";
-import { ContinueWorkingPanel } from "@/components/dashboard/continue-working-panel";
 import { buildReceivablesSummary } from "@/components/dashboard/receivables-model";
-import { ReceivablesCard } from "@/components/dashboard/receivables-card";
 import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
 import { buildProjectActivityEntries, mergeActivityEntries } from "@/components/dashboard/project-activity-model";
-import { buildOwnerKpis, ownerQuickActions } from "@/components/dashboard/owner-dashboard-data";
+import { buildOwnerKpis } from "@/components/dashboard/owner-dashboard-data";
 import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
 import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
-import { OwnerKpiGrid } from "@/components/dashboard/owner-kpi-card";
-import { OwnerQuickActions } from "@/components/dashboard/owner-quick-actions";
 import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
-import { OwnerTodaySchedule } from "@/components/dashboard/owner-today-schedule";
+import { TodayCommandBoard } from "@/components/dashboard/today-command-board";
 import { loadDashboardProjectDetails, loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
 
 export const metadata: Metadata = {
@@ -382,27 +378,21 @@ export default async function DashboardPage() {
         }}
       />
 
-      <OwnerQuickActions actions={ownerQuickActions} />
-
-      <NeedsAttentionCard
+      <TodayCommandBoard
+        schedule={ownerScheduleItems}
         estimates={attentionEstimates}
         proposals={attentionProposals}
         invoices={attentionInvoices}
         readyToStart={attentionReadyToStart}
-        scopeLabel={projectScopeLabel}
-        estimatesError={estimateAttentionQueue.error}
-        proposalsError={proposalAttentionQueues.error}
-        invoicesError={invoiceAttentionQueues.error}
+        continueWorking={continueWorkingRows}
+        kpis={ownerKpis}
+        receivables={receivablesSummary}
+        errors={{
+          estimates: estimateAttentionQueue.error,
+          proposals: proposalAttentionQueues.error,
+          invoices: invoiceAttentionQueues.error,
+        }}
       />
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <OwnerTodaySchedule items={ownerScheduleItems} />
-        <ContinueWorkingPanel rows={continueWorkingRows} scopeLabel={projectScopeLabel} />
-      </div>
-
-      <OwnerKpiGrid kpis={ownerKpis} />
-
-      <ReceivablesCard summary={receivablesSummary} errorMessage={invoiceAttentionQueues.error} />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <OwnerTaskBoard tasks={dashboardTasks} now={now} timeZone={timeZone} errorMessage={dashboardTasksError} />
