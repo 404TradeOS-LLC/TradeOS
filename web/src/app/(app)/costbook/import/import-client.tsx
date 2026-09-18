@@ -1,39 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-interface ImportRow {
-  [key: string]: unknown;
-}
+import { buildCompositeImportBatches, type ImportRow } from "./import-batches";
 
 interface ImportFileShape {
   rows: ImportRow[];
   rowCount?: number;
   rejectedCount?: number;
   rejections?: unknown[];
-}
-
-const MAX_BATCH_ROWS = 100;
-const MAX_BATCH_BYTES = 80 * 1024;
-
-export function buildCompositeImportBatches(rows: ImportRow[]): ImportRow[][] {
-  const batches: ImportRow[][] = [];
-  let current: ImportRow[] = [];
-
-  for (const row of rows) {
-    const candidate = [...current, row];
-    const candidateBytes = new TextEncoder().encode(JSON.stringify({ rows: candidate })).byteLength;
-
-    if (current.length > 0 && (candidate.length > MAX_BATCH_ROWS || candidateBytes > MAX_BATCH_BYTES)) {
-      batches.push(current);
-      current = [row];
-    } else {
-      current = candidate;
-    }
-  }
-
-  if (current.length > 0) batches.push(current);
-  return batches;
 }
 
 export function CompositeImportClient() {
@@ -148,7 +122,7 @@ export function CompositeImportClient() {
         <button
           type="button"
           onClick={() => void runImport()}
-          disabled={status !== "ready" && status !== "error" || rows.length === 0}
+          disabled={(status !== "ready" && status !== "error") || rows.length === 0}
           className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           {status === "running" ? "Importing…" : status === "done" ? "Import complete" : "Import to production"}
