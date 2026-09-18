@@ -65,7 +65,7 @@ const CREATE_OPTIONS = [
   { href: "/projects/new", label: "Job", helper: "Create the project container for field work.", icon: ClipboardPlus, featured: false },
   { href: "/customers/new", label: "Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
   { href: "/projects", label: "Invoice", helper: "Choose the project that is ready to bill.", icon: Receipt, featured: false },
-  { href: "/projects", label: "Change Order", helper: "Open the project workspace to record a change.", icon: ClipboardPlus },
+  { href: "/projects", label: "Change Order", helper: "Open the project workspace to record a change.", icon: ClipboardPlus, featured: false },
   { href: "/dispatch", label: "Schedule", helper: "Place work on the dispatch calendar.", icon: CalendarPlus, featured: false },
 ] as const;
 
