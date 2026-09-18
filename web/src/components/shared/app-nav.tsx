@@ -189,7 +189,10 @@ export function AppNav({
   }, []);
 
   useEffect(() => {
-    const closeSheetOnHistoryNavigation = () => {\n      setMobileOpen(false);\n      setCreateOpen(false);\n    };
+    const closeSheetOnHistoryNavigation = () => {
+      setMobileOpen(false);
+      setCreateOpen(false);
+    };
     window.addEventListener("popstate", closeSheetOnHistoryNavigation);
     return () => window.removeEventListener("popstate", closeSheetOnHistoryNavigation);
   }, []);
