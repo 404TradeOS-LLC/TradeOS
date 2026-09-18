@@ -328,6 +328,21 @@ export function getCustomer(token: string, id: string) {
   return apiFetch<Customer & { projects: Project[] }>(`/api/v1/customers/${id}`, { token });
 }
 
+export interface CustomerPortalAccessTokenIssue {
+  id: string;
+  customerId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export function issueCustomerPortalAccessToken(token: string, customerId: string) {
+  return apiFetch<CustomerPortalAccessTokenIssue>("/api/v1/customer-portal/access-tokens", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ customerId }),
+  });
+}
+
 export const PROJECT_STATUSES = projectStatuses;
 export type { ProjectStatus };
 
