@@ -1,18 +1,23 @@
 import Link from "next/link";
 import { deleteCustomerAction } from "@/app/actions/customers";
+import { CustomerPortalLink } from "./customer-portal-link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListRowLink } from "@/components/shared/list-row-link";
 import { PageHeader } from "@/components/shared/page-header";
-import { getCustomer } from "@/lib/api";
+import { getCustomer, getOrganizationSettings } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { EditCustomerForm } from "./edit-form";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const token = await getSessionToken();
-  const customer = await getCustomer(token ?? "", id);
+  const [customer, settings] = await Promise.all([
+    getCustomer(token ?? "", id),
+    getOrganizationSettings(token ?? ""),
+  ]);
+  const canIssuePortalLink = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,6 +31,18 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           <EditCustomerForm customer={customer} />
         </CardContent>
       </Card>
+
+      {canIssuePortalLink ? (
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Customer portal</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">Create a single-use link for this customer. The raw link is shown only once.</p>
+            <CustomerPortalLink customerId={customer.id} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="max-w-md">
         <CardHeader>
