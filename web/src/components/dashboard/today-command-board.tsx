@@ -37,16 +37,18 @@ interface TodayCommandBoardProps {
 }
 
 function BoardSection({
+  id,
   label,
   count,
   children,
 }: {
+  id?: string;
   label: string;
   count?: number;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-border/70 first:border-t-0">
+    <section id={id} className="border-t border-border/70 first:border-t-0">
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</h2>
         {count != null ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{count}</span> : null}
@@ -247,7 +249,7 @@ export function TodayCommandBoard({
         ) : null}
       </BoardSection>
 
-      <BoardSection label="Money">
+      <BoardSection id="invoices-waiting" label="Money">
         <CommandRow
           icon={<CircleDollarSign className="size-4" />}
           title={`${receivables.openInvoiceTotal} open invoice${receivables.openInvoiceTotal === 1 ? "" : "s"}`}
