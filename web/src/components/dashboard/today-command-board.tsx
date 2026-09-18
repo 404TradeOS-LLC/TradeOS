@@ -184,7 +184,7 @@ export function TodayCommandBoard({
             key={`proposal-${row.proposalId}`}
             icon={<Sparkles className="size-4" />}
             title={`${row.projectName} · proposal`}
-            metadata={[${JSON.stringify(row.customerName)}, row.amount != null ? formatCurrency(row.amount) : null, row.stale && row.sentAt ? `stale since ${formatDate(row.sentAt)}` : null].filter(Boolean).join(" · ")}
+            metadata={[row.customerName, row.amount != null ? formatCurrency(row.amount) : null, row.stale && row.sentAt ? `stale since ${formatDate(row.sentAt)}` : null].filter(Boolean).join(" · ")}
             status={row.stale ? <StatusBadge status="needs_attention" /> : <StatusBadge status={row.status} />}
             action="Review"
             href={`/projects/${row.projectId}/proposals/${row.proposalId}`}
