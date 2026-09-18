@@ -474,3 +474,8 @@ The standing dashboard weather selector in `web/src/lib/dashboard-weather.ts` re
 ## Customer portal issuance
 
 The authenticated contractor customer detail workflow now exposes the existing staff portal-link issuance endpoint. Authorized staff can create a single-use, expiring customer-scoped link, copy it once, and share it through the controlled UI. Customer redemption, session scoping, portal reads, and revocation remain on the existing security boundary; email delivery remains follow-up work.
+
+
+## Today command board
+
+The owner dashboard now composes the highest-frequency operational sources into one synthesized Today command board. It preserves the existing authenticated API loaders and model builders while presenting four ordered sections—Now, Needs you, Coming up, and Money—as full-width action rows with one dominant destination per row. The previous quick-action strip, Needs Attention card, schedule/Continue Working grid, KPI tile grid, and receivables card are no longer rendered as separate primary dashboard surfaces; task/activity and diagnostic material remain below the operational queue.

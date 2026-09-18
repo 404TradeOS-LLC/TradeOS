@@ -37,8 +37,8 @@ test("partial paired-request failures remain visible to the Needs Attention UI",
 
   assert.match(source, /overdueFailed \|\| unpaidFailed/);
   assert.match(source, /staleResult\.status === "rejected" \|\| unsignedResult\.status === "rejected"/);
-  assert.match(source, /invoicesError=\{invoiceAttentionQueues\.error\}/);
-  assert.match(source, /proposalsError=\{proposalAttentionQueues\.error\}/);
+  assert.match(source, /invoices: invoiceAttentionQueues\.error/);
+  assert.match(source, /proposals: proposalAttentionQueues\.error/);
 });
 
 test("organization settings failure preserves successfully loaded project data", async () => {
