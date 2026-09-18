@@ -100,4 +100,8 @@ limited to signing a pending contract through the dedicated portal policy.
 
 ## Last verified date
 
-2026-08-28 (ADR-010 customer magic-link portal implementation)
+2026-09-13 (server-side portal access delivery)
+
+## Access-link delivery
+
+The staff-only `POST /api/v1/customer-portal/access-tokens` endpoint creates a single-use, customer-scoped token and schedules a server-side transactional email through `EmailService.sendCustomerPortalAccess`. The raw token is never written to logs or persisted; production delivery requires `RESEND_API_KEY`, `EMAIL_FROM`, and an HTTPS `APP_BASE_URL`. The HTTP response may still expose the raw token to the authenticated staff caller for controlled staging and UI flows, but browser code must not send the email or persist the token.
