@@ -312,7 +312,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
   const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
-  const previewUnitCost = selected && mappingComplete
+  const previewLoading = Boolean(selected && mappingComplete && selected.components.some((component) => costPreview[mappings[component.key]]?.loading));
+  const previewError = selected && mappingComplete
+    ? selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
+    : null;
+  const previewUnitCost = selected && mappingComplete && !previewLoading && !previewError
     ? selected.components.reduce((total, component) => total + (costPreview[mappings[component.key]]?.unitCost ?? 0) * component.quantityPerUnit, 0)
     : null;
   const previewOutputQuantity = Math.max(0, Number(previewQuantity) || 0);
@@ -411,7 +415,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         <div className="grid gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
           <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Pre-install cost preview</p><p className="mt-1 text-sm text-muted-foreground">{mappingComplete ? "Read-only estimate from the mapped Cost Items. Installation still requires review of local production assumptions." : `Map ${selected.components.length - mappedCount} more component${selected.components.length - mappedCount === 1 ? "" : "s"} to preview cost.`}</p></div>
           <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
-          <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
+          <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
         </div>
         <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code) || costItems.length === 0}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
