@@ -1,12 +1,12 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-17
+last_verified: 2026-09-19
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
   - docs/CURRENT_STATE.md
-  - docs/ENGINEERING_COMMAND_CENTER.md
+  - docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
@@ -14,47 +14,49 @@ related_docs:
 
 ## Mission
 
-Out-of-band founder-authorized Costbook work: deliver a residential Assembly
-Catalog organized by NAHB work groups and CSI classification while preserving
-the existing organization-scoped Assembly model and Estimate pricing engine.
+Continue the founder-authorized Assembly Catalog work as a sequence of bounded,
+mergeable slices. The current slice closes the mapping-quality, atomicity,
+versioning, and tenant-integration gaps identified after the first 14-recipe
+NAHB/CSI catalog landed.
 
 ## Current truth
 
-- Base `origin/main` was fetched clean at
-  `0b0071b0ca6b8a3ea05ab7a5a3781706e51f3eff` before branch creation.
-- Branch: `feat/costbook-assembly-catalog`.
-- Autonomy reconciliation classified the work `NEW_WORK_REQUIRED`. The live
-  open-PR inventory contained no overlapping Assembly Catalog implementation.
-- The branch adds 14 TradeOS-authored residential starter recipes. They carry
-  transparent measurement bases, component quantities, NAHB work groups, and
-  CSI section codes, but no embedded prices.
-- Installation requires `costbook.write`, a complete estimator mapping to
-  active same-organization Cost Items, and an unused Assembly code. It creates
-  ordinary reusable Assembly/AssemblyItem records in the authenticated request
-  transaction and retains existing forced-RLS defense.
-- `/costbook/assemblies` now provides responsive starter browse/search/filter,
-  mapping, install, and installed-state UX while preserving manual create,
-  edit, nested composition, current unit cost, and lifecycle controls.
-- Owner docs and the checked implementation plan are in
-  `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`,
-  `docs/modules/cost-book.md`, `docs/API_REFERENCE.md`, and
-  `docs/CURRENT_STATE.md`.
-- Focused backend tests, the full 2,296-test backend suite, backend lint/build,
-  all 280 web tests, web lint/build, PR/governance tests, docs tests/check, and
-  diff/preflight checks passed locally. Authenticated rendered browser evidence
-  against a disposable tenant remains outstanding.
+- Current work continues existing PR #520 on branch
+  `coderabbitai/post-merge-2/f59bab1`, rebased onto `origin/main` at `a44939f`.
+  Reconciliation classified the task `EXISTING_WORK_FOUND`; do not open a
+  duplicate PR.
+- The starter catalog now has catalog/recipe versions, reviewed-source metadata,
+  pinned component quantities, compatible unit/type declarations, and a derived
+  coverage matrix for its 10 residential work groups and 14 recipes.
+- Installation rejects repeated Cost Items and incompatible unit/type mappings,
+  then creates the Assembly and AssemblyItem rows in one explicit transaction.
+  The transaction helper reuses an active request transaction so RLS session
+  identity is preserved.
+- The web catalog uses bounded server-backed Cost Item search for both manual
+  composition and starter mapping. Starter results explain and disable duplicate
+  or incompatible choices instead of allowing a bad recipe to reach install.
+- Live integration coverage now exercises starter installation within an RLS
+  session, verifies tenant invisibility, and confirms a foreign mapping leaves
+  no partial Assembly. Service/catalog snapshots cover the versioned contract.
+- Repository preflight passes: 2,302 backend tests across 261 suites, backend
+  lint/build, 283 web tests, web lint/build, docs checks/tests, governance tests,
+  and `git diff --check` are green locally. The Docker-backed integration lane
+  is environment-blocked here and remains required in CI.
+- No schema, migration, RLS-policy, pricing-formula, estimate, or takeoff behavior
+  changed in this slice.
 
 ## Next safe action
 
-Review the complete branch diff, rerun the final scoped checks after any repair,
-then publish one PR. Do not represent local tests as deployment or authenticated
-browser evidence. Expansion beyond the 14 reviewed starter recipes remains a
-separate trade-by-trade review effort.
+Review the final diff, update PR #520's title/body to describe the complete
+slice, and force-push only with an exact `--force-with-lease` against its
+pre-rebase remote head. Confirm required CI, including the Docker-backed
+integration lane, on the published head. Do not claim rendered browser or
+production evidence unless it is actually captured.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: `NONE`; this is directly authorized out-of-band work and does not change numbered sprint status. S048 still requires a founder decision, and S039/S044/S045 remain blocked on production access.
+Eligibility: `NONE`; this remains directly authorized out-of-band work and does not change numbered sprint status. S048 still requires a founder decision, and S039/S044/S045 remain blocked on production access.
 Dependencies: Existing Costbook Assembly, Cost Item, Estimate pricing, request-session, RBAC, and forced-RLS foundations are present on `main`.
-Overlap check: live reconciliation on 2026-09-17 found no open Assembly Catalog PR or equivalent implementation on `main`.
-Startup prompt: Continue only the bounded `feat/costbook-assembly-catalog` mission; inspect the current diff and live PR state before publishing.
+Overlap check: live reconciliation on 2026-09-19 found PR #520 as the directly overlapping continuation and PR #519 as non-overlapping completion evidence.
+Startup prompt: Continue only PR #520's bounded Assembly Catalog quality slice; reconcile live branch/PR state before editing or publishing.

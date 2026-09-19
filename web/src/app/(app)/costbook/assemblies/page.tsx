@@ -4,7 +4,7 @@ import { CatalogQueryControls } from "@/components/costbook/catalog-query-contro
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { apiFetch, getCostbookWorkspace, type CatalogPage } from "@/lib/api";
+import { apiFetch, getCostbookWorkspace } from "@/lib/api";
 import { listCostbookAssemblies, type CostbookAssembly } from "@/lib/costbook-api";
 import { getSessionToken } from "@/lib/session";
 
@@ -34,16 +34,7 @@ async function loadChildAssemblyChoices(token: string): Promise<CostbookAssembly
 }
 
 async function loadCostItemChoices(token: string): Promise<CostItemCatalogRecord[]> {
-  const items: CostItemCatalogRecord[] = [];
-  let cursor: string | undefined;
-  do {
-    const params = new URLSearchParams({ limit: "100", active: "true" });
-    if (cursor) params.set("cursor", cursor);
-    const page = await apiFetch<CatalogPage<CostItemCatalogRecord>>(`/api/v1/costbook/cost-items?${params.toString()}`, { token });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items;
+  return apiFetch<CostItemCatalogRecord[]>("/api/v1/costbook/cost-items/search?q=", { token });
 }
 
 export default async function CostbookAssembliesPage({ searchParams }: { searchParams: Promise<AssembliesQuery> }) {

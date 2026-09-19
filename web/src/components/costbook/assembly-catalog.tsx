@@ -1,14 +1,20 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { BookOpen, CheckCircle2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { clientFetch } from "@/lib/clientApi";
 import type { CostbookAssembly } from "@/lib/costbook-api";
 import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
+import {
+  assessCostItemMapping,
+  type StarterCatalogComponent,
+  type StarterCatalogCoverage,
+  type StarterCatalogTemplate,
+} from "@/components/costbook/assembly-catalog-model";
 
 type AssemblyItem = {
   id: string;
@@ -26,21 +32,6 @@ type AssemblyItem = {
 type AssemblyCost = { unitCost: number; componentCount: number };
 type AssemblyItemsPage = { items: AssemblyItem[]; total: number; nextCursor: string | null };
 type AssemblyForm = { code: string; name: string; unitOfMeasure: string; description: string; isTemplate: boolean };
-type StarterCatalogComponent = { key: string; label: string; quantityPerUnit: number; help: string };
-type StarterCatalogTemplate = {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  unitOfMeasure: string;
-  csiDivision: string;
-  csiTitle: string;
-  nahbGroup: string;
-  trade: string;
-  measurementBasis: string;
-  wasteGuidance: string;
-  components: StarterCatalogComponent[];
-};
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
@@ -272,7 +263,7 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
 
         {canWrite ? <form onSubmit={addComponent} className="grid gap-3 rounded-lg border border-border/70 bg-card p-4 md:grid-cols-[160px_1fr_120px_auto] md:items-end">
           <label className="grid gap-1.5 text-sm font-medium"><span>Type</span><select className="h-9 rounded-md border border-input bg-background px-3" value={componentType} onChange={(event) => { setComponentType(event.target.value as "cost_item" | "assembly"); setComponentId(""); }} disabled={saving}><option value="cost_item">Cost item</option><option value="assembly">Assembly</option></select></label>
-          <label className="grid gap-1.5 text-sm font-medium"><span>Component</span><select className="h-9 rounded-md border border-input bg-background px-3" value={componentId} onChange={(event) => setComponentId(event.target.value)} required disabled={saving}><option value="">Select</option>{(componentType === "cost_item" ? costItems : childOptions).map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></label>
+          <div className="grid gap-1.5 text-sm font-medium"><span>Component</span>{componentType === "cost_item" ? <CostItemSearchPicker initialOptions={costItems} valueId={componentId} onSelect={(item) => setComponentId(item?.id ?? "")} disabled={saving} /> : <select className="h-9 rounded-md border border-input bg-background px-3" value={componentId} onChange={(event) => setComponentId(event.target.value)} required disabled={saving}><option value="">Select</option>{childOptions.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select>}</div>
           <label className="grid gap-1.5 text-sm font-medium"><span>Qty / unit</span><Input type="number" min="0.0001" step="0.0001" value={quantity} onChange={(event) => setQuantity(event.target.value)} required disabled={saving} /></label>
           <Button type="submit" disabled={saving || !componentId}><Plus className="size-4" aria-hidden="true" />Add</Button>
         </form> : null}
@@ -294,8 +285,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   onInstalled: (assembly: CostbookAssembly) => void;
 }) {
   const [templates, setTemplates] = useState<StarterCatalogTemplate[]>([]);
+  const [catalogVersion, setCatalogVersion] = useState("");
+  const [coverage, setCoverage] = useState<StarterCatalogCoverage[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [mappingItems, setMappingItems] = useState<Record<string, CostItemCatalogRecord>>({});
   const [query, setQuery] = useState("");
   const [nahbGroup, setNahbGroup] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -308,10 +302,12 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   useEffect(() => {
     let active = true;
-    clientFetch<{ items: StarterCatalogTemplate[] }>("/costbook/assemblies/starter-catalog")
+    clientFetch<{ catalogVersion: string; coverage: StarterCatalogCoverage[]; items: StarterCatalogTemplate[] }>("/costbook/assemblies/starter-catalog")
       .then((result) => {
         if (!active) return;
         setTemplates(result.items);
+        setCatalogVersion(result.catalogVersion);
+        setCoverage(result.coverage);
         setSelectedTemplateId(result.items[0]?.id ?? "");
       })
       .catch((err) => { if (active) onError(err instanceof Error ? err.message : "Starter assembly catalog could not be loaded."); })
@@ -327,6 +323,18 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     }));
     if (componentMappings.some((mapping) => !mapping.costItemId)) {
       onError("Map every component to an active Cost Item before installing the assembly.");
+      return;
+    }
+    if (new Set(componentMappings.map((mapping) => mapping.costItemId)).size !== componentMappings.length) {
+      onError("Use a different Cost Item for each recipe slot so every quantity remains explicit.");
+      return;
+    }
+    const incompatible = selected.components.find((component) => {
+      const item = mappingItems[component.key];
+      return item && !assessCostItemMapping(component, item).compatible;
+    });
+    if (incompatible) {
+      onError(`${incompatible.label} is mapped to an incompatible Cost Item. Choose a matching unit and cost type.`);
       return;
     }
     onSaving(true);
@@ -350,7 +358,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><BookOpen className="size-5" aria-hidden="true" /></div>
         <div><h2 className="text-lg font-semibold text-foreground">Residential Assembly Catalog</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Browse by familiar NAHB work group with CSI MasterFormat classification underneath. Map every recipe slot to your own Costbook before installation, so pricing stays organization-specific and reviewable.</p></div>
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full border border-border bg-background px-2.5 py-1">{templates.length} starters</span><span className="rounded-full border border-border bg-background px-2.5 py-1">No embedded prices</span></div>
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full border border-border bg-background px-2.5 py-1">{templates.length} starters</span><span className="rounded-full border border-border bg-background px-2.5 py-1">{coverage.length} NAHB groups</span>{catalogVersion ? <span className="rounded-full border border-border bg-background px-2.5 py-1">Catalog {catalogVersion}</span> : null}<span className="rounded-full border border-border bg-background px-2.5 py-1">No embedded prices</span></div>
     </div>
     {loading ? <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Loading starter catalog…</div> : <div className="grid lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.6fr)]">
       <div className="border-b border-border/70 lg:border-b-0 lg:border-r">
@@ -360,7 +368,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="max-h-[420px] overflow-y-auto divide-y divide-border/70">{filtered.map((template) => {
           const installed = installedCodes.has(template.code);
-          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
+          return <button key={template.id} type="button" onClick={() => { setSelectedTemplateId(template.id); setMappings({}); setMappingItems({}); }} className={`w-full px-4 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 ${selectedTemplateId === template.id ? "bg-primary/10" : "hover:bg-muted/50"}`}>
             <span className="flex items-start justify-between gap-3"><span className="font-medium text-foreground">{template.name}</span>{installed ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-label="Installed" /> : null}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{template.nahbGroup} · CSI {template.csiDivision} · {template.unitOfMeasure}</span>
           </button>;
@@ -372,12 +380,63 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
           <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">NAHB · {selected.nahbGroup}</span>
         </div>
         <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
-          {selected.components.map((component) => <label key={component.key} className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.9fr)] sm:items-center"><span><span className="block text-sm font-medium text-foreground">{component.label} · {component.quantityPerUnit}</span><span className="mt-0.5 block text-xs text-muted-foreground">{component.help}</span></span><select className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={mappings[component.key] ?? ""} onChange={(event) => setMappings((current) => ({ ...current, [component.key]: event.target.value }))} disabled={!canWrite || saving}><option value="">Select a Cost Item</option>{costItems.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></label>)}
+          {selected.components.map((component) => {
+            const unavailableIds = new Set(Object.entries(mappings).filter(([key]) => key !== component.key).map(([, id]) => id));
+            return <div key={`${selected.id}:${component.key}`} className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.9fr)] sm:items-center"><span><span className="block text-sm font-medium text-foreground">{component.label} · {component.quantityPerUnit}</span><span className="mt-0.5 block text-xs text-muted-foreground">{component.help}</span><span className="mt-1 block text-[11px] text-muted-foreground">Compatible: {component.compatibleUnits.join(", ")} · {component.allowedCostItemKinds.join(", ")}</span></span><CostItemSearchPicker initialOptions={costItems} valueId={mappings[component.key] ?? ""} valueItem={mappingItems[component.key]} component={component} unavailableIds={unavailableIds} onSelect={(item) => { setMappings((current) => ({ ...current, [component.key]: item?.id ?? "" })); setMappingItems((current) => { const next = { ...current }; if (item) next[component.key] = item; else delete next[component.key]; return next; }); }} disabled={!canWrite || saving} /></div>;
+          })}
         </div>
-        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code) || costItems.length === 0}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
+        <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code)}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
     </div>}
   </section>;
+}
+
+function CostItemSearchPicker({ initialOptions, valueId, valueItem, component, unavailableIds = new Set<string>(), onSelect, disabled }: {
+  initialOptions: CostItemCatalogRecord[];
+  valueId: string;
+  valueItem?: CostItemCatalogRecord;
+  component?: StarterCatalogComponent;
+  unavailableIds?: Set<string>;
+  onSelect: (item: CostItemCatalogRecord | null) => void;
+  disabled: boolean;
+}) {
+  const selected = valueItem ?? initialOptions.find((item) => item.id === valueId);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [options, setOptions] = useState(initialOptions);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const resultsId = useId();
+  const displayValue = editing ? query : selected ? `${selected.code} · ${selected.name}` : "";
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setSearchError(false);
+      clientFetch<CostItemCatalogRecord[]>(`/costbook/cost-items/search?q=${encodeURIComponent(query.trim())}`)
+        .then((items) => { if (active) setOptions(items); })
+        .catch(() => { if (active) { setOptions([]); setSearchError(true); } })
+        .finally(() => { if (active) setLoading(false); });
+    }, 200);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [open, query]);
+
+  return <div className="relative min-w-0">
+    <Search className="pointer-events-none absolute left-3 top-2.5 z-10 size-4 text-muted-foreground" aria-hidden="true" />
+    <Input role="combobox" aria-label="Search Cost Items" aria-expanded={open} aria-controls={resultsId} autoComplete="off" className="pl-9" placeholder="Search code or name…" value={displayValue} disabled={disabled} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 150)} onChange={(event) => { setEditing(true); setQuery(event.target.value); if (valueId) onSelect(null); setOpen(true); }} />
+    {open && !disabled ? <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+      {loading ? <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" aria-hidden="true" />Searching…</div> : searchError ? <p role="alert" className="px-3 py-2 text-xs text-destructive">Cost Items could not be loaded. Try searching again.</p> : options.length === 0 ? <p className="px-3 py-2 text-xs text-muted-foreground">No active Cost Items found.</p> : options.map((item) => {
+        const assessment = component ? assessCostItemMapping(component, item) : null;
+        const unavailable = unavailableIds.has(item.id);
+        const selectable = !unavailable && (assessment?.compatible ?? true);
+        const detail = unavailable ? "Already mapped to another slot" : assessment && !assessment.compatible ? assessment.reasons.join(" · ") : `${item.unitOfMeasure}${assessment ? ` · ${assessment.kind}` : ""}`;
+        return <button key={item.id} role="option" aria-selected={item.id === valueId} type="button" disabled={!selectable} className="grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(item); setQuery(""); setEditing(false); setOpen(false); }}><span className="font-medium text-foreground">{item.code} · {item.name}</span><span className="text-xs text-muted-foreground">{detail}</span></button>;
+      })}
+    </div> : null}
+  </div>;
 }
 
 function AssemblyEditForm({ assembly, saving, onSaving, onError, onUpdated }: {

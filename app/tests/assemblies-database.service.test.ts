@@ -1,4 +1,5 @@
 const mockPrisma = {
+  $transaction: jest.fn(),
   assembly: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -17,13 +18,14 @@ const mockPrisma = {
   },
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
 
 import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 
 describe("AssembliesDatabaseService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (operation) => operation(mockPrisma));
   });
 
   it("recursively rolls up nested assemblies", async () => {
@@ -202,8 +204,8 @@ describe("AssembliesDatabaseService", () => {
     it("installs a fully mapped starter as a tenant-scoped reusable assembly", async () => {
       mockPrisma.assembly.findFirst.mockResolvedValue(null);
       mockPrisma.costItem.findMany.mockResolvedValue([
-        { id: "11111111-1111-4111-8111-111111111111" },
-        { id: "22222222-2222-4222-8222-222222222222" },
+        { id: "11111111-1111-4111-8111-111111111111", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: "equipment-1", subcontractorId: null },
+        { id: "22222222-2222-4222-8222-222222222222", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: null, subcontractorId: "sub-1" },
       ]);
       mockPrisma.assembly.create.mockResolvedValue({
         id: "assembly-installed",
@@ -232,7 +234,7 @@ describe("AssembliesDatabaseService", () => {
           orgId: "org-1",
           isActive: true,
         },
-        select: { id: true },
+        select: { id: true, unitOfMeasure: true, laborRateId: true, materialId: true, equipmentId: true, subcontractorId: true },
       });
       expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledWith({
         data: [
@@ -256,7 +258,7 @@ describe("AssembliesDatabaseService", () => {
 
     it("rejects cross-organization or inactive mapped Cost Items", async () => {
       mockPrisma.assembly.findFirst.mockResolvedValue(null);
-      mockPrisma.costItem.findMany.mockResolvedValue([{ id: "11111111-1111-4111-8111-111111111111" }]);
+      mockPrisma.costItem.findMany.mockResolvedValue([{ id: "11111111-1111-4111-8111-111111111111", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: "equipment-1", subcontractorId: null }]);
 
       await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
         orgId: "org-1",
@@ -267,6 +269,62 @@ describe("AssembliesDatabaseService", () => {
         ],
       })).rejects.toThrow(/inactive or outside this organization/);
       expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects one Cost Item mapped to multiple recipe slots", async () => {
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+          { componentKey: "haul", costItemId: "11111111-1111-4111-8111-111111111111" },
+        ],
+      })).rejects.toThrow(/Cost Item may be mapped to only one recipe slot/);
+      expect(mockPrisma.costItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects mappings whose unit or component type does not match the recipe slot", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: "11111111-1111-4111-8111-111111111111", unitOfMeasure: "SF", laborRateId: "labor-1", materialId: null, equipmentId: null, subcontractorId: null },
+        { id: "22222222-2222-4222-8222-222222222222", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: null, subcontractorId: "sub-1" },
+      ]);
+
+      await expect(new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+          { componentKey: "haul", costItemId: "22222222-2222-4222-8222-222222222222" },
+        ],
+      })).rejects.toThrow(/Excavation labor and equipment.*expects CY.*expects equipment, subcontractor, or composite/);
+      expect(mockPrisma.assembly.create).not.toHaveBeenCalled();
+    });
+
+    it("keeps the assembly and all components in one transaction", async () => {
+      mockPrisma.assembly.findFirst.mockResolvedValue(null);
+      mockPrisma.costItem.findMany.mockResolvedValue([
+        { id: "11111111-1111-4111-8111-111111111111", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: "equipment-1", subcontractorId: null },
+        { id: "22222222-2222-4222-8222-222222222222", unitOfMeasure: "CY", laborRateId: null, materialId: null, equipmentId: null, subcontractorId: "sub-1" },
+      ]);
+      mockPrisma.assembly.create.mockResolvedValue({
+        id: "assembly-installed", orgId: "org-1", code: "31 23 16-TOS-001", name: "General excavation",
+        unitOfMeasure: "CY", description: "classified", isTemplate: true, isActive: true,
+      });
+      mockPrisma.assemblyItem.createMany.mockResolvedValue({ count: 2 });
+
+      await new AssembliesDatabaseService().installStarterCatalogAssembly({
+        orgId: "org-1",
+        templateId: "site-excavation",
+        componentMappings: [
+          { componentKey: "excavation", costItemId: "11111111-1111-4111-8111-111111111111" },
+          { componentKey: "haul", costItemId: "22222222-2222-4222-8222-222222222222" },
+        ],
+      });
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.assembly.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.assemblyItem.createMany).toHaveBeenCalledTimes(1);
     });
   });
 });
