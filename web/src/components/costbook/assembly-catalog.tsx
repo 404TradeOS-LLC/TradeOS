@@ -312,11 +312,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
   const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
-  const previewReady = Boolean(selected && mappingComplete && selected.components.every((component) => costPreview[mappings[component.key]] && !costPreview[mappings[component.key]].loading && !costPreview[mappings[component.key]].error));
-  const previewLoading = Boolean(selected && mappingComplete && !previewReady);
   const previewError = selected && mappingComplete
     ? selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
     : null;
+  const previewReady = Boolean(selected && mappingComplete && selected.components.every((component) => costPreview[mappings[component.key]] && !costPreview[mappings[component.key]].loading && !costPreview[mappings[component.key]].error));
+  const previewLoading = Boolean(selected && mappingComplete && !previewReady && !previewError);
   const previewUnitCost = selected && previewReady && !previewError
     ? selected.components.reduce((total, component) => total + (costPreview[mappings[component.key]]?.unitCost ?? 0) * component.quantityPerUnit, 0)
     : null;
