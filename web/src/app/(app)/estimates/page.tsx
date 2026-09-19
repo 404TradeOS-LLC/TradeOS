@@ -67,7 +67,7 @@ export default async function EstimatesPage() {
           title="No estimates need attention"
           description="Start with the work in front of you. A short scope is enough to create the first estimate."
           action={
-            <Link href="/projects/new?intent=estimate#simpleScope" className={buttonVariants({ variant: "copper" })}>
+            <Link href="/projects/new?intent=estimate#simpleScope" className={buttonVariants({ variant: "default" })}>
               Create an estimate
             </Link>
           }
