@@ -504,3 +504,8 @@ The estimate builder now provides a mobile-first staged path—Scope, Items, Pri
 ## Contextual Athena in estimating
 
 The estimate builder now includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable AI suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full AI Estimate Assist workspace remains available for review and accept/reject decisions; Estimate Engine mutations remain authoritative.
+
+
+## Contextual Athena provenance clarification
+
+Contextual Athena now labels legacy Costbook matches as “Unverified pricing” in addition to placeholder pricing warnings, matching the full AI Estimate Assist provenance language. This is presentation-only; source trust remains review-first and no estimate records are applied automatically.
