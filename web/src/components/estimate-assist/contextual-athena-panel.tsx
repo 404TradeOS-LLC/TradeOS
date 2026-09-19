@@ -32,10 +32,12 @@ export function ContextualAthenaPanel({
   estimateId,
   scopeOfWork,
   projectId,
+  headingId = "contextual-athena-heading",
 }: {
   estimateId: string;
   scopeOfWork: string;
   projectId: string;
+  headingId?: string;
 }) {
   const [suggestions, setSuggestions] = useState<ContextualSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -59,12 +61,12 @@ export function ContextualAthenaPanel({
   }
 
   return (
-    <section className="border border-primary/30 bg-primary/5 p-4" aria-labelledby="contextual-athena-heading">
+    <section className="border border-primary/30 bg-primary/5 p-4" aria-labelledby={headingId}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
           <div>
-            <h2 id="contextual-athena-heading" className="font-semibold text-foreground">Athena context</h2>
+            <h2 id={headingId} className="font-semibold text-foreground">Athena context</h2>
             <p className="mt-1 text-sm text-muted-foreground">Suggest assemblies and Costbook matches from this scope. Nothing is added until you review it.</p>
           </div>
         </div>
