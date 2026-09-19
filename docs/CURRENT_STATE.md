@@ -443,6 +443,7 @@ Repository governance additionally uses documentation consistency, dependency re
 - Athena Costbook writes/autonomous pricing mutation are not implemented.
 - Production environment values, Preview isolation, runtime-authenticated RC sessions, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
 - Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
+- The `unverified-legacy`/`placeholder` provenance warning in `web/src/components/estimate-assist/contextual-athena-panel.tsx` has no dedicated test file, so a future edit could silently drop or alter the "Unverified pricing"/placeholder warnings without any test failing. The panel also hardcodes its own literal `provenanceStatus` union and warning copy instead of importing `CostDataProvenanceStatus` from `app/modules/costbook/provenance.ts` and reusing the `provenanceStatusLabel`/`provenanceStatusTone` helpers already centralized in `web/src/components/estimate-assist/ai-estimate-assist.tsx`, so a future provenance-wording change is likely to update one surface and drift from the other.
 
 ## Canonical sequencing
 
