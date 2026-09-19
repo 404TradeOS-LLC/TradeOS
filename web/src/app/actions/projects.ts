@@ -28,7 +28,7 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
   if (!name) return { error: "Project name is required." };
 
   try {
-    await apiFetch("/api/v1/projects", {
+    const project = await apiFetch<{ id: string }>("/api/v1/projects", {
       method: "POST",
       token: token ?? undefined,
       body: JSON.stringify({
@@ -44,6 +44,17 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
   }
 
   revalidatePath("/projects");
+
+  if (formData.get("intent") === "estimate") {
+    const estimate = await apiFetch<Estimate>("/api/v1/estimates", {
+      method: "POST",
+      token: token ?? undefined,
+      body: JSON.stringify({ projectId: project.id }),
+    });
+    revalidatePath(`/projects/${project.id}`);
+    redirect(`/projects/${project.id}/estimates/${estimate.id}`);
+  }
+
   redirect("/projects");
 }
 
