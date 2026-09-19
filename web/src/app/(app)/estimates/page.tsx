@@ -51,8 +51,8 @@ export default async function EstimatesPage() {
       <PageHeader
         title="Estimates"
         description="Turn plain-language scope into clear, profitable work."
-        actions={
-          <Link href="/projects/new?intent=estimate#simpleScope" className={cn(buttonVariants({ variant: "copper" }), "shrink-0")}>
+        action={
+          <Link href="/projects/new?intent=estimate#simpleScope" className={cn(buttonVariants({ variant: "default" }), "shrink-0")}>
             <Plus className="size-4" aria-hidden="true" />
             Estimate from scope
           </Link>
@@ -63,7 +63,7 @@ export default async function EstimatesPage() {
         <div role="alert" className="border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground">{loadError}</div>
       ) : estimates.length === 0 ? (
         <EmptyState
-          icon={<FileText className="size-5" aria-hidden="true" />}
+          icon={FileText}
           title="No estimates need attention"
           description="Start with the work in front of you. A short scope is enough to create the first estimate."
           action={
