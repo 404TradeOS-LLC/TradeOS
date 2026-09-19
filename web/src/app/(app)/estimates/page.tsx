@@ -33,14 +33,20 @@ function EstimateRow({ estimate }: { estimate: EstimateQueueItem }) {
   );
 }
 
-export default async function EstimatesPage() {
+export default async function EstimatesPage({ searchParams }: { searchParams: Promise<{ cursor?: string }> }) {
   const token = await getSessionToken();
   let estimates: EstimateQueueItem[] = [];
   let loadError: string | null = null;
+  let total = 0;
+  let nextCursor: string | null = null;
+  const { cursor } = await searchParams;
 
   if (token) {
     try {
-      estimates = (await listEstimateQueue(token, { status: "draft,ready", limit: 50 })).items;
+      const queue = await listEstimateQueue(token, { status: "draft,ready", limit: 50, cursor });
+      estimates = queue.items;
+      total = queue.total;
+      nextCursor = queue.nextCursor;
     } catch {
       loadError = "Estimates are temporarily unavailable. Try again in a moment.";
     }
@@ -77,11 +83,18 @@ export default async function EstimatesPage() {
           <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
             <div>
               <h2 id="estimate-queue-heading" className="font-semibold text-foreground">Open estimate queue</h2>
-              <p className="text-sm text-muted-foreground">{estimates.length} draft or ready estimate{estimates.length === 1 ? "" : "s"}</p>
+              <p className="text-sm text-muted-foreground">{total} draft or ready estimate{total === 1 ? "" : "s"}{cursor ? " · next page" : ""}</p>
             </div>
             <span className="hidden text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground sm:inline">Scope → price → send</span>
           </div>
           {estimates.map((estimate) => <EstimateRow key={estimate.id} estimate={estimate} />)}
+          {nextCursor ? (
+            <div className="border-t border-border/70 px-4 py-3 text-right">
+              <Link href={`/estimates?cursor=${encodeURIComponent(nextCursor)}`} className="text-sm font-medium text-copper hover:underline">
+                Load older estimates →
+              </Link>
+            </div>
+          ) : null}
         </section>
       )}
     </div>
