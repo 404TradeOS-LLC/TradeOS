@@ -38,9 +38,10 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId }: { projectId: string; projectName: string; estimateId: string }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
+  const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
 
   const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
@@ -121,14 +122,28 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
         }
       />
 
-      <div className="grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4" aria-label="Estimate summary">
+      <div className="hidden grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4 lg:grid" aria-label="Estimate summary">
         <SummaryValue label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
         <SummaryValue label="Sell price" value={formatCurrency(runningTotals.preTaxTotalPrice)} />
         <SummaryValue label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} tone={runningTotals.grossProfit >= 0 ? "positive" : "negative"} />
         <SummaryValue label="Margin" value={formatPercent(runningTotals.marginPct)} tone={runningTotals.marginPct >= 0 ? "positive" : "negative"} />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
+      <MobileEstimateFlow
+        projectName={projectName}
+        simpleScope={simpleScope}
+        estimate={estimate}
+        runningTotals={runningTotals}
+        estimateId={estimateId}
+        isDraft={isDraft}
+        mobileStage={mobileStage}
+        onStageChange={setMobileStage}
+        onUpdated={invalidate}
+        onFinalize={() => finalize.mutate()}
+        finalizePending={finalize.isPending}
+      />
+
+      <div className="hidden grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
         <div className="space-y-5">
           <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">
@@ -193,6 +208,166 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
     </div>
   );
 }
+
+type MobileEstimateStage = "scope" | "items" | "price" | "review";
+
+function MobileEstimateFlow({
+  projectName,
+  simpleScope,
+  estimate,
+  runningTotals,
+  estimateId,
+  isDraft,
+  mobileStage,
+  onStageChange,
+  onUpdated,
+  onFinalize,
+  finalizePending,
+}: {
+  projectName: string;
+  simpleScope?: string | null;
+  estimate: EstimateDetail;
+  runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
+  estimateId: string;
+  isDraft: boolean;
+  mobileStage: MobileEstimateStage;
+  onStageChange: (stage: MobileEstimateStage) => void;
+  onUpdated: () => void;
+  onFinalize: () => void;
+  finalizePending: boolean;
+}) {
+  const stages: Array<{ id: MobileEstimateStage; label: string }> = [
+    { id: "scope", label: "Scope" },
+    { id: "items", label: "Items" },
+    { id: "price", label: "Price" },
+    { id: "review", label: "Review" },
+  ];
+  const stageIndex = stages.findIndex((stage) => stage.id === mobileStage);
+  const advance = () => {
+    const next = stages[stageIndex + 1];
+    if (next) onStageChange(next.id);
+  };
+
+  return (
+    <section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">
+      <div className="grid grid-cols-4 border-b border-border/70" role="tablist" aria-label="Estimate stages">
+        {stages.map((stage, index) => (
+          <button
+            key={stage.id}
+            type="button"
+            role="tab"
+            aria-selected={mobileStage === stage.id}
+            onClick={() => onStageChange(stage.id)}
+            className={cn(
+              "min-h-11 border-b-2 px-1 text-xs font-semibold transition-colors",
+              mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+            )}
+          >
+            <span className="mr-1 text-[10px] tabular-nums">{index + 1}</span>
+            {stage.label}
+          </button>
+        ))}
+      </div>
+
+      {mobileStage === "scope" ? (
+        <div className="space-y-4">
+          <div className="border-b border-border/70 pb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
+            <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-foreground">
+              {simpleScope?.trim() || "No scope captured yet. Add a short description from project details before building this estimate."}
+            </p>
+          </div>
+          <div className="text-sm text-muted-foreground">Next, confirm the suggested work and quantities before you price it.</div>
+          <MobileStageAction label="Review line items" onClick={advance} />
+        </div>
+      ) : null}
+
+      {mobileStage === "items" ? (
+        <div className="space-y-4">
+          {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} /> : null}
+          {estimate.lineItems.length === 0 ? (
+            <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
+          ) : (
+            <div className="divide-y divide-border/70">
+              {estimate.lineItems.map((lineItem) => (
+                <div key={lineItem.id} className="flex items-start justify-between gap-3 py-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{lineItem.description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{lineItem.quantity} {lineItem.unitOfMeasure} · {lineItem.costType}</p>
+                  </div>
+                  <span className="shrink-0 font-mono text-sm font-semibold">{formatCurrency(lineItem.lineCost)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <MobileStageAction label="Continue to pricing" onClick={advance} />
+        </div>
+      ) : null}
+
+      {mobileStage === "price" ? (
+        <div className="space-y-4">
+          <PricingPanel
+            estimateId={estimateId}
+            estimate={estimate}
+            hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)}
+            pricingModeLabel={estimate.targetMarginPct != null ? "Target margin" : "Markup"}
+            isDraft={isDraft}
+            onUpdated={onUpdated}
+          />
+          <MobileStageAction label="Review estimate" onClick={advance} />
+        </div>
+      ) : null}
+
+      {mobileStage === "review" ? (
+        <div className="space-y-5 pb-24">
+          <div className="border-b border-border/70 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Customer-facing review</p>
+                <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
+              </div>
+              <StatusBadge status={estimate.status} />
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
+          </div>
+          <div className="space-y-3">
+            {estimate.lineItems.map((lineItem) => (
+              <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
+                <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
+                <span className="shrink-0 font-mono font-semibold">{formatCurrency(lineItem.lineCost)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border py-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="font-medium">Estimate total</span>
+              <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
+          </div>
+          {isDraft ? (
+            <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+          ) : (
+            <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
+              Create proposal
+            </Link>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MobileStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <Button type="button" className="min-h-11 w-full" onClick={onClick} disabled={disabled}>
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 
 function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: () => void }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
