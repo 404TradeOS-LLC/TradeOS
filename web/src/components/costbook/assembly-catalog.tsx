@@ -325,10 +325,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   useEffect(() => {
     if (!selected) return;
     const mappedIds = [...new Set(selected.components.map((component) => mappings[component.key]).filter(Boolean))];
-    if (mappedIds.length === 0) {
-      setCostPreview({});
-      return;
-    }
+    if (mappedIds.length === 0) return;
     let active = true;
     setCostPreview((current) => Object.fromEntries(mappedIds.map((id) => [id, current[id] ?? { unitCost: 0, loading: true, error: null }])));
     Promise.all(mappedIds.map(async (id) => {
