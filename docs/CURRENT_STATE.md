@@ -499,3 +499,8 @@ The estimate builder now presents a continuous desktop workbench rather than a s
 ## Mobile estimate stages
 
 The estimate builder now provides a mobile-first staged path—Scope, Items, Price, and Review—rather than collapsing the desktop workbench into one column. Each stage has one dominant bottom action, Review uses customer-facing estimate language, and the existing estimate query/mutation contracts remain authoritative. The mobile action bar sits above the Control Dock with safe-area spacing; Costbook search and pricing controls remain available within their appropriate editing stages.
+
+
+## Contextual Athena in estimating
+
+The estimate builder now includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable AI suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full AI Estimate Assist workspace remains available for review and accept/reject decisions; Estimate Engine mutations remain authoritative.
