@@ -10,7 +10,15 @@ import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api";
 
-export function NewProjectForm({ customers, defaultCustomerId }: { customers: Customer[]; defaultCustomerId?: string }) {
+export function NewProjectForm({
+  customers,
+  defaultCustomerId,
+  focusScope = false,
+}: {
+  customers: Customer[];
+  defaultCustomerId?: string;
+  focusScope?: boolean;
+}) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId) ? defaultCustomerId : "";
 
@@ -51,6 +59,7 @@ export function NewProjectForm({ customers, defaultCustomerId }: { customers: Cu
               id="simpleScope"
               name="simpleScope"
               rows={5}
+              autoFocus={focusScope}
               placeholder="Replace existing shingle roof, repair chimney flashing, and remove debris."
             />
           </div>
