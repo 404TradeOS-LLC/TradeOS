@@ -16,7 +16,7 @@ export default async function NewProjectPage({ searchParams }: { searchParams: P
         backHref="/projects"
         backLabel="Back to projects"
       />
-      <NewProjectForm customers={customers} defaultCustomerId={customerId} focusScope={focusScope} />
+      <NewProjectForm customers={customers} defaultCustomerId={customerId} focusScope={focusScope} estimateIntent={focusScope} />
     </div>
   );
 }
