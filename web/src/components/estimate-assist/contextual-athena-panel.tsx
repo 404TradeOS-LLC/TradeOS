@@ -101,7 +101,7 @@ export function ContextualAthenaPanel({
                 <div className={cn("text-xs", setupRequired ? "text-warning" : "text-muted-foreground")}>
                   {setupRequired ? "Assembly available — setup required." : suggestion.resolution.target ? `Matched to ${suggestion.resolution.target.name} · ${suggestion.resolution.target.code}` : suggestion.resolution.reason}
                 </div>
-                {suggestion.provenanceStatus === "placeholder" ? <p className="text-xs text-warning">Pricing evidence is placeholder data; verify before applying.</p> : null}
+                {suggestion.provenanceStatus === "placeholder" ? <p className="text-xs text-warning">Pricing evidence is placeholder data; verify before applying.</p> : suggestion.provenanceStatus === "unverified-legacy" ? <p className="text-xs text-warning">Unverified pricing — confirm the Costbook source before applying.</p> : null}
               </div>
             );
           })}
