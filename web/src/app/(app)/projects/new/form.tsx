@@ -14,10 +14,12 @@ export function NewProjectForm({
   customers,
   defaultCustomerId,
   focusScope = false,
+  estimateIntent = false,
 }: {
   customers: Customer[];
   defaultCustomerId?: string;
   focusScope?: boolean;
+  estimateIntent?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId) ? defaultCustomerId : "";
@@ -28,7 +30,7 @@ export function NewProjectForm({
         <CardTitle>Project details</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="flex flex-col gap-5">
+        <form action={formAction} className="flex flex-col gap-5">\n          {estimateIntent ? <input type="hidden" name="intent" value="estimate" /> : null}
           <div className="grid gap-5 md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Job name</Label>
