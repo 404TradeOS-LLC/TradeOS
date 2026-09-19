@@ -489,3 +489,8 @@ The mobile Control Dock Create action now opens a keyboard-accessible bottom cre
 ## Estimates primary workflow
 
 Estimates are now a first-class authenticated workspace at `/estimates`, backed by the existing organization estimate queue and linking directly into project estimate builders. Desktop primary navigation keeps Today, Dispatch, Projects, and Estimates visible together; lower-frequency Customers and Costbook remain available in secondary navigation. The universal Create sheet's featured Estimate from scope action lands on project intake with the scope field emphasized and ready for plain-language entry. No estimate or queue API contract changed.
+
+
+## Estimate workbench composition
+
+The estimate builder now presents a continuous desktop workbench rather than a stack of independent metric and totals cards. A compact summary rail keeps Job Cost, Sell Price, Gross Profit, and Margin visible; the editable line-item workspace receives the dominant area; and the pricing inspector remains sticky beside it. Existing Costbook search, custom lines, pricing mutations, finalization, and estimate state remain unchanged. The mobile staged workflow and contextual Athena/assembly work remain the next estimating pass.

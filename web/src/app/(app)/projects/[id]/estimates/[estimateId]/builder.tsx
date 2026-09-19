@@ -91,10 +91,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
   const pricingModeLabel = estimate.targetMarginPct != null ? "Target margin" : "Markup";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title={`Estimate v${estimate.version}`}
-        description="Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback."
+        description="Shape the scope, price the work, and send a clear proposal from one focused workspace."
         breadcrumbs={[
           { label: projectName, href: `/projects/${projectId}` },
           { label: `Estimate v${estimate.version}` },
@@ -121,18 +121,16 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
         }
       />
 
-      <Card className="border-border/70 bg-muted/10">
-        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricTile label="Line items" value={runningTotals.lineItemCount.toString()} detail="Counted in the running total" />
-          <MetricTile label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} detail="Cost basis from line items" />
-          <MetricTile label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} detail="After overhead, before tax" accent={runningTotals.grossProfit >= 0} />
-          <MetricTile label="Total price" value={formatCurrency(runningTotals.totalPrice)} detail="Customer-facing price" highlight />
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4" aria-label="Estimate summary">
+        <SummaryValue label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
+        <SummaryValue label="Sell price" value={formatCurrency(runningTotals.preTaxTotalPrice)} />
+        <SummaryValue label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} tone={runningTotals.grossProfit >= 0 ? "positive" : "negative"} />
+        <SummaryValue label="Margin" value={formatPercent(runningTotals.marginPct)} tone={runningTotals.marginPct >= 0 ? "positive" : "negative"} />
+      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
-        <div className="space-y-6">
-          <Card className="border-border/70">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
+        <div className="space-y-5">
+          <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -142,7 +140,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
                 {isDraft && <Badge variant="outline">{estimate.lineItems.length} saved</Badge>}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-0 sm:px-0">
               {isDraft && <LineItemPicker estimateId={estimateId} onAdded={invalidate} />}
 
               {estimate.lineItems.length === 0 ? (
@@ -150,11 +148,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
                   No line items yet. Add an assembly or cost item to start the estimate.
                 </div>
               ) : (
-                <ul className="space-y-3">
+                <ul className="divide-y divide-border/70">
                   {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
                     <li key={section} className="space-y-2">
                       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{section}</div>
-                      <ul className="space-y-3">
+                      <ul className="space-y-0">
                         {sectionItems.map((li) => (
                           <EditableLineItem key={li.id} estimateId={estimateId} lineItem={li} isDraft={isDraft} onUpdated={invalidate} onRemove={() => removeLineItem.mutate(li.id)} removing={removeLineItem.isPending} />
                         ))}
@@ -175,34 +173,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
           )}
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
+        <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
-
-          <Card className="border-border/70 bg-muted/10">
-            <CardHeader>
-              <CardTitle>Running totals</CardTitle>
-              <CardDescription>Live pricing signals update as line items and pricing change.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <StatBlock label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
-                <StatBlock label="Cost + overhead" value={formatCurrency(runningTotals.costAfterOverhead)} />
-                <StatBlock label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} valueClassName={runningTotals.grossProfit >= 0 ? "text-foreground" : "text-destructive"} />
-                <StatBlock label="Markup" value={formatPercent(runningTotals.markupPct)} />
-                <StatBlock label="Margin" value={formatPercent(runningTotals.marginPct)} />
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  <span>Total price</span>
-                  <span>{pricingModeLabel}</span>
-                </div>
-                <div className="mt-2 text-3xl font-semibold">{formatCurrency(runningTotals.totalPrice)}</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {formatCurrency(runningTotals.preTaxTotalPrice)} pre-tax + {formatCurrency(runningTotals.taxAmount)} tax · {formatPercent(runningTotals.marginPct)} gross margin
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card className="border-border/70">
             <CardHeader>
@@ -651,7 +623,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
-  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-(--elev-1)">
+  return <li className="border-b border-border/70 px-0 py-4 last:border-b-0">
     {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
       <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
@@ -813,39 +785,11 @@ function PricingPanel({
   );
 }
 
-function MetricTile({
-  label,
-  value,
-  detail,
-  accent,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  accent?: boolean;
-  highlight?: boolean;
-}) {
+function SummaryValue({ label, value, tone }: { label: string; value: string; tone?: "positive" | "negative" }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-border/70 bg-background/80 p-3",
-        highlight && "bg-primary/5",
-        accent === false && "opacity-90"
-      )}
-    >
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-2xl font-semibold tabular-nums", highlight && "text-primary")}>{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
-    </div>
-  );
-}
-
-function StatBlock({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-background/80 p-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-lg font-semibold tabular-nums", valueClassName)}>{value}</div>
+    <div className="min-w-0">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+      <div className={cn("mt-1 truncate text-base font-semibold tabular-nums", tone === "positive" && "text-success", tone === "negative" && "text-destructive")}>{value}</div>
     </div>
   );
 }
