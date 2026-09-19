@@ -41,7 +41,7 @@ type StarterCatalogTemplate = {
   wasteGuidance: string;
   components: StarterCatalogComponent[];
 };
-type CostItemUnitCost = { unitCost: number };
+type CostItemUnitCost = { totalUnitCost: number };
 type CostPreview = { unitCost: number; loading: boolean; error: string | null };
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
@@ -331,7 +331,7 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     Promise.all(mappedIds.map(async (id) => {
       try {
         const result = await clientFetch<CostItemUnitCost>(`/costbook/cost-items/${id}/unit-cost`);
-        return [id, { unitCost: result.unitCost, loading: false, error: null }] as const;
+        return [id, { unitCost: result.totalUnitCost, loading: false, error: null }] as const;
       } catch (err) {
         return [id, { unitCost: 0, loading: false, error: err instanceof Error ? err.message : "Cost unavailable" }] as const;
       }
