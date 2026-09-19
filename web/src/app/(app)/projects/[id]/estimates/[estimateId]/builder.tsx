@@ -131,6 +131,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
       </div>
 
       <MobileEstimateFlow
+        projectId={projectId}
         projectName={projectName}
         simpleScope={simpleScope}
         estimate={estimate}
@@ -219,6 +220,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
 type MobileEstimateStage = "scope" | "items" | "price" | "review";
 
 function MobileEstimateFlow({
+  projectId,
   projectName,
   simpleScope,
   estimate,
@@ -231,6 +233,7 @@ function MobileEstimateFlow({
   onFinalize,
   finalizePending,
 }: {
+  projectId: string;
   projectName: string;
   simpleScope?: string | null;
   estimate: EstimateDetail;
