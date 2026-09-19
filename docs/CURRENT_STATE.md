@@ -494,3 +494,8 @@ Estimates are now a first-class authenticated workspace at `/estimates`, backed 
 ## Estimate workbench composition
 
 The estimate builder now presents a continuous desktop workbench rather than a stack of independent metric and totals cards. A compact summary rail keeps Job Cost, Sell Price, Gross Profit, and Margin visible; the editable line-item workspace receives the dominant area; and the pricing inspector remains sticky beside it. Existing Costbook search, custom lines, pricing mutations, finalization, and estimate state remain unchanged. The mobile staged workflow and contextual Athena/assembly work remain the next estimating pass.
+
+
+## Mobile estimate stages
+
+The estimate builder now provides a mobile-first staged path—Scope, Items, Price, and Review—rather than collapsing the desktop workbench into one column. Each stage has one dominant bottom action, Review uses customer-facing estimate language, and the existing estimate query/mutation contracts remain authoritative. The mobile action bar sits above the Control Dock with safe-area spacing; Costbook search and pricing controls remain available within their appropriate editing stages.
