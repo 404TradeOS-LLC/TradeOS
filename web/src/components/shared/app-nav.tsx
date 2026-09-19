@@ -42,11 +42,12 @@ const PRIMARY_NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
   { href: "/projects", label: "Projects", shortLabel: "Projects", icon: BriefcaseBusiness },
-  { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
-  { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
+  { href: "/estimates", label: "Estimates", shortLabel: "Estimates", icon: FileText },
 ];
 
 const SECONDARY_NAV_LINKS: NavLink[] = [
+  { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
+  { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
   { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Palette },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];

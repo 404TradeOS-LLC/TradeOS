@@ -27,8 +27,10 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
 
   if (!name) return { error: "Project name is required." };
 
+  let projectId = "";
+
   try {
-    await apiFetch("/api/v1/projects", {
+    const project = await apiFetch<{ id: string }>("/api/v1/projects", {
       method: "POST",
       token: token ?? undefined,
       body: JSON.stringify({
@@ -39,11 +41,23 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
         simpleScope: simpleScope || undefined,
       }),
     });
+    projectId = project.id;
   } catch (err) {
     return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
   }
 
   revalidatePath("/projects");
+
+  if (formData.get("intent") === "estimate") {
+    const estimate = await apiFetch<Estimate>("/api/v1/estimates", {
+      method: "POST",
+      token: token ?? undefined,
+      body: JSON.stringify({ projectId }),
+    });
+    revalidatePath(`/projects/${projectId}`);
+    redirect(`/projects/${projectId}/estimates/${estimate.id}`);
+  }
+
   redirect("/projects");
 }
 
