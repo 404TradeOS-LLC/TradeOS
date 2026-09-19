@@ -41,6 +41,8 @@ type StarterCatalogTemplate = {
   wasteGuidance: string;
   components: StarterCatalogComponent[];
 };
+type CostItemUnitCost = { totalUnitCost: number };
+type CostPreview = { unitCost: number; loading: boolean; error: string | null };
 const emptyAssembly: AssemblyForm = { code: "", name: "", unitOfMeasure: "", description: "", isTemplate: false };
 
 export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems, canWrite, canManage }: {
@@ -298,6 +300,8 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [nahbGroup, setNahbGroup] = useState("all");
+  const [previewQuantity, setPreviewQuantity] = useState("1");
+  const [costPreview, setCostPreview] = useState<Record<string, CostPreview>>({});
   const [loading, setLoading] = useState(true);
   const selected = templates.find((template) => template.id === selectedTemplateId) ?? null;
   const groups = useMemo(() => [...new Set(templates.map((template) => template.nahbGroup))], [templates]);
@@ -305,6 +309,37 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     const text = `${template.name} ${template.code} ${template.trade} ${template.csiTitle} ${template.nahbGroup}`.toLowerCase();
     return (nahbGroup === "all" || template.nahbGroup === nahbGroup) && text.includes(query.trim().toLowerCase());
   }), [templates, query, nahbGroup]);
+
+  const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
+  const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
+  const previewError = selected && mappingComplete
+    ? selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
+    : null;
+  const previewReady = Boolean(selected && mappingComplete && selected.components.every((component) => costPreview[mappings[component.key]] && !costPreview[mappings[component.key]].loading && !costPreview[mappings[component.key]].error));
+  const previewLoading = Boolean(selected && mappingComplete && !previewReady && !previewError);
+  const previewUnitCost = selected && previewReady && !previewError
+    ? selected.components.reduce((total, component) => total + (costPreview[mappings[component.key]]?.unitCost ?? 0) * component.quantityPerUnit, 0)
+    : null;
+  const previewOutputQuantity = Math.max(0, Number(previewQuantity) || 0);
+  const previewJobCost = previewUnitCost === null ? null : previewUnitCost * previewOutputQuantity;
+
+  useEffect(() => {
+    if (!selected) return;
+    const mappedIds = [...new Set(selected.components.map((component) => mappings[component.key]).filter(Boolean))];
+    if (mappedIds.length === 0) return;
+    let active = true;
+    Promise.all(mappedIds.map(async (id) => {
+      try {
+        const result = await clientFetch<CostItemUnitCost>(`/costbook/cost-items/${id}/unit-cost`);
+        return [id, { unitCost: result.totalUnitCost, loading: false, error: null }] as const;
+      } catch (err) {
+        return [id, { unitCost: 0, loading: false, error: err instanceof Error ? err.message : "Cost unavailable" }] as const;
+      }
+    })).then((entries) => {
+      if (active) setCostPreview(Object.fromEntries(entries));
+    });
+    return () => { active = false; };
+  }, [selected, mappings]);
 
   useEffect(() => {
     let active = true;
@@ -373,6 +408,11 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
         </div>
         <div className="grid gap-3"><div><h4 className="font-medium text-foreground">Map the recipe</h4><p className="text-sm text-muted-foreground">Each slot must point to an active Cost Item. Quantities are per 1 {selected.unitOfMeasure} of assembly output.</p></div>
           {selected.components.map((component) => <label key={component.key} className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,0.9fr)] sm:items-center"><span><span className="block text-sm font-medium text-foreground">{component.label} · {component.quantityPerUnit}</span><span className="mt-0.5 block text-xs text-muted-foreground">{component.help}</span></span><select className="h-9 min-w-0 rounded-md border border-input bg-background px-3 text-sm" value={mappings[component.key] ?? ""} onChange={(event) => setMappings((current) => ({ ...current, [component.key]: event.target.value }))} disabled={!canWrite || saving}><option value="">Select a Cost Item</option>{costItems.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select></label>)}
+        </div>
+        <div className="grid gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+          <div><p className="text-xs font-semibold uppercase tracking-wide text-primary">Pre-install cost preview</p><p className="mt-1 text-sm text-muted-foreground">{mappingComplete ? "Read-only estimate from the mapped Cost Items. Installation still requires review of local production assumptions." : `Map ${selected.components.length - mappedCount} more component${selected.components.length - mappedCount === 1 ? "" : "s"} to preview cost.`}</p></div>
+          <label className="grid gap-1 text-sm font-medium"><span>Output quantity</span><Input type="number" min="0.0001" step="0.0001" value={previewQuantity} onChange={(event) => setPreviewQuantity(event.target.value)} disabled={!mappingComplete || saving} /></label>
+          <div className="min-w-36 text-right"><p className="text-xs text-muted-foreground">{previewLoading ? "Loading cost" : previewUnitCost === null ? "Unit cost" : `Per 1 ${selected.unitOfMeasure}`}</p><p className="text-lg font-semibold text-foreground">{previewLoading ? "…" : previewUnitCost === null ? "—" : money(previewUnitCost)}</p><p className="text-xs text-muted-foreground">{previewError ? "Cost unavailable" : previewJobCost === null ? "Complete mapping first" : `Job cost · ${money(previewJobCost)}`}</p></div>
         </div>
         <div className="flex flex-col gap-2 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">Review production rates, waste, code, permits, and local conditions before using the installed assembly in an estimate.</p><Button type="button" onClick={install} disabled={!canWrite || saving || installedCodes.has(selected.code) || costItems.length === 0}>{installedCodes.has(selected.code) ? "Installed" : saving ? "Installing" : "Install assembly"}</Button></div>
       </div>}
