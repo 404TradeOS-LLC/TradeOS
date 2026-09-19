@@ -794,43 +794,6 @@ function SummaryValue({ label, value, tone }: { label: string; value: string; to
   );
 }
 
-function MetricTile({
-  label,
-  value,
-  detail,
-  accent,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  accent?: boolean;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-border/70 bg-background/80 p-3",
-        highlight && "bg-primary/5",
-        accent === false && "opacity-90"
-      )}
-    >
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-2xl font-semibold tabular-nums", highlight && "text-primary")}>{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
-    </div>
-  );
-}
-
-function StatBlock({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-background/80 p-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-lg font-semibold tabular-nums", valueClassName)}>{value}</div>
-    </div>
-  );
-}
-
 function ShortcutRow({ keys, label }: { keys: string; label: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-background/80 px-3 py-2">
