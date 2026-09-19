@@ -312,11 +312,12 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
 
   const mappedCount = selected ? selected.components.filter((component) => mappings[component.key]).length : 0;
   const mappingComplete = Boolean(selected && mappedCount === selected.components.length);
-  const previewLoading = Boolean(selected && mappingComplete && selected.components.some((component) => costPreview[mappings[component.key]]?.loading));
+  const previewReady = Boolean(selected && mappingComplete && selected.components.every((component) => costPreview[mappings[component.key]] && !costPreview[mappings[component.key]].loading && !costPreview[mappings[component.key]].error));
+  const previewLoading = Boolean(selected && mappingComplete && !previewReady);
   const previewError = selected && mappingComplete
     ? selected.components.map((component) => costPreview[mappings[component.key]]?.error).find(Boolean) ?? null
     : null;
-  const previewUnitCost = selected && mappingComplete && !previewLoading && !previewError
+  const previewUnitCost = selected && previewReady && !previewError
     ? selected.components.reduce((total, component) => total + (costPreview[mappings[component.key]]?.unitCost ?? 0) * component.quantityPerUnit, 0)
     : null;
   const previewOutputQuantity = Math.max(0, Number(previewQuantity) || 0);
@@ -327,7 +328,6 @@ function StarterAssemblyCatalog({ costItems, canWrite, installedCodes, saving, o
     const mappedIds = [...new Set(selected.components.map((component) => mappings[component.key]).filter(Boolean))];
     if (mappedIds.length === 0) return;
     let active = true;
-    setCostPreview((current) => Object.fromEntries(mappedIds.map((id) => [id, current[id] ?? { unitCost: 0, loading: true, error: null }])));
     Promise.all(mappedIds.map(async (id) => {
       try {
         const result = await clientFetch<CostItemUnitCost>(`/costbook/cost-items/${id}/unit-cost`);
