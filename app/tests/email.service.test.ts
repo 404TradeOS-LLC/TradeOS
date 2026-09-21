@@ -79,6 +79,31 @@ describe("EmailService", () => {
     expect(body.text).toContain("https://app.example.com/invite/accept?token=invite-token");
   });
 
+  it("sends customer portal access with a single-use token link", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "re_portal_123" }),
+    });
+
+    const result = await new EmailService().sendCustomerPortalAccess({
+      to: "customer@example.com",
+      token: "portal-token",
+      expiresAt: new Date("2026-09-20T12:00:00.000Z"),
+    });
+
+    expect(result).toEqual({ sent: true, providerMessageId: "re_portal_123" });
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(request.headers).toEqual(expect.objectContaining({
+      "Idempotency-Key": expect.stringMatching(/^customer-portal-access-/),
+    }));
+    const body = JSON.parse(String(request.body)) as Record<string, unknown>;
+    expect(body.to).toEqual(["customer@example.com"]);
+    expect(body.subject).toBe("Your TradeOS customer portal is ready");
+    expect(body.text).toContain("https://app.example.com/customer-portal/access?token=portal-token");
+    expect(body.text).toContain("2026-09-20T12:00:00.000Z");
+  });
+
   it("skips delivery outside production when email configuration is absent", async () => {
     delete process.env.RESEND_API_KEY;
 

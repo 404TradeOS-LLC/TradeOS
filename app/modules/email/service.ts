@@ -5,6 +5,7 @@ import { logWarn } from "../../backend/logging";
 const RESEND_API_URL = "https://api.resend.com/emails";
 const PASSWORD_RESET_PATH = "/reset-password";
 const TEAM_INVITE_PATH = "/invite/accept";
+const CUSTOMER_PORTAL_PATH = "/customer-portal/access";
 
 export interface EmailSendResult {
   sent: boolean;
@@ -13,6 +14,12 @@ export interface EmailSendResult {
 }
 
 export interface PasswordResetEmailInput {
+  to: string;
+  token: string;
+  expiresAt: Date;
+}
+
+export interface CustomerPortalAccessEmailInput {
   to: string;
   token: string;
   expiresAt: Date;
@@ -112,6 +119,28 @@ export class EmailService {
     });
   }
 
+  async sendCustomerPortalAccess(input: CustomerPortalAccessEmailInput): Promise<EmailSendResult> {
+    const accessUrl = buildActionUrl(CUSTOMER_PORTAL_PATH, input.token);
+    const expiresAt = input.expiresAt.toISOString();
+
+    return this.send({
+      to: input.to,
+      subject: "Your TradeOS customer portal is ready",
+      html: [
+        "<p>Your contractor has shared a secure TradeOS project portal with you.</p>",
+        "<p><a href=\"" + escapeHtml(accessUrl) + "\">Open your customer portal</a></p>",
+        "<p>This private link expires at " + escapeHtml(expiresAt) + " and can only be used once.</p>",
+        "<p>If you were not expecting this, you can safely ignore this email.</p>",
+      ].join(""),
+      text: [
+        "Your contractor has shared a secure TradeOS project portal with you.",
+        "Open your customer portal: " + accessUrl,
+        "This private link expires at " + expiresAt + " and can only be used once.",
+        "If you were not expecting this, you can safely ignore this email.",
+      ].join("\n\n"),
+      idempotencyKey: "customer-portal-access-" + digest(input.token),
+    });
+  }
   private async send(message: EmailMessage): Promise<EmailSendResult> {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     const from = process.env.EMAIL_FROM?.trim();
