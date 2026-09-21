@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-13
+last_verified: 2026-09-21
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -294,6 +294,14 @@ Two portal surfaces are intentionally distinct:
 - `/customer-portal/*` is the ADR-010 public customer-scoped magic-link surface.
 
 The public portal uses one-time hashed access tokens redeemed into short-lived hashed sessions, customer/tenant-scoped forced-RLS reads, replay/revocation protection, and a narrowly authorized pending-contract customer-signing transition with explicit customer attribution. It does not claim certificate-backed signing, notarization, or standalone legal identity verification.
+
+Customer-portal invitations are delivered through the server-side
+transactional email adapter. The emailed GET is non-consuming: it places the
+validated opaque token into a ten-minute HttpOnly cookie restricted to the
+access path and redirects to a token-free confirmation page. Redemption occurs
+only after an exact-origin confirmation POST, which prevents automated email
+link scanners from spending the single-use invitation; that POST clears the
+pending cookie before redirecting to the portal or access-error flow.
 
 Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
 

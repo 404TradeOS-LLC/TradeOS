@@ -54,6 +54,9 @@ Public routes are limited to:
 requires `documents.manage`. Its body is `{ customerId }`; it returns a raw,
 high-entropy `token` exactly once to the authenticated caller, along with its
 customer scope and expiration. The raw token is never persisted or logged.
+After the token row is created, the service schedules a server-side
+transactional email to the customer record through the shared Resend adapter;
+email delivery does not expand the endpoint's `documents.manage` boundary.
 `POST /api/v1/customer-portal/access-tokens/:id/revoke` is staff-authenticated,
 requires `documents.manage`, and revokes the access value plus every session
 redeemed from it.
@@ -61,8 +64,10 @@ redeemed from it.
 `POST /api/v1/customer-portal/redeem` accepts `{ token }` without a staff
 session. Redemption is rate-limited, organization/customer-bound, atomic, and
 single-use. It returns an opaque short-lived `sessionToken`; the web route
-immediately stores that value in an HttpOnly cookie and does not expose it to
-browser JavaScript. Expired, revoked, malformed, or replayed values return a
+stores that value in an HttpOnly cookie and does not expose it to browser
+JavaScript. The emailed web GET is non-consuming and redirects through a
+token-free confirmation screen; only its exact-origin POST submits the token
+to this endpoint. Expired, revoked, malformed, or replayed values return a
 non-success response.
 
 The following routes require
