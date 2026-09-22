@@ -47,6 +47,13 @@ test("matrix rejects a backend router mount that is absent from the server", () 
   assert.ok(validateMatrix(candidate).some((error) => error.includes("is not mounted")));
 });
 
+test("matrix rejects a router name mounted from the wrong route module", () => {
+  const candidate = copy();
+  const action = candidate.journeys.flatMap((journey) => journey.actions).find((item) => item.id === "field.note");
+  action.routeFile = "app/backend/routes/crm.routes.ts";
+  assert.ok(validateMatrix(candidate).some((error) => error.includes("is not mounted")));
+});
+
 test("matrix rejects a route remapped to a different backend handler", () => {
   const candidate = copy();
   candidate.journeys[0].actions[0].handler = "crmCustomersController.remove";
@@ -57,6 +64,13 @@ test("matrix rejects an action whose frontend symbol disappeared", () => {
   const candidate = copy();
   candidate.journeys[0].actions[0].symbol = "removedCustomerAction";
   assert.ok(validateMatrix(candidate).some((error) => error.includes("frontend symbol removedCustomerAction is absent")));
+});
+
+test("matrix requires the referenced controller handler symbol", () => {
+  const candidate = copy();
+  const action = candidate.journeys.flatMap((journey) => journey.actions).find((item) => item.id === "customer.create");
+  action.contractSymbols = ["missingControllerContract"];
+  assert.ok(validateMatrix(candidate).some((error) => error.includes("controller contract symbol missingControllerContract is absent")));
 });
 
 test("matrix requires request, response, permission, tenant, refresh, and evidence contracts", () => {

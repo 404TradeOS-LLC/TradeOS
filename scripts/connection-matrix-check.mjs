@@ -92,7 +92,16 @@ function validateMatrix(matrix) {
       }
 
       const mountRouter = action.mountRouter ?? action.router;
-      if (!action.mount || !mountRouter || !serverSource.includes(`app.use("${action.mount}", ${mountRouter})`)) {
+      const routeModule = `./${action.routeFile.replace(/^app\/backend\//, "") .replace(/\.ts$/, "")}`;
+      const imports = [...serverSource.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/gs)]
+        .find((match) => match[2] === routeModule)?.[1] ?? "";
+      const bindingIsCorrect = imports.split(",").some((entry) => {
+        const parts = entry.trim().split(/\s+as\s+/);
+        return parts.length === 1
+          ? parts[0] === action.router && mountRouter === action.router
+          : parts[0] === action.router && parts[1] === mountRouter;
+      });
+      if (!action.mount || !mountRouter || !bindingIsCorrect || !serverSource.includes(`app.use("${action.mount}", ${mountRouter})`)) {
         fail(`${action.id}: ${mountRouter} is not mounted at ${action.mount} in app/backend/server.ts.`);
       }
 
@@ -105,6 +114,20 @@ function validateMatrix(matrix) {
       const methods = action.method.split("|").map((value) => value.trim().toLowerCase());
       const routes = action.route.split("|").map((value) => value.trim());
       const handlers = action.handler.split("|").map((value) => value.trim());
+      const contractSymbols = action.contractSymbols;
+      let contractSource = "";
+      try {
+        contractSource = read(action.contractFile);
+      } catch {}
+      if (!Array.isArray(contractSymbols) || contractSymbols.length !== handlers.length) {
+        fail(`${action.id}: contractSymbols must identify every controller handler.`);
+      } else {
+        for (const symbol of contractSymbols) {
+          if (typeof symbol !== "string" || !new RegExp(`\\b${symbol}\\s*\\(`).test(contractSource)) {
+            fail(`${action.id}: controller contract symbol ${symbol} is absent from ${action.contractFile}.`);
+          }
+        }
+      }
       if (methods.length !== routes.length || methods.length !== handlers.length) {
         fail(`${action.id}: method, route, and handler alternatives must have matching counts.`);
         continue;

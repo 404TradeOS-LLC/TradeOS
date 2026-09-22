@@ -55,7 +55,10 @@
           "browser": "customer created and visible after reload",
           "status": "HISTORICALLY_CERTIFIED",
           "mountRouter": "crmCustomersRouter",
-          "frontendPath": "\"/api/v1/customers\""
+          "frontendPath": "\"/api/v1/customers\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "project.create",
@@ -77,7 +80,10 @@
           "evidence": "web/src/app/actions/projects.test.ts",
           "browser": "project linked to the selected customer and visible after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/projects\""
+          "frontendPath": "\"/api/v1/projects\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "project.read",
@@ -99,7 +105,10 @@
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "project detail and related customer render after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/projects/${id}`"
+          "frontendPath": "`/api/v1/projects/${id}`",
+          "contractSymbols": [
+            "getById"
+          ]
         },
         {
           "id": "project.update",
@@ -121,7 +130,10 @@
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "Updated scope and address remain visible after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/projects/${id}`"
+          "frontendPath": "`/api/v1/projects/${id}`",
+          "contractSymbols": [
+            "update"
+          ]
         },
         {
           "id": "project.status",
@@ -143,7 +155,10 @@
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "status and available next actions agree after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/projects/${id}/status`"
+          "frontendPath": "`/api/v1/projects/${id}/status`",
+          "contractSymbols": [
+            "updateStatus"
+          ]
         }
       ]
     },
@@ -181,7 +196,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "estimate persists against selected project after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/estimates\""
+          "frontendPath": "\"/api/v1/estimates\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "estimate.read",
@@ -203,7 +221,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "saved estimate values survive reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/estimates/${id}`"
+          "frontendPath": "`/api/v1/estimates/${id}`",
+          "contractSymbols": [
+            "getById"
+          ]
         },
         {
           "id": "estimate.line.create",
@@ -225,7 +246,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "explicitly applied line is visible after save/reload",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/line-items`"
+          "frontendPath": "`/estimates/${estimateId}/line-items`",
+          "contractSymbols": [
+            "addLineItem"
+          ]
         },
         {
           "id": "athena.suggestions",
@@ -247,7 +271,10 @@
           "evidence": "app/tests/ai-estimate-assist.controller.test.ts",
           "browser": "explanation, provenance, denial and no-write-on-generate behavior are captured",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/ai-suggestions`"
+          "frontendPath": "`/estimates/${estimateId}/ai-suggestions`",
+          "contractSymbols": [
+            "generate"
+          ]
         },
         {
           "id": "estimate.line.update",
@@ -269,7 +296,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "edited quantity, unit cost and calculated total persist after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/line-items/${lineItem.id}`"
+          "frontendPath": "`/estimates/${estimateId}/line-items/${lineItem.id}`",
+          "contractSymbols": [
+            "updateLineItem"
+          ]
         },
         {
           "id": "estimate.line.delete",
@@ -291,7 +321,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "removed line stays absent and totals reconcile after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/line-items/${lineItemId}`"
+          "frontendPath": "`/estimates/${estimateId}/line-items/${lineItemId}`",
+          "contractSymbols": [
+            "removeLineItem"
+          ]
         },
         {
           "id": "estimate.finalize",
@@ -313,7 +346,10 @@
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "final amount and status survive reload and downstream proposal creation",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/finalize`"
+          "frontendPath": "`/estimates/${estimateId}/finalize`",
+          "contractSymbols": [
+            "finalize"
+          ]
         },
         {
           "id": "athena.suggestions.apply",
@@ -335,7 +371,10 @@
           "evidence": "app/tests/ai-estimate-assist.controller.test.ts",
           "browser": "accepted rows persist once; unaccepted rows remain absent; totals refresh",
           "status": "PARTIAL",
-          "frontendPath": "`/estimates/${estimateId}/ai-suggestions/apply`"
+          "frontendPath": "`/estimates/${estimateId}/ai-suggestions/apply`",
+          "contractSymbols": [
+            "apply"
+          ]
         }
       ]
     },
@@ -373,7 +412,10 @@
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "proposal amount and scope match finalized estimate",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/proposals\""
+          "frontendPath": "\"/api/v1/proposals\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "proposal.send",
@@ -395,7 +437,10 @@
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "sent state is shown and customer can review through the supported portal",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/proposals/${id}/send`"
+          "frontendPath": "`/api/v1/proposals/${id}/send`",
+          "contractSymbols": [
+            "send"
+          ]
         },
         {
           "id": "proposal.customer.read",
@@ -417,7 +462,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer cannot read another customer's proposal; current UI provides review but no accept/decline action",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/customer-portal/proposals/${id}`"
+          "frontendPath": "`/api/v1/customer-portal/proposals/${id}`",
+          "contractSymbols": [
+            "getProposal"
+          ]
         },
         {
           "id": "proposal.update",
@@ -439,7 +487,85 @@
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "draft terms and displayed amount match persisted proposal after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/proposals/${proposalId}`"
+          "frontendPath": "`/api/v1/proposals/${proposalId}`",
+          "contractSymbols": [
+            "update"
+          ]
+        },
+        {
+          "id": "proposal.mark-viewed",
+          "label": "Mark proposal viewed",
+          "source": "web/src/app/actions/proposals.ts",
+          "symbol": "markProposalViewedAction",
+          "method": "POST",
+          "mount": "/api/v1/proposals",
+          "routeFile": "app/backend/routes/proposals.routes.ts",
+          "router": "proposalsRouter",
+          "route": "/:id/mark-viewed",
+          "handler": "ctrl.markViewed",
+          "contractFile": "app/backend/controllers/proposals.controller.ts",
+          "request": "Proposal id; controller enforces the canonical proposal lifecycle transition.",
+          "response": "Updated proposal lifecycle state.",
+          "permission": "billing.write / service enforcement",
+          "tenant": "active staff organization; forced RLS",
+          "refresh": "revalidate proposal detail and project lifecycle",
+          "evidence": "app/tests/proposals.controller.test.ts",
+          "browser": "decision state is visible after reload",
+          "status": "PARTIAL",
+          "frontendPath": "`/api/v1/proposals/${id}/mark-viewed`",
+          "contractSymbols": [
+            "markViewed"
+          ]
+        },
+        {
+          "id": "proposal.accept",
+          "label": "Accept proposal",
+          "source": "web/src/app/actions/proposals.ts",
+          "symbol": "acceptProposalAction",
+          "method": "POST",
+          "mount": "/api/v1/proposals",
+          "routeFile": "app/backend/routes/proposals.routes.ts",
+          "router": "proposalsRouter",
+          "route": "/:id/accept",
+          "handler": "ctrl.accept",
+          "contractFile": "app/backend/controllers/proposals.controller.ts",
+          "request": "Proposal id; controller enforces the canonical proposal lifecycle transition.",
+          "response": "Updated proposal lifecycle state.",
+          "permission": "billing.write / service enforcement",
+          "tenant": "active staff organization; forced RLS",
+          "refresh": "revalidate proposal detail and project lifecycle",
+          "evidence": "app/tests/proposals.controller.test.ts",
+          "browser": "decision state is visible after reload",
+          "status": "PARTIAL",
+          "frontendPath": "`/api/v1/proposals/${id}/accept`",
+          "contractSymbols": [
+            "accept"
+          ]
+        },
+        {
+          "id": "proposal.reject",
+          "label": "Reject proposal",
+          "source": "web/src/app/actions/proposals.ts",
+          "symbol": "rejectProposalAction",
+          "method": "POST",
+          "mount": "/api/v1/proposals",
+          "routeFile": "app/backend/routes/proposals.routes.ts",
+          "router": "proposalsRouter",
+          "route": "/:id/reject",
+          "handler": "ctrl.reject",
+          "contractFile": "app/backend/controllers/proposals.controller.ts",
+          "request": "Proposal id; controller enforces the canonical proposal lifecycle transition.",
+          "response": "Updated proposal lifecycle state.",
+          "permission": "billing.write / service enforcement",
+          "tenant": "active staff organization; forced RLS",
+          "refresh": "revalidate proposal detail and project lifecycle",
+          "evidence": "app/tests/proposals.controller.test.ts",
+          "browser": "decision state is visible after reload",
+          "status": "PARTIAL",
+          "frontendPath": "`/api/v1/proposals/${id}/reject`",
+          "contractSymbols": [
+            "reject"
+          ]
         }
       ],
       "unmappedGap": "The current customer portal proposal page is read-only: no frontend accept/decline action is mapped to the staff proposal mutation routes. Do not certify customer decision behavior until a customer-scoped route and UI exist."
@@ -477,7 +603,10 @@
           "evidence": "app/tests/contracts.service.test.ts",
           "browser": "contract links to accepted proposal and preserves the approved value",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/contracts\""
+          "frontendPath": "\"/api/v1/contracts\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "contract.customer.sign",
@@ -499,7 +628,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "signature is attributed to the scoped customer; replay/expiry/revocation and foreign-tenant attempts fail",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/customer-portal/contracts/${id}/sign`"
+          "frontendPath": "`/api/v1/customer-portal/contracts/${id}/sign`",
+          "contractSymbols": [
+            "signContract"
+          ]
         },
         {
           "id": "contract.void",
@@ -521,7 +653,10 @@
           "evidence": "app/tests/contracts.service.test.ts",
           "browser": "void state and unavailable signature action persist after reload",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/contracts/${id}/void`"
+          "frontendPath": "`/api/v1/contracts/${id}/void`",
+          "contractSymbols": [
+            "void"
+          ]
         }
       ]
     },
@@ -550,7 +685,7 @@
           "router": "jobsRouter",
           "route": "/",
           "handler": "jobsController.create",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Job-create body with project and schedule fields validated by controller/service.",
           "response": "Created organization-scoped Job DTO.",
           "permission": "crm.write / service role checks",
@@ -559,7 +694,10 @@
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "created job appears under correct project after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/jobs\""
+          "frontendPath": "\"/jobs\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "job.schedule",
@@ -572,7 +710,7 @@
           "router": "jobsRouter",
           "route": "/:jobId/schedule|/:jobId/reschedule",
           "handler": "jobsController.schedule|jobsController.reschedule",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Schedule payload; conflicts are deterministically validated and override requires authorized role and reason.",
           "response": "Updated Job schedule and lifecycle DTO.",
           "permission": "dispatch.manage with owner/admin override boundary",
@@ -581,7 +719,11 @@
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "schedule/conflict/override outcome is accurate after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/jobs/\" + job.id + \"/\" + (job.scheduledStart ? \"reschedule\" : \"schedule\")"
+          "frontendPath": "\"/jobs/\" + job.id + \"/\" + (job.scheduledStart ? \"reschedule\" : \"schedule\")",
+          "contractSymbols": [
+            "schedule",
+            "reschedule"
+          ]
         },
         {
           "id": "job.assign",
@@ -594,7 +736,7 @@
           "router": "jobsRouter",
           "route": "/:jobId/assignments",
           "handler": "jobsController.addAssignment",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Assignment user id, role, and lead flag validated by controller/service.",
           "response": "Persisted assignment record and updated Job detail.",
           "permission": "dispatch.manage",
@@ -603,7 +745,10 @@
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "assignment appears for dispatcher and is scoped to assigned technician",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/jobs/\" + job.id + \"/assignments\""
+          "frontendPath": "\"/jobs/\" + job.id + \"/assignments\"",
+          "contractSymbols": [
+            "addAssignment"
+          ]
         },
         {
           "id": "job.dispatch",
@@ -616,7 +761,7 @@
           "router": "jobsRouter",
           "route": "/:jobId/dispatch",
           "handler": "jobsController.dispatch",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Job id; canonical transition validation is owned by JobsService.",
           "response": "Updated dispatched Job DTO plus audit/event effects.",
           "permission": "dispatch.manage",
@@ -625,7 +770,10 @@
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "dispatch state, event and downstream technician view agree after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/jobs/\" + job.id + \"/dispatch\""
+          "frontendPath": "\"/jobs/\" + job.id + \"/dispatch\"",
+          "contractSymbols": [
+            "dispatch"
+          ]
         },
         {
           "id": "job.conflicts.read",
@@ -638,7 +786,7 @@
           "router": "scheduleRouter",
           "route": "/conflicts",
           "handler": "scheduleController.conflicts",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Requested time range and job context are query inputs; role override is not inferred by preview.",
           "response": "Schedule conflict list and deterministic conflict metadata.",
           "permission": "dispatch.manage; override rules remain stricter",
@@ -647,7 +795,10 @@
           "evidence": "app/tests/jobs.service.test.ts",
           "browser": "conflict preview agrees with persisted schedule and does not write",
           "status": "PARTIAL",
-          "frontendPath": "\"/schedule/conflicts?\" + query.toString()"
+          "frontendPath": "\"/schedule/conflicts?\" + query.toString()",
+          "contractSymbols": [
+            "conflicts"
+          ]
         },
         {
           "id": "job.assignment.remove",
@@ -660,7 +811,7 @@
           "router": "jobsRouter",
           "route": "/:jobId/assignments/:assignmentId",
           "handler": "jobsController.removeAssignment",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Job and assignment ids plus removal reason; ownership and assignment state validated.",
           "response": "Updated assignment list and attributable event.",
           "permission": "dispatch.manage",
@@ -669,7 +820,10 @@
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "assignment removal is reflected in dispatcher and technician views",
           "status": "PARTIAL",
-          "frontendPath": "\"/jobs/\" + job.id + \"/assignments/\" + technician.assignmentId"
+          "frontendPath": "\"/jobs/\" + job.id + \"/assignments/\" + technician.assignmentId",
+          "contractSymbols": [
+            "removeAssignment"
+          ]
         }
       ]
     },
@@ -697,7 +851,7 @@
           "router": "jobsRouter",
           "route": "/:jobId/start-travel|/:jobId/arrive|/:jobId/pause|/:jobId/resume|/:jobId/complete",
           "handler": "jobsController.startTravel|jobsController.arrive|jobsController.pause|jobsController.resume|jobsController.complete",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Named lifecycle action mapped by the frontend transition table; service enforces the canonical transition graph.",
           "response": "Updated Job lifecycle, audit event, and permitted readiness metadata.",
           "permission": "assigned technician or manager policy; owner/admin-only reopen",
@@ -706,7 +860,14 @@
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "permitted transition persists; unassigned/invalid transition fails closed at 390/768px",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/jobs/${jobId}/${TRANSITIONS[transition]}`"
+          "frontendPath": "`/api/v1/jobs/${jobId}/${TRANSITIONS[transition]}`",
+          "contractSymbols": [
+            "startTravel",
+            "arrive",
+            "pause",
+            "resume",
+            "complete"
+          ]
         },
         {
           "id": "field.note",
@@ -715,11 +876,11 @@
           "symbol": "addFieldJobNoteAction",
           "method": "POST",
           "mount": "/api/v1/jobs",
-          "routeFile": "app/backend/routes/crm.routes.ts",
+          "routeFile": "app/backend/routes/jobs.routes.ts",
           "router": "jobsRouter",
-          "route": "/:id/notes",
+          "route": "/:jobId/notes",
           "handler": "jobsController.addNote",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Job-scoped note text validated by controller/service.",
           "response": "Persisted note DTO with actor attribution.",
           "permission": "notes.write plus assigned-job scope",
@@ -728,7 +889,10 @@
           "evidence": "app/tests/jobs.service.test.ts",
           "browser": "note appears once with correct technician attribution after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/jobs/${jobId}/notes`"
+          "frontendPath": "`/api/v1/jobs/${jobId}/notes`",
+          "contractSymbols": [
+            "addNote"
+          ]
         }
       ]
     },
@@ -766,7 +930,10 @@
           "evidence": "app/tests/invoices.controller.queue.test.ts",
           "browser": "invoice total equals approved sell price/tax, not direct cost",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/invoices\""
+          "frontendPath": "\"/api/v1/invoices\"",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "invoice.send",
@@ -788,7 +955,10 @@
           "evidence": "app/tests/invoices.service.test.ts",
           "browser": "sent status is visible after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/invoices/${id}/send`"
+          "frontendPath": "`/api/v1/invoices/${id}/send`",
+          "contractSymbols": [
+            "send"
+          ]
         },
         {
           "id": "invoice.payment.record",
@@ -810,7 +980,10 @@
           "evidence": "app/tests/payments.service.test.ts",
           "browser": "partial/final balances are cent-accurate; final state persists and concurrent reconciliation is safe",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "`/api/v1/invoices/${id}/payments`"
+          "frontendPath": "`/api/v1/invoices/${id}/payments`",
+          "contractSymbols": [
+            "create"
+          ]
         },
         {
           "id": "invoice.mark-paid",
@@ -832,7 +1005,10 @@
           "evidence": "app/tests/invoices.service.test.ts",
           "browser": "paid state appears only when server reconciliation supports it",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/invoices/${id}/mark-paid`"
+          "frontendPath": "`/api/v1/invoices/${id}/mark-paid`",
+          "contractSymbols": [
+            "markPaid"
+          ]
         },
         {
           "id": "invoice.void",
@@ -854,7 +1030,10 @@
           "evidence": "app/tests/invoices.void.test.ts",
           "browser": "void invoice is terminal and excluded from unpaid/overdue follow-up",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/invoices/${id}/void`"
+          "frontendPath": "`/api/v1/invoices/${id}/void`",
+          "contractSymbols": [
+            "void"
+          ]
         }
       ]
     },
@@ -891,7 +1070,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer receives only the intended scoped link; no bearer appears in page logs or artifacts",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/customer-portal/access-tokens\""
+          "frontendPath": "\"/api/v1/customer-portal/access-tokens\"",
+          "contractSymbols": [
+            "issue"
+          ]
         },
         {
           "id": "portal.redeem",
@@ -913,7 +1095,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "valid redemption succeeds once; replay, expiry, revocation and cross-tenant access fail",
           "status": "PARTIAL",
-          "frontendPath": "`${BACKEND_API_URL}/api/v1/customer-portal/redeem`"
+          "frontendPath": "`${BACKEND_API_URL}/api/v1/customer-portal/redeem`",
+          "contractSymbols": [
+            "redeem"
+          ]
         },
         {
           "id": "portal.project.read",
@@ -935,7 +1120,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "foreign customer/project cannot be read",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/customer-portal/projects/${id}`"
+          "frontendPath": "`/api/v1/customer-portal/projects/${id}`",
+          "contractSymbols": [
+            "getProject"
+          ]
         },
         {
           "id": "portal.invoice.read",
@@ -957,7 +1145,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "only that customer invoice is visible; balances reflect backend state",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/customer-portal/invoices/${id}`"
+          "frontendPath": "`/api/v1/customer-portal/invoices/${id}`",
+          "contractSymbols": [
+            "getInvoice"
+          ]
         },
         {
           "id": "portal.contract.read",
@@ -979,7 +1170,10 @@
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer sees only own contract and signature attribution",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/customer-portal/contracts/${id}`"
+          "frontendPath": "`/api/v1/customer-portal/contracts/${id}`",
+          "contractSymbols": [
+            "getContract"
+          ]
         }
       ]
     },
@@ -1022,7 +1216,7 @@
           "router": "jobsRouter",
           "route": "/dispatch-summary",
           "handler": "jobsController.dispatchSummary",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Authenticated organization-scoped dispatch-summary read with server-defined business timezone and date range.",
           "response": "Dispatch summary including scoped counts and today's range.",
           "permission": "authenticated organization membership; jobs_select_policy/RLS narrows rows by caller role",
@@ -1031,7 +1225,10 @@
           "evidence": "app/tests/admin-dashboard-tenant-boundary.test.ts",
           "browser": "command-board count and destination agree with schedule source at four supported widths",
           "status": "HISTORICALLY_CERTIFIED",
-          "frontendPath": "\"/api/v1/jobs/dispatch-summary\""
+          "frontendPath": "\"/api/v1/jobs/dispatch-summary\"",
+          "contractSymbols": [
+            "dispatchSummary"
+          ]
         },
         {
           "id": "dashboard.projects.read",
@@ -1054,7 +1251,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/projects\""
+          "frontendPath": "\"/api/v1/projects\"",
+          "contractSymbols": [
+            "list"
+          ]
         },
         {
           "id": "dashboard.settings.read",
@@ -1077,7 +1277,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/settings\""
+          "frontendPath": "\"/api/v1/settings\"",
+          "contractSymbols": [
+            "get"
+          ]
         },
         {
           "id": "dashboard.estimates.read",
@@ -1100,7 +1303,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/estimates${qs ? `?${qs}` : \"\"}`"
+          "frontendPath": "`/api/v1/estimates${qs ? `?${qs}` : \"\"}`",
+          "contractSymbols": [
+            "listOrganizationQueue"
+          ]
         },
         {
           "id": "dashboard.invoices.read",
@@ -1123,7 +1329,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/invoices${qs ? `?${qs}` : \"\"}`"
+          "frontendPath": "`/api/v1/invoices${qs ? `?${qs}` : \"\"}`",
+          "contractSymbols": [
+            "listOrganizationQueue"
+          ]
         },
         {
           "id": "dashboard.proposals.read",
@@ -1146,7 +1355,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/proposals${qs ? `?${qs}` : \"\"}`"
+          "frontendPath": "`/api/v1/proposals${qs ? `?${qs}` : \"\"}`",
+          "contractSymbols": [
+            "listOrganizationQueue"
+          ]
         },
         {
           "id": "dashboard.jobs.read",
@@ -1160,7 +1372,7 @@
           "router": "jobsRouter",
           "route": "/",
           "handler": "jobsController.list",
-          "contractFile": "app/backend/controllers/jobsTransactional.controller.ts",
+          "contractFile": "app/backend/controllers/jobs.controller.ts",
           "request": "Authenticated organization-scoped read; page size and filters are supplied by the owning dashboard loader.",
           "response": "Typed source-domain DTO consumed by the Today command board; totals are only as complete as the loaded source page.",
           "permission": "dispatch.manage or role-scoped job read",
@@ -1169,7 +1381,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/jobs${qs ? `?${qs}` : \"\"}`"
+          "frontendPath": "`/api/v1/jobs${qs ? `?${qs}` : \"\"}`",
+          "contractSymbols": [
+            "list"
+          ]
         },
         {
           "id": "dashboard.tasks.read",
@@ -1192,7 +1407,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/projects/tasks${suffix}`"
+          "frontendPath": "`/api/v1/projects/tasks${suffix}`",
+          "contractSymbols": [
+            "listByOrganization"
+          ]
         },
         {
           "id": "dashboard.activity.read",
@@ -1215,7 +1433,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "`/api/v1/intelligence/activity${suffix}`"
+          "frontendPath": "`/api/v1/intelligence/activity${suffix}`",
+          "contractSymbols": [
+            "listActivity"
+          ]
         },
         {
           "id": "dashboard.knowledge.read",
@@ -1238,7 +1459,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/knowledge/stats\""
+          "frontendPath": "\"/api/v1/knowledge/stats\"",
+          "contractSymbols": [
+            "stats"
+          ]
         },
         {
           "id": "dashboard.money.read",
@@ -1261,7 +1485,10 @@
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
           "status": "PARTIAL",
-          "frontendPath": "\"/api/v1/payments/current-week\""
+          "frontendPath": "\"/api/v1/payments/current-week\"",
+          "contractSymbols": [
+            "currentWeek"
+          ]
         }
       ]
     }
