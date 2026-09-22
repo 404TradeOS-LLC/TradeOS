@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-22
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -231,7 +231,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 ## S026 completion reconciliation
 
-S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. No numbered sprint is currently READY.
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. The later 2026-09-22 successor-backlog reconciliation promotes S051 as the current `READY` sprint.
 
 
 ## S028 completion reconciliation
@@ -249,3 +249,21 @@ S030 is DONE after implementation PR #341 merged as `d8e07606737de561b7cbed4e0be
 S028 is DONE through implementation PR #338 (`dcc72796c1bfd945de1f8303062103c8e8c4690c`) and completion evidence PR #339 (`cc2d6371aa29520dffc1f83bf86118c17f7b840c`). PR #332 is closed as superseded. PT-003 is merged in PR #342 (`164fe63867dceb265d80a0a61098c4c99315a3f3`) and persists finalized estimate pricing during proposal creation; PR #311 is merged in `80f5cd8ed5771f54f5c5f9f43823f81d9bbabd9d` with paid queue balances derived from persisted invoice status while preserving the existing manual mark-paid boundary. S047 is DONE through implementation PR #397 and completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`.
 
 The authenticated browser session is available for read-only verification, but the full estimate-to-proposal mutation proof remains environment-blocked until an explicit action-time confirmation permits creating test data in the existing workspace. S025, S026, S027, S030, S031, S032, S033, S034, S035, S037, S038, S040, S041, S042, and S043 are complete; S035 representative isolated plan evidence, completion evidence, and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384. S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`. S047 and S036 are complete; S036 implementation PR #476 merged on 2026-09-08. S044/S045 remain blocked on production access. Keep S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval independent.
+
+## Successor backlog reconciliation — 2026-09-22
+
+The first 50 sprint records are not a beta-readiness claim. A current-head
+vertical audit at `9a27682a575f6c8b13337a61e88cdd7b838dcfe2` found a real,
+substantial frontend/backend implementation and historical RC workflow evidence,
+but no current-head certification for every contractor/customer journey. The
+canonical findings are recorded in
+`docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
+
+`docs/SPRINT_BACKLOG.md` now owns S051-S100. The successor definition of `DONE`
+for a contractor-facing sprint requires the connected frontend/backend contract,
+relevant permission and tenant-negative evidence, correct state refresh, and
+retained browser evidence for its owned roles/viewports. S051 is `READY` as the
+bounded executable connection-matrix and drift-validation foundation. Later
+sprints remain `PLANNED` or explicitly `BLOCKED`; their numbering is not
+permission to bypass readiness promotion, open-PR overlap, protected decisions,
+or production-access gates.
