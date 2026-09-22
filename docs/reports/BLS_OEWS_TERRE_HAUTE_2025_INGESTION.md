@@ -21,6 +21,8 @@ The first TradeOS ingestion slice records official wage observations as **Costbo
 | 47-2031 | Carpenters | $18.72 | $23.77 | $29.12 | $35.55 | $38.75 |
 | 49-9021 | Heating, Air Conditioning, and Refrigeration Mechanics and Installers | $18.35 | $23.29 | $26.11 | $33.04 | $39.06 |
 | 47-2141 | Painters, Construction and Maintenance | $17.13 | $18.37 | $22.06 | $28.00 | $29.49 |
+| 47-2073 | Operating Engineers and Other Construction Equipment Operators | $20.85 | $24.17 | $29.63 | $40.40 | $44.46 |
+| 47-2211 | Sheet Metal Workers | $17.73 | $22.71 | $36.44 | $42.77 | $47.39 |
 
 The complete observed distribution is retained in candidate research notes. The median (P50) is preserved as benchmark evidence only; this adapter deliberately does **not** populate `laborRateAssumption` or `laborHours`.
 
@@ -56,7 +58,7 @@ The current Costbook research-candidate controls remain authoritative:
 
 `app/tests/costbook-bls-oews.test.ts` verifies:
 
-- all five records parse through the canonical research-candidate schema;
+- all seven records parse through the canonical research-candidate schema;
 - the published P10/P25/P50/P75/P90 values remain fixed for every record;
 - exact source URL and May 2025 source date remain fixed;
 - provenance is documented and region-specific;
