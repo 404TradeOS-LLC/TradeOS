@@ -18,8 +18,8 @@ while ((match = sprintPattern.exec(text)) !== null) {
 }
 
 const errors = [];
-if (sprints.size !== 50) {
-  errors.push(`Expected 50 numbered sprints, found ${sprints.size}.`);
+if (sprints.size !== 100) {
+  errors.push(`Expected 100 numbered sprints, found ${sprints.size}.`);
 }
 
 for (const sprint of sprints.values()) {
