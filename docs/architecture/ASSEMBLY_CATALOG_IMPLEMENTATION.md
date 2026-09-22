@@ -1,7 +1,7 @@
 ---
 status: current
 owner: costbook
-last_verified: 2026-09-17
+last_verified: 2026-09-19
 source_of_truth: true
 related_code:
   - app/modules/assemblies-database/catalog.ts
@@ -31,10 +31,14 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
 - The estimator must map every recipe slot to an active Cost Item owned by the
   authenticated organization before installation.
 - The server rejects duplicate, missing, or unknown recipe slots.
+- Every component declares compatible construction units and Cost Item kinds;
+  both the mapping picker and install service reject mismatches.
 - The server reloads every mapped Cost Item with `orgId` and `isActive: true`;
   an inactive or cross-organization identifier fails closed.
-- The request-scoped database transaction creates the Assembly and its items as
-  one authenticated operation. Forced RLS remains the database boundary.
+- Installation explicitly joins an active request transaction or opens a new
+  Prisma transaction, so Assembly and AssemblyItem writes are atomic in HTTP,
+  background, and direct-service execution. Forced RLS remains the database
+  boundary.
 - Installed assemblies reuse current Costbook unit-cost resolution and Estimate
   pricing snapshots. Starter installation never rewrites historical estimates.
 - Recipe quantities are estimating defaults. The UI requires review of waste,
@@ -64,6 +68,13 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
 - [x] Preserve manual assembly creation, editing, nesting, costing, lifecycle,
   permissions, and current Estimate consumption.
 - [x] Add catalog-integrity and service-level installation regression tests.
+- [x] Pin catalog and recipe versions, review metadata, component quantities,
+  compatible units, and compatible Cost Item kinds in regression snapshots.
+- [x] Publish a machine-readable NAHB/CSI coverage matrix from the catalog.
+- [x] Make installation explicitly transactional and cover the active tenant
+  session with live RLS integration tests.
+- [x] Replace bounded dropdown-only mapping with server-backed Cost Item search
+  and prevent duplicate or incompatible selections in the UI.
 - [ ] Add authenticated rendered browser evidence for owner/admin and read-only
   roles against a disposable tenant.
 - [ ] Expand the reviewed recipe library trade by trade after qualified-estimator
@@ -72,6 +83,28 @@ finish carpentry, electrical, plumbing, HVAC, and decks.
   organization-wide recipe upgrades.
 - [ ] Connect future plan takeoff quantities only after the installed assembly
   workflow has production evidence.
+
+## Current catalog coverage
+
+The API derives this matrix from the recipes rather than maintaining a second
+hand-counted registry.
+
+| Residential work group | Recipes | CSI divisions | Output units |
+| --- | ---: | --- | --- |
+| Site work | 1 | 31 | CY |
+| Foundation | 1 | 03 | SF |
+| Framing | 1 | 06 | SF |
+| Exterior shell | 2 | 07 | SF, SQ |
+| Interior finishes | 4 | 08, 09 | EA, SF |
+| Cabinets and trim | 1 | 06 | LF |
+| Electrical | 1 | 26 | EA |
+| Plumbing | 1 | 22 | EA |
+| Mechanical | 1 | 23 | EA |
+| Outdoor living | 1 | 06 | SF |
+
+This is a deliberately small baseline, not a claim of comprehensive residential
+scope. Catalog expansion remains qualified-estimator work with versioned recipe
+review.
 
 ## Classification note
 
