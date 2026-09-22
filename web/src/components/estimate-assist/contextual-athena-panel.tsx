@@ -9,24 +9,23 @@ import { cn } from "@/lib/utils";
 import { clientFetch } from "@/lib/clientApi";
 
 interface ContextualSuggestion {
-  draftLineItemId: string;
-  targetKind: "assembly" | "costItem";
-  targetCode: string | null;
-  description: string;
+  id: string;
+  kind: "assembly" | "costItem";
+  code: string;
+  title: string;
   rationale: string;
   quantity: number;
-  unitOfMeasure: string;
+  unit: string;
   confidence: number;
   provenanceStatus: "documented" | "unverified-legacy" | "placeholder";
-  targetResolution: {
+  resolution: {
     target: { id: string; kind: "assembly" | "costItem"; name: string; code: string; unitOfMeasure: string } | null;
     reason: string;
   };
 }
 
 interface SuggestionsResponse {
-  lineItems: ContextualSuggestion[];
-  validation?: { status: string; warnings: string[]; missingInformation: string[] };
+  suggestions: ContextualSuggestion[];
 }
 
 export function ContextualAthenaPanel({
@@ -49,11 +48,11 @@ export function ContextualAthenaPanel({
     setState("loading");
     setError(null);
     try {
-      const response = await clientFetch<SuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/draft`, {
+      const response = await clientFetch<SuggestionsResponse>(`/estimates/${estimateId}/ai-suggestions`, {
         method: "POST",
         body: JSON.stringify({ scopeOfWork: scopeOfWork.trim() }),
       });
-      setSuggestions(response.lineItems ?? []);
+      setSuggestions(response.suggestions ?? []);
       setState("ready");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena could not review this scope.");
@@ -90,17 +89,17 @@ export function ContextualAthenaPanel({
       {suggestions.length > 0 ? (
         <div className="mt-4 divide-y divide-primary/20 border-t border-primary/20">
           {suggestions.slice(0, 4).map((suggestion) => {
-            const setupRequired = !suggestion.targetResolution.target;
+            const setupRequired = suggestion.kind === "assembly" && !suggestion.resolution.target;
             return (
-              <div key={suggestion.draftLineItemId} className="space-y-2 py-3">
+              <div key={suggestion.id} className="space-y-2 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-foreground">{suggestion.description}</span>
-                  <Badge variant="outline">{suggestion.targetKind === "assembly" ? "Assembly" : "Cost item"}</Badge>
+                  <span className="font-medium text-foreground">{suggestion.title}</span>
+                  <Badge variant="outline">{suggestion.kind === "assembly" ? "Assembly" : "Cost item"}</Badge>
                   <Badge variant="outline">{suggestion.confidence}%</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{suggestion.rationale}</p>
                 <div className={cn("text-xs", setupRequired ? "text-warning" : "text-muted-foreground")}>
-                  {setupRequired ? "Target setup required before applying." : suggestion.targetResolution.target ? `Matched to ${suggestion.targetResolution.target.name} · ${suggestion.targetResolution.target.code}` : suggestion.targetResolution.reason}
+                  {setupRequired ? "Assembly available — setup required." : suggestion.resolution.target ? `Matched to ${suggestion.resolution.target.name} · ${suggestion.resolution.target.code}` : suggestion.resolution.reason}
                 </div>
                 {suggestion.provenanceStatus === "placeholder" ? <p className="text-xs text-warning">Pricing evidence is placeholder data; verify before applying.</p> : suggestion.provenanceStatus === "unverified-legacy" ? <p className="text-xs text-warning">Unverified pricing — confirm the Costbook source before applying.</p> : null}
               </div>

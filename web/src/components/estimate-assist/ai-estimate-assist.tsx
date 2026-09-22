@@ -51,6 +51,8 @@ interface SuggestionDraft extends AIEstimateSuggestion {
   status: SuggestionStatus;
   description: string;
   selectedTarget: EstimateTargetOption | null;
+  originalTargetId?: string | null;
+  originalTargetKind?: "assembly" | "costItem" | null;
 }
 
 interface ApplySuggestionsResponse {
@@ -124,6 +126,8 @@ function toDraft(suggestion: AIEstimateSuggestion): SuggestionDraft {
     ...suggestion,
     status: "pending",
     description: suggestion.title,
+    originalTargetId: suggestion.resolution.target?.id ?? null,
+    originalTargetKind: suggestion.resolution.target?.kind ?? null,
     selectedTarget: suggestion.resolution.target
       ? {
           id: suggestion.resolution.target.id,
@@ -153,6 +157,8 @@ function structuredToDraft(line: StructuredAIEstimateDraftLineItem): SuggestionD
     resolution: line.targetResolution,
     status: "pending",
     description: line.description,
+    originalTargetId: line.targetId,
+    originalTargetKind: line.targetKind,
     selectedTarget: line.targetId && line.targetName && line.targetCode
       ? { id: line.targetId, kind: line.targetKind, code: line.targetCode, name: line.targetName, unitOfMeasure: line.unitOfMeasure }
       : null,
@@ -252,7 +258,7 @@ export function AIEstimateAssist({
       clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: JSON.stringify({
-          generationId,
+          // Omit generationId so users with billing.write can apply reviewed lines without an owner/admin-only generation-record lookup.
           lineItems: suggestions.map((suggestion) => ({
             draftLineItemId: suggestion.id,
             quantity: suggestion.quantity,
@@ -260,7 +266,9 @@ export function AIEstimateAssist({
             description: suggestion.description,
             targetId: suggestion.selectedTarget?.id,
             targetKind: suggestion.selectedTarget?.kind,
-            reviewToken: structuredDraft?.lineItems.find((line) => line.draftLineItemId === suggestion.id)?.reviewToken ?? undefined,
+            reviewToken: suggestion.originalTargetId === suggestion.selectedTarget?.id && suggestion.originalTargetKind === suggestion.selectedTarget?.kind
+              ? structuredDraft?.lineItems.find((line) => line.draftLineItemId === suggestion.id)?.reviewToken ?? undefined
+              : undefined,
           })),
         }),
       }),
@@ -273,7 +281,7 @@ export function AIEstimateAssist({
     setSuggestions((current) => current.map((suggestion) => (suggestion.id === id ? updater(suggestion) : suggestion)));
   };
 
-  const acceptedReadyToApply = reviewStats.acceptedReadyCount > 0;
+  const acceptedReadyToApply = suggestions.some((suggestion) => suggestion.status === "accepted" && suggestion.selectedTarget && suggestion.originalTargetId === suggestion.selectedTarget.id && suggestion.originalTargetKind === suggestion.selectedTarget.kind);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
@@ -337,7 +345,7 @@ export function AIEstimateAssist({
               <p className="text-sm text-muted-foreground">
                 Leave the scope blank if needed. We will fall back to the project scope or the seeded sample scope for validation.
               </p>
-              <Button onClick={() => regenerateSuggestions.mutate()} disabled={regenerateSuggestions.isPending}>
+              <Button onClick={() => regenerateSuggestions.mutate()} disabled={regenerateSuggestions.isPending || !scopeOfWork.trim()}>
                 {regenerateSuggestions.isPending ? (
                   <>
                     <RefreshCw className="size-4 animate-spin" />
@@ -351,6 +359,7 @@ export function AIEstimateAssist({
                 )}
               </Button>
             </div>
+            {regenerateSuggestions.isError ? <p className="text-sm text-destructive" role="alert">{regenerateSuggestions.error instanceof Error ? regenerateSuggestions.error.message : "Unable to generate a structured estimate draft."}</p> : null}
           </CardContent>
         </Card>
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AIEstimateAssist } from "@/components/estimate-assist/ai-estimate-assist";
 import { buttonVariants } from "@/components/ui/button";
-import { getStructuredAIEstimateDraft, getKnowledgeStats, getKnowledgeTrades } from "@/lib/api";
+import { getKnowledgeStats, getKnowledgeTrades } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +12,8 @@ export default async function AIEstimateAssistPage({
 }) {
   const { id, estimateId } = await params;
   const token = await getSessionToken();
-  const initial = token
-    ? await getStructuredAIEstimateDraft(token, estimateId, "").catch(() => null)
-    : null;
-  const initialScope = initial?.scopeOfWork.trim() ?? "";
+  const initial = null;
+  const initialScope = "";
   const [knowledgeStats, knowledgeTrades] = token
     ? await Promise.all([
         // Both are supplementary context for the assist panel (it already
@@ -48,12 +46,12 @@ export default async function AIEstimateAssistPage({
       <AIEstimateAssist
         projectId={id}
         estimateId={estimateId}
-        initialScopeOfWork={initial?.scopeOfWork ?? ""}
+        initialScopeOfWork={initialScope}
         initialSuggestions={[]}
         initialKnowledgeStats={knowledgeStats}
         initialKnowledgeTrades={knowledgeTrades}
         initialKnowledgeMatch={null}
-        initialStructuredDraft={initial}
+        initialStructuredDraft={null}
       />
     </div>
   );
