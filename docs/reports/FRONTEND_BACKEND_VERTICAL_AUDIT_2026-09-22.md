@@ -173,3 +173,51 @@ marked `DONE` from merge evidence alone: its acceptance must include the
 frontend/backend connection, negative authorization/tenant evidence where
 applicable, state-refresh behavior, and retained browser evidence for the
 workflow and supported viewport/role set it owns.
+
+## Follow-up risks (post-merge review, 2026-09-22)
+
+Concrete risks introduced or left unresolved by this audit/backlog PR, found
+by inspecting the merged governance tooling rather than by restating the
+report's own findings above:
+
+1. **`BLOCKED` sprint PR gates have no live-reconciliation check.**
+   `scripts/live-sprint-evidence-check.mjs` only fetches live GitHub state for
+   sprint blocks with `Status: DONE`, verifying that the PR named in their
+   `Evidence:` field is merged. S064, S075, S082, S088, and S090 gate on
+   `Blocked by:` references to open PRs #520, #532, #531, #507, and #491
+   respectively, but no script queries GitHub to confirm those PRs are still
+   open. If any of them merges, closes, or is superseded before
+   `docs/SPRINT_BACKLOG.md` is hand-updated, the `BLOCKED` status and its gate
+   description will silently go stale, undetected by `sprint-governance.yml`
+   or `docs-reconciliation.yml`.
+2. **Cross-document READY-sprint consistency is only enforced for one file
+   pair.** `scripts/__tests__/sprint-backlog.test.mjs` cross-checks
+   `docs/SPRINT_BACKLOG.md` against the terminal `## Next Eligible Sprint`
+   block in `docs/SESSION_HANDOFF.md` only. `docs/ENGINEERING_COMMAND_CENTER.md`
+   and `docs/TRADEOS_BIBLE.md` independently assert "S051 is READY" and the
+   audit SHA `9a27682a575f6c8b13337a61e88cdd7b838dcfe2` in free text with no
+   automated check. A future PR that promotes a different sprint in
+   `docs/SPRINT_BACKLOG.md` without touching those two files would pass all
+   existing CI while leaving contradictory source-of-truth claims live.
+3. **Dependency-backed governance checks ran only on hosted CI for this PR.**
+   `npm run pr:test`, `npm run docs:check`, and `npm run docs:test` could not
+   run in the local audit clone because `minimatch` (declared in
+   `package.json`) was not installed, so hosted CI was the only place the new
+   100-sprint inventory, the raised `scripts/sprint-state-check.mjs` threshold,
+   and `DOC_OWNERSHIP.yml` compliance were actually exercised end-to-end.
+4. **S051's drift validator does not exist yet.** The connection-matrix claims
+   in this report (174 frontend call sites, 145 path templates, mounted route
+   families) are a one-time snapshot at `9a27682a575f6c8b13337a61e88cdd7b838dcfe2`.
+   Until S051 is implemented, no automated check will detect a subsequent PR
+   changing a route, DTO, or permission out from under this snapshot.
+5. **Tenant-isolation and RLS regression coverage remains open.** The workflow
+   matrix above classifies the customer portal, Athena action execution, and
+   RLS-backed resources as `PARTIAL`/not current-head certified, and S073 (RLS
+   coverage matrix) and S059 (portal certification) remain `PLANNED`. No new
+   automated regression gate was added by this PR, so a forced-RLS or
+   portal-isolation regression introduced before S073/S059 land would not be
+   caught by existing CI.
+6. **Backup/restore and production-migration rehearsal remain unverified.**
+   S078 and S080 stay `BLOCKED` on S039/S044/S045 production access; this PR
+   does not reduce that exposure, and no RPO/RTO restore has been rehearsed
+   against the current schema.
