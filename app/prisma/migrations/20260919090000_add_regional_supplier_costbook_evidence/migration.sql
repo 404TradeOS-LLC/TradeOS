@@ -3,11 +3,14 @@
 -- prices. Promotion into Material or SupplierPriceUpdate remains a separate,
 -- human-reviewed application workflow.
 
+alter table materials
+    add constraint materials_org_id_id_unique unique (org_id, id);
+
 create table supplier_products (
     id                       uuid primary key default gen_random_uuid(),
     org_id                   uuid not null references organizations(id) on delete cascade,
     supplier_id              uuid not null references suppliers(id) on delete restrict,
-    material_id              uuid references materials(id) on delete set null,
+    material_id              uuid,
 
     supplier_product_key     text not null,
     sku                      text,
@@ -30,7 +33,9 @@ create table supplier_products (
     constraint supplier_products_package_quantity_nonnegative
         check (package_quantity is null or package_quantity > 0),
     constraint supplier_products_org_supplier_key_unique
-        unique (org_id, supplier_id, supplier_product_key)
+        unique (org_id, supplier_id, supplier_product_key),
+    constraint supplier_products_org_material_fk
+        foreign key (org_id, material_id) references materials(org_id, id) on delete restrict
 );
 
 create table supplier_price_observations (
@@ -73,8 +78,8 @@ create table supplier_price_observations (
           and (normalized_unit_price is null or normalized_unit_price >= 0)
           and (package_quantity is null or package_quantity > 0)
         ),
-    constraint supplier_price_observations_org_key_unique
-        unique (org_id, observation_key)
+    constraint supplier_price_observations_org_product_key_unique
+        unique (org_id, supplier_product_id, observation_key)
 );
 
 create index idx_supplier_products_org_supplier_active
