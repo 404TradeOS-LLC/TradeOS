@@ -534,3 +534,8 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 ## Assembly pre-install cost preview
 
 The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
+
+
+## S053 structured estimate-assist
+
+The estimate-assist frontend now stages structured scope-to-estimate drafts through the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts. Draft generation remains review-only; accepted lines retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. Authenticated browser certification at 1440/768/390 remains pending.
