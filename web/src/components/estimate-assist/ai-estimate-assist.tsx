@@ -186,7 +186,6 @@ export function AIEstimateAssist({
 }) {
   const [scopeOfWork, setScopeOfWork] = useState(initialScopeOfWork || "");
   const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialStructuredDraft?.lineItems.map(structuredToDraft) ?? initialSuggestions.map(toDraft));
-  const [generationId, setGenerationId] = useState<string | undefined>(initialStructuredDraft?.generationId);
   const [structuredDraft, setStructuredDraft] = useState<StructuredAIEstimateDraft | null>(initialStructuredDraft ?? null);
   const [knowledgeMatch, setKnowledgeMatch] = useState<KnowledgeScopeMatch | null>(initialKnowledgeMatch);
   const [searchMode, setSearchMode] = useState<"assemblies" | "cost-items">("assemblies");
@@ -229,7 +228,6 @@ export function AIEstimateAssist({
     },
     onSuccess: (payload) => {
       setStructuredDraft(payload);
-      setGenerationId(payload.generationId);
       setSuggestions(payload.lineItems.map(structuredToDraft));
       setKnowledgeMatch(null);
       setScopeOfWork(payload.scopeOfWork);
