@@ -10,7 +10,9 @@ describe("regional supplier costbook evidence migration", () => {
   it("keeps supplier products and observations separate from current material prices", () => {
     expect(migration).toContain("create table supplier_products");
     expect(migration).toContain("create table supplier_price_observations");
-    expect(migration).toContain("material_id              uuid references materials(id) on delete set null");
+    expect(migration).toContain("material_id              uuid");
+    expect(migration).toContain("foreign key (org_id, material_id) references materials(org_id, id) on delete restrict");
+    expect(migration).toContain("materials_org_id_id_unique unique (org_id, id)");
     expect(migration).toContain("effective_price");
     expect(migration).toContain("price_status");
   });
@@ -20,7 +22,7 @@ describe("regional supplier costbook evidence migration", () => {
     expect(migration).toContain("observation_key          text not null");
     expect(migration).toContain("source_file              text");
     expect(migration).toContain("source_row               integer");
-    expect(migration).toContain("unique (org_id, observation_key)");
+    expect(migration).toContain("unique (org_id, supplier_product_id, observation_key)");
   });
 
   it("forces tenant RLS and limits writes to Costbook managers", () => {
