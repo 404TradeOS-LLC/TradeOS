@@ -145,11 +145,12 @@ export class RegionalSupplierEvidenceService {
           throw new ApiError(400, `Observation ${observation.observationKey} references an unknown supplier product`);
         }
 
-        if (observation.priceStatus !== "priced") unavailableObservations += 1;
+        if (observation.priceStatus === "unavailable") unavailableObservations += 1;
         await transaction.supplierPriceObservation.upsert({
           where: {
-            orgId_observationKey: {
+            orgId_supplierProductId_observationKey: {
               orgId: input.orgId,
+              supplierProductId,
               observationKey: observation.observationKey,
             },
           },
