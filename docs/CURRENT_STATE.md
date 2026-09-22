@@ -36,6 +36,7 @@ related_code:
   - web/src/app/customer-portal
   - web/src/app/(app)/portal
   - web/src/app/api/proxy/[...path]/route.ts
+  - web/src/app/api/project-files/[projectId]/[fileId]/route.ts
   - web/src/proxy.ts
   - web/src/lib/supabase/proxy.ts
   - web/src/lib/api.ts
@@ -365,6 +366,7 @@ Security-sensitive maintenance already landed includes:
 - organization bootstrap/RLS lookup repairs
 - tenant-boundary regression coverage
 - protected storage/server-action session checks
+- managed project-file Storage is private by default; browser-facing links for storage-backed photos and documents use a same-origin binary proxy that authenticates the session, resolves the requested project through the tenant-scoped backend, verifies the file belongs to that project, and only then downloads the exact metadata-backed object with server-only Storage credentials. Public object URLs require the explicit `SUPABASE_STORAGE_BUCKET_PUBLIC=true` opt-in; missing, false, or unrecognized values fail closed. Legacy files without managed `storagePath` metadata retain their previously saved URL.
 - project-file Storage deletion resolves tenant-scoped metadata and completes the `crm.write`-protected metadata delete before removing only exact generated, project-scoped Storage objects; ambiguous metadata-create failures preserve Storage so a late commit cannot point at deleted data, and cleanup failures abort instead of reporting a successful deletion
 - bounded database transaction acquisition under serverless contention
 - safe audit/security event capture

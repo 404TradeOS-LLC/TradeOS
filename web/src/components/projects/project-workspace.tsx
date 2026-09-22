@@ -25,6 +25,7 @@ import {
   getProposalDisplayStatus,
 } from "@/lib/document-workflow";
 import { projectStatuses, getStatusLabel } from "@/domain";
+import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
 
 type DetailedChangeOrder = ChangeOrder & { lineItems: ChangeOrderLineItem[] };
 
@@ -290,7 +291,7 @@ export async function ProjectWorkspace({
                 id: file.id,
                 title: file.fileName,
                 subtitle: `${file.fileType} • ${formatDateTime(file.createdAt)}`,
-                href: file.fileUrl,
+                href: buildProjectFileAccessUrl(project.id, file),
               }))}
               empty="No uploaded documents yet."
             />
@@ -547,7 +548,7 @@ export async function ProjectWorkspace({
                 id: file.id,
                 title: file.fileName,
                 subtitle: file.fileType,
-                href: file.fileUrl,
+                href: buildProjectFileAccessUrl(project.id, file),
               }))}
             empty="No warranty-supporting documents uploaded yet."
           />

@@ -107,7 +107,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
             </CardContent>
           </Card>
 
-          <ProposalContextPanel latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
+          <ProposalContextPanel projectId={project.id} latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
         </div>
       </div>
     </div>
