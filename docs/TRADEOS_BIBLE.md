@@ -231,7 +231,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 ## S026 completion reconciliation
 
-S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 was promoted `READY` by the 2026-09-22 successor-backlog reconciliation and is now `IN_REVIEW` in draft PR #538.
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 is `DONE` through merged PR #538 (merge commit `49cf31ce8badf8a3440792e0f9aa7a8a01026db`). S053 is the next successor sprint and is promoted `READY` by the governance PR that reconciles the current handoff.
 
 
 ## S028 completion reconciliation

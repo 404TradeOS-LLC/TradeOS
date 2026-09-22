@@ -576,8 +576,8 @@ a baseline but cannot certify a changed current head.
 
 ### S051 — Executable frontend/backend connection matrix
 
-Status: IN_REVIEW
-Implementation PR: #538 (draft)
+Status: DONE
+Implementation PR: #538 (merged 2026-09-22 as `49cf31ce8badf8a3440792e0f9aa7a8a01026db`).
 Dependencies: none
 Objective: Create the governed action-to-route certification inventory for every release-critical frontend read and mutation.
 Acceptance: the inventory names the UI action, route and method, request/response contract, permission, tenant/RLS expectation, refresh behavior, automated evidence, browser checkpoint, and current result; CI fails when a release-critical entry loses its owner or mapped contract.
@@ -596,7 +596,8 @@ Acceptance: owner/admin happy path plus validation, duplicate, inactive-membersh
 
 ### S053 — Scope-to-Athena-to-estimate certification
 
-Status: PLANNED
+Status: READY
+Readiness evidence: S051 is DONE through merged PR #538; S052 remains unstarted; no competing S053 implementation PR or branch was found during the 2026-09-22 reconciliation; the scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract is explicit below; this readiness promotion changes documentation only.
 Dependencies: S051
 Objective: Connect and certify plain-language scope → Athena matches → reviewed Costbook/assembly choices → persisted estimate lines.
 Acceptance: provenance, confidence, setup-required behavior, explicit review, line persistence, pricing refresh, denial paths, and no-silent-write behavior pass at 1440/768/390.
@@ -950,7 +951,7 @@ Acceptance: all required contractor/customer journeys are current-head certified
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is in review in draft PR #538.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is DONE through PR #538, merged 2026-09-22 as `49cf31ce8badf8a3440792e0f9aa7a8a01026db`.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
@@ -962,15 +963,15 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: S051 — `IN_REVIEW` (draft PR #538)
-Completion status: implementation is published for review; exact-head CI/review and merge evidence remain outstanding. S039/S044/S045 and their dependent production gates remain blocked.
-Dependencies: S051 has no numbered-sprint dependency; overlap was checked before PR creation.
-Protected boundary: S051 is documentation/test-governance only. It may not repair application behavior, change contracts, or absorb S052-S100 implementation.
+Active Sprint: NONE (S051 complete; S053 readiness promotion in review)
+Completion status: S051 is merged and reconciled. S053 is promoted to `READY` by this governance-only change; implementation remains gated on readiness-PR merge. S039/S044/S045 and their dependent production gates remain blocked.
+Dependencies: S053 depends on S051 and has no competing implementation lane.
+Protected boundary: S053 is limited to the existing scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S051 is `IN_REVIEW` in draft PR #538 and becomes `DONE` only after merge evidence exists.
-Dependencies: S051 merge and a separate readiness promotion for the next sprint.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; none overlapped S051 when #538 was opened.
-Startup prompt: Continue only S051 PR #538 through exact-head CI, review, and merge; do not start S052 or claim S051 complete before merge evidence exists.
+Sprint ID: S053
+Eligibility: S053 is `READY` after S051 merged; this readiness promotion must merge before implementation begins.
+Dependencies: S051 is `DONE`; S052 is not required for the S053 contract.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; no competing S053 implementation PR or branch was found.
+Startup prompt: After this readiness PR merges, create the S053 implementation branch and certify scope → Athena → reviewed Costbook/assembly → persisted estimate lines without silent writes.

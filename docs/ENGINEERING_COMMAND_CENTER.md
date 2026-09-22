@@ -46,7 +46,8 @@ frontend/backend seam is substantial and historically exercised, but the
 current head is not beta-certified across every contractor/customer journey.
 The audit and limitations are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
-now owns S051-S100; S051 is `IN_REVIEW` in draft PR #538. The sprint adds an
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is the
+successor sprint promoted to `READY` in a separate governance PR. S051 added an
 executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
@@ -119,7 +120,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is now `IN_REVIEW` in draft PR #538; S039/S044/S045 and their dependent production operations remain blocked.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is the next `READY` successor for scope-to-estimate certification; S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
