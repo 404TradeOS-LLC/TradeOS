@@ -24,7 +24,9 @@ related_docs:
 - The matrix identifies two current gaps: no customer proposal accept/decline
   UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
 - Static validation is not rendered-browser certification. No current-head
-  browser evidence is claimed; exact-head hosted CI and review remain pending.
+  browser evidence is claimed. Hosted verification passed on code head
+  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
+  remain outstanding.
 - No application behavior, API contract, database schema, or runtime security
   policy was changed.
 
