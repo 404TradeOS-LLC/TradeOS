@@ -667,6 +667,98 @@ describe("live organization row-level security", () => {
     expect(row).toBeNull();
   });
 
+  it("enforces regional supplier evidence tenant and manager boundaries", async () => {
+    const visibleProducts = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().supplierProduct.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleProducts.map((row) => row.id)).toContain(supplierProductA);
+    expect(visibleProducts.map((row) => row.id)).not.toContain(supplierProductB);
+
+    const visibleObservations = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().supplierPriceObservation.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleObservations.map((row) => row.id)).toContain(supplierObservationA);
+    expect(visibleObservations.map((row) => row.id)).not.toContain(supplierObservationB);
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().supplierProduct.create({
+          data: {
+            orgId: orgA,
+            supplierId: supplierA,
+            materialId: materialA,
+            supplierProductKey: "RLS-VIEWER-PRODUCT",
+            name: "Viewer-created supplier product",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().supplierPriceObservation.create({
+          data: {
+            orgId: orgA,
+            supplierProductId: supplierProductA,
+            observationKey: "rls-viewer-observation",
+            observedAt: new Date("2026-09-19T13:00:00.000Z"),
+            priceStatus: "unavailable",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    const managerProduct = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().supplierProduct.create({
+        data: {
+          orgId: orgA,
+          supplierId: supplierA,
+          materialId: materialA,
+          supplierProductKey: "RLS-MANAGER-PRODUCT",
+          name: "Manager-created supplier product",
+        },
+      })
+    );
+    const managerObservation = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().supplierPriceObservation.create({
+        data: {
+          orgId: orgA,
+          supplierProductId: managerProduct.id,
+          observationKey: "rls-manager-observation",
+          observedAt: new Date("2026-09-19T14:00:00.000Z"),
+          priceStatus: "unavailable",
+        },
+      })
+    );
+    expect(managerObservation.orgId).toBe(orgA);
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().supplierProduct.create({
+          data: {
+            orgId: orgB,
+            supplierId: supplierB,
+            materialId: materialB,
+            supplierProductKey: "RLS-CROSS-ORG-PRODUCT",
+            name: "Cross-org write attempt",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      adminClient.supplierProduct.create({
+        data: {
+          orgId: orgA,
+          supplierId: supplierA,
+          materialId: materialB,
+          supplierProductKey: "RLS-CROSS-MATERIAL",
+          name: "Cross-tenant material link",
+        },
+      })
+    ).rejects.toThrow();
+  });
+
   it("enforces generation metadata tenant and actor boundaries", async () => {
     const visible = await inSession(adminUser, orgA, "admin", async () =>
       currentTransaction().athenaGenerationRun.findUnique({ where: { id: generationA } })
