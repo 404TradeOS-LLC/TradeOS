@@ -576,7 +576,7 @@ a baseline but cannot certify a changed current head.
 
 ### S051 — Executable frontend/backend connection matrix
 
-Status: IN_REVIEW
+Status: DONE
 Implementation PR: #538 (merged 2026-09-22 as `49cf31ce8badf8a3440792e0f9aa7a8a01026db`).
 Dependencies: none
 Objective: Create the governed action-to-route certification inventory for every release-critical frontend read and mutation.

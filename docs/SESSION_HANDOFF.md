@@ -43,10 +43,10 @@ related_docs:
 
 ## Next action
 
-Continue PR #538 through exact-head CI and review. Merge only after required
-checks and review satisfy repository governance; then record merged evidence,
-mark S051 `DONE`, sync the worktree, and reassess the next sprint under
-`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Do not start S052 from this branch.
+After the S053 readiness PR merges, create a fresh implementation branch from
+current `main`. Certify the existing scope → Athena → reviewed Costbook/assembly
+→ persisted estimate-line path; do not change pricing policy, schema, auth/RLS,
+or introduce unreviewed AI writes.
 
 ## Next Eligible Sprint
 
