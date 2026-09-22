@@ -576,7 +576,8 @@ a baseline but cannot certify a changed current head.
 
 ### S051 — Executable frontend/backend connection matrix
 
-Status: READY
+Status: IN_REVIEW
+Implementation PR: #538 (draft)
 Dependencies: none
 Objective: Create the governed action-to-route certification inventory for every release-critical frontend read and mutation.
 Acceptance: the inventory names the UI action, route and method, request/response contract, permission, tenant/RLS expectation, refresh behavior, automated evidence, browser checkpoint, and current result; CI fails when a release-critical entry loses its owner or mapped contract.
@@ -949,7 +950,7 @@ Acceptance: all required contractor/customer journeys are current-head certified
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is the next dependency-safe numbered sprint after the 2026-09-22 successor-backlog audit.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is in review in draft PR #538.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
@@ -961,15 +962,15 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE (successor backlog governance is in review)
-Completion status: the 2026-09-22 audit is recorded in `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`; S051 is the first successor sprint promoted to `READY`. S039/S044/S045 and their dependent production gates remain blocked.
-Dependencies: S051 has no numbered-sprint dependency and no live overlapping PR.
+Active Sprint: S051 — `IN_REVIEW` (draft PR #538)
+Completion status: implementation is published for review; exact-head CI/review and merge evidence remain outstanding. S039/S044/S045 and their dependent production gates remain blocked.
+Dependencies: S051 has no numbered-sprint dependency; overlap was checked before PR creation.
 Protected boundary: S051 is documentation/test-governance only. It may not repair application behavior, change contracts, or absorb S052-S100 implementation.
 
 ## Next Eligible Sprint
 
-Sprint ID: S051
-Eligibility: `READY`; the current-head audit established the missing governed integration inventory, bounded its implementation, and found no overlapping open PR.
-Dependencies: none.
-Overlap check: live reconciliation on 2026-09-22 found 17 open PRs; none creates a repository-wide release-critical UI-action → API-contract → permission/RLS → refresh → test/browser-evidence matrix or drift validator.
-Startup prompt: Implement only S051 on a new branch from current `origin/main`: add the machine-readable release-critical connection matrix and its focused drift validator/tests, preserve all application behavior, run the required governance/documentation checks, and stop on any mismatch that requires a product, security, financial, legal, schema, or API decision.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S051 is `IN_REVIEW` in draft PR #538 and becomes `DONE` only after merge evidence exists.
+Dependencies: S051 merge and a separate readiness promotion for the next sprint.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; none overlapped S051 when #538 was opened.
+Startup prompt: Continue only S051 PR #538 through exact-head CI, review, and merge; do not start S052 or claim S051 complete before merge evidence exists.
