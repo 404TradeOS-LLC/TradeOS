@@ -272,3 +272,8 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 ### GitHub Actions runtime maintenance
 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
+
+
+## S053 implementation update — 2026-09-22
+
+PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.
