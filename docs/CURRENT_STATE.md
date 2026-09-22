@@ -142,7 +142,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
-- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client deliberately sends 100-row batches so production requests remain below the backend JSON parser limit while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary
+- authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client deliberately sends 100-row batches so production requests remain below the backend JSON parser limit while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary; before upload, the client also rejects any individual encoded row larger than the 80 KiB safety limit so an oversized one-row batch cannot cross the backend parser boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections
 
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
