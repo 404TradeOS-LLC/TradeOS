@@ -20,7 +20,7 @@ export default async function NewProposalPage({ params, searchParams }: { params
       />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <NewProposalForm projectId={id} estimates={project.estimates} draft={draft} initialEstimateId={estimateId} />
-        <ProposalContextPanel latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
+        <ProposalContextPanel projectId={project.id} latestVisit={project.siteVisits[0] ?? null} projectFiles={project.projectFiles} />
       </div>
     </div>
   );
