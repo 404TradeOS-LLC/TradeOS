@@ -7,67 +7,51 @@ related_docs:
   - docs/SPRINT_BACKLOG.md
   - docs/CURRENT_STATE.md
   - docs/ENGINEERING_COMMAND_CENTER.md
-  - docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
 # Session Handoff
 
-## Mission
-
-Founder-authorized current-state audit and successor backlog: distinguish real
-frontend/backend connections from unverified or partial workflows, then define
-S051-S100 around vertical integration, certification, contractor UX,
-production hardening, intelligence/financial correctness, and beta release.
-
 ## Current truth
 
-- Audit baseline: `origin/main` at
-  `9a27682a575f6c8b13337a61e88cdd7b838dcfe2` on 2026-09-22.
-- The principal authenticated frontend/backend seam is implemented; TradeOS is
-  not accurately described as having a wholly disconnected frontend.
-- Historical September 5 evidence passed the bounded contractor workflow and
-  four-viewport capture, while the downstream smoke covered payment, Job,
-  scheduling/dispatch, technician completion, and reconciliation.
-- No current-head full browser run was performed. Athena-assisted estimating,
-  assembly application, customer magic-link portal/signature behavior, latest
-  Today command board, and multi-viewport downstream field/payment flows remain
-  partial or unverified.
-- The detailed evidence and limitations are recorded in
-  `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
-- `docs/SPRINT_BACKLOG.md` now defines S051-S100. S051 is the only newly
-  promoted `READY` sprint; it is a bounded machine-readable connection matrix
-  and drift-validator lane, not application implementation.
-- Live overlap reconciliation found 17 open PRs. Explicit successor gates are
-  #520 → S064, #532 → S075, #531 → S082, #507 → S088, and #491 → S090.
-- Existing production-access gates remain: S039, S044, S045, S046, and their
-  dependent successor operations cannot be declared complete from repository
-  evidence.
+- S051 implementation is published in draft PR #538:
+  https://github.com/404TradeOS-LLC/TradeOS/pull/538
+- PR branch: `codex/s051-connection-matrix`; published head at handoff:
+  `5ea3b6c960920be9bc476f999c7b954f67496b44`.
+- The change adds a machine-readable matrix of 10 journeys and 49 UI/API
+  actions or reads, plus a static route/controller/contract drift validator,
+  regression tests, and beta-evidence documentation.
+- The matrix identifies two current gaps: no customer proposal accept/decline
+  UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
+- Static validation is not rendered-browser certification. No current-head
+  browser evidence is claimed. Hosted verification passed on code head
+  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
+  remain outstanding.
+- No application behavior, API contract, database schema, or runtime security
+  policy was changed.
 
 ## Verification completed
 
-- Inspected repository governance, current state/backlog, API clients/proxy,
-  backend mounts, route families, test inventory, browser evidence scripts,
-  current-head Actions, historical RC run metadata, and live open PRs.
-- Static inventory found 174 frontend API call sites representing 145 distinct
-  path templates; no whole-domain mount mismatch was found.
-- Focused evidence-contract run passed 40/40 tests:
-  `node --test scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs`.
-- Full local App/Web suites were not run because dependencies were not present
-  in the clean audit clone; current-head hosted `Verify repository` completed
-  successfully and is reported only as hosted evidence.
+- `npm run connection-matrix:check` — passed (10 journeys, 49 mapped actions).
+- `npm run connection-matrix:test` — passed.
+- `npm run pr:test` — passed (65 tests).
+- `npm run docs:test` — passed.
+- `npm run docs:check -- --base origin/main` — passed.
+- `npm run pr:preflight -- --base origin/main` — passed.
+- `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
+  passed.
 
-## Next safe action
+## Next action
 
-Complete and merge this governance-only audit/backlog PR after exact-head docs
-checks. Then start S051 from the landed `main`. Do not begin a vertical repair
-until the S051 matrix identifies its owner and the backlog separately promotes
-that sprint to `READY`.
+Continue PR #538 through exact-head CI and review. Merge only after required
+checks and review satisfy repository governance; then record merged evidence,
+mark S051 `DONE`, sync the worktree, and reassess the next sprint under
+`docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Do not start S052 from this branch.
 
 ## Next Eligible Sprint
 
-Sprint ID: S051
-Eligibility: `READY`; the 2026-09-22 audit established the missing integration inventory, bounded the work, and found no overlapping implementation PR.
-Dependencies: none.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; none implements the release-critical action-to-route/permission/RLS/refresh/evidence matrix or its drift validator.
-Startup prompt: Create a new branch from current `origin/main` and implement only S051: add the machine-readable release-critical connection matrix plus its focused validator/tests; preserve application behavior; run governance/documentation checks and exact-head CI; stop on any mismatch requiring a product, API, schema, security, financial, legal, or production decision.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S051 is `IN_REVIEW` in draft PR #538, and a separate readiness review must promote a successor after merge.
+Dependencies: merge S051, then reassess backlog readiness and overlap.
+Overlap check: 17 open PRs were reconciled before S051 PR creation; none overlapped the matrix and validator.
+Startup prompt: Continue only S051 PR #538 through exact-head CI, review, and merge. Do not start S052 or mark S051 complete without merge evidence.

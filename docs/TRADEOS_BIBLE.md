@@ -231,7 +231,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 ## S026 completion reconciliation
 
-S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. The later 2026-09-22 successor-backlog reconciliation promotes S051 as the current `READY` sprint.
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 was promoted `READY` by the 2026-09-22 successor-backlog reconciliation and is now `IN_REVIEW` in draft PR #538.
 
 
 ## S028 completion reconciliation
@@ -259,11 +259,13 @@ but no current-head certification for every contractor/customer journey. The
 canonical findings are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
 
-`docs/SPRINT_BACKLOG.md` now owns S051-S100. The successor definition of `DONE`
+`docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is `IN_REVIEW` in draft PR
+`#538`, which adds the executable connection matrix and drift checks. Static
+validation does not certify rendered browser behavior or current-head browser
+evidence. The successor definition of `DONE`
 for a contractor-facing sprint requires the connected frontend/backend contract,
 relevant permission and tenant-negative evidence, correct state refresh, and
-retained browser evidence for its owned roles/viewports. S051 is `READY` as the
-bounded executable connection-matrix and drift-validation foundation. Later
+retained browser evidence for its owned roles/viewports. Later
 sprints remain `PLANNED` or explicitly `BLOCKED`; their numbering is not
 permission to bypass readiness promotion, open-PR overlap, protected decisions,
 or production-access gates.
