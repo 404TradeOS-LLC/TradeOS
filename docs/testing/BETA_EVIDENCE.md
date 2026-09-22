@@ -31,6 +31,31 @@ required-contract drift. The matrix is an inventory and validator; `PARTIAL`,
 `HISTORICALLY_CERTIFIED`, or a passing static check does not constitute current
 head browser certification.
 
+**Follow-up risks (tracked, not yet closed):**
+
+- **The drift validator itself does not run in CI.** `npm run connection-matrix:check`
+  — the script that parses `FRONTEND_BACKEND_CONNECTION_MATRIX.json` and checks it
+  against the live frontend/backend source — is defined in `package.json` but is
+  not invoked by any workflow under `.github/workflows/`. Only its unit tests
+  (`npm run connection-matrix:test`, exercised through `npm run pr:test` in
+  `sprint-governance.yml` and `docs-consistency.yml`) run automatically, and those
+  tests validate synthetic fixtures, not the real matrix. Until a workflow step
+  runs `npm run connection-matrix:check` against the matrix on `main`, a later
+  change to a mounted route, controller symbol, or handler can drift from the
+  matrix without failing any required check.
+- **Coverage is one-directional and can silently decay.** The validator checks
+  every declared matrix action against the codebase, but nothing checks the
+  reverse: a new frontend call site or backend route added after this PR gets no
+  matrix entry and is not flagged. The "10 journeys / 52 mapped actions" count is
+  a manually curated snapshot, not an enforced inventory of every release-critical
+  connection.
+- **Two documented gaps have no enforced remediation tracking.** The
+  `proposal-acceptance` journey (`unmappedGap`: no customer portal accept/decline
+  UI) and the `athena-actions` journey (`unmappedGap`: no Athena chat frontend
+  wiring) are recorded only as free-text fields in the matrix. Nothing prevents
+  either gap from being closed by a future change without updating the matrix, or
+  from remaining open without a linked sprint dependency.
+
 ```text
 resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  ->  upload
    (fail closed)      (runtime state)     (1440/1024/768/390)     (artifacts)   (30 days)
