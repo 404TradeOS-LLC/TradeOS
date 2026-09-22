@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const matrixPath = path.join(repoRoot, "docs/testing/FRONTEND_BACKEND_CONNECTION_MATRIX.json");
 
 function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
