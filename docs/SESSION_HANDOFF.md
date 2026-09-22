@@ -14,10 +14,10 @@ related_docs:
 
 ## Current truth
 
-- S051 implementation is published in draft PR #538:
+- S051 implementation merged in PR #538:
   https://github.com/404TradeOS-LLC/TradeOS/pull/538
-- PR branch: `codex/s051-connection-matrix`; published head at handoff:
-  `5ea3b6c960920be9bc476f999c7b954f67496b44`.
+- Merge commit: `49cf31ce8badf8a3440792e0f9aa7a8a01026db`.
+- The matrix/validator is now on `main`; do not continue the old S051 branch.
 - The change adds a machine-readable matrix of 10 journeys and 49 UI/API
   actions or reads, plus a static route/controller/contract drift validator,
   regression tests, and beta-evidence documentation.
@@ -50,8 +50,8 @@ mark S051 `DONE`, sync the worktree, and reassess the next sprint under
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S051 is `IN_REVIEW` in draft PR #538, and a separate readiness review must promote a successor after merge.
-Dependencies: merge S051, then reassess backlog readiness and overlap.
-Overlap check: 17 open PRs were reconciled before S051 PR creation; none overlapped the matrix and validator.
-Startup prompt: Continue only S051 PR #538 through exact-head CI, review, and merge. Do not start S052 or mark S051 complete without merge evidence.
+Sprint ID: S053
+Eligibility: `READY` in the separate governance promotion; implementation starts only after that PR merges.
+Dependencies: S051 is DONE; no competing S053 implementation was found.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
+Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
