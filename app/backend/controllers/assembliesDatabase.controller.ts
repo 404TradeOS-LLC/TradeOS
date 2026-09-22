@@ -45,7 +45,7 @@ const installCatalogSchema = z.object({
 export const assembliesDatabaseController = {
   async starterCatalog(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
-    res.json({ items: service.listStarterCatalog() });
+    res.json(service.listStarterCatalog());
   },
   async installStarterCatalog(req: Request, res: Response) {
     requirePermissions(req, ["costbook.write"]);

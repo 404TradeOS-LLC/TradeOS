@@ -144,7 +144,7 @@ Implemented Costbook surfaces include:
 - labor rates
 - equipment
 - Cost Items
-- Assemblies and components, including a 14-recipe residential starter catalog browsed by NAHB work group and classified with CSI section codes. Installation requires an estimator to map every slot to active same-organization Cost Items before real reusable Assembly/AssemblyItem records are created; the shared catalog carries no prices.
+- Assemblies and components, including a versioned 14-recipe residential starter catalog browsed by NAHB work group and classified with CSI section codes. Installation requires an estimator to map every slot to a distinct, active, same-organization Cost Item with a compatible unit and component kind before real reusable Assembly/AssemblyItem records are created atomically; the shared catalog carries no prices.
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
@@ -462,6 +462,7 @@ Repository governance additionally uses documentation consistency, dependency re
 - Stripe Billing sandbox runtime configuration is incomplete until an API credential, webhook-signing secret, webhook endpoint, app URL, and active Customer Portal configuration are installed and exercised. Stripe Connect/direct contractor customer payments remain a separate follow-up integration and are not provided by PR #491.
 - Production environment values, Preview isolation, runtime-authenticated RC sessions, and multi-viewport browser artifacts must be verified externally rather than inferred from repository state.
 - Settings brand-asset uploads use a shipped S017 orphan reconciler: stale generated, non-current objects can remain in private Storage until an authorized operator runs the dry-run-by-default cleanup after the 24-hour grace period. No automatic cleanup scheduler exists by design.
+- The residential Assembly Catalog now pins catalog/recipe metadata and quantities, publishes its NAHB/CSI coverage matrix, validates Cost Item unit/type compatibility on both client and server, and installs within an explicit transaction that composes with the active request transaction. Live RLS integration coverage verifies tenant-scoped starter installation and cross-tenant rejection. Authenticated rendered browser evidence and qualified-estimator expansion beyond the 14-recipe baseline remain outstanding; see `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
 
 ## Canonical sequencing
 
