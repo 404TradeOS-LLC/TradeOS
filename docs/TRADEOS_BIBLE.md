@@ -260,7 +260,7 @@ canonical findings are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
 
 `docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is `IN_REVIEW` in draft PR
-#538, which adds the executable connection matrix and drift checks. Static
+`#538`, which adds the executable connection matrix and drift checks. Static
 validation does not certify rendered browser behavior or current-head browser
 evidence. The successor definition of `DONE`
 for a contractor-facing sprint requires the connected frontend/backend contract,

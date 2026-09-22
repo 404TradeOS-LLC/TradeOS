@@ -22,6 +22,25 @@ test("matrix rejects a frontend operation whose route method has drifted", () =>
   assert.ok(validateMatrix(candidate).some((error) => error.includes("PATCH / is not registered")));
 });
 
+test("matrix rejects a changed frontend request target even when clientFetch remains", () => {
+  const candidate = copy();
+  const action = candidate.journeys.flatMap((journey) => journey.actions).find((item) => item.id === "estimate.line.create");
+  action.frontendPath = "`/estimates/${estimateId}/removed-line-items`";
+  assert.ok(validateMatrix(candidate).some((error) => error.includes("frontend request path")));
+});
+
+test("matrix rejects a changed frontend method even when clientFetch remains", () => {
+  const candidate = copy();
+  const action = candidate.journeys.flatMap((journey) => journey.actions).find((item) => item.id === "estimate.line.create");
+  action.method = "PATCH";
+  assert.ok(validateMatrix(candidate).some((error) => error.includes("frontend request method")));
+});
+
+test("matrix rejects null or non-object top-level values cleanly", () => {
+  assert.deepEqual(validateMatrix(null), ["matrix must be a JSON object."]);
+  assert.deepEqual(validateMatrix([]), ["matrix must be a JSON object."]);
+});
+
 test("matrix rejects a backend router mount that is absent from the server", () => {
   const candidate = copy();
   candidate.journeys[0].actions[0].mount = "/api/v1/unmounted-customers";
