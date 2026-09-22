@@ -45,7 +45,13 @@ const divisionA = "10000000-0000-0000-0000-000000000051";
 const divisionB = "20000000-0000-0000-0000-000000000052";
 const materialA = "10000000-0000-0000-0000-000000000061";
 const supplierA = "10000000-0000-0000-0000-000000000071";
+const supplierB = "20000000-0000-0000-0000-000000000071";
 const materialForSupplierQueue = "10000000-0000-0000-0000-000000000072";
+const materialB = "20000000-0000-0000-0000-000000000061";
+const supplierProductA = "10000000-0000-0000-0000-000000000073";
+const supplierProductB = "20000000-0000-0000-0000-000000000073";
+const supplierObservationA = "10000000-0000-0000-0000-000000000074";
+const supplierObservationB = "20000000-0000-0000-0000-000000000074";
 const projectA = "10000000-0000-0000-0000-000000000081";
 const projectB = "20000000-0000-0000-0000-000000000082";
 const projectTaskA = "10000000-0000-0000-0000-000000000083";
@@ -159,18 +165,31 @@ describe("live organization row-level security", () => {
         { id: divisionB, orgId: orgB, code: "B", name: "Org B Division" },
       ],
     });
-    await adminClient.supplier.create({
-      data: { id: supplierA, orgId: orgA, name: "Acme Building Supply" },
+    await adminClient.supplier.createMany({
+      data: [
+        { id: supplierA, orgId: orgA, name: "Acme Building Supply" },
+        { id: supplierB, orgId: orgB, name: "Other Org Supply" },
+      ],
     });
-    await adminClient.material.create({
-      data: {
-        id: materialA,
-        orgId: orgA,
-        name: "Ready Mix Concrete",
-        unitOfMeasure: "CY",
-        unitCost: 150,
-        wasteFactorPct: 0,
-      },
+    await adminClient.material.createMany({
+      data: [
+        {
+          id: materialA,
+          orgId: orgA,
+          name: "Ready Mix Concrete",
+          unitOfMeasure: "CY",
+          unitCost: 150,
+          wasteFactorPct: 0,
+        },
+        {
+          id: materialB,
+          orgId: orgB,
+          name: "Other Org Material",
+          unitOfMeasure: "EA",
+          unitCost: 50,
+          wasteFactorPct: 0,
+        },
+      ],
     });
     await adminClient.material.create({
       data: {
@@ -182,6 +201,48 @@ describe("live organization row-level security", () => {
         wasteFactorPct: 0,
         supplierId: supplierA,
       },
+    });
+    await adminClient.supplierProduct.createMany({
+      data: [
+        {
+          id: supplierProductA,
+          orgId: orgA,
+          supplierId: supplierA,
+          materialId: materialA,
+          supplierProductKey: "RLS-SKU-A",
+          name: "Org A supplier product",
+        },
+        {
+          id: supplierProductB,
+          orgId: orgB,
+          supplierId: supplierB,
+          materialId: materialB,
+          supplierProductKey: "RLS-SKU-B",
+          name: "Org B supplier product",
+        },
+      ],
+    });
+    await adminClient.supplierPriceObservation.createMany({
+      data: [
+        {
+          id: supplierObservationA,
+          orgId: orgA,
+          supplierProductId: supplierProductA,
+          observationKey: "shared-observation-key",
+          observedAt: new Date("2026-09-19T12:00:00.000Z"),
+          priceStatus: "priced",
+          effectivePrice: 100,
+        },
+        {
+          id: supplierObservationB,
+          orgId: orgB,
+          supplierProductId: supplierProductB,
+          observationKey: "shared-observation-key",
+          observedAt: new Date("2026-09-19T12:00:00.000Z"),
+          priceStatus: "priced",
+          effectivePrice: 200,
+        },
+      ],
     });
     await adminClient.organizationMembershipAudit.create({
       data: {
@@ -604,6 +665,98 @@ describe("live organization row-level security", () => {
     });
 
     expect(row).toBeNull();
+  });
+
+  it("enforces regional supplier evidence tenant and manager boundaries", async () => {
+    const visibleProducts = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().supplierProduct.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleProducts.map((row) => row.id)).toContain(supplierProductA);
+    expect(visibleProducts.map((row) => row.id)).not.toContain(supplierProductB);
+
+    const visibleObservations = await inSession(viewerUser, orgA, "viewer", async () =>
+      currentTransaction().supplierPriceObservation.findMany({ orderBy: { id: "asc" } })
+    );
+    expect(visibleObservations.map((row) => row.id)).toContain(supplierObservationA);
+    expect(visibleObservations.map((row) => row.id)).not.toContain(supplierObservationB);
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().supplierProduct.create({
+          data: {
+            orgId: orgA,
+            supplierId: supplierA,
+            materialId: materialA,
+            supplierProductKey: "RLS-VIEWER-PRODUCT",
+            name: "Viewer-created supplier product",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      inSession(viewerUser, orgA, "viewer", async () =>
+        currentTransaction().supplierPriceObservation.create({
+          data: {
+            orgId: orgA,
+            supplierProductId: supplierProductA,
+            observationKey: "rls-viewer-observation",
+            observedAt: new Date("2026-09-19T13:00:00.000Z"),
+            priceStatus: "unavailable",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    const managerProduct = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().supplierProduct.create({
+        data: {
+          orgId: orgA,
+          supplierId: supplierA,
+          materialId: materialA,
+          supplierProductKey: "RLS-MANAGER-PRODUCT",
+          name: "Manager-created supplier product",
+        },
+      })
+    );
+    const managerObservation = await inSession(adminUser, orgA, "admin", async () =>
+      currentTransaction().supplierPriceObservation.create({
+        data: {
+          orgId: orgA,
+          supplierProductId: managerProduct.id,
+          observationKey: "rls-manager-observation",
+          observedAt: new Date("2026-09-19T14:00:00.000Z"),
+          priceStatus: "unavailable",
+        },
+      })
+    );
+    expect(managerObservation.orgId).toBe(orgA);
+
+    await expect(
+      inSession(adminUser, orgA, "admin", async () =>
+        currentTransaction().supplierProduct.create({
+          data: {
+            orgId: orgB,
+            supplierId: supplierB,
+            materialId: materialB,
+            supplierProductKey: "RLS-CROSS-ORG-PRODUCT",
+            name: "Cross-org write attempt",
+          },
+        })
+      )
+    ).rejects.toThrow();
+
+    await expect(
+      adminClient.supplierProduct.create({
+        data: {
+          orgId: orgA,
+          supplierId: supplierA,
+          materialId: materialB,
+          supplierProductKey: "RLS-CROSS-MATERIAL",
+          name: "Cross-tenant material link",
+        },
+      })
+    ).rejects.toThrow();
   });
 
   it("enforces generation metadata tenant and actor boundaries", async () => {

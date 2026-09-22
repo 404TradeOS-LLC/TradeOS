@@ -55,7 +55,14 @@ export function createServer() {
   app.use(requestLogger);
   app.use(securityHeaders);
   app.use(cors({ origin: buildCorsOriginHandler() }));
-  app.use(express.json());
+  // Only the bounded regional-supplier import needs the larger JSON allowance.
+  // Other routes retain the normal parser limit so unauthenticated traffic
+  // cannot make every endpoint buffer a large request body.
+  app.use(
+    "/api/v1/costbook/supplier-evidence/import",
+    express.json({ limit: process.env.API_JSON_BODY_LIMIT ?? "48mb" })
+  );
+  app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT ?? "2mb" }));
   app.use(express.urlencoded({ extended: false }));
 
   app.get("/health", (_req: Request, res: Response) => {

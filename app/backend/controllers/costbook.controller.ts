@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { CostbookService } from "../../modules/costbook";
+import { RegionalSupplierEvidenceService } from "../../modules/regional-supplier-evidence/service";
 import { requireAuthContext, requirePermissions } from "../requestContext";
 import { catalogBooleanQuery, catalogQuerySchema, parseCatalogQuery } from "../../modules/shared/catalog-query";
 
 const service = new CostbookService();
+const regionalSupplierEvidenceService = new RegionalSupplierEvidenceService();
 
 const idParamSchema = z.object({ id: z.string().uuid() });
 const maxUnitCost = 99_999_999.9999;
@@ -88,6 +90,78 @@ const equipmentUpdateSchema = z.object({
   message: "At least one equipment field is required",
 });
 
+
+const regionalSupplierProductSchema = z.object({
+  supplierProductKey: z.string().trim().min(1).max(200),
+  sku: z.string().trim().max(120).nullable().optional(),
+  manufacturerPartNumber: z.string().trim().max(160).nullable().optional(),
+  name: z.string().trim().min(1).max(400),
+  description: z.string().trim().max(4000).nullable().optional(),
+  packageDescription: z.string().trim().max(4000).nullable().optional(),
+  purchaseUnit: z.string().trim().max(80).nullable().optional(),
+  packageQuantity: z.number().finite().positive().nullable().optional(),
+  productUrl: z.string().url().max(2000).nullable().optional(),
+  canonicalMaterialKey: z.string().trim().max(200).nullable().optional(),
+  materialId: z.string().uuid().nullable().optional(),
+  availabilityStatus: z.enum(["available", "unavailable", "unknown"]).optional(),
+  isActive: z.boolean().optional(),
+  sourceFile: z.string().trim().max(500).nullable().optional(),
+}).strict();
+
+const regionalSupplierObservationSchema = z.object({
+  observationKey: z.string().trim().min(1).max(240),
+  supplierProductKey: z.string().trim().min(1).max(200),
+  marketCode: z.string().trim().max(120).nullable().optional(),
+  storeName: z.string().trim().max(240).nullable().optional(),
+  city: z.string().trim().max(120).nullable().optional(),
+  state: z.string().trim().max(80).nullable().optional(),
+  postalCode: z.string().trim().max(24).nullable().optional(),
+  observedAt: z.coerce.date(),
+  sourceUrl: z.string().url().max(2000).nullable().optional(),
+  sourceFile: z.string().trim().max(500).nullable().optional(),
+  sourceRow: z.number().int().positive().nullable().optional(),
+  currency: z.string().trim().length(3).optional(),
+  priceStatus: z.enum(["priced", "unavailable", "not-listed", "needs-review"]),
+  regularPrice: z.number().finite().nonnegative().nullable().optional(),
+  salePrice: z.number().finite().nonnegative().nullable().optional(),
+  rebatePrice: z.number().finite().nonnegative().nullable().optional(),
+  effectivePrice: z.number().finite().nonnegative().nullable().optional(),
+  purchaseUnit: z.string().trim().max(80).nullable().optional(),
+  packageQuantity: z.number().finite().positive().nullable().optional(),
+  normalizedUnitPrice: z.number().finite().nonnegative().nullable().optional(),
+  normalizedUnit: z.string().trim().max(80).nullable().optional(),
+  eligibilityReason: z.string().trim().max(1000).nullable().optional(),
+  sourceConfidence: z.enum(["low", "medium", "high"]).nullable().optional(),
+}).strict().superRefine((observation, ctx) => {
+  if (
+    observation.priceStatus === "priced" &&
+    observation.regularPrice == null &&
+    observation.salePrice == null &&
+    observation.rebatePrice == null &&
+    observation.effectivePrice == null &&
+    observation.normalizedUnitPrice == null
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Priced observations require at least one price value",
+    });
+  }
+});
+
+const regionalSupplierEvidenceImportSchema = z.object({
+  supplierId: z.string().uuid(),
+  sourceFile: z.string().trim().max(500).nullable().optional(),
+  products: z.array(regionalSupplierProductSchema).min(1).max(2500),
+  observations: z.array(regionalSupplierObservationSchema).min(1).max(2500),
+}).strict();
+
+const regionalSupplierEvidenceListQuerySchema = z.object({
+  supplierId: z.string().uuid().optional(),
+  priceStatus: z.enum(["priced", "unavailable", "not-listed", "needs-review"]).optional(),
+  q: z.string().trim().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+}).strict();
+
 const materialsListQuerySchema = catalogQuerySchema.extend({ supplierId: z.string().uuid().optional(), active: catalogBooleanQuery.optional() }).strict();
 const laborListQuerySchema = catalogQuerySchema.extend({ active: catalogBooleanQuery.optional(), trade: z.string().trim().max(120).optional() }).strict();
 const equipmentListQuerySchema = catalogQuerySchema.strict();
@@ -131,6 +205,22 @@ const subcategoryUpdateSchema = subcategorySchema.omit({ categoryId: true }).par
 );
 
 export const costbookController = {
+  async listRegionalSupplierEvidence(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const filters = regionalSupplierEvidenceListQuerySchema.parse(req.query);
+    res.json(await regionalSupplierEvidenceService.list(auth.orgId, filters));
+  },
+  async regionalSupplierEvidenceSummary(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    res.json(await regionalSupplierEvidenceService.summary(auth.orgId));
+  },
+  async importRegionalSupplierEvidence(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const input = regionalSupplierEvidenceImportSchema.parse(req.body);
+    const result = await regionalSupplierEvidenceService.ingest({ ...input, orgId: auth.orgId });
+    res.status(201).json(result);
+  },
+
   async workspace(req: Request, res: Response) {
     requirePermissions(req, ["costbook.read"]);
     res.json(await service.getWorkspace(requireAuthContext(req)));
