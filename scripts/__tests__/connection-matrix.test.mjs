@@ -52,3 +52,15 @@ test("an intentionally unmapped gap must be explicit", () => {
   delete gapJourney.unmappedGap;
   assert.ok(validateMatrix(candidate).some((error) => error.includes("empty action list must state the concrete unmapped gap")));
 });
+
+
+test("matrix rejects a frontend request target drift while clientFetch remains present", () => {
+  const candidate = copy();
+  const action = candidate.journeys.find((journey) => journey.id === "scope-estimate").actions.find((item) => item.id === "estimate.line.create");
+  action.frontendPath = "/estimates/wrong-target";
+  assert.ok(validateMatrix(candidate).some((error) => error.includes("frontend request path /estimates/wrong-target is absent")));
+});
+
+test("matrix rejects invalid top-level input without throwing", () => {
+  assert.ok(validateMatrix(null).some((error) => error.includes("matrix must be a non-null object")));
+});

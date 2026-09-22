@@ -11,6 +11,10 @@ function read(relativePath) {
 function validateMatrix(matrix) {
   const errors = [];
   const fail = (message) => errors.push(message);
+  if (!matrix || typeof matrix !== "object" || Array.isArray(matrix)) {
+    fail("matrix must be a non-null object.");
+    return errors;
+  }
   const allowedStatuses = new Set(matrix.statusVocabulary ?? []);
   const seenJourneyIds = new Set();
   const seenActionIds = new Set();
@@ -61,7 +65,18 @@ function validateMatrix(matrix) {
         if (relativePath && !fs.existsSync(path.join(repoRoot, relativePath))) fail(`${action.id}: referenced file does not exist: ${relativePath}.`);
       }
       if (action.source && fs.existsSync(path.join(repoRoot, action.source))) {
-        if (!read(action.source).includes(action.symbol)) fail(`${action.id}: frontend symbol ${action.symbol} is absent from ${action.source}.`);
+        const frontendSource = read(action.source);
+        if (!frontendSource.includes(action.symbol)) fail(`${action.id}: frontend symbol ${action.symbol} is absent from ${action.source}.`);
+        if (typeof action.frontendPath !== "string" || !action.frontendPath.trim()) {
+          fail(`${action.id}: frontendPath must document the request target.`);
+        } else if (!frontendSource.includes(action.frontendPath)) {
+          fail(`${action.id}: frontend request path ${action.frontendPath} is absent from ${action.source}.`);
+        }
+        if (typeof action.frontendMethod !== "string" || !action.frontendMethod.trim()) {
+          fail(`${action.id}: frontendMethod must document the request method.`);
+        } else if (action.frontendMethod !== "GET" && !new RegExp(`method\\s*:\\s*[^\\n}]*["']${action.frontendMethod}["']`).test(frontendSource)) {
+          fail(`${action.id}: frontend request method ${action.frontendMethod} is absent from ${action.source}.`);
+        }
       }
 
       const mountRouter = action.mountRouter ?? action.router;

@@ -54,7 +54,9 @@
           "evidence": "app/tests/crm.controller.test.ts",
           "browser": "customer created and visible after reload",
           "status": "HISTORICALLY_CERTIFIED",
-          "mountRouter": "crmCustomersRouter"
+          "mountRouter": "crmCustomersRouter",
+          "frontendPath": "/api/v1/customers",
+          "frontendMethod": "POST"
         },
         {
           "id": "project.create",
@@ -75,7 +77,9 @@
           "refresh": "redirect/revalidate project workspace and list",
           "evidence": "web/src/app/actions/projects.test.ts",
           "browser": "project linked to the selected customer and visible after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/projects",
+          "frontendMethod": "POST"
         },
         {
           "id": "project.read",
@@ -96,7 +100,9 @@
           "refresh": "reload authoritative project detail after mutations",
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "project detail and related customer render after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/projects/",
+          "frontendMethod": "GET"
         },
         {
           "id": "project.update",
@@ -117,7 +123,9 @@
           "refresh": "revalidate and reload project workspace",
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "Updated scope and address remain visible after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/projects/",
+          "frontendMethod": "PATCH"
         },
         {
           "id": "project.status",
@@ -138,7 +146,9 @@
           "refresh": "revalidate project workspace and lifecycle summary",
           "evidence": "app/tests/projects.controller.test.ts",
           "browser": "status and available next actions agree after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/projects/",
+          "frontendMethod": "PATCH"
         }
       ]
     },
@@ -175,7 +185,9 @@
           "refresh": "navigate to estimate and load persisted detail",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "estimate persists against selected project after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/estimates",
+          "frontendMethod": "POST"
         },
         {
           "id": "estimate.read",
@@ -196,7 +208,9 @@
           "refresh": "authoritative estimate query on route load and after mutation invalidation",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "saved estimate values survive reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/estimates/",
+          "frontendMethod": "GET"
         },
         {
           "id": "estimate.line.create",
@@ -217,7 +231,9 @@
           "refresh": "invalidate/refetch estimate detail and totals",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "explicitly applied line is visible after save/reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "POST"
         },
         {
           "id": "athena.suggestions",
@@ -238,7 +254,9 @@
           "refresh": "suggestion request is read/advisory; a separate explicit apply action must invalidate/refetch estimate detail",
           "evidence": "app/tests/ai-estimate-assist.controller.test.ts",
           "browser": "explanation, provenance, denial and no-write-on-generate behavior are captured",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "POST"
         },
         {
           "id": "estimate.line.update",
@@ -259,7 +277,9 @@
           "refresh": "invalidate/refetch estimate detail and totals",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "edited quantity, unit cost and calculated total persist after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "PATCH"
         },
         {
           "id": "estimate.line.delete",
@@ -280,7 +300,9 @@
           "refresh": "invalidate/refetch estimate detail and totals",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "removed line stays absent and totals reconcile after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "DELETE"
         },
         {
           "id": "estimate.finalize",
@@ -301,7 +323,9 @@
           "refresh": "invalidate/refetch estimate and project lifecycle",
           "evidence": "app/tests/estimate-engine.controller.test.ts",
           "browser": "final amount and status survive reload and downstream proposal creation",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "POST"
         },
         {
           "id": "athena.suggestions.apply",
@@ -322,7 +346,9 @@
           "refresh": "invalidate/refetch authoritative estimate detail and totals",
           "evidence": "app/tests/ai-estimate-assist.controller.test.ts",
           "browser": "accepted rows persist once; unaccepted rows remain absent; totals refresh",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/estimates/",
+          "frontendMethod": "POST"
         }
       ]
     },
@@ -359,7 +385,9 @@
           "refresh": "revalidate proposal/project state",
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "proposal amount and scope match finalized estimate",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/proposals",
+          "frontendMethod": "POST"
         },
         {
           "id": "proposal.send",
@@ -380,7 +408,9 @@
           "refresh": "revalidate proposal detail and project lifecycle",
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "sent state is shown and customer can review through the supported portal",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/proposals/",
+          "frontendMethod": "POST"
         },
         {
           "id": "proposal.customer.read",
@@ -401,7 +431,9 @@
           "refresh": "reload customer proposal detail; status reflects server-owned proposal lifecycle",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer cannot read another customer's proposal; current UI provides review but no accept/decline action",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/proposals",
+          "frontendMethod": "GET"
         },
         {
           "id": "proposal.update",
@@ -422,7 +454,9 @@
           "refresh": "revalidate proposal detail and project lifecycle",
           "evidence": "app/tests/proposals.controller.test.ts",
           "browser": "draft terms and displayed amount match persisted proposal after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/proposals/",
+          "frontendMethod": "PATCH"
         }
       ],
       "unmappedGap": "The current customer portal proposal page is read-only: no frontend accept/decline action is mapped to the staff proposal mutation routes. Do not certify customer decision behavior until a customer-scoped route and UI exist."
@@ -459,7 +493,9 @@
           "refresh": "revalidate contract and project lifecycle",
           "evidence": "app/tests/contracts.service.test.ts",
           "browser": "contract links to accepted proposal and preserves the approved value",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/contracts",
+          "frontendMethod": "POST"
         },
         {
           "id": "contract.customer.sign",
@@ -480,7 +516,9 @@
           "refresh": "refresh contract status and rendered document",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "signature is attributed to the scoped customer; replay/expiry/revocation and foreign-tenant attempts fail",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/contracts",
+          "frontendMethod": "POST"
         },
         {
           "id": "contract.void",
@@ -501,7 +539,9 @@
           "refresh": "revalidate contract detail and project lifecycle",
           "evidence": "app/tests/contracts.service.test.ts",
           "browser": "void state and unavailable signature action persist after reload",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/contracts/",
+          "frontendMethod": "POST"
         }
       ]
     },
@@ -538,7 +578,9 @@
           "refresh": "revalidate project, job detail, and dispatch queue",
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "created job appears under correct project after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/jobs",
+          "frontendMethod": "POST"
         },
         {
           "id": "job.schedule",
@@ -559,7 +601,9 @@
           "refresh": "refresh schedule and dispatch queue",
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "schedule/conflict/override outcome is accurate after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/jobs/",
+          "frontendMethod": "PUT"
         },
         {
           "id": "job.assign",
@@ -580,7 +624,9 @@
           "refresh": "refresh job assignments and dispatch queue",
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "assignment appears for dispatcher and is scoped to assigned technician",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/jobs/",
+          "frontendMethod": "POST"
         },
         {
           "id": "job.dispatch",
@@ -601,7 +647,9 @@
           "refresh": "refresh dispatch queue and job lifecycle",
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "dispatch state, event and downstream technician view agree after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/jobs/",
+          "frontendMethod": "POST"
         },
         {
           "id": "job.conflicts.read",
@@ -622,7 +670,9 @@
           "refresh": "refresh preview after selected time or assignment changes",
           "evidence": "app/tests/jobs.service.test.ts",
           "browser": "conflict preview agrees with persisted schedule and does not write",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/schedule/conflicts",
+          "frontendMethod": "GET"
         },
         {
           "id": "job.assignment.remove",
@@ -643,7 +693,9 @@
           "refresh": "refresh job assignment and dispatch queue",
           "evidence": "app/tests/jobs.controller.test.ts",
           "browser": "assignment removal is reflected in dispatcher and technician views",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/jobs/",
+          "frontendMethod": "DELETE"
         }
       ]
     },
@@ -679,7 +731,9 @@
           "refresh": "refresh job status/timeline and action availability",
           "evidence": "app/tests/jobs.lifecycle.test.ts",
           "browser": "permitted transition persists; unassigned/invalid transition fails closed at 390/768px",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/jobs/",
+          "frontendMethod": "POST"
         },
         {
           "id": "field.note",
@@ -700,7 +754,9 @@
           "refresh": "refresh job notes/activity",
           "evidence": "app/tests/jobs.service.test.ts",
           "browser": "note appears once with correct technician attribution after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/jobs/",
+          "frontendMethod": "POST"
         }
       ]
     },
@@ -737,7 +793,9 @@
           "refresh": "revalidate project, invoice queue, and invoice detail",
           "evidence": "app/tests/invoices.controller.queue.test.ts",
           "browser": "invoice total equals approved sell price/tax, not direct cost",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/invoices",
+          "frontendMethod": "POST"
         },
         {
           "id": "invoice.send",
@@ -758,7 +816,9 @@
           "refresh": "refresh invoice status, project lifecycle, and receivables",
           "evidence": "app/tests/invoices.service.test.ts",
           "browser": "sent status is visible after reload",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/invoices/",
+          "frontendMethod": "POST"
         },
         {
           "id": "invoice.payment.record",
@@ -779,7 +839,9 @@
           "refresh": "refresh invoice balance, status, and receivables",
           "evidence": "app/tests/payments.service.test.ts",
           "browser": "partial/final balances are cent-accurate; final state persists and concurrent reconciliation is safe",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/invoices/",
+          "frontendMethod": "POST"
         },
         {
           "id": "invoice.mark-paid",
@@ -800,7 +862,9 @@
           "refresh": "revalidate invoice detail, project lifecycle and receivables",
           "evidence": "app/tests/invoices.service.test.ts",
           "browser": "paid state appears only when server reconciliation supports it",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/invoices/",
+          "frontendMethod": "POST"
         },
         {
           "id": "invoice.void",
@@ -821,7 +885,9 @@
           "refresh": "revalidate invoice detail and receivables queues",
           "evidence": "app/tests/invoices.void.test.ts",
           "browser": "void invoice is terminal and excluded from unpaid/overdue follow-up",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/invoices/",
+          "frontendMethod": "POST"
         }
       ]
     },
@@ -857,7 +923,9 @@
           "refresh": "reflect issued/copy/delivery state without rendering bearer value",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer receives only the intended scoped link; no bearer appears in page logs or artifacts",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/access-tokens",
+          "frontendMethod": "POST"
         },
         {
           "id": "portal.redeem",
@@ -878,7 +946,9 @@
           "refresh": "redirect to customer portal and load scoped session resources",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "valid redemption succeeds once; replay, expiry, revocation and cross-tenant access fail",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/redeem",
+          "frontendMethod": "POST"
         },
         {
           "id": "portal.project.read",
@@ -899,7 +969,9 @@
           "refresh": "reload customer portal project after document lifecycle changes",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "foreign customer/project cannot be read",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/projects",
+          "frontendMethod": "GET"
         },
         {
           "id": "portal.invoice.read",
@@ -920,7 +992,9 @@
           "refresh": "reload invoice status and balance after staff payment reconciliation",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "only that customer invoice is visible; balances reflect backend state",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/invoices",
+          "frontendMethod": "GET"
         },
         {
           "id": "portal.contract.read",
@@ -941,7 +1015,9 @@
           "refresh": "reload signature status and rendered document after signing",
           "evidence": "app/tests/customer-portal.service.test.ts",
           "browser": "customer sees only own contract and signature attribution",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/customer-portal/contracts",
+          "frontendMethod": "GET"
         }
       ]
     },
@@ -992,7 +1068,9 @@
           "refresh": "reload dispatch summary and schedule list after scheduling or dispatch mutation",
           "evidence": "app/tests/admin-dashboard-tenant-boundary.test.ts",
           "browser": "command-board count and destination agree with schedule source at four supported widths",
-          "status": "HISTORICALLY_CERTIFIED"
+          "status": "HISTORICALLY_CERTIFIED",
+          "frontendPath": "/api/v1/jobs/dispatch-summary",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.projects.read",
@@ -1014,7 +1092,9 @@
           "refresh": "reload projects after project lifecycle mutations",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/projects",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.settings.read",
@@ -1036,7 +1116,9 @@
           "refresh": "reload settings only when organization context changes",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/settings",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.estimates.read",
@@ -1058,7 +1140,9 @@
           "refresh": "reload estimate queue after estimate finalization or proposal handoff",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/estimates",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.invoices.read",
@@ -1080,7 +1164,9 @@
           "refresh": "reload receivables after issue, payment reconciliation or void",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/invoices",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.proposals.read",
@@ -1102,7 +1188,9 @@
           "refresh": "reload proposal queue after send, accept or decline",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/proposals",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.jobs.read",
@@ -1124,7 +1212,9 @@
           "refresh": "reload schedule rows after assignment, schedule, dispatch or field status changes",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/jobs",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.tasks.read",
@@ -1146,7 +1236,9 @@
           "refresh": "reload project-task snapshot after task updates",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/projects/tasks",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.activity.read",
@@ -1168,7 +1260,9 @@
           "refresh": "reload event feed after supported task/project milestones",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/intelligence/activity",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.knowledge.read",
@@ -1190,7 +1284,9 @@
           "refresh": "reload coverage after governed Knowledge Runtime changes",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/api/v1/knowledge/stats",
+          "frontendMethod": "GET"
         },
         {
           "id": "dashboard.money.read",
@@ -1212,7 +1308,9 @@
           "refresh": "reload ledger after recorded-payment reconciliation",
           "evidence": "web/src/app/(app)/dashboard/dashboard-work-queue-resilience.test.ts",
           "browser": "Reconcile the live value and destination against source records at 1440/1024/768/390; current-head evidence is not yet collected.",
-          "status": "PARTIAL"
+          "status": "PARTIAL",
+          "frontendPath": "/payments/current-week",
+          "frontendMethod": "GET"
         }
       ]
     }
