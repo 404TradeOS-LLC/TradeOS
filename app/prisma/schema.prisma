@@ -427,6 +427,7 @@ model Material {
   supplierPriceUpdates SupplierPriceUpdate[]
   supplierProducts      SupplierProduct[]
 
+  @@unique([orgId, id], map: "materials_org_id_id_unique")
   @@index([orgId])
   @@index([supplierId])
   @@index([orgId, isActive], map: "idx_materials_org_active")
@@ -518,7 +519,7 @@ model SupplierProduct {
 
   organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   supplier     Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  material     Material?          @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  material     Material?          @relation(fields: [orgId, materialId], references: [orgId, id], onDelete: Restrict)
   observations SupplierPriceObservation[]
 
   @@unique([orgId, supplierId, supplierProductKey])
@@ -559,7 +560,7 @@ model SupplierPriceObservation {
   organization     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, observationKey])
+  @@unique([orgId, supplierProductId, observationKey])
   @@index([orgId, marketCode, observedAt(sort: Desc)])
   @@index([supplierProductId, observedAt(sort: Desc)])
   @@index([orgId, priceStatus, observedAt(sort: Desc)])
