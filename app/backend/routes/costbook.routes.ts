@@ -10,6 +10,9 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
+costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
+costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 

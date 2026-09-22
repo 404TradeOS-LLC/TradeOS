@@ -29,6 +29,8 @@ model Organization {
   membershipAudits OrganizationMembershipAudit[]
   materialPriceAudits MaterialPriceAudit[]
   supplierPriceUpdates SupplierPriceUpdate[]
+  supplierProducts      SupplierProduct[]
+  supplierPriceObservations SupplierPriceObservation[]
   costbookResearchCandidates CostbookResearchCandidate[]
   divisions      Division[]
   regions        Region[]
@@ -397,8 +399,9 @@ model Supplier {
   updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  materials    Material[]
-  priceUpdates SupplierPriceUpdate[]
+  materials        Material[]
+  priceUpdates      SupplierPriceUpdate[]
+  supplierProducts  SupplierProduct[]
 
   @@map("suppliers")
 }
@@ -422,6 +425,7 @@ model Material {
   costItems    CostItem[]
   priceAudits  MaterialPriceAudit[]
   supplierPriceUpdates SupplierPriceUpdate[]
+  supplierProducts      SupplierProduct[]
 
   @@index([orgId])
   @@index([supplierId])
@@ -488,6 +492,80 @@ model SupplierPriceUpdate {
 // production Costbook record; promotedCostItemId is set only after an
 // approved candidate is copied through the existing cost-database/costbook
 // services (see app/modules/costbook/candidateCostItemService.ts).
+
+
+model SupplierProduct {
+  id                    String    @id @default(uuid())
+  orgId                 String    @map("org_id")
+  supplierId            String    @map("supplier_id")
+  materialId            String?   @map("material_id")
+  supplierProductKey    String    @map("supplier_product_key")
+  sku                   String?
+  manufacturerPartNumber String?  @map("manufacturer_part_number")
+  name                  String
+  description           String?
+  packageDescription    String?   @map("package_description")
+  purchaseUnit          String?   @map("purchase_unit")
+  packageQuantity       Decimal?  @map("package_quantity") @db.Decimal(12, 4)
+  productUrl            String?   @map("product_url")
+  canonicalMaterialKey  String?   @map("canonical_material_key")
+  availabilityStatus    String    @default("unknown") @map("availability_status")
+  isActive              Boolean   @default(true) @map("is_active")
+  sourceFile            String?   @map("source_file")
+  importedAt            DateTime  @default(now()) @map("imported_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier     Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  material     Material?          @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  observations SupplierPriceObservation[]
+
+  @@unique([orgId, supplierId, supplierProductKey])
+  @@index([orgId, supplierId, isActive])
+  @@index([orgId, canonicalMaterialKey])
+  @@index([materialId])
+  @@map("supplier_products")
+}
+
+model SupplierPriceObservation {
+  id                  String    @id @default(uuid())
+  orgId               String    @map("org_id")
+  supplierProductId    String    @map("supplier_product_id")
+  observationKey       String    @map("observation_key")
+  marketCode           String?   @map("market_code")
+  storeName            String?   @map("store_name")
+  city                String?
+  state               String?
+  postalCode           String?   @map("postal_code")
+  observedAt          DateTime  @map("observed_at")
+  sourceUrl           String?   @map("source_url")
+  sourceFile          String?   @map("source_file")
+  sourceRow           Int?      @map("source_row")
+  currency            String    @default("USD")
+  priceStatus         String    @default("unavailable") @map("price_status")
+  regularPrice        Decimal?  @map("regular_price") @db.Decimal(14, 4)
+  salePrice           Decimal?  @map("sale_price") @db.Decimal(14, 4)
+  rebatePrice         Decimal?  @map("rebate_price") @db.Decimal(14, 4)
+  effectivePrice      Decimal?  @map("effective_price") @db.Decimal(14, 4)
+  purchaseUnit        String?   @map("purchase_unit")
+  packageQuantity     Decimal?  @map("package_quantity") @db.Decimal(12, 4)
+  normalizedUnitPrice Decimal?  @map("normalized_unit_price") @db.Decimal(14, 6)
+  normalizedUnit      String?   @map("normalized_unit")
+  eligibilityReason   String?   @map("eligibility_reason")
+  sourceConfidence    String?   @map("source_confidence")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  organization     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplierProduct SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, observationKey])
+  @@index([orgId, marketCode, observedAt(sort: Desc)])
+  @@index([supplierProductId, observedAt(sort: Desc)])
+  @@index([orgId, priceStatus, observedAt(sort: Desc)])
+  @@map("supplier_price_observations")
+}
+
 model CostbookResearchCandidate {
   id                 String    @id @default(uuid())
   orgId              String    @map("org_id")

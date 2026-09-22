@@ -55,7 +55,10 @@ export function createServer() {
   app.use(requestLogger);
   app.use(securityHeaders);
   app.use(cors({ origin: buildCorsOriginHandler() }));
-  app.use(express.json());
+  // Costbook supplier evidence can contain up to 2,500 bounded products and
+  // 2,500 observations. Keep the deployment override, but make the default
+  // large enough for the maximum schema-valid normalized supplier batch.
+  app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT ?? "48mb" }));
   app.use(express.urlencoded({ extended: false }));
 
   app.get("/health", (_req: Request, res: Response) => {

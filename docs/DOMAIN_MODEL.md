@@ -329,6 +329,18 @@ Cost Item and Assembly lookup semantics remain unchanged: both services support 
 - import endpoints derive `orgId` and importer identity from authenticated context; callers cannot choose another tenant
 - benchmark values are installed/composite evidence and are not raw material cost, employee wage, equipment-only cost, or customer bill rate; this entity has no autonomous promotion path into those pricing tables
 
+## Regional supplier evidence intake
+
+Draft PR #531 adds a separate, tenant-scoped evidence boundary for regional supplier workbook observations. It is intentionally not a replacement for current Material pricing or the human-reviewed `SupplierPriceUpdate` workflow.
+
+- `SupplierProduct` stores a supplier catalog row, canonical material key, optional organization-scoped Material link, availability state, and source-file/row provenance.
+- `SupplierPriceObservation` stores dated supplier/store observations, priced or unavailable status, raw price components, normalized unit-price fields, eligibility reason, and source provenance. Unavailable observations are retained rather than converted into invented prices.
+- Product and observation keys are unique within organization and supplier so re-importing a batch is idempotent; writes occur through `RegionalSupplierEvidenceService` only.
+- `POST /api/v1/costbook/supplier-evidence/import` derives organization scope from the authenticated request, resolves an explicitly supplied tenant-local Supplier, validates optional Material links in that same organization, and requires `costbook.manage`.
+- `GET /api/v1/costbook/supplier-evidence` and `GET /api/v1/costbook/supplier-evidence/summary` are tenant-scoped review reads requiring `costbook.read`.
+- Both tables use forced RLS with tenant-scoped reads and manager-only writes. No production import or migration deployment is included in the draft PR.
+- The supplied eight-workbook bundle validated to 5,189 products/observations, including 701 unavailable observations. Carter Lumber is preserved as catalog-only evidence because its 670 observations are unavailable.
+
 ## Core relationships
 
 Canonical relationship flow:
