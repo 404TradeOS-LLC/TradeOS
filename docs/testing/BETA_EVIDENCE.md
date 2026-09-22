@@ -21,6 +21,16 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
+The release-critical action inventory lives in
+[`FRONTEND_BACKEND_CONNECTION_MATRIX.json`](FRONTEND_BACKEND_CONNECTION_MATRIX.json).
+It maps audited frontend reads/mutations to their mounted backend route,
+request/response contract source, permission and tenant boundary, refresh rule,
+automated evidence, browser checkpoint, and current evidence state. Run
+`npm run connection-matrix:check` to detect route, mount, source-symbol, or
+required-contract drift. The matrix is an inventory and validator; `PARTIAL`,
+`HISTORICALLY_CERTIFIED`, or a passing static check does not constitute current
+head browser certification.
+
 ```text
 resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  ->  upload
    (fail closed)      (runtime state)     (1440/1024/768/390)     (artifacts)   (30 days)
