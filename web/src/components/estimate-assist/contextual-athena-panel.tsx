@@ -33,11 +33,13 @@ export function ContextualAthenaPanel({
   scopeOfWork,
   projectId,
   headingId = "contextual-athena-heading",
+  onAdded,
 }: {
   estimateId: string;
   scopeOfWork: string;
   projectId: string;
   headingId?: string;
+  onAdded?: () => void;
 }) {
   const [suggestions, setSuggestions] = useState<ContextualSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -60,6 +62,7 @@ export function ContextualAthenaPanel({
         }),
       });
       setAddedIds((current) => new Set(current).add(suggestion.id));
+      onAdded?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Athena suggestion could not be added.");
     } finally {
