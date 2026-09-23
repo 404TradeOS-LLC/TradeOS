@@ -1,0 +1,237 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AlertTriangle, Check, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { clientFetch } from "@/lib/clientApi";
+import type { Estimate, StructuredAIEstimateDraft } from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+type ApplyResponse = {
+  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
+};
+
+export function AthenaEstimatingCopilot({
+  estimateId,
+  scopeOfWork,
+  estimate,
+  onUpdated,
+}: {
+  estimateId: string;
+  scopeOfWork: string;
+  estimate: Estimate;
+  onUpdated: () => void;
+}) {
+  const [scope, setScope] = useState(scopeOfWork);
+  const [draft, setDraft] = useState<StructuredAIEstimateDraft | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
+  const [answer, setAnswer] = useState("");
+
+  const generate = useMutation({
+    mutationFn: () =>
+      clientFetch<StructuredAIEstimateDraft>(`/estimates/${estimateId}/ai-estimator/draft`, {
+        method: "POST",
+        body: JSON.stringify({ scopeOfWork: scope.trim() }),
+      }),
+    onSuccess: (next) => {
+      setDraft(next);
+      setActiveQuestion(next.validation.missingInformation[0] ?? null);
+      setAnswer("");
+    },
+  });
+
+  const apply = useMutation({
+    mutationFn: () =>
+      clientFetch<ApplyResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
+        method: "POST",
+        body: JSON.stringify({
+          lineItems: draft?.lineItems
+            .filter((line) => line.targetId && line.reviewToken)
+            .map((line) => ({
+              draftLineItemId: line.draftLineItemId,
+              quantity: line.quantity,
+              status: "accepted",
+              description: line.description,
+              targetId: line.targetId,
+              targetKind: line.targetKind,
+              reviewToken: line.reviewToken,
+            })) ?? [],
+        }),
+      }),
+    onSuccess: () => {
+      onUpdated();
+    },
+  });
+
+  const preview = useMemo(() => {
+    if (!draft) return null;
+    const jobCost = draft.subtotalCost;
+    const costAfterOverhead = jobCost * (1 + Number(estimate.overheadPct ?? 0) / 100);
+    const preTax =
+      estimate.targetMarginPct != null
+        ? costAfterOverhead / Math.max(0.01, 1 - Number(estimate.targetMarginPct) / 100)
+        : costAfterOverhead * (1 + Number(estimate.profitPct ?? 0) / 100);
+    const tax = Number(estimate.taxPct ?? 0) > 0 ? preTax * Number(estimate.taxPct) / 100 : 0;
+    const total = preTax + tax;
+    const grossProfit = preTax - costAfterOverhead;
+    return { jobCost, preTax, total, grossProfit, margin: preTax > 0 ? grossProfit / preTax * 100 : 0 };
+  }, [draft, estimate]);
+
+  function acceptQuestion() {
+    if (!answer.trim() || !activeQuestion) return;
+    const nextScope = `${scope.trim()}\n${activeQuestion}: ${answer.trim()}`.trim();
+    setScope(nextScope);
+    setActiveQuestion(null);
+    setAnswer("");
+    generate.mutate();
+  }
+
+  const resolved = draft?.lineItems.filter((line) => line.targetId && line.reviewToken) ?? [];
+  const assumptions = draft ? [...draft.parsedScope.assumptions, ...draft.validation.missingInformation] : [];
+  const exclusions = draft?.parsedScope.exclusions ?? [];
+  const canBuild = resolved.length > 0 && !apply.isPending;
+
+  return (
+    <section className="border border-primary/30 bg-primary/5" aria-labelledby="athena-estimating-copilot-heading">
+      <div className="border-b border-primary/20 px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+            <div className="min-w-0">
+              <h2 id="athena-estimating-copilot-heading" className="font-semibold text-foreground">Athena estimating copilot</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Describe the job naturally. Athena extracts scope, checks TradeOS pricing, and stages the estimate for review.</p>
+            </div>
+          </div>
+          {draft ? <Badge variant="outline">{draft.confidenceScore}% confidence</Badge> : null}
+        </div>
+
+        <div className="mt-4">
+          <Textarea
+            value={scope}
+            onChange={(event) => setScope(event.target.value)}
+            placeholder="Paint a 2.5-car garage floor. Existing coating is worn. Customer wants tan."
+            className="min-h-24 resize-y bg-background text-base"
+            aria-label="Contractor job description"
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={() => generate.mutate()} disabled={generate.isPending || !scope.trim()}>
+            {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {generate.isPending ? "Estimating…" : draft ? "Recalculate" : "Build estimate"}
+          </Button>
+          <span className="text-xs text-muted-foreground">TradeOS data first · review before anything is added</span>
+        </div>
+        {generate.isError ? <p className="mt-3 text-sm text-destructive" role="alert">{generate.error instanceof Error ? generate.error.message : "Athena could not build this estimate."}</p> : null}
+      </div>
+
+      {draft ? (
+        <div className="space-y-4 px-4 py-4 sm:px-5">
+          {activeQuestion ? (
+            <div className="border-b border-primary/20 pb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">One thing Athena needs</p>
+              <p className="mt-2 font-medium text-foreground">{activeQuestion}</p>
+              <div className="mt-3 flex gap-2">
+                <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Answer in plain language…" className="min-h-11 bg-background" />
+                <Button type="button" className="shrink-0 self-end" onClick={acceptQuestion} disabled={!answer.trim() || generate.isPending}>
+                  Continue <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estimate items</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Athena selected existing TradeOS targets. Adjustments happen in the Estimate Workspace.</p>
+                </div>
+                <Badge variant="secondary">{resolved.length} ready</Badge>
+              </div>
+
+              <div className="mt-3 divide-y divide-border/70 border-y border-border/70 bg-background/70">
+                {draft.lineItems.length === 0 ? (
+                  <p className="px-3 py-5 text-sm text-muted-foreground">No confident TradeOS matches yet.</p>
+                ) : draft.lineItems.map((line) => (
+                  <div key={line.draftLineItemId} className="flex items-start justify-between gap-4 px-3 py-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-foreground">{line.description}</span>
+                        <Badge variant="outline">{line.targetKind === "assembly" ? "Assembly" : "Costbook"}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{line.quantity} {line.unitOfMeasure} · {line.rationale}</p>
+                      {line.reviewWarnings.length > 0 ? <p className="mt-1 text-xs text-warning">{line.reviewWarnings[0]}</p> : null}
+                    </div>
+                    <span className="shrink-0 font-mono text-sm font-semibold">{formatCurrency(line.lineCost)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {preview ? (
+                <div className="border border-border/70 bg-background/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Review</p>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <ReviewRow label="Estimated cost" value={formatCurrency(preview.jobCost)} />
+                    <ReviewRow label="Sell price" value={formatCurrency(preview.total)} strong />
+                    <ReviewRow label="Gross profit" value={formatCurrency(preview.grossProfit)} />
+                    <ReviewRow label="Margin" value={`${preview.margin.toFixed(1)}%`} />
+                  </div>
+                </div>
+              ) : null}
+
+              {assumptions.length > 0 ? (
+                <div className="border border-border/70 bg-background/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Assumptions</p>
+                  <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">{assumptions.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul>
+                </div>
+              ) : null}
+
+              {exclusions.length > 0 ? (
+                <div className="border border-border/70 bg-background/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Exclusions</p>
+                  <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">{exclusions.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {draft.validation.warnings.length > 0 ? (
+            <div className="flex items-start gap-2 border-t border-border/70 pt-3 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+              <span>{draft.validation.warnings.slice(0, 2).join(" · ")}</span>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
+            <p className="text-xs text-muted-foreground">Nothing is written to the estimate until you build it.</p>
+            <Button type="button" onClick={() => apply.mutate()} disabled={!canBuild}>
+              {apply.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {apply.isPending ? "Adding estimate…" : "Add to estimate"}
+            </Button>
+          </div>
+          {apply.isError ? <p className="text-sm text-destructive" role="alert">{apply.error instanceof Error ? apply.error.message : "Athena could not add the reviewed estimate."}</p> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReviewRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-mono tabular-nums", strong ? "text-lg font-semibold text-primary" : "font-semibold text-foreground")}>{value}</span>
+    </div>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
