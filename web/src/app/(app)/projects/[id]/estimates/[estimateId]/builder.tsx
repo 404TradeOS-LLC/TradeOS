@@ -196,6 +196,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             projectId={projectId}
             scopeOfWork={simpleScope ?? ""}
             headingId="desktop-contextual-athena-heading"
+            onAdded={invalidate}
           />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
@@ -292,6 +293,7 @@ function MobileEstimateFlow({
             projectId={projectId}
             scopeOfWork={simpleScope ?? ""}
             headingId="mobile-contextual-athena-heading"
+            onAdded={invalidate}
           />
           <div className="text-sm text-muted-foreground">Next, confirm the suggested work and quantities before you price it.</div>
           <MobileStageAction label="Review line items" onClick={advance} />
