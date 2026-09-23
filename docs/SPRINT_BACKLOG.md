@@ -577,7 +577,8 @@ a baseline but cannot certify a changed current head.
 ### S051 — Executable frontend/backend connection matrix
 
 Status: DONE
-Implementation PR: #538 (merged 2026-09-22 as `49cf31ce8badf8a3440792e0f9aa7a8a01026db`).
+Implementation PR: #538 (merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`).
+Evidence: PR #538 merged S051 and published the matrix/validator on `main`.
 Dependencies: none
 Objective: Create the governed action-to-route certification inventory for every release-critical frontend read and mutation.
 Acceptance: the inventory names the UI action, route and method, request/response contract, permission, tenant/RLS expectation, refresh behavior, automated evidence, browser checkpoint, and current result; CI fails when a release-critical entry loses its owner or mapped contract.
@@ -951,7 +952,7 @@ Acceptance: all required contractor/customer journeys are current-head certified
 
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is DONE through PR #538, merged 2026-09-22 as `49cf31ce8badf8a3440792e0f9aa7a8a01026db`.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is DONE through PR #538, merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
