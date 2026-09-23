@@ -149,9 +149,15 @@ export interface ParsedScopeQuantity {
 export interface ParsedContractorScope {
   normalizedText: string;
   detectedTrade: string | null;
+  jobType: string | null;
   quantities: ParsedScopeQuantity[];
   materials: string[];
+  existingConditions: string[];
+  prepRequirements: string[];
   siteConstraints: string[];
+  assumptions: string[];
+  customerFacingScope: string;
+  exclusions: string[];
   missingInformation: string[];
 }
 
