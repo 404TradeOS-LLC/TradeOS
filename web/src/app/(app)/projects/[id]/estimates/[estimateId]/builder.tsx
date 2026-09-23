@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
-import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
+import { AthenaEstimatingCopilot } from "@/components/estimate-assist/athena-estimating-copilot";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -191,12 +191,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         </div>
 
         <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <ContextualAthenaPanel
+          <AthenaEstimatingCopilot
             estimateId={estimateId}
-            projectId={projectId}
             scopeOfWork={simpleScope ?? ""}
-            headingId="desktop-contextual-athena-heading"
-            onAdded={invalidate}
+            estimate={estimate}
+            onUpdated={invalidate}
           />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
@@ -288,12 +287,11 @@ function MobileEstimateFlow({
               {simpleScope?.trim() || "No scope captured yet. Add a short description from project details before building this estimate."}
             </p>
           </div>
-          <ContextualAthenaPanel
+          <AthenaEstimatingCopilot
             estimateId={estimateId}
-            projectId={projectId}
             scopeOfWork={simpleScope ?? ""}
-            headingId="mobile-contextual-athena-heading"
-            onAdded={invalidate}
+            estimate={estimate}
+            onUpdated={onUpdated}
           />
           <div className="text-sm text-muted-foreground">Next, confirm the suggested work and quantities before you price it.</div>
           <MobileStageAction label="Review line items" onClick={advance} />
