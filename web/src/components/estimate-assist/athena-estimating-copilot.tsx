@@ -90,6 +90,11 @@ export function AthenaEstimatingCopilot({
     generate.mutate();
   }
 
+  function chooseAnswer(value: string) {
+    setAnswer(value);
+  }
+
+  const questionChoices = activeQuestion ? getQuestionChoices(activeQuestion) : [];
   const resolved = draft?.lineItems.filter((line) => line.targetId && line.reviewToken) ?? [];
   const assumptions = draft ? [...draft.parsedScope.assumptions, ...draft.validation.missingInformation] : [];
   const exclusions = draft?.parsedScope.exclusions ?? [];
@@ -135,8 +140,17 @@ export function AthenaEstimatingCopilot({
             <div className="border-b border-primary/20 pb-4">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">One thing Athena needs</p>
               <p className="mt-2 font-medium text-foreground">{activeQuestion}</p>
+              {questionChoices.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {questionChoices.map((choice) => (
+                    <Button key={choice} type="button" size="sm" variant={answer === choice ? "default" : "outline"} onClick={() => chooseAnswer(choice)}>
+                      {choice}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-3 flex gap-2">
-                <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Answer in plain language…" className="min-h-11 bg-background" />
+                <Textarea value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Other / answer in plain language…" className="min-h-11 bg-background" />
                 <Button type="button" className="shrink-0 self-end" onClick={acceptQuestion} disabled={!answer.trim() || generate.isPending}>
                   Continue <ChevronRight className="size-4" />
                 </Button>
@@ -235,3 +249,14 @@ function ReviewRow({ label, value, strong = false }: { label: string; value: str
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
+
+
+function getQuestionChoices(question: string): string[] {
+  const normalized = question.toLowerCase();
+  if (/coating|adhere|peel|flak/.test(normalized)) return ["Mostly adhered", "Peeling / flaking", "Other"];
+  if (/brand|paint|finish|material|system/.test(normalized)) return ["Use preferred TradeOS material", "Other"];
+  if (/access|two-story|height/.test(normalized)) return ["Standard access", "Difficult access", "Other"];
+  if (/repair|damage|crack/.test(normalized)) return ["Minor", "Extensive", "Other"];
+  return [];
+}
+
