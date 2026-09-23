@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,30 @@ export function ContextualAthenaPanel({
   const [suggestions, setSuggestions] = useState<ContextualSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+
+  async function addSuggestion(suggestion: ContextualSuggestion) {
+    if (!suggestion.resolution.target || addedIds.has(suggestion.id)) return;
+    setAddingId(suggestion.id);
+    setError(null);
+    try {
+      await clientFetch(`/estimates/${estimateId}/line-items`, {
+        method: "POST",
+        body: JSON.stringify({
+          [suggestion.kind === "assembly" ? "assemblyId" : "costItemId"]: suggestion.resolution.target.id,
+          quantity: suggestion.quantity,
+          section: "Athena suggestions",
+          sourceKey: `athena:suggestion:${suggestion.id}`,
+        }),
+      });
+      setAddedIds((current) => new Set(current).add(suggestion.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Athena suggestion could not be added.");
+    } finally {
+      setAddingId(null);
+    }
+  }
 
   async function askAthena() {
     if (!scopeOfWork.trim()) return;
@@ -100,6 +124,14 @@ export function ContextualAthenaPanel({
                 <p className="text-sm text-muted-foreground">{suggestion.rationale}</p>
                 <div className={cn("text-xs", setupRequired ? "text-warning" : "text-muted-foreground")}>
                   {setupRequired ? "Assembly available — setup required." : suggestion.resolution.target ? `Matched to ${suggestion.resolution.target.name} · ${suggestion.resolution.target.code}` : suggestion.resolution.reason}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <p className="text-xs text-muted-foreground">{suggestion.quantity} {suggestion.unit} suggested · review before adding</p>
+                  {suggestion.resolution.target ? (
+                    <Button type="button" size="sm" variant={addedIds.has(suggestion.id) ? "outline" : "secondary"} onClick={() => addSuggestion(suggestion)} disabled={addingId === suggestion.id || addedIds.has(suggestion.id)}>
+                      {addedIds.has(suggestion.id) ? <><Check className="size-4" aria-hidden="true" />Added</> : addingId === suggestion.id ? "Adding…" : "Add to estimate"}
+                    </Button>
+                  ) : null}
                 </div>
                 {suggestion.provenanceStatus === "placeholder" ? <p className="text-xs text-warning">Pricing evidence is placeholder data; verify before applying.</p> : suggestion.provenanceStatus === "unverified-legacy" ? <p className="text-xs text-warning">Unverified pricing — confirm the Costbook source before applying.</p> : null}
               </div>
