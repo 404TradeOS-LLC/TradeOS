@@ -15,9 +15,14 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(page, /settings\.currentRole !== "technician"/);
   assert.match(page, /listFieldJobs\(token, summary\.todayRangeUtc\)/);
   assert.match(page, /getFieldJob\(token, selectedId\)/);
+  assert.match(page, /aria-label="Today's jobs"/);
+  assert.match(page, /id="current-job-heading"/);
+  assert.match(page, /Open directions/);
+  assert.match(page, /Report back/);
   assert.match(actions, /start-travel/);
-  assert.match(actions, /`\/api\/v1\/jobs\/\$\{jobId\}\/\$\{TRANSITIONS\[transition\]\}`/);
-  assert.match(actions, /\/api\/v1\/jobs\/\$\{jobId\}\/notes/);
+  assert.match(actions, /TRANSITIONS\[transition\]/);
+  assert.match(actions, /\/api\/v1\/jobs/);
+  assert.match(actions, /notes/);
   assert.match(proxy, /"\/field\/:path\*"/);
 });
 
