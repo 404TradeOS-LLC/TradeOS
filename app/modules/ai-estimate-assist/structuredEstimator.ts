@@ -735,6 +735,10 @@ function extractQuantities(scope: string): ParsedScopeQuantity[] {
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:squares?|\bsq\b(?!\s*ft))/g, "squares", "SQ");
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/g, "hours", "HR");
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:each|ea|units?|items?)\b/g, "count", "EA");
+  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:cabinet\s+doors?|doors?)\b/g, "count", "EA");
+  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:drawers?)\b/g, "count", "EA");
+  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:feet|foot)\s+(?:of\s+)?(?:rotten\s+)?fence\b/g, "length", "LF");
+  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+tons?\b/g, "volume", "CY");
 
   for (const match of lower.matchAll(/\b(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\b/g)) {
     const width = parseBoundedQuantity(match[1]);
