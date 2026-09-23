@@ -722,7 +722,9 @@ function isCoveredByScope(item: string, scope: string, quantities: ParsedScopeQu
   const lower = scope.toLowerCase();
   if (/dimension|count/i.test(item)) return quantities.length > 0;
   if (/square|area|measurement/i.test(item)) return quantities.some((quantity) => quantity.unit === "SF");
-  return lower.length > 0;
+  // Other missing inputs may materially change price (finish system, access,
+  // condition, disposal, etc.). Keep those as explicit one-at-a-time review items.
+  return lower.includes(item.toLowerCase());
 }
 
 function extractQuantities(scope: string): ParsedScopeQuantity[] {
