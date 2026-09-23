@@ -142,7 +142,7 @@ export interface AIEstimatorToolRun {
 export interface ParsedScopeQuantity {
   type: "area" | "length" | "volume" | "count" | "squares" | "hours" | "dimension";
   value: number;
-  unit: "SF" | "LF" | "CY" | "EA" | "SQ" | "HR";
+  unit: "SF" | "LF" | "CY" | "TON" | "EA" | "SQ" | "HR";
   sourceText: string;
 }
 
