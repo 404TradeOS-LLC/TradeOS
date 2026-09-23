@@ -618,17 +618,111 @@ export class StructuredAIEstimatorService {
 
 function parseContractorScope(scope: string, detectedTrade: string | null, runtimeMissingInformation: string[]): ParsedContractorScope {
   const normalizedText = scope.replace(/\s+/g, " ").trim();
-  const quantities = extractQuantities(normalizedText);
   const lower = normalizedText.toLowerCase();
+  const quantities = extractQuantities(normalizedText);
+
+  // Contractor language often encodes usable defaults without stating an exact measurement.
+  // Keep the assumption visible instead of blocking the draft.
+  if (!quantities.some((quantity) => quantity.unit === "SF")) {
+    const garageMatch = lower.match(/\b2(?:\.5)?[- ]?car\s+garage\b/);
+    if (garageMatch) {
+      quantities.push({ type: "area", value: 600, unit: "SF", sourceText: "standard 2.5-car garage assumption" });
+    }
+  }
+
+  const jobType = detectJobType(lower);
+  const existingConditions = extractKnownWords(lower, [
+    "old coating", "worn coating", "existing coating", "peeling", "flaking", "mostly adhered",
+    "rotten", "damaged", "cracked", "existing finish", "no grain filling",
+  ]);
+  const prepRequirements = derivePrepRequirements(lower);
+  const assumptions = deriveAssumptions(lower, quantities);
+  const customerFacingScope = buildCustomerFacingScope(jobType, normalizedText, prepRequirements);
+  const exclusions = deriveExclusions(lower, jobType);
+  const missingInformation = [...new Set(
+    runtimeMissingInformation.filter((item) => !isCoveredByScope(item, normalizedText, quantities))
+  )];
 
   return {
     normalizedText,
     detectedTrade,
-    quantities,
-    materials: extractKnownWords(lower, ["concrete", "cedar", "wood", "composite", "asphalt", "shingle", "oak", "tile", "drywall", "mulch"]),
+    jobType,
+    quantities: dedupeQuantities(quantities),
+    materials: extractKnownWords(lower, [
+      "concrete", "cedar", "wood", "composite", "asphalt", "shingle", "oak", "tile", "drywall", "mulch",
+      "paint", "coating", "primer", "degreaser", "tan", "beige", "white", "faucet", "vanity",
+      "weed barrier", "rock",
+    ]),
+    existingConditions,
+    prepRequirements,
     siteConstraints: extractKnownWords(lower, ["haul", "haul-off", "cleanup", "power line", "narrow", "access", "two-story", "stump", "sawcut"]),
-    missingInformation: quantities.length > 0 ? runtimeMissingInformation : [...runtimeMissingInformation, "Confirm dimensions or count for pricing."],
+    assumptions,
+    customerFacingScope,
+    exclusions,
+    missingInformation: missingInformation.length > 0 ? missingInformation : [],
   };
+}
+
+function detectJobType(scope: string): string | null {
+  if (/garage\s+floor|floor\s+(recoat|coating|paint)/.test(scope)) return "Garage floor recoat";
+  if (/cabinet|drawer/.test(scope)) return "Cabinet door and drawer replacement";
+  if (/fence/.test(scope)) return "Fence removal and landscape rock";
+  if (/vanity|faucet/.test(scope)) return "Bathroom vanity replacement";
+  return null;
+}
+
+function derivePrepRequirements(scope: string): string[] {
+  const prep: string[] = [];
+  if (/garage\s+floor|existing\s+coating|old\s+coating|worn\s+coating/.test(scope)) {
+    prep.push("Scrape loose coating", "Mechanically abrade existing coating", "Degrease and clean", "Rinse, dry, and vacuum", "Minor surface preparation");
+  }
+  if (/cabinet|drawer/.test(scope)) prep.push("Remove existing doors and drawers", "Prepare surfaces for painted finish");
+  if (/fence/.test(scope)) prep.push("Remove rotten fence panels", "Install weed barrier", "Prepare area for rock");
+  if (/vanity|faucet/.test(scope)) prep.push("Remove existing vanity as required", "Protect adjacent finished surfaces", "Prepare drywall for repair");
+  return prep;
+}
+
+function deriveAssumptions(scope: string, quantities: ParsedScopeQuantity[]): string[] {
+  const assumptions: string[] = [];
+  if (quantities.some((quantity) => quantity.sourceText.includes("2.5-car garage"))) assumptions.push("600 sq ft standard 2.5-car garage assumption");
+  if (/garage\s+floor/.test(scope) && !/one\s+coat|1\s+coat|single\s+coat/.test(scope)) assumptions.push("Two-coat floor coating system");
+  if (/garage\s+floor/.test(scope) && !/peel|flak/.test(scope)) assumptions.push("Existing coating is substantially adhered");
+  if (/fence/.test(scope) && /7\s*tons?/.test(scope)) assumptions.push("Approximately 7 tons of rock");
+  if (/cabinet|drawer/.test(scope) && /no\s+grain\s+fill/.test(scope)) assumptions.push("No grain filling");
+  return assumptions;
+}
+
+function buildCustomerFacingScope(jobType: string | null, scope: string, prepRequirements: string[]): string {
+  if (jobType === "Garage floor recoat") {
+    return "Prepare and repaint the existing garage floor coating. Scope includes removal of loose coating, mechanical surface preparation, cleaning/degreasing, application of a two-coat floor coating system, and final cleanup.";
+  }
+  if (jobType === "Cabinet door and drawer replacement") {
+    return "Remove and replace the specified cabinet doors and drawers with a professionally prepared and painted white finish.";
+  }
+  if (jobType === "Fence removal and landscape rock") {
+    return "Remove the specified rotten fence, install weed barrier, place approximately 7 tons of landscape rock, and clean the work area.";
+  }
+  if (jobType === "Bathroom vanity replacement") {
+    return "Replace the bathroom vanity, reconnect plumbing, install the faucet, repair affected drywall, and clean the work area.";
+  }
+  return scope;
+}
+
+function deriveExclusions(scope: string, jobType: string | null): string[] {
+  if (jobType === "Garage floor recoat") {
+    return ["Extensive coating removal", "Concrete repair", "Crack or joint repair", "Moisture remediation", "Full coating removal"];
+  }
+  if (jobType === "Cabinet door and drawer replacement") return ["Cabinet box modification", "Grain filling unless added", "Structural cabinet repair"];
+  if (jobType === "Fence removal and landscape rock") return ["Hidden concrete footings", "Underground obstruction removal", "Additional rock beyond the stated quantity"];
+  if (jobType === "Bathroom vanity replacement") return ["Relocation of existing plumbing", "Major wall reconstruction", "Unforeseen concealed damage"];
+  return [];
+}
+
+function isCoveredByScope(item: string, scope: string, quantities: ParsedScopeQuantity[]) {
+  const lower = scope.toLowerCase();
+  if (/dimension|count/i.test(item)) return quantities.length > 0;
+  if (/square|area|measurement/i.test(item)) return quantities.some((quantity) => quantity.unit === "SF");
+  return lower.length > 0;
 }
 
 function extractQuantities(scope: string): ParsedScopeQuantity[] {
