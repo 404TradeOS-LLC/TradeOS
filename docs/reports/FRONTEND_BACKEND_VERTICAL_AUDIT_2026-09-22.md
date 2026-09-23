@@ -173,3 +173,13 @@ marked `DONE` from merge evidence alone: its acceptance must include the
 frontend/backend connection, negative authorization/tenant evidence where
 applicable, state-refresh behavior, and retained browser evidence for the
 workflow and supported viewport/role set it owns.
+
+
+## Follow-up risks (post-merge review, 2026-09-22)
+
+1. **`BLOCKED` sprint PR gates have no live-reconciliation check.** The current gate tooling does not verify that referenced open PR blockers remain open.
+2. **Cross-document READY-sprint consistency is only enforced for one file pair.** Other command-center and Bible assertions can drift without an automated cross-check.
+3. **Dependency-backed governance checks may depend on hosted CI.** Local audit clones can lack installed dependencies needed for full end-to-end verification.
+4. **S051's drift validator does not exist yet.** The connection-matrix counts remain a point-in-time snapshot until automated drift validation lands.
+5. **Tenant-isolation and RLS regression coverage remains open.** Portal, Athena actions, and RLS-backed resources remain partially certified pending the planned evidence work.
+6. **Backup/restore and production-migration rehearsal remain unverified.** Production-access blockers still prevent full RPO/RTO rehearsal evidence.
