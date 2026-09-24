@@ -692,7 +692,7 @@ function deriveAssumptions(scope: string, quantities: ParsedScopeQuantity[]): st
   return assumptions;
 }
 
-function buildCustomerFacingScope(jobType: string | null, scope: string, prepRequirements: string[]): string {
+function buildCustomerFacingScope(jobType: string | null, scope: string, _prepRequirements: string[]): string {
   if (jobType === "Garage floor recoat") {
     return "Prepare and repaint the existing garage floor coating. Scope includes removal of loose coating, mechanical surface preparation, cleaning/degreasing, application of a two-coat floor coating system, and final cleanup.";
   }
@@ -708,7 +708,7 @@ function buildCustomerFacingScope(jobType: string | null, scope: string, prepReq
   return scope;
 }
 
-function deriveExclusions(scope: string, jobType: string | null): string[] {
+function deriveExclusions(_scope: string, jobType: string | null): string[] {
   if (jobType === "Garage floor recoat") {
     return ["Extensive coating removal", "Concrete repair", "Crack or joint repair", "Moisture remediation", "Full coating removal"];
   }
