@@ -605,11 +605,27 @@ export interface StructuredAIEstimateDraftLineItem {
   provenanceDetail?: AIEstimateProvenanceDetail;
 }
 
+export interface ParsedAIContractorScope {
+  normalizedText: string;
+  detectedTrade: string | null;
+  jobType: string | null;
+  quantities: Array<{ type: "area" | "length" | "volume" | "count" | "squares" | "hours" | "dimension"; value: number; unit: "SF" | "LF" | "CY" | "TON" | "EA" | "SQ" | "HR"; sourceText: string }>;
+  materials: string[];
+  existingConditions: string[];
+  prepRequirements: string[];
+  siteConstraints: string[];
+  assumptions: string[];
+  customerFacingScope: string;
+  exclusions: string[];
+  missingInformation: string[];
+}
+
 export interface StructuredAIEstimateDraft {
   generationId?: string;
   estimateId: string;
   projectId: string;
   scopeOfWork: string;
+  parsedScope: ParsedAIContractorScope;
   detectedTrade: string | null;
   confidenceScore: number;
   lineItems: StructuredAIEstimateDraftLineItem[];
