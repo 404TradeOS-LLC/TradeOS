@@ -16,12 +16,13 @@ jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma })
 import { STAGING_AUTH } from "../domain";
 import { signAuthToken } from "../backend/auth/jwt";
 import { requireAuth } from "../backend/middleware/auth";
+import { authRateLimit } from "../backend/middleware/authRateLimit";
 import { databaseSession } from "../backend/middleware/databaseSession";
 import { errorHandler } from "../backend/middleware/errorHandler";
 
 function buildApp() {
   const app = express();
-  app.get("/secure", requireAuth, databaseSession, (req, res) => {
+  app.get("/secure", authRateLimit, requireAuth, databaseSession, (req, res) => {
     const authed = req as express.Request & {
       auth?: { userId: string; orgId: string; role: string; email?: string; canonicalRole?: string };
       orgId?: string;
