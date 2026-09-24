@@ -3,6 +3,7 @@ import { AppNav } from "@/components/shared/app-nav";
 import { apiFetch } from "@/lib/api";
 import { isAthenaOperatorRole } from "@/lib/athena-state";
 import { getSession, getSessionToken } from "@/lib/session";
+import { isTeamTimeEnabled } from "@/lib/team-time-config";
 import type { OrganizationSettingsResponse } from "@/lib/settings";
 import { handleAthenaNavLookupFailure } from "./layout-athena-error.mjs";
 
@@ -50,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <AppNav email={session.email} canViewAthena={canViewAthena} />
+      <AppNav email={session.email} canViewAthena={canViewAthena} teamTimeEnabled={isTeamTimeEnabled()} />
       <main
         id="main-content"
         tabIndex={-1}

@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 13813)
+Total output lines: 552
+
 ---
 status: current
 owner: platform
@@ -34,6 +37,7 @@ related_code:
   - web/src/components/dashboard
   - web/src/app/(app)/costbook
   - web/src/app/(app)/dispatch
+  - web/src/app/(app)/team-time
   - web/src/app/(app)/customers
   - web/src/app/(app)/projects
   - web/src/app/customer-portal
@@ -43,6 +47,10 @@ related_code:
   - web/src/proxy.ts
   - web/src/lib/billing-api.ts
   - web/src/lib/supabase/proxy.ts
+  - web/src/lib/team-time-api.ts
+  - web/src/lib/team-time-config.ts
+  - web/src/components/team-time
+  - web/src/app/api/team-time
   - web/src/lib/api.ts
   - web/src/lib/api-response.ts
   - web/src/lib/clientApi.ts
@@ -54,7 +62,7 @@ related_code:
 
 # Current State
 
-Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-24 for the staging-gated Team & Time interface integration. This document records repository truth, not a guarantee that every capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -126,6 +134,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
 - Invoice line-item storage uses canonical selling-price columns `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08, removing the synchronized legacy `unit_cost`/`line_cost` aliases and their sync objects. The disposable PostgreSQL rehearsal verified canonical data, index/constraint preservation, and tenant-scoped forced RLS; live production schema verification confirmed the canonical columns, required indexes, and forced RLS. The `unitPrice`/`lineTotal` API contract stays unchanged.
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
+- Team & Time staging integration: `/team-time` uses the existing signed-in Supabase session through a same-origin server route to call the staging `team-time` Edge Function. It supports assigned-job punches, breaks, manager review/correction, employee vs. subcontractor classification, and approved-hours CSV handoff. The route and navigation are disabled unless the server-only `TEAM_TIME_ENABLED=true` flag is set, and the feature is always disabled on Vercel Production. Payroll submission, location verification, and a live signed-in phone-to-office test are not implemented or claimed.
 - Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
 - Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. The server-owned catalog drives both displayed prices and checkout validation. Persisted organization-scoped attempts plus stable Stripe idempotency keys prevent duplicate Checkout sessions, while authoritative subscription hydration protects against out-of-order webhook delivery. Stripe—not the browser return URL—is authoritative for subscription state, and only `active` or `trialing` grants entitlements. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
@@ -201,182 +210,7 @@ The 2026-09-08 audit (`docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.m
 
 - Every Knowledge Runtime trade, search result, matcher output, and AI Estimate Assist suggestion/draft line item now carries `provenanceStatus` (`"documented" | "unverified-legacy" | "placeholder"`), defined once in `app/modules/costbook/provenance.ts`. It is resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json`'s new `provenanceStatus` field, defaulting to `"unverified-legacy"` when missing/unrecognized. All 24 legacy "Stable" trades resolve to `"unverified-legacy"`; Tree Service resolves to `"placeholder"` (its own per-item files self-label `pricingStatus: "PLACEHOLDER"`); no trade is currently `"documented"`.
 - `app/modules/costbook/candidateCostItem.ts` defines the governed candidate contract, and `CostbookCandidateService` now persists it through Stage 6's reviewed queue. Candidates remain unapproved until a human `costbook.manage` reviewer records the decision; promotion is explicit, org-scoped, and requires an existing matching Subcategory before it creates new Costbook component rows.
-- Stage 6 added the `CostbookResearchCandidate` migration/model, forced RLS, review/promotion constraints, candidate routes, and regression/RLS coverage. No existing production Costbook row or Knowledge Engine price changed, and the Knowledge Engine remains an independent static corpus until Stage 7.
-
-### Costbook Stage 6: reviewed candidate persistence, review, and promotion
-
-A follow-up slice implements Stage 6 of `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`: the first real, human-review-gated bridge between a researched candidate and the production relational Costbook.
-
-- New model `CostbookResearchCandidate` (migration `20260908050000_add_costbook_research_candidates`) persists the Stage 5 contract per organization, with forced RLS matching `materials_write_policy` (any org member with `costbook.read` may see the queue; insert/update requires `current_app_can_manage_costbook()`, i.e. owner/admin). Database check constraints independently require a named human `reviewedByUserId`/`reviewedAt` whenever `reviewStatus` is `approved`/`rejected`, and require an approved review plus `promotedAt`/`promotedByUserId` whenever `promotedCostItemId` is set — defense in depth alongside the application-layer `isEligibleForCostbookPromotion()` gate.
-- `app/modules/costbook/candidateCostItemService.ts` (`CostbookCandidateService`) adds `create`/`listPage`/`getById`/`review`/`promote`. `review()` records `reviewedByUserId` as the authenticated caller's real user id — never a free-text field, so a synthetic reviewer identity like `"AI"` or `"system"` cannot be recorded. `promote()` re-checks `isEligibleForCostbookPromotion()` against the persisted row inside a transaction serialized by a per-candidate Postgres advisory lock (never trusting `reviewStatus` alone), requires an existing Subcategory in the organization matching the candidate's `category` (422 if none — it does not invent Division/Category/Subcategory structure), and writes exclusively through the existing `CostbookService.createMaterial`/`createLaborRate`/`createEquipment` and `CostDatabaseService.create` methods — no parallel pricing store, no direct Prisma writes to production tables from this module.
-- New routes under `/api/v1/costbook/candidates` (`GET`/`POST` list+create requiring `costbook.write`/`costbook.read`, `GET /:id`, `POST /:id/review` and `POST /:id/promote` requiring `costbook.manage`, mirroring supplier-integration's approve/reject boundary). See `docs/API_REFERENCE.md`.
-- AI may prepare and submit candidates (as an authenticated owner/admin-permissioned caller); AI may never approve or promote one — both actions require an authenticated human's `costbook.manage` session, and the reviewer/promoter identity is always that user's real id.
-- No existing production `CostItem`/`Material`/`LaborRate`/`Equipment` row is modified by this slice; promotion only ever creates new rows from an already-approved candidate. No Knowledge Engine export data changed. Stage 7 (regenerating the Knowledge Engine corpus from governed Costbook data) remains unimplemented.
-
-### Costbook item/assembly provenance trust layer (2026-09-11)
-
-The reconciled provenance slice extends the existing trade-level trust marker without changing any pricing value:
-
-- Cost-item and assembly schemas accept the same nine optional provenance/source fields: `provenanceStatus`, `sourceName`, `sourceUrl`, `sourceIdentifier`, `sourceDate`, `retrievedAt`, `confidence`, `reviewedBy`, and `reviewedAt`.
-- Knowledge Runtime resolves record-level provenance when present, otherwise preserving the existing trade-level fallback. Invalid provenance/confidence values and blank optional metadata are ignored rather than promoted into trusted output.
-- AI Estimate Assist suggestion and structured-draft records expose optional `provenanceDetail`, and the UI shows the status/source/date/confidence context without changing the match-confidence score or pricing decision.
-- The new-batch approval/validation pipeline requires provenance fields for newly submitted cost-item batches; existing canonical data is not rewritten.
-- `npm run costbook:audit-provenance` is wired into repository CI as a structural audit. Missing source metadata remains an explicit warning; structural corruption fails the check.
-- Coverage remains deliberately honest: the current canonical corpus has no real item- or assembly-level source citations populated, so the new detail fields remain absent until authoritative/licensed or qualified-estimator-reviewed data is supplied.
-
-### Costbook research review: normalization, matching, UI, and promotion audit (2026-09-12)
-
-A follow-up slice closes the pipeline gap between the landed Stage 6 candidate
-queue and a reviewer who can actually use it. No schema change was required:
-the existing `CostbookResearchCandidate` model, its forced RLS policies, and
-its review/promotion check constraints already cover this work.
-
-- **Stage 3 landed.** `app/modules/costbook/knowledgeCandidateNormalizer.ts`
-  converts a Knowledge Engine corpus record into a typed candidate, and
-  `app/modules/costbook/candidateMatch.ts` performs deterministic duplicate
-  analysis (`new-candidate` / `probable-match` / `ambiguous-match` /
-  `conflict`) with signed price deltas. Both are pure — no Prisma, no
-  organization, no I/O — so neither can mutate Costbook state. An ambiguous or
-  conflicting match deliberately names no target, so name similarity alone can
-  never steer an overwrite.
-- **Fails closed, and fabricates nothing.** Normalization refuses any record
-  missing a cited source, source date, retrieval timestamp, confidence, a
-  supported unit, or a usable cost, and reports machine-readable block reasons
-  instead of defaulting the missing field. A record that asserts no source
-  stays `unverified-legacy`. Because the corpus carries no per-item market
-  field, `regionalBasis` is recorded as an explicit national/default basis
-  rather than presenting national research as local pricing.
-- **New read-only endpoints.** `GET /api/v1/costbook/candidates/summary`
-  (real per-organization queue counts), `GET .../candidates/corpus-report`
-  (deterministic classification of the shared corpus), and
-  `GET .../candidates/:id/match` (duplicate analysis through the canonical
-  `CostDatabaseService`). `POST .../candidates/from-knowledge`
-  (`costbook.write`) ingests a single corpus item as an unreviewed candidate or
-  fails with 422 naming the missing evidence. Ingestion can never approve or
-  promote.
-- **Promotion audit trail.** Review and promotion now append an immutable
-  `ActivityEvent` (`entityType: "costbook_research_candidate"`) inside the same
-  transaction as the decision, recording the reviewer, the outcome, the
-  provenance that justified it, and the Cost Item a candidate became. Reusing
-  the existing org-scoped, RLS-protected activity feed rather than introducing
-  a second audit store.
-- **Review UI.** `/costbook/research-review` is the first real human review
-  surface for researched pricing. Every count comes from live data; an empty
-  queue reports zeroes. The detail panel shows complete provenance beside the
-  current Costbook price and the difference. Approve, reject, and promote
-  render only for `costbook.manage`; read-only viewers get a truthful
-  explanation rather than disabled controls. The forms submit no reviewer
-  identity or organization id — the API records the authenticated caller.
-- **Nothing historical moved.** Promotion only ever creates new rows, so no
-  existing `Material`, `CostItem`, `LaborRate`, `Equipment`, estimate snapshot,
-  proposal, contract, or invoice price changed, and no Knowledge Engine export
-  data changed. Stage 7 (regenerating the corpus from governed Costbook data)
-  remains unimplemented.
-
-Honest coverage note: because **no** Knowledge Engine item currently carries a
-cited source, the corpus report returns 1,795 total / 0 documented / 0
-candidate-ready, and `POST .../candidates/from-knowledge` correctly rejects
-every item in the canonical corpus today. The end-to-end ready path is proven
-by deterministic fixtures, not by a claim that the research corpus is usable.
-
-## Lifecycle normalization status
-
-The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.
-
-Important compatibility truths that remain intentional:
-
-- historical Project aliases remain readable while new writes use canonical Project states;
-- Estimate `sent` remains distinct from internal `ready`;
-- historical Proposal `rejected` normalizes to canonical `declined`;
-- Contract persistence may retain compatibility storage such as `pending_signature` while DTOs expose the canonical lifecycle contract;
-- Invoice paid/partial/overdue presentation is derived from persisted Invoice/Payment truth rather than inventing ledger rows;
-- destructive historical rewrites are not implied by lifecycle normalization.
-
-## Customer portal and identity
-
-Two portal surfaces are intentionally distinct:
-
-- `/portal/*` is the authenticated staff preview/workspace.
-- `/customer-portal/*` is the ADR-010 public customer-scoped magic-link surface.
-
-The public portal uses one-time hashed access tokens redeemed into short-lived hashed sessions, customer/tenant-scoped forced-RLS reads, replay/revocation protection, and a narrowly authorized pending-contract customer-signing transition with explicit customer attribution. It does not claim certificate-backed signing, notarization, or standalone legal identity verification.
-
-Customer-portal invitations are delivered through the server-side
-transactional email adapter. The emailed GET is non-consuming: it places the
-validated opaque token into a ten-minute HttpOnly cookie restricted to the
-access path and redirects to a token-free confirmation page. Redemption occurs
-only after an exact-origin confirmation POST, which prevents automated email
-link scanners from spending the single-use invitation; that POST clears the
-pending cookie before redirecting to the portal or access-error flow.
-
-Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
-
-## Athena implementation state
-
-Athena remains a feature-flagged orchestration layer over existing application services rather than a parallel business-domain implementation.
-
-Landed foundations include:
-
-- kernel lifecycle and execution persistence
-- memory infrastructure with scoped visibility rules
-- canonical event/outbox persistence and delivery infrastructure
-- action engine, approval/risk boundaries, and durable idempotency
-- observability/trace/alert derivation
-- first-party business tools routed through existing application services
-- safe background/retry/correlation semantics
-- security audit-event coverage
-- governed first-party plugin/runtime boundaries through A13
-- A14 channel-aware voice/mobile readiness primitives
-
-Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
-
-### A14 voice/mobile readiness
-
-A14 extends the existing Athena kernel rather than creating a second assistant or
-channel-specific execution engine. The request contract can carry additive safe
-interaction metadata for text, mobile, or voice. Voice can be disabled
-independently with `ATHENA_VOICE_ENABLED` without disabling text/mobile Athena.
-The request-scoped voice registry view only narrows the existing A2/A12 tool
-surface: medium/high-risk tools are unavailable through the voice-only path,
-while low-risk tools with contextual confirmation bind confirmation to the exact
-registered tool/version and A6 canonical validated-input hash.
-
-The A14 mobile C010 provider delegates selected-job reads to `JobsService`, so
-existing actor scope and forced RLS remain authoritative. It exposes only
-minimized field context (job identity/status/priority, city/state, schedule
-windows, selected page) and omits customer contact details, full street address,
-and assignment identity. The backend does not accept or persist raw audio. A14
-is backend readiness infrastructure; it does not claim a production speech
-provider integration, offline autonomous execution, or production enablement.
-
-The A14 post-merge correctness repair aligns runtime behavior with those
-contracts: an unconfirmed contextual voice action returns a kernel-level
-`needs_clarification` challenge before A6/idempotency, so the confirmation pass
-cannot be persisted or replayed as a completed action; the mobile provider
-remains `explicit_only` and is requested only for `mobile`/`voice`, not ordinary
-`text`; and the assembled bounded context is carried forward into both tool
-execution and the model-provider seam. These changes do not broaden authority,
-tenant scope, or PII exposure.
-
-Repository merge state does not by itself prove Athena is enabled in production; feature flags and deployment configuration remain authoritative.
-
-## Security and tenant-boundary posture
-
-Current repository architecture uses authenticated request context plus organization membership authorization, request-scoped database sessions, and forced PostgreSQL RLS as layered tenant protection. Route/service permission checks remain defense in depth rather than a substitute for database isolation.
-
-Security-sensitive maintenance already landed includes:
-
-- local refresh-token rotation/revocation hardening
-- Supabase JWT claim/lifetime validation
-- organization bootstrap/RLS lookup repairs
-- tenant-boundary regression coverage
-- protected storage/server-action session checks
-- managed project-file Storage is private by default; browser-facing links for storage-backed photos and documents use a same-origin binary proxy that authenticates the session, resolves the requested project through the tenant-scoped backend, verifies the file belongs to that project, and only then downloads the exact metadata-backed object with server-only Storage credentials. Public object URLs require the explicit `SUPABASE_STORAGE_BUCKET_PUBLIC=true` opt-in; missing, false, or unrecognized values fail closed. Legacy files without managed `storagePath` metadata retain their previously saved URL.
-- project-file Storage deletion resolves tenant-scoped metadata and completes the `crm.write`-protected metadata delete before removing only exact generated, project-scoped Storage objects; ambiguous metadata-create failures preserve Storage so a late commit cannot point at deleted data, and cleanup failures abort instead of reporting a successful deletion
-- bounded database transaction acquisition under serverless contention
-- safe audit/security event capture
-- exact-origin enforcement for cookie-backed `POST`/`PUT`/`PATCH`/`DELETE` calls through the generic authenticated Next.js API proxy before the HttpOnly session is read or translated into a backend bearer token; safe read methods remain unchanged
-- browser-side same-origin API response handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
+- Stage 6 added the `CostbookResearchCandidate` migratio…3813 tokens truncated…esponse handling normalizes non-JSON proxy/upstream failures into `ClientApiError` with the HTTP status preserved and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 - server-only staff API response handling preserves structured backend error status/details, normalizes non-JSON upstream failures into `ApiClientError`, and treats malformed successful responses as explicit API contract failures rather than leaking raw parser exceptions
 - Stripe Billing webhooks are mounted before JSON parsing, verify the exact raw body against `Stripe-Signature` with timestamp tolerance and timing-safe HMAC comparison, atomically claim event IDs for idempotent retry handling, hydrate authoritative subscription state, and enter an explicit tenant RLS context only after resolving `tradeos_org_id` from Stripe metadata
 

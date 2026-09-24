@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CalendarPlus,
   ChevronRight,
+  Clock3,
   ClipboardPlus,
   FileText,
   LayoutGrid,
@@ -51,6 +52,13 @@ const SECONDARY_NAV_LINKS: NavLink[] = [
   { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Palette },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
+
+const TEAM_TIME_NAV_LINK: NavLink = {
+  href: "/team-time",
+  label: "Team & Time",
+  shortLabel: "Team",
+  icon: Clock3,
+};
 
 const ATHENA_NAV_LINK: NavLink = {
   href: "/athena",
@@ -144,10 +152,12 @@ function NavPill({
 export function AppNav({
   email,
   canViewAthena = false,
+  teamTimeEnabled = false,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
   canViewAthena?: boolean;
+  teamTimeEnabled?: boolean;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
@@ -160,6 +170,7 @@ export function AppNav({
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
+  const secondaryLinks = teamTimeEnabled ? [...SECONDARY_NAV_LINKS, TEAM_TIME_NAV_LINK] : SECONDARY_NAV_LINKS;
 
   const primaryLinks = useMemo(
     () => (canViewAthena ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS),
@@ -304,7 +315,7 @@ export function AppNav({
                 />
               ))}
               <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
-              {SECONDARY_NAV_LINKS.map((link) => (
+              {secondaryLinks.map((link) => (
                 <NavPill key={link.href} link={link} pathname={pathname} />
               ))}
             </nav>
@@ -432,7 +443,7 @@ export function AppNav({
             <div className="grid gap-2">
               <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Tools & admin</div>
               <nav className="grid gap-2" aria-label="More: tools and administration">
-                {SECONDARY_NAV_LINKS.map((link) => (
+                {secondaryLinks.map((link) => (
                   <NavPill key={link.href} link={link} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
                 ))}
               </nav>
