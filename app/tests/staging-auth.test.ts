@@ -19,6 +19,7 @@ describe("staging authentication environment guard", () => {
   });
   it.each([
     { ...staging, VERCEL_ENV: "production" },
+    { ...staging, APP_ENVIRONMENT: "production" },
     { ...staging, VERCEL_ENV: undefined },
     { ...staging, DATABASE_URL: "postgresql://tradeos_app.kssaceuetdjwfqnbzhly:placeholder@aws-0-us-east-1.pooler.supabase.com/postgres" },
     { ...staging, SUPABASE_URL: "https://kssaceuetdjwfqnbzhly.supabase.co" },
