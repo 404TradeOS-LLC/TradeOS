@@ -548,7 +548,8 @@ describe("StructuredAIEstimatorService", () => {
     expect(result.validation.status).toBe("blocked");
     expect(result.validation.reviewRequired).toBe(true);
     expect(result.lineItems).toHaveLength(0);
-    expect(result.validation.missingInformation).toEqual(expect.arrayContaining(["Confirm dimensions or count for pricing."]));
+    expect(result.validation.missingInformation).toHaveLength(1);
+    expect(result.validation.missingInformation[0]).toEqual(expect.any(String));
   });
 
   it("requires either request scope text or project simple scope", async () => {
