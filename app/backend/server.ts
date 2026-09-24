@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { evaluateStagingAuth } from "../domain";
+import { logError } from "./logging";
 import cors from "cors";
 import express, { Request, Response } from "express";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
@@ -50,6 +52,8 @@ import { stripeWebhookRouter } from "./routes/stripeWebhook.routes";
 
 export function createServer() {
   const app = express();
+  const bypass = evaluateStagingAuth(process.env, "api");
+  if (bypass.blocked) logError("auth.bypass_blocked", { reasonCode: bypass.reason });
 
   app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY));
   app.disable("x-powered-by");

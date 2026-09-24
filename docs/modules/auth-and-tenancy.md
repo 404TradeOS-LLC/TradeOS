@@ -184,3 +184,9 @@ The already-orphaned production account (`hello@404tradeos.com`, created before 
 ## Last verified date
 
 2026-08-14
+
+## Staging-only browser automation identity
+
+`TRADEOS_AUTH_BYPASS` defaults to `false`. When it is exactly `true`, the web session and API auth middleware can use a fixed fixture owner only if both identify the dedicated staging Supabase project (`qfbgdkbamfaasmtjfyru`). The API also requires its `DATABASE_URL` to resolve to that project. Vercel Production always denies protected access and logs `auth.bypass_blocked`. A production Node runtime without `VERCEL_ENV=preview` also denies access. Next.js Preview itself uses `NODE_ENV=production`, so the Preview exception is deliberately limited to `VERCEL_ENV=preview` plus the staging data-plane checks. Local staging requires `APP_ENVIRONMENT=staging`.
+
+The web sends a public fixture marker to the API. It is not a password or JWT. The API resolves `staging-owner` through the existing `AppUser` and active `OrganizationMembership` lookup and checks the fixed user ID, organization ID, email, and owner role. The normal request-scoped database session then sets tenant RLS values. The fixture organization contains only test records; do not enable the mode until that fixture and the staging-only database connection have been verified. A publicly accessible Preview with this flag lets any visitor exercise the fixture owner account, so use Vercel Deployment Protection and synthetic test data. The flag does not alter normal Supabase/JWT authentication when false.

@@ -52,7 +52,7 @@ function createRequest(cookies) {
   };
 }
 
-function loadProxyModule(fetchImpl) {
+function loadProxyModule(fetchImpl, bypass = { enabled: false, blocked: false }) {
   const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
   const transpiled = ts.transpileModule(proxySource, {
     compilerOptions: {
@@ -63,6 +63,7 @@ function loadProxyModule(fetchImpl) {
   }).outputText;
 
   class FakeNextResponse {
+    constructor(body, { status }) { this.kind = "error"; this.body = body; this.status = status; }
     static next({ request }) {
       return { kind: "next", request, cookies: createCookieStore() };
     }
@@ -104,6 +105,7 @@ function loadProxyModule(fetchImpl) {
           },
         };
       }
+      if (specifier === "@/lib/staging-auth") return { stagingAuthDecision: () => bypass };
       if (specifier === "@/lib/local-auth") {
         return {
           LOCAL_ACCESS_TOKEN_COOKIE: "tradeos_access_token",
@@ -135,6 +137,25 @@ describe("web auth proxy", () => {
     assert.match(proxySource, /const \{ data \} = await supabase\.auth\.getClaims\(\)/);
     assert.match(proxySource, /if \(!data\?\.claims\.sub\)/);
     assert.match(proxySource, /NextResponse\.redirect\(loginUrl\)/);
+  });
+
+  it("requires normal login when the bypass is disabled", async () => {
+    const { updateSession } = loadProxyModule(async () => { throw new Error("unexpected fetch"); });
+    const response = await updateSession(createRequest({}));
+    assert.equal(response.kind, "redirect");
+    assert.equal(response.url.pathname, "/login");
+  });
+
+  it("allows the protected app when the staged bypass is active", async () => {
+    const { updateSession } = loadProxyModule(async () => { throw new Error("unexpected fetch"); }, { enabled: true, blocked: false });
+    const response = await updateSession(createRequest({}));
+    assert.equal(response.kind, "next");
+  });
+
+  it("blocks protected app access for an unsafe bypass configuration", async () => {
+    const { updateSession } = loadProxyModule(async () => { throw new Error("unexpected fetch"); }, { enabled: false, blocked: true });
+    const response = await updateSession(createRequest({}));
+    assert.equal(response.status, 503);
   });
 
   it("refreshes a local session when only the refresh cookie remains", async () => {

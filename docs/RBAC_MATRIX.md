@@ -13,6 +13,10 @@ related_code:
 
 # RBAC Matrix
 
+## Staging fixture role
+
+The optional Preview staging auth fixture resolves through the existing active `OrganizationMembership` with canonical `owner` role in its dedicated test organization. Its privileges are the ordinary owner permissions, restricted by the same request-scoped tenant RLS. The bypass guard checks the exact fixture identity and staging database target; it does not create a new role or alter the matrix below. Production cannot enable this mode.
+
 ## Canonical roles
 
 Current canonical roles:

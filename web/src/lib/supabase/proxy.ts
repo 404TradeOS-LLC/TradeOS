@@ -2,9 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { decodeLocalAccessToken, LOCAL_ACCESS_TOKEN_COOKIE, LOCAL_REFRESH_TOKEN_COOKIE, isUsableLocalAccessToken } from "@/lib/local-auth";
 
+import { stagingAuthDecision } from "@/lib/staging-auth";
+
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:4000";
 
 export async function updateSession(request: NextRequest) {
+  const bypass = stagingAuthDecision();
+  if (bypass.blocked) return new NextResponse("Staging authentication bypass is blocked", { status: 503 });
+  if (bypass.enabled) return NextResponse.next({ request });
   let response = NextResponse.next({
     request,
   });
