@@ -20,7 +20,7 @@ related_code:
 
 # Team & Time staging integration
 
-Team & Time records job-based work hours for W-2 employees and subcontractors. The current interface is an early staging slice. It remains hidden unless the server-side `TEAM_TIME_ENABLED` flag is enabled for a deployment configured to use the matching non-production Supabase project.
+Team & Time records job-based work hours for W-2 employees and subcontractors. The current interface is an early staging slice. It remains hidden unless the server-side `TEAM_TIME_ENABLED` flag is enabled, `TEAM_TIME_SUPABASE_PROJECT_REF` is set, and that ref exactly matches the project in `NEXT_PUBLIC_SUPABASE_URL`. It is also denied on Vercel Production.
 
 ## Sign-in and data boundary
 

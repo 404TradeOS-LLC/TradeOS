@@ -44,7 +44,7 @@ related_docs:
 ## Active follow-on: Team & Time staging interface
 
 - A separate frontend branch, `feature/team-time-web-workspace`, connects the staging timekeeping function to the existing TradeOS sign-in session. It adds the responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
-- The work is feature-flagged and explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
+- The work is feature-flagged, requires a server-only Supabase project ref that exactly matches the configured project URL, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
 - The related open PR #561 is an isolated synthetic auth fixture for preview E2E. It does not issue a Supabase Auth JWT for direct Edge Function access, so it is complementary and not an overlapping implementation.
 - Current local verification: web tests (297), lint (one unrelated pre-existing warning), production build, PR preflight, docs ownership/check, docs tests (39), PR tests (70), and `git diff --check` pass.
 - The real phone-to-office test remains blocked on a dedicated active staging worker account, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
@@ -64,4 +64,3 @@ Eligibility: `READY` in the separate governance promotion; implementation starts
 Dependencies: S051 is DONE; no competing S053 implementation was found.
 Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
 Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
-
