@@ -610,7 +610,7 @@ The existing AI Estimate Assist routes expose this contract:
   information. It can include one review question with suggested choices;
   the caller may supply free text for an unmatched answer. These values are
   advisory, and draft generation does not create estimate lines. In the current
-  heuristic, a garage described as "2.5-car" without a square-foot quantity
+  heuristic, a garage floor described as "2.5-car" without a square-foot quantity
   receives a visible 600 SF assumption; contractors must verify measurements.
 - `POST /api/v1/estimates/:id/ai-estimator/apply` accepts an optional root
   `generationId` UUID. When present, the authenticated owner/admin review is

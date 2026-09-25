@@ -23,11 +23,13 @@ export function AthenaEstimatingCopilot({
 }: {
   estimateId: string;
   scopeOfWork: string;
-  estimate: Estimate;
+  estimate: Estimate & { lineItems: Array<{ taxable: boolean; lineCost: number }> };
   onUpdated: () => void;
 }) {
   const [scope, setScope] = useState(scopeOfWork);
   const [draft, setDraft] = useState<StructuredAIEstimateDraft | null>(null);
+  const [draftScope, setDraftScope] = useState("");
+  const [applyNotice, setApplyNotice] = useState("");
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
 
@@ -37,8 +39,10 @@ export function AthenaEstimatingCopilot({
         method: "POST",
         body: JSON.stringify({ scopeOfWork: scopeToEstimate.trim() }),
       }),
-    onSuccess: (next) => {
+    onSuccess: (next, submittedScope) => {
       setDraft(next);
+      setDraftScope(submittedScope.trim());
+      setApplyNotice("");
       setActiveQuestion(next.validation.missingInformation[0] ?? null);
       setAnswer("");
     },
@@ -63,21 +67,33 @@ export function AthenaEstimatingCopilot({
             })) ?? [],
         }),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.skipped.length > 0) {
+        setApplyNotice(`${result.applied.length} item(s) added; ${result.skipped.length} skipped. Review the estimate Items and regenerate before retrying skipped items.`);
+      } else {
+        setApplyNotice(`${result.applied.length} item(s) added. Review the estimate Items.`);
+      }
       onUpdated();
     },
   });
 
   const preview = useMemo(() => {
     if (!draft) return null;
-    const jobCost = draft.subtotalCost;
-    const costAfterOverhead = jobCost * (1 + Number(estimate.overheadPct ?? 0) / 100);
+    const jobCost = Number(estimate.subtotalCost ?? 0) + draft.lineItems
+      .filter((line) => line.targetId && line.reviewToken)
+      .reduce((sum, line) => sum + line.lineCost, 0);
+    const costAfterOverhead = roundCents(jobCost * (1 + Number(estimate.overheadPct ?? 0) / 100));
     const preTax =
       estimate.targetMarginPct != null
-        ? costAfterOverhead / Math.max(0.01, 1 - Number(estimate.targetMarginPct) / 100)
-        : costAfterOverhead * (1 + Number(estimate.profitPct ?? 0) / 100);
-    const tax = Number(estimate.taxPct ?? 0) > 0 ? preTax * Number(estimate.taxPct) / 100 : 0;
-    const total = preTax + tax;
+        ? roundCents(costAfterOverhead / (1 - Number(estimate.targetMarginPct) / 100))
+        : roundCents(costAfterOverhead * (1 + Number(estimate.profitPct ?? 0) / 100));
+    // Applied AI lines default to non-taxable. Only saved taxable lines enter
+    // the same proportional taxable basis used by the Estimate Engine.
+    const taxableCost = estimate.lineItems.reduce((sum, line) => sum + (line.taxable ? Number(line.lineCost) : 0), 0);
+    const tax = jobCost > 0 && taxableCost > 0
+      ? roundCents(roundCents(preTax * taxableCost / jobCost) * Number(estimate.taxPct ?? 0) / 100)
+      : 0;
+    const total = roundCents(preTax + tax);
     const grossProfit = preTax - costAfterOverhead;
     return { jobCost, preTax, total, grossProfit, margin: preTax > 0 ? grossProfit / preTax * 100 : 0 };
   }, [draft, estimate]);
@@ -99,7 +115,7 @@ export function AthenaEstimatingCopilot({
   const resolved = draft?.lineItems.filter((line) => line.targetId && line.reviewToken) ?? [];
   const assumptions = draft ? [...draft.parsedScope.assumptions, ...draft.validation.missingInformation] : [];
   const exclusions = draft?.parsedScope.exclusions ?? [];
-  const canBuild = resolved.length > 0 && !apply.isPending;
+  const canBuild = resolved.length > 0 && estimate.status === "draft" && draftScope === scope.trim() && !generate.isPending && !apply.isPending;
 
   return (
     <section className="border border-primary/30 bg-primary/5" aria-labelledby="athena-estimating-copilot-heading">
@@ -118,7 +134,7 @@ export function AthenaEstimatingCopilot({
         <div className="mt-4">
           <Textarea
             value={scope}
-            onChange={(event) => setScope(event.target.value)}
+            onChange={(event) => { setScope(event.target.value); setApplyNotice(""); }}
             placeholder="Paint a 2.5-car garage floor. Existing coating is worn. Customer wants tan."
             className="min-h-24 resize-y bg-background text-base"
             aria-label="Contractor job description"
@@ -232,6 +248,7 @@ export function AthenaEstimatingCopilot({
             </Button>
           </div>
           {apply.isError ? <p className="text-sm text-destructive" role="alert">{apply.error instanceof Error ? apply.error.message : "Athena could not add the reviewed estimate."}</p> : null}
+          {applyNotice ? <p className="text-sm text-warning" role="status">{applyNotice}</p> : null}
         </div>
       ) : null}
     </section>
@@ -248,7 +265,11 @@ function ReviewRow({ label, value, strong = false }: { label: string; value: str
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
+
+function roundCents(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 

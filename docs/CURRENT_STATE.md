@@ -538,7 +538,7 @@ The starter assembly mapper now provides a read-only pre-install cost preview af
 
 ## S053 structured estimate-assist
 
-The estimate builder now embeds a contractor-focused Athena copilot that turns rough scope into a structured draft with extracted quantities, preparation, visible assumptions and exclusions, Costbook/assembly matches, and a pricing preview. Clarification is presented one question at a time with quick choices and free-text input. Contractors explicitly review and add suggested lines; the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. The 600 SF assumption for a 2.5-car garage is a heuristic, not a measured takeoff or a verified price. Authenticated browser certification at 1440/768/390 remains pending.
+The estimate builder now embeds a contractor-focused Athena copilot that turns rough scope into a structured draft with extracted quantities, preparation, visible assumptions and exclusions, Costbook/assembly matches, and a pricing preview. Clarification is presented one question at a time with quick choices and free-text input. Contractors explicitly review and add suggested lines; the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. The visible 600 SF assumption applies only to explicitly described 2.5-car garage floor work; it is a heuristic, not a measured takeoff or verified price. The preview includes existing estimate cost and tax while suggested lines default to non-taxable. Authenticated browser certification at 1440/768/390 remains pending.
 
 
 ## Mobile Field Workspace

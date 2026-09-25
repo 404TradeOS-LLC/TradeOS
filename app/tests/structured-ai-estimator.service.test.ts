@@ -194,11 +194,30 @@ describe("StructuredAIEstimatorService", () => {
       orgId: "org-1",
       scopeOfWork: "Recoat a 2.5-car garage floor with an old coating.",
     });
+    const paintedWalls = await service.generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Paint walls in a 2.5-car garage.",
+    });
 
     expect(twoCar.parsedScope.quantities).not.toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
     expect(twoCar.parsedScope.assumptions).not.toContain("600 sq ft standard 2.5-car garage assumption");
     expect(twoAndHalfCar.parsedScope.quantities).toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
     expect(twoAndHalfCar.parsedScope.assumptions).toContain("600 sq ft standard 2.5-car garage assumption");
+    expect(paintedWalls.parsedScope.quantities).not.toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
+  });
+
+  it("does not re-ask a dimension question already covered by an explicit measurement", async () => {
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Concrete", confidenceScore: 80, assumptions: [], rationale: [],
+      missingInformation: ["Confirm dimensions or count for pricing."], reviewWarnings: [],
+      matchedAssemblies: [], matchedCostItems: [], missingInputs: [], humanReviewWarnings: [],
+    });
+    const result = await new StructuredAIEstimatorService().generateDraft({
+      estimateId: "estimate-1", orgId: "org-1", scopeOfWork: "Recoat 400 sq ft of garage floor.",
+    });
+    expect(result.parsedScope.missingInformation).toEqual([]);
+    expect(result.validation.missingInformation).toEqual([]);
   });
 
   it("propagates the Knowledge Engine match's provenanceStatus onto the draft line item", async () => {

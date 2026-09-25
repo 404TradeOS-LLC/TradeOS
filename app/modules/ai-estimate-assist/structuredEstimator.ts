@@ -106,7 +106,7 @@ export class StructuredAIEstimatorService {
       ...lineItems.flatMap((lineItem) => lineItem.reviewWarnings),
       ...(resolvedCount === 0 ? ["No generated line item is currently tied to an existing estimate target."] : []),
     ];
-    const missingInformation = [...new Set([...parsedScope.missingInformation, ...knowledgeMatch.missingInformation])];
+    const missingInformation = parsedScope.missingInformation;
     const validationStatus = resolvedCount === 0 ? "blocked" : missingInformation.length > 0 || warnings.length > 0 ? "needs_review" : "ready_for_review";
     toolRuns.push({
       name: "estimate.validate",
@@ -624,7 +624,9 @@ function parseContractorScope(scope: string, detectedTrade: string | null, runti
   // Contractor language often encodes usable defaults without stating an exact measurement.
   // Keep the assumption visible instead of blocking the draft.
   if (!quantities.some((quantity) => quantity.unit === "SF")) {
-    const garageMatch = lower.match(/\b2\.5[- ]?car\s+garage\b/);
+    const garageMatch = /garage\s+floor|floor\s+(?:recoat|coating|paint)/.test(lower)
+      ? lower.match(/\b2\.5[- ]?car\s+garage\b/)
+      : null;
     if (garageMatch) {
       quantities.push({ type: "area", value: 600, unit: "SF", sourceText: "standard 2.5-car garage assumption" });
     }
