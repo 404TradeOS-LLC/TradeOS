@@ -13,9 +13,6 @@ related_code:
   - web/src/lib/team-time-api.ts
   - web/src/app/api/team-time/route.ts
   - web/src/proxy.ts
-  - supabase/functions/team-time
-  - supabase/migrations/20260924220000_team_time.sql
-  - supabase/migrations/20260924223000_team_time_integrity.sql
 ---
 
 # Team & Time staging integration
@@ -43,4 +40,5 @@ Team & Time records job-based work hours for W-2 employees and subcontractors. T
 - The interface displays server-recorded timestamps; it does not prove the worker was physically at a job site.
 - Worker identity requires an existing active Supabase Auth account linked to a TradeOS user and organization membership. Local-only application sessions cannot authenticate directly to this Edge Function.
 - The live signed-in workflow still needs a dedicated staging worker, assigned staging job, configured staging deployment, and phone-to-office verification. Isolated request tests do not count as that live verification.
-- Do not enable the page against production until the function and tables are deployed and verified in the matching production Supabase project.
+- Staging verification on 2026-09-25 confirmed the `team-time` Edge Function is active at version 4 with JWT verification enabled, and migrations `20260924145928` (`team_time_foundation`) and `20260924150458` (`team_time_integrity`) are applied. The staging Team & Time tables currently have no profiles or shifts, and there are no active jobs or assignments.
+- The deployed Edge Function and migration source are not currently present in this repository. Add and review their source-controlled equivalents before treating this as a reproducible backend or enabling the feature in Production. Production requires the function and tables to be deployed and verified in the matching project.
