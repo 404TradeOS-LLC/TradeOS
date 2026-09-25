@@ -36,8 +36,8 @@ Core principles:
 
 Blueprint is the default TradeOS product environment:
 
-- light, cool-graphite surfaces
-- clean white and soft neutral cards
+- light, warm-neutral surfaces with charcoal text
+- distinct page, sidebar, and content surfaces using the current production tokens
 - restrained copper accents
 - compact, engineered spacing
 - strong hierarchy without visual noise
@@ -56,7 +56,7 @@ Forge is the darker, warmer, dramatic 404 TradeOS marketing language. Keep it on
 
 ## 3. Color and token rules
 
-**TradeOS Copper — `#B87333`** is the brand accent, not a general-purpose semantic color.
+**TradeOS Copper — `#B87333` in Blueprint, with a lighter production token in Carbon** is the brand accent, not a general-purpose semantic color.
 
 Use copper sparingly for primary actions, active navigation, selected controls, focus treatment where the production pairing is accessible, and restrained brand moments.
 
@@ -108,12 +108,12 @@ Use borders for most separation. Reserve stronger shadows for floating menus, sh
 
 The dashboard is the owner's daily command center, not a widget collection.
 
-It should answer, in order:
+Its operating rhythm is **Now / Needs You / Coming Up / Money**. It should answer, in order:
 
-1. What is happening today?
-2. What needs my attention?
-3. What should I do next?
-4. Where are today's job, crew, schedule, or money risks?
+1. What should I do now?
+2. What needs my decision?
+3. What work and visits are coming up?
+4. What money needs attention?
 
 The top zone may show today's schedule summary, urgent operational count, overdue or ready-to-collect money, and one dominant CTA such as **Handle next priority**.
 
@@ -147,10 +147,10 @@ A useful Athena recommendation should communicate:
 3. **Consequence** — what may happen if ignored, when supported.
 4. **Action** — a direct way to resolve or advance the item.
 
-Example using verifiable lifecycle data:
+Example using recorded proposal state and its sent date:
 
 > Follow up with Briarwood Condo
-> Proposal was viewed on September 9 and has remained open for 5 days.
+> Proposal was sent five days ago; no acceptance or decline is recorded.
 > **Send follow-up** · **Review proposal**
 
 Do not describe “high engagement,” intent, sentiment, risk, or other inferred states as confirmed facts unless the product has a real data contract that supports those claims.
@@ -165,7 +165,7 @@ Use contextual recommendation panels, inline suggestion rows, task-preparation s
 
 The TradeOS sign-in experience must be unmistakably TradeOS:
 
-- real TradeOS logo/mark
+- approved TradeOS identity, with a text wordmark until an approved logo master exists
 - Blueprint product environment
 - restrained copper branding
 - contractor-focused plain-language message
