@@ -31,7 +31,7 @@ async function main(): Promise<void> {
       }
     });
     for (const path of ["/dashboard", `/projects/${STAGING_AUTH.projectId}/estimates/${STAGING_AUTH.estimateId}`]) {
-      const response = await page.goto(new URL(path, web).toString(), { waitUntil: "networkidle" });
+      const response = await page.goto(new URL(path, web).toString(), { waitUntil: "domcontentloaded" });
       if (response?.status() !== 200 || new URL(page.url()).pathname === "/login") {
         throw new Error(`${path} did not load authenticated (HTTP ${response?.status() ?? "none"})`);
       }
