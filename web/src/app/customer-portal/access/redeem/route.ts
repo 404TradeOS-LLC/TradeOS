@@ -3,6 +3,7 @@ import {
   CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE,
   CUSTOMER_PORTAL_PENDING_ACCESS_COOKIE_PATH,
   isValidCustomerPortalAccessToken,
+  parseCustomerPortalRedemption,
 } from "@/lib/customer-portal-access";
 import { CUSTOMER_PORTAL_SESSION_COOKIE } from "@/lib/customer-portal-session";
 import { shouldRejectProxyMutation } from "@/lib/proxy-origin";
@@ -19,23 +20,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return buildPortalRedirect(request, "/customer-portal/access-error");
   }
 
-  const response = await fetch(`${BACKEND_API_URL}/api/v1/customer-portal/redeem`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-    cache: "no-store",
-  });
-  const body = response.ok ? ((await response.json()) as { sessionToken: string; expiresAt: string }) : undefined;
-  const result = buildPortalRedirect(request, response.ok ? "/customer-portal" : "/customer-portal/access-error");
+  let session: { token: string; maxAge: number } | undefined;
+  try {
+    const response = await fetch(`${BACKEND_API_URL}/api/v1/customer-portal/redeem`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+    });
+    if (response.ok) {
+      session = parseCustomerPortalRedemption(await response.json()) ?? undefined;
+    }
+  } catch {
+    // A failed exchange never creates a customer session or reports bearer material.
+  }
+  const result = buildPortalRedirect(request, session ? "/customer-portal" : "/customer-portal/access-error");
 
-  if (body?.sessionToken) {
-    const maxAge = Math.max(1, Math.floor((Date.parse(body.expiresAt) - Date.now()) / 1000));
-    result.cookies.set(CUSTOMER_PORTAL_SESSION_COOKIE, body.sessionToken, {
+  if (session) {
+    result.cookies.set(CUSTOMER_PORTAL_SESSION_COOKIE, session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge,
+      maxAge: session.maxAge,
     });
   }
 
