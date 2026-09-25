@@ -39,6 +39,7 @@
         "baseHead": "47fb0105f7d2ee3e1287197efa2f9ceaafd8caa8",
         "serviceAddressFrontend": "web/src/app/(app)/customers/[id]/service-addresses.tsx",
         "writeActions": "web/src/app/actions/customers.ts",
+        "addressFormTest": "web/src/lib/service-address-form.test.ts",
         "parentScopeTest": "app/tests/project-customer-scope.middleware.test.ts",
         "rbacTest": "app/tests/crm.controller.test.ts",
         "limitations": [

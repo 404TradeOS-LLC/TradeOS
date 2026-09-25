@@ -4,30 +4,18 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { apiFetch, ApiClientError } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { parseServiceAddressForm } from "@/lib/service-address-form";
 
 export type FormActionState = { error?: string } | undefined;
-
-function serviceAddressInput(formData: FormData) {
-  return {
-    label: String(formData.get("label") ?? "").trim(),
-    addressLine1: String(formData.get("addressLine1") ?? "").trim(),
-    addressLine2: String(formData.get("addressLine2") ?? "").trim(),
-    city: String(formData.get("city") ?? "").trim(),
-    state: String(formData.get("state") ?? "").trim(),
-    postalCode: String(formData.get("postalCode") ?? "").trim(),
-    isPrimary: formData.get("isPrimary") === "on",
-  };
-}
 
 async function mutateServiceAddress(method: "POST" | "PATCH" | "DELETE", formData: FormData): Promise<FormActionState> {
   const customerId = String(formData.get("customerId") ?? "");
   const addressId = String(formData.get("addressId") ?? "");
   if (!customerId || (method !== "POST" && !addressId)) return { error: "Service address is missing." };
 
-  const input = method === "DELETE" ? undefined : serviceAddressInput(formData);
-  if (input && (!input.addressLine1 || !input.city || !input.state || !input.postalCode)) {
-    return { error: "Street, city, state, and postal code are required." };
-  }
+  const parsed = method === "DELETE" ? undefined : parseServiceAddressForm(formData);
+  if (parsed && "error" in parsed) return { error: parsed.error };
+  const input = parsed?.input;
 
   try {
     const token = await getSessionToken();

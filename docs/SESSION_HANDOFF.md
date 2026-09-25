@@ -49,6 +49,8 @@ deduplication, run isolated authenticated owner/admin and denial journeys at
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE for the S052 branch.
-Eligibility: S052 requires duplicate-policy and browser certification; S056
-depends on S052 passing. S053 continues in PR #560; this branch must not start it.
+Sprint ID: S053
+Eligibility: READY in the current backlog; implementation is already underway in PR #560, so advance that PR rather than create a duplicate branch.
+Dependencies: S051 is DONE; S052 is not a dependency for S053. S056 waits until S052 passes.
+Overlap check: S053 work belongs to open PR #560; S052 is isolated in draft PR #565 pending duplicate-policy and browser certification.
+Startup prompt: Continue S053 in PR #560, verify current-head review and CI, and keep S052 draft PR #565 separate until its acceptance gates pass.
