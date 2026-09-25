@@ -39,7 +39,7 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, currentRole }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; currentRole: string | null }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
   const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
@@ -137,6 +137,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         estimate={estimate}
         runningTotals={runningTotals}
         estimateId={estimateId}
+        currentRole={currentRole}
         isDraft={isDraft}
         mobileStage={mobileStage}
         onStageChange={setMobileStage}
@@ -193,6 +194,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
           <AthenaEstimatingCopilot
             estimateId={estimateId}
+            currentRole={currentRole}
             scopeOfWork={simpleScope ?? ""}
             estimate={estimate}
             onUpdated={invalidate}
@@ -226,6 +228,7 @@ function MobileEstimateFlow({
   estimate,
   runningTotals,
   estimateId,
+  currentRole,
   isDraft,
   mobileStage,
   onStageChange,
@@ -239,6 +242,7 @@ function MobileEstimateFlow({
   estimate: EstimateDetail;
   runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
   estimateId: string;
+  currentRole: string | null;
   isDraft: boolean;
   mobileStage: MobileEstimateStage;
   onStageChange: (stage: MobileEstimateStage) => void;
@@ -288,6 +292,7 @@ function MobileEstimateFlow({
           </div>
           <AthenaEstimatingCopilot
             estimateId={estimateId}
+            currentRole={currentRole}
             scopeOfWork={simpleScope ?? ""}
             estimate={estimate}
             onUpdated={onUpdated}

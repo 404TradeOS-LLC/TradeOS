@@ -18,11 +18,13 @@ type ApplyResponse = {
 
 export function AthenaEstimatingCopilot({
   estimateId,
+  currentRole,
   scopeOfWork,
   estimate,
   onUpdated,
 }: {
   estimateId: string;
+  currentRole: string | null;
   scopeOfWork: string;
   estimate: Estimate & { lineItems: Array<{ taxable: boolean; lineCost: number }> };
   onUpdated: () => void;
@@ -56,7 +58,9 @@ export function AthenaEstimatingCopilot({
       clientFetch<ApplyResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: JSON.stringify({
-          generationId: draft?.generationId,
+          // Generation-linked review provenance is limited by the backend to
+          // owner/admin. Dispatchers retain their existing billing.write apply.
+          ...((currentRole === "owner" || currentRole === "admin") && draft?.generationId ? { generationId: draft.generationId } : {}),
           lineItems: draft?.lineItems
             .filter((line) => acceptedIds.includes(line.draftLineItemId) && line.targetId && line.reviewToken)
             .map((line) => ({
