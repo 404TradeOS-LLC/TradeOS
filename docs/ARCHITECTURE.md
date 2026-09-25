@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-09
+last_verified: 2026-09-14
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -103,6 +103,13 @@ does not enlarge the database pool or weaken the RLS transaction boundary.
 Service-level transactions opened through `runInDatabaseTransaction` also bind the active Prisma transaction to the same async-local routing, so nested service calls and advisory-lock flows use one transaction even outside an HTTP request.
 
 Background jobs use the same session model through `runWithBackgroundDatabaseSession`.
+That function independently re-verifies the calling identity's active
+organization membership before opening the session — it never trusts a
+caller-supplied role — and now also hands its resolved `AuthContext` to the
+operation it runs (additive; existing zero-argument callers are unaffected),
+so a background caller that needs to call a service method taking an explicit
+`AuthContext` (for example `CostbookCandidateService.create()`) does not have
+to re-derive or separately trust that identity.
 
 Database search-index changes do not alter this tenancy model. The `pg_trgm` extension and the GIN trigram indexes added in migration `20260703090000_add_search_trgm_indexes` operate below the query planner and do not bypass or weaken RLS.
 

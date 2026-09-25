@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-14
+last_verified: 2026-09-14
 source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
@@ -126,6 +126,18 @@ The email links target the implemented `/reset-password?token=...` and `/invite/
 - Security audit persistence uses the same transaction client when the
   authentication seam has a verified membership, preserving `app.user_id`,
   `app.org_id`, and `app.role` without widening lookup scope.
+- `runWithBackgroundDatabaseSession` (`app/db/requestSession.ts`) is the
+  identity boundary for operator/background scripts: it re-verifies that the
+  supplied `userId` has an active `organizationMembership` in the supplied
+  `orgId` and derives the role from that row — it never accepts a
+  caller-supplied role. It now also hands that resolved `AuthContext` to the
+  operation it runs, an additive change (every existing zero-argument
+  caller — supplier price sync, Athena observability retention/export/alerts —
+  is unaffected) that lets a new caller pass the verified identity straight
+  into a service method requiring an explicit `AuthContext`, instead of
+  re-deriving or trusting one, while every write that identity makes still
+  goes through the same RLS-enforced write paths as an authenticated HTTP
+  request would.
 
 ## Frontend surfaces
 

@@ -279,6 +279,36 @@ candidate-ready, and `POST .../candidates/from-knowledge` correctly rejects
 every item in the canonical corpus today. The end-to-end ready path is proven
 by deterministic fixtures, not by a claim that the research corpus is usable.
 
+### First real-source trade proven end to end: Jones & Sons Terre Haute aggregate (2026-09-14)
+
+A follow-up slice closes that fixture-only gap for one trade using real,
+previously-merged source evidence rather than the Knowledge Engine corpus.
+`app/modules/costbook/jonesAndSonsIngestion.ts` submits the two Jones & Sons
+Terre Haute branch-verified aggregate materials
+(`app/modules/costbook/jonesAndSonsTerreHaute.ts`, merged 2026-09-12) through
+the canonical `CostbookCandidateService.create()`, idempotently per
+organization; `app/scripts/ingest-jones-and-sons-candidates.ts` is the
+operator entry point. `app/tests/costbook-jones-and-sons-ingestion.rls.integration.ts`
+proves the complete path against real Postgres: ingestion with the true
+source citation, org-scoped idempotency, review approval, promotion into a
+real `Material` ($29.75/ton, matching the source) and `CostItem` with no
+invented labor/equipment component, an audit trail carrying the genuine
+`sourceUrl`/`sourceIdentifier`, and cross-organization denial even after
+approval. See `docs/reports/JONES_AND_SONS_TERRE_HAUTE_INGESTION_2026-09-12.md`
+for what "end to end" does and does not claim here — no live organization's
+Costbook was actually populated by this slice; that still requires an
+operator to run the script against a live database (unavailable in the
+authoring environment) and a human to approve and promote in the UI. The
+BLS OEWS labor benchmark remains ingested nowhere, for a documented reason:
+it deliberately omits the fields promotion needs to avoid fabricating a
+bill rate from a raw wage.
+
+`runWithBackgroundDatabaseSession` (`app/db/requestSession.ts`) now hands its
+resolved, membership-derived `AuthContext` to the operation it runs, instead
+of only using it to set Postgres session variables — additive and backward
+compatible; every existing caller passed a zero-argument callback and is
+unaffected.
+
 ## Lifecycle normalization status
 
 The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.

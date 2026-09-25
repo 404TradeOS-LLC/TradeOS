@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -180,7 +180,14 @@ outcomes expose a safe status, attempt number, correlation ID, failure code,
 and bounded next-attempt timestamp. Event subscribers receive an
 organization-scoped stable idempotency key and attempt metadata. These
 contracts do not claim that production scheduling or live failure rehearsal has
-been configured.
+been configured. `runWithBackgroundDatabaseSession` now passes its resolved,
+membership-derived `AuthContext` to the operation it runs, rather than only
+using it to set the Postgres session variables that back RLS — additive and
+backward compatible, since every existing caller supplied a zero-argument
+callback. `app/scripts/ingest-jones-and-sons-candidates.ts` is the first
+consumer that needs the resolved context directly, to call
+`CostbookCandidateService.create()` (which takes an explicit `AuthContext`)
+without re-deriving or trusting a caller-supplied role.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 

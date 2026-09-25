@@ -137,7 +137,7 @@ adapter, with zero shared files with either #492 or #493.
 - `scripts/costbook-import-jones-and-sons.mjs` — the discovery/fetch/parse
   pipeline for a future run with real outbound access. Not executed.
 
-## Explicit limitation
+## Explicit limitation (original slice)
 
 Same shape as the BLS OEWS report: this PR prepares source-backed
 candidates but does not mutate a live tenant database by itself.
@@ -147,6 +147,82 @@ human review/promotion workflow applies — and, additionally here, a human
 should re-verify current pricing before approving any of these
 candidates, since none were re-fetched live in this session.
 
+## Operator ingestion and first end-to-end proof (2026-09-14)
+
+A follow-up slice closes the gap the limitation above described: nothing
+had ever actually called the Costbook candidate intake path with this
+evidence. This slice adds the real submission mechanism and proves the
+full pipeline against these two specific, real records.
+
+- `app/modules/costbook/jonesAndSonsIngestion.ts` —
+  `ingestJonesAndSonsTerreHauteCandidates(auth, options)` submits only
+  `buildJonesAndSonsTerreHauteCandidates()`'s two branch-verified records
+  (never the six lower-confidence, unconfirmed-branch records) through the
+  existing `CostbookCandidateService.create()` — the same canonical,
+  org-scoped write path a hand-submitted candidate uses. It checks
+  `costbook.write` before doing anything (the database's own
+  `costbook_research_candidates_write_policy` independently requires
+  owner/admin for the insert, so this is defense-in-depth, not the only
+  gate), and is idempotent per organization: re-running it against an
+  organization that already has a candidate for a given Jones & Sons SKU
+  never creates a duplicate, regardless of that candidate's review state —
+  a rejection must stay durable across re-ingestion.
+- `app/scripts/ingest-jones-and-sons-candidates.ts` — the operator entry
+  point (`--org-id --user-id`), mirroring the existing
+  `run-supplier-price-sync.ts` background-job pattern. It resolves the
+  real, membership-derived role for `--user-id` (via
+  `runWithBackgroundDatabaseSession`, widened in this slice to hand that
+  resolved `AuthContext` to its caller rather than only using it to set
+  Postgres session variables — an additive, backward-compatible change;
+  every existing zero-argument caller of that function is unaffected) and
+  never accepts a caller-supplied role. It only ever ingests — it never
+  calls review() or promote() on anything, so a script run still requires
+  a named human with `costbook.manage` to approve and explicitly promote
+  each candidate at `/costbook/research-review`.
+- `app/tests/costbook-jones-and-sons-ingestion.rls.integration.ts` proves
+  the complete path against real Postgres and RLS, using these real
+  records rather than synthetic fixtures: ingestion creates exactly the
+  two Terre Haute-verified candidates with their true `sourceUrl` /
+  `sourceIdentifier` / `confidence: "high"` / `provenanceStatus:
+  "documented"`; re-ingestion is a no-op; one organization's ingestion
+  never sees or is skipped by another organization's candidates; approving
+  and promoting the Crushed Limestone #8/CA-11 candidate creates a real
+  `Material` row priced at the true $29.75/ton and a real `CostItem`
+  referencing it (no labor or equipment component is invented for a
+  material-only candidate); the review/promotion `ActivityEvent` audit
+  trail carries the true Jones & Sons source citation; the second,
+  not-yet-reviewed candidate is untouched by the first one's decision; and
+  an out-of-organization owner can neither read nor promote either
+  candidate, even after approval.
+- `app/tests/costbook-jones-and-sons-ingestion.service.test.ts` covers the
+  same idempotency, org-scoping, and permission-gate logic with mocked
+  Prisma, runnable without a live database.
+
+### What "end to end" means here, precisely
+
+This slice does **not** claim any real organization's live Costbook now
+contains these materials. The ingestion script has not been run against
+any live database — no live PostgreSQL instance is available in the
+environment that authored this slice (no Docker daemon, no reachable
+`DATABASE_URL`), exactly as recorded for `npm run test:integration` in
+PR #493. What is proven, and proven against real Postgres in CI rather
+than only asserted, is that the whole pipeline — ingest a real, cited
+material observation as a candidate, have a human approve it, promote it
+through the canonical Costbook services, and retain an auditable source
+trail — works correctly end to end for this one trade (Sitework /
+Aggregate), using this session's real evidence rather than a synthetic
+fixture. Running the operator script against a live organization, and a
+human actually clicking Approve and Promote in the UI, remain separate,
+deliberate actions for whoever operates that organization.
+
 ## Follow-up work
 
 See the "Next five TODO items" in this PR's description/final report.
+The BLS OEWS labor benchmark (`app/modules/costbook/blsOewsTerreHaute.ts`)
+remains ingested nowhere — it deliberately omits `laborHours` and
+`laborRateAssumption` so promotion cannot fabricate a bill rate from a raw
+wage, which also means promoting it today would create an empty,
+zero-cost Cost Item. A real end-to-end proof for that source needs either
+an organization-supplied production-rate/burden input at review time, or
+a promotion mode that records a labor benchmark without requiring it to
+resolve to a bill rate immediately — deferred rather than solved here.
