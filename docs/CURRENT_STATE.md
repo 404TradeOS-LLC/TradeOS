@@ -121,6 +121,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 
 - Auth and tenancy, including local-session refresh hardening, Supabase JWT verification, organization bootstrap/recovery, request-scoped database sessions, and forced PostgreSQL RLS.
 - CRM: customers, service addresses, customer equipment, service agreements, notes, and company profile.
+- S052 branch connects service-address list/add/update/remove on Customer detail to the existing tenant-scoped CRM routes. Canonical `crm.read`/`crm.write` now permits admin customer and address operations where stale hard-coded controller role checks had excluded admin; technicians remain read-only. This is branch implementation, pending browser and duplicate-policy certification before a sprint completion claim.
 - Projects and project workspace, including task and site-visit workflows.
 - Estimating: estimate creation, sections/line items, Costbook provenance, custom lines, pricing formulas, tax, duplication, comparison, finalized-estimate behavior, and review-first AI Estimate Assist.
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.

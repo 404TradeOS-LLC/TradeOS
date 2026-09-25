@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-09-25
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -14,45 +14,41 @@ related_docs:
 
 ## Current truth
 
-- S051 implementation merged in PR #538:
-  https://github.com/404TradeOS-LLC/TradeOS/pull/538
-- Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
-- The matrix/validator is now on `main`; do not continue the old S051 branch.
-- The change adds a machine-readable matrix of 10 journeys and 49 UI/API
-  actions or reads, plus a static route/controller/contract drift validator,
-  regression tests, and beta-evidence documentation.
-- The matrix identifies two current gaps: no customer proposal accept/decline
-  UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
-- Static validation is not rendered-browser certification. No current-head
-  browser evidence is claimed. Hosted verification passed on code head
-  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
-  remain outstanding.
-- No application behavior, API contract, database schema, or runtime security
-  policy was changed.
+- S051 merged in PR #538 and established the static connection matrix. S053 is
+  `READY` and separately under active repair in PR #560.
+- Founder explicitly started S052 despite its still-`PLANNED` backlog label.
+  S052 branch `feature/s052-customer-project-vertical-certification` starts at
+  `47fb0105f7d2ee3e1287197efa2f9ceaafd8caa8`.
+- Customer/service-address controllers now honor established `crm.read` and
+  `crm.write`, including admin; technician remains read-only. Customer detail
+  lists and edits existing CRM service addresses and reloads authoritative data.
+  Project customer-parent scope middleware already checks active, same-org
+  customers; no schema, RLS, or new address model is introduced.
+- S052 connection-matrix journey is `PARTIAL` until authenticated current-head
+  browser checks pass at 1440/768/390 and the ordinary Add customer duplicate
+  policy is decided. Import already skips a normalized email **or** phone match;
+  that is not a quick-create contract. No S052 DONE or S056 eligibility claim.
 
 ## Verification completed
 
-- `npm run connection-matrix:check` — passed (10 journeys, 49 mapped actions).
-- `npm run connection-matrix:test` — passed.
-- `npm run pr:test` — passed (65 tests).
-- `npm run docs:test` — passed.
-- `npm run docs:check -- --base origin/main` — passed.
-- `npm run pr:preflight -- --base origin/main` — passed.
-- `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
-  passed.
+- Focused CRM/Project/controller/parent-scope and auth membership tests pass;
+  app lint/build and web lint/build/unit tests pass.
+- `npm run connection-matrix:check` passes for 10 journeys and 52 mapped actions;
+  matrix tests, `npm run pr:test` (70 tests), `npm run docs:test`,
+  `npm run docs:check -- --base origin/main`, `npm run pr:preflight -- --base origin/main`,
+  and `git diff --check` pass on the S052 worktree.
+- Current-head hosted CI and authenticated browser evidence are pending. Local
+  PostgreSQL integration rehearsal cannot run without Docker in this workspace.
 
 ## Next action
 
-After the S053 readiness PR merges, create a fresh implementation branch from
-current `main`. Certify the existing scope → Athena → reviewed Costbook/assembly
-→ persisted estimate-line path; do not change pricing policy, schema, auth/RLS,
-or introduce unreviewed AI writes.
+Keep S052 in review. Confirm the quick-create duplicate choice without silent
+deduplication, run isolated authenticated owner/admin and denial journeys at
+1440/768/390, then verify exact-head CI/review before any DONE claim. S053 PR
+#560 proceeds independently; S056 waits until S052 passes.
 
 ## Next Eligible Sprint
 
-Sprint ID: S053
-Eligibility: `READY` in the separate governance promotion; implementation starts only after that PR merges.
-Dependencies: S051 is DONE; no competing S053 implementation was found.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
-Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
-
+Sprint ID: NONE for the S052 branch.
+Eligibility: S052 requires duplicate-policy and browser certification; S056
+depends on S052 passing. S053 continues in PR #560; this branch must not start it.

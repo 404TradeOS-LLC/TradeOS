@@ -7,6 +7,55 @@ import { getSessionToken } from "@/lib/session";
 
 export type FormActionState = { error?: string } | undefined;
 
+function serviceAddressInput(formData: FormData) {
+  return {
+    label: String(formData.get("label") ?? "").trim(),
+    addressLine1: String(formData.get("addressLine1") ?? "").trim(),
+    addressLine2: String(formData.get("addressLine2") ?? "").trim(),
+    city: String(formData.get("city") ?? "").trim(),
+    state: String(formData.get("state") ?? "").trim(),
+    postalCode: String(formData.get("postalCode") ?? "").trim(),
+    isPrimary: formData.get("isPrimary") === "on",
+  };
+}
+
+async function mutateServiceAddress(method: "POST" | "PATCH" | "DELETE", formData: FormData): Promise<FormActionState> {
+  const customerId = String(formData.get("customerId") ?? "");
+  const addressId = String(formData.get("addressId") ?? "");
+  if (!customerId || (method !== "POST" && !addressId)) return { error: "Service address is missing." };
+
+  const input = method === "DELETE" ? undefined : serviceAddressInput(formData);
+  if (input && (!input.addressLine1 || !input.city || !input.state || !input.postalCode)) {
+    return { error: "Street, city, state, and postal code are required." };
+  }
+
+  try {
+    const token = await getSessionToken();
+    await apiFetch(`/api/v1/customers/${encodeURIComponent(customerId)}/service-addresses${addressId ? `/${encodeURIComponent(addressId)}` : ""}`, {
+      method,
+      token: token ?? undefined,
+      ...(input ? { body: JSON.stringify(input) } : {}),
+    });
+  } catch (err) {
+    return { error: err instanceof ApiClientError ? err.message : "Could not save service address." };
+  }
+
+  revalidatePath(`/customers/${customerId}`);
+  return undefined;
+}
+
+export async function createServiceAddressAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return mutateServiceAddress("POST", formData);
+}
+
+export async function updateServiceAddressAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return mutateServiceAddress("PATCH", formData);
+}
+
+export async function removeServiceAddressAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
+  return mutateServiceAddress("DELETE", formData);
+}
+
 export async function createCustomerAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
   const name = String(formData.get("name") ?? "").trim();

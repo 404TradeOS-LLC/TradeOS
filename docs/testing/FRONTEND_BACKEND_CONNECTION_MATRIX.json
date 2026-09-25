@@ -24,15 +24,28 @@
       "id": "customer-project",
       "name": "Lead/customer to project",
       "owner": "CRM and Projects",
-      "status": "HISTORICALLY_CERTIFIED",
+      "status": "PARTIAL",
       "authorization": "Staff: crm.read for reads and crm.write for writes; technician is read-only. Organization membership and forced RLS apply.",
       "refresh": "Customer/project list or detail must reflect the persisted record after server-action redirect/revalidation.",
       "automatedEvidence": [
         "web/src/app/actions/projects.test.ts",
         "app/tests/crm.controller.test.ts",
-        "app/tests/projects.controller.test.ts"
+        "app/tests/projects.controller.test.ts",
+        "app/tests/project-customer-scope.middleware.test.ts",
+        "app/tests/crm.service.test.ts"
       ],
-      "browserCheckpoint": "Create a customer, create a project linked to that customer, reload both records, and verify a foreign-organization project/customer is denied.",
+      "browserCheckpoint": "At 1440/768/390, create/edit/reload a customer; add/edit/remove/reload its service address; create a project for the in-tenant customer with siteAddress and simpleScope, reload both records, and verify owner/admin success, validation rejection, inactive-member/technician denial, and foreign-organization parent denial. A quick-create duplicate policy still requires a founder decision.",
+      "s052Evidence": {
+        "baseHead": "47fb0105f7d2ee3e1287197efa2f9ceaafd8caa8",
+        "serviceAddressFrontend": "web/src/app/(app)/customers/[id]/service-addresses.tsx",
+        "writeActions": "web/src/app/actions/customers.ts",
+        "parentScopeTest": "app/tests/project-customer-scope.middleware.test.ts",
+        "rbacTest": "app/tests/crm.controller.test.ts",
+        "limitations": [
+          "No current-head authenticated browser screenshots at 1440, 768, or 390 have been retained.",
+          "Quick-create duplicate choices are not yet an authoritative product contract."
+        ]
+      },
       "actions": [
         {
           "id": "customer.create",

@@ -320,12 +320,25 @@ export interface Customer {
   createdAt: string;
 }
 
+export interface ServiceAddress {
+  id: string;
+  customerId: string;
+  label: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isPrimary: boolean;
+}
+
 export function listCustomers(token: string) {
   return apiFetch<Customer[]>("/api/v1/customers", { token });
 }
 
 export function getCustomer(token: string, id: string) {
-  return apiFetch<Customer & { projects: Project[] }>(`/api/v1/customers/${id}`, { token });
+  return apiFetch<Customer & { projects: Project[]; serviceAddresses: ServiceAddress[] }>(`/api/v1/customers/${id}`, { token });
 }
 
 export interface CustomerPortalAccessTokenIssue {

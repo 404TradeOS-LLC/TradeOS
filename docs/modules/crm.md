@@ -72,6 +72,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - `/customers`
 - `/customers/new`
 - `/customers/[id]`
+- Customer detail lists active CRM service addresses and lets staff with `crm.write` add, edit, and remove them through the existing `POST|PATCH|DELETE /api/v1/customers/:id/service-addresses` routes. Reads reload the customer detail response; technicians can view addresses without write controls.
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
 ## Tests
@@ -83,6 +84,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Known limitations
 
 - CRM remains intentionally project-centered rather than a separate pipeline subsystem
+- Import treats normalized email **or** normalized phone as a possible duplicate and skips that CSV row. Ordinary Add customer still has no established duplicate review/skip/merge/create contract; S052 does not silently merge or deduplicate quick-created customers.
 
 ## Deferred work
 
