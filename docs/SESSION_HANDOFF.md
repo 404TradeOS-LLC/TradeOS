@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-09-24
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -41,6 +41,16 @@ related_docs:
 - `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
   passed.
 
+## Active follow-on: Team & Time staging interface
+
+- A separate frontend branch, `feature/team-time-web-workspace`, connects the staging timekeeping function to the existing TradeOS sign-in session. It adds the responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
+- The work is feature-flagged, requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
+- The related open PR #561 is an isolated synthetic auth fixture for preview E2E. It does not issue a Supabase Auth JWT for direct Edge Function access, so it is complementary and not an overlapping implementation.
+- Current local verification: web tests (309), lint (one unrelated pre-existing warning), production build, PR preflight, docs ownership/check, docs tests (39), PR tests (70), and `git diff --check` pass.
+- Staging verification confirms the `team-time` Edge Function is active at version 4 with JWT verification enabled and both Team & Time migrations applied. Its tables have no time profiles or shifts, and staging currently has no active jobs or job assignments. The function/migration source is not yet versioned in this repository.
+- The real phone-to-office test remains blocked on dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
+- Next action for this follow-on: keep the implementation as a draft PR; version the deployed function and migration source, then provision isolated staging accounts/job and run the signed-in worker punch plus supervisor approval test. The S053 estimate-flow eligibility contract below remains unchanged.
+
 ## Next action
 
 After the S053 readiness PR merges, create a fresh implementation branch from
@@ -55,4 +65,3 @@ Eligibility: `READY` in the separate governance promotion; implementation starts
 Dependencies: S051 is DONE; no competing S053 implementation was found.
 Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
 Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
-

@@ -34,6 +34,7 @@ related_code:
   - web/src/components/dashboard
   - web/src/app/(app)/costbook
   - web/src/app/(app)/dispatch
+  - web/src/app/(app)/team-time
   - web/src/app/(app)/customers
   - web/src/app/(app)/projects
   - web/src/app/customer-portal
@@ -43,6 +44,13 @@ related_code:
   - web/src/proxy.ts
   - web/src/lib/billing-api.ts
   - web/src/lib/supabase/proxy.ts
+  - web/src/lib/team-time-api.ts
+  - web/src/lib/team-time-config.ts
+  - web/src/lib/team-time-route.ts
+  - web/src/lib/team-time-model.ts
+  - web/src/components/team-time/use-team-time-workspace.ts
+  - web/src/components/team-time
+  - web/src/app/api/team-time
   - web/src/lib/api.ts
   - web/src/lib/api-response.ts
   - web/src/lib/clientApi.ts
@@ -54,7 +62,7 @@ related_code:
 
 # Current State
 
-Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-25 for the staging-gated Team & Time interface integration. This document records repository truth, not a guarantee that every capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -126,6 +134,7 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
 - Invoice line-item storage uses canonical selling-price columns `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08, removing the synchronized legacy `unit_cost`/`line_cost` aliases and their sync objects. The disposable PostgreSQL rehearsal verified canonical data, index/constraint preservation, and tenant-scoped forced RLS; live production schema verification confirmed the canonical columns, required indexes, and forced RLS. The `unitPrice`/`lineTotal` API contract stays unchanged.
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
+- Team & Time staging integration: `/team-time` uses the existing signed-in Supabase session through a same-origin server route to call the staging `team-time` Edge Function. It supports assigned-job punches, breaks, manager review/correction, employee vs. subcontractor classification, and approved-hours CSV handoff. The route requires an exact same-origin `Origin`; its server-only gate requires `TEAM_TIME_ENABLED=true`, pins `TEAM_TIME_SUPABASE_PROJECT_REF` to the verified staging project, and checks that it matches the project reference in the `NEXT_PUBLIC_SUPABASE_URL` hostname. It is always disabled on Vercel Production. Staging verification on 2026-09-25 confirmed the function is active at version 4 with JWT verification and the two Team & Time migrations applied. The corresponding Edge Function and migration source are not currently versioned in this repository; this is a release blocker for production enablement. Staging has no active job assignments or Team & Time profiles yet, so live phone-to-office testing is pending. Payroll submission and location verification are not implemented or claimed.
 - Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Brand Studio and Settings/organization operations.
 - Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. The server-owned catalog drives both displayed prices and checkout validation. Persisted organization-scoped attempts plus stable Stripe idempotency keys prevent duplicate Checkout sessions, while authoritative subscription hydration protects against out-of-order webhook delivery. Stripe—not the browser return URL—is authoritative for subscription state, and only `active` or `trialing` grants entitlements. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
