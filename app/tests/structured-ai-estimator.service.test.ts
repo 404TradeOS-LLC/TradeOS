@@ -205,6 +205,37 @@ describe("StructuredAIEstimatorService", () => {
     expect(twoAndHalfCar.parsedScope.quantities).toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
     expect(twoAndHalfCar.parsedScope.assumptions).toContain("600 sq ft standard 2.5-car garage assumption");
     expect(paintedWalls.parsedScope.quantities).not.toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
+    const reversed = await service.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: "Recoat the floor of a 2.5-car garage." });
+    expect(reversed.parsedScope.quantities).toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
+  });
+
+  it("preserves stated work and does not invent replacement tasks or exclusions", async () => {
+    const service = new StructuredAIEstimatorService();
+    for (const scope of ["Install a cedar fence, 80 ft long.", "Replace a faucet and repair cracked drywall.", "Paint 12 cabinet doors and 6 drawers with grain filling."]) {
+      const draft = await service.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: scope });
+      expect(draft.parsedScope.customerFacingScope).toBe(scope);
+      expect(draft.parsedScope.exclusions).toEqual([]);
+    }
+  });
+
+  it("associates separate EA counts and blocks unmeasured candidate lines", async () => {
+    mockKnowledgeRuntime.matchScope.mockReturnValue({
+      detectedTrade: "Cabinet", confidenceScore: 90, assumptions: [], rationale: [],
+      missingInformation: [], reviewWarnings: [], matchedAssemblies: [], missingInputs: [], humanReviewWarnings: [],
+      matchedCostItems: ["Cabinet doors", "Drawers"].map((name, index) => ({
+        id: `item-${index}`, type: "costItem", name, category: "Cabinet", trade: "Cabinet",
+        unitOfMeasure: "EA", description: "", confidence: 80, matchedKeywords: [name], rationale: "Match", metadata: {},
+      })),
+    });
+    mockCostDatabase.getById.mockImplementation(async (id: string) => ({ id, code: id, name: id === "item-0" ? "Cabinet doors" : "Drawers", unitOfMeasure: "EA", isActive: true }));
+    mockCostDatabase.getUnitCost.mockResolvedValue({ totalUnitCost: 10 });
+    const service = new StructuredAIEstimatorService();
+    const counted = await service.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: "Paint 12 cabinet doors and 6 drawers." });
+    expect(counted.lineItems.find((line) => line.description === "Cabinet doors")?.quantity).toBe(12);
+    expect(counted.lineItems.find((line) => line.description === "Drawers")?.quantity).toBe(6);
+    const unknown = await service.generateDraft({ estimateId: "estimate-1", orgId: "org-1", scopeOfWork: "Paint cabinet doors and drawers." });
+    expect(unknown.lineItems.every((line) => line.reviewToken === null)).toBe(true);
+    expect(unknown.validation.missingInformation).toContain("How many Cabinet doors are included?");
   });
 
   it("does not re-ask a dimension question already covered by an explicit measurement", async () => {

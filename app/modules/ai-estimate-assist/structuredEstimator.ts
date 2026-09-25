@@ -51,6 +51,8 @@ export class StructuredAIEstimatorService {
     if (!scopeOfWork) {
       throw new ApiError(400, "scopeOfWork is required when the project does not already have a simple scope");
     }
+    // Fail closed even when all draft quantities still need clarification.
+    reviewTokenSecret();
 
     const toolRuns: AIEstimatorToolRun[] = [];
     let knowledgeMatch: ReturnType<KnowledgeRuntimeService["matchScope"]>;
@@ -106,7 +108,11 @@ export class StructuredAIEstimatorService {
       ...lineItems.flatMap((lineItem) => lineItem.reviewWarnings),
       ...(resolvedCount === 0 ? ["No generated line item is currently tied to an existing estimate target."] : []),
     ];
-    const missingInformation = parsedScope.missingInformation;
+    const missingInformation = [...new Set([
+      ...parsedScope.missingInformation,
+      ...lineItems.filter((line) => line.reviewWarnings.some((warning) => warning.startsWith("Quantity needs clarification")))
+        .map((line) => `How many ${line.description} are included?`),
+    ])];
     const validationStatus = resolvedCount === 0 ? "blocked" : missingInformation.length > 0 || warnings.length > 0 ? "needs_review" : "ready_for_review";
     toolRuns.push({
       name: "estimate.validate",
@@ -439,14 +445,15 @@ export class StructuredAIEstimatorService {
     const targetResolution = await this.resolveTarget(candidate.type, candidate.id, candidate.name, candidate.unitOfMeasure, orgId);
     const target = targetResolution.target;
     const unitOfMeasure = target?.unitOfMeasure ?? candidate.unitOfMeasure ?? "EA";
-    const quantity = deriveQuantityForUnit(parsedScope.quantities, unitOfMeasure);
+    const matchedQuantity = deriveQuantityForUnit(parsedScope.quantities, unitOfMeasure, candidate.name, parsedScope.normalizedText);
+    const quantity = matchedQuantity ?? 1;
     const reviewWarnings: string[] = [];
 
     if (!target) {
       reviewWarnings.push("No existing costbook target was resolved for this candidate.");
     }
-    if (quantity === 1 && !["EA", "JOB"].includes(unitOfMeasure.toUpperCase())) {
-      reviewWarnings.push(`Quantity defaulted to 1 ${unitOfMeasure}; confirm measurement before applying.`);
+    if (matchedQuantity === null) {
+      reviewWarnings.push(`Quantity needs clarification for ${candidate.name}; the displayed 1 ${unitOfMeasure} is a placeholder and cannot be applied.`);
     }
 
     const pricing = target ? await this.safeRetrievePricing(target.kind, target.id, quantity, orgId) : { costBreakdown: null, warning: null };
@@ -459,7 +466,7 @@ export class StructuredAIEstimatorService {
     return {
       draftLineItemId: `${candidate.type}-${candidate.id}`,
       source: "knowledge-runtime",
-      reviewToken: target
+      reviewToken: target && matchedQuantity !== null
         ? buildReviewToken({
             estimateId,
             orgId,
@@ -624,7 +631,7 @@ function parseContractorScope(scope: string, detectedTrade: string | null, runti
   // Contractor language often encodes usable defaults without stating an exact measurement.
   // Keep the assumption visible instead of blocking the draft.
   if (!quantities.some((quantity) => quantity.unit === "SF")) {
-    const garageMatch = /garage\s+floor|floor\s+(?:recoat|coating|paint)/.test(lower)
+    const garageMatch = /garage\s+floor|floor\s+(?:of\s+(?:a\s+)?(?:2\.5[- ]?car\s+)?garage|recoat|coating|paint)/.test(lower)
       ? lower.match(/\b2\.5[- ]?car\s+garage\b/)
       : null;
     if (garageMatch) {
@@ -666,21 +673,23 @@ function parseContractorScope(scope: string, detectedTrade: string | null, runti
 }
 
 function detectJobType(scope: string): string | null {
-  if (/garage\s+floor|floor\s+(recoat|coating|paint)/.test(scope)) return "Garage floor recoat";
-  if (/cabinet|drawer/.test(scope)) return "Cabinet door and drawer replacement";
-  if (/fence/.test(scope)) return "Fence removal and landscape rock";
-  if (/vanity|faucet/.test(scope)) return "Bathroom vanity replacement";
+  if (/(?:garage\s+floor|floor\s+of\s+(?:a\s+)?(?:[\d.]+[- ]?car\s+)?garage)/.test(scope) && /recoat|coat|paint|refinish/.test(scope)) return "Garage floor recoat";
+  if (/(?:replace|remove\s+and\s+replace)\b/.test(scope) && /cabinet\s+doors?|drawers?/.test(scope)) return "Cabinet door and drawer replacement";
+  if (/\b(?:remove|tear\s+out|demolish)\b/.test(scope) && /fence/.test(scope) && /(?:landscape\s+rock|weed\s+barrier)/.test(scope)) return "Fence removal and landscape rock";
+  if (/\breplace\b/.test(scope) && /\bvanity\b/.test(scope)) return "Bathroom vanity replacement";
   return null;
 }
 
 function derivePrepRequirements(scope: string): string[] {
   const prep: string[] = [];
-  if (/garage\s+floor|existing\s+coating|old\s+coating|worn\s+coating/.test(scope)) {
+  if (/garage\s+floor|floor\s+of\s+(?:a\s+)?(?:[\d.]+[- ]?car\s+)?garage/.test(scope) && /coat|paint|refinish/.test(scope)) {
     prep.push("Scrape loose coating", "Mechanically abrade existing coating", "Degrease and clean", "Rinse, dry, and vacuum", "Minor surface preparation");
   }
-  if (/cabinet|drawer/.test(scope)) prep.push("Remove existing doors and drawers", "Prepare surfaces for painted finish");
-  if (/fence/.test(scope)) prep.push("Remove rotten fence panels", "Install weed barrier", "Prepare area for rock");
-  if (/vanity|faucet/.test(scope)) prep.push("Remove existing vanity as required", "Protect adjacent finished surfaces", "Prepare drywall for repair");
+  if (/\b(?:remove|replace)\b/.test(scope) && /cabinet|drawer/.test(scope)) prep.push("Remove existing doors and drawers");
+  if (/\b(?:paint|refinish)\b/.test(scope) && /cabinet|drawer/.test(scope)) prep.push("Prepare surfaces for painted finish");
+  if (/\b(?:remove|tear\s+out)\b/.test(scope) && /fence/.test(scope)) prep.push("Remove existing fence");
+  if (/weed\s+barrier/.test(scope)) prep.push("Install weed barrier");
+  if (/\breplace\b/.test(scope) && /\bvanity\b/.test(scope)) prep.push("Remove existing vanity as required", "Protect adjacent finished surfaces");
   return prep;
 }
 
@@ -694,29 +703,14 @@ function deriveAssumptions(scope: string, quantities: ParsedScopeQuantity[]): st
   return assumptions;
 }
 
-function buildCustomerFacingScope(jobType: string | null, scope: string, _prepRequirements: string[]): string {
-  if (jobType === "Garage floor recoat") {
-    return "Prepare and repaint the existing garage floor coating. Scope includes removal of loose coating, mechanical surface preparation, cleaning/degreasing, application of a two-coat floor coating system, and final cleanup.";
-  }
-  if (jobType === "Cabinet door and drawer replacement") {
-    return "Remove and replace the specified cabinet doors and drawers with a professionally prepared and painted white finish.";
-  }
-  if (jobType === "Fence removal and landscape rock") {
-    return "Remove the specified rotten fence, install weed barrier, place approximately 7 tons of landscape rock, and clean the work area.";
-  }
-  if (jobType === "Bathroom vanity replacement") {
-    return "Replace the bathroom vanity, reconnect plumbing, install the faucet, repair affected drywall, and clean the work area.";
-  }
+function buildCustomerFacingScope(_jobType: string | null, scope: string, _prepRequirements: string[]): string {
+  // Preserve the contractor's requested work until a reviewed scope writer can
+  // prove each additional task and quantity from the input.
   return scope;
 }
 
-function deriveExclusions(_scope: string, jobType: string | null): string[] {
-  if (jobType === "Garage floor recoat") {
-    return ["Extensive coating removal", "Concrete repair", "Crack or joint repair", "Moisture remediation", "Full coating removal"];
-  }
-  if (jobType === "Cabinet door and drawer replacement") return ["Cabinet box modification", "Grain filling unless added", "Structural cabinet repair"];
-  if (jobType === "Fence removal and landscape rock") return ["Hidden concrete footings", "Underground obstruction removal", "Additional rock beyond the stated quantity"];
-  if (jobType === "Bathroom vanity replacement") return ["Relocation of existing plumbing", "Major wall reconstruction", "Unforeseen concealed damage"];
+function deriveExclusions(_scope: string, _jobType: string | null): string[] {
+  // No exclusions can safely be inferred from a short contractor description.
   return [];
 }
 
@@ -741,7 +735,8 @@ function extractQuantities(scope: string): ParsedScopeQuantity[] {
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s*(?:each|ea|units?|items?)\b/g, "count", "EA");
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:cabinet\s+doors?|doors?)\b/g, "count", "EA");
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:drawers?)\b/g, "count", "EA");
-  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:feet|foot)\s+(?:of\s+)?(?:rotten\s+)?fence\b/g, "length", "LF");
+  collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+(?:feet|foot|ft)\s+(?:of\s+)?(?:rotten\s+)?fence\b/g, "length", "LF");
+  collectMatches(quantities, lower, /(?:fence\s+)(\d+(?:\.\d+)?)\s*(?:feet|foot|ft)\b/g, "length", "LF");
   collectMatches(quantities, lower, /(\d+(?:\.\d+)?)\s+tons?\b/g, "volume", "TON");
 
   for (const match of lower.matchAll(/\b(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\b/g)) {
@@ -785,20 +780,30 @@ function parseBoundedQuantity(value: string | number) {
   return quantity;
 }
 
-function deriveQuantityForUnit(quantities: ParsedScopeQuantity[], unitOfMeasure: string): number {
+function deriveQuantityForUnit(quantities: ParsedScopeQuantity[], unitOfMeasure: string, candidateName: string, scope: string): number | null {
   const normalizedUnit = unitOfMeasure.toUpperCase();
-  const matching = quantities.find((quantity) => quantity.unit === normalizedUnit);
-  if (matching) return matching.value;
-  if (normalizedUnit === "CY") return quantities.find((quantity) => quantity.unit === "CY")?.value ?? 1;
-  if (normalizedUnit === "SF") return quantities.find((quantity) => quantity.unit === "SF")?.value ?? 1;
-  if (normalizedUnit === "LF") return quantities.find((quantity) => quantity.unit === "LF")?.value ?? 1;
+  const matches = quantities.filter((quantity) => quantity.unit === normalizedUnit);
+  if (matches.length === 1) return matches[0].value;
+  if (matches.length > 1) {
+    const candidateWords = normalizeText(candidateName).split(/\s+/).filter((word) => word.length > 3);
+    const associated = matches.filter((quantity) => candidateWords.some((word) => normalizeText(quantity.sourceText).includes(word)));
+    if (associated.length === 1) return associated[0].value;
+    return null;
+  }
   if (normalizedUnit === "SQ") {
     const squareQuantity = quantities.find((quantity) => quantity.unit === "SQ")?.value;
     const areaQuantity = quantities.find((quantity) => quantity.unit === "SF")?.value;
-    return squareQuantity ?? (areaQuantity ? round2(areaQuantity / 100) : 1);
+    return squareQuantity ?? (areaQuantity ? round2(areaQuantity / 100) : null);
   }
-  if (normalizedUnit === "HR") return quantities.find((quantity) => quantity.unit === "HR")?.value ?? 1;
-  return quantities.find((quantity) => quantity.unit === "EA")?.value ?? 1;
+  if (normalizedUnit === "JOB") return 1;
+  if (normalizedUnit === "EA") {
+    const nouns = normalizeText(candidateName).split(/\s+/).filter((word) => word.length > 3 && !/replacement|installation|repair|removal/.test(word));
+    const noun = nouns.at(-1);
+    // A singular article tied to the candidate's object is an explicit count.
+    // Plural objects and bare job titles remain unresolved.
+    if (noun && !noun.endsWith("s") && new RegExp(`\\b(?:a|an|one|single)\\s+(?:(?:[\\w-]+)\\s+){0,5}${noun}\\b`, "i").test(scope)) return 1;
+  }
+  return null;
 }
 
 function buildSearchQueries(title: string) {

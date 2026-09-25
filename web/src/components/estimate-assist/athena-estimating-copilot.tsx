@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { clientFetch } from "@/lib/clientApi";
 import type { Estimate, StructuredAIEstimateDraft } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { appendClarification } from "./clarification";
 
 type ApplyResponse = {
   applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
@@ -32,6 +33,7 @@ export function AthenaEstimatingCopilot({
   const [applyNotice, setApplyNotice] = useState("");
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
+  const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
 
   const generate = useMutation({
     mutationFn: (scopeToEstimate: string) =>
@@ -41,6 +43,7 @@ export function AthenaEstimatingCopilot({
       }),
     onSuccess: (next, submittedScope) => {
       setDraft(next);
+      setAcceptedIds(next.lineItems.filter((line) => line.targetId && line.reviewToken).map((line) => line.draftLineItemId));
       setDraftScope(submittedScope.trim());
       setApplyNotice("");
       setActiveQuestion(next.validation.missingInformation[0] ?? null);
@@ -55,7 +58,7 @@ export function AthenaEstimatingCopilot({
         body: JSON.stringify({
           generationId: draft?.generationId,
           lineItems: draft?.lineItems
-            .filter((line) => line.targetId && line.reviewToken)
+            .filter((line) => acceptedIds.includes(line.draftLineItemId) && line.targetId && line.reviewToken)
             .map((line) => ({
               draftLineItemId: line.draftLineItemId,
               quantity: line.quantity,
@@ -69,7 +72,7 @@ export function AthenaEstimatingCopilot({
       }),
     onSuccess: (result) => {
       if (result.skipped.length > 0) {
-        setApplyNotice(`${result.applied.length} item(s) added; ${result.skipped.length} skipped. Review the estimate Items and regenerate before retrying skipped items.`);
+        setApplyNotice(`${result.applied.length} item(s) added; ${result.skipped.length} skipped: ${result.skipped.map((line) => `${line.draftLineItemId}: ${line.reason}`).join("; ")}`);
       } else {
         setApplyNotice(`${result.applied.length} item(s) added. Review the estimate Items.`);
       }
@@ -79,28 +82,15 @@ export function AthenaEstimatingCopilot({
 
   const preview = useMemo(() => {
     if (!draft) return null;
-    const jobCost = Number(estimate.subtotalCost ?? 0) + draft.lineItems
-      .filter((line) => line.targetId && line.reviewToken)
+    const proposedCost = draft.lineItems
+      .filter((line) => acceptedIds.includes(line.draftLineItemId) && line.targetId && line.reviewToken)
       .reduce((sum, line) => sum + line.lineCost, 0);
-    const costAfterOverhead = roundCents(jobCost * (1 + Number(estimate.overheadPct ?? 0) / 100));
-    const preTax =
-      estimate.targetMarginPct != null
-        ? roundCents(costAfterOverhead / (1 - Number(estimate.targetMarginPct) / 100))
-        : roundCents(costAfterOverhead * (1 + Number(estimate.profitPct ?? 0) / 100));
-    // Applied AI lines default to non-taxable. Only saved taxable lines enter
-    // the same proportional taxable basis used by the Estimate Engine.
-    const taxableCost = estimate.lineItems.reduce((sum, line) => sum + (line.taxable ? Number(line.lineCost) : 0), 0);
-    const tax = jobCost > 0 && taxableCost > 0
-      ? roundCents(roundCents(preTax * taxableCost / jobCost) * Number(estimate.taxPct ?? 0) / 100)
-      : 0;
-    const total = roundCents(preTax + tax);
-    const grossProfit = preTax - costAfterOverhead;
-    return { jobCost, preTax, total, grossProfit, margin: preTax > 0 ? grossProfit / preTax * 100 : 0 };
-  }, [draft, estimate]);
+    return { proposedCost, combinedCost: Number(estimate.subtotalCost ?? 0) + proposedCost };
+  }, [draft, estimate.subtotalCost, acceptedIds]);
 
   function acceptQuestion() {
-    if (!answer.trim() || !activeQuestion) return;
-    const nextScope = `${scope.trim()}\n${activeQuestion}: ${answer.trim()}`.trim();
+    if (!answer.trim() || answer.trim() === "Other" || !activeQuestion) return;
+    const nextScope = appendClarification(scope, activeQuestion, answer);
     setScope(nextScope);
     setActiveQuestion(null);
     setAnswer("");
@@ -108,14 +98,15 @@ export function AthenaEstimatingCopilot({
   }
 
   function chooseAnswer(value: string) {
-    setAnswer(value);
+    setAnswer(value === "Other" ? "" : value);
   }
 
   const questionChoices = activeQuestion ? getQuestionChoices(activeQuestion) : [];
   const resolved = draft?.lineItems.filter((line) => line.targetId && line.reviewToken) ?? [];
+  const accepted = resolved.filter((line) => acceptedIds.includes(line.draftLineItemId));
   const assumptions = draft ? [...draft.parsedScope.assumptions, ...draft.validation.missingInformation] : [];
   const exclusions = draft?.parsedScope.exclusions ?? [];
-  const canBuild = resolved.length > 0 && estimate.status === "draft" && draftScope === scope.trim() && !generate.isPending && !apply.isPending;
+  const canBuild = accepted.length > 0 && estimate.status === "draft" && draftScope === scope.trim() && !generate.isPending && !apply.isPending;
 
   return (
     <section className="border border-primary/30 bg-primary/5" aria-labelledby="athena-estimating-copilot-heading">
@@ -191,6 +182,7 @@ export function AthenaEstimatingCopilot({
                 ) : draft.lineItems.map((line) => (
                   <div key={line.draftLineItemId} className="flex items-start justify-between gap-4 px-3 py-3">
                     <div className="min-w-0">
+                      {line.targetId && line.reviewToken ? <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={acceptedIds.includes(line.draftLineItemId)} onChange={(event) => setAcceptedIds((ids) => event.target.checked ? [...ids, line.draftLineItemId] : ids.filter((id) => id !== line.draftLineItemId))} /> Include in estimate</label> : null}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-foreground">{line.description}</span>
                         <Badge variant="outline">{line.targetKind === "assembly" ? "Assembly" : "Costbook"}</Badge>
@@ -209,10 +201,9 @@ export function AthenaEstimatingCopilot({
                 <div className="border border-border/70 bg-background/80 p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Review</p>
                   <div className="mt-3 space-y-2 text-sm">
-                    <ReviewRow label="Estimated cost" value={formatCurrency(preview.jobCost)} />
-                    <ReviewRow label="Sell price" value={formatCurrency(preview.total)} strong />
-                    <ReviewRow label="Gross profit" value={formatCurrency(preview.grossProfit)} />
-                    <ReviewRow label="Margin" value={`${preview.margin.toFixed(1)}%`} />
+                    <ReviewRow label="Selected item cost" value={formatCurrency(preview.proposedCost)} />
+                    <ReviewRow label="Cost with saved items" value={formatCurrency(preview.combinedCost)} strong />
+                    <p className="text-xs text-muted-foreground">Final sell price, overhead, margin, tax and rounding are calculated by the Estimate Engine after you add the selected items.</p>
                   </div>
                 </div>
               ) : null}
@@ -267,11 +258,6 @@ function ReviewRow({ label, value, strong = false }: { label: string; value: str
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
-
-function roundCents(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
 
 function getQuestionChoices(question: string): string[] {
   const normalized = question.toLowerCase();

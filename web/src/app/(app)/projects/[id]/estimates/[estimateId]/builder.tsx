@@ -279,8 +279,7 @@ function MobileEstimateFlow({
         ))}
       </div>
 
-      {mobileStage === "scope" ? (
-        <div className="space-y-4">
+      <div className={cn("space-y-4", mobileStage !== "scope" && "hidden")}>
           <div className="border-b border-border/70 pb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
             <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-foreground">
@@ -295,8 +294,7 @@ function MobileEstimateFlow({
           />
           <div className="text-sm text-muted-foreground">Next, confirm the suggested work and quantities before you price it.</div>
           <MobileStageAction label="Review line items" onClick={advance} />
-        </div>
-      ) : null}
+      </div>
 
       {mobileStage === "items" ? (
         <div className="space-y-4">
