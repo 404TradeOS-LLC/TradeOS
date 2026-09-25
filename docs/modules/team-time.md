@@ -11,17 +11,20 @@ related_code:
   - web/src/app/(app)/team-time
   - web/src/components/team-time
   - web/src/lib/team-time-api.ts
+  - web/src/lib/team-time-route.ts
+  - web/src/lib/team-time-model.ts
+  - web/src/components/team-time/use-team-time-workspace.ts
   - web/src/app/api/team-time/route.ts
   - web/src/proxy.ts
 ---
 
 # Team & Time staging integration
 
-Team & Time records job-based work hours for W-2 employees and subcontractors. The current interface is an early staging slice. It remains hidden unless the server-side `TEAM_TIME_ENABLED` flag is enabled, `TEAM_TIME_SUPABASE_PROJECT_REF` is set, and that ref exactly matches the project in `NEXT_PUBLIC_SUPABASE_URL`. It is also denied on Vercel Production.
+Team & Time records job-based work hours for W-2 employees and subcontractors. The current interface is an early staging slice. It remains hidden unless the server-side `TEAM_TIME_ENABLED` flag is enabled, `TEAM_TIME_SUPABASE_PROJECT_REF` is set to the designated staging project ref, and that ref matches the project reference in the hostname of `NEXT_PUBLIC_SUPABASE_URL`. The code pins that ref to the verified TradeOS Staging project, so a Preview cannot enable the feature by pointing both values at Production. It is also denied on Vercel Production.
 
 ## Sign-in and data boundary
 
-- The web client sends same-origin requests to `/api/team-time`. The server route validates the existing Supabase Auth session, forwards the user's access token and the project's publishable key to the `team-time` Edge Function, and does not expose the token to page JavaScript.
+- The web client sends same-origin requests to `/api/team-time`. The server route requires an exact same-origin `Origin`, validates the existing Supabase Auth session, forwards the user's access token and the project's publishable key to the `team-time` Edge Function, and does not expose the token to page JavaScript.
 - The Edge Function requires a valid JWT and verifies the user against TradeOS's active user and organization-membership records.
 - The Edge Function uses server-side Supabase credentials for its reads and writes. Team & Time table access is not granted directly to browser roles; authorization is enforced by the function for the active organization and job assignment.
 - Worker role is derived from active organization membership. A supervisor can set a worker profile as `employee` or `subcontractor`; the time entry snapshots that type at clock-in so later profile changes do not relabel historical hours.

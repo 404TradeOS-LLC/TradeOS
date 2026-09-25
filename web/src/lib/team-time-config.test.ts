@@ -22,4 +22,5 @@ test("Team & Time only enables for the explicitly configured staging Supabase pr
   assert.equal(isTeamTimeEnabled({ ...staging, NEXT_PUBLIC_SUPABASE_URL: "https://production-project.supabase.co" }), false);
   assert.equal(isTeamTimeEnabled({ ...staging, NEXT_PUBLIC_SUPABASE_URL: "not a url" }), false);
   assert.equal(isTeamTimeEnabled({ ...staging, TEAM_TIME_SUPABASE_PROJECT_REF: "production-project" }), false);
+  assert.equal(isTeamTimeEnabled({ ...staging, TEAM_TIME_SUPABASE_PROJECT_REF: "anothervalidref00000", NEXT_PUBLIC_SUPABASE_URL: "https://anothervalidref00000.supabase.co" }), false);
 });
