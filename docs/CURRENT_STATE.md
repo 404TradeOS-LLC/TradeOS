@@ -54,6 +54,10 @@ related_code:
 
 # Current State
 
+## Staging auth bypass work in progress
+
+The `feature/staging-auth-bypass` branch implements a gated fixture owner for credential-free Preview Playwright checks and a visible banner. The dedicated Supabase staging project contains a synthetic organization, owner, project, and draft estimate. This is not yet deployed or browser-verified on Vercel Preview; the current Preview API readiness is blocked by a database authentication error. Vercel Production remains denied by the guard. Do not count these branch changes as current production behavior.
+
 Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone

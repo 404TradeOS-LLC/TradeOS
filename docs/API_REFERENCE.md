@@ -36,6 +36,8 @@ Protected API routes require:
 
 Tenant impersonation through request-controlled organization headers is not supported.
 
+A staging-only exception accepts the fixed public fixture marker when `TRADEOS_AUTH_BYPASS=true`, Vercel Preview (or local `APP_ENVIRONMENT=staging`), and both backend Supabase URL and database connection resolve to the dedicated staging project. The API then performs the usual active membership lookup and RLS request transaction and checks the exact fixture owner identity. Production or a mismatched data plane returns 503 on protected routes. With the flag absent or false, the marker receives 401 and normal JWT/Supabase verification is unchanged. See `docs/modules/auth-and-tenancy.md`.
+
 Locally issued HS256 access tokens carry a finite expiration (one hour by default; configure the positive `AUTH_JWT_TTL_SECONDS` value when needed). The verifier requires `sub`, `iat`, and `exp`, validates optional registered claims when present, and enforces configured issuer and audience values when `AUTH_ISSUER` and `AUTH_AUDIENCE` are set. Expired, malformed, or invalid-signature bearer requests fail before membership resolution. Refresh and Supabase bootstrap also reject inactive application users. Immediate revocation of an already-issued bearer JWT is not represented by a new token store or provider-introspection call in the current architecture.
 
 `POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
