@@ -624,7 +624,7 @@ function parseContractorScope(scope: string, detectedTrade: string | null, runti
   // Contractor language often encodes usable defaults without stating an exact measurement.
   // Keep the assumption visible instead of blocking the draft.
   if (!quantities.some((quantity) => quantity.unit === "SF")) {
-    const garageMatch = lower.match(/\b2(?:\.5)?[- ]?car\s+garage\b/);
+    const garageMatch = lower.match(/\b2\.5[- ]?car\s+garage\b/);
     if (garageMatch) {
       quantities.push({ type: "area", value: 600, unit: "SF", sourceText: "standard 2.5-car garage assumption" });
     }

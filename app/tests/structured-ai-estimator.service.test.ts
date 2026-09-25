@@ -182,6 +182,25 @@ describe("StructuredAIEstimatorService", () => {
     ]);
   });
 
+  it("labels the 600 SF garage heuristic only for a 2.5-car garage", async () => {
+    const service = new StructuredAIEstimatorService();
+    const twoCar = await service.generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Recoat a 2-car garage floor with an old coating.",
+    });
+    const twoAndHalfCar = await service.generateDraft({
+      estimateId: "estimate-1",
+      orgId: "org-1",
+      scopeOfWork: "Recoat a 2.5-car garage floor with an old coating.",
+    });
+
+    expect(twoCar.parsedScope.quantities).not.toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
+    expect(twoCar.parsedScope.assumptions).not.toContain("600 sq ft standard 2.5-car garage assumption");
+    expect(twoAndHalfCar.parsedScope.quantities).toContainEqual(expect.objectContaining({ value: 600, unit: "SF" }));
+    expect(twoAndHalfCar.parsedScope.assumptions).toContain("600 sq ft standard 2.5-car garage assumption");
+  });
+
   it("propagates the Knowledge Engine match's provenanceStatus onto the draft line item", async () => {
     mockKnowledgeRuntime.matchScope.mockReturnValue({
       detectedTrade: "Tree Service",

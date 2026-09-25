@@ -32,10 +32,10 @@ export function AthenaEstimatingCopilot({
   const [answer, setAnswer] = useState("");
 
   const generate = useMutation({
-    mutationFn: () =>
+    mutationFn: (scopeToEstimate: string) =>
       clientFetch<StructuredAIEstimateDraft>(`/estimates/${estimateId}/ai-estimator/draft`, {
         method: "POST",
-        body: JSON.stringify({ scopeOfWork: scope.trim() }),
+        body: JSON.stringify({ scopeOfWork: scopeToEstimate.trim() }),
       }),
     onSuccess: (next) => {
       setDraft(next);
@@ -49,6 +49,7 @@ export function AthenaEstimatingCopilot({
       clientFetch<ApplyResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: JSON.stringify({
+          generationId: draft?.generationId,
           lineItems: draft?.lineItems
             .filter((line) => line.targetId && line.reviewToken)
             .map((line) => ({
@@ -87,7 +88,7 @@ export function AthenaEstimatingCopilot({
     setScope(nextScope);
     setActiveQuestion(null);
     setAnswer("");
-    generate.mutate();
+    generate.mutate(nextScope);
   }
 
   function chooseAnswer(value: string) {
@@ -125,7 +126,7 @@ export function AthenaEstimatingCopilot({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={() => generate.mutate()} disabled={generate.isPending || !scope.trim()}>
+          <Button type="button" onClick={() => generate.mutate(scope)} disabled={generate.isPending || !scope.trim()}>
             {generate.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
             {generate.isPending ? "Estimating…" : draft ? "Recalculate" : "Build estimate"}
           </Button>
@@ -259,4 +260,3 @@ function getQuestionChoices(question: string): string[] {
   if (/repair|damage|crack/.test(normalized)) return ["Minor", "Extensive", "Other"];
   return [];
 }
-
