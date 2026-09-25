@@ -103,4 +103,3 @@ slice complete from a Figma frame, API test, or green build alone.
 - Sending customer communication, moving a job, accepting a proposal,
   changing pricing, and applying AI output require their domain-specific
   confirmation and authorization paths.
-
