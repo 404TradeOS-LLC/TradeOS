@@ -9,7 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { clientFetch } from "@/lib/clientApi";
 import type { Estimate, StructuredAIEstimateDraft } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { appendClarification } from "./clarification";
+import {
+  answerForClarificationChoice,
+  buildDraftRequestBody,
+  getActiveClarification,
+  submitClarification,
+} from "./clarification";
 
 type ApplyResponse = {
   applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
@@ -41,14 +46,14 @@ export function AthenaEstimatingCopilot({
     mutationFn: (scopeToEstimate: string) =>
       clientFetch<StructuredAIEstimateDraft>(`/estimates/${estimateId}/ai-estimator/draft`, {
         method: "POST",
-        body: JSON.stringify({ scopeOfWork: scopeToEstimate.trim() }),
+        body: JSON.stringify(buildDraftRequestBody(scopeToEstimate)),
       }),
     onSuccess: (next, submittedScope) => {
       setDraft(next);
       setAcceptedIds(next.lineItems.filter((line) => line.targetId && line.reviewToken).map((line) => line.draftLineItemId));
       setDraftScope(submittedScope.trim());
       setApplyNotice("");
-      setActiveQuestion(next.validation.missingInformation[0] ?? null);
+      setActiveQuestion(getActiveClarification(next.validation.missingInformation));
       setAnswer("");
     },
   });
@@ -93,8 +98,8 @@ export function AthenaEstimatingCopilot({
   }, [draft, estimate.subtotalCost, acceptedIds]);
 
   function acceptQuestion() {
-    if (!answer.trim() || answer.trim() === "Other" || !activeQuestion) return;
-    const nextScope = appendClarification(scope, activeQuestion, answer);
+    const nextScope = submitClarification(scope, activeQuestion, answer);
+    if (!nextScope) return;
     setScope(nextScope);
     setActiveQuestion(null);
     setAnswer("");
@@ -102,7 +107,7 @@ export function AthenaEstimatingCopilot({
   }
 
   function chooseAnswer(value: string) {
-    setAnswer(value === "Other" ? "" : value);
+    setAnswer(answerForClarificationChoice(value));
   }
 
   const questionChoices = activeQuestion ? getQuestionChoices(activeQuestion) : [];
