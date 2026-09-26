@@ -8,6 +8,7 @@ import { parseServiceAddressForm } from "@/lib/service-address-form";
 import {
   customerDuplicateSearchTerms,
   findCustomerDuplicateMatches,
+  isCustomerMatchLookupIncomplete,
   requiresSeparateCustomerConfirmation,
   type CustomerDuplicateInput,
 } from "@/lib/customer-duplicate-matches";
@@ -71,10 +72,11 @@ export async function createCustomerAction(_prev: FormActionState, formData: For
   if (!token) return { error: "Sign in again before searching or creating a customer.", customerInput };
 
   const searchTerms = customerDuplicateSearchTerms(customerInput);
-  const searchResults = await Promise.allSettled(searchTerms.map((query) => listCustomers(token, { query, limit: 250 })));
+  const searchLimit = 250;
+  const searchResults = await Promise.allSettled(searchTerms.map((query) => listCustomers(token, { query, limit: searchLimit })));
   const candidates = searchResults.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   const customerMatches = findCustomerDuplicateMatches(candidates, customerInput);
-  const customerMatchLookupFailed = searchResults.some((result) => result.status === "rejected");
+  const customerMatchLookupFailed = isCustomerMatchLookupIncomplete(searchResults, searchLimit);
 
   if (intent === "check") return { customerInput, customerMatches, customerMatchLookupFailed };
   if (customerMatchLookupFailed) {

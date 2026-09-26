@@ -58,3 +58,11 @@ export function findCustomerDuplicateMatches(
 export function requiresSeparateCustomerConfirmation(matchCount: number, explicitlyCreateSeparate: boolean): boolean {
   return matchCount > 0 && !explicitlyCreateSeparate;
 }
+
+/** A full search page may hide an exact match on the next page. */
+export function isCustomerMatchLookupIncomplete(
+  results: PromiseSettledResult<Customer[]>[],
+  pageLimit: number
+): boolean {
+  return results.some((result) => result.status === "rejected" || result.value.length >= pageLimit);
+}

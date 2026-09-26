@@ -85,7 +85,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Known limitations
 
 - CRM remains intentionally project-centered rather than a separate pipeline subsystem
-- Import treats normalized email **or** normalized phone as a possible duplicate and skips that CSV row. Ordinary Add customer uses a separate advisory contract: exact normalized name/email matches are shown for staff review, and an explicit separate-record choice is required to proceed when matches exist. Phone is not part of quick-create matching yet. The two workflows do not share a duplicate mutation policy.
+- Import treats normalized email **or** normalized phone as a possible duplicate and skips that CSV row. Ordinary Add customer uses a separate advisory contract: exact normalized name/email matches are shown for staff review, and an explicit separate-record choice is required to proceed when matches exist. A failed or full 250-row search page is incomplete and blocks creation until staff can retry; it never certifies that no exact match exists. Phone is not part of quick-create matching yet. The two workflows do not share a duplicate mutation policy.
 
 ## Deferred work
 

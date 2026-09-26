@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   customerDuplicateSearchTerms,
   findCustomerDuplicateMatches,
+  isCustomerMatchLookupIncomplete,
   requiresSeparateCustomerConfirmation,
 } from "./customer-duplicate-matches.ts";
 import type { Customer } from "./api.ts";
@@ -51,4 +52,10 @@ test("a possible match requires an explicit separate-record choice before create
   assert.equal(requiresSeparateCustomerConfirmation(1, false), true);
   assert.equal(requiresSeparateCustomerConfirmation(1, true), false);
   assert.equal(requiresSeparateCustomerConfirmation(0, false), false);
+});
+
+test("a full page or failed lookup cannot certify that no exact match exists", () => {
+  assert.equal(isCustomerMatchLookupIncomplete([{ status: "fulfilled", value: customers }], 250), false);
+  assert.equal(isCustomerMatchLookupIncomplete([{ status: "fulfilled", value: Array(250).fill(customers[0]) }], 250), true);
+  assert.equal(isCustomerMatchLookupIncomplete([{ status: "rejected", reason: new Error("lookup failed") }], 250), true);
 });
