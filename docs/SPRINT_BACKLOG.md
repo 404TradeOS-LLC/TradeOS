@@ -601,7 +601,7 @@ Status: READY
 Readiness evidence: S051 is DONE through merged PR #538; S052 remains unstarted; no competing S053 implementation PR or branch was found during the 2026-09-22 reconciliation; the scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract is explicit below; this readiness promotion changes documentation only.
 Dependencies: S051
 Objective: Connect and certify plain-language scope → Athena matches → reviewed Costbook/assembly choices → persisted estimate lines.
-Acceptance: provenance, confidence, setup-required behavior, explicit review, line persistence, post-apply Estimate Engine pricing refresh, denial paths, and no-silent-write behavior pass at 1440/768/390. A pre-apply sell-price forecast is follow-up work.
+Acceptance: provenance, confidence, setup-required behavior, explicit review, line persistence, pricing refresh, denial paths, and no-silent-write behavior pass at 1440/768/390.
 
 ### S054 — Proposal and customer acceptance certification
 
