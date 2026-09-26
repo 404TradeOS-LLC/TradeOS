@@ -310,6 +310,7 @@ link scanners from spending the single-use invitation; that POST clears the
 pending cookie before redirecting to the portal or access-error flow.
 
 Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
+The portal redemption web route now fails closed when the backend exchange returns an absent, malformed, or expired session payload or fails before returning a response. It clears the pending invitation and creates no session cookie in these cases. Focused service and web tests cover more replay, expiry, malformed input, draft exclusion, and document-scoping denial paths; current-head authenticated browser and live RLS certification remain pending, so S059 is not complete.
 
 ## Athena implementation state
 

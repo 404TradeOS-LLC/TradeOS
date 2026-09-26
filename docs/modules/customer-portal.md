@@ -95,6 +95,12 @@ limited to signing a pending contract through the dedicated portal policy.
 - portal access-token/session replay, customer/tenant scoping, and portal-only contract signing are covered by `app/tests/customer-portal.service.test.ts` and `app/tests/customer-portal.migration.test.ts`
 - public portal pages and PDF routes keep portal session tokens server-side; no client-selected organization is accepted
 - the web access-gate regression checks pin non-consuming GET behavior, exact-origin POST redemption, pending-cookie cleanup, and the absence of a raw-token form field
+- focused web validation rejects absent, malformed, or expired backend redemption payloads before setting the HttpOnly session cookie; service denial checks cover invalid/revoked/expired secrets, customer and organization ownership for each document and PDF, and draft exclusion
+
+S059 still requires live authenticated browser, real PostgreSQL/RLS, and retained
+redaction-safe security evidence. Never retain a raw access URL, response body,
+cookie, or request header in screenshots, recordings, console logs, traces, CI
+artifacts, or test fixtures. Record only opaque test-case labels and outcomes.
 
 ## Known limitations
 
