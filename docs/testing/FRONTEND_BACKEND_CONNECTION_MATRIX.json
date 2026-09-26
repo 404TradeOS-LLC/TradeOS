@@ -24,16 +24,59 @@
       "id": "customer-project",
       "name": "Lead/customer to project",
       "owner": "CRM and Projects",
-      "status": "HISTORICALLY_CERTIFIED",
+      "status": "PARTIAL",
       "authorization": "Staff: crm.read for reads and crm.write for writes; technician is read-only. Organization membership and forced RLS apply.",
       "refresh": "Customer/project list or detail must reflect the persisted record after server-action redirect/revalidation.",
       "automatedEvidence": [
         "web/src/app/actions/projects.test.ts",
+        "web/src/app/actions/customers.test.ts",
         "app/tests/crm.controller.test.ts",
-        "app/tests/projects.controller.test.ts"
+        "app/tests/projects.controller.test.ts",
+        "app/tests/project-customer-scope.middleware.test.ts",
+        "app/tests/crm.service.test.ts",
+        "web/src/lib/customer-duplicate-matches.test.ts"
       ],
-      "browserCheckpoint": "Create a customer, create a project linked to that customer, reload both records, and verify a foreign-organization project/customer is denied.",
+      "browserCheckpoint": "At 1440/768/390, create/edit/reload a customer; check for possible same-org exact normalized name/email matches, open an existing customer or explicitly create a separate record; add/edit/remove/reload its service address; create a project for the in-tenant customer with siteAddress and simpleScope, reload both records, and verify owner/admin success, validation rejection, inactive-member/technician denial, and foreign-organization parent denial. Matches are advisory; no automatic merge or hard block. Phone formatting is not used for matching.",
+      "s052Evidence": {
+        "baseHead": "47fb0105f7d2ee3e1287197efa2f9ceaafd8caa8",
+        "serviceAddressFrontend": "web/src/app/(app)/customers/[id]/service-addresses.tsx",
+        "writeActions": "web/src/app/actions/customers.ts",
+        "duplicateMatchHelper": "web/src/lib/customer-duplicate-matches.ts",
+        "duplicateMatchTest": "web/src/lib/customer-duplicate-matches.test.ts",
+        "addressFormTest": "web/src/lib/service-address-form.test.ts",
+        "parentScopeTest": "app/tests/project-customer-scope.middleware.test.ts",
+        "rbacTest": "app/tests/crm.controller.test.ts",
+        "limitations": [
+          "Authenticated browser screenshots and workflow evidence have not yet been retained at 1440, 768, or 390."
+        ]
+      },
       "actions": [
+        {
+          "id": "customer.duplicate-search",
+          "label": "Find possible customer matches",
+          "source": "web/src/lib/api.ts",
+          "symbol": "listCustomers",
+          "method": "GET",
+          "mount": "/api/v1/customers",
+          "routeFile": "app/backend/routes/crm.routes.ts",
+          "router": "customersRouter",
+          "route": "/",
+          "handler": "crmCustomersController.list",
+          "contractFile": "app/backend/controllers/crm.controller.ts",
+          "request": "Search term from entered name or email; result limit is capped at 250.",
+          "response": "Same-organization customer candidates; server action returns only identity/contact fields for exact normalized name/email review.",
+          "permission": "crm.read",
+          "tenant": "active staff organization; forced RLS",
+          "refresh": "Read-only; no customer state changes.",
+          "evidence": "web/src/lib/customer-duplicate-matches.test.ts",
+          "browser": "Possible matches are shown; staff can open one or explicitly create a separate customer.",
+          "status": "PARTIAL",
+          "mountRouter": "crmCustomersRouter",
+          "frontendPath": "`/api/v1/customers${suffix}`",
+          "contractSymbols": [
+            "list"
+          ]
+        },
         {
           "id": "customer.create",
           "label": "Create customer",
@@ -53,7 +96,7 @@
           "refresh": "redirect/revalidate customer list or detail",
           "evidence": "app/tests/crm.controller.test.ts",
           "browser": "customer created and visible after reload",
-          "status": "HISTORICALLY_CERTIFIED",
+          "status": "PARTIAL",
           "mountRouter": "crmCustomersRouter",
           "frontendPath": "\"/api/v1/customers\"",
           "contractSymbols": [

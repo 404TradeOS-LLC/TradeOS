@@ -7,6 +7,10 @@ import { requireAuthContext, requireOrgAdmin, requireOrgId, requirePermissions, 
 const service = new CrmService();
 const activityService = new ActivityTimelineService();
 const hexColor = /^#(?:[0-9a-fA-F]{6})$/;
+const customerListQuerySchema = z.object({
+  query: z.string().trim().min(1).max(320).optional(),
+  limit: z.coerce.number().int().min(1).max(250).optional(),
+}).strict();
 
 const customerSchema = z
   .object({
@@ -110,11 +114,12 @@ const companyProfileSchema = z
 
 export const crmCustomersController = {
   async list(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher", "technician"]);
-    res.json(await service.listCustomers(requireOrgId(req)));
+    requirePermissions(req, ["crm.read"]);
+    const query = customerListQuerySchema.parse(req.query);
+    res.json(await service.listCustomers(requireOrgId(req), query));
   },
   async create(req: Request, res: Response) {
-    const auth = requireRoles(req, ["owner", "dispatcher"]);
+    const auth = requirePermissions(req, ["crm.write"]);
     const customer = await service.createCustomer(requireOrgId(req), customerSchema.parse(req.body));
     await activityService.record({
       orgId: requireOrgId(req),
@@ -127,11 +132,11 @@ export const crmCustomersController = {
     res.status(201).json(customer);
   },
   async getById(req: Request, res: Response) {
-    requireRoles(req, ["owner", "admin", "dispatcher", "technician"]);
+    requirePermissions(req, ["crm.read"]);
     res.json(await service.getCustomer(requireOrgId(req), req.params.id));
   },
   async update(req: Request, res: Response) {
-    const auth = requireRoles(req, ["owner", "dispatcher"]);
+    const auth = requirePermissions(req, ["crm.write"]);
     const input = customerUpdateSchema.parse(req.body);
     const customer = await service.updateCustomer(requireOrgId(req), req.params.id, input);
     await activityService.record({
@@ -146,7 +151,7 @@ export const crmCustomersController = {
     res.json(customer);
   },
   async remove(req: Request, res: Response) {
-    const auth = requireRoles(req, ["owner", "dispatcher"]);
+    const auth = requirePermissions(req, ["crm.write"]);
     await service.removeCustomer(requireOrgId(req), req.params.id);
     await activityService.record({
       orgId: requireOrgId(req),
@@ -159,17 +164,17 @@ export const crmCustomersController = {
     res.status(204).send();
   },
   async addServiceAddress(req: Request, res: Response) {
-    requireRoles(req, ["owner", "admin", "dispatcher"]);
+    requirePermissions(req, ["crm.write"]);
     res.status(201).json(await service.addServiceAddress(requireOrgId(req), req.params.id, serviceAddressSchema.parse(req.body)));
   },
   async updateServiceAddress(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher"]);
+    requirePermissions(req, ["crm.write"]);
     res.json(
       await service.updateServiceAddress(requireOrgId(req), req.params.id, req.params.addressId, serviceAddressUpdateSchema.parse(req.body))
     );
   },
   async removeServiceAddress(req: Request, res: Response) {
-    requireRoles(req, ["owner", "dispatcher"]);
+    requirePermissions(req, ["crm.write"]);
     await service.removeServiceAddress(requireOrgId(req), req.params.id, req.params.addressId);
     res.status(204).send();
   },

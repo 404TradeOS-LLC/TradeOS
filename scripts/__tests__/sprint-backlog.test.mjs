@@ -6,8 +6,10 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const backlogPath = path.join(repoRoot, "docs", "SPRINT_BACKLOG.md");
 const handoffPath = path.join(repoRoot, "docs", "SESSION_HANDOFF.md");
+const governanceWorkflowPath = path.join(repoRoot, ".github", "workflows", "sprint-governance.yml");
 const backlog = fs.readFileSync(backlogPath, "utf8");
 const handoff = fs.readFileSync(handoffPath, "utf8");
+const governanceWorkflow = fs.readFileSync(governanceWorkflowPath, "utf8");
 
 const validStatuses = new Set(["DONE", "IN_REVIEW", "READY", "BLOCKED", "PLANNED", "DEFERRED", "CANCELLED"]);
 const mergedPrs = new Set(["20", "21", "22", "23", "24", "25", "26", "27", "28", "29"]);
@@ -150,4 +152,11 @@ test("session handoff ends with a mechanical next-sprint resume contract", () =>
 
   const finalLine = handoff.trim().split("\n").at(-1);
   assert.match(finalLine, /^Startup prompt:\s*.+$/, "Startup prompt must be the final handoff line");
+});
+
+
+test("governance-only guard applies to READY promotions, not implementation entering review", () => {
+  assert.match(governanceWorkflow, /added_ready=.*grep -c '\^\+Status: READY\$'/);
+  assert.match(governanceWorkflow, /if \[ "\$added_ready" -gt 0 \]; then/);
+  assert.doesNotMatch(governanceWorkflow, /removed_planned/);
 });

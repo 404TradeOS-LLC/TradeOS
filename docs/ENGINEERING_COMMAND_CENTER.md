@@ -46,12 +46,17 @@ frontend/backend seam is substantial and historically exercised, but the
 current head is not beta-certified across every contractor/customer journey.
 The audit and limitations are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
-now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is the
-successor sprint promoted to `READY` in a separate governance PR. S051 added an
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is promoted
+to `READY` with its implementation active in PR #560. S052 customer/project
+certification is active in draft PR #565; duplicate suggestions are advisory
+and limited to exact normalized name/email matches in the current organization.
+S059 portal session certification is active in draft PR #564. These sprint
+lanes remain incomplete pending their retained evidence and review gates. S051 added an
 executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
 vertical sprints.
+Sprint governance keeps readiness promotions separate from implementation: the docs-only guard applies when a diff adds `Status: READY`, while moving a sprint to `IN_REVIEW` may accompany its implementation PR. Both transitions retain backlog acceptance and CI requirements.
 
 S027 continuation: the Costbook browser-evidence lane now covers all nine routes
 at all four required widths, visible keyboard focus, equipment mutations and
@@ -120,7 +125,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is the next `READY` successor for scope-to-estimate certification; S039/S044/S045 and their dependent production operations remain blocked.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is `READY` and active in PR #560; S052 PR #565 and S059 PR #564 are also active, independent lanes. S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
@@ -254,7 +259,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is in review; no successor sprint is eligible until merge and a separate readiness assessment.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 subsequently merged in PR #538; successor eligibility now follows the current Sprint Backlog.
 
 ## S028 completion
 
@@ -274,6 +279,6 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
 
 
-## S053 implementation update — 2026-09-22
+## S053 implementation update — 2026-09-26
 
-PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.
+PR #560 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative. Accepted lines require explicit contractor selection, persisted pricing refresh is owned by the Estimate Engine after apply, and authenticated browser certification is still required. Pre-apply sell-price projection remains follow-up work.

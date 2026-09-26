@@ -19,6 +19,8 @@ type MockPrisma = {
   serviceAddress: {
     findFirst: jest.Mock;
     update: jest.Mock;
+    updateMany: jest.Mock;
+    create: jest.Mock;
   };
   serviceAgreement: {
     findMany: jest.Mock;
@@ -67,6 +69,8 @@ const mockPrisma: MockPrisma = {
   serviceAddress: {
     findFirst: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+    create: jest.fn(),
   },
   serviceAgreement: {
     findMany: jest.fn(),
@@ -125,6 +129,26 @@ describe("CrmService", () => {
     );
   });
 
+  it("searches possible customer matches inside one organization with a bounded result count", async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+
+    await new CrmService().listCustomers("org-1", { query: " Smith ", limit: 25 });
+
+    expect(mockPrisma.customer.findMany).toHaveBeenCalledWith({
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        OR: [
+          { name: { contains: "Smith", mode: "insensitive" } },
+          { email: { contains: "Smith", mode: "insensitive" } },
+          { phone: { contains: "Smith", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { name: "asc" },
+      take: 25,
+    });
+  });
+
   it("soft deletes customers", async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-1", orgId: "org-1", deletedAt: null });
 
@@ -136,6 +160,37 @@ describe("CrmService", () => {
         data: expect.objectContaining({ deletedAt: expect.any(Date) }),
       })
     );
+  });
+
+  it("reloads only active addresses and customer-linked projects in the organization", async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-1", projects: [], serviceAddresses: [] });
+    mockPrisma.comment.findMany.mockResolvedValue([]);
+
+    await new CrmService().getCustomer("org-1", "customer-1");
+
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "customer-1", orgId: "org-1", deletedAt: null },
+      include: expect.objectContaining({ serviceAddresses: { where: { deletedAt: null }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] } }),
+    }));
+  });
+
+  it("creates, updates, and soft removes addresses under the exact organization/customer parent", async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-1", orgId: "org-1" });
+    mockPrisma.serviceAddress.create.mockResolvedValue({ id: "address-1" });
+    mockPrisma.serviceAddress.findFirst.mockResolvedValue({ id: "address-1", orgId: "org-1", customerId: "customer-1" });
+    const service = new CrmService();
+    await service.addServiceAddress("org-1", "customer-1", { addressLine1: "1 Main", city: "Terre Haute", state: "IN", postalCode: "47802" });
+    await service.updateServiceAddress("org-1", "customer-1", "address-1", { city: "West Terre Haute" });
+    await service.removeServiceAddress("org-1", "customer-1", "address-1");
+    expect(mockPrisma.serviceAddress.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ orgId: "org-1", customerId: "customer-1", addressLine1: "1 Main" }) }));
+    expect(mockPrisma.serviceAddress.findFirst).toHaveBeenCalledWith({ where: { id: "address-1", orgId: "org-1", customerId: "customer-1", deletedAt: null } });
+    expect(mockPrisma.serviceAddress.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "address-1" }, data: expect.objectContaining({ deletedAt: expect.any(Date), isPrimary: false }) }));
+  });
+
+  it("does not edit an address that belongs to a different customer", async () => {
+    mockPrisma.serviceAddress.findFirst.mockResolvedValue(null);
+    await expect(new CrmService().updateServiceAddress("org-1", "customer-1", "foreign-address", { city: "Elsewhere" })).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockPrisma.serviceAddress.update).not.toHaveBeenCalled();
   });
 
   it("reports duplicate and malformed CSV rows", async () => {

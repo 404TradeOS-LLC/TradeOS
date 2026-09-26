@@ -320,12 +320,29 @@ export interface Customer {
   createdAt: string;
 }
 
-export function listCustomers(token: string) {
-  return apiFetch<Customer[]>("/api/v1/customers", { token });
+export interface ServiceAddress {
+  id: string;
+  customerId: string;
+  label: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isPrimary: boolean;
+}
+
+export function listCustomers(token: string, params: { query?: string; limit?: number } = {}) {
+  const search = new URLSearchParams();
+  if (params.query) search.set("query", params.query);
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return apiFetch<Customer[]>(`/api/v1/customers${suffix}`, { token });
 }
 
 export function getCustomer(token: string, id: string) {
-  return apiFetch<Customer & { projects: Project[] }>(`/api/v1/customers/${id}`, { token });
+  return apiFetch<Customer & { projects: Project[]; serviceAddresses: ServiceAddress[] }>(`/api/v1/customers/${id}`, { token });
 }
 
 export interface CustomerPortalAccessTokenIssue {
