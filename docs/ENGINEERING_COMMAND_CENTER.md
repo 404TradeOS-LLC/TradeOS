@@ -56,6 +56,7 @@ executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
 vertical sprints.
+Sprint governance keeps readiness promotions separate from implementation: the docs-only guard applies when a diff adds `Status: READY`, while moving a sprint to `IN_REVIEW` may accompany its implementation PR. Both transitions retain backlog acceptance and CI requirements.
 
 S027 continuation: the Costbook browser-evidence lane now covers all nine routes
 at all four required widths, visible keyboard focus, equipment mutations and

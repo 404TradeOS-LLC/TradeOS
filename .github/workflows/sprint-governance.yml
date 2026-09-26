@@ -63,8 +63,7 @@ jobs:
           base="$(git merge-base "origin/$BASE_REF" HEAD)"
           if ! git diff --quiet "$base...HEAD" -- docs/SPRINT_BACKLOG.md; then
             added_ready="$(git diff -U0 "$base...HEAD" -- docs/SPRINT_BACKLOG.md | grep -c '^+Status: READY$' || true)"
-            removed_planned="$(git diff -U0 "$base...HEAD" -- docs/SPRINT_BACKLOG.md | grep -c '^-Status: PLANNED$' || true)"
-            if [ "$added_ready" -gt 0 ] || [ "$removed_planned" -gt 0 ]; then
+            if [ "$added_ready" -gt 0 ]; then
               unexpected="$(git diff --name-only "$base...HEAD" | grep -Ev '^(docs/|scripts/|package(-lock)?\.json$|\.github/workflows/sprint-governance\.yml$)' || true)"
               if [ -n "$unexpected" ]; then
                 echo "::error::Readiness promotion PR also changes implementation paths:"
