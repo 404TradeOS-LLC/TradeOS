@@ -15,6 +15,7 @@ import {
   getActiveClarification,
   submitClarification,
 } from "./clarification";
+import { generationIdForReviewer, selectAcceptedDraftLines, toggleDraftLineSelection } from "./review-selection";
 
 type ApplyResponse = {
   applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
@@ -50,7 +51,7 @@ export function AthenaEstimatingCopilot({
       }),
     onSuccess: (next, submittedScope) => {
       setDraft(next);
-      setAcceptedIds(next.lineItems.filter((line) => line.targetId && line.reviewToken).map((line) => line.draftLineItemId));
+      setAcceptedIds([]);
       setDraftScope(submittedScope.trim());
       setApplyNotice("");
       setActiveQuestion(getActiveClarification(next.validation.missingInformation));
@@ -65,10 +66,8 @@ export function AthenaEstimatingCopilot({
         body: JSON.stringify({
           // Generation-linked review provenance is limited by the backend to
           // owner/admin. Dispatchers retain their existing billing.write apply.
-          ...((currentRole === "owner" || currentRole === "admin") && draft?.generationId ? { generationId: draft.generationId } : {}),
-          lineItems: draft?.lineItems
-            .filter((line) => acceptedIds.includes(line.draftLineItemId) && line.targetId && line.reviewToken)
-            .map((line) => ({
+          ...generationIdForReviewer(currentRole, draft?.generationId),
+          lineItems: draft ? selectAcceptedDraftLines(draft.lineItems, acceptedIds).map((line) => ({
               draftLineItemId: line.draftLineItemId,
               quantity: line.quantity,
               status: "accepted",
@@ -76,7 +75,7 @@ export function AthenaEstimatingCopilot({
               targetId: line.targetId,
               targetKind: line.targetKind,
               reviewToken: line.reviewToken,
-            })) ?? [],
+            })) : [],
         }),
       }),
     onSuccess: (result) => {
@@ -91,8 +90,7 @@ export function AthenaEstimatingCopilot({
 
   const preview = useMemo(() => {
     if (!draft) return null;
-    const proposedCost = draft.lineItems
-      .filter((line) => acceptedIds.includes(line.draftLineItemId) && line.targetId && line.reviewToken)
+    const proposedCost = selectAcceptedDraftLines(draft.lineItems, acceptedIds)
       .reduce((sum, line) => sum + line.lineCost, 0);
     return { proposedCost, combinedCost: Number(estimate.subtotalCost ?? 0) + proposedCost };
   }, [draft, estimate.subtotalCost, acceptedIds]);
@@ -180,7 +178,7 @@ export function AthenaEstimatingCopilot({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estimate items</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Athena selected existing TradeOS targets. Adjustments happen in the Estimate Workspace.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Include only the proposed work that belongs in this estimate.</p>
                 </div>
                 <Badge variant="secondary">{resolved.length} ready</Badge>
               </div>
@@ -191,7 +189,7 @@ export function AthenaEstimatingCopilot({
                 ) : draft.lineItems.map((line) => (
                   <div key={line.draftLineItemId} className="flex items-start justify-between gap-4 px-3 py-3">
                     <div className="min-w-0">
-                      {line.targetId && line.reviewToken ? <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={acceptedIds.includes(line.draftLineItemId)} onChange={(event) => setAcceptedIds((ids) => event.target.checked ? [...ids, line.draftLineItemId] : ids.filter((id) => id !== line.draftLineItemId))} /> Include in estimate</label> : null}
+                      {line.targetId && line.reviewToken ? <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={acceptedIds.includes(line.draftLineItemId)} onChange={(event) => setAcceptedIds((ids) => toggleDraftLineSelection(ids, line.draftLineItemId, event.target.checked))} /> Include in estimate</label> : null}
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-foreground">{line.description}</span>
                         <Badge variant="outline">{line.targetKind === "assembly" ? "Assembly" : "Costbook"}</Badge>
