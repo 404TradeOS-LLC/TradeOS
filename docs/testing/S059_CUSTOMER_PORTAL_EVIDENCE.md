@@ -14,19 +14,23 @@ trace/video/HAR/network exports, screenshots, console output, or CI logs.
    token, then begin capture only after the clean `/access/confirm` URL loads.
    The browser capture must omit URL-bearing history and pending-cookie values.
 2. Submit confirmation using the site's exact origin. Verify the clean portal
-   URL, an HttpOnly session cookie through an in-memory assertion of flags
-   only, and customer A's permitted project, proposal, invoice, contract and
-   PDFs. Capture rendered pages only after confirming the URL has no token.
+   URL, and inspect the HttpOnly session cookie's flags in memory without
+   retaining or logging its value. The required HttpOnly cookie is not a scan
+   failure. Verify customer A's permitted project, proposal, invoice, contract
+   and PDFs. Capture rendered pages only after confirming the URL has no token.
 3. For each denied attempt record case label, HTTP status, and redacted
    outcome only: replay; revoke before redemption; revoke after redemption;
    expired access; expired session; malformed access/session; wrong origin;
    customer B project/proposal/invoice/contract/PDF; organization C equivalents;
    portal session on staff API; draft proposal/invoice detail and PDF. For
    signing, verify only customer A's exact pending contract and attribution.
-4. Verify no token or session appears in persisted screenshots, recordings,
-   traces, CI artifacts, browser storage, app/edge logs, analytics or referrers.
-   Use an in-memory comparison, and retain only the Boolean scan result and
-   artifact manifest. Never print the searched secret when reporting failure.
+4. Scan browser-readable storage and retained artifacts, including persisted
+   screenshots, recordings, traces, CI artifacts, app/edge logs, analytics and
+   referrers, for access-token or session values. The HttpOnly session cookie
+   is not browser-readable and must not be read or retained for this scan; its
+   flags are checked in memory as described above. Use an in-memory comparison
+   and retain only the Boolean scan result and artifact manifest. Never print
+   a searched secret when reporting failure.
 5. Record tested deployment SHA, sanitized tenant fixture IDs, role, viewport,
    check statuses, and cleanup evidence. Release readiness requires the real
    PostgreSQL integration/RLS run and exact-head required CI alongside browser
