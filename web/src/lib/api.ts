@@ -333,8 +333,12 @@ export interface ServiceAddress {
   isPrimary: boolean;
 }
 
-export function listCustomers(token: string) {
-  return apiFetch<Customer[]>("/api/v1/customers", { token });
+export function listCustomers(token: string, params: { query?: string; limit?: number } = {}) {
+  const search = new URLSearchParams();
+  if (params.query) search.set("query", params.query);
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return apiFetch<Customer[]>(`/api/v1/customers${suffix}`, { token });
 }
 
 export function getCustomer(token: string, id: string) {

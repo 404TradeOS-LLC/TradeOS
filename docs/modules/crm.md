@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-28
+last_verified: 2026-09-26
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -33,7 +33,7 @@ Own customer records, service addresses, customer equipment, service agreements,
 
 ## Customer listing and search
 
-`CrmService.listCustomers(orgId, options)` remains tenant-scoped and excludes soft-deleted customers. Callers may provide a trimmed `query` that is applied in PostgreSQL across customer name, email, and phone, plus a bounded `limit`; the service clamps the result count to prevent unbounded customer-directory reads. Ordinary callers that omit options continue to receive a bounded customer list.
+`CrmService.listCustomers(orgId, options)` remains tenant-scoped and excludes soft-deleted customers. Callers may provide a trimmed `query` that is applied in PostgreSQL across customer name, email, and phone, plus a bounded `limit`; the service clamps the result count to prevent unbounded search reads. `GET /api/v1/customers?query=...&limit=...` exposes that optional bounded search under the existing `crm.read` permission. Calls without search parameters retain the existing customer-list behavior.
 
 ## Routes
 
@@ -73,6 +73,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - `/customers/new`
 - `/customers/[id]`
 - Customer detail lists active CRM service addresses and lets staff with `crm.write` add, edit, and remove them through the existing `POST|PATCH|DELETE /api/v1/customers/:id/service-addresses` routes. Reads reload the customer detail response; technicians can view addresses without write controls.
+- Add customer checks same-organization records for exact normalized name and email matches. Results are advisory: staff can open an existing record or explicitly create a separate one. No automatic merge or hard duplicate block occurs. Search uses the authenticated CRM read path and returns only customer identity/contact fields needed for review. Phone is not used for matching because the current bounded search does not normalize stored phone formatting reliably. If any bounded lookup fails, creation returns an incomplete-results error and requires the contractor to retry.
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
 ## Tests
@@ -84,7 +85,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 ## Known limitations
 
 - CRM remains intentionally project-centered rather than a separate pipeline subsystem
-- Import treats normalized email **or** normalized phone as a possible duplicate and skips that CSV row. Ordinary Add customer still has no established duplicate review/skip/merge/create contract; S052 does not silently merge or deduplicate quick-created customers.
+- Import treats normalized email **or** normalized phone as a possible duplicate and skips that CSV row. Ordinary Add customer uses a separate advisory contract: exact normalized name/email matches are shown for staff review, and an explicit separate-record choice is required to proceed when matches exist. Phone is not part of quick-create matching yet. The two workflows do not share a duplicate mutation policy.
 
 ## Deferred work
 

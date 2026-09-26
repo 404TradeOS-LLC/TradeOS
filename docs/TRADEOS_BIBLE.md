@@ -271,6 +271,6 @@ permission to bypass readiness promotion, open-PR overlap, protected decisions,
 or production-access gates.
 
 
-## S053 implementation update — 2026-09-22
+## S053 implementation update — 2026-09-26
 
-S053 implementation is in PR #542. The current slice wires the existing structured estimate-assist draft/review/apply contract into the frontend while preserving the review-first Estimate Engine boundary. Browser certification remains pending.
+S053 implementation is in draft PR #560. The slice wires the existing structured estimate-assist draft/review/apply contract into the frontend while preserving the review-first Estimate Engine boundary. Contractors explicitly select proposed lines; Estimate Engine refreshes persisted pricing after apply. Pre-apply sell-price projection is follow-up work. Browser certification remains pending. S052 customer/project certification is in draft PR #565 with advisory exact normalized same-organization name/email matches, and S059 portal session certification is in draft PR #564; all remain incomplete pending their evidence and review gates.

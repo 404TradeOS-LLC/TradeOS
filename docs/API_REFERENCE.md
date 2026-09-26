@@ -109,6 +109,10 @@ customer id, and portal session id. The portal principal cannot call staff
 - signup/login themselves go through Supabase Auth directly in Server Actions (`web/src/app/actions/auth.ts`), not through `api.ts` — the module previously also exported unused `signup`/`login`/`AuthSession` helpers that duplicated this path; those were removed as dead code
 - binary documents are proxied separately from JSON APIs
 
+## Customer lookup
+
+`GET /api/v1/customers` requires `crm.read` and returns only active customers in the authenticated organization. Optional `query` is a trimmed 1–320 character value searched across customer name, email, and phone case-insensitively; optional `limit` must be an integer from 1 to 250. The CRM service also caps the limit at 250. S052 uses this bounded read to show possible same-organization customer matches before creation; exact normalized name/email matches are advisory, with an explicit existing-record choice or separate-record creation and no automatic merge or hard block. Phone formatting is not used for quick-create match suggestions. If any bounded lookup request fails, the server action returns an incomplete-results error and requires retry before creating a customer.
+
 ## Error conventions
 
 The centralized error handler returns a consistent JSON shape with:

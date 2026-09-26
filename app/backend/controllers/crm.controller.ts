@@ -7,6 +7,10 @@ import { requireAuthContext, requireOrgAdmin, requireOrgId, requirePermissions, 
 const service = new CrmService();
 const activityService = new ActivityTimelineService();
 const hexColor = /^#(?:[0-9a-fA-F]{6})$/;
+const customerListQuerySchema = z.object({
+  query: z.string().trim().min(1).max(320).optional(),
+  limit: z.coerce.number().int().min(1).max(250).optional(),
+}).strict();
 
 const customerSchema = z
   .object({
@@ -111,7 +115,8 @@ const companyProfileSchema = z
 export const crmCustomersController = {
   async list(req: Request, res: Response) {
     requirePermissions(req, ["crm.read"]);
-    res.json(await service.listCustomers(requireOrgId(req)));
+    const query = customerListQuerySchema.parse(req.query);
+    res.json(await service.listCustomers(requireOrgId(req), query));
   },
   async create(req: Request, res: Response) {
     const auth = requirePermissions(req, ["crm.write"]);

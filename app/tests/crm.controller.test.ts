@@ -51,9 +51,10 @@ function buildResponse() {
   } as unknown as Response;
 }
 
-function buildRequest(body: unknown, role = "dispatcher") {
+function buildRequest(body: unknown, role = "dispatcher", query: Record<string, unknown> = {}) {
   return {
     body,
+    query,
     params: { id: "customer-1", addressId: "address-1" },
     orgId: "org-1",
     auth: { userId: "user-1", orgId: "org-1", role, canonicalRole: role },
@@ -88,6 +89,21 @@ describe("crmCustomersController", () => {
       })
     );
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it("passes bounded customer search through the authenticated organization scope", async () => {
+    listCustomersMock.mockResolvedValue([{ id: "customer-1", name: "Smith Family" }]);
+    const response = buildResponse();
+
+    await crmCustomersController.list(buildRequest({}, "admin", { query: " Smith ", limit: "25" }), response);
+
+    expect(listCustomersMock).toHaveBeenCalledWith("org-1", { query: "Smith", limit: 25 });
+    expect(response.json).toHaveBeenCalledWith([{ id: "customer-1", name: "Smith Family" }]);
+  });
+
+  it("rejects invalid customer search bounds before reading CRM data", async () => {
+    await expect(crmCustomersController.list(buildRequest({}, "admin", { query: " ", limit: "251" }), buildResponse())).rejects.toBeDefined();
+    expect(listCustomersMock).not.toHaveBeenCalled();
   });
 
   it("allows owner/admin/dispatcher to create and update customers using crm.write", async () => {

@@ -129,6 +129,26 @@ describe("CrmService", () => {
     );
   });
 
+  it("searches possible customer matches inside one organization with a bounded result count", async () => {
+    mockPrisma.customer.findMany.mockResolvedValue([]);
+
+    await new CrmService().listCustomers("org-1", { query: " Smith ", limit: 25 });
+
+    expect(mockPrisma.customer.findMany).toHaveBeenCalledWith({
+      where: {
+        orgId: "org-1",
+        deletedAt: null,
+        OR: [
+          { name: { contains: "Smith", mode: "insensitive" } },
+          { email: { contains: "Smith", mode: "insensitive" } },
+          { phone: { contains: "Smith", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { name: "asc" },
+      take: 25,
+    });
+  });
+
   it("soft deletes customers", async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-1", orgId: "org-1", deletedAt: null });
 

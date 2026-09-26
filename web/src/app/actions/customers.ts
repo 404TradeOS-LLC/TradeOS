@@ -2,11 +2,22 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError } from "@/lib/api";
+import { apiFetch, ApiClientError, listCustomers } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { parseServiceAddressForm } from "@/lib/service-address-form";
+import {
+  customerDuplicateSearchTerms,
+  findCustomerDuplicateMatches,
+  requiresSeparateCustomerConfirmation,
+  type CustomerDuplicateInput,
+} from "@/lib/customer-duplicate-matches";
 
-export type FormActionState = { error?: string } | undefined;
+export type FormActionState = {
+  error?: string;
+  customerInput?: CustomerDuplicateInput;
+  customerMatches?: ReturnType<typeof findCustomerDuplicateMatches>;
+  customerMatchLookupFailed?: boolean;
+} | undefined;
 
 async function mutateServiceAddress(method: "POST" | "PATCH" | "DELETE", formData: FormData): Promise<FormActionState> {
   const customerId = String(formData.get("customerId") ?? "");
@@ -46,30 +57,53 @@ export async function removeServiceAddressAction(_prev: FormActionState, formDat
 
 export async function createCustomerAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
   const token = await getSessionToken();
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
+  const customerInput = {
+    name: String(formData.get("name") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    phone: String(formData.get("phone") ?? "").trim(),
+  };
   const address = String(formData.get("address") ?? "").trim();
   const billingAddress = String(formData.get("billingAddress") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const intent = String(formData.get("intent") ?? "create");
 
-  if (!name) return { error: "Name is required." };
+  if (!customerInput.name) return { error: "Name is required.", customerInput };
+  if (!token) return { error: "Sign in again before searching or creating a customer.", customerInput };
+
+  const searchTerms = customerDuplicateSearchTerms(customerInput);
+  const searchResults = await Promise.allSettled(searchTerms.map((query) => listCustomers(token, { query, limit: 250 })));
+  const candidates = searchResults.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const customerMatches = findCustomerDuplicateMatches(candidates, customerInput);
+  const customerMatchLookupFailed = searchResults.some((result) => result.status === "rejected");
+
+  if (intent === "check") return { customerInput, customerMatches, customerMatchLookupFailed };
+  if (customerMatchLookupFailed) {
+    return {
+      error: "Customer search is incomplete. Retry the search before creating this customer.",
+      customerInput,
+      customerMatches,
+      customerMatchLookupFailed: true,
+    };
+  }
+  if (intent !== "create-separate" && requiresSeparateCustomerConfirmation(customerMatches.length, false)) {
+    return { customerInput, customerMatches, customerMatchLookupFailed };
+  }
 
   try {
     await apiFetch("/api/v1/customers", {
       method: "POST",
-      token: token ?? undefined,
+      token,
       body: JSON.stringify({
-        name,
-        email: email || undefined,
-        phone: phone || undefined,
+        name: customerInput.name,
+        email: customerInput.email || undefined,
+        phone: customerInput.phone || undefined,
         address: address || undefined,
         billingAddress: billingAddress || undefined,
         notes: notes || undefined,
       }),
     });
   } catch (err) {
-    return { error: err instanceof ApiClientError ? err.message : "Something went wrong." };
+    return { error: err instanceof ApiClientError ? err.message : "Something went wrong.", customerInput };
   }
 
   revalidatePath("/customers");

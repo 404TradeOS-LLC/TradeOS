@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-25
+last_verified: 2026-09-26
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -14,38 +14,38 @@ related_docs:
 
 ## Current truth
 
-- S051 merged in PR #538 and established the static connection matrix. S053 is
-  `READY` and separately under active repair in PR #560.
-- Founder explicitly started S052 despite its still-`PLANNED` backlog label.
-  S052 branch `feature/s052-customer-project-vertical-certification` starts at
-  `47fb0105f7d2ee3e1287197efa2f9ceaafd8caa8`.
-- Customer/service-address controllers now honor established `crm.read` and
-  `crm.write`, including admin; technician remains read-only. Customer detail
-  lists and edits existing CRM service addresses and reloads authoritative data.
-  Project customer-parent scope middleware already checks active, same-org
-  customers; no schema, RLS, or new address model is introduced.
-- S052 connection-matrix journey is `PARTIAL` until authenticated current-head
-  browser checks pass at 1440/768/390 and the ordinary Add customer duplicate
-  policy is decided. Import already skips a normalized email **or** phone match;
-  that is not a quick-create contract. No S052 DONE or S056 eligibility claim.
+- S051 merged in PR #538 and established the static connection matrix.
+- S052 is under implementation review in existing draft PR #565 on
+  `feature/s052-customer-project-vertical-certification`. Quick-create duplicate
+  handling is now defined: exact normalized same-organization name/email
+  matches are advisory; staff can open an existing customer or explicitly
+  create a separate record. No automatic merge or duplicate hard block is used.
+  Phone formatting is not matched by this bounded lookup. A failed lookup stops
+  creation and asks the staff member to retry.
+- S053 remains `READY` and is implemented in existing draft PR #560. It preserves
+  Estimate Engine ownership; post-apply pricing refresh is in scope and a
+  pre-apply sell-price forecast is follow-up work. S059 remains active in draft
+  PR #564. None of these sprints is complete from the current repository or CI
+  evidence alone.
+- Customer/service-address controllers use established `crm.read` and
+  `crm.write`; technician remains read-only. Project customer-parent scope
+  middleware checks active, same-organization customers. No schema, RLS, or new
+  address model was introduced in the S052 work.
+- The S052 connection-matrix journey remains `PARTIAL` until authenticated
+  viewport checks at 1440/768/390 and live PostgreSQL/RLS evidence are retained.
+  No S052 DONE or S056 eligibility claim.
 
 ## Verification completed
 
-- Focused CRM/Project/controller/parent-scope and auth membership tests pass;
-  app lint/build and web lint/build/unit tests pass.
-- `npm run connection-matrix:check` passes for 10 journeys and 52 mapped actions;
-  matrix tests, `npm run pr:test` (70 tests), `npm run docs:test`,
-  `npm run docs:check -- --base origin/main`, `npm run pr:preflight -- --base origin/main`,
-  and `git diff --check` pass on the S052 worktree.
-- Current-head hosted CI and authenticated browser evidence are pending. Local
-  PostgreSQL integration rehearsal cannot run without Docker in this workspace.
+- The prior published S052 head `442e5b8c667a724cbf07faed363149179c88329d` passed exact-head Verify Repository, Docs consistency, branch currency, sprint governance, live documentation reconciliation, and dependency review. Its local CRM/Project/auth and frontend suites passed as recorded in PR #565.
+- Current S052 working changes pass the focused CRM controller/service tests (24/24) and customer action/match-helper tests (9/9); web lint passed with one unrelated existing warning, and `git diff --check` passed. These changes are not yet published, so exact-head CI is pending.
+- S053 head `7a326667ffb74fb8ed2e6de3cd5c91fb17f58b82` passed exact-head Verify Repository run #2585 plus Docs consistency, sprint governance, branch currency, live documentation reconciliation, and dependency review. Local web tests passed 299/299; lint, build, and diff check passed.
+- S059 head `a7a025a8184ea8ad4913327d14091bd65091fb7c` passed Verify Repository #2580 and its governance/docs checks; the resolved documentation review thread has an approval. Authenticated browser evidence remains blocked by Preview API readiness 503.
+- Local PostgreSQL integration rehearsal cannot run without Docker in this workspace. No browser or production verification is claimed.
 
 ## Next action
 
-Keep S052 in review. Confirm the quick-create duplicate choice without silent
-deduplication, run isolated authenticated owner/admin and denial journeys at
-1440/768/390, then verify exact-head CI/review before any DONE claim. S053 PR
-#560 proceeds independently; S056 waits until S052 passes.
+Keep PRs #565, #560, and #564 in draft until their remaining evidence and review gates pass. Run isolated authenticated owner/admin and denial journeys at 1440/768/390 when the Preview environment is ready; reconcile exact-head CI and review status. S054 waits for S052, S053, and S059; S056 waits for S052.
 
 ## Next Eligible Sprint
 

@@ -590,10 +590,11 @@ Required validation: focused validator tests; `npm run pr:test`; `npm run docs:t
 
 ### S052 — Customer and project vertical certification
 
-Status: PLANNED
+Status: IN_REVIEW
 Dependencies: S051
 Objective: Certify customer creation/update, service address, project creation, scope persistence, and project workspace refresh as one tenant-safe workflow.
-Acceptance: owner/admin happy path plus validation, duplicate, inactive-membership, and cross-tenant denial evidence pass at 1440/768/390.
+Acceptance: owner/admin happy path plus validation, advisory same-org exact normalized name/email matches with existing-record selection or explicit separate-record creation, inactive-membership, and cross-tenant denial evidence pass at 1440/768/390. Duplicate matches never merge automatically or hard-block a separate record. Phone formatting is not part of quick-create matching until a reliable bounded normalized search exists.
+Implementation PR: #565 (draft; browser certification remains outstanding).
 
 ### S053 — Scope-to-Athena-to-estimate certification
 
