@@ -557,7 +557,7 @@ Frames in product pages use explicit authority labels:
 - **`[AUDIT]`** — production-gap analysis;
 - **`[STATUS]`** — page status/reference material, not an approved production screen.
 
-Do not implement from an `[AUDIT]`, `[TARGET]`, or `[CERTIFICATION]` frame as though it were the current approved UI without reconciling the product contract and page status.
+Do not implement from an `[AUDIT]`, `[TARGET]`, `[CERTIFICATION]`, or `[STATUS]` frame as though it were the current approved UI without reconciling the product contract and page status.
 
 ## 22. Current screen authority snapshot
 
@@ -708,7 +708,7 @@ When changing TradeOS product UI:
 
 1. Read this file.
 2. Read the relevant capability/domain source-of-truth documents.
-3. Check the relevant canonical Figma page and its `[CANONICAL]` / `[TARGET]` / `[AUDIT]` / `[CERTIFICATION]` status.
+3. Check the relevant canonical Figma page and its `[CANONICAL]` / `[TARGET]` / `[AUDIT]` / `[CERTIFICATION]` / `[STATUS]` status.
 4. Inspect current production components/tokens and `docs/ui-guide.md`.
 5. Reuse or converge existing primitives before creating another component.
 6. Keep page files thin and follow current frontend data-access patterns.
