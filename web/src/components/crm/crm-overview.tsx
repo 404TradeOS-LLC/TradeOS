@@ -95,7 +95,7 @@ function PipelineCard({
           <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">{customer?.name ?? proposal?.customerName ?? "No customer linked"}</p>
         </div>
-        <StatusBadge status={project.status} />
+        <StatusBadge status={proposal && (proposal.status === "sent" || proposal.status === "viewed") ? proposal.status : project.status} />
       </div>
       {proposal ? (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -234,7 +234,7 @@ export function CrmOverview({
           <Link href="/projects/new" className={buttonVariants({ variant: "outline", size: "sm" })}>New lead</Link>
         </div>
 
-        <div className="mt-4 hidden min-w-[62rem] grid-cols-5 gap-3 lg:grid">
+        <div className="mt-4 hidden grid-cols-5 gap-3 xl:grid">
           {PIPELINE.map((stage) => {
             const stageProjects = lanes.get(stage.id) ?? [];
             return (
@@ -263,7 +263,7 @@ export function CrmOverview({
           })}
         </div>
 
-        <div className="mt-4 grid gap-2 lg:hidden">
+        <div className="mt-4 grid gap-2 xl:hidden">
           {PIPELINE.map((stage) => {
             const stageProjects = lanes.get(stage.id) ?? [];
             const first = stageProjects[0];
