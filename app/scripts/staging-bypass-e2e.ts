@@ -24,7 +24,12 @@ async function main(): Promise<void> {
     page.on("console", (message) => {
       if (message.type() === "error") failures.push(`console: ${message.text()}`);
     });
-    page.on("requestfailed", (request) => failures.push(`network: ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? "failed"}`));
+    page.on("requestfailed", (request) => {
+      const errorText = request.failure()?.errorText ?? "failed";
+      // Next.js cancels link-prefetch requests when the test navigates to the
+      // next route. Those cancellations do not mean the page or API failed.
+      if (errorText !== "net::ERR_ABORTED") failures.push(`network: ${new URL(request.url()).pathname} ${errorText}`);
+    });
     page.on("response", (response) => {
       if (response.status() >= 400 && !response.url().includes("/favicon")) {
         failures.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
