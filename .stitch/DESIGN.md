@@ -1,315 +1,721 @@
 # TradeOS Product Design Contract
 
-**Status:** Canonical visual and interaction-intent guidance for TradeOS product UI.
+**Status:** Canonical written design contract for TradeOS product UI.  
+**Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.  
+**Last reconciled:** 2026-09-27.
 
-**Authority model:**
+This file is the written companion to the canonical Figma master. It is intentionally not a screen-by-screen replacement for Figma. It defines the permanent visual system, interaction grammar, product language, responsive rules, reusable patterns, and implementation boundaries that frontend work must preserve.
 
-1. Governed product and architecture source-of-truth documents define product scope, supported capabilities, domain contracts, security boundaries, and workflow behavior.
-2. The current approved TradeOS Sites direction governs product intent, hierarchy, information architecture, and the desired contractor experience.
-3. Current production implementation and tokens govern exact values, accessibility pairings, responsive behavior, and implementation details. In particular, `web/src/app/globals.css` and shared production components are implementation authority.
-4. Historical 404 TradeOS / Claude design-system material is reference material only and must not override current product decisions or production-safe values.
+## 1. Authority model
 
-If these sources appear to conflict, do not invent a compromise. Preserve product/domain truth, use the approved Sites direction for experience intent, use production code for exact implementation values, and update the relevant governed source in the same change when a deliberate product decision changes it.
+TradeOS has three kinds of truth. Keep them separate and synchronized.
 
----
+1. **Capability truth** — governed product/domain contracts and live implementation define what TradeOS can actually do: routes, persisted state, lifecycle, permissions, mutations, money, security boundaries, and data contracts.
+2. **Design truth** — the canonical Figma file defines approved product hierarchy, visual intent, responsive composition, reusable components, interaction patterns, screen states, and current approved product screens.
+3. **Implementation truth** — current production code defines exact implementation values and accessibility behavior. In particular, `web/src/app/globals.css`, shared production components, and live route/domain contracts govern exact runtime behavior.
 
-## 1. Product intent
+Historical Sites work, old Figma files, sprint packets, screenshots, and archived design explorations are **reference only** unless deliberately reconciled and approved into the canonical Figma file.
 
-TradeOS should feel like a **contractor command center**: simple enough to understand at a glance, powerful enough to run a real contracting business, and precise enough to inspire trust.
+If sources conflict:
+
+- never invent a compromise;
+- capability truth wins over a mockup that implies unsupported behavior;
+- canonical Figma wins for current design intent;
+- production code wins for exact runtime/token/accessibility details until a deliberate design decision changes them;
+- reconcile the affected source in the same change instead of allowing silent drift.
+
+`docs/ui-guide.md` is the current production component/integration inventory. It complements this contract; it does not replace the canonical Figma design system.
+
+## 2. Product intent
+
+TradeOS is **the contractor operating system**.
+
+The product should feel like a contractor command center: simple enough to understand at a glance, powerful enough to run a real contracting business, and precise enough to inspire trust.
 
 Core principles:
 
 - **Action before analytics.** Show what needs attention and what to do next before historical metrics.
-- **One dominant next move.** Every important screen should make the highest-value next action obvious.
+- **One dominant next move.** Focused workflows should have one obvious primary action.
+- **Workspaces over card walls.** Important records are operating surfaces, not dashboards made from miniature dashboards.
 - **Calm under load.** Dense information is acceptable; visual chaos is not.
-- **Operational language.** Use direct contractor language rather than marketing copy or generic SaaS jargon.
-- **Real data over decoration.** Never fabricate metrics, charts, integrations, engagement signals, or operational states to make a screen look complete.
-- **Progressive disclosure.** Reveal detail when needed rather than putting every capability on the first screen.
-- **Mobile-first ergonomics.** Primary actions must remain reachable and understandable on a phone.
-- **Accessible by construction.** Contrast, focus, motion, touch targets, and semantic state must be intentionally designed.
-
----
-
-## 2. Visual environments
-
-### Blueprint
-
-Blueprint is the default TradeOS product environment:
-
-- light, warm-neutral surfaces with charcoal text
-- distinct page, sidebar, and content surfaces using the current production tokens
-- restrained copper accents
-- compact, engineered spacing
-- strong hierarchy without visual noise
-- borders used more often than shadows
-- precise, professional typography
-
-### Carbon
-
-Carbon is the product dark mode. It must preserve the same hierarchy, interaction logic, semantic colors, and accessibility quality as Blueprint rather than becoming a separate aesthetic concept.
-
-### Forge
-
-Forge is the darker, warmer, dramatic 404 TradeOS marketing language. Keep it on marketing and brand-storytelling surfaces. Normal product workflows must not drift into Forge styling simply because copper and dark surfaces are available.
-
----
-
-## 3. Color and token rules
-
-**TradeOS Copper — `#B87333` in Blueprint, with a lighter production token in Carbon** is the brand accent, not a general-purpose semantic color.
-
-Use copper sparingly for primary actions, active navigation, selected controls, focus treatment where the production pairing is accessible, and restrained brand moments.
-
-Semantic colors retain semantic meaning:
-
-- green = success / complete / healthy / online
-- amber = warning / caution / attention needed
-- red = destructive / failed / genuinely critical
-- blue = informational / neutral system state
-- copper = brand / primary interaction
-
-Do not create a rainbow dashboard by assigning arbitrary colors to sections.
-
-Exact color values, foreground pairings, focus rings, and dark-mode tokens come from current production code. Accessibility-corrected production values override historical design-bundle values.
-
----
-
-## 4. Typography
-
-Use **Space Grotesk** for page and section headings and selected numerical display moments. Use the product/system sans stack for body text, controls, navigation, form labels, and normal UI copy. Use monospaced text only where alignment or machine-like precision improves scanning, such as IDs, timestamps, measurements, and dense numeric tables.
-
-A normal screen should have one page-level title, one primary operational message or next action, clear section labels, and compact supporting text. Avoid multiple equally loud headlines.
-
----
-
-## 5. Layout and density
-
-TradeOS is an operational product. Prefer dense-but-readable layouts over marketing-scale whitespace.
-
-Cards should group meaningful information rather than become the default container for every datum. Prefer ranked lists, compact rows, grouped sections, inline actions, and expandable detail. Avoid walls of identical rounded cards.
-
-Use borders for most separation. Reserve stronger shadows for floating menus, sheets, popovers, dialogs, and temporary overlays. Use restrained corner radii; pill shapes should be semantically justified.
-
----
-
-## 6. Mobile-first contractor ergonomics
-
-- Use practical touch targets around 44 px or larger.
-- Keep frequent actions thumb-reachable.
-- Do not squeeze desktop tables into unreadable mobile layouts.
-- Prefer stacked rows, disclosure panels, and dedicated mobile representations.
-- Persistent bottom navigation is appropriate for a small set of highest-frequency destinations.
-- Keep one dominant primary action visible when it materially improves completion of the current task.
-- Secondary modules belong behind More/Menu or contextual navigation rather than overcrowding bottom navigation.
-
----
-
-## 7. Dashboard / owner command center
-
-The dashboard is the owner's daily command center, not a widget collection.
-
-Its operating rhythm is **Now / Needs You / Coming Up / Money**. It should answer, in order:
-
-1. What should I do now?
-2. What needs my decision?
-3. What work and visits are coming up?
-4. What money needs attention?
-
-The top zone may show today's schedule summary, urgent operational count, overdue or ready-to-collect money, and one dominant CTA such as **Handle next priority**.
-
-### Needs-attention queue
-
-Use a single ranked queue rather than several unrelated attention cards. Rank by consequence if ignored. Every row should, where the underlying product capability exists, communicate:
-
-- what happened
-- why it matters
-- recommended resolution
-- direct action
-
-Do not invent unsupported queue types, telemetry, integrations, or risk signals.
-
-### Schedule and financial context
-
-Schedule rows should be easy to scan for time, customer/job, assignee, location/context, status, and real problem indicators. Unassigned work should be visibly distinct.
-
-Favor operational money signals such as overdue amount, ready-to-invoice amount, and recently collected or due payments when actionable. Do not prioritize vanity charts above urgent work.
-
----
-
-## 8. Athena design language
-
-Athena is an **embedded operational intelligence layer**, not a generic chatbot attached to TradeOS.
-
-A useful Athena recommendation should communicate:
-
-1. **Recommendation** — what should happen.
-2. **Reason** — the verified evidence that caused it to surface.
-3. **Consequence** — what may happen if ignored, when supported.
-4. **Action** — a direct way to resolve or advance the item.
-
-Example using recorded proposal state and its sent date:
-
-> Follow up with Briarwood Condo
-> Proposal was sent five days ago; no acceptance or decline is recorded.
-> **Send follow-up** · **Review proposal**
-
-Do not describe “high engagement,” intent, sentiment, risk, or other inferred states as confirmed facts unless the product has a real data contract that supports those claims.
-
-Athena should visually distinguish observation, recommendation, prepared action, executed action, and uncertainty/missing data. Never present AI assumptions as confirmed live business data.
-
-Use contextual recommendation panels, inline suggestion rows, task-preparation sheets, or a compact assistant drawer when conversation is necessary. Avoid making a floating chatbot bubble the primary Athena experience.
-
----
-
-## 9. Sign-in and entry experience
-
-The TradeOS sign-in experience must be unmistakably TradeOS:
-
-- approved TradeOS identity, with a text wordmark until an approved logo master exists
-- Blueprint product environment
-- restrained copper branding
-- contractor-focused plain-language message
-- minimal distractions
-- clear form hierarchy
-- excellent mobile behavior
-
-Do not use unrelated art, generic pixel art, stock SaaS illustrations, or marketing-page complexity.
-
----
-
-## 10. Components
-
-### Buttons
-
-Use copper-filled primary buttons only for the single highest-priority action in context, using the current production-accessible foreground pairing. Secondary buttons must be visually subordinate. Destructive styling is reserved for genuinely destructive actions.
-
-### Status badges
-
-Badges indicate compact status. Color must match meaning, and state should not rely on color alone when text or iconography can clarify it.
-
-### Forms
-
-Use clear labels, visible focus treatment, concise help text, inline validation near the relevant field, and requirements that are visible before submission.
-
-### Tables and dense data
-
-Use strong row rhythm, aligned values, sticky headers where useful, touch-capable controls, and thoughtful mobile transformation.
-
-### Drawers, sheets, and dialogs
-
-Use contextual surfaces for work that does not deserve full navigation. Avoid modal-on-modal stacks.
-
-### Empty states
-
-An empty state should explain what the area is, why it is empty when known, and the best next action. Do not leave operational screens as blank cards with only “No data.”
-
----
-
-## 11. Motion and loading
-
-Motion must explain state change, progress, hierarchy, or continuity rather than decorate the interface. Respect `prefers-reduced-motion`.
-
-TradeOS-specific loading motifs may include a subtle saw-blade/cut-progress treatment, TradeOS mark reveal, mechanical progress sweep, or restrained scan/radar motion when the system is genuinely searching, analyzing, or locating something.
-
-Do not show a dramatic loader when content can render immediately, and do not use a standing decorative radar widget.
-
----
-
-## 12. Maps and dispatch
-
-When crew location or dispatch mapping is supported, treat the map as an operational tool. Prioritize current job context, assigned crew, route/status relevance, freshness/staleness of location data, and useful mobile interaction. Do not imply live crew location unless the product has current location data.
-
----
-
-## 13. Accessibility
-
-Every product screen must account for:
-
-- WCAG-compliant contrast
-- visible focus states
-- keyboard navigation where applicable
-- practical mobile touch targets
-- reduced-motion support
-- readable type sizes
-- semantic state not communicated by color alone
-- clear error and recovery messaging
-
-Production accessibility fixes and current token pairings are authoritative for exact implementation values.
-
----
-
-## 14. Content and voice
-
-Prefer plain operational language such as:
-
-- “3 things need you today”
-- “2 jobs are unassigned”
-- “Invoice is 8 days overdue”
-- “Send follow-up”
-- “Handle next priority”
-
-Avoid marketing slogans inside workflow screens, vague AI claims, corporate jargon, cute copy around money/scheduling/risk, and assertions unsupported by current product data.
-
----
-
-## 15. Anti-patterns — do not ship
-
-Do not ship:
-
-- a wall of equal-weight cards
-- rainbow section colors
-- gradients everywhere
-- glassmorphism as the default surface treatment
-- excessive pill-shaped UI
-- decorative charts above urgent work
-- fake data presented as real
-- dead buttons
-- unsupported integrations presented as live
-- blank operational screens
-- generic chatbot styling for Athena
-- Forge marketing styling across normal product screens
-- standing decorative radar widgets
-- modal-on-modal interaction stacks
-- oversized desktop whitespace in dense contractor workflows
-- primary actions that move unpredictably between similar screens
-- multiple equally dominant CTAs
+- **Operational language.** Use contractor language, not generic SaaS or AI jargon.
+- **Real data over decoration.** Never fabricate metrics, prices, integrations, telemetry, engagement, customer intent, status, or risk.
+- **Progressive disclosure.** Reveal detail when it becomes relevant to the current decision.
+- **Mobile-first field ergonomics.** Primary actions must remain understandable and thumb-reachable on a phone.
+- **Accessible by construction.** Contrast, focus, motion, touch targets, keyboard behavior, and semantic state are design requirements.
+- **Intelligence inside the work.** Athena belongs inside workflows and records, not as a generic chatbot bolted onto the product.
 
 When in doubt, cut rather than add.
 
----
+## 3. Canonical Figma structure
 
-## 16. Screen-level checklist
+The canonical Figma file uses one working master:
 
-Before approving a TradeOS screen, verify:
+- `00 — Product Design Cover`
+- `01 — Getting Started`
+- `02 — Foundations`
+- `03 — Components`
+- `04 — Patterns`
+- `10 — Today`
+- `11 — CRM`
+- `12 — Customer`
+- `13 — Lead`
+- `14 — Estimates`
+- `15 — Jobs`
+- `16 — Schedule`
+- `17 — Money`
+- `18 — Costbook`
+- `19 — Athena`
+- `20 — Customer Portal`
+- `21 — Settings`
+- `22 — Onboarding`
+- `90 — Mobile`
+- `91 — States`
+- `99 — Archive`
 
-- [ ] The screen has one obvious purpose.
-- [ ] The most important action is visually dominant.
-- [ ] Blueprint is used for normal product UI.
-- [ ] Copper is restrained and intentional.
-- [ ] Semantic colors match semantic meaning.
-- [ ] The layout works on a phone without desktop compression.
-- [ ] Touch targets are practical.
-- [ ] Empty/loading/error states are designed.
-- [ ] Athena, if present, explains why and distinguishes evidence from inference.
-- [ ] Real operational information outranks decorative analytics.
-- [ ] No unsupported capability or telemetry is implied.
-- [ ] Motion is purposeful and reduced-motion-safe.
-- [ ] Accessibility contrast and focus behavior are verified against production tokens.
-- [ ] The result looks recognizably TradeOS rather than generic SaaS.
+Do not create a second design-system file, a second product-screen authority, or an alternate component library for TradeOS.
 
----
+## 4. Visual environments
 
-## 17. Implementation and conflict resolution
+### Blueprint
 
-This document governs visual and interaction intent. It does **not** create new product capabilities, data contracts, schema, permissions, integrations, or workflow truth.
+Blueprint is the default product environment:
 
-Before implementing UI from this document:
+- warm-neutral light surfaces;
+- charcoal/graphite text;
+- restrained copper interaction/brand accent;
+- compact engineered spacing;
+- strong hierarchy without visual noise;
+- borders doing most structural separation;
+- shadows reserved mainly for floating layers.
 
-1. Read the relevant governed product/module source-of-truth documents for capability and behavior.
-2. Inspect current production components and tokens.
-3. Preserve the approved command-center direction.
-4. Reuse existing components when they satisfy the intent.
-5. Do not invent data or backend behavior to complete a mockup.
-6. If a deliberate design decision requires product or implementation truth to change, update the affected source-of-truth documentation and implementation together rather than silently diverging.
+### Carbon
+
+Carbon is product dark mode. It preserves the same hierarchy, semantics, interaction model, information priority, and accessibility quality as Blueprint. It is not a separate product aesthetic.
+
+### Forge
+
+Forge is the more dramatic marketing/brand language. Keep Forge on marketing and brand-storytelling surfaces. Normal contractor workflows must not drift into Forge styling.
+
+## 5. Color and token rules
+
+Use semantic production tokens, not one-off colors.
+
+Canonical semantic roles include:
+
+- `color/surface/app` — page/app environment;
+- `color/surface/workspace` — primary record/work surface;
+- `color/surface/secondary` — grouped supporting work;
+- `color/surface/subtle` — quiet supporting treatment;
+- `color/action/primary` — primary action/brand interaction;
+- `color/text/primary`;
+- `color/text/secondary`;
+- `color/status/info`;
+- `color/status/success`;
+- `color/status/warning`;
+- `color/status/destructive`;
+- `color/border/default`.
+
+Semantic colors keep semantic meaning:
+
+- green = success / complete / healthy;
+- amber = warning / caution / attention;
+- red = destructive / failed / genuinely critical;
+- blue = informational / neutral system state;
+- copper = brand / primary interaction.
+
+Do not create a rainbow dashboard by assigning arbitrary colors to sections or record types.
+
+Exact values, accessible foreground pairings, focus rings, and dark-mode values come from production tokens. The supplied brand-mark artwork has its own approved artwork copper and must not be used as a reason to rewrite product theme tokens.
+
+## 6. Surface hierarchy
+
+Use three product surface levels before inventing another container treatment:
+
+1. **App canvas** — broad page/environment separation using `color/surface/app`.
+2. **Workspace** — the main record or production surface using `color/surface/workspace`.
+3. **Secondary / subtle** — related supporting work using `color/surface/secondary` or `color/surface/subtle`.
+
+Cards are components placed on these surfaces. They are not a fourth surface system.
+
+Use borders for most separation. Reserve stronger elevation for menus, sheets, popovers, dialogs, and temporary overlays.
+
+## 7. Typography
+
+Canonical families:
+
+- **Space Grotesk** — headings and selected brand/display moments;
+- **Inter / product system sans** — normal product UI, controls, labels, navigation, and body copy;
+- **IBM Plex Mono / mono role** — money, IDs, timestamps, measurements, and operational data where alignment improves scanning.
+
+Canonical scale from the Figma foundations:
+
+- Page large — 30 px Space Grotesk Medium;
+- Page — 24 px Space Grotesk Medium;
+- Section — 18 px Space Grotesk Medium;
+- Record heading — 16 px Space Grotesk Medium;
+- Body large — 16 px Inter Regular;
+- Body default — 14 px Inter Regular;
+- Body strong — 14 px Inter Medium;
+- Metadata — 12 px Inter Regular;
+- Eyebrow/label — 12 px Inter Semi Bold;
+- Money large — 24 px IBM Plex Mono SemiBold;
+- Mono small — 12 px IBM Plex Mono.
+
+Production primitives may use documented compact additions such as 14/20 semibold body, 14/20 compact headings, and compact control typography. Do not introduce a second unrelated type scale.
+
+## 8. Spacing, radius, and elevation
+
+Canonical spacing is a compact 4/8-based rhythm with documented operational steps:
+
+- 4
+- 8
+- 12
+- 16
+- 20 when a current production primitive specifically requires it
+- 24
+- 32
+- 48
+
+Canonical radius roles are derived from the production base scale:
+
+- small ≈ 4.8 px
+- medium ≈ 6.4 px
+- large = 8 px
+- XL ≈ 11.2 px
+- 2XL ≈ 14.4 px
+- 3XL ≈ 17.6 px
+- 4XL ≈ 20.8 px
+- full = pill only when semantically justified
+
+Do not reintroduce the older separate “frame/input/button/card” radius scale that conflicts with the current production-aligned foundation.
+
+Borders carry structure. Elevation should not be the default method of grouping content.
+
+## 9. Responsive contract
+
+Design for these checkpoints:
+
+- **390 px — field workflow.** One-handed priority. One dominant action in focused stages.
+- **768 px — tablet split.** Use split views only when both panes materially help the task.
+- **1024 px — compact desktop.** Preserve production density without collapsing hierarchy.
+- **1440 px — command center.** Use width for context, relationships, provenance, and operational visibility — not more card clutter.
+
+Responsive rule: **preserve content priority, not desktop geometry.**
+
+On smaller widths, context rails become sheets or sections before the primary work surface becomes cramped.
+
+## 10. Canonical reusable components
+
+The canonical Figma component library currently includes:
+
+- `Button`
+- `Badge`
+- `StatusBadge`
+- `Input`
+- `RecordRow`
+- `WorkspaceHeader`
+- `AttentionItem`
+- `PricingProvenance`
+- `Label`
+- `Checkbox`
+- `Textarea`
+- `Card`
+- `SelectField`
+- `EmptyState`
+- `ControlDock`
+- `StickyTaskAction`
+
+### Implementation alignment
+
+Current production has related primitives that must converge instead of multiplying:
+
+- Figma `RecordRow` aligns with / should converge with production `ListRowLink`;
+- `WorkspaceHeader` should converge with existing page/project header responsibilities without making every simple list page heavy;
+- `AttentionItem` is the shared responsive unresolved-action row for Today and any future expanded Needs You surface;
+- `PricingProvenance` is the shared trust primitive for Costbook, Assemblies, and Estimate Items;
+- `ControlDock` maps to the production mobile shell owned by `AppNav`;
+- `StickyTaskAction` formalizes the repeated one-primary-action mobile pattern.
+
+Do not create a second component because the current production abstraction is slightly narrower. Converge it deliberately.
+
+## 11. Control Dock and mobile shell
+
+The canonical mobile Control Dock has exactly five thumb-reachable slots:
+
+**Today · Dispatch · Create · Work · More**
+
+Rules:
+
+- Create is the centered copper action.
+- Active destination gets the brand-subtle treatment.
+- Dispatch may show a real attention count only when backed by live data.
+- Do not add decorative notification dots.
+- Secondary navigation belongs under More rather than expanding the dock.
+- The dock is a shell contract, not a per-screen invention.
+
+### Sticky task action
+
+Use `StickyTaskAction` only when one bottom action materially advances the current mobile task, for example:
+
+- Save Expense;
+- Approve Change;
+- Record Payment;
+- Use in Estimate;
+- Continue to next estimate stage.
+
+It sits above the Control Dock with safe-area clearance.
+
+If the content already contains a strong primary CTA, do not add a second copper action merely because mobile has room.
+
+### Bottom Sheet contract
+
+Create, More, and other appropriate secondary mobile controls use the same bottom-sheet behavior:
+
+- safe-area padding;
+- body-scroll lock;
+- backdrop close;
+- Escape close;
+- focus trap;
+- restore focus to the invoking control.
+
+The visual BottomSheet component should be promoted only from the real production/AppNav sheet. Do not fabricate a polished component that is not backed by the actual interaction.
+
+## 12. Record Workspace pattern
+
+Customer, Lead, Job, Estimate, Change Order, and Invoice use the same operating grammar:
+
+1. **Identity header** — record identity, canonical status, compact metadata, capability-aware actions.
+2. **Attention region** — only unresolved human action; omit when empty.
+3. **Section navigation** — a few stable record sections.
+4. **Primary work surface** — the reason the contractor opened the record.
+5. **Context rail** — Athena, related records, provenance, or another narrow contextual module.
+6. **Activity / relationship trail** — history and relationships below or inside the relevant section.
+
+Rules:
+
+- no giant record hero;
+- status is not attention;
+- primary work owns the width;
+- context disappears/collapses before work gets cramped;
+- mobile changes composition rather than shrinking desktop;
+- Athena inherits the record context;
+- partial query failures stay local.
+
+## 13. Athena behavior contract
+
+Athena is the intelligence layer of TradeOS. Do not make it a generic chatbot.
+
+Athena has three product forms:
+
+1. **Workspace** — full page when the contractor intentionally works with Athena.
+2. **Context panel / sheet** — inside Estimate, Customer, Job, and other workspaces; current-record context is automatic.
+3. **Inline intervention** — small, specific signals such as an assembly match, stale pricing, missing scope, or setup required.
+
+Athena behavior:
+
+- start from rough contractor language;
+- inspect TradeOS data before asking follow-up questions;
+- use record context, Costbook, labor, materials, assemblies, supplier evidence, and relevant workflow state;
+- ask **one necessary clarification at a time**;
+- prefer fast constrained choices plus free text;
+- never ask the user to restate identity/context already known by the surrounding record;
+- surface confidence and provenance when supported;
+- make placeholder, unverified, stale, or unavailable pricing explicit;
+- never invent unavailable prices;
+- preserve estimate pricing snapshots after accepted lines are persisted;
+- read/recommend broadly, mutate carefully;
+- require the real product confirmation boundary before consequential writes;
+- explain what will change before an impactful action;
+- fail closed on missing permission, approval, setup, or authority;
+- do not narrate “AI thinking” when deterministic product data already provides the answer.
+
+Product-facing copy uses **Athena**. Use “AI” only in technical implementation or audit language when it describes the underlying system, not as a competing feature name.
+
+## 14. Estimate workflow contract
+
+The canonical estimating workflow is:
+
+**Scope → Items → Price → Review**
+
+It is one continuous job.
+
+### Scope
+
+The contractor starts with plain-language work, known conditions, and field facts.
+
+The product should move from a rough two-sentence scope toward a professional estimate without requiring a long form before usefulness appears.
+
+### Athena inside estimating
+
+Athena is contextual, not a separate side quest.
+
+Before asking questions, it checks available TradeOS data. It asks only the missing fact that materially changes scope, price, schedule, or risk.
+
+### Items
+
+**Items are the central production surface.**
+
+Costbook items, Assemblies, custom work, and accepted Athena suggestions all feed the same Estimate Items list. They are not separate workflows the contractor must manually reconcile.
+
+Accepted items persist through the authoritative Estimate Engine path. Preserve source identity and pricing/trust context where the backing data supports it.
+
+### Price
+
+Pricing controls, markup, tax, totals, margin, and pricing trust belong here. Never hide weak source evidence behind a confident total.
+
+### Review
+
+Review speaks customer language: scope, exclusions, totals, readiness, and what will actually be sent.
+
+“Review” is a workflow stage. Do not use generic “Review” as an action-button label when a specific action such as “Review proposal” or “Record payment” is known.
+
+### Mobile
+
+Mobile keeps the same stages and one dominant `StickyTaskAction` above the `ControlDock`.
+
+Do not duplicate desktop inspectors on mobile. The small screen gets the current decision; secondary controls become sheets or sections.
+
+## 15. Needs You contract
+
+**Needs You is an exception queue, not a feed and not a list of normal unfinished work.**
+
+Only surface work that requires a real human decision, exception handling, or rule-triggered follow-up.
+
+Examples that belong:
+
+- overdue invoice requiring collection action;
+- stale proposal requiring follow-up;
+- real schedule conflict requiring resolution;
+- real missing/unsafe pricing condition requiring a decision.
+
+Examples that do **not** automatically belong:
+
+- ordinary draft estimate;
+- normal sent proposal waiting for the customer;
+- not-yet-due invoice;
+- project that simply needs the next normal workflow step;
+- passive events such as viewed, created, uploaded, or status changed.
+
+Normal resumable progression belongs in the relevant workspace, **Continue Working**, Universal Create, CRM, or Money.
+
+Use `AttentionItem`.
+
+When several sources produce exceptions, rank across record types by consequence/urgency rather than rendering independent mini-lists.
+
+Use action-specific copy such as:
+
+- Record payment
+- Review proposal
+- Resolve conflict
+- Fix missing price
+- Reply
+
+Avoid generic “Review” links when the real action is known.
+
+## 16. Field Workspace contract
+
+The mobile Job / Field Workspace should immediately answer:
+
+- What job am I on?
+- What needs done now?
+- What should I do next?
+- What is blocked?
+- What information do I need?
+- What has been completed?
+- What must be documented before I leave?
+
+This is not a project analytics dashboard.
+
+Rules:
+
+- compact job/customer/location/status identity;
+- one state-aware dominant field action;
+- use real persisted task/job data for checklists/work plans;
+- expose blockers through a real resolution path when that capability exists;
+- make closeout requirements explicit;
+- do not show fake upload, issue, change-order, messaging, offline, inventory, or other controls before their persistence/permission contracts exist.
+
+## 17. Today / contractor command center
+
+Today is the owner command surface, not a widget collection.
+
+The operating rhythm remains:
+
+**Now / Needs You / Coming Up / Money**
+
+It should answer:
+
+1. What should I do now?
+2. What genuinely needs my decision?
+3. What is coming up?
+4. What money needs attention?
+
+Do not regrow a card wall below the command surface.
+
+Needs You follows the exception-queue contract above. Continue Working handles normal progression. Money uses canonical invoice/payment truth.
+
+## 18. Pricing and trust
+
+Contractors must be able to understand where important numbers came from.
+
+Use `PricingProvenance` where source trust affects a decision.
+
+Key rules:
+
+- documented means traceable, not automatically current/local/correct;
+- stale is a recency warning layered on provenance;
+- unverified and placeholder data must not look like trusted precision;
+- unavailable supplier observations remain unavailable — never render them as a numeric price;
+- persisted estimate prices are snapshots and must not silently drift when Costbook changes later.
+
+## 19. Shared state taxonomy
+
+Design state is part of the product contract.
+
+Shared state types include:
+
+- loading;
+- empty;
+- filtered empty;
+- partial / degraded;
+- restricted / permission;
+- not found;
+- mutation failure / recovery;
+- trust / unknown.
+
+Rules:
+
+- keep healthy data usable when one source fails;
+- disclose what could not load;
+- never convert unknown into zero;
+- never convert missing permission into “no data”;
+- use `EmptyState` only for genuine absence;
+- preserve user work on recoverable mutation failure;
+- show what happened, whether the user’s work is safe, and what to do next;
+- optimistic UI must reconcile to backend truth before success is shown.
+
+## 20. Product language contract
+
+Use one noun for one product concept.
+
+### Athena
+
+Product-facing intelligence name. “AI” is implementation language unless a technical surface specifically requires it.
+
+### Schedule Visit
+
+The action that schedules a future visit.
+
+### Site Visit
+
+The resulting field/intake record and pre-job lifecycle stage.
+
+### Lead
+
+The contractor-facing pre-job CRM concept. Current implementation may be Project-backed. Do not imply a separate Lead database unless the domain model changes.
+
+### Project
+
+The customer work container / pre-job-to-job business context.
+
+### Job
+
+The executable field-work record with schedule, assignment, lifecycle actions, and completion state.
+
+Do not use Project and Job interchangeably.
+
+### Needs You
+
+Unresolved human action / exception only.
+
+### Continue Working
+
+Normal resumable progression such as a draft estimate or next workflow step.
+
+### Partially Paid
+
+Human-facing invoice status for the partial-payment state. Do not shorten invoice UI to “Partial.”
+
+### Ready to Estimate
+
+Canonical human-facing Lead state wording.
+
+### Estimate stages
+
+**Scope → Items → Price → Review**
+
+Use this sequence consistently.
+
+## 21. Canonical screen status labels
+
+Frames in product pages use explicit authority labels:
+
+- **`[CANONICAL]`** — approved visual reference;
+- **`[TARGET]`** — intended UX that is not current/shipped capability;
+- **`[CERTIFICATION]`** — implementation/certification evidence;
+- **`[AUDIT]`** — production-gap analysis;
+- **`[STATUS]`** — page status/reference material, not an approved production screen.
+
+Do not implement from an `[AUDIT]`, `[TARGET]`, `[CERTIFICATION]`, or `[STATUS]` frame as though it were the current approved UI without reconciling the product contract and page status.
+
+## 22. Current screen authority snapshot
+
+As of 2026-09-27:
+
+### Canonical visual references
+
+- Customer desktop/mobile;
+- Lead / Site Visit UX;
+- Estimate desktop;
+- Change Order desktop/mobile;
+- Invoice desktop/mobile;
+- Costbook desktop/mobile;
+- Assemblies desktop/mobile;
+- current document-focused Customer Portal desktop/mobile;
+- Settings desktop/mobile.
+
+### Partial / canonical screen still needed
+
+- Today — canonical patterns are locked; full approved Today composition is not pinned.
+- CRM — Customer/Lead contracts and Record Workspace pattern are canonical; CRM overview/pipeline screen still needs approval.
+- Jobs / Field — Change Order is canonical; richer Job/Field visual still needs approval.
+- Schedule — production contracts are real; canonical calendar-grade visual still needs approval.
+- Athena — behavior is canonical; full contractor Workspace visual still needs approval.
+
+### Target-only
+
+- Expense until first-party Expense persistence/domain exists;
+- Onboarding until dedicated onboarding state/persistence/skip-resume/handoff exists;
+- Customer Portal expansions that require public mutation/read contracts not currently shipped.
+
+This section records design authority, not implementation status. `docs/CURRENT_STATE.md` remains the implementation-status source of truth.
+
+## 23. Brand assets inside product
+
+Use the approved September 2026 TradeOS artwork represented in the Figma Foundations page.
+
+Rules:
+
+- use the correct light/dark artwork for the surface;
+- do not stretch or recolor supplied brand artwork;
+- keep required clear space;
+- use the horizontal lockup at appropriate product sizes;
+- use the standalone/simplified mark at smaller sizes;
+- do not invent a replacement logo treatment inside product UI.
+
+Marketing tagline/campaign language belongs on marketing surfaces, not as filler inside operational workflows.
+
+## 24. Accessibility
+
+Every product screen must account for:
+
+- accessible contrast;
+- visible focus states;
+- keyboard navigation where applicable;
+- practical mobile touch targets;
+- focus trap and focus restoration for sheets/dialogs;
+- reduced-motion support;
+- readable type sizes;
+- semantic state not communicated by color alone;
+- accessible loading/status announcements where production patterns require them;
+- clear error and recovery messaging.
+
+Production accessibility fixes and current token pairings are authoritative for exact implementation values.
+
+## 25. Content and voice
+
+Prefer direct operational language.
+
+Good:
+
+- “2 things need you”
+- “Invoice is 8 days overdue”
+- “Record payment”
+- “Review proposal”
+- “Ready to Estimate”
+- “Use in Estimate”
+
+Avoid:
+
+- generic “Review” when the action is known;
+- vague AI claims;
+- marketing slogans inside workflow screens;
+- corporate jargon;
+- cute copy around money, scheduling, risk, or failure;
+- assertions unsupported by current product data.
+
+## 26. Anti-patterns — do not ship
+
+Do not ship:
+
+- walls of equal-weight cards;
+- rainbow record/section colors;
+- gradients everywhere;
+- glassmorphism as the default product surface;
+- excessive pills;
+- decorative charts above urgent work;
+- fake data presented as live;
+- dead buttons;
+- unsupported integrations or actions presented as usable;
+- blank operational screens;
+- generic chatbot styling for Athena;
+- Forge marketing styling across normal product workflows;
+- modal-on-modal stacks;
+- desktop geometry squeezed onto mobile;
+- multiple equally dominant CTAs;
+- new one-off components when a canonical primitive/pattern already exists;
+- a polished target mockup that silently implies unsupported capability.
+
+## 27. Design → production gate
+
+A screen is not done because it looks good. It is ready when capability, design, states, and implementation agree.
+
+Before calling a screen implementation-ready, verify:
+
+### Contract
+
+- capability, routes, mutations, lifecycle, permissions, and persistence are real;
+- current Figma page status is known;
+- unsupported actions are removed or visibly target-only;
+- terminology matches the product/domain contract;
+- data authority is known;
+- telemetry or engagement is not invented.
+
+### Experience
+
+- desktop/mobile composition is intentional;
+- loading is designed;
+- empty state moves work forward;
+- errors preserve confidence and user work where possible;
+- partial failures stay local;
+- trust/unknown state remains visible;
+- one dominant task action exists where appropriate;
+- accessibility behavior is specified.
+
+### Handoff
+
+- canonical components/tokens are reused;
+- Record Workspace / Field / Estimate / Needs You / Responsive Shell patterns are followed;
+- state mapping is explicit;
+- data dependencies and unavailable-state behavior are named;
+- acceptance criteria are observable;
+- implementation gaps are explicitly tracked instead of leaking into “finished” UI.
+
+## 28. Agent/frontend implementation contract
+
+When changing TradeOS product UI:
+
+1. Read this file.
+2. Read the relevant capability/domain source-of-truth documents.
+3. Check the relevant canonical Figma page and its `[CANONICAL]` / `[TARGET]` / `[AUDIT]` / `[CERTIFICATION]` / `[STATUS]` status.
+4. Inspect current production components/tokens and `docs/ui-guide.md`.
+5. Reuse or converge existing primitives before creating another component.
+6. Keep page files thin and follow current frontend data-access patterns.
+7. Do not invent backend behavior, permissions, prices, telemetry, or lifecycle to make a design “work.”
+8. Test at 390 / 768 / 1024 / 1440 where the surface is responsive.
+9. Verify loading, empty, error, partial/degraded, permission, and trust/unknown states as applicable.
+10. If capability truth changes, update the governed capability documentation and implementation together.
+11. If the permanent design system changes, reconcile the canonical Figma and this contract in the same design pass.
 
 The target is a TradeOS experience that feels **simple on the surface, intelligent underneath, and unmistakably built for contractors**.
