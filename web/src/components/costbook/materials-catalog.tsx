@@ -40,6 +40,7 @@ export function MaterialsCatalog({
   const [materials, setMaterials] = useState(initialMaterials);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +53,14 @@ export function MaterialsCatalog({
     setEditingId(null);
     setForm(emptyForm);
     setError(null);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setError(null);
+    setShowForm(false);
   }
 
   function startEdit(material: CostbookMaterial) {
@@ -64,6 +73,7 @@ export function MaterialsCatalog({
       wasteFactorPct: String(material.wasteFactorPct),
     });
     setError(null);
+    setShowForm(true);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -91,6 +101,7 @@ export function MaterialsCatalog({
       });
       setEditingId(null);
       setForm(emptyForm);
+      setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Material could not be saved.");
     } finally {
@@ -118,77 +129,83 @@ export function MaterialsCatalog({
   return (
     <div className="grid gap-5">
       {canWrite ? (
-        <details className="rounded-xl border border-border/70 bg-card" open={Boolean(editingMaterial)}>
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
-            {editingMaterial ? "Edit material" : "+ Add material"}
-          </summary>
-          <section className="border-t border-border/70 p-4" aria-label={editingMaterial ? "Edit material" : "Create material"}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">{editingMaterial ? "Edit Material" : "Create Material"}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Store the organization price record. Supplier/date evidence is shown separately when the backend has it.
-                </p>
-              </div>
-              {editingMaterial ? (
-                <Button type="button" variant="outline" size="sm" onClick={startCreate}>
+        <div className="grid gap-3">
+          {!showForm ? (
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" size="sm" onClick={startCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Add material
+              </Button>
+            </div>
+          ) : null}
+
+          {showForm ? (
+            <section className="rounded-xl border border-border/70 bg-card p-4" aria-label={editingMaterial ? "Edit material" : "Create material"}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">{editingMaterial ? "Edit Material" : "Create Material"}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Store the organization price record. Supplier/date evidence is shown separately when the backend has it.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={closeForm}>
                   <X className="size-4" aria-hidden="true" />
                   Cancel
                 </Button>
-              ) : null}
-            </div>
-
-            <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-5">
-              <Field label="SKU">
-                <Input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} placeholder="CONC-4000" />
-              </Field>
-              <Field label="Name" className="md:col-span-2">
-                <Input
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  placeholder="Ready Mix Concrete"
-                  required
-                />
-              </Field>
-              <Field label="Unit">
-                <Input
-                  value={form.unitOfMeasure}
-                  onChange={(event) => setForm({ ...form, unitOfMeasure: event.target.value })}
-                  placeholder="CY"
-                  required
-                />
-              </Field>
-              <Field label="Unit Cost">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  value={form.unitCost}
-                  onChange={(event) => setForm({ ...form, unitCost: event.target.value })}
-                  placeholder="150.00"
-                  required
-                />
-              </Field>
-              <Field label="Waste Factor" className="md:col-span-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={form.wasteFactorPct}
-                  onChange={(event) => setForm({ ...form, wasteFactorPct: event.target.value })}
-                />
-              </Field>
-              <div className="flex items-end md:col-span-3">
-                <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-                  {editingMaterial ? <Check className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
-                  {saving ? "Saving" : editingMaterial ? "Save Material" : "Add Material"}
-                </Button>
               </div>
-            </form>
-            {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
-          </section>
-        </details>
+
+              <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-5">
+                <Field label="SKU">
+                  <Input value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} placeholder="CONC-4000" />
+                </Field>
+                <Field label="Name" className="md:col-span-2">
+                  <Input
+                    value={form.name}
+                    onChange={(event) => setForm({ ...form, name: event.target.value })}
+                    placeholder="Ready Mix Concrete"
+                    required
+                  />
+                </Field>
+                <Field label="Unit">
+                  <Input
+                    value={form.unitOfMeasure}
+                    onChange={(event) => setForm({ ...form, unitOfMeasure: event.target.value })}
+                    placeholder="CY"
+                    required
+                  />
+                </Field>
+                <Field label="Unit Cost">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={form.unitCost}
+                    onChange={(event) => setForm({ ...form, unitCost: event.target.value })}
+                    placeholder="150.00"
+                    required
+                  />
+                </Field>
+                <Field label="Waste Factor" className="md:col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={form.wasteFactorPct}
+                    onChange={(event) => setForm({ ...form, wasteFactorPct: event.target.value })}
+                  />
+                </Field>
+                <div className="flex items-end md:col-span-3">
+                  <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+                    {editingMaterial ? <Check className="size-4" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
+                    {saving ? "Saving" : editingMaterial ? "Save Material" : "Add Material"}
+                  </Button>
+                </div>
+              </form>
+              {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
+            </section>
+          ) : null}
+        </div>
       ) : (
         <div className="rounded-lg border border-border/70 bg-card p-4 text-sm text-muted-foreground">
           You have read-only Costbook access. Material create and edit controls are hidden for this role.
