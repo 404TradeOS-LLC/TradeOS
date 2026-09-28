@@ -3,7 +3,7 @@ import {
   findCustomerDuplicateMatches,
   requiresSeparateCustomerConfirmation,
   type CustomerDuplicateInput,
-} from "../../lib/customer-duplicate-matches.ts";
+} from "../../lib/customer-duplicate-matches";
 import type { Customer } from "../../lib/api";
 
 export type CreateCustomerResult = {
