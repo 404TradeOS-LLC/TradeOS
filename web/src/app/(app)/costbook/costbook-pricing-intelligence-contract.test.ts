@@ -77,3 +77,16 @@ test("Materials page leads with search and states the no-inference boundary", as
   assert.match(source, /does not infer “verified” or “current local” pricing/);
   assert.doesNotMatch(source, /Materials summary|workspace\.organizationId/);
 });
+
+
+test("Material mutation failures stay visible when the editor is closed", async () => {
+  const source = await readSource("../../../components/costbook/materials-catalog.tsx");
+
+  const editorEnd = source.indexOf("You have read-only Costbook access");
+  const errorAlert = source.indexOf('role="alert"', editorEnd);
+  const catalogStart = source.indexOf('aria-label="Materials catalog"');
+
+  assert.notEqual(errorAlert, -1, "mutation error alert must render outside the conditional editor");
+  assert.ok(errorAlert < catalogStart, "mutation errors should surface before the catalog rows");
+  assert.match(source, /handleDeactivate[\s\S]*setError\(err instanceof Error \? err\.message : "Material could not be deactivated\."\)/);
+});
