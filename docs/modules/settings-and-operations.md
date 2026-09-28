@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-29
+last_verified: 2026-09-27
 source_of_truth: false
 related_code:
   - app/modules/settings
@@ -104,8 +104,19 @@ Settings uses the repository's request-scoped Prisma transaction boundary. A pri
 
 ## Frontend surfaces
 
-- `/settings`
+- `/settings` is the contractor-facing Control Center. It opens on Pricing and prioritizes Company, Pricing, Estimating, Team & Access, Communication, Athena, and Connections before Advanced/admin tooling.
+- `/settings/billing` remains the dedicated live subscription surface.
 - internal admin HTML surface at `/admin`
+
+The Settings UI distinguishes persisted organization keys from product-level fallbacks. Organization-specific fallback values are intentionally blank/off rather than populated with demo company, pricing, supplier, AI-budget, or security facts. Select/display defaults such as timezone, currency, units, language, date formatting, theme, and base visual colors may still have product fallbacks; the UI identifies values that have not been persisted for the active organization.
+
+The backend `PATCH /settings` controller validates the complete organization-settings schema, so the Control Center sends the full draft on save. The frontend does not claim partial-update semantics. To keep complete saves truthful, organization-specific fallback values are blank/off rather than populated with demo business, supplier, pricing, AI-budget, or security facts; canonical organization branding supplies the required real company name on reads.
+
+Pricing remains a defaults surface, not a competing Costbook. Labor/markup/overhead/profit/waste/material/supplier defaults can be configured here, but Costbook provenance remains authoritative for price trust and Settings does not upgrade stale, placeholder, or unverified supplier data.
+
+Schema cards marked `sampleData` remain clearly labeled and are grouped under Advanced/admin where appropriate. Runtime metadata reports missing diagnostics as not exposed/unavailable rather than synthesizing a healthy state.
+
+The Team & Access section uses the existing permission-aware membership/role response. It does not enable or integrate the separate staging-gated Team & Time workspace.
 
 ## Tests
 
@@ -137,4 +148,4 @@ Representative coverage includes:
 
 ## Last verified date
 
-2026-08-29
+2026-09-27
