@@ -132,7 +132,7 @@ export function MaterialsCatalog({
         <div className="grid gap-3">
           {!showForm ? (
             <div className="flex justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={startCreate}>
+              <Button type="button" variant="outline" size="sm" onClick={startCreate} disabled={saving}>
                 <Plus className="size-4" aria-hidden="true" />
                 Add material
               </Button>
@@ -148,7 +148,7 @@ export function MaterialsCatalog({
                     Store the organization price record. Supplier/date evidence is shown separately when the backend has it.
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={closeForm}>
+                <Button type="button" variant="outline" size="sm" onClick={closeForm} disabled={saving}>
                   <X className="size-4" aria-hidden="true" />
                   Cancel
                 </Button>
@@ -260,7 +260,7 @@ export function MaterialsCatalog({
                     {canWrite ? (
                       <td className="px-4 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
+                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)} disabled={saving}>
                             <Pencil className="size-4" aria-hidden="true" />
                             Edit
                           </Button>
@@ -307,7 +307,7 @@ export function MaterialsCatalog({
 
                 {canWrite ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => startEdit(material)} disabled={saving}>
                       <Pencil className="size-4" aria-hidden="true" />
                       Edit
                     </Button>
