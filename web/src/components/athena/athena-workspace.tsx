@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   describeAthenaClientError,
+  isAthenaRetryableClientError,
   sendAthenaMessage,
   type AthenaKernelResult,
   type AthenaKernelState,
@@ -88,7 +89,7 @@ function statePresentation(state: AthenaKernelState) {
   }
 }
 
-function ResultCard({ result, onFollowUp }: { result: AthenaKernelResult; onFollowUp: (label: string) => void }) {
+function ResultCard({ result }: { result: AthenaKernelResult }) {
   const presentation = statePresentation(result.state);
   const StateIcon = presentation.icon;
   const detail = result.message && result.message !== result.summary ? result.message : null;
@@ -126,14 +127,21 @@ function ResultCard({ result, onFollowUp }: { result: AthenaKernelResult; onFoll
 
       {visibleFollowUps.length > 0 ? (
         <div className="mt-4 border-t border-border/60 pt-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recommended next</p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {result.state === "needs_clarification" ? "Missing detail" : "Recommended next"}
+          </p>
+          <ul className="mt-2 grid gap-2 text-sm text-foreground">
             {visibleFollowUps.map((followUp, index) => (
-              <Button key={`${followUp.kind}-${index}`} type="button" variant="outline" size="sm" onClick={() => onFollowUp(followUp.label)}>
+              <li key={`${followUp.kind}-${index}`} className="rounded-xl border border-border/70 bg-background/70 px-3 py-2">
                 {followUp.label}
-              </Button>
+              </li>
             ))}
-          </div>
+          </ul>
+          {result.state === "needs_clarification" ? (
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              This Workspace does not yet carry prior response context into the next request. Start a new request with this missing detail included.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -170,7 +178,11 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
 
     if (options.addUserTurn !== false) {
       const userId = nextTurnIdRef.current++;
-      setTurns((current) => [...current, { id: userId, role: "user", text: trimmed }]);
+      setTurns([{ id: userId, role: "user", text: trimmed }]);
+    } else {
+      // A retry belongs to the same single request/result exchange. Remove the
+      // prior transport error before replaying the same idempotent request.
+      setTurns((current) => current.filter((turn) => turn.role === "user"));
     }
     setRetrySubmission(null);
     setDraft("");
@@ -187,10 +199,14 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
       const resultId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: resultId, role: "athena", text: result.summary, result }]);
     } catch (error) {
-      // A transport/proxy failure leaves the business outcome ambiguous. Keep
-      // the same request key so a user-triggered retry cannot bypass Athena's
-      // action-engine duplicate suppression if the original write committed.
-      setRetrySubmission({ message: trimmed, idempotencyKey });
+      // Preserve the same request key only when the outcome is genuinely
+      // ambiguous/retryable. Validation, auth, feature-disabled, and conflict
+      // responses require a changed input/session/deployment state instead.
+      if (isAthenaRetryableClientError(error)) {
+        setRetrySubmission({ message: trimmed, idempotencyKey });
+      } else {
+        setRetrySubmission(null);
+      }
       const errorId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: errorId, role: "error", text: describeAthenaClientError(error) }]);
     } finally {
@@ -254,6 +270,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
           <div className="border-b border-border/70 px-4 py-4 sm:px-5">
             <h2 id="athena-workspace-heading" className="font-heading text-lg font-semibold">Athena Workspace</h2>
             <p className="mt-1 text-sm text-muted-foreground">Tell me what you’re trying to build or fix, and I’ll turn it into TradeOS work.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Each submission is independent in this build; include the detail Athena needs in each request.</p>
           </div>
 
           <div className="grid min-h-[28rem] content-start gap-4 p-4 sm:p-5" aria-live="polite">
@@ -279,7 +296,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
                     {turn.text}
                   </div>
                 ) : turn.result ? (
-                  <ResultCard key={turn.id} result={turn.result} onFollowUp={setDraft} />
+                  <ResultCard key={turn.id} result={turn.result} />
                 ) : null
               )
             )}
@@ -326,7 +343,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
               disabled={isSending}
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Selected scope and your authenticated permissions travel with this request.</p>
+              <p className="text-xs text-muted-foreground">Selected scope and your authenticated permissions travel with this request. Prior response text does not.</p>
               <Button type="submit" disabled={isSending || draft.trim().length === 0}>
                 {isSending ? "Working…" : "Send"}
               </Button>
