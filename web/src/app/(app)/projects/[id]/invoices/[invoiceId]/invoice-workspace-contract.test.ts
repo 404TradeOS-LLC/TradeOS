@@ -64,3 +64,21 @@ test("invoice workspace keeps work performed and activity as the production reco
   assert.match(source, /<ActivityTimeline title="Invoice activity" items=\{timeline\} \/>/);
   assert.doesNotMatch(source, /Invoice center|Billing summary|Running balance/);
 });
+
+
+test("zero-dollar drafts keep Send invoice reachable independent of balance", async () => {
+  const source = await readSource("./page.tsx");
+
+  assert.match(source, /const showNextActionPanel = isDraft \|\| \(hasOpenBalance && !isPaid && !isVoided\);/);
+  assert.match(source, /\{isDraft \? \(\s*<form action=\{sendInvoiceAction\}>/);
+  assert.match(source, /Zero-dollar drafts can still be sent/);
+});
+
+test("voided invoices never present a collection next action", async () => {
+  const source = await readSource("./page.tsx");
+
+  assert.match(source, /const isVoided = invoice\.status === "voided";/);
+  assert.match(source, /showNextActionPanel = isDraft \|\| \(hasOpenBalance && !isPaid && !isVoided\)/);
+  assert.match(source, /Invoice voided/);
+  assert.match(source, /not presented as money that still needs collection/);
+});
