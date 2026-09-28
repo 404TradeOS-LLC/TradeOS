@@ -66,8 +66,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     canRecordPayment &&
     hasOpenBalance &&
     (invoice.status === "sent" || invoice.status === "overdue");
+  const isDraft = invoice.status === "draft";
+  const isPaid = invoice.status === "paid";
+  const isVoided = invoice.status === "voided";
   const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "overdue";
-  const canVoidInvoice = !["paid", "voided"].includes(invoice.status);
+  const canVoidInvoice = !isPaid && !isVoided;
+  const showNextActionPanel = isDraft || (hasOpenBalance && !isPaid && !isVoided);
   const showMoreBillingActions = canMarkPaidWithoutPayment || canVoidInvoice;
   const sentLabel = invoice.sentAt ? `Sent ${formatDate(invoice.sentAt)}` : "Not sent yet";
   const dueLabel = invoice.dueDate ? `Due ${formatDate(invoice.dueDate)}` : "No due date";
@@ -186,7 +190,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <aside className="grid content-start gap-4 xl:sticky xl:top-20 xl:self-start">
-          {hasOpenBalance ? (
+          {showNextActionPanel ? (
             <Card className="border-primary/25">
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -195,16 +199,27 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3">
-                <div>
-                  <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">
-                    {formatInvoiceCurrency(invoice.balanceDue)}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    remains due · {dueLabel} · {paymentCount} recorded payment{paymentCount === 1 ? "" : "s"}
-                  </p>
-                </div>
+                {isDraft ? (
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{hasOpenBalance ? formatInvoiceCurrency(invoice.balanceDue) : "Ready to send"}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {hasOpenBalance
+                        ? `Draft balance · ${dueLabel}`
+                        : "Zero-dollar drafts can still be sent when the invoice is intentionally informational."}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+                      {formatInvoiceCurrency(invoice.balanceDue)}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      remains due · {dueLabel} · {paymentCount} recorded payment{paymentCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                )}
 
-                {invoice.status === "draft" ? (
+                {isDraft ? (
                   <form action={sendInvoiceAction}>
                     <input type="hidden" name="invoiceId" value={invoice.id} />
                     <input type="hidden" name="projectId" value={projectId} />
@@ -219,6 +234,15 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 {!canRecordPayment && (invoice.status === "sent" || invoice.status === "overdue") ? (
                   <p className="text-sm text-muted-foreground">Your current role can review billing but cannot record payments.</p>
                 ) : null}
+              </CardContent>
+            </Card>
+          ) : isVoided ? (
+            <Card className="border-border/70 bg-muted/20">
+              <CardContent className="pt-5">
+                <p className="font-medium text-foreground">Invoice voided</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  This invoice is terminal and is not presented as money that still needs collection.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -264,7 +288,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          {invoice.status !== "paid" && invoice.status !== "voided" ? (
+          {showMoreBillingActions ? (
             <details className="rounded-xl border border-border/70 bg-card p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">More billing actions</summary>
               <div className="mt-4 grid gap-2">
