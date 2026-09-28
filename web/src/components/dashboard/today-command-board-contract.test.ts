@@ -97,9 +97,12 @@ test("Money shows unavailable queue totals explicitly instead of synthetic zero"
   assert.match(board, /Overdue queue unavailable/);
 });
 
-test("Coming Up relies on the active scheduled-job filter", async () => {
+test("Coming Up backfills active scheduled Jobs instead of filtering only a bounded first page", async () => {
   const page = await readSource("../../app/(app)/dashboard/page.tsx");
 
-  assert.match(page, /const TERMINAL_JOB_STATUSES = new Set\(\["completed", "cancelled"\]\)/);
-  assert.match(page, /activeScheduledJobs\(upcomingResult\.value\.items\)/);
+  assert.match(page, /async function loadActiveScheduledJobs/);
+  assert.match(page, /pageSize: DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE/);
+  assert.match(page, /if \(TERMINAL_JOB_STATUSES\.has\(job\.status\)\) continue/);
+  assert.match(page, /limit: DASHBOARD_UPCOMING_JOB_LIMIT/);
+  assert.match(page, /total: summary\.scheduledToday/);
 });
