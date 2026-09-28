@@ -90,3 +90,17 @@ test("Material mutation failures stay visible when the editor is closed", async 
   assert.ok(errorAlert < catalogStart, "mutation errors should surface before the catalog rows");
   assert.match(source, /handleDeactivate[\s\S]*setError\(err instanceof Error \? err\.message : "Material could not be deactivated\."\)/);
 });
+
+
+test("Material editor cannot switch or close while a mutation is pending", async () => {
+  const source = await readSource("../../../components/costbook/materials-catalog.tsx");
+
+  assert.match(source, /onClick=\{startCreate\} disabled=\{saving\}/);
+  assert.match(source, /onClick=\{closeForm\} disabled=\{saving\}/);
+
+  const editLocks = source.match(/onClick=\{\(\) => startEdit\(material\)\} disabled=\{saving\}/g) ?? [];
+  assert.equal(editLocks.length, 2, "desktop and mobile Edit actions must both lock while saving");
+
+  const deactivateLocks = source.match(/onClick=\{\(\) => handleDeactivate\(material\.id\)\} disabled=\{saving\}/g) ?? [];
+  assert.equal(deactivateLocks.length, 2, "desktop and mobile Deactivate actions must remain locked while saving");
+});
