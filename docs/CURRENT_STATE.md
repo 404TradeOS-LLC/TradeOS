@@ -480,6 +480,10 @@ The authenticated invoice detail at `/projects/[id]/invoices/[invoiceId]` now fo
 
 The Money page's Expense receipt-capture design remains `[TARGET]` in canonical Figma and is not implemented by this slice.
 
+## Customer portal project workspace
+
+The public project workspace at `/customer-portal/projects/[id]` follows the canonical document-focused portal composition without expanding capability. It presents verified customer/project context, the latest shared Proposal and Contract, every returned Invoice, and a Money summary built from active, non-voided Invoice `amount`, `paidAmount`, `balanceDue`, and recorded-payment rows. Voided invoices remain visible as document history but are excluded from current Money totals. Public Proposal review remains read-only. Pending Contracts link to the existing customer-signing route; signed and voided Contracts are described according to their actual status. Messaging, project progress/photos, schedule updates, customer change-order approval, and Pay Now remain unavailable. ADR-010 access-token/session/replay/revocation certification remains a separate evidence lane.
+
 ## Current verification surface
 
 Backend commands defined in `app/package.json` include:
