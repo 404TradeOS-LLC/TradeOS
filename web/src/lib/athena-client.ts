@@ -1,4 +1,4 @@
-import { ClientApiError, clientFetch } from "@/lib/clientApi";
+import { ClientApiError } from "@/lib/clientApi";
 
 export type AthenaKernelState =
   | "created"
@@ -67,9 +67,50 @@ export interface AthenaChatInput {
   idempotencyKey?: string;
 }
 
+const ATHENA_KERNEL_STATES = new Set<AthenaKernelState>([
+  "created",
+  "context_building",
+  "routing",
+  "planning",
+  "policy_check",
+  "awaiting_approval",
+  "executing",
+  "degraded",
+  "needs_clarification",
+  "partially_succeeded",
+  "succeeded",
+  "failed",
+  "denied",
+  "expired",
+  "cancelled",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isAthenaKernelResult(value: unknown): value is AthenaKernelResult {
+  if (!isRecord(value)) return false;
+  if (typeof value.success !== "boolean") return false;
+  if (typeof value.executionId !== "string" || typeof value.traceId !== "string") return false;
+  if (typeof value.state !== "string" || !ATHENA_KERNEL_STATES.has(value.state as AthenaKernelState)) return false;
+  if (typeof value.summary !== "string") return false;
+  if (value.message !== null && typeof value.message !== "string") return false;
+  if (!Array.isArray(value.warnings) || !Array.isArray(value.followUps)) return false;
+  if (!isRecord(value.telemetry)) return false;
+  if (typeof value.telemetry.traceId !== "string" || typeof value.telemetry.executionId !== "string") return false;
+  return true;
+}
+
+function getProxyErrorMessage(body: unknown): string {
+  if (isRecord(body) && typeof body.error === "string") return body.error;
+  return "Request failed";
+}
+
 export async function sendAthenaMessage(input: AthenaChatInput): Promise<AthenaKernelResult> {
-  return clientFetch<AthenaKernelResult>("/api/v1/athena/chat", {
+  const response = await fetch("/api/proxy/athena/chat", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       message: input.message,
       conversationId: input.conversationId,
@@ -83,6 +124,29 @@ export async function sendAthenaMessage(input: AthenaChatInput): Promise<AthenaK
       idempotencyKey: input.idempotencyKey,
     }),
   });
+
+  const text = await response.text();
+  let body: unknown = undefined;
+
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new ClientApiError(response.ok ? "Invalid Athena response" : "Request failed", response.status);
+    }
+  }
+
+  // Athena intentionally returns its full result envelope for terminal
+  // non-2xx states such as denied, failed, expired, provider failure, and
+  // conflict. Preserve that typed result so the workspace can render the
+  // safe summary, warnings, follow-ups, and trace references.
+  if (isAthenaKernelResult(body)) return body;
+
+  if (!response.ok) {
+    throw new ClientApiError(getProxyErrorMessage(body), response.status);
+  }
+
+  throw new ClientApiError("Invalid Athena response", response.status);
 }
 
 export function describeAthenaClientError(error: unknown): string {
