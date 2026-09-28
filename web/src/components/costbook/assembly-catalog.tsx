@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { FormEvent } from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { BookOpen, CheckCircle2, Loader2, Plus, Search, Trash2 } from "lucide-react";
@@ -258,7 +259,15 @@ export function AssemblyCatalog({ initialAssemblies, childAssemblies, costItems,
         <div className="grid gap-4 rounded-lg border border-border/70 bg-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div><p className="font-mono text-xs text-muted-foreground">{selected.code}</p><h1 className="text-xl font-semibold text-foreground">{selected.name}</h1><p className="mt-1 text-sm text-muted-foreground">{selected.description || "No description"} · {selected.unitOfMeasure}</p><p className="mt-2 text-sm font-medium text-foreground">Current unit cost: {unitCost === null ? "—" : money(unitCost)}</p></div>
-            {canManage ? <Button type="button" variant="outline" size="sm" onClick={deactivateSelected} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Deactivate</Button> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={"/costbook/assemblies/" + selected.id}
+                className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                Open detail
+              </Link>
+              {canManage ? <Button type="button" variant="outline" size="sm" onClick={deactivateSelected} disabled={saving}><Trash2 className="size-4" aria-hidden="true" />Deactivate</Button> : null}
+            </div>
           </div>
           {canWrite ? <AssemblyEditForm key={selected.id} assembly={selected} saving={saving} onSaving={setSaving} onError={setError} onUpdated={updateAssemblyInList} /> : null}
         </div>

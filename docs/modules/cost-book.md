@@ -251,7 +251,8 @@ Current behavior:
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management
 - `/costbook/cost-items` provides real-data CostItem create/edit/deactivate management, read-only behavior for actors without writes, responsive desktop/mobile presentation, and honest empty/load/error/mutation states
-- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states. The estimator-first Assembly-detail reorganization shown in canonical Figma remains a separate follow-up slice.
+- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states. Selected Assemblies now link to the read-first detail route.
+- `/costbook/assemblies/[id]` is the canonical estimator-first Assembly detail. It reads the existing organization-scoped Assembly, bounded component page, and recursively resolved current unit cost. The page shows stored scope/description and quantity-per-output-unit recipe rows, but does not infer sell price, gross margin, confidence, job inputs, or component-level provenance that the API does not expose. Unit-cost failure degrades locally so the recipe remains inspectable. Estimate application remains in the Estimate Items workflow rather than becoming a direct mutation from Costbook detail.
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
 - `/costbook/research-review` remains the human review surface for researched pricing candidates and now renders its stronger source evidence through the shared `PricingProvenance` primitive. Real queue/corpus counts, match analysis, approve/reject, and explicit promotion behavior are unchanged; approval/promotion remain `costbook.manage` actions and research never becomes production pricing merely by appearing in the queue.
@@ -268,6 +269,7 @@ No organization-wide “price health” score or stale-age threshold is derived 
 - `web/src/components/costbook/research-review-model.test.ts`
 - `web/src/app/(app)/costbook/research-review/research-review-route.test.ts`
 - `web/src/app/(app)/costbook/costbook-pricing-intelligence-contract.test.ts`
+- `web/src/app/(app)/costbook/assemblies/[id]/assembly-detail-contract.test.ts`
 - `app/tests/cost-database.tenant-references.test.ts`
 - `app/tests/costbook-cost-items.rls.integration.ts`
 - `app/tests/costbook.service.test.ts`
@@ -321,4 +323,4 @@ No organization-wide “price health” score or stale-age threshold is derived 
 
 ## Last verified date
 
-2026-09-12
+2026-09-28
