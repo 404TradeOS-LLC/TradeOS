@@ -202,7 +202,6 @@ export function MaterialsCatalog({
                   </Button>
                 </div>
               </form>
-              {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
             </section>
           ) : null}
         </div>
@@ -211,6 +210,12 @@ export function MaterialsCatalog({
           You have read-only Costbook access. Material create and edit controls are hidden for this role.
         </div>
       )}
+
+      {error ? (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
 
       {materials.length === 0 ? (
         <EmptyState
