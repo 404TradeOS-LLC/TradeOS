@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-09-27
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -424,6 +424,20 @@ This closes the prior UI-only break between approved/billable project work and f
 On 2026-09-01, the production-like Supabase database serving the RC deployment was behind the repository migration head. The API Prisma client queried `estimates.tax_pct` and project-detail financial fields that were absent from the database, causing the estimate queue and one project-detail request to return generic 500 responses while `/dashboard` itself rendered. The authenticated organization, membership, and forced-RLS context were valid; authorization was not bypassed or weakened.
 
 The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The focused application repair is merged as `e09101f6c436f1f5648f2188a9621b5dc1a26477` and the backend is deployed READY as `dpl_2gWxCWF4wbiQS7FBxeu3a522h1VK` at `tradeos-costbook-ocq61wy8f-billykshowalters.vercel.app`; the frontend was correctly unchanged because no web files were modified. Authenticated multi-viewport and contractor-smoke evidence remain outstanding until the runtime-authenticated RC workflow completes and retains its artifacts; no baked browser-state secret is required by that workflow.
+
+## Canonical invoice workspace
+
+The authenticated invoice detail at `/projects/[id]/invoices/[invoiceId]` now follows the canonical Money/Invoice workspace rather than a stack of equally weighted administration cards.
+
+- The page leads with server-derived Invoice total, recorded paid amount/payment count, and balance due. It does not recompute a competing running balance in the browser.
+- Billing/customer/job context and work-performed line items remain visible in the main record surface; Invoice activity continues to use the existing sanitized timeline contract.
+- When an eligible sent/overdue Invoice has a positive balance, **Record Payment** is the dominant billing action for users whose role matches the backend `billing.write` grant. The existing role-list regression remains locked to the backend permission map.
+- Record Payment explicitly means logging money already received. The workspace states that recording a Payment does not mean TradeOS processed the customer's payment.
+- Manual `mark paid without recording a payment` and Invoice voiding remain supported existing actions, but are progressively disclosed under **More billing actions** instead of competing with the normal payment-recording path.
+- The real Invoice PDF and staff Customer Portal preview remain available from the Document panel. Customer-view telemetry is not claimed because the current product does not record it.
+- Draft Invoice send behavior, Payment reconciliation, status derivation, organization/tenant scope, RLS, and backend lifecycle semantics are unchanged.
+
+The Money page's Expense receipt-capture design remains `[TARGET]` in canonical Figma and is not implemented by this slice.
 
 ## Current verification surface
 
