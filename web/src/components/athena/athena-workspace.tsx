@@ -82,6 +82,10 @@ function ResultCard({ result, onFollowUp }: { result: AthenaKernelResult; onFoll
   const presentation = statePresentation(result.state);
   const StateIcon = presentation.icon;
   const detail = result.message && result.message !== result.summary ? result.message : null;
+  const visibleFollowUps =
+    result.state === "needs_clarification"
+      ? result.followUps.filter((followUp) => followUp.kind === "question").slice(0, 1)
+      : result.followUps;
 
   return (
     <article className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
@@ -110,11 +114,11 @@ function ResultCard({ result, onFollowUp }: { result: AthenaKernelResult; onFoll
         </div>
       ) : null}
 
-      {result.followUps.length > 0 ? (
+      {visibleFollowUps.length > 0 ? (
         <div className="mt-4 border-t border-border/60 pt-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recommended next</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {result.followUps.map((followUp, index) => (
+            {visibleFollowUps.map((followUp, index) => (
               <Button key={`${followUp.kind}-${index}`} type="button" variant="outline" size="sm" onClick={() => onFollowUp(followUp.label)}>
                 {followUp.label}
               </Button>
@@ -141,7 +145,7 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const conversationIdRef = useRef<string>();
+  const conversationIdRef = useRef<string | undefined>(undefined);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope);
 
