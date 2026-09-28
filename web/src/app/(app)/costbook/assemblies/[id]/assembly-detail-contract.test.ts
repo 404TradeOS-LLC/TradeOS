@@ -8,7 +8,7 @@ async function readSource(path: string) {
 
 test("assembly detail composes the existing tenant-scoped read contracts", async () => {
   const page = await readSource("./page.tsx");
-  const api = await readSource("../../../../../../lib/costbook-api.ts");
+  const api = await readSource("../../../../../lib/costbook-api.ts");
 
   assert.match(page, /getCostbookAssembly\(token, id\)/);
   assert.match(page, /listCostbookAssemblyItems\(token, id/);
