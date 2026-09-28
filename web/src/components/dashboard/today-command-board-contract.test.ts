@@ -69,7 +69,9 @@ test("Today attention count uses unresolved human-action queues without inventin
   assert.match(page, /const attentionUnavailable = Boolean\(staleProposalQueue\.error\) \|\| invoiceQueues\.overdueUnavailable/);
   assert.match(page, /const notificationCount = attentionUnavailable \? null : staleProposalQueue\.queue\.total \+ invoiceQueues\.overdue\.total/);
   assert.match(page, /listProposalQueue\(token, \{/);
-  assert.match(page, /staleBefore: staleProposalCutoffIso/);
+  assert.match(page, /const staleProposalCutoffIso = getStaleProposalCutoffIso\(now\)/);
+  assert.match(page, /loadStaleProposalAttentionQueue\(token, staleProposalCutoffIso\)/);
+  assert.match(page, /staleBefore: staleBeforeIso/);
   assert.match(header, /Needs you · unavailable/);
   assert.match(header, /Some Needs you sources are unavailable/);
   assert.doesNotMatch(page, /ATTENTION_UNSIGNED_PROPOSAL_LIMIT/);
