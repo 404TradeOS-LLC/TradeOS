@@ -1,10 +1,33 @@
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
-import { getSession } from "@/lib/session";
+import { getAthenaCapabilities } from "@/lib/api";
+import { getSession, getSessionToken } from "@/lib/session";
+
+const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
+
+async function resolveAthenaEnabled(token: string | null): Promise<boolean> {
+  if (!token) return false;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
+  try {
+    const capabilities = await getAthenaCapabilities(token, controller.signal);
+    return capabilities.kernelEnabled === true;
+  } catch {
+    // Capability discovery is advisory UI gating. Fail closed without breaking
+    // the authenticated app shell if the backend is unavailable or slow.
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
+
+  const token = await getSessionToken();
+  const athenaEnabled = await resolveAthenaEnabled(token);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -14,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <AppNav email={session.email} />
+      <AppNav email={session.email} athenaEnabled={athenaEnabled} />
       <main
         id="main-content"
         tabIndex={-1}
