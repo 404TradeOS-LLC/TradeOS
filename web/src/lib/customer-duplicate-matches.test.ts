@@ -5,8 +5,8 @@ import {
   findCustomerDuplicateMatches,
   isCustomerMatchLookupIncomplete,
   requiresSeparateCustomerConfirmation,
-} from "./customer-duplicate-matches.ts";
-import type { Customer } from "./api.ts";
+} from "./customer-duplicate-matches";
+import type { Customer } from "./api";
 
 const customers: Customer[] = [
   { id: "one", name: "Smith Family", email: "hello@example.com", phone: "(317) 555-0123", address: null, billingAddress: null, notes: null, createdAt: "2026-01-01" },
