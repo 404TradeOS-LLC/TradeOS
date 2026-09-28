@@ -117,6 +117,20 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - `EmptyState` supports an optional decorative `icon`, applied only to
   genuinely-empty (not filtered) list views.
 
+## Settings contractor control center
+
+The authenticated `/settings` surface now follows the canonical contractor-control-center hierarchy rather than presenting every platform/admin section with equal visual weight.
+
+- The default landing section is **Pricing**, with Company, Estimating, Team & Access, Communication, Athena, and Connections grouped as common contractor settings.
+- Workspace/display, Branding, Roles & Permissions, CRM/document/template compatibility controls, Knowledge, API keys, Security, Billing compatibility, Backups, Audit Log, and Developer metadata remain available under **Advanced / admin** rather than competing with labor/markup/waste controls.
+- Team and role summaries continue to use the existing permission-aware organization membership response. This does not enable or absorb the separate staging-only Team & Time workspace.
+- Pricing values remain organization settings; Costbook/source provenance continues to govern whether material/supplier pricing is trustworthy. Settings defaults never upgrade stale, placeholder, or unverified Costbook data.
+- The frontend distinguishes persisted organization keys from product fallbacks. Missing organization-specific business, pricing, AI, template, communication, and security values no longer render as fabricated company facts.
+- The backend `PATCH /settings` contract still validates the complete settings object, so the Control Center sends the full draft on save. The frontend truthfulness fix therefore focuses on safe fallbacks: organization-specific business, pricing, supplier, AI, communication, and security defaults are blank/off rather than fabricated facts.
+- Scaffolded integration/admin cards remain explicitly marked as sample data. Developer metadata reports unavailable/unexposed values as such rather than claiming healthy platform state without a live diagnostics source.
+
+No backend Settings route, permission, tenant, RLS, Brand Studio, supplier, billing, or Team & Time contract changes are included in this frontend reorganization.
+
 ## Implemented product areas
 
 - Auth and tenancy, including local-session refresh hardening, Supabase JWT verification, organization bootstrap/recovery, request-scoped database sessions, and forced PostgreSQL RLS.
