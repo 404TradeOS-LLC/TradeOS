@@ -97,11 +97,14 @@ test("settings outage uses dispatch timezone and does not expose demo organizati
   });
 });
 
-test("Coming Up excludes terminal scheduled Jobs", async () => {
+test("Today backfills active scheduled Jobs across pages and preserves the exact scheduled-today count", async () => {
   const source = await readDashboardSource();
 
   assert.match(source, /const TERMINAL_JOB_STATUSES = new Set\(\["completed", "cancelled"\]\)/);
-  assert.match(source, /activeScheduledJobs/);
-  assert.match(source, /todayItems = todayResult\.status === "fulfilled" \? activeScheduledJobs\(todayResult\.value\.items\) : \[\]/);
-  assert.match(source, /upcomingItems = upcomingResult\.status === "fulfilled" \? activeScheduledJobs\(upcomingResult\.value\.items\) : \[\]/);
+  assert.match(source, /const DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE = 100/);
+  assert.match(source, /async function loadActiveScheduledJobs/);
+  assert.match(source, /if \(TERMINAL_JOB_STATUSES\.has\(job\.status\)\) continue/);
+  assert.match(source, /activeJobs\.length < input\.limit/);
+  assert.match(source, /\(page - 1\) \* DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE < totalRows/);
+  assert.match(source, /total: summary\.scheduledToday/);
 });
