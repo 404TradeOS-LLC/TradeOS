@@ -66,6 +66,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     canRecordPayment &&
     hasOpenBalance &&
     (invoice.status === "sent" || invoice.status === "overdue");
+  const canMarkPaidWithoutPayment = invoice.status === "sent" || invoice.status === "overdue";
+  const canVoidInvoice = !["paid", "voided"].includes(invoice.status);
+  const showMoreBillingActions = canMarkPaidWithoutPayment || canVoidInvoice;
   const sentLabel = invoice.sentAt ? `Sent ${formatDate(invoice.sentAt)}` : "Not sent yet";
   const dueLabel = invoice.dueDate ? `Due ${formatDate(invoice.dueDate)}` : "No due date";
 
@@ -265,7 +268,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <details className="rounded-xl border border-border/70 bg-card p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">More billing actions</summary>
               <div className="mt-4 grid gap-2">
-                {(invoice.status === "sent" || invoice.status === "overdue") ? (
+                {canMarkPaidWithoutPayment ? (
                   <form action={markInvoicePaidAction}>
                     <input type="hidden" name="invoiceId" value={invoice.id} />
                     <input type="hidden" name="projectId" value={projectId} />
