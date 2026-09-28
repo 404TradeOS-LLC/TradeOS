@@ -12,7 +12,6 @@ import {
   Save,
   Search,
   Upload,
-  WandSparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +38,7 @@ import {
 
 interface SettingsConsoleProps {
   initialDraft: TradeOsSettingsDraft;
+  persistedSettingKeys: string[];
   initialWorkspaceData: {
     currentRole: string;
     canManageWorkspace: boolean;
@@ -75,6 +75,23 @@ interface ToastMessage {
 
 const realSections = settingsSections.filter((section) => section.cards.length > 0);
 
+const contractorSectionIds = ["company", "costbook", "estimating", "team", "notifications", "ai", "integrations"] as const;
+const advancedSectionIds = [
+  "general",
+  "branding",
+  "roles-permissions",
+  "crm",
+  "documents",
+  "templates",
+  "knowledge-engine",
+  "api-keys",
+  "security",
+  "billing",
+  "backups",
+  "audit-log",
+  "developer",
+] as const;
+
 function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
@@ -92,10 +109,11 @@ function isDirtyDraft(current: TradeOsSettingsDraft, saved: TradeOsSettingsDraft
   return JSON.stringify(current) !== JSON.stringify(saved);
 }
 
-export function SettingsConsole({ initialDraft, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
+export function SettingsConsole({ initialDraft, persistedSettingKeys, initialWorkspaceData, developerMeta }: SettingsConsoleProps) {
   const [draft, setDraft] = useState(initialDraft);
   const [savedDraft, setSavedDraft] = useState(initialDraft);
-  const [selectedSectionId, setSelectedSectionId] = useState(realSections[0]?.id ?? "general");
+  const [persistedKeys, setPersistedKeys] = useState(() => new Set(persistedSettingKeys));
+  const [selectedSectionId, setSelectedSectionId] = useState("costbook");
   const [searchQuery, setSearchQuery] = useState("");
   const [highlightedResult, setHighlightedResult] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -112,7 +130,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
       stats: [
         { label: "Environment", value: developerMeta.environment },
         { label: "Commit", value: developerMeta.gitCommit.slice(0, 7) || developerMeta.gitCommit },
-        { label: "Health", value: developerMeta.healthStatus, tone: "good" },
+        { label: "Health", value: developerMeta.healthStatus },
       ],
       cards: [
         {
@@ -120,6 +138,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
           id: "developer-metadata",
           title: "Runtime Metadata",
           description: "Server-provided build details plus placeholders for deeper platform telemetry.",
+          sampleData: true,
           items: [
             { label: "Version", value: developerMeta.version, description: "Frontend package version." },
             { label: "Environment", value: developerMeta.environment, description: "Current Next.js runtime environment." },
@@ -127,7 +146,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
             { label: "Build number", value: developerMeta.buildNumber, description: "Release identifier for this build." },
             { label: "Database version", value: developerMeta.databaseVersion, description: "Awaiting richer backend diagnostics." },
             { label: "Feature flags", value: developerMeta.featureFlags, description: "Representative flag inventory." },
-            { label: "Health status", value: developerMeta.healthStatus, tone: "good", description: "App shell and core surfaces are responding." },
+            { label: "Health status", value: developerMeta.healthStatus, description: "No live health claim is shown until a diagnostics source exposes it." },
           ],
         },
       ],
@@ -241,16 +260,23 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
     };
   }, [initialWorkspaceData]);
 
-  const sections = useMemo(
-    () =>
-      realSections.map((section) => {
-        if (section.id === "developer") return developerSection;
-        if (section.id === "team") return teamSection;
-        if (section.id === "roles-permissions") return rolesSection;
-        return section;
-      }),
-    [developerSection, rolesSection, teamSection]
-  );
+  const sections = useMemo(() => {
+    const resolved = realSections.map((section) => {
+      if (section.id === "developer") return developerSection;
+      if (section.id === "team") return teamSection;
+      if (section.id === "roles-permissions") return rolesSection;
+      return section;
+    });
+    const byId = new Map(resolved.map((section) => [section.id, section]));
+    const ordered = [...contractorSectionIds, ...advancedSectionIds]
+      .map((id) => byId.get(id))
+      .filter((section): section is SettingsSectionDefinition => Boolean(section));
+    const included = new Set(ordered.map((section) => section.id));
+    return [...ordered, ...resolved.filter((section) => !included.has(section.id))];
+  }, [developerSection, rolesSection, teamSection]);
+
+  const contractorSections = sections.filter((section) => contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
+  const advancedSections = sections.filter((section) => !contractorSectionIds.includes(section.id as (typeof contractorSectionIds)[number]));
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId) ?? sections[0];
 
@@ -454,13 +480,20 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
   }
 
   async function saveChanges() {
+    if (!dirty) return;
+
     setIsSaving(true);
     try {
+      // PATCH /settings currently validates the complete organization settings
+      // contract. Send the full draft until the backend explicitly supports
+      // partial updates; omitting required fields would turn ordinary single-
+      // field edits into 400 responses.
       const result = await clientFetch<OrganizationSettingsResponse>("/settings", {
         method: "PATCH",
         body: JSON.stringify(draft),
       });
       setSavedDraft(draft);
+      setPersistedKeys(new Set(Object.keys(draft)));
       showToast({
         tone: "success",
         title: "Settings saved",
@@ -487,28 +520,21 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[28px] border border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(217,119,6,0.16),_transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,251,0.94))] p-6 shadow-(--elev-1)">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
-              <WandSparkles className="size-3.5 text-[color:var(--settings-accent)]" />
-              TradeOS Control Center
-            </span>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground">Settings that make TradeOS feel like your company.</h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                Configure operations, branding, pricing, automation, and platform controls from one responsive workspace built for a construction company.
-              </p>
-            </div>
+    <div className="space-y-5">
+      <header className="border-b border-border/70 pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Settings</p>
+        <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Control Center</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              The settings contractors use often stay up top. Platform and administrative tooling stays under Advanced.
+            </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
-            <HeroMetric label="Active domains" value={`${sections.length}`} />
-            <HeroMetric label="Unsaved changes" value={dirty ? "Yes" : "No"} tone={dirty ? "warn" : "good"} />
-            <HeroMetric label="Search shortcut" value="Cmd/Ctrl + K" />
-          </div>
+          <Badge variant="outline" className={dirty ? "border-warning/30 bg-warning/10 text-warning" : "border-success/30 bg-success/10 text-success"}>
+            {dirty ? "Unsaved changes" : "Saved"}
+          </Badge>
         </div>
-      </section>
+      </header>
 
       <section className="sticky top-0 z-20 rounded-2xl border border-border/70 bg-background/90 p-4 shadow-(--elev-1) backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -606,8 +632,8 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
         ) : null}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="space-y-4 xl:sticky xl:top-28 xl:self-start">
+      <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <label className="sr-only" htmlFor="settings-section-select">
             Select settings section
           </label>
@@ -617,19 +643,29 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
             onChange={(event) => setSelectedSectionId(event.target.value)}
             className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm xl:hidden"
           >
-            {sections.map((section) => (
-              <option key={section.id} value={section.id}>
-                {section.title}
-              </option>
-            ))}
+            <optgroup label="Contractor settings">
+              {contractorSections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.title}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Advanced / admin">
+              {advancedSections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.title}
+                </option>
+              ))}
+            </optgroup>
           </select>
+
           <Card className="hidden rounded-2xl xl:flex">
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-              <CardDescription>Navigate every operational surface of the workspace.</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle>Contractor settings</CardTitle>
+              <CardDescription>Common controls first. Specialized and platform controls stay lower.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-1">
-              {sections.map((section) => {
+              {contractorSections.map((section) => {
                 const Icon = section.icon;
                 const isActive = section.id === selectedSectionId;
                 return (
@@ -638,36 +674,67 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                     type="button"
                     onClick={() => startTransition(() => setSelectedSectionId(section.id))}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
-                      isActive ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
+                      isActive ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
-                    <Icon className="size-4" />
-                    <span className="flex-1">{section.title}</span>
+                    <Icon className={cn("size-4", isActive && "text-primary")} />
+                    <span className="flex-1 font-medium">{section.title}</span>
                     <ChevronRight className="size-4 opacity-60" />
                   </button>
                 );
               })}
+
+              <div className="my-3 border-t border-border/70 pt-3">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Advanced / admin</p>
+                {advancedSections.map((section) => {
+                  const Icon = section.icon;
+                  const isActive = section.id === selectedSectionId;
+                  return (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => startTransition(() => setSelectedSectionId(section.id))}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none transition focus-visible:ring-3 focus-visible:ring-ring/50",
+                        isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="size-4" />
+                      <span className="flex-1">{section.title}</span>
+                      <ChevronRight className="size-4 opacity-50" />
+                    </button>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </aside>
 
         <section id={`section-${selectedSection.id}`} className="space-y-4" style={{ ["--settings-accent" as string]: draft.accentColor }}>
-          <Card className="rounded-[24px] border-border/70 bg-card/95">
-            <CardHeader>
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl">{selectedSection.title}</CardTitle>
-                  <CardDescription className="max-w-2xl">{selectedSection.description}</CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedSection.stats.map((stat) => (
-                    <StatusPill key={stat.label} item={stat} />
-                  ))}
-                </div>
+          <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card px-4 py-4 sm:px-5 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-foreground">{selectedSection.title}</h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{selectedSection.description}</p>
+            </div>
+            {selectedSection.id === "costbook" ? (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="outline">Region · {draft.costRegion || "Not configured"}</Badge>
+                <Badge variant="outline">Labor · {draft.laborRate ? `$${draft.laborRate}/hr` : "Not configured"}</Badge>
+                <Badge variant="outline">Markup · {draft.markupPercent ? `${draft.markupPercent}%` : "Not configured"}</Badge>
               </div>
-            </CardHeader>
-          </Card>
+            ) : null}
+          </div>
+
+          {selectedSection.id === "costbook" ? (
+            <div className="flex flex-col gap-3 rounded-xl border border-success/25 bg-success/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-foreground">Costbook provenance still governs actual price trust</p>
+                <p className="mt-0.5 text-muted-foreground">These defaults never turn stale, placeholder, or unverified supplier pricing into trusted precision.</p>
+              </div>
+              <a href="/costbook" className="shrink-0 font-medium text-primary underline-offset-4 hover:underline">Open Costbook</a>
+            </div>
+          ) : null}
 
           {isPending ? (
             <SettingsSectionSkeleton />
@@ -678,6 +745,7 @@ export function SettingsConsole({ initialDraft, initialWorkspaceData, developerM
                 card={card}
                 section={selectedSection}
                 draft={draft}
+                persistedKeys={persistedKeys}
                 onChange={updateDraft}
                 onAssetUpload={handleAssetUpload}
                 onAssetRemove={handleAssetRemove}
@@ -701,6 +769,7 @@ function SettingsCard({
   card,
   section,
   draft,
+  persistedKeys,
   onChange,
   onAssetUpload,
   onAssetRemove,
@@ -709,6 +778,7 @@ function SettingsCard({
   card: SettingsCardDefinition;
   section: SettingsSectionDefinition;
   draft: TradeOsSettingsDraft;
+  persistedKeys: Set<string>;
   onChange: <K extends keyof TradeOsSettingsDraft>(key: K, value: TradeOsSettingsDraft[K]) => void;
   onAssetUpload: (asset: SettingsAssetDefinition, event: ChangeEvent<HTMLInputElement>) => void;
   onAssetRemove: (asset: SettingsAssetDefinition) => void;
@@ -736,6 +806,7 @@ function SettingsCard({
                 sectionId={section.id}
                 field={item}
                 value={draft[item.key]}
+                isPersisted={persistedKeys.has(String(item.key))}
                 onChange={onChange}
               />
             ))}
@@ -783,11 +854,13 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
   sectionId,
   field,
   value,
+  isPersisted,
   onChange,
 }: {
   sectionId: string;
   field: SettingsFieldDefinition;
   value: TradeOsSettingsDraft[K];
+  isPersisted: boolean;
   onChange: (key: K, value: TradeOsSettingsDraft[K]) => void;
 }) {
   const fieldId = `field-${sectionId}-${String(field.key)}`;
@@ -799,7 +872,7 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
           <Checkbox checked={Boolean(value)} onCheckedChange={(checked) => onChange(field.key as K, Boolean(checked) as TradeOsSettingsDraft[K])} />
           <div className="space-y-1">
             <Label htmlFor={fieldId}>{field.label}</Label>
-            <p className="text-sm text-muted-foreground">{field.description}</p>
+            <p className="text-sm text-muted-foreground">{!isPersisted ? "Product default; not yet saved for this organization. " : ""}{field.description}</p>
           </div>
         </div>
       </div>
@@ -817,7 +890,7 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
           placeholder={field.placeholder}
           className="min-h-28 rounded-xl"
         />
-        <p className="text-sm text-muted-foreground">{field.description}</p>
+        <p className="text-sm text-muted-foreground">{!isPersisted ? "Product default; not yet saved for this organization. " : ""}{field.description}</p>
       </div>
     );
   }
@@ -830,9 +903,10 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
           label={field.label}
           value={String(value)}
           onChange={(event) => onChange(field.key as K, event.target.value as TradeOsSettingsDraft[K])}
-          hint={field.description}
+          hint={`${!isPersisted ? "Product default; not yet saved for this organization. " : ""}${field.description}`}
           className="h-11 rounded-xl"
         >
+          {!String(value) ? <option value="">Not configured</option> : null}
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -857,7 +931,7 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
           />
           <div>
             <div className="text-sm font-medium text-foreground">{String(value)}</div>
-            <p className="text-sm text-muted-foreground">{field.description}</p>
+            <p className="text-sm text-muted-foreground">{!isPersisted ? "Product default; not yet saved for this organization. " : ""}{field.description}</p>
           </div>
         </div>
       </div>
@@ -874,7 +948,7 @@ function FieldRenderer<K extends keyof TradeOsSettingsDraft>({
         placeholder={field.placeholder}
         className="h-11 rounded-xl"
       />
-      <p className="text-sm text-muted-foreground">{field.description}</p>
+      <p className="text-sm text-muted-foreground">{!isPersisted ? "Product default; not yet saved for this organization. " : ""}{field.description}</p>
     </div>
   );
 }
@@ -1098,17 +1172,6 @@ function StatusPill({ item }: { item: SettingsStatusItem }) {
       {item.tone === "warn" ? <AlertCircle className="size-3.5" /> : null}
       {item.value}
     </span>
-  );
-}
-
-function HeroMetric({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-background/85 p-3">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-lg font-semibold text-foreground", tone === "warn" && "text-warning", tone === "good" && "text-success")}>
-        {value}
-      </div>
-    </div>
   );
 }
 
