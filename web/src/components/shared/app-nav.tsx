@@ -144,9 +144,11 @@ function NavPill({
 
 export function AppNav({
   email,
+  athenaEnabled = false,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
+  athenaEnabled?: boolean;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
@@ -160,7 +162,7 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const primaryLinks = [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK];
+  const primaryLinks = athenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
   useBodyScrollLock(mobileOpen || createOpen);
 
