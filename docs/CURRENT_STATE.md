@@ -169,6 +169,14 @@ No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration. `knowledge-runtime/repository.ts`'s trade classifier (`inferTrade()`) was rewritten 2026-09-08 from raw substring matching (which misclassified the Tree Service assembly-index record as trade "Trim") to a deterministic, word-boundary/token-aware matcher that prioritizes each record's own curated `category` field and returns `null` on genuine ambiguity rather than guessing. Full before/after audit of the entire Knowledge Engine corpus: `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`. No pricing value or Costbook record changed.
 
+## CRM operating overview
+
+The authenticated `/crm` route now composes the pre-job relationship workflow from existing organization-scoped sources: Customers, Projects, incomplete Project Tasks, `site_visit.created` activity, and the Proposal work queue. It introduces no Lead table, opportunity table, CRM-stage field, or follow-up table.
+
+Pipeline lanes are derived at render time. Project `lead` remains Lead unless a real Site Visit milestone exists; Site Visit activity plus pre-proposal work can surface Ready to Estimate; Project `estimating` remains the estimating source; Proposal `sent`/`viewed` supplies Proposal Sent; and Project `awarded` supplies Awarded. Accepted-proposal side effects therefore stay owned by the existing Project/Proposal lifecycle rather than CRM.
+
+The Follow-ups surface uses existing incomplete organization Project Tasks, including tasks created through Athena's bounded `create-follow-up` tool. Because Project Tasks do not persist a separate follow-up type, the UI describes them honestly as Project Tasks due next rather than inferring a new record class. Source reads use independent settled loading so one unavailable queue degrades visibly without blanking healthy CRM data.
+
 ## Costbook domain
 
 The canonical Costbook workspace is implemented across `/api/v1/costbook/*` and `/costbook/*` while reusing the established catalog tables and services instead of creating duplicate pricing subsystems.
