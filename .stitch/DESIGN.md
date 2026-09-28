@@ -308,9 +308,11 @@ Athena is the intelligence layer of TradeOS. Do not make it a generic chatbot.
 
 Athena has three product forms:
 
-1. **Workspace** — full page when the contractor intentionally works with Athena.
-2. **Context panel / sheet** — inside Estimate, Customer, Job, and other workspaces; current-record context is automatic.
+1. **Workspace** — full page when the contractor intentionally works with Athena. The canonical desktop Job-scoped Workspace is pinned in Figma and uses selected TradeOS context, contractor-language results, visible context/trust, and plain-language confirmation before writes.
+2. **Context panel / sheet** — inside Estimate, Customer, Job, and other workspaces; current-record context is automatic. The canonical mobile Job-scoped contextual sheet is pinned in Figma and uses the same selected-scope/action grammar.
 3. **Inline intervention** — small, specific signals such as an assembly match, stale pricing, missing scope, or setup required.
+
+Implementation note: the current `/athena` route is still owner/admin observability. The canonical contractor Workspace is approved design authority, but route ownership must be resolved before implementation so observability and contractor workflows do not collide.
 
 Athena behavior:
 
@@ -374,6 +376,8 @@ Review speaks customer language: scope, exclusions, totals, readiness, and what 
 
 Mobile keeps the same stages and one dominant `StickyTaskAction` above the `ControlDock`.
 
+The canonical mobile frames for **Scope → Items → Price → Review** are pinned in Figma and use the same EST-1048 estimate data as the canonical desktop workspace. Scope includes editable rough scope, Athena interpretation, and one necessary clarification. Items is the central production list. Price preserves editable authoritative totals and pricing trust. Review speaks customer language and ends with Preview proposal + one dominant Send proposal action.
+
 Do not duplicate desktop inspectors on mobile. The small screen gets the current decision; secondary controls become sheets or sections.
 
 ## 15. Needs You contract
@@ -435,6 +439,8 @@ Rules:
 - expose blockers through a real resolution path when that capability exists;
 - make closeout requirements explicit;
 - do not show fake upload, issue, change-order, messaging, offline, inventory, or other controls before their persistence/permission contracts exist.
+
+Canonical Figma now pins the desktop Job Record Workspace plus the mobile field lifecycle: **Dispatched → Traveling → On site → Completed**, with **On site → Paused → On site** as the supported pause/resume side branch. Paused work must resume to On site before completion. Completed ends field execution without inventing invoice creation; ready-for-invoice remains a separate office/manager acknowledgment.
 
 ## 17. Today / contractor command center
 
@@ -565,23 +571,26 @@ As of 2026-09-27:
 
 ### Canonical visual references
 
+- Today desktop/mobile command center using Now → Needs You → Coming Up → Money;
 - Customer desktop/mobile;
 - Lead / Site Visit UX;
-- Estimate desktop;
+- CRM desktop/mobile overview with Project-backed leads, persisted Project Task follow-ups, and a derived pipeline over Project/Site Visit/Estimate/Proposal state;
+- Estimate desktop plus mobile Scope → Items → Price → Review;
+- Job desktop Record Workspace plus mobile Dispatched / Traveling / On site / Paused / Completed field states;
 - Change Order desktop/mobile;
 - Invoice desktop/mobile;
 - Costbook desktop/mobile;
 - Assemblies desktop/mobile;
+- Schedule desktop Day plus mobile Today views, with Day / Week / Crew defined as views over real Jobs + Assignments and a real unscheduled-work tray;
+- Athena contractor Workspace desktop plus Job-scoped mobile contextual sheet;
 - current document-focused Customer Portal desktop/mobile;
 - Settings desktop/mobile.
 
-### Partial / canonical screen still needed
+### Implementation-boundary notes
 
-- Today — canonical patterns are locked; full approved Today composition is not pinned.
-- CRM — Customer/Lead contracts and Record Workspace pattern are canonical; CRM overview/pipeline screen still needs approval.
-- Jobs / Field — Change Order is canonical; richer Job/Field visual still needs approval.
-- Schedule — production contracts are real; canonical calendar-grade visual still needs approval.
-- Athena — behavior is canonical; full contractor Workspace visual still needs approval.
+The current priority-set product screens are now pinned as canonical visual references. Remaining gaps are implementation/capability boundaries rather than missing core visuals.
+
+Athena design is canonical, but implementation still requires a deliberate route decision because the current `/athena` route is owner/admin observability.
 
 ### Target-only
 
