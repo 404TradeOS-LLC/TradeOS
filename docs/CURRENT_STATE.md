@@ -386,6 +386,16 @@ Landed foundations include:
 
 Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
 
+### Contractor Athena workspace
+
+The authenticated web route `/athena` is now the contractor-facing Athena Workspace rather than the owner/admin observability dashboard. It uses one browser kernel client over the existing `POST /api/v1/athena/chat` contract, carries optional validated selected scope (`customerId`, `projectId`, `jobId`, `estimateId`, `invoiceId`, and bounded page context), and renders the kernel's real summary/message, warnings, follow-ups, clarification, degraded, denied, timeout/failure, and telemetry-reference states. The app navigation exposes this contractor workspace to authenticated users; individual Athena tools continue to enforce their existing permission/risk/service boundaries.
+
+Owner/admin observability is preserved at `/athena/ops`. Existing operator subroutes for approvals, traces, tool health, model/cost, and events/DLQ remain operator-gated and their Overview link now targets `/athena/ops`.
+
+The contractor UI does not fabricate data the chat response does not expose. The current kernel result does not include a provider-by-provider “context used” list, so the workspace shows selected-scope/write-path/authority trust statements but does not claim which context providers were used. The platform also has no durable contractor conversation/session lifecycle behind the optional `conversationId` reference, so the workspace does not invent or send one; visible turns are page-local UI history only. When the kernel returns `needs_clarification`, the workspace surfaces at most one question at a time. When it returns `awaiting_approval`, the workspace states that confirmation is required but does not simulate approval or perform a direct business write; plain-language contractor confirmation cards remain a bounded follow-up over the durable approval contract.
+
+Repository implementation does not prove Athena is enabled in a deployed environment. `ATHENA_KERNEL_ENABLED` and deployment configuration remain authoritative.
+
 ### A14 voice/mobile readiness
 
 A14 extends the existing Athena kernel rather than creating a second assistant or
