@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runCreateCustomerWorkflow } from "./create-customer-workflow.ts";
+import { runCreateCustomerWorkflow } from "./create-customer-workflow";
 import type { Customer } from "../../lib/api";
 
 const matchingCustomer: Customer = {
