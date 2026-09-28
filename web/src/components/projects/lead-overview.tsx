@@ -240,7 +240,7 @@ export function LeadOverview({ project, customer, estimates, siteVisits, project
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    Confidence: {latestVisit.confidenceScore == null ? "not scored" : `${Math.round(latestVisit.confidenceScore * 100)}%`}
+                    Confidence: {latestVisit.confidenceScore == null ? "not scored" : `${Math.round(latestVisit.confidenceScore)}%`}
                   </p>
                   {missingInfo.length > 0 ? (
                     <div>
