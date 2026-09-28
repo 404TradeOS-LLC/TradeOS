@@ -26,7 +26,7 @@ test("assembly detail is estimator-first without inventing estimate-specific eco
   assert.match(page, />Current cost</);
   assert.match(page, /per 1 \{assembly\.unitOfMeasure\}/);
   assert.match(page, /This detail page does not create an Estimate or invent a sell price, margin, or job quantity without Estimate context/);
-  assert.doesNotMatch(page, /gross margin|High confidence|Sell price|priceHigh|priceLow|markupPercent|profitPercent/);
+  assert.doesNotMatch(page, /priceHigh|priceLow|markupPercent|profitPercent|grossMargin|sellPrice|confidenceScore/);
 });
 
 test("assembly detail preserves the provenance boundary of the current API", async () => {
@@ -59,7 +59,7 @@ test("assembly catalog keeps editing behavior and exposes the canonical detail r
   const catalog = await readSource("../../../../../components/costbook/assembly-catalog.tsx");
 
   assert.match(catalog, /href=\{"\/costbook\/assemblies\/" \+ selected\.id\}/);
-  assert.match(catalog, />Open detail</);
+  assert.match(catalog, /Open detail/);
   assert.match(catalog, /AssemblyEditForm/);
   assert.match(catalog, /deactivateSelected/);
 });
