@@ -11,7 +11,9 @@ test("Athena browser client uses the authenticated proxy and preserves typed ter
 
   assert.match(source, /fetch\("\/api\/proxy\/athena\/chat"/);
   assert.match(source, /if \(isAthenaKernelResult\(body\)\) return body;/);
-  assert.match(source, /terminal\s+non-2xx states such as denied, failed, expired, provider failure, and\s+conflict/);
+  assert.match(source, /Athena intentionally returns its full result envelope for terminal/);
+  assert.match(source, /non-2xx states such as denied, failed, expired, provider failure, and/);
+  assert.match(source, /conflict\. Preserve that typed result/);
   assert.match(source, /throw new ClientApiError\(getProxyErrorMessage\(body\), response\.status\)/);
 });
 
