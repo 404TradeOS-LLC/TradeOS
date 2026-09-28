@@ -284,7 +284,7 @@ export function CrmOverview({
       </section>
 
       <p className="text-xs text-muted-foreground">
-        CRM is an operating view over Customers, Projects, Project Tasks, Site Visits, and Proposals. Moving work forward must continue through those records' existing lifecycle actions.
+        CRM is an operating view over Customers, Projects, Project Tasks, Site Visits, and Proposals. Moving work forward continues through the existing lifecycle actions on those records.
       </p>
     </div>
   );
