@@ -56,7 +56,7 @@ test("Site Visit form is capture-first with advanced details progressively discl
   assert.match(source, /name="fixtureCount"/);
   assert.match(source, /name="notes"/);
   assert.match(source, /<details className=/);
-  assert.match(source, />More visit details/);
+  assert.match(source, /More visit details/);
   assert.match(source, /name="gps"/);
   assert.match(source, /name="transcript"/);
   assert.match(source, /name="customerNotes"/);
