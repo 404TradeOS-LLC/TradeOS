@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Ban, Check, Pencil, Plus, X } from "lucide-react";
 import { PricingProvenance } from "@/components/costbook/pricing-provenance";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilteredEmptyState } from "@/components/ui/feedback-state";
 import { Input } from "@/components/ui/input";
 import { clientFetch } from "@/lib/clientApi";
 import type { CostbookMaterial, CostbookMaterialInput } from "@/lib/api";
@@ -31,11 +33,13 @@ export function MaterialsCatalog({
   canWrite,
   canManage,
   activeFilter,
+  isFiltered = false,
 }: {
   initialMaterials: CostbookMaterial[];
   canWrite: boolean;
   canManage: boolean;
   activeFilter?: boolean;
+  isFiltered?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
@@ -218,10 +222,22 @@ export function MaterialsCatalog({
       ) : null}
 
       {materials.length === 0 ? (
-        <EmptyState
-          title="No materials yet"
-          description={canWrite ? "Add the first material to start building this organization's Costbook catalog." : "Materials will appear here after a Costbook writer creates them."}
-        />
+        isFiltered ? (
+          <FilteredEmptyState
+            title="No materials match these filters"
+            description="The Material catalog is still available. Clear the active search or filters to see the full catalog."
+            action={
+              <Link href="/costbook/materials" className={buttonVariants({ variant: "outline" })}>
+                Clear filters
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="No materials yet"
+            description={canWrite ? "Add the first material to start building this organization's Costbook catalog." : "Materials will appear here after a Costbook writer creates them."}
+          />
+        )
       ) : (
         <section className="overflow-hidden rounded-xl border border-border/70 bg-card" aria-label="Materials catalog">
           <div className="hidden overflow-x-auto md:block">
