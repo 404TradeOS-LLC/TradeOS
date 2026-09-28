@@ -149,6 +149,16 @@ export async function sendAthenaMessage(input: AthenaChatInput): Promise<AthenaK
   throw new ClientApiError("Invalid Athena response", response.status);
 }
 
+export function isAthenaRetryableClientError(error: unknown): boolean {
+  // A thrown non-ClientApiError is typically a transport/runtime failure where
+  // the server outcome is ambiguous. Preserve the idempotency key for a retry.
+  if (!(error instanceof ClientApiError)) return true;
+
+  // Deterministic client/auth/configuration outcomes require a changed input,
+  // session, or deployment state. Retry only timeouts/rate limits/server faults.
+  return error.status === 408 || error.status === 429 || error.status >= 500;
+}
+
 export function describeAthenaClientError(error: unknown): string {
   if (error instanceof ClientApiError) {
     if (error.status === 404) return "Athena is not enabled in this environment yet.";
