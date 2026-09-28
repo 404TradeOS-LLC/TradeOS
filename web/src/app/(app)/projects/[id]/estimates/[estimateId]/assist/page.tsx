@@ -12,7 +12,6 @@ export default async function AIEstimateAssistPage({
 }) {
   const { id, estimateId } = await params;
   const token = await getSessionToken();
-  const initial = null;
   const initialScope = "";
   const [knowledgeStats, knowledgeTrades] = token
     ? await Promise.all([
@@ -32,9 +31,9 @@ export default async function AIEstimateAssistPage({
             ← Back to estimate builder
           </Link>
           <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">AI Estimate Assist</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Athena Estimate Review</h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Turn a plain-English scope into reviewable draft line items, then accept or reject them before they reach the estimate.
+              Turn a plain-English scope into reviewable draft line items with Athena, then accept or reject them before they reach the estimate.
             </p>
           </div>
         </div>
