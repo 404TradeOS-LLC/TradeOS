@@ -1,56 +1,65 @@
 import Link from "next/link";
 import {
   AlertCircle,
-  ArrowUpRight,
   CalendarClock,
   ChevronRight,
-  CircleDollarSign,
   ClipboardCheck,
   Clock3,
-  MapPin,
   ReceiptText,
   Sparkles,
 } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatCurrency, formatDate } from "@/lib/document-workflow";
-import type { AttentionEstimateRow, AttentionInvoiceRow, AttentionProposalRow } from "@/components/dashboard/needs-attention-model";
+import type {
+  AttentionEstimateRow,
+  AttentionInvoiceRow,
+  AttentionProposalRow,
+} from "@/components/dashboard/needs-attention-model";
 import type { AttentionStartRow } from "@/components/dashboard/needs-attention-card";
 import type { ContinueWorkingRow } from "@/components/dashboard/continue-working-model";
-import type { OwnerKpi, OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
+import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
 import type { ReceivablesSummary } from "@/components/dashboard/receivables-model";
 
 interface TodayCommandBoardProps {
-  schedule: OwnerScheduleItem[];
+  currentSchedule: OwnerScheduleItem[];
+  upcomingSchedule: OwnerScheduleItem[];
   estimates: AttentionEstimateRow[];
   proposals: AttentionProposalRow[];
   invoices: AttentionInvoiceRow[];
   readyToStart: AttentionStartRow[];
   continueWorking: ContinueWorkingRow[];
-  kpis: OwnerKpi[];
   receivables: ReceivablesSummary;
   errors: {
+    currentSchedule: string | null;
+    upcomingSchedule: string | null;
     estimates: string | null;
     proposals: string | null;
     invoices: string | null;
+    openInvoicesUnavailable: boolean;
+    overdueInvoicesUnavailable: boolean;
   };
 }
 
 function BoardSection({
   id,
   label,
+  helper,
   count,
   children,
 }: {
   id?: string;
   label: string;
+  helper: string;
   count?: number;
   children: React.ReactNode;
 }) {
   return (
     <section id={id} className="border-t border-border/70 first:border-t-0">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</h2>
+      <div className="flex items-end justify-between gap-3 px-4 py-3 sm:px-6">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{helper}</p>
+        </div>
         {count != null ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{count}</span> : null}
       </div>
       <div className="divide-y divide-border/60">{children}</div>
@@ -73,7 +82,7 @@ function CommandRow({
   status?: React.ReactNode;
   action: string;
   href: string;
-  tone?: "default" | "attention" | "money";
+  tone?: "default" | "attention";
 }) {
   return (
     <Link
@@ -85,9 +94,7 @@ function CommandRow({
           "flex size-9 shrink-0 items-center justify-center rounded-lg border",
           tone === "attention"
             ? "border-warning/30 bg-warning/10 text-warning"
-            : tone === "money"
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-border/70 bg-muted/35 text-muted-foreground",
+            : "border-border/70 bg-muted/35 text-muted-foreground",
         ].join(" ")}
       >
         {icon}
@@ -113,60 +120,108 @@ function ErrorRow({ message }: { message: string }) {
   return (
     <div className="flex items-center gap-3 px-4 py-4 text-sm text-destructive sm:px-6">
       <AlertCircle className="size-4 shrink-0" />
-      <span>{message}. Try refreshing or open the underlying workspace.</span>
+      <span>{message}. Open the underlying workspace if you need to act right now.</span>
+    </div>
+  );
+}
+
+function MoneySummary({
+  receivables,
+  firstOverdue,
+  openInvoicesUnavailable,
+  overdueInvoicesUnavailable,
+}: {
+  receivables: ReceivablesSummary;
+  firstOverdue?: AttentionInvoiceRow;
+  openInvoicesUnavailable: boolean;
+  overdueInvoicesUnavailable: boolean;
+}) {
+  return (
+    <div className="px-4 py-4 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="font-mono text-2xl font-semibold tabular-nums text-foreground">
+            {formatCurrency(receivables.loadedOutstanding)}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Outstanding across {receivables.loadedInvoiceCount} loaded invoice{receivables.loadedInvoiceCount === 1 ? "" : "s"}
+            {receivables.isPartial ? " · partial loaded view" : ""}
+          </p>
+        </div>
+        {firstOverdue ? (
+          <Link
+            href={`/projects/${firstOverdue.projectId}/invoices/${firstOverdue.invoiceId}`}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Open overdue invoice
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Open</p>
+          <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+            {openInvoicesUnavailable ? "Unavailable" : receivables.openInvoiceTotal}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Overdue</p>
+          <p className="mt-1 font-mono text-lg font-semibold tabular-nums">
+            {overdueInvoicesUnavailable ? "Unavailable" : receivables.overdueInvoiceTotal}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {overdueInvoicesUnavailable ? "Overdue queue unavailable" : `${formatCurrency(receivables.loadedOverdueOutstanding)} visible overdue balance`}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Money keeps the receivables picture. When an invoice requires action, that action appears in Needs you.
+      </p>
     </div>
   );
 }
 
 export function TodayCommandBoard({
-  schedule,
+  currentSchedule,
+  upcomingSchedule,
   estimates,
   proposals,
   invoices,
   readyToStart,
   continueWorking,
-  kpis,
   receivables,
   errors,
 }: TodayCommandBoardProps) {
-  const nowCount = schedule.length;
-  const needsYouCount = estimates.length + proposals.length + invoices.length + readyToStart.length;
-  const comingUpCount = continueWorking.length;
-  const revenue = kpis.find((kpi) => kpi.id === "revenue-this-week");
-  const unscheduled = kpis.find((kpi) => kpi.id === "unscheduled-jobs");
+  const staleProposals = proposals.filter((row) => row.stale);
+  const overdueInvoices = invoices.filter((row) => row.overdue);
+  const nowCount = currentSchedule.length + estimates.length + readyToStart.length + continueWorking.length;
+  const needsYouCount = staleProposals.length + overdueInvoices.length;
+  const comingUpCount = upcomingSchedule.length;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-(--elev-1)">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/70 bg-muted/20 px-4 py-4 sm:px-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Today</p>
-          <p className="mt-1 text-sm text-muted-foreground">One queue for the next action, customer pressure, and cash movement.</p>
-        </div>
-        <Link href="/dispatch" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-          Open dispatch
-          <ArrowUpRight className="size-4" />
-        </Link>
+      <div className="border-b border-border/70 bg-muted/20 px-4 py-4 sm:px-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Today</p>
+        <p className="mt-1 text-sm text-muted-foreground">What needs action now, what is already moving, and what is coming next.</p>
       </div>
 
-      <BoardSection label="Now" count={nowCount}>
-        {schedule.length === 0 ? (
-          <EmptyRow>No jobs are scheduled today. Open dispatch to place the next job on the calendar.</EmptyRow>
-        ) : (
-          schedule.map((item) => (
-            <CommandRow
-              key={item.id}
-              icon={<CalendarClock className="size-4" />}
-              title={item.title}
-              metadata={`${item.timeWindow} · ${item.customer} · ${item.address}`}
-              status={<StatusBadge status={item.status} />}
-              action="Open job"
-              href={item.href}
-            />
-          ))
-        )}
-      </BoardSection>
+      <BoardSection label="Now" helper="Current work and normal progression" count={nowCount}>
+        {errors.currentSchedule ? <ErrorRow message={errors.currentSchedule} /> : null}
+        {currentSchedule.map((item) => (
+          <CommandRow
+            key={`schedule-${item.id}`}
+            icon={<CalendarClock className="size-4" />}
+            title={item.title}
+            metadata={`${item.timeWindow} · ${item.customer} · ${item.crew}`}
+            status={<StatusBadge status={item.status} />}
+            action="Open job"
+            href={item.href}
+          />
+        ))}
 
-      <BoardSection label="Needs you" count={needsYouCount}>
         {errors.estimates ? <ErrorRow message={errors.estimates} /> : null}
         {estimates.map((row) => (
           <CommandRow
@@ -175,107 +230,99 @@ export function TodayCommandBoard({
             title={`${row.projectName} · estimate v${row.version}`}
             metadata={`${row.customerName} · ${formatCurrency(row.totalPrice)}`}
             status={<StatusBadge status={row.status} />}
-            action="Continue"
+            action="Continue estimate"
             href={`/projects/${row.projectId}/estimates/${row.estimateId}`}
-            tone="attention"
           />
         ))}
-        {errors.proposals ? <ErrorRow message={errors.proposals} /> : null}
-        {proposals.map((row) => (
+
+        {continueWorking.map((row) => (
           <CommandRow
-            key={`proposal-${row.proposalId}`}
-            icon={<Sparkles className="size-4" />}
-            title={`${row.projectName} · proposal`}
-            metadata={[row.customerName, row.amount != null ? formatCurrency(row.amount) : null, row.stale && row.sentAt ? `stale since ${formatDate(row.sentAt)}` : null].filter(Boolean).join(" · ")}
-            status={row.stale ? <StatusBadge status="needs_attention" /> : <StatusBadge status={row.status} />}
-            action="Review"
-            href={`/projects/${row.projectId}/proposals/${row.proposalId}`}
-            tone="attention"
+            key={`continue-${row.projectId}`}
+            icon={<Clock3 className="size-4" />}
+            title={row.projectName}
+            metadata={`${row.customerName} · ${row.helper}`}
+            action={row.label}
+            href={row.href}
           />
         ))}
-        {errors.invoices ? <ErrorRow message={errors.invoices} /> : null}
-        {invoices.map((row) => (
-          <CommandRow
-            key={`invoice-${row.invoiceId}`}
-            icon={<ReceiptText className="size-4" />}
-            title={`${row.projectName} · invoice #${row.documentNumber}`}
-            metadata={`${row.customerName} · ${formatCurrency(row.balanceDue)} owed${row.dueDate ? ` · due ${formatDate(row.dueDate)}` : ""}`}
-            status={<StatusBadge status={row.overdue ? "overdue" : row.paidAmount > 0 ? "partially_paid" : row.status} />}
-            action="Review"
-            href={`/projects/${row.projectId}/invoices/${row.invoiceId}`}
-            tone="attention"
-          />
-        ))}
+
         {readyToStart.map((row) => (
           <CommandRow
             key={`start-${row.projectId}`}
             icon={<Sparkles className="size-4" />}
-            title={`${row.projectName} · start estimate`}
+            title={`${row.projectName} · ready to estimate`}
             metadata={row.customerName}
             action="Open project"
             href={`/projects/${row.projectId}`}
+          />
+        ))}
+
+        {nowCount === 0 && !errors.currentSchedule && !errors.estimates ? (
+          <EmptyRow>No work is currently moving. New field work and normal next steps will appear here.</EmptyRow>
+        ) : null}
+      </BoardSection>
+
+      <BoardSection label="Needs you" helper="Only unresolved human action" count={needsYouCount}>
+        {errors.proposals ? <ErrorRow message={errors.proposals} /> : null}
+        {staleProposals.map((row) => (
+          <CommandRow
+            key={`proposal-${row.proposalId}`}
+            icon={<Sparkles className="size-4" />}
+            title={`${row.projectName} · proposal needs follow-up`}
+            metadata={[row.customerName, row.amount != null ? formatCurrency(row.amount) : null, row.sentAt ? `stale since ${formatDate(row.sentAt)}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+            status={<StatusBadge status="needs_attention" />}
+            action="Review proposal"
+            href={`/projects/${row.projectId}/proposals/${row.proposalId}`}
             tone="attention"
           />
         ))}
-        {needsYouCount === 0 && !errors.estimates && !errors.proposals && !errors.invoices ? (
-          <EmptyRow>Nothing is waiting on you. New estimate, proposal, invoice, and project pressure will appear here.</EmptyRow>
+
+        {errors.invoices ? <ErrorRow message={errors.invoices} /> : null}
+        {overdueInvoices.map((row) => (
+          <CommandRow
+            key={`invoice-${row.invoiceId}`}
+            icon={<ReceiptText className="size-4" />}
+            title={`${row.projectName} · invoice #${row.documentNumber} overdue`}
+            metadata={`${row.customerName} · ${formatCurrency(row.balanceDue)} owed${row.dueDate ? ` · due ${formatDate(row.dueDate)}` : ""}`}
+            status={<StatusBadge status="overdue" />}
+            action="Review invoice"
+            href={`/projects/${row.projectId}/invoices/${row.invoiceId}`}
+            tone="attention"
+          />
+        ))}
+
+        {needsYouCount === 0 && !errors.proposals && !errors.invoices ? (
+          <EmptyRow>Nothing is waiting on you right now.</EmptyRow>
         ) : null}
       </BoardSection>
 
-      <BoardSection label="Coming up" count={comingUpCount}>
-        {continueWorking.length === 0 ? (
-          <EmptyRow>No unfinished handoffs are waiting in the loaded project set.</EmptyRow>
-        ) : (
-          continueWorking.map((row) => (
-            <CommandRow
-              key={`continue-${row.projectId}`}
-              icon={<Clock3 className="size-4" />}
-              title={row.projectName}
-              metadata={`${row.customerName} · ${row.helper}`}
-              action={row.label}
-              href={row.href}
-            />
-          ))
-        )}
-        {unscheduled ? (
+      <BoardSection label="Coming up" helper="Scheduled work and near-term commitments" count={comingUpCount}>
+        {errors.upcomingSchedule ? <ErrorRow message={errors.upcomingSchedule} /> : null}
+        {upcomingSchedule.map((item) => (
           <CommandRow
-            icon={<MapPin className="size-4" />}
-            title={`${unscheduled.value} unscheduled job${unscheduled.value === "1" ? "" : "s"}`}
-            metadata={unscheduled.helper}
-            action="Open dispatch"
-            href={unscheduled.href ?? "/dispatch?status=unscheduled&view=all"}
-            tone={unscheduled.tone === "attention" ? "attention" : "default"}
+            key={`upcoming-${item.id}`}
+            icon={<CalendarClock className="size-4" />}
+            title={item.title}
+            metadata={`${item.timeWindow} · ${item.customer} · ${item.crew}`}
+            status={<StatusBadge status={item.status} />}
+            action="Open schedule"
+            href="/dispatch"
           />
+        ))}
+        {comingUpCount === 0 && !errors.upcomingSchedule ? (
+          <EmptyRow>No scheduled work is coming up in the current organization week.</EmptyRow>
         ) : null}
       </BoardSection>
 
-      <BoardSection id="invoices-waiting" label="Money">
-        <CommandRow
-          icon={<CircleDollarSign className="size-4" />}
-          title={`${receivables.openInvoiceTotal} open invoice${receivables.openInvoiceTotal === 1 ? "" : "s"}`}
-          metadata={`${formatCurrency(receivables.loadedOutstanding)} currently visible${receivables.isPartial ? " · partial loaded view" : ""}`}
-          action="Review receivables"
-          href="/dashboard#invoices-waiting"
-          tone={receivables.openInvoiceTotal > 0 ? "money" : "default"}
+      <BoardSection id="money" label="Money" helper="Receivables summary, not a second ledger">
+        <MoneySummary
+          receivables={receivables}
+          firstOverdue={overdueInvoices[0]}
+          openInvoicesUnavailable={errors.openInvoicesUnavailable}
+          overdueInvoicesUnavailable={errors.overdueInvoicesUnavailable}
         />
-        <CommandRow
-          icon={<ReceiptText className="size-4" />}
-          title={`${receivables.overdueInvoiceTotal} overdue invoice${receivables.overdueInvoiceTotal === 1 ? "" : "s"}`}
-          metadata={`${formatCurrency(receivables.loadedOverdueOutstanding)} currently visible`}
-          action="Follow up"
-          href="/dashboard#invoices-waiting"
-          tone={receivables.overdueInvoiceTotal > 0 ? "attention" : "default"}
-        />
-        {revenue ? (
-          <CommandRow
-            icon={<CircleDollarSign className="size-4" />}
-            title={`${revenue.value} received this week`}
-            metadata={revenue.helper}
-            action="View revenue"
-            href={revenue.href ?? "/dashboard/revenue-this-week"}
-            tone="money"
-          />
-        ) : null}
       </BoardSection>
     </div>
   );

@@ -564,7 +564,14 @@ The authenticated contractor customer detail workflow now exposes the existing s
 
 ## Today command board
 
-The owner dashboard now composes the highest-frequency operational sources into one synthesized Today command board. It preserves the existing authenticated API loaders and model builders while presenting four ordered sections—Now, Needs you, Coming up, and Money—as full-width action rows with one dominant destination per row. The previous quick-action strip, Needs Attention card, schedule/Continue Working grid, KPI tile grid, and receivables card are no longer rendered as separate primary dashboard surfaces; task/activity and diagnostic material remain below the operational queue.
+The owner dashboard is now the canonical Today command surface rather than a dashboard-plus-widget-stack. The page-level header identifies Today first, keeps company/freshness context secondary, and the landing route renders one four-part operational rhythm: **Now / Needs you / Coming up / Money**.
+
+- **Now** owns work already moving and normal resumable progression: today's scheduled Jobs, draft/ready Estimates, Continue Working stages, and Project-backed work that is ready to begin estimating.
+- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up and overdue Invoice action; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
+- **Coming up** is sourced from real scheduled Jobs after today's organization-timezone boundary through the end of the backend-provided current-week window. It is not an unscheduled-work or Continue Working bucket.
+- **Money** is a receivables summary over canonical Invoice/payment truth. It does not create a parallel Money ledger or link to a nonexistent organization-wide Money route; overdue action stays in Needs you, with direct Invoice detail available when one is loaded.
+
+The previous task board, recent-activity feed, Knowledge Runtime diagnostic card, recent-project lifecycle card, KPI tile wall, and standalone receivables/schedule panels are not rendered below Today. Their dedicated underlying workspaces remain available. The landing page also no longer loads task/activity, Knowledge stats, payment-ledger, or weather data solely for removed dashboard modules. Schedule, Estimate, Proposal, and Invoice source failures degrade locally inside the command surface instead of replacing healthy sections.
 
 
 ## Universal creation entry point
