@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -143,11 +143,9 @@ function NavPill({
 
 export function AppNav({
   email,
-  canViewAthena = false,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
-  canViewAthena?: boolean;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
@@ -161,10 +159,7 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const primaryLinks = useMemo(
-    () => (canViewAthena ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS),
-    [canViewAthena]
-  );
+  const primaryLinks = [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK];
 
   useBodyScrollLock(mobileOpen || createOpen);
 
