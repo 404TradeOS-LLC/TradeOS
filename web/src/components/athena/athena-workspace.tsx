@@ -145,17 +145,12 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const conversationIdRef = useRef<string | undefined>(undefined);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope);
 
   const submitMessage = async (message: string) => {
     const trimmed = message.trim();
     if (!trimmed || isSending) return;
-
-    if (!conversationIdRef.current && typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      conversationIdRef.current = crypto.randomUUID();
-    }
 
     const userId = nextTurnIdRef.current++;
     setTurns((current) => [...current, { id: userId, role: "user", text: trimmed }]);
@@ -165,7 +160,6 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
     try {
       const result = await sendAthenaMessage({
         message: trimmed,
-        conversationId: conversationIdRef.current,
         selectedScope,
         channel: "text",
         viewportClass: typeof window !== "undefined" && window.innerWidth < 768 ? "compact" : "regular",
