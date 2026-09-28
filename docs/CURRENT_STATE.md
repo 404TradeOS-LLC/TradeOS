@@ -114,8 +114,15 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
   lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
   Needs Attention, the KPI grid, and Quick Actions always stay expanded.
 - Owner-dashboard KPI icon metadata crosses the React Server Component boundary as serializable identifiers; the client-side KPI grid resolves those identifiers to Lucide components locally so dashboard rendering never passes component functions from the server into a client component.
-- `EmptyState` supports an optional decorative `icon`, applied only to
-  genuinely-empty (not filtered) list views.
+- `EmptyState` supports an optional decorative `icon` and is reserved for
+  genuine loaded-data absence. `feedback-state.tsx` now encodes the canonical shared state
+  taxonomy and supplies `FilteredEmptyState` plus `FeedbackState` for non-empty recovery
+  and access boundaries. The first production migrations separate Materials filtered-no-match
+  from a genuinely empty Material catalog and separate Costbook-import permission/load failure
+  from missing business data. Material load failure confirms no Costbook data changed and
+  offers retry/back navigation; import restriction confirms no import/data mutation occurred.
+  This is the start of the cross-product rollout, not a claim that every existing route has
+  already migrated away from historical `EmptyState` error/permission usage.
 
 ## Settings contractor control center
 
