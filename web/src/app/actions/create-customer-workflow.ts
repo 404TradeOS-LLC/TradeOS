@@ -4,7 +4,7 @@ import {
   isCustomerMatchLookupIncomplete,
   requiresSeparateCustomerConfirmation,
   type CustomerDuplicateInput,
-} from "../../lib/customer-duplicate-matches";
+} from "../../lib/customer-duplicate-matches.ts";
 import type { Customer } from "../../lib/api";
 
 export type CreateCustomerResult = {
