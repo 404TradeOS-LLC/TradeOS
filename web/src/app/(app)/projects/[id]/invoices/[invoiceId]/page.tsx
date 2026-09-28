@@ -261,7 +261,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </CardContent>
           </Card>
 
-          {(invoice.status === "sent" || invoice.status === "overdue") || (invoice.status !== "paid" && invoice.status !== "voided") ? (
+          {invoice.status !== "paid" && invoice.status !== "voided" ? (
             <details className="rounded-xl border border-border/70 bg-card p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">More billing actions</summary>
               <div className="mt-4 grid gap-2">
@@ -275,15 +275,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   </form>
                 ) : null}
 
-                {invoice.status !== "paid" && invoice.status !== "voided" ? (
-                  <form action={voidInvoiceAction}>
-                    <input type="hidden" name="invoiceId" value={invoice.id} />
-                    <input type="hidden" name="projectId" value={projectId} />
-                    <Button type="submit" variant="destructive" className="w-full">
-                      Void invoice
-                    </Button>
-                  </form>
-                ) : null}
+                <form action={voidInvoiceAction}>
+                  <input type="hidden" name="invoiceId" value={invoice.id} />
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <Button type="submit" variant="destructive" className="w-full">
+                    Void invoice
+                  </Button>
+                </form>
               </div>
             </details>
           ) : null}
