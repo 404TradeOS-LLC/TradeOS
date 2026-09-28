@@ -11,10 +11,11 @@ exists today; update it whenever a new reusable component or pattern is added.
 - **Design tokens**: all colors are CSS variables driven by `oklch()`, themed via `.dark` on
   `<html>`. Never hardcode a color — use the token classes (`bg-card`, `text-muted-foreground`,
   `border-border`, `bg-destructive/10 text-destructive`, etc.) so light/dark both work.
-- **Current shell theme**: the RC1 app shell uses a cool neutral surface palette with an
-  electric-blue primary accent for action, active navigation state, and focus treatment. Amber
-  stays reserved for meaningful attention/queue states instead of general decoration.
-- **Radius scale**: `--radius` (0.625rem) drives `--radius-sm` through `--radius-4xl` in
+- **Current shell theme**: Blueprint light and Carbon dark use neutral/charcoal
+  surfaces and copper as the sole brand accent. Semantic blue is for information,
+  amber for warnings, green for success, and red for destructive states. The
+  light focus ring uses the darker copper-family `#5c3814` for visible contrast.
+- **Radius scale**: `--radius` (0.5rem) drives `--radius-sm` through `--radius-4xl` in
   `@theme inline`. Cards use `rounded-xl`; small chips/badges use `rounded-4xl` (pill).
 - **`cn()`** (`web/src/lib/utils.ts`, `clsx` + `tailwind-merge`) is the standard way to merge
   conditional class names — use it in every component that accepts a `className` prop.
@@ -51,9 +52,9 @@ exists today; update it whenever a new reusable component or pattern is added.
 - **`StatusBadge`** (`status-badge.tsx`) — wraps `Badge` with `capitalize` and turns
   `snake_case` statuses into readable text (`in_progress` → `In progress`). Use this instead of
   a raw `Badge` whenever you're rendering a backend status enum.
-- **`AppNav`** (`app-nav.tsx`) — the top app nav: active-section highlighting, a responsive
-  mobile menu, a split primary/secondary hierarchy on wide screens, and the command-palette
-  trigger. This is the only nav component — don't add a second one.
+- **`AppNav`** (`app-nav.tsx`) — shared navigation with desktop sections, the
+  mobile Control Dock (Today, Dispatch, Create, Work, More), and the command-palette
+  trigger. This is the only nav owner — don't add a second one.
 - **`DashboardPanel`** (`components/dashboard/dashboard-panel.tsx`) — the standard shell for
   owner-dashboard sections that need the same card/header/body rhythm. Prefer it over
   hand-assembling a new `CardHeader`/`CardContent` pair for dashboard surfaces.
@@ -83,10 +84,11 @@ instead of copy-pasting a third time.
 - **Owner dashboard sections**: keep the scan order consistent: decision queue first, then
   today's schedule / briefing, then KPI scan, then task board and activity, with quieter
   operational summaries below. Avoid burying the actionable work beneath a wall of metrics.
-- **Data access**: Server Components/Server Actions for CRUD; the one Client Component with
-  real interactivity (search-as-you-type, live totals) is the Estimate Builder, which goes
-  through the generic `/api/proxy/[...path]` route handler via TanStack Query. Follow that
-  split for any new interactive page rather than making everything a Client Component.
+- **Data access**: Prefer Server Components for read-only page data and use
+  `web/src/lib/api.ts` for server requests. Interactive client surfaces use
+  `web/src/lib/clientApi.ts` through `/api/proxy/[...path]` and existing
+  same-origin document routes for binary assets. The Estimate Builder is one
+  existing interactive example; other interactive surfaces also exist.
 
 ## Responsiveness & accessibility
 
@@ -110,6 +112,5 @@ instead of copy-pasting a third time.
   (not just deduplication) about whether the app needs two metric-tile styles.
 - The Estimate Builder's `PricingPanel` uses raw `<input type="radio">` instead of a shared
   radio/segmented-control component — there's no `RadioGroup` in `components/ui/` yet.
-- No loading-skeleton components — client-fetched pages (e.g. the Estimate Builder) currently
-  fall back to a plain "Loading…" text line rather than a skeleton matching the eventual
-  layout.
+- Shared and route-level loading skeletons exist. New loading states should
+  keep an accessible status announcement and match the final layout geometry.

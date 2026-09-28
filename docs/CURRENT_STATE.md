@@ -501,10 +501,6 @@ The authenticated contractor customer detail workflow now exposes the existing s
 The owner dashboard now composes the highest-frequency operational sources into one synthesized Today command board. It preserves the existing authenticated API loaders and model builders while presenting four ordered sections—Now, Needs you, Coming up, and Money—as full-width action rows with one dominant destination per row. The previous quick-action strip, Needs Attention card, schedule/Continue Working grid, KPI tile grid, and receivables card are no longer rendered as separate primary dashboard surfaces; task/activity and diagnostic material remain below the operational queue.
 
 
-## Today dashboard consolidation
-
-The owner dashboard now treats the Today command board as the single primary operational surface. Duplicate lower-page Task Board, Recent Activity, Knowledge Runtime Coverage, and Recent Project Lifecycle modules are no longer rendered on the dashboard; their underlying capabilities and dedicated destinations remain unchanged. This is a presentation consolidation only and does not change dashboard API, tenancy, authorization, or persistence behavior.
-
 ## Universal creation entry point
 
 The mobile Control Dock Create action now opens a keyboard-accessible bottom creation sheet instead of navigating directly to project creation. Estimate from scope is the featured first action, followed by Job, Customer, Invoice, Change Order, and Schedule; each option reuses an existing production route and closes the sheet before navigation. The existing More sheet behavior and Control Dock touch targets remain unchanged.
@@ -543,3 +539,8 @@ The starter assembly mapper now provides a read-only pre-install cost preview af
 ## S053 structured estimate-assist
 
 The estimate-assist frontend now stages structured scope-to-estimate drafts through the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts. Draft generation remains review-only; accepted lines retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. Authenticated browser certification at 1440/768/390 remains pending.
+
+
+## Mobile Field Workspace
+
+The mobile technician field workspace now presents today's assigned jobs through a current-job-first mobile layout with schedule/arrival context, service address directions, job briefing, bounded lifecycle actions, equipment disclosure, and a dedicated report-back notes area. This remains a frontend refinement over the existing authenticated technician and job APIs; no new backend endpoint or data model is introduced.
