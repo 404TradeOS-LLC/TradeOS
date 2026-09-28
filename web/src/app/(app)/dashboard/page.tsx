@@ -55,9 +55,38 @@ interface TodayScheduleWindow {
 }
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "cancelled"]);
+const DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE = 100;
 
-function activeScheduledJobs(jobs: DispatchJob[]) {
-  return jobs.filter((job) => !TERMINAL_JOB_STATUSES.has(job.status));
+async function loadActiveScheduledJobs(
+  token: string,
+  input: { scheduledFrom: string; scheduledTo: string; limit: number }
+): Promise<DispatchJob[]> {
+  const activeJobs: DispatchJob[] = [];
+  let page = 1;
+  let totalRows = 0;
+
+  do {
+    const result = await listJobsForDispatch(token, {
+      scheduledFrom: input.scheduledFrom,
+      scheduledTo: input.scheduledTo,
+      page,
+      pageSize: DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE,
+    });
+    totalRows = result.total;
+
+    for (const job of result.items) {
+      if (TERMINAL_JOB_STATUSES.has(job.status)) continue;
+      activeJobs.push(job);
+      if (activeJobs.length >= input.limit) break;
+    }
+
+    page += 1;
+  } while (
+    activeJobs.length < input.limit &&
+    (page - 1) * DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE < totalRows
+  );
+
+  return activeJobs;
 }
 
 async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWindow> {
@@ -74,36 +103,31 @@ async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWind
     };
   }
 
-  const todayRequest = listJobsForDispatch(token, {
+  const todayRequest = loadActiveScheduledJobs(token, {
     scheduledFrom: summary.todayRangeUtc.start,
     scheduledTo: toInclusiveEndBoundary(summary.todayRangeUtc.end),
-    page: 1,
-    pageSize: DASHBOARD_TODAY_JOB_LIMIT,
+    limit: DASHBOARD_TODAY_JOB_LIMIT,
   });
 
   const hasUpcomingWindow = Date.parse(summary.todayRangeUtc.end) < Date.parse(summary.weekRangeUtc.end);
   const upcomingRequest = hasUpcomingWindow
-    ? listJobsForDispatch(token, {
+    ? loadActiveScheduledJobs(token, {
         scheduledFrom: summary.todayRangeUtc.end,
         scheduledTo: toInclusiveEndBoundary(summary.weekRangeUtc.end),
-        page: 1,
-        pageSize: DASHBOARD_UPCOMING_JOB_LIMIT,
+        limit: DASHBOARD_UPCOMING_JOB_LIMIT,
       })
-    : Promise.resolve({ items: [] as DispatchJob[], total: 0, page: 1, pageSize: DASHBOARD_UPCOMING_JOB_LIMIT });
+    : Promise.resolve([] as DispatchJob[]);
 
   const [todayResult, upcomingResult] = await Promise.allSettled([todayRequest, upcomingRequest]);
-
-  const todayItems = todayResult.status === "fulfilled" ? activeScheduledJobs(todayResult.value.items) : [];
-  const upcomingItems = upcomingResult.status === "fulfilled" ? activeScheduledJobs(upcomingResult.value.items) : [];
 
   return {
     today:
       todayResult.status === "fulfilled"
-        ? { items: todayItems, total: todayItems.length, error: null }
-        : { items: [], total: 0, error: "Today's schedule is temporarily unavailable" },
+        ? { items: todayResult.value, total: summary.scheduledToday, error: null }
+        : { items: [], total: summary.scheduledToday, error: "Today's schedule is temporarily unavailable" },
     upcoming:
       upcomingResult.status === "fulfilled"
-        ? { items: upcomingItems, total: upcomingItems.length, error: null }
+        ? { items: upcomingResult.value, total: upcomingResult.value.length, error: null }
         : { items: [], total: 0, error: "Upcoming schedule is temporarily unavailable" },
     timezone: summary.timezone.value,
   };
