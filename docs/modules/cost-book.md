@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-28
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -244,16 +244,19 @@ Current behavior:
 ## Frontend surfaces
 
 - Estimate Builder and AI Estimate Assist consume existing organization-scoped CostItems/Assemblies through estimating services; Estimate lines preserve the source IDs and pricing values captured at line creation
-- `/costbook` shows the workspace summary, permissions, organization-scoped catalog counts, and links to implemented management surfaces
-- `/costbook/materials` provides real-data material create/edit/deactivate management with an Active/Inactive status badge and a manager-only Deactivate action
+- `/costbook` is the search-first pricing workspace. Materials, Labor, Equipment, and Assemblies remain separate real server-paginated catalogs, but the landing surface makes those four catalogs the primary navigation/search decision instead of leading with foundation/admin counts. Recent Material pricing is shown with the stored unit cost plus only the supplier and `lastPriceUpdate` facts actually present on the Material DTO.
+- `PricingProvenance` is the shared frontend evidence primitive. Its ordinary Material mode intentionally has no confidence/freshness verdict: supplier name and last-price-update date do not become “verified”, “high confidence”, “current local”, or a stale/not-stale classification. Its Research mode may show the richer stored provenance status, source/date, retrieval date, regional basis, and confidence because those fields actually exist on `CostbookResearchCandidate`.
+- `/costbook/materials` leads with the existing server-side search/filter/pagination controls and renders Material rows around current stored price, supplier/date evidence, active state, and permission-aware edit/deactivate actions. Create/edit remains the existing Costbook write path; manager-only deactivation remains unchanged.
 - `/costbook/labor-rates` provides real-data labor-rate management
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management
 - `/costbook/cost-items` provides real-data CostItem create/edit/deactivate management, read-only behavior for actors without writes, responsive desktop/mobile presentation, and honest empty/load/error/mutation states
-- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
+- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states. The estimator-first Assembly-detail reorganization shown in canonical Figma remains a separate follow-up slice.
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
-- `/costbook/research-review` is the human review surface for researched pricing candidates: real queue and corpus counts, a paginated/searchable/filterable candidate table, and a detail panel showing complete provenance beside the current Costbook price and the difference. Approve/reject/promote render only for `costbook.manage`; read-only viewers get a truthful explanation rather than disabled controls
+- `/costbook/research-review` remains the human review surface for researched pricing candidates and now renders its stronger source evidence through the shared `PricingProvenance` primitive. Real queue/corpus counts, match analysis, approve/reject, and explicit promotion behavior are unchanged; approval/promotion remain `costbook.manage` actions and research never becomes production pricing merely by appearing in the queue.
+
+No organization-wide “price health” score or stale-age threshold is derived by this frontend. Supplier proposals, research candidates, and Athena recommendations remain review/recommendation inputs and do not auto-write production Costbook pricing.
 
 ## Tests
 
@@ -264,6 +267,7 @@ Current behavior:
 - `app/tests/costbook-candidates.controller.test.ts`
 - `web/src/components/costbook/research-review-model.test.ts`
 - `web/src/app/(app)/costbook/research-review/research-review-route.test.ts`
+- `web/src/app/(app)/costbook/costbook-pricing-intelligence-contract.test.ts`
 - `app/tests/cost-database.tenant-references.test.ts`
 - `app/tests/costbook-cost-items.rls.integration.ts`
 - `app/tests/costbook.service.test.ts`
