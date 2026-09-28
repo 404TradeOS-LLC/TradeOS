@@ -45,6 +45,7 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.match(workspace, /The contractor confirmation card is not connected in this workspace yet/);
   assert.match(workspace, /does not yet return a provider-by-provider “context used” list/);
   assert.match(workspace, /This workspace does not invent one/);
+  assert.doesNotMatch(workspace, /conversationId:/);
   assert.match(workspace, /Business changes remain behind registered Athena tools and existing service permissions/);
   assert.doesNotMatch(workspace, /clientFetch\(|fetch\("\/api\/v1\/(jobs|projects|estimates|invoices|customers)/);
 });
