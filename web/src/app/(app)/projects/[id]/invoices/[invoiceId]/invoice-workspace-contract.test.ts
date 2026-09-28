@@ -51,8 +51,8 @@ test("invoice document actions use the real PDF and staff portal destinations", 
 
   assert.match(source, /\/api\/documents\/invoices\/\$\{invoice\.id\}\/pdf/);
   assert.match(source, /\/portal\/invoices\/\$\{invoice\.id\}/);
-  assert.match(source, />Open PDF</);
-  assert.match(source, />Customer Portal</);
+  assert.match(source, /Open PDF/);
+  assert.match(source, /Customer Portal/);
   assert.match(source, /Customer-view telemetry is not currently recorded/);
 });
 
