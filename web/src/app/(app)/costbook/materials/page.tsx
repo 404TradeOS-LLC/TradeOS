@@ -5,7 +5,7 @@ import { MaterialsCatalog } from "@/components/costbook/materials-catalog";
 import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { FeedbackState } from "@/components/ui/feedback-state";
 import {
   ApiClientError,
   getCostbookWorkspace,
@@ -86,7 +86,21 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
       />
 
       {loadError ? (
-        <EmptyState title="Couldn't load materials" description={loadError} />
+        <FeedbackState
+          kind="error"
+          title="Couldn't load materials"
+          description="TradeOS couldn't load the Material catalog. No Costbook data was changed. Try the catalog again."
+          action={
+            <Link href="/costbook/materials" className={buttonVariants()}>
+              Try again
+            </Link>
+          }
+          secondaryAction={
+            <Link href="/costbook" className={buttonVariants({ variant: "outline" })}>
+              Back to Costbook
+            </Link>
+          }
+        />
       ) : workspace ? (
         <>
           <CatalogQueryControls
@@ -122,6 +136,7 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
             canWrite={workspace.permissions.canWrite}
             canManage={workspace.permissions.canManage}
             activeFilter={query.active === "true" ? true : query.active === "false" ? false : undefined}
+            isFiltered={Boolean(query.q || query.active || query.supplierId)}
           />
         </>
       ) : null}
