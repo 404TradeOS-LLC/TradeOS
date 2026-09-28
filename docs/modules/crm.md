@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-28
+last_verified: 2026-09-27
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
   - app/backend/routes/crm.routes.ts
   - app/prisma/schema.prisma
   - web/src/app/(app)/customers
+  - web/src/app/(app)/crm
+  - web/src/components/crm/crm-overview.tsx
   - web/src/app/actions/customers.ts
 ---
 
@@ -69,10 +71,13 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Frontend surfaces
 
+- `/crm` — first-class relationship/pre-job operating overview derived from Customers, Projects, Project Tasks, Site Visit activity, and Proposal queue state
 - `/customers`
 - `/customers/new`
 - `/customers/[id]`
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
+
+The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded remain canonical Project statuses; Ready to Estimate is derived from a real Site Visit milestone; Proposal Sent is derived from Proposal status; and Follow-ups are existing incomplete Project Tasks.
 
 ## Tests
 
@@ -90,4 +95,4 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 ## Last verified date
 
-2026-08-28
+2026-09-27

@@ -40,6 +40,7 @@ interface NavLink {
 
 const PRIMARY_NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
+  { href: "/crm", label: "CRM", shortLabel: "CRM", icon: Users },
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
   { href: "/projects", label: "Projects", shortLabel: "Projects", icon: BriefcaseBusiness },
   { href: "/estimates", label: "Estimates", shortLabel: "Estimates", icon: FileText },

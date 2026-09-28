@@ -11,6 +11,7 @@ export const config = {
     "/brand-studio/:path*",
     "/costbook/:path*",
     "/customers/:path*",
+    "/crm/:path*",
     "/dashboard/:path*",
     "/dispatch/:path*",
     "/finish-setup/:path*",
