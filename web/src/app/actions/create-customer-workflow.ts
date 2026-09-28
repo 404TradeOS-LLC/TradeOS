@@ -1,6 +1,7 @@
 import {
   customerDuplicateSearchTerms,
   findCustomerDuplicateMatches,
+  isCustomerMatchLookupIncomplete,
   requiresSeparateCustomerConfirmation,
   type CustomerDuplicateInput,
 } from "../../lib/customer-duplicate-matches";
@@ -27,6 +28,8 @@ export type CreateCustomerDependencies = {
   onError: (error: unknown) => string;
 };
 
+const CUSTOMER_MATCH_PAGE_LIMIT = 250;
+
 export async function runCreateCustomerWorkflow(
   formData: FormData,
   dependencies: CreateCustomerDependencies,
@@ -46,12 +49,12 @@ export async function runCreateCustomerWorkflow(
   if (!token) return { error: "Sign in again before searching or creating a customer.", customerInput };
 
   const searchTerms = customerDuplicateSearchTerms(customerInput);
-  const searchResults = await Promise.allSettled(searchTerms.map((query) => dependencies.listCustomers(token, { query, limit: 250 })));
+  const searchResults = await Promise.allSettled(
+    searchTerms.map((query) => dependencies.listCustomers(token, { query, limit: CUSTOMER_MATCH_PAGE_LIMIT }))
+  );
   const candidates = searchResults.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   const customerMatches = findCustomerDuplicateMatches(candidates, customerInput);
-  const customerMatchLookupFailed = searchResults.some((result) =>
-    result.status === "rejected" || (result.status === "fulfilled" && result.value.length >= 250)
-  );
+  const customerMatchLookupFailed = isCustomerMatchLookupIncomplete(searchResults, CUSTOMER_MATCH_PAGE_LIMIT);
 
   if (intent === "check") return { customerInput, customerMatches, customerMatchLookupFailed };
   if (customerMatchLookupFailed) {
