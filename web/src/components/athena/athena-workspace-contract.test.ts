@@ -21,15 +21,17 @@ test("root Athena route is the contractor workspace and operator observability l
   assert.match(tabs, /href: "\/athena\/traces"/);
 });
 
-test("Athena kernel client carries selected scope through the one authenticated chat endpoint", async () => {
+test("Athena kernel client preserves typed terminal envelopes through the authenticated proxy", async () => {
   const client = await readSource("../../lib/athena-client.ts");
 
-  assert.match(client, /clientFetch<AthenaKernelResult>\("\/api\/v1\/athena\/chat"/);
+  assert.match(client, /fetch\("\/api\/proxy\/athena\/chat"/);
+  assert.match(client, /if \(isAthenaKernelResult\(body\)\) return body/);
   assert.match(client, /selectedScope: input\.selectedScope/);
   assert.match(client, /conversationId: input\.conversationId/);
   assert.match(client, /idempotencyKey: input\.idempotencyKey/);
   assert.match(client, /channel: input\.channel \?\? "text"/);
   assert.match(client, /platform: "web"/);
+  assert.doesNotMatch(client, /clientFetch<AthenaKernelResult>/);
   assert.doesNotMatch(client, /\/api\/v1\/(jobs|projects|estimates|invoices|customers)\//);
 });
 
@@ -47,6 +49,12 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.match(workspace, /This workspace does not invent one/);
   assert.doesNotMatch(workspace, /conversationId:/);
   assert.match(workspace, /Business changes remain behind registered Athena tools and existing service permissions/);
+  assert.match(workspace, /setRetrySubmission\(\{ message: trimmed, idempotencyKey \}\)/);
+  assert.match(workspace, /idempotencyKey: retrySubmission\.idempotencyKey/);
+  assert.match(workspace, /addUserTurn: false/);
+  assert.match(workspace, /Retry safely/);
+  assert.doesNotMatch(workspace, /<main className=/);
+  assert.match(workspace, /<section aria-labelledby="athena-workspace-heading"/);
   assert.doesNotMatch(workspace, /clientFetch\(|fetch\("\/api\/v1\/(jobs|projects|estimates|invoices|customers)/);
 });
 
@@ -61,14 +69,19 @@ test("Athena navigation is available to authenticated users without an operator-
   assert.match(layout, /<AppNav email=\{session\.email\} \/>/);
 });
 
-test("Athena root scope only accepts valid UUID identifiers and bounded page context", async () => {
+test("Athena root scope normalizes repeated query params and never blocks on operator discovery", async () => {
   const rootPage = await readSource("../../app/(app)/athena/page.tsx");
 
+  assert.match(rootPage, /type SearchParamValue = string \| string\[\] \| undefined/);
+  assert.match(rootPage, /function firstQueryValue\(value: SearchParamValue\)/);
+  assert.match(rootPage, /Array\.isArray\(value\) \? value\[0\] : value/);
   assert.match(rootPage, /UUID_PATTERN/);
   assert.match(rootPage, /customerId: validUuid\(query\.customerId\)/);
   assert.match(rootPage, /projectId: validUuid\(query\.projectId\)/);
   assert.match(rootPage, /jobId: validUuid\(query\.jobId\)/);
   assert.match(rootPage, /estimateId: validUuid\(query\.estimateId\)/);
   assert.match(rootPage, /invoiceId: validUuid\(query\.invoiceId\)/);
-  assert.match(rootPage, /query\.page\?\.trim\(\)\.slice\(0, 200\)/);
+  assert.match(rootPage, /firstQueryValue\(query\.page\)\?\.trim\(\)\.slice\(0, 200\)/);
+  assert.doesNotMatch(rootPage, /getAthenaOperatorContext/);
+  assert.match(rootPage, /<AthenaWorkspace selectedScope=\{buildSelectedScope\(query\)\} \/>/);
 });
