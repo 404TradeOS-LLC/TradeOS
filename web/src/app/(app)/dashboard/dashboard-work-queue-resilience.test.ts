@@ -13,32 +13,42 @@ async function readDashboardSource() {
   return readFile(sourceUrl, "utf8");
 }
 
-test("paired dashboard work queues preserve fulfilled siblings", async () => {
+test("Today preserves independent invoice siblings and uses stale-only Proposal attention", async () => {
   const source = await readDashboardSource();
 
   assert.match(source, /Promise\.allSettled\(\[\s*listInvoiceQueue/);
-  assert.match(source, /Promise\.allSettled\(\[\s*listProposalQueue/);
   assert.match(source, /overdueResult\.status === "fulfilled" \? overdueResult\.value : emptyQueue<InvoiceQueueItem>\(\)/);
   assert.match(source, /unpaidResult\.status === "fulfilled" \? unpaidResult\.value : emptyQueue<InvoiceQueueItem>\(\)/);
-  assert.match(source, /staleResult\.status === "fulfilled" \? staleResult\.value : emptyQueue<ProposalQueueItem>\(\)/);
-  assert.match(source, /unsignedResult\.status === "fulfilled" \? unsignedResult\.value : emptyQueue<ProposalQueueItem>\(\)/);
+  assert.match(source, /listProposalQueue\(token, \{/);
+  assert.match(source, /unsigned: true/);
+  assert.match(source, /staleBefore: staleBeforeIso/);
+  assert.doesNotMatch(source, /ATTENTION_UNSIGNED_PROPOSAL_LIMIT|unsignedResult/);
 });
 
-test("invoice KPI fallback depends only on the unpaid total request", async () => {
+test("Money preserves queue uncertainty instead of converting failed totals to zero", async () => {
   const source = await readDashboardSource();
 
-  assert.match(source, /const unpaidFailed = unpaidResult\.status === "rejected"/);
-  assert.match(source, /return \{ overdue, unpaid, unpaidFailed, error \}/);
-  assert.match(source, /invoiceAttentionQueues\.unpaidFailed \? fallbackInvoicesWaiting : invoiceAttentionQueues\.unpaid\.total/);
+  assert.match(source, /overdueUnavailable: overdueFailed/);
+  assert.match(source, /openUnavailable: unpaidFailed/);
+  assert.match(source, /overdueInvoiceTotal: invoiceQueues\.overdueUnavailable \? invoiceRows\.filter\(\(row\) => row\.overdue\)\.length : invoiceQueues\.overdue\.total/);
+  assert.match(source, /openInvoiceTotal: invoiceQueues\.openUnavailable \? invoiceRows\.length : invoiceQueues\.unpaid\.total/);
+  assert.match(source, /isPartial: invoiceQueues\.openUnavailable \|\| receivablesBase\.isPartial/);
+  assert.doesNotMatch(source, /fallbackInvoicesWaiting|buildOwnerKpis/);
 });
 
-test("partial paired-request failures remain visible to the Needs Attention UI", async () => {
+test("partial source failures remain visible to their Today sections", async () => {
   const source = await readDashboardSource();
 
   assert.match(source, /overdueFailed \|\| unpaidFailed/);
-  assert.match(source, /staleResult\.status === "rejected" \|\| unsignedResult\.status === "rejected"/);
-  assert.match(source, /invoices: invoiceAttentionQueues\.error/);
-  assert.match(source, /proposals: proposalAttentionQueues\.error/);
+  assert.match(source, /error: error instanceof Error \? error\.message : "Stale proposal queue is temporarily unavailable"/);
+  assert.match(source, /currentSchedule: scheduleWindow\.today\.error/);
+  assert.match(source, /upcomingSchedule: scheduleWindow\.upcoming\.error/);
+  assert.match(source, /invoices: invoiceQueues\.error/);
+  assert.match(source, /proposals: staleProposalQueue\.error/);
+  assert.match(source, /openInvoicesUnavailable: invoiceQueues\.openUnavailable/);
+  assert.match(source, /overdueInvoicesUnavailable: invoiceQueues\.overdueUnavailable/);
+  assert.match(source, /const attentionUnavailable = Boolean\(staleProposalQueue\.error\) \|\| invoiceQueues\.overdueUnavailable/);
+  assert.match(source, /const notificationCount = attentionUnavailable \? null : staleProposalQueue\.queue\.total \+ invoiceQueues\.overdue\.total/);
 });
 
 test("organization settings failure preserves successfully loaded project data", async () => {
@@ -85,4 +95,13 @@ test("settings outage uses dispatch timezone and does not expose demo organizati
     companyName: "Organization unavailable",
     timeZone: "America/Chicago",
   });
+});
+
+test("Coming Up excludes terminal scheduled Jobs", async () => {
+  const source = await readDashboardSource();
+
+  assert.match(source, /const TERMINAL_JOB_STATUSES = new Set\(\["completed", "cancelled"\]\)/);
+  assert.match(source, /activeScheduledJobs/);
+  assert.match(source, /todayItems = todayResult\.status === "fulfilled" \? activeScheduledJobs\(todayResult\.value\.items\) : \[\]/);
+  assert.match(source, /upcomingItems = upcomingResult\.status === "fulfilled" \? activeScheduledJobs\(upcomingResult\.value\.items\) : \[\]/);
 });
