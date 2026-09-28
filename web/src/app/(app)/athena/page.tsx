@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AthenaWorkspace } from "@/components/athena/athena-workspace";
-import { getAthenaOperatorContext } from "@/lib/athena-access";
 import type { AthenaSelectedScope } from "@/lib/athena-client";
 
 export const metadata: Metadata = {
@@ -8,29 +7,37 @@ export const metadata: Metadata = {
   description: "TradeOS intelligence workspace for understanding, drafting, and acting on real contractor work through authenticated domain tools.",
 };
 
+type SearchParamValue = string | string[] | undefined;
+
 interface AthenaWorkspaceSearchParams {
-  customerId?: string;
-  projectId?: string;
-  jobId?: string;
-  estimateId?: string;
-  invoiceId?: string;
-  page?: string;
+  customerId?: SearchParamValue;
+  projectId?: SearchParamValue;
+  jobId?: SearchParamValue;
+  estimateId?: SearchParamValue;
+  invoiceId?: SearchParamValue;
+  page?: SearchParamValue;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function validUuid(value?: string) {
-  return value && UUID_PATTERN.test(value) ? value : undefined;
+function firstQueryValue(value: SearchParamValue): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function validUuid(value: SearchParamValue) {
+  const normalized = firstQueryValue(value);
+  return normalized && UUID_PATTERN.test(normalized) ? normalized : undefined;
 }
 
 function buildSelectedScope(query: AthenaWorkspaceSearchParams): AthenaSelectedScope | undefined {
+  const page = firstQueryValue(query.page)?.trim().slice(0, 200) || undefined;
   const selectedScope: AthenaSelectedScope = {
     customerId: validUuid(query.customerId),
     projectId: validUuid(query.projectId),
     jobId: validUuid(query.jobId),
     estimateId: validUuid(query.estimateId),
     invoiceId: validUuid(query.invoiceId),
-    page: query.page?.trim().slice(0, 200) || undefined,
+    page,
   };
 
   return Object.values(selectedScope).some(Boolean) ? selectedScope : undefined;
@@ -38,11 +45,5 @@ function buildSelectedScope(query: AthenaWorkspaceSearchParams): AthenaSelectedS
 
 export default async function AthenaPage({ searchParams }: { searchParams: Promise<AthenaWorkspaceSearchParams> }) {
   const query = await searchParams;
-  const selectedScope = buildSelectedScope(query);
-
-  // Operator-link discovery must never gate the contractor workspace itself.
-  // A denied/error result simply omits the observability shortcut.
-  const operatorAccess = await getAthenaOperatorContext();
-
-  return <AthenaWorkspace selectedScope={selectedScope} operatorHref={operatorAccess.granted ? "/athena/ops" : undefined} />;
+  return <AthenaWorkspace selectedScope={buildSelectedScope(query)} />;
 }
