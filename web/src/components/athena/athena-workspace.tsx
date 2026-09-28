@@ -1,10 +1,9 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleSlash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   describeAthenaClientError,
@@ -17,7 +16,6 @@ import { cn } from "@/lib/utils";
 
 interface AthenaWorkspaceProps {
   selectedScope?: AthenaSelectedScope;
-  operatorHref?: string;
 }
 
 interface ConversationTurn {
@@ -25,6 +23,18 @@ interface ConversationTurn {
   role: "user" | "athena" | "error";
   text: string;
   result?: AthenaKernelResult;
+}
+
+interface RetrySubmission {
+  message: string;
+  idempotencyKey: string;
+}
+
+function createAthenaIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `athena-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 const STARTERS = [
@@ -141,19 +151,28 @@ function ResultCard({ result, onFollowUp }: { result: AthenaKernelResult; onFoll
   );
 }
 
-export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspaceProps) {
+export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [retrySubmission, setRetrySubmission] = useState<RetrySubmission | null>(null);
   const nextTurnIdRef = useRef(1);
   const scoped = scopeRows(selectedScope);
 
-  const submitMessage = async (message: string) => {
+  const submitMessage = async (
+    message: string,
+    options: { idempotencyKey?: string; addUserTurn?: boolean } = {}
+  ) => {
     const trimmed = message.trim();
     if (!trimmed || isSending) return;
 
-    const userId = nextTurnIdRef.current++;
-    setTurns((current) => [...current, { id: userId, role: "user", text: trimmed }]);
+    const idempotencyKey = options.idempotencyKey ?? createAthenaIdempotencyKey();
+
+    if (options.addUserTurn !== false) {
+      const userId = nextTurnIdRef.current++;
+      setTurns((current) => [...current, { id: userId, role: "user", text: trimmed }]);
+    }
+    setRetrySubmission(null);
     setDraft("");
     setIsSending(true);
 
@@ -163,11 +182,15 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
         selectedScope,
         channel: "text",
         viewportClass: typeof window !== "undefined" && window.innerWidth < 768 ? "compact" : "regular",
-        idempotencyKey: typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : undefined,
+        idempotencyKey,
       });
       const resultId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: resultId, role: "athena", text: result.summary, result }]);
     } catch (error) {
+      // A transport/proxy failure leaves the business outcome ambiguous. Keep
+      // the same request key so a user-triggered retry cannot bypass Athena's
+      // action-engine duplicate suppression if the original write committed.
+      setRetrySubmission({ message: trimmed, idempotencyKey });
       const errorId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: errorId, role: "error", text: describeAthenaClientError(error) }]);
     } finally {
@@ -190,11 +213,6 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
             Ask from the whole business or attach a TradeOS record. Athena should resolve toward real work, drafts, recommendations, or explicit next actions.
           </p>
         </div>
-        {operatorHref ? (
-          <Link href={operatorHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Operator observability
-          </Link>
-        ) : null}
       </header>
 
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
@@ -232,9 +250,9 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
           </section>
         </aside>
 
-        <main className="min-w-0 rounded-2xl border border-border/70 bg-card">
+        <section aria-labelledby="athena-workspace-heading" className="min-w-0 rounded-2xl border border-border/70 bg-card">
           <div className="border-b border-border/70 px-4 py-4 sm:px-5">
-            <h2 className="font-heading text-lg font-semibold">Athena Workspace</h2>
+            <h2 id="athena-workspace-heading" className="font-heading text-lg font-semibold">Athena Workspace</h2>
             <p className="mt-1 text-sm text-muted-foreground">Tell me what you’re trying to build or fix, and I’ll turn it into TradeOS work.</p>
           </div>
 
@@ -266,6 +284,29 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
               )
             )}
 
+            {retrySubmission && !isSending ? (
+              <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4" role="alert">
+                <p className="text-sm font-medium text-foreground">The response was lost or could not be reached.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your original request key is preserved. Retry safely to reuse that same key rather than risking a duplicate action.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() =>
+                    void submitMessage(retrySubmission.message, {
+                      idempotencyKey: retrySubmission.idempotencyKey,
+                      addUserTurn: false,
+                    })
+                  }
+                >
+                  Retry safely
+                </Button>
+              </div>
+            ) : null}
+
             {isSending ? (
               <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">Athena is working in TradeOS context…</span>
@@ -291,7 +332,7 @@ export function AthenaWorkspace({ selectedScope, operatorHref }: AthenaWorkspace
               </Button>
             </div>
           </form>
-        </main>
+        </section>
 
         <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
