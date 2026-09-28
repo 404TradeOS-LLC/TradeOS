@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getCustomer, getOrganizationSettings } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { EditCustomerForm } from "./edit-form";
+import { ServiceAddresses } from "./service-addresses";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +19,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     getOrganizationSettings(token ?? ""),
   ]);
   const canIssuePortalLink = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
+  const canWrite = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,8 +30,19 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         <CardTitle>Customer details</CardTitle>
         </CardHeader>
         <CardContent>
-          <EditCustomerForm customer={customer} />
+          {canWrite ? <EditCustomerForm customer={customer} /> : (
+            <div className="text-sm">
+              <p>{customer.email || "No email saved"}</p>
+              <p>{customer.phone || "No phone saved"}</p>
+              <p>{customer.billingAddress || "No billing address saved"}</p>
+            </div>
+          )}
         </CardContent>
+      </Card>
+
+      <Card className="max-w-3xl">
+        <CardHeader><CardTitle>Service addresses</CardTitle></CardHeader>
+        <CardContent><ServiceAddresses customerId={customer.id} addresses={customer.serviceAddresses ?? []} canWrite={canWrite} /></CardContent>
       </Card>
 
       {canIssuePortalLink ? (
@@ -53,11 +66,11 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             <EmptyState
               title="No projects for this customer yet."
               description="New projects linked to this customer will show up here."
-              action={
+              action={canWrite ? (
                 <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants({ variant: "outline" })}>
                   New project
                 </Link>
-              }
+              ) : undefined}
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -71,12 +84,12 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
-      <form action={deleteCustomerAction} className="max-w-md">
+      {canWrite ? <form action={deleteCustomerAction} className="max-w-md">
         <input type="hidden" name="customerId" value={customer.id} />
         <Button type="submit" variant="destructive">
           Remove customer
         </Button>
-      </form>
+      </form> : null}
     </div>
   );
 }
