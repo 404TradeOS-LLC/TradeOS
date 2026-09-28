@@ -194,7 +194,7 @@ The authenticated Costbook frontend now follows the canonical search-first infor
 - The shared `PricingProvenance` presentation primitive has separate catalog and research evidence modes. Ordinary Material records do not receive “high confidence”, “verified”, “current local”, placeholder, or stale-age labels from supplier/date alone.
 - Research Review retains its richer persisted provenance contract (status, source/reference, observation/retrieval dates, regional basis, confidence) and its existing named-human review + explicit promotion governance.
 - No global stale threshold, “price health” count, supplier auto-apply, research auto-promotion, or Athena pricing mutation is introduced.
-- The canonical estimator-first Assembly detail remains a separate follow-up; this slice does not alter Assembly composition, unit-cost resolution, starter installation, or Estimate snapshot semantics.
+- `/costbook/assemblies/[id]` now provides the canonical estimator-first Assembly detail using existing tenant-scoped reads only: Assembly identity/scope, per-output-unit recipe quantities, current recursively resolved unit cost, and bounded component count. The page deliberately does not invent sell price, gross margin, job quantity, confidence, or component-level supplier/date provenance because those fields are not returned by the current Assembly detail contract. Estimate-specific use remains inside Estimate Items, where the existing engine captures source identity and pricing snapshots. Assembly composition/edit/deactivate, starter installation, unit-cost resolution, and Estimate snapshot semantics are unchanged.
 
 ### Costbook composite installed-price benchmarks (INDOT)
 
