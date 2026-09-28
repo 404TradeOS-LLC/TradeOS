@@ -37,6 +37,7 @@ test("Athena workspace renders truthful kernel states without inventing context 
   const workspace = await readSource("./athena-workspace.tsx");
 
   assert.match(workspace, /"needs_clarification"/);
+  assert.match(workspace, /followUp\.kind === "question"\)\.slice\(0, 1\)/);
   assert.match(workspace, /"awaiting_approval"/);
   assert.match(workspace, /"degraded"/);
   assert.match(workspace, /"denied"/);
