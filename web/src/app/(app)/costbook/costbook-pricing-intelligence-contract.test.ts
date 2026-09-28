@@ -31,7 +31,7 @@ test("Costbook landing shows real Material source facts without fake price-healt
 });
 
 test("ordinary Material rows expose stored price supplier and lastPriceUpdate only", async () => {
-  const source = await readSource("../../components/costbook/materials-catalog.tsx");
+  const source = await readSource("../../../components/costbook/materials-catalog.tsx");
 
   assert.match(source, />Current price<\/th>/);
   assert.match(source, />Source \+ date<\/th>/);
@@ -42,7 +42,7 @@ test("ordinary Material rows expose stored price supplier and lastPriceUpdate on
 });
 
 test("catalog provenance never upgrades supplier/date facts into a trust verdict", async () => {
-  const source = await readSource("../../components/costbook/pricing-provenance.tsx");
+  const source = await readSource("../../../components/costbook/pricing-provenance.tsx");
   const catalogStart = source.indexOf('if (props.mode === "catalog")');
   const researchStart = source.indexOf('data-pricing-provenance="research"');
 
