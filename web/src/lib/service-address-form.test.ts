@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseServiceAddressForm } from "./service-address-form.ts";
+import { parseServiceAddressForm } from "./service-address-form";
 
 test("address submission preserves only trimmed CRM fields and selected primary flag", () => {
   const data = new FormData();
