@@ -169,6 +169,17 @@ Costbook permissions, organization scope, request-scoped sessions, and forced RL
 
 Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
 
+### Costbook pricing-intelligence UI
+
+The authenticated Costbook frontend now follows the canonical search-first information hierarchy without inventing a universal trust score.
+
+- `/costbook` prioritizes Materials, Labor, Equipment, and Assemblies search/navigation and keeps hierarchy, Cost Items, calculation-only pricing preview, import, and other administration below the primary pricing workflow.
+- The landing page may preview recent active Materials, but each preview uses the real stored Material `unitCost`, `supplierName`, and `lastPriceUpdate` only. A missing supplier/date is shown as missing rather than converted into a confidence or freshness claim.
+- The shared `PricingProvenance` presentation primitive has separate catalog and research evidence modes. Ordinary Material records do not receive “high confidence”, “verified”, “current local”, placeholder, or stale-age labels from supplier/date alone.
+- Research Review retains its richer persisted provenance contract (status, source/reference, observation/retrieval dates, regional basis, confidence) and its existing named-human review + explicit promotion governance.
+- No global stale threshold, “price health” count, supplier auto-apply, research auto-promotion, or Athena pricing mutation is introduced.
+- The canonical estimator-first Assembly detail remains a separate follow-up; this slice does not alter Assembly composition, unit-cost resolution, starter installation, or Estimate snapshot semantics.
+
 ### Costbook composite installed-price benchmarks (INDOT)
 
 The INDOT ingestion lane adds an organization-scoped reference dataset for installed/composite awarded-bid unit-price benchmarks without changing canonical material, labor, equipment, estimate, proposal, invoice, or customer bill-rate values. `costbook_composite_price_benchmarks` stores source/year/item identity plus low, weighted-average, high, quantity, provenance, geography, and source-row metadata. The table uses forced RLS; reads remain tenant-scoped and writes require the established owner/admin `costbook.manage` boundary. Imports derive organization and importer identity from authenticated request context and upsert idempotently by `(org, source, year, item)`. The authenticated `/costbook/import` surface streams a locally selected normalized file in bounded batches through a same-origin proxy; it does not embed the source dataset or expose the session token to browser JavaScript. INDOT benchmark values are reference evidence only and are never decomposed into invented material/labor/equipment costs or written directly into production pricing.
