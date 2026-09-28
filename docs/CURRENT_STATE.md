@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-27
+last_verified: 2026-09-28
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -130,6 +130,22 @@ The authenticated `/settings` surface now follows the canonical contractor-contr
 - Scaffolded integration/admin cards remain explicitly marked as sample data. Developer metadata reports unavailable/unexposed values as such rather than claiming healthy platform state without a live diagnostics source.
 
 No backend Settings route, permission, tenant, RLS, Brand Studio, supplier, billing, or Team & Time contract changes are included in this frontend reorganization.
+
+## Project-backed Lead and Site Visit workspace
+
+TradeOS now presents two canonical pre-estimate Lead states directly from existing Project/SiteVisit truth instead of introducing a parallel Lead database.
+
+- A Project with no Estimate, Proposal, Contract, or Job and status `lead` renders the **New Lead** overview on its default Project route.
+- A Project with a captured Site Visit, no Estimate, no Proposal/Contract/Job, and status `lead` or `estimating` renders **Ready to Estimate**.
+- Once an Estimate exists, the Project falls back to the normal Project workspace; this slice does not invent later Lead-stage screens beyond the approved canonical states.
+- Lead progress is derived from Project existence, Site Visit presence, Estimate presence, and `awarded` status. Qualification is not stored as a separate Lead-stage field.
+- The Lead overview uses existing Customer contact data, Project scope/address/job type, Site Visit measurements/notes, Project photo files, missing-information output, AI follow-up questions, and intake confidence. Budget, timeline, and source are shown as not recorded because they are not dedicated Project fields today.
+- The Site Visit route is now capture-first on mobile: photos, measurements, and field notes are primary; arrival/departure/GPS/transcript/customer/material/safety/verification details remain available under progressive disclosure.
+- **Finish Visit** continues to call the existing `createSiteVisitAction`; no Site Visit API or storage semantics changed.
+- The next commercial handoff is **Create Estimate**, using the existing Project-linked Estimate action. The UI explicitly does not claim Site Visit findings are automatically converted into priced Estimate line items.
+- The prior direct Site Visit → Proposal-draft shortcut is removed from the intake page.
+
+No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate-generation, or backend persistence model is introduced.
 
 ## Implemented product areas
 
