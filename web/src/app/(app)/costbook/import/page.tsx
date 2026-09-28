@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { FeedbackState } from "@/components/ui/feedback-state";
 import { ApiClientError, getCostbookWorkspace } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { CompositeImportClient } from "./import-client";
@@ -25,12 +26,37 @@ export default async function CostbookImportPage() {
     accessError = error instanceof ApiClientError ? error.message : "Unable to verify Costbook permissions.";
   }
 
-  if (accessError) return <EmptyState title="Unable to verify import access" description={accessError} />;
+  if (accessError) {
+    return (
+      <FeedbackState
+        kind="error"
+        title="Couldn't verify Costbook import access"
+        description="TradeOS couldn't confirm your import permissions. No import was started and no Costbook data was changed."
+        action={
+          <Link href="/costbook/import" className={buttonVariants()}>
+            Try again
+          </Link>
+        }
+        secondaryAction={
+          <Link href="/costbook" className={buttonVariants({ variant: "outline" })}>
+            Back to Costbook
+          </Link>
+        }
+      />
+    );
+  }
+
   if (!canManage) {
     return (
-      <EmptyState
-        title="Costbook manage permission required"
-        description="This production import is restricted to authenticated users with the costbook.manage capability."
+      <FeedbackState
+        kind="restricted"
+        title="Costbook import is restricted"
+        description="Your current access can use Costbook, but production benchmark imports require Costbook manager permission. No data was changed."
+        action={
+          <Link href="/costbook" className={buttonVariants({ variant: "outline" })}>
+            Back to Costbook
+          </Link>
+        }
       />
     );
   }
