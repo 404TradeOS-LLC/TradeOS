@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
-  Ban,
   CircleHelp,
   FileQuestion,
   SearchX,
