@@ -4,25 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Regression coverage for a production incident: GET /api/v1/knowledge/stats
-// (and /trades) started failing for every request once an unrelated backend
-// fix unblocked JWT verification and this code path actually started
-// running (packages/knowledge-engine/ wasn't packaged into the Vercel
-// deployment — see app/scripts/vendor-knowledge-engine.js for the real fix).
-// Both pages already treat this data as optional (they render "Unavailable"
-// / empty states for null), but the fetch calls themselves weren't guarded,
-// so a rejection crashed the whole page into the generic error boundary
-// ("Minified React error #441") instead of degrading gracefully. These pins
-// ensure that guard can't silently be removed.
+// Knowledge Runtime remains optional where it is still used. The canonical
+// Today refactor deliberately removed the Knowledge Runtime diagnostic from
+// the landing command center, so Today must not fetch stats merely to support
+// a hidden/duplicate dashboard module. AI Estimate Assist still owns its
+// separate graceful-degradation contract.
 
 function readSource(relativePath: string): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return fs.readFileSync(path.join(here, relativePath), "utf8");
 }
 
-test("dashboard page's getKnowledgeStats call is guarded against rejection", () => {
+test("Today does not load Knowledge Runtime stats for the removed diagnostic card", () => {
   const source = readSource("page.tsx");
-  assert.match(source, /getKnowledgeStats\(token\)\.catch\(\(\) => null\)/);
+  assert.doesNotMatch(source, /getKnowledgeStats/);
+  assert.doesNotMatch(source, /Knowledge Runtime Coverage/);
+  assert.doesNotMatch(source, /knowledge-coverage/);
 });
 
 test("AI Estimate Assist page's getKnowledgeStats/getKnowledgeTrades calls are guarded against rejection", () => {

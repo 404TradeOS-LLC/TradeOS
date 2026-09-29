@@ -34,7 +34,7 @@ test("divisions loading route exposes a dedicated loading summary", () => {
 test("costbook navigation links include the divisions surface", () => {
   const source = readSource("../page.tsx");
 
-  assert.match(source, /href:\s*"\/costbook\/divisions"/);
+  assert.match(source, /href(?:=|:)\s*"\/costbook\/divisions"/);
 });
 
 test("hierarchy catalog preserves the factual empty-state copy", () => {

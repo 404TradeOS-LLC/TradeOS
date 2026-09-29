@@ -69,7 +69,9 @@ test("canRecordPayment excludes technician and viewer, matching their lack of bi
   assert.ok(!frontendRoles.includes("viewer"), "viewer does not have billing.write and must not see the payment form");
 });
 
-test("the payment form is gated on a positive balance, not shown once an invoice is fully paid", () => {
+test("the payment form is gated on billing.write, positive balance, and an eligible sent/overdue invoice", () => {
   const source = readPageSource();
-  assert.match(source, /canRecordPayment && invoice\.balanceDue > 0 \? <RecordPaymentForm/);
+  assert.match(source, /const hasOpenBalance = invoice\.balanceDue > 0;/);
+  assert.match(source, /const canShowPaymentEntry =\s*canRecordPayment &&\s*hasOpenBalance &&\s*\(invoice\.status === "sent" \|\| invoice\.status === "overdue"\);/);
+  assert.match(source, /canShowPaymentEntry \? \(\s*<RecordPaymentForm/);
 });

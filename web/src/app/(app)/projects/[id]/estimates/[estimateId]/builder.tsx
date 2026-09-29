@@ -12,11 +12,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface LineItem {
   id: string;
+  costItemId: string | null;
+  assemblyId: string | null;
   description: string;
   quantity: number;
   unitOfMeasure: string;
@@ -43,6 +46,17 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
   const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
+  const [scopeDraft, setScopeDraft] = useState(simpleScope ?? "");
+  const [persistedScope, setPersistedScope] = useState(simpleScope ?? "");
+
+  const saveScope = useMutation({
+    mutationFn: () =>
+      clientFetch(`/projects/${projectId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ simpleScope: scopeDraft.trim() }),
+      }),
+    onSuccess: () => setPersistedScope(scopeDraft.trim()),
+  });
 
   const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
@@ -107,7 +121,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
               Compare versions
             </Link>
             <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
-              AI assist
+              Athena review
             </Link>
             {isDraft ? (
               <span className={buttonVariants({ variant: "outline" })} aria-disabled="true">
@@ -133,7 +147,23 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
       <MobileEstimateFlow
         projectId={projectId}
         projectName={projectName}
-        simpleScope={simpleScope}
+        simpleScope={scopeDraft}
+        onScopeChange={(value) => {
+          saveScope.reset();
+          setScopeDraft(value);
+        }}
+        onSaveScope={async () => {
+          try {
+            await saveScope.mutateAsync();
+            return true;
+          } catch {
+            return false;
+          }
+        }}
+        scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
+        scopeSavePending={saveScope.isPending}
+        scopeSaveSuccess={saveScope.isSuccess}
+        scopeSaveError={saveScope.isError ? (saveScope.error instanceof Error ? saveScope.error.message : "Unable to save scope.") : null}
         estimate={estimate}
         runningTotals={runningTotals}
         estimateId={estimateId}
@@ -141,6 +171,8 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         mobileStage={mobileStage}
         onStageChange={setMobileStage}
         onUpdated={invalidate}
+        onRemoveLineItem={(lineItemId) => removeLineItem.mutate(lineItemId)}
+        removeLineItemPending={removeLineItem.isPending}
         onFinalize={() => finalize.mutate()}
         finalizePending={finalize.isPending}
       />
@@ -194,7 +226,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
           <ContextualAthenaPanel
             estimateId={estimateId}
             projectId={projectId}
-            scopeOfWork={simpleScope ?? ""}
+            scopeOfWork={scopeDraft}
             headingId="desktop-contextual-athena-heading"
           />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
@@ -223,6 +255,12 @@ function MobileEstimateFlow({
   projectId,
   projectName,
   simpleScope,
+  onScopeChange,
+  onSaveScope,
+  scopeDirty,
+  scopeSavePending,
+  scopeSaveSuccess,
+  scopeSaveError,
   estimate,
   runningTotals,
   estimateId,
@@ -230,12 +268,20 @@ function MobileEstimateFlow({
   mobileStage,
   onStageChange,
   onUpdated,
+  onRemoveLineItem,
+  removeLineItemPending,
   onFinalize,
   finalizePending,
 }: {
   projectId: string;
   projectName: string;
-  simpleScope?: string | null;
+  simpleScope: string;
+  onScopeChange: (value: string) => void;
+  onSaveScope: () => Promise<boolean>;
+  scopeDirty: boolean;
+  scopeSavePending: boolean;
+  scopeSaveSuccess: boolean;
+  scopeSaveError: string | null;
   estimate: EstimateDetail;
   runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
   estimateId: string;
@@ -243,6 +289,8 @@ function MobileEstimateFlow({
   mobileStage: MobileEstimateStage;
   onStageChange: (stage: MobileEstimateStage) => void;
   onUpdated: () => void;
+  onRemoveLineItem: (lineItemId: string) => void;
+  removeLineItemPending: boolean;
   onFinalize: () => void;
   finalizePending: boolean;
 }) {
@@ -253,9 +301,19 @@ function MobileEstimateFlow({
     { id: "review", label: "Review" },
   ];
   const stageIndex = stages.findIndex((stage) => stage.id === mobileStage);
+
+  const goToStage = async (stage: MobileEstimateStage) => {
+    if (stage === mobileStage || scopeSavePending) return;
+    if (mobileStage === "scope" && isDraft && scopeDirty) {
+      const saved = await onSaveScope();
+      if (!saved) return;
+    }
+    onStageChange(stage);
+  };
+
   const advance = () => {
     const next = stages[stageIndex + 1];
-    if (next) onStageChange(next.id);
+    if (next) void goToStage(next.id);
   };
 
   return (
@@ -267,7 +325,8 @@ function MobileEstimateFlow({
             type="button"
             role="tab"
             aria-selected={mobileStage === stage.id}
-            onClick={() => onStageChange(stage.id)}
+            onClick={() => void goToStage(stage.id)}
+            disabled={scopeSavePending && mobileStage === "scope" && stage.id !== "scope"}
             className={cn(
               "min-h-11 border-b-2 px-1 text-xs font-semibold transition-colors",
               mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
@@ -281,20 +340,41 @@ function MobileEstimateFlow({
 
       {mobileStage === "scope" ? (
         <div className="space-y-4">
-          <div className="border-b border-border/70 pb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
-            <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-foreground">
-              {simpleScope?.trim() || "No scope captured yet. Add a short description from project details before building this estimate."}
-            </p>
+          <div className="space-y-3 border-b border-border/70 pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
+                <p className="mt-1 text-sm text-muted-foreground">Edit the Project scope here; Athena reviews the same saved scope.</p>
+              </div>
+              {scopeSaveSuccess && !scopeSavePending ? <span className="text-xs font-medium text-success">Saved</span> : null}
+            </div>
+            <Textarea
+              value={simpleScope}
+              onChange={(event) => onScopeChange(event.target.value)}
+              rows={5}
+              maxLength={5000}
+              disabled={!isDraft || scopeSavePending}
+              aria-label="Estimate scope"
+              placeholder="Describe what you’re building or fixing…"
+            />
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="outline" onClick={() => void onSaveScope()} disabled={!isDraft || scopeSavePending || !simpleScope.trim()}>
+                {scopeSavePending ? "Saving scope…" : "Save scope"}
+              </Button>
+              {!isDraft ? <span className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</span> : null}
+            </div>
+            {scopeSaveError ? <p className="text-sm text-destructive" role="alert">{scopeSaveError}</p> : null}
           </div>
           <ContextualAthenaPanel
             estimateId={estimateId}
             projectId={projectId}
-            scopeOfWork={simpleScope ?? ""}
+            scopeOfWork={simpleScope}
             headingId="mobile-contextual-athena-heading"
           />
-          <div className="text-sm text-muted-foreground">Next, confirm the suggested work and quantities before you price it.</div>
-          <MobileStageAction label="Review line items" onClick={advance} />
+          <div className="text-sm text-muted-foreground">
+            Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
+          </div>
+          <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
         </div>
       ) : null}
 
@@ -304,19 +384,21 @@ function MobileEstimateFlow({
           {estimate.lineItems.length === 0 ? (
             <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
           ) : (
-            <div className="divide-y divide-border/70">
+            <ul className="divide-y divide-border/70">
               {estimate.lineItems.map((lineItem) => (
-                <div key={lineItem.id} className="flex items-start justify-between gap-3 py-4">
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground">{lineItem.description}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{lineItem.quantity} {lineItem.unitOfMeasure} · {lineItem.costType}</p>
-                  </div>
-                  <span className="shrink-0 font-mono text-sm font-semibold">{formatCurrency(lineItem.lineCost)}</span>
-                </div>
+                <EditableLineItem
+                  key={lineItem.id}
+                  estimateId={estimateId}
+                  lineItem={lineItem}
+                  isDraft={isDraft}
+                  onUpdated={onUpdated}
+                  onRemove={() => onRemoveLineItem(lineItem.id)}
+                  removing={removeLineItemPending}
+                />
               ))}
-            </div>
+            </ul>
           )}
-          <MobileStageAction label="Continue to pricing" onClick={advance} />
+          <MobileStageAction label="Continue to price" onClick={advance} />
         </div>
       ) : null}
 
@@ -330,7 +412,7 @@ function MobileEstimateFlow({
             isDraft={isDraft}
             onUpdated={onUpdated}
           />
-          <MobileStageAction label="Review estimate" onClick={advance} />
+          <MobileStageAction label="Continue to review" onClick={advance} />
         </div>
       ) : null}
 
@@ -362,7 +444,10 @@ function MobileEstimateFlow({
             <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
           </div>
           {isDraft ? (
-            <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+            <>
+              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal.</p>
+              <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+            </>
           ) : (
             <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
               Create proposal
@@ -826,7 +911,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
       {error && <p className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
     </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
+      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge><Badge variant="outline">{lineItem.assemblyId ? "Assembly source" : lineItem.costItemId ? "Costbook source" : "Custom item"}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>
     </div>}
   </li>;

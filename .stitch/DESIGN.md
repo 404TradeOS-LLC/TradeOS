@@ -573,7 +573,8 @@ As of 2026-09-27:
 - Costbook desktop/mobile;
 - Assemblies desktop/mobile;
 - current document-focused Customer Portal desktop/mobile;
-- Settings desktop/mobile.
+- Settings desktop/mobile;
+- Athena Workspace desktop and job-scoped mobile context sheet.
 
 ### Partial / canonical screen still needed
 
@@ -581,7 +582,6 @@ As of 2026-09-27:
 - CRM — Customer/Lead contracts and Record Workspace pattern are canonical; CRM overview/pipeline screen still needs approval.
 - Jobs / Field — Change Order is canonical; richer Job/Field visual still needs approval.
 - Schedule — production contracts are real; canonical calendar-grade visual still needs approval.
-- Athena — behavior is canonical; full contractor Workspace visual still needs approval.
 
 ### Target-only
 

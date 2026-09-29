@@ -14,6 +14,24 @@ export interface CostbookAssembly {
   isActive: boolean;
 }
 
+export interface CostbookAssemblyItem {
+  id: string;
+  assemblyId: string;
+  costItemId: string | null;
+  childAssemblyId: string | null;
+  quantityPerUnit: number;
+  sortOrder: number;
+  componentType: "cost_item" | "assembly";
+  componentCode: string;
+  componentName: string;
+  componentUnitOfMeasure: string;
+}
+
+export interface CostbookAssemblyUnitCost {
+  unitCost: number;
+  componentCount: number;
+}
+
 export interface CostbookPriceHistory {
   materialChanges: Array<{
     id: string;
@@ -42,6 +60,21 @@ export interface CostbookPriceHistory {
 
 export function listCostbookAssemblies(token: string, params: CostbookListParams = {}) {
   return apiFetch<CatalogPage<CostbookAssembly>>(`/api/v1/costbook/assemblies${buildCostbookQuery(params)}`, { token });
+}
+
+export function getCostbookAssembly(token: string, id: string) {
+  return apiFetch<CostbookAssembly>(`/api/v1/costbook/assemblies/${id}`, { token });
+}
+
+export function listCostbookAssemblyItems(token: string, id: string, params: Pick<CostbookListParams, "limit" | "cursor" | "sort" | "order"> = {}) {
+  return apiFetch<CatalogPage<CostbookAssemblyItem>>(
+    `/api/v1/costbook/assemblies/${id}/items${buildCostbookQuery(params)}`,
+    { token }
+  );
+}
+
+export function getCostbookAssemblyUnitCost(token: string, id: string) {
+  return apiFetch<CostbookAssemblyUnitCost>(`/api/v1/costbook/assemblies/${id}/unit-cost`, { token });
 }
 
 export interface CostbookPriceHistoryPage {
