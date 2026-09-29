@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ClientApiError } from "@/lib/clientApi";
+import { ClientApiError } from "./clientApi";
 import {
   isAthenaRetryableClientError,
   sendAthenaMessage,
