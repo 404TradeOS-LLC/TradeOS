@@ -145,16 +145,19 @@ function NavPill({
 export function AppNav({
   email,
   athenaEnabled = false,
+  athenaCapabilityRetry = false,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
   athenaEnabled?: boolean;
+  athenaCapabilityRetry?: boolean;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
+  const [clientAthenaEnabled, setClientAthenaEnabled] = useState(athenaEnabled);
   const sheetRef = useRef<HTMLDivElement>(null);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
@@ -162,9 +165,35 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const primaryLinks = athenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
+  const effectiveAthenaEnabled = athenaEnabled || clientAthenaEnabled;
+  const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
   useBodyScrollLock(mobileOpen || createOpen);
+
+  useEffect(() => {
+    if (athenaEnabled || !athenaCapabilityRetry) {
+      setClientAthenaEnabled(athenaEnabled);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    void clientFetch<{ kernelEnabled?: unknown }>("/api/v1/athena/capabilities", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then((capabilities) => {
+        if (!cancelled) setClientAthenaEnabled(capabilities.kernelEnabled === true);
+      })
+      .catch(() => {
+        // Initial discovery already failed closed. One client retry is enough;
+        // direct /athena navigation still enforces the backend feature gate.
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [athenaCapabilityRetry, athenaEnabled]);
 
   useEffect(() => {
     let cancelled = false;
