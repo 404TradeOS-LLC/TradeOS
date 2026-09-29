@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-09-28
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -62,7 +62,7 @@ related_code:
 
 # Current State
 
-Last reconciled on 2026-09-25 for the staging-gated Team & Time interface integration. This document records repository truth, not a guarantee that every capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
 ## Current milestone
 
@@ -122,8 +122,45 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
   lifecycle) are collapsible via `CollapsibleCard`, persisted per-browser;
   Needs Attention, the KPI grid, and Quick Actions always stay expanded.
 - Owner-dashboard KPI icon metadata crosses the React Server Component boundary as serializable identifiers; the client-side KPI grid resolves those identifiers to Lucide components locally so dashboard rendering never passes component functions from the server into a client component.
-- `EmptyState` supports an optional decorative `icon`, applied only to
-  genuinely-empty (not filtered) list views.
+- `EmptyState` supports an optional decorative `icon` and is reserved for
+  genuine loaded-data absence. `feedback-state.tsx` now encodes the canonical shared state
+  taxonomy and supplies `FilteredEmptyState` plus `FeedbackState` for non-empty recovery
+  and access boundaries. The first production migrations separate Materials filtered-no-match
+  from a genuinely empty Material catalog and separate Costbook-import permission/load failure
+  from missing business data. Material load failure confirms no Costbook data changed and
+  offers retry/back navigation; import restriction confirms no import/data mutation occurred.
+  This is the start of the cross-product rollout, not a claim that every existing route has
+  already migrated away from historical `EmptyState` error/permission usage.
+
+## Settings contractor control center
+
+The authenticated `/settings` surface now follows the canonical contractor-control-center hierarchy rather than presenting every platform/admin section with equal visual weight.
+
+- The default landing section is **Pricing**, with Company, Estimating, Team & Access, Communication, Athena, and Connections grouped as common contractor settings.
+- Workspace/display, Branding, Roles & Permissions, CRM/document/template compatibility controls, Knowledge, API keys, Security, Billing compatibility, Backups, Audit Log, and Developer metadata remain available under **Advanced / admin** rather than competing with labor/markup/waste controls.
+- Team and role summaries continue to use the existing permission-aware organization membership response. This does not enable or absorb the separate staging-only Team & Time workspace.
+- Pricing values remain organization settings; Costbook/source provenance continues to govern whether material/supplier pricing is trustworthy. Settings defaults never upgrade stale, placeholder, or unverified Costbook data.
+- The frontend distinguishes persisted organization keys from product fallbacks. Missing organization-specific business, pricing, AI, template, communication, and security values no longer render as fabricated company facts.
+- The backend `PATCH /settings` contract still validates the complete settings object, so the Control Center sends the full draft on save. The frontend truthfulness fix therefore focuses on safe fallbacks: organization-specific business, pricing, supplier, AI, communication, and security defaults are blank/off rather than fabricated facts.
+- Scaffolded integration/admin cards remain explicitly marked as sample data. Developer metadata reports unavailable/unexposed values as such rather than claiming healthy platform state without a live diagnostics source.
+
+No backend Settings route, permission, tenant, RLS, Brand Studio, supplier, billing, or Team & Time contract changes are included in this frontend reorganization.
+
+## Project-backed Lead and Site Visit workspace
+
+TradeOS now presents two canonical pre-estimate Lead states directly from existing Project/SiteVisit truth instead of introducing a parallel Lead database.
+
+- A Project with no Estimate, Proposal, Contract, or Job and status `lead` renders the **New Lead** overview on its default Project route.
+- A Project with a captured Site Visit, no Estimate, no Proposal/Contract/Job, and status `lead` or `estimating` renders **Ready to Estimate**.
+- Once an Estimate exists, the Project falls back to the normal Project workspace; this slice does not invent later Lead-stage screens beyond the approved canonical states.
+- Lead progress is derived from Project existence, Site Visit presence, Estimate presence, and `awarded` status. Qualification is not stored as a separate Lead-stage field.
+- The Lead overview uses existing Customer contact data, Project scope/address/job type, Site Visit measurements/notes, Project photo files, missing-information output, AI follow-up questions, and intake confidence. Budget, timeline, and source are shown as not recorded because they are not dedicated Project fields today.
+- The Site Visit route is now capture-first on mobile: photos, measurements, and field notes are primary; arrival/departure/GPS/transcript/customer/material/safety/verification details remain available under progressive disclosure.
+- **Finish Visit** continues to call the existing `createSiteVisitAction`; no Site Visit API or storage semantics changed.
+- The next commercial handoff is **Create Estimate**, using the existing Project-linked Estimate action. The UI explicitly does not claim Site Visit findings are automatically converted into priced Estimate line items.
+- The prior direct Site Visit → Proposal-draft shortcut is removed from the intake page.
+
+No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate-generation, or backend persistence model is introduced.
 
 ## Implemented product areas
 
@@ -140,6 +177,30 @@ TradeOS is in RC1 hardening. The active posture is production readiness, lifecyc
 - Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. The server-owned catalog drives both displayed prices and checkout validation. Persisted organization-scoped attempts plus stable Stripe idempotency keys prevent duplicate Checkout sessions, while authoritative subscription hydration protects against out-of-order webhook delivery. Stripe—not the browser return URL—is authoritative for subscription state, and only `active` or `trialing` grants entitlements. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration. `knowledge-runtime/repository.ts`'s trade classifier (`inferTrade()`) was rewritten 2026-09-08 from raw substring matching (which misclassified the Tree Service assembly-index record as trade "Trim") to a deterministic, word-boundary/token-aware matcher that prioritizes each record's own curated `category` field and returns `null` on genuine ambiguity rather than guessing. Full before/after audit of the entire Knowledge Engine corpus: `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`. No pricing value or Costbook record changed.
+
+## CRM operating overview
+
+The authenticated `/crm` route now composes the pre-job relationship workflow from existing organization-scoped sources: Customers, Projects, incomplete Project Tasks, `site_visit.created` activity, and the Proposal work queue. It introduces no Lead table, opportunity table, CRM-stage field, or follow-up table.
+
+Pipeline lanes are derived at render time. Project `lead` remains Lead unless a real Site Visit milestone exists; Site Visit activity plus pre-proposal work can surface Ready to Estimate; Project `estimating` remains the estimating source; Proposal `sent`/`viewed` supplies Proposal Sent; and Project `awarded` supplies Awarded. Accepted-proposal side effects therefore stay owned by the existing Project/Proposal lifecycle rather than CRM.
+
+The Follow-ups surface uses existing incomplete organization Project Tasks, including tasks created through Athena's bounded `create-follow-up` tool. Because Project Tasks do not persist a separate follow-up type, the UI describes them honestly as Project Tasks due next rather than inferring a new record class. Source reads use independent settled loading so one unavailable queue degrades visibly without blanking healthy CRM data.
+
+## Customer workspace
+
+The authenticated `/customers/[id]` surface now follows the canonical Customer overview without inventing a separate customer analytics model.
+
+- The page loads the canonical Customer record plus a bounded fan-out of the most recent eight linked Project details. Individual Project failures degrade locally; if a Project detail fails or the customer has more Projects than the bounded fan-out, the workspace explicitly reports partial coverage instead of treating missing work or money as zero.
+- **Needs You** is limited to supported human-attention signals in the loaded customer work: overdue Invoices with a positive balance, stale unanswered Proposals using the existing 14-day dashboard staleness policy, and blocked Project Tasks. Draft Estimates and normal progression do not become attention items.
+- **Current work** is derived from real Project status plus the latest available non-terminal Job, Proposal, or Estimate context. The surface does not fabricate completion percentages or unsupported customer-stage fields.
+- **Money** aggregates server-derived Invoice `amount`, `paidAmount`, and `balanceDue` across the loaded Project details while excluding voided Invoices from the financial rollup. Partial Project coverage remains disclosed next to the workspace.
+- **Upcoming** uses the dispatcher Jobs list filtered by the real `customerId` and the backend-provided current-week time boundary, so scheduled time and assigned-technician names come from the Job/assignment source of truth.
+- **Recent activity** is composed only from timestamps already present in loaded Project records: Proposal sent/viewed/responded events, recorded Invoice payments, Site Visit captures, and Project file creation. TradeOS does not synthesize customer messaging history when no such communication contract exists.
+- Customer files link back into the authenticated Project Documents workspace; the Customer page does not expose raw Project-file storage URLs.
+- Existing Customer edit, portal-link issuance, and soft-delete actions are preserved behind their current permissions. Portal link issuance remains limited to owner/admin/dispatcher/estimator.
+- The canonical Figma customer-scoped Athena card is intentionally deferred while contractor Athena is not authoritative on current `main`; the Customer workspace does not link into the operator-only Athena observability route.
+
+No Customer/CRM backend route, schema, permission, RLS, Invoice/Proposal/Job lifecycle, portal-session, or communication subsystem changes are included in this frontend composition slice.
 
 ## Costbook domain
 
@@ -163,6 +224,17 @@ Implemented Costbook surfaces include:
 Costbook permissions, organization scope, request-scoped sessions, and forced RLS remain the authority for tenant boundaries. Estimate lines preserve source identifiers plus captured `unitCost`/`lineCost` snapshots so later catalog changes do not rewrite historical estimate pricing.
 
 Cost Item and Assembly case-insensitive substring search is supported on both `name` and `code`. The database provides GIN `pg_trgm` indexes for both fields, including `idx_cost_items_code_trgm` and `idx_assemblies_code_trgm`, so the existing `ILIKE '%query%'` code predicates do not rely on the unrelated btree uniqueness indexes.
+
+### Costbook pricing-intelligence UI
+
+The authenticated Costbook frontend now follows the canonical search-first information hierarchy without inventing a universal trust score.
+
+- `/costbook` prioritizes Materials, Labor, Equipment, and Assemblies search/navigation and keeps hierarchy, Cost Items, calculation-only pricing preview, import, and other administration below the primary pricing workflow.
+- The landing page may preview recent active Materials, but each preview uses the real stored Material `unitCost`, `supplierName`, and `lastPriceUpdate` only. A missing supplier/date is shown as missing rather than converted into a confidence or freshness claim.
+- The shared `PricingProvenance` presentation primitive has separate catalog and research evidence modes. Ordinary Material records do not receive “high confidence”, “verified”, “current local”, placeholder, or stale-age labels from supplier/date alone.
+- Research Review retains its richer persisted provenance contract (status, source/reference, observation/retrieval dates, regional basis, confidence) and its existing named-human review + explicit promotion governance.
+- No global stale threshold, “price health” count, supplier auto-apply, research auto-promotion, or Athena pricing mutation is introduced.
+- `/costbook/assemblies/[id]` now provides the canonical estimator-first Assembly detail using existing tenant-scoped reads only: Assembly identity/scope, per-output-unit recipe quantities, current recursively resolved unit cost, and bounded component count. The page deliberately does not invent sell price, gross margin, job quantity, confidence, or component-level supplier/date provenance because those fields are not returned by the current Assembly detail contract. Estimate-specific use remains inside Estimate Items, where the existing engine captures source identity and pricing snapshots. Assembly composition/edit/deactivate, starter installation, unit-cost resolution, and Estimate snapshot semantics are unchanged.
 
 ### Costbook composite installed-price benchmarks (INDOT)
 
@@ -339,6 +411,16 @@ Landed foundations include:
 
 Athena business tools must preserve service ownership and existing authorization/RLS boundaries. Direct Prisma access from tools, duplicate domain logic, and autonomous Costbook mutation remain outside the intended module boundary.
 
+### Contractor Athena workspace
+
+The authenticated web route `/athena` is now the contractor-facing Athena Workspace rather than the owner/admin observability dashboard. It uses one browser kernel client over the existing `POST /api/v1/athena/chat` contract, carries optional validated selected scope (`customerId`, `projectId`, `jobId`, `estimateId`, `invoiceId`, and bounded page context), and renders the kernel's real summary/message, warnings, follow-ups, clarification, degraded, denied, timeout/failure, and telemetry-reference states. The app navigation exposes this contractor workspace to authenticated users; individual Athena tools continue to enforce their existing permission/risk/service boundaries.
+
+Owner/admin observability is preserved at `/athena/ops`. Existing operator subroutes for approvals, traces, tool health, model/cost, and events/DLQ remain operator-gated and their Overview link now targets `/athena/ops`.
+
+The contractor UI does not fabricate data the chat response does not expose. The current kernel result does not include a provider-by-provider “context used” list, so the workspace shows selected-scope/write-path/authority trust statements but does not claim which context providers were used. The platform also has no durable contractor conversation/session lifecycle behind the optional `conversationId` reference, so the workspace does not invent or send one; visible turns are page-local UI history only. When the kernel returns `needs_clarification`, the workspace surfaces at most one question at a time. When it returns `awaiting_approval`, the workspace states that confirmation is required but does not simulate approval or perform a direct business write; plain-language contractor confirmation cards remain a bounded follow-up over the durable approval contract.
+
+Repository implementation does not prove Athena is enabled in a deployed environment. `ATHENA_KERNEL_ENABLED` and deployment configuration remain authoritative.
+
 ### A14 voice/mobile readiness
 
 A14 extends the existing Athena kernel rather than creating a second assistant or
@@ -434,6 +516,24 @@ On 2026-09-01, the production-like Supabase database serving the RC deployment w
 
 The repository-authoritative migrations from `20260814120000` through `20260831214500` were applied to the canonical RC database and its Prisma migration history was reconciled with the exact repository checksums. This incident also adds structured 5xx request logging and a readiness schema check for dashboard-critical estimate, invoice, and contract columns. The focused application repair is merged as `e09101f6c436f1f5648f2188a9621b5dc1a26477` and the backend is deployed READY as `dpl_2gWxCWF4wbiQS7FBxeu3a522h1VK` at `tradeos-costbook-ocq61wy8f-billykshowalters.vercel.app`; the frontend was correctly unchanged because no web files were modified. Authenticated multi-viewport and contractor-smoke evidence remain outstanding until the runtime-authenticated RC workflow completes and retains its artifacts; no baked browser-state secret is required by that workflow.
 
+## Canonical invoice workspace
+
+The authenticated invoice detail at `/projects/[id]/invoices/[invoiceId]` now follows the canonical Money/Invoice workspace rather than a stack of equally weighted administration cards.
+
+- The page leads with server-derived Invoice total, recorded paid amount/payment count, and balance due. It does not recompute a competing running balance in the browser.
+- Billing/customer/job context and work-performed line items remain visible in the main record surface; Invoice activity continues to use the existing sanitized timeline contract.
+- When an eligible sent/overdue Invoice has a positive balance, **Record Payment** is the dominant billing action for users whose role matches the backend `billing.write` grant. The existing role-list regression remains locked to the backend permission map.
+- Record Payment explicitly means logging money already received. The workspace states that recording a Payment does not mean TradeOS processed the customer's payment.
+- Manual `mark paid without recording a payment` and Invoice voiding remain supported existing actions, but are progressively disclosed under **More billing actions** instead of competing with the normal payment-recording path.
+- The real Invoice PDF and staff Customer Portal preview remain available from the Document panel. Customer-view telemetry is not claimed because the current product does not record it.
+- Draft Invoice send behavior, Payment reconciliation, status derivation, organization/tenant scope, RLS, and backend lifecycle semantics are unchanged.
+
+The Money page's Expense receipt-capture design remains `[TARGET]` in canonical Figma and is not implemented by this slice.
+
+## Customer portal project workspace
+
+The public project workspace at `/customer-portal/projects/[id]` follows the canonical document-focused portal composition without expanding capability. It presents verified customer/project context, the latest shared Proposal and Contract, every returned Invoice, and a Money summary built from active, non-voided Invoice `amount`, `paidAmount`, `balanceDue`, and recorded-payment rows. Voided invoices remain visible as document history but are excluded from current Money totals. Public Proposal review remains read-only. Pending Contracts link to the existing customer-signing route; signed and voided Contracts are described according to their actual status. Messaging, project progress/photos, schedule updates, customer change-order approval, and Pay Now remain unavailable. ADR-010 access-token/session/replay/revocation certification remains a separate evidence lane.
+
 ## Current verification surface
 
 Backend commands defined in `app/package.json` include:
@@ -507,7 +607,14 @@ The authenticated contractor customer detail workflow now exposes the existing s
 
 ## Today command board
 
-The owner dashboard now composes the highest-frequency operational sources into one synthesized Today command board. It preserves the existing authenticated API loaders and model builders while presenting four ordered sections—Now, Needs you, Coming up, and Money—as full-width action rows with one dominant destination per row. The previous quick-action strip, Needs Attention card, schedule/Continue Working grid, KPI tile grid, and receivables card are no longer rendered as separate primary dashboard surfaces; task/activity and diagnostic material remain below the operational queue.
+The owner dashboard is now the canonical Today command surface rather than a dashboard-plus-widget-stack. The page-level header identifies Today first, keeps company/freshness context secondary, and the landing route renders one four-part operational rhythm: **Now / Needs you / Coming up / Money**.
+
+- **Now** owns work already moving and normal resumable progression: today's scheduled Jobs, draft/ready Estimates, Continue Working stages, and Project-backed work that is ready to begin estimating.
+- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up and overdue Invoice action; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
+- **Coming up** is sourced from real scheduled Jobs after today's organization-timezone boundary through the end of the backend-provided current-week window. It is not an unscheduled-work or Continue Working bucket.
+- **Money** is a receivables summary over canonical Invoice/payment truth. It does not create a parallel Money ledger or link to a nonexistent organization-wide Money route; overdue action stays in Needs you, with direct Invoice detail available when one is loaded.
+
+The previous task board, recent-activity feed, Knowledge Runtime diagnostic card, recent-project lifecycle card, KPI tile wall, and standalone receivables/schedule panels are not rendered below Today. Their dedicated underlying workspaces remain available. The landing page also no longer loads task/activity, Knowledge stats, payment-ledger, or weather data solely for removed dashboard modules. Schedule, Estimate, Proposal, and Invoice source failures degrade locally inside the command surface instead of replacing healthy sections.
 
 
 ## Universal creation entry point
@@ -527,18 +634,19 @@ The estimate builder now presents a continuous desktop workbench rather than a s
 
 ## Mobile estimate stages
 
-The estimate builder now provides a mobile-first staged path—Scope, Items, Price, and Review—rather than collapsing the desktop workbench into one column. Each stage has one dominant bottom action, Review uses customer-facing estimate language, and the existing estimate query/mutation contracts remain authoritative. The mobile action bar sits above the Control Dock with safe-area spacing; Costbook search and pricing controls remain available within their appropriate editing stages.
+The estimate builder provides the canonical mobile staged path—Scope, Items, Price, and Review—rather than collapsing the desktop workbench into one column. Scope is now editable in place and persists through the existing partial Project PATCH using `simpleScope`; the same current draft is passed to contextual Athena. Items remain the single production list and now expose only the source identity the persisted estimate line actually carries: Assembly source, Costbook source, or Custom item. Price keeps the existing authoritative pricing controls. Review remains customer-facing while preserving the real lifecycle: draft estimates finalize first, then create a proposal; the UI does not pretend a draft estimate can directly send a proposal.
 
+Leaving Scope through the dominant Continue action or a stage tab now waits for the existing Project `simpleScope` PATCH when the draft differs from the persisted scope. A failed save keeps the contractor on Scope and surfaces the mutation error, so Review and proposal creation cannot silently use different wording. Each mobile stage keeps one dominant bottom action above the Control Dock with safe-area spacing. Stage language is normalized to Scope → Items → Price → Review with Continue to items / Continue to price / Continue to review. Persisted estimate lines do not currently carry the pre-apply Athena provenance detail, so the Items surface does not fabricate documented/unverified trust badges after apply.
 
 ## Contextual Athena in estimating
 
-The estimate builder now includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable AI suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full AI Estimate Assist workspace remains available for review and accept/reject decisions; Estimate Engine mutations remain authoritative.
+The estimate builder includes an embedded Athena context panel beside the desktop pricing inspector and within the mobile Scope stage. It uses the existing reviewable suggestion contract to surface assembly and Costbook matches, confidence, provenance warnings, and explicit setup-required states without applying anything automatically. The full review route now uses contractor-facing Athena terminology while the internal API/type names remain unchanged. Estimate Engine mutations remain authoritative.
 
+The canonical one-question clarification interaction is still a real product gap. Structured estimator output can report missing information, but production does not yet expose a persisted one-question-at-a-time answer/regenerate contract, so the mobile UI explicitly does not simulate that behavior.
 
 ## Contextual Athena provenance clarification
 
 Contextual Athena now labels legacy Costbook matches as “Unverified pricing” in addition to placeholder pricing warnings, matching the full AI Estimate Assist provenance language. This is presentation-only; source trust remains review-first and no estimate records are applied automatically.
-
 
 ## Assembly pre-install cost preview
 
@@ -550,6 +658,16 @@ The starter assembly mapper now provides a read-only pre-install cost preview af
 The estimate-assist frontend now stages structured scope-to-estimate drafts through the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts. Draft generation remains review-only; accepted lines retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. Authenticated browser certification at 1440/768/390 remains pending.
 
 
+## Schedule / Dispatch workspace
+
+The existing authenticated `/dispatch` route now defaults to the current contract-backed Schedule workspace rather than the legacy attention table. Plain `/dispatch` renders the organization-timezone-aware Day view; `?mode=week` uses the backend-provided week boundary; and `?mode=crew` groups real scheduled work using stable sorted technician identities while displaying technician names. All three views are derived from `GET /api/v1/jobs` plus `GET /api/v1/jobs/dispatch-summary`; they do not maintain a second client calendar store.
+
+A persistent Unscheduled tray comes from the existing Job `unscheduled` state and visibly discloses its six-row display bound when more Jobs exist. Schedule cards reuse the existing dispatcher actions for assignment, schedule/reschedule, dispatch, conflict preview, and authorized override behavior. The prior attention/all/invoice-ready work queue remains available through `/dispatch?view=...`; attention pagination keeps an explicit queue discriminator so page-one navigation does not fall back to the Day board.
+
+This is an interim production composition, not a claim that Schedule has an approved canonical calendar-grade visual. `.stitch/DESIGN.md` still classifies Schedule visual authority as partial/pending approval. The UI does not imply drag/drop persistence, GPS/live location, route optimization, external calendar synchronization, or automatic conflict resolution. The current dispatcher assignment editor still requires a technician user UUID because the only existing organization-member list exposed to the web Settings contract is owner/admin-only; widening that read boundary is not part of this slice.
+
 ## Mobile Field Workspace
 
 The mobile technician field workspace now presents today's assigned jobs through a current-job-first mobile layout with schedule/arrival context, service address directions, job briefing, bounded lifecycle actions, equipment disclosure, and a dedicated report-back notes area. This remains a frontend refinement over the existing authenticated technician and job APIs; no new backend endpoint or data model is introduced.
+
+Current-job selection is lifecycle-aware: On site, Traveling, Paused, and Dispatched work ranks ahead of Scheduled/Unscheduled and terminal Completed/Cancelled records while preserving the server's existing schedule ordering inside a lifecycle tier. The selected-job workspace uses a section landmark inside the app shell rather than nesting a second `main`, and the dominant mobile lifecycle action is viewport-fixed above the Control Dock so it remains reachable while the technician moves through briefing and report-back content.

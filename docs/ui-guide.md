@@ -11,10 +11,11 @@ exists today; update it whenever a new reusable component or pattern is added.
 - **Design tokens**: all colors are CSS variables driven by `oklch()`, themed via `.dark` on
   `<html>`. Never hardcode a color — use the token classes (`bg-card`, `text-muted-foreground`,
   `border-border`, `bg-destructive/10 text-destructive`, etc.) so light/dark both work.
-- **Current shell theme**: the RC1 app shell uses a cool neutral surface palette with an
-  electric-blue primary accent for action, active navigation state, and focus treatment. Amber
-  stays reserved for meaningful attention/queue states instead of general decoration.
-- **Radius scale**: `--radius` (0.625rem) drives `--radius-sm` through `--radius-4xl` in
+- **Current shell theme**: Blueprint light and Carbon dark use neutral/charcoal
+  surfaces and copper as the sole brand accent. Semantic blue is for information,
+  amber for warnings, green for success, and red for destructive states. The
+  light focus ring uses the darker copper-family `#5c3814` for visible contrast.
+- **Radius scale**: `--radius` (0.5rem) drives `--radius-sm` through `--radius-4xl` in
   `@theme inline`. Cards use `rounded-xl`; small chips/badges use `rounded-4xl` (pill).
 - **`cn()`** (`web/src/lib/utils.ts`, `clsx` + `tailwind-merge`) is the standard way to merge
   conditional class names — use it in every component that accepts a `className` prop.
@@ -24,13 +25,26 @@ exists today; update it whenever a new reusable component or pattern is added.
 ### `components/ui/` — shadcn primitives
 `button`, `card` (`Card`/`CardHeader`/`CardTitle`/`CardDescription`/`CardAction`/
 `CardContent`/`CardFooter`), `badge`, `input`, `label`, `textarea`, `checkbox`, `select` /
-`select-field`, and `empty-state`.
+`select-field`, `empty-state`, and `feedback-state`.
 
-- **`EmptyState`** (`components/ui/empty-state.tsx`) is the standard "nothing here yet" block
-  — dashed border, title, description, optional `action`. **Use this for every empty list**
-  instead of a bare `<p className="text-sm text-muted-foreground">…</p>`. It was already used
-  throughout the project-detail sidebar but not on the top-level Customers/Projects pages or
-  the customer detail page; that inconsistency is now fixed.
+- **`EmptyState`** (`components/ui/empty-state.tsx`) is only for genuine absence: a real
+  collection loaded successfully and contains no records yet. It remains the standard
+  "nothing here yet" block with title, description, optional icon, and optional forward action.
+  Do **not** use it for filtered-no-match, permission, not-found, network/load failure, partial
+  data, mutation failure, or unknown/trust states.
+- **`FilteredEmptyState`** (`components/ui/feedback-state.tsx`) is for a healthy collection
+  where the active search/filter set produced no rows. Copy should say "No matches" and the
+  forward action should clear/refine filters rather than onboarding the user as if the catalog
+  were genuinely empty.
+- **`FeedbackState`** (`components/ui/feedback-state.tsx`) covers non-empty recovery and
+  boundary panels: error, partial/degraded, restricted, not-found, mutation-failure, and
+  unknown/verify. Error and mutation-failure states announce urgently; calm boundary states
+  use polite status semantics. Copy should answer what happened, whether work/data is safe,
+  and what the contractor should do next.
+- `TRADEOS_STATE_TAXONOMY` encodes the canonical eight product state types:
+  `loading | empty | filtered-empty | partial | restricted | not-found | mutation-failure | unknown`.
+  Loading remains layout-specific so route skeletons preserve final geometry instead of
+  collapsing into a generic spinner.
 
 ### `components/shared/` — cross-page composition helpers
 
@@ -51,9 +65,9 @@ exists today; update it whenever a new reusable component or pattern is added.
 - **`StatusBadge`** (`status-badge.tsx`) — wraps `Badge` with `capitalize` and turns
   `snake_case` statuses into readable text (`in_progress` → `In progress`). Use this instead of
   a raw `Badge` whenever you're rendering a backend status enum.
-- **`AppNav`** (`app-nav.tsx`) — the top app nav: active-section highlighting, a responsive
-  mobile menu, a split primary/secondary hierarchy on wide screens, and the command-palette
-  trigger. This is the only nav component — don't add a second one.
+- **`AppNav`** (`app-nav.tsx`) — shared navigation with desktop sections, the
+  mobile Control Dock (Today, Dispatch, Create, Work, More), and the command-palette
+  trigger. This is the only nav owner — don't add a second one.
 - **`DashboardPanel`** (`components/dashboard/dashboard-panel.tsx`) — the standard shell for
   owner-dashboard sections that need the same card/header/body rhythm. Prefer it over
   hand-assembling a new `CardHeader`/`CardContent` pair for dashboard surfaces.
@@ -72,7 +86,7 @@ instead of copy-pasting a third time.
 
 ## Patterns
 
-- **Empty states**: always `EmptyState`, never a bare muted `<p>`.
+- **State selection**: use `EmptyState` only for genuine absence; `FilteredEmptyState` for no-match search/filter results; `FeedbackState` for recovery, restricted, not-found, partial, mutation-failure, or unknown/trust boundaries. Never turn a failed/forbidden request into “no data.”
 - **List-of-links rows**: always `ListRowLink`.
 - **Priced rows**: always `LineItemRow`.
 - **Status text**: always `StatusBadge`, not a raw `Badge` with the enum value passed straight
@@ -83,10 +97,11 @@ instead of copy-pasting a third time.
 - **Owner dashboard sections**: keep the scan order consistent: decision queue first, then
   today's schedule / briefing, then KPI scan, then task board and activity, with quieter
   operational summaries below. Avoid burying the actionable work beneath a wall of metrics.
-- **Data access**: Server Components/Server Actions for CRUD; the one Client Component with
-  real interactivity (search-as-you-type, live totals) is the Estimate Builder, which goes
-  through the generic `/api/proxy/[...path]` route handler via TanStack Query. Follow that
-  split for any new interactive page rather than making everything a Client Component.
+- **Data access**: Prefer Server Components for read-only page data and use
+  `web/src/lib/api.ts` for server requests. Interactive client surfaces use
+  `web/src/lib/clientApi.ts` through `/api/proxy/[...path]` and existing
+  same-origin document routes for binary assets. The Estimate Builder is one
+  existing interactive example; other interactive surfaces also exist.
 
 ## Responsiveness & accessibility
 
@@ -110,6 +125,5 @@ instead of copy-pasting a third time.
   (not just deduplication) about whether the app needs two metric-tile styles.
 - The Estimate Builder's `PricingPanel` uses raw `<input type="radio">` instead of a shared
   radio/segmented-control component — there's no `RadioGroup` in `components/ui/` yet.
-- No loading-skeleton components — client-fetched pages (e.g. the Estimate Builder) currently
-  fall back to a plain "Loading…" text line rather than a skeleton matching the eventual
-  layout.
+- Shared and route-level loading skeletons exist. New loading states should
+  keep an accessible status announcement and match the final layout geometry.

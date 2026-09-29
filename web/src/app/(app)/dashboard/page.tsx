@@ -1,107 +1,138 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import {
   getDispatchSummary,
-  getKnowledgeStats,
   getOrganizationSettings,
   getProject,
-  listActivityEvents,
   listEstimateQueue,
   listInvoiceQueue,
   listJobsForDispatch,
-  listOrganizationProjectTasks,
   listProjects,
   listProposalQueue,
   toInclusiveEndBoundary,
   type DispatchJob,
   type EstimateQueueItem,
   type InvoiceQueueItem,
-  type JobSummary,
   type ProposalQueueItem,
 } from "@/lib/api";
-import { formatCurrency, formatScheduleInZone, getInvoiceDisplayStatus, getProposalDisplayStatus } from "@/lib/document-workflow";
-import { getCurrentWeekPaymentLedger } from "@/lib/payment-ledger";
-import { getSession, getSessionToken } from "@/lib/session";
-import { loadDashboardWeather, selectDashboardWeatherAddress } from "@/lib/dashboard-weather";
-import { getWeatherForAddress } from "@/lib/weather";
+import { formatScheduleInZone } from "@/lib/document-workflow";
+import { getSessionToken } from "@/lib/session";
 import type { OwnerScheduleItem } from "@/components/dashboard/owner-dashboard-data";
-import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { CollapsibleCard } from "@/components/shared/collapsible-card";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { isTerminalStatus, jobStatuses } from "@/domain";
-import { type AttentionStartRow } from "@/components/dashboard/needs-attention-card";
-import { buildAttentionEstimateRows, buildAttentionInvoiceRows, buildAttentionProposalRows, getStaleProposalCutoffIso } from "@/components/dashboard/needs-attention-model";
+import type { AttentionStartRow } from "@/components/dashboard/needs-attention-card";
+import {
+  buildAttentionEstimateRows,
+  buildAttentionInvoiceRows,
+  buildAttentionProposalRows,
+  getStaleProposalCutoffIso,
+} from "@/components/dashboard/needs-attention-model";
 import { buildContinueWorkingRows } from "@/components/dashboard/continue-working-model";
 import { buildReceivablesSummary } from "@/components/dashboard/receivables-model";
-import { buildDashboardTaskSnapshot, buildTaskActivityEntries } from "@/components/dashboard/dashboard-task-model";
-import { buildProjectActivityEntries, mergeActivityEntries } from "@/components/dashboard/project-activity-model";
-import { buildOwnerKpis } from "@/components/dashboard/owner-dashboard-data";
-import { OwnerActivityFeed } from "@/components/dashboard/owner-activity-feed";
 import { OwnerDashboardHeader } from "@/components/dashboard/owner-dashboard-header";
-import { OwnerTaskBoard } from "@/components/dashboard/owner-task-board";
 import { TodayCommandBoard } from "@/components/dashboard/today-command-board";
 import { loadDashboardProjectDetails, loadDashboardStartup, resolveDashboardOrganizationContext } from "./dashboard-startup";
 
 export const metadata: Metadata = {
-  title: "Owner Dashboard | TradeOS",
-  description: "Morning command center for contractor owners to review jobs, estimates, invoices, schedule pressure, and activity.",
+  title: "Today | TradeOS",
+  description: "Contractor command center for work in motion, unresolved action, near-term schedule, and receivables.",
 };
 
 const DASHBOARD_PROJECT_DETAIL_LIMIT = 8;
 const DASHBOARD_TODAY_JOB_LIMIT = 5;
-const DASHBOARD_TASK_FEED_LIMIT = 24;
-const ACTIONABLE_JOB_STATUSES: ReadonlySet<JobSummary["status"]> = new Set(jobStatuses.filter((status) => !isTerminalStatus(status)));
+const DASHBOARD_UPCOMING_JOB_LIMIT = 8;
 
-// Bounded page sizes for the organization-wide "Needs attention" work
-// queues (PR #251) — enough to populate the dashboard without loading full
-// organization history. `total` (the exact filtered count) is used for KPI
-// tiles independent of how many rows were fetched.
 const ATTENTION_OVERDUE_INVOICE_LIMIT = 10;
 const ATTENTION_UNPAID_INVOICE_LIMIT = 15;
 const ATTENTION_STALE_PROPOSAL_LIMIT = 10;
-const ATTENTION_UNSIGNED_PROPOSAL_LIMIT = 15;
 const ATTENTION_ESTIMATE_LIMIT = 15;
 
-/**
- * Creates an empty paginated queue result.
- *
- * @returns An empty item list with a total of zero and no next-page cursor.
- */
 function emptyQueue<T>(): { items: T[]; total: number; nextCursor: string | null } {
   return { items: [], total: 0, nextCursor: null };
 }
 
-/**
- * Loads the organization's scheduled jobs for the current day.
- *
- * @param token - Authentication token for the organization
- * @returns The day's scheduled jobs, total count, and timezone; empty results with UTC when loading fails
- */
-async function loadTodaySchedule(token: string): Promise<{ items: DispatchJob[]; total: number; timezone: string }> {
-  try {
-    const summary = await getDispatchSummary(token);
-    const result = await listJobsForDispatch(token, {
-      scheduledFrom: summary.todayRangeUtc.start,
-      scheduledTo: toInclusiveEndBoundary(summary.todayRangeUtc.end),
-      pageSize: DASHBOARD_TODAY_JOB_LIMIT,
-    });
-    return { items: result.items, total: result.total, timezone: summary.timezone.value };
-  } catch {
-    return { items: [], total: 0, timezone: "UTC" };
-  }
+interface TodayScheduleWindow {
+  today: { items: DispatchJob[]; total: number; error: string | null };
+  upcoming: { items: DispatchJob[]; total: number; error: string | null };
+  timezone: string;
 }
 
-// Each of the three "Needs attention" work-queue resources is fetched (and
-// can fail) independently, so one resource going down doesn't blank the
-// other two sections — see AGENTS.md's "surface failure without crashing
-/**
- * Loads overdue and unpaid invoice attention queues independently.
- *
- * Failed queue requests produce empty queues while preserving results from successful requests.
- *
- * @returns The overdue and unpaid invoice queues, a flag indicating whether the unpaid queue failed, and an error message when one or both requests fail.
- */
+const TERMINAL_JOB_STATUSES = new Set(["completed", "cancelled"]);
+const DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE = 100;
+
+async function loadActiveScheduledJobs(
+  token: string,
+  input: { scheduledFrom: string; scheduledTo: string; limit: number }
+): Promise<DispatchJob[]> {
+  const activeJobs: DispatchJob[] = [];
+  let page = 1;
+  let totalRows = 0;
+
+  do {
+    const result = await listJobsForDispatch(token, {
+      scheduledFrom: input.scheduledFrom,
+      scheduledTo: input.scheduledTo,
+      page,
+      pageSize: DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE,
+    });
+    totalRows = result.total;
+
+    for (const job of result.items) {
+      if (TERMINAL_JOB_STATUSES.has(job.status)) continue;
+      activeJobs.push(job);
+      if (activeJobs.length >= input.limit) break;
+    }
+
+    page += 1;
+  } while (
+    activeJobs.length < input.limit &&
+    (page - 1) * DASHBOARD_SCHEDULE_FETCH_PAGE_SIZE < totalRows
+  );
+
+  return activeJobs;
+}
+
+async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWindow> {
+  let summary: Awaited<ReturnType<typeof getDispatchSummary>>;
+
+  try {
+    summary = await getDispatchSummary(token);
+  } catch {
+    const error = "Schedule context is temporarily unavailable";
+    return {
+      today: { items: [], total: 0, error },
+      upcoming: { items: [], total: 0, error },
+      timezone: "UTC",
+    };
+  }
+
+  const todayRequest = loadActiveScheduledJobs(token, {
+    scheduledFrom: summary.todayRangeUtc.start,
+    scheduledTo: toInclusiveEndBoundary(summary.todayRangeUtc.end),
+    limit: DASHBOARD_TODAY_JOB_LIMIT,
+  });
+
+  const hasUpcomingWindow = Date.parse(summary.todayRangeUtc.end) < Date.parse(summary.weekRangeUtc.end);
+  const upcomingRequest = hasUpcomingWindow
+    ? loadActiveScheduledJobs(token, {
+        scheduledFrom: summary.todayRangeUtc.end,
+        scheduledTo: toInclusiveEndBoundary(summary.weekRangeUtc.end),
+        limit: DASHBOARD_UPCOMING_JOB_LIMIT,
+      })
+    : Promise.resolve([] as DispatchJob[]);
+
+  const [todayResult, upcomingResult] = await Promise.allSettled([todayRequest, upcomingRequest]);
+
+  return {
+    today:
+      todayResult.status === "fulfilled"
+        ? { items: todayResult.value, total: summary.scheduledToday, error: null }
+        : { items: [], total: summary.scheduledToday, error: "Today's schedule is temporarily unavailable" },
+    upcoming:
+      upcomingResult.status === "fulfilled"
+        ? { items: upcomingResult.value, total: upcomingResult.value.length, error: null }
+        : { items: [], total: 0, error: "Upcoming schedule is temporarily unavailable" },
+    timezone: summary.timezone.value,
+  };
+}
+
 async function loadInvoiceAttentionQueues(token: string) {
   const [overdueResult, unpaidResult] = await Promise.allSettled([
     listInvoiceQueue(token, { overdue: true, limit: ATTENTION_OVERDUE_INVOICE_LIMIT }),
@@ -115,95 +146,47 @@ async function loadInvoiceAttentionQueues(token: string) {
   const error =
     overdueFailed || unpaidFailed
       ? overdueFailed && unpaidFailed
-        ? "Invoice attention queues are temporarily unavailable"
+        ? "Invoice queues are temporarily unavailable"
         : overdueFailed
           ? "Overdue invoice queue is temporarily unavailable"
-          : "Unpaid invoice queue is temporarily unavailable"
+          : "Open invoice queue is temporarily unavailable"
       : null;
 
-  return { overdue, unpaid, unpaidFailed, error };
+  return {
+    overdue,
+    unpaid,
+    error,
+    overdueUnavailable: overdueFailed,
+    openUnavailable: unpaidFailed,
+  };
 }
 
-/**
- * Loads stale and unsigned proposal attention queues.
- *
- * @param staleBeforeIso - ISO timestamp used to identify stale proposals
- * @returns The stale queue, unsigned queue, and an error message when either queue cannot be loaded
- */
-async function loadProposalAttentionQueues(token: string, staleBeforeIso: string) {
-  const [staleResult, unsignedResult] = await Promise.allSettled([
-    listProposalQueue(token, { unsigned: true, staleBefore: staleBeforeIso, limit: ATTENTION_STALE_PROPOSAL_LIMIT }),
-    listProposalQueue(token, { unsigned: true, limit: ATTENTION_UNSIGNED_PROPOSAL_LIMIT }),
-  ]);
-
-  const stale = staleResult.status === "fulfilled" ? staleResult.value : emptyQueue<ProposalQueueItem>();
-  const unsigned = unsignedResult.status === "fulfilled" ? unsignedResult.value : emptyQueue<ProposalQueueItem>();
-
-  const error =
-    staleResult.status === "rejected" || unsignedResult.status === "rejected"
-      ? staleResult.status === "rejected" && unsignedResult.status === "rejected"
-        ? "Proposal attention queues are temporarily unavailable"
-        : staleResult.status === "rejected"
-          ? "Stale proposal queue is temporarily unavailable"
-          : "Unsigned proposal queue is temporarily unavailable"
-      : null;
-
-  return { stale, unsigned, error };
+async function loadStaleProposalAttentionQueue(token: string, staleBeforeIso: string) {
+  try {
+    const queue = await listProposalQueue(token, {
+      unsigned: true,
+      staleBefore: staleBeforeIso,
+      limit: ATTENTION_STALE_PROPOSAL_LIMIT,
+    });
+    return { queue, error: null as string | null };
+  } catch (error) {
+    return {
+      queue: emptyQueue<ProposalQueueItem>(),
+      error: error instanceof Error ? error.message : "Stale proposal queue is temporarily unavailable",
+    };
+  }
 }
 
-/**
- * Loads draft and ready estimates for the attention queue.
- *
- * @param token - The authentication token used to request estimate data
- * @returns The estimate queue and a request error message, if loading fails
- */
-async function loadEstimateAttentionQueue(token: string) {
+async function loadEstimateProgressQueue(token: string) {
   try {
     const queue = await listEstimateQueue(token, { status: "draft,ready", limit: ATTENTION_ESTIMATE_LIMIT });
     return { queue, error: null as string | null };
   } catch (error) {
-    return { queue: emptyQueue<EstimateQueueItem>(), error: error instanceof Error ? error.message : "Estimate queue request failed" };
+    return {
+      queue: emptyQueue<EstimateQueueItem>(),
+      error: error instanceof Error ? error.message : "Estimate queue is temporarily unavailable",
+    };
   }
-}
-
-/**
- * Parses a date string into a valid `Date` object.
- *
- * @param value - The date string to parse
- * @returns The parsed date, or `null` when the value is missing or invalid
- */
-function toValidDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function getZonedDayOrdinal(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-
-  return Date.UTC(year, month - 1, day) / 86_400_000;
-}
-
-function isSameDay(value: string | null | undefined, comparison: Date, timeZone: string) {
-  const date = toValidDate(value);
-  return date ? getZonedDayOrdinal(date, timeZone) === getZonedDayOrdinal(comparison, timeZone) : false;
-}
-
-function isPastDue(value: string | null | undefined, comparison: Date, timeZone: string) {
-  const date = toValidDate(value);
-  return date ? getZonedDayOrdinal(date, timeZone) < getZonedDayOrdinal(comparison, timeZone) : false;
-}
-
-function isActionableJob(job: Pick<JobSummary, "status" | "archivedAt">) {
-  return !job.archivedAt && ACTIONABLE_JOB_STATUSES.has(job.status);
 }
 
 function getProjectScopeLabel(projectCount: number, failedCount = 0) {
@@ -217,77 +200,56 @@ function getProjectScopeLabel(projectCount: number, failedCount = 0) {
   return `${scopeLabel}; ${failedCount} project detail${failedCount === 1 ? "" : "s"} unavailable`;
 }
 
-/**
- * Renders the authenticated owner's dashboard with project, schedule, task, payment, and attention-queue summaries.
- *
- * @returns The owner dashboard page content.
- */
+function toScheduleItem(job: DispatchJob, timezone: string): OwnerScheduleItem {
+  return {
+    id: job.id,
+    timeWindow: job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : "Unscheduled",
+    title: job.title,
+    customer: job.customer?.name ?? "No customer linked",
+    address: job.project?.siteAddress ?? "No site address on file",
+    crew: job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned",
+    status: job.status,
+    href: job.project ? `/projects/${job.project.id}` : "/dispatch",
+  };
+}
+
 export default async function DashboardPage() {
-  const [session, token] = await Promise.all([getSession(), getSessionToken()]);
+  const token = await getSessionToken();
   const now = new Date();
   const staleProposalCutoffIso = getStaleProposalCutoffIso(now);
+
   const { projects, settingsResponse } = token
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
-  const [projectDetailsResult, knowledgeStats, todaySchedule, paymentLedger, invoiceAttentionQueues, proposalAttentionQueues, estimateAttentionQueue] = token
+
+  const [projectDetailsResult, scheduleWindow, invoiceQueues, staleProposalQueue, estimateProgressQueue] = token
     ? await Promise.all([
         loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
-        getKnowledgeStats(token).catch(() => null),
-        loadTodaySchedule(token),
-        getCurrentWeekPaymentLedger(token).catch(() => null),
+        loadTodayScheduleWindow(token),
         loadInvoiceAttentionQueues(token),
-        loadProposalAttentionQueues(token, staleProposalCutoffIso),
-        loadEstimateAttentionQueue(token),
+        loadStaleProposalAttentionQueue(token, staleProposalCutoffIso),
+        loadEstimateProgressQueue(token),
       ])
     : [
         { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
-        null,
-        { items: [] as DispatchJob[], total: 0, timezone: "UTC" },
-        null,
-        { overdue: emptyQueue<InvoiceQueueItem>(), unpaid: emptyQueue<InvoiceQueueItem>(), unpaidFailed: false, error: null as string | null },
-        { stale: emptyQueue<ProposalQueueItem>(), unsigned: emptyQueue<ProposalQueueItem>(), error: null as string | null },
+        {
+          today: { items: [] as DispatchJob[], total: 0, error: null as string | null },
+          upcoming: { items: [] as DispatchJob[], total: 0, error: null as string | null },
+          timezone: "UTC",
+        },
+        {
+          overdue: emptyQueue<InvoiceQueueItem>(),
+          unpaid: emptyQueue<InvoiceQueueItem>(),
+          error: null as string | null,
+          overdueUnavailable: false,
+          openUnavailable: false,
+        },
+        { queue: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
       ];
+
   const projectDetails = projectDetailsResult.items;
-
-  const weatherAddress = selectDashboardWeatherAddress({
-    jobSiteAddresses: todaySchedule.items.map((job) => job.project?.siteAddress),
-    persistedOrganizationAddress: settingsResponse?.settings?.address,
-  });
-  const weather = await loadDashboardWeather(weatherAddress, getWeatherForAddress);
-
-  const { companyName, timeZone } = resolveDashboardOrganizationContext(settingsResponse?.settings, todaySchedule.timezone);
-  let dashboardTasksError: string | null = null;
-  let taskActivityError: string | null = null;
-  let projectActivityError: string | null = null;
-  const dashboardTasks = token
-    ? await listOrganizationProjectTasks(token, { limit: DASHBOARD_TASK_FEED_LIMIT, includeCompleted: true }).catch((error: unknown) => {
-        dashboardTasksError = error instanceof Error ? error.message : "Task feed request failed";
-        return [];
-      })
-    : [];
-  const [taskActivityEntries, projectActivityEntries] = token
-    ? await Promise.all([
-        listActivityEvents(token, { entityType: "task", limit: 8 })
-          .then((events) => buildTaskActivityEntries(events))
-          .catch((error: unknown) => {
-            taskActivityError = error instanceof Error ? error.message : "Task activity request failed";
-            return [];
-          }),
-        // "project" is the entityType every proposal/contract/invoice/site-visit
-        // milestone is actually recorded under (see
-        // app/modules/{proposals,contracts,invoices}/service.ts) — broadening
-        // Recent Activity beyond task movement without inventing new backend
-        // infrastructure.
-        listActivityEvents(token, { entityType: "project", limit: 8 })
-          .then((events) => buildProjectActivityEntries(events))
-          .catch((error: unknown) => {
-            projectActivityError = error instanceof Error ? error.message : "Project activity request failed";
-            return [];
-          }),
-      ])
-    : [[], []];
-  const dashboardTaskSnapshot = buildDashboardTaskSnapshot(dashboardTasks, now, timeZone);
+  const { companyName, timeZone } = resolveDashboardOrganizationContext(settingsResponse?.settings, scheduleWindow.timezone);
   const projectScopeLabel = getProjectScopeLabel(projectDetails.length, projectDetailsResult.failedCount);
   const currentDateLabel = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -295,71 +257,33 @@ export default async function DashboardPage() {
     month: "long",
     day: "numeric",
   }).format(now);
-  const allJobs = projectDetails.flatMap((project) => project.jobs);
-  const actionableJobs = allJobs.filter(isActionableJob);
-  const todayLiveJobs = actionableJobs.filter((job) => job.status !== "unscheduled" && isSameDay(job.scheduledStart, now, timeZone)).length;
-  const unscheduledJobs = actionableJobs.filter((job) => job.status === "unscheduled" || !job.scheduledStart).length;
-  const fallbackOverdueTasks = projectDetails
-    .flatMap((project) => project.tasks)
-    .filter((task) => !task.completedAt && task.status !== "completed" && isPastDue(task.dueDate, now, timeZone)).length;
-  const overdueTasks = dashboardTasksError ? fallbackOverdueTasks : dashboardTaskSnapshot.overdueCount;
-  // Org-wide exact totals from the work-queue APIs (PR #251), not the
-  // DASHBOARD_PROJECT_DETAIL_LIMIT-bounded per-project fan-out those KPI
-  // tiles used to derive their counts from. Falls back to the old
-  // (incomplete, first-8-projects-only) count only if the queue request
-  // itself failed, matching the overdueTasks fallback pattern above.
-  const fallbackOpenEstimates = projectDetails.flatMap((project) => project.estimates).filter((estimate) => estimate.status === "draft" || estimate.status === "ready").length;
-  const openEstimates = estimateAttentionQueue.error ? fallbackOpenEstimates : estimateAttentionQueue.queue.total;
-  const fallbackInvoicesWaiting = projectDetails
-    .flatMap((project) => project.invoices)
-    .filter((invoice) => ["sent", "overdue", "partially_paid"].includes(getInvoiceDisplayStatus(invoice))).length;
-  const invoicesWaiting = invoiceAttentionQueues.unpaidFailed ? fallbackInvoicesWaiting : invoiceAttentionQueues.unpaid.total;
 
-  const attentionEstimates = buildAttentionEstimateRows(estimateAttentionQueue.queue.items);
-  const attentionProposals = buildAttentionProposalRows(proposalAttentionQueues.stale.items, proposalAttentionQueues.unsigned.items);
-  const attentionInvoices = buildAttentionInvoiceRows(invoiceAttentionQueues.overdue.items, invoiceAttentionQueues.unpaid.items);
+  const progressEstimates = buildAttentionEstimateRows(estimateProgressQueue.queue.items);
+  const staleProposals = buildAttentionProposalRows(staleProposalQueue.queue.items, []);
+  const invoiceRows = buildAttentionInvoiceRows(invoiceQueues.overdue.items, invoiceQueues.unpaid.items);
 
-  const attentionReadyToStart: AttentionStartRow[] = projectDetails
-    .filter((project) => project.estimates.length === 0)
+  const readyToStart: AttentionStartRow[] = projectDetails
+    .filter((project) => (project.status === "lead" || project.status === "estimating") && project.estimates.length === 0)
     .map((project) => ({
       projectId: project.id,
       projectName: project.name,
       customerName: project.customer?.name ?? "No customer linked",
     }));
-  const notificationCount = attentionEstimates.length + attentionProposals.length + attentionInvoices.length + attentionReadyToStart.length;
-  const continueWorkingRows = buildContinueWorkingRows(projectDetails);
-  const receivablesSummary = buildReceivablesSummary(attentionInvoices, {
-    overdueInvoiceTotal: invoiceAttentionQueues.overdue.total,
-    openInvoiceTotal: invoiceAttentionQueues.unpaid.total,
+
+  const continueWorking = buildContinueWorkingRows(projectDetails);
+  const receivablesBase = buildReceivablesSummary(invoiceRows, {
+    overdueInvoiceTotal: invoiceQueues.overdueUnavailable ? invoiceRows.filter((row) => row.overdue).length : invoiceQueues.overdue.total,
+    openInvoiceTotal: invoiceQueues.openUnavailable ? invoiceRows.length : invoiceQueues.unpaid.total,
   });
-  const mergedActivityEntries = mergeActivityEntries(taskActivityError ? [] : taskActivityEntries, projectActivityError ? [] : projectActivityEntries);
-  const activityErrorMessage =
-    taskActivityError && projectActivityError
-      ? "Recent activity is temporarily unavailable"
-      : taskActivityError
-        ? "Task activity is temporarily unavailable"
-        : projectActivityError
-          ? "Project activity is temporarily unavailable"
-          : null;
-  const ownerScheduleItems: OwnerScheduleItem[] = todaySchedule.items.map((job) => ({
-    id: job.id,
-    timeWindow: job.scheduledStart ? formatScheduleInZone(job.scheduledStart, todaySchedule.timezone) : "Unscheduled",
-    title: job.title,
-    customer: job.customer?.name ?? "No customer linked",
-    address: job.project?.siteAddress ?? "No site address on file",
-    crew: job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned",
-    status: job.status,
-    href: job.project ? `/projects/${job.project.id}` : "/dispatch",
-  }));
-  const ownerKpis = buildOwnerKpis({
-    todaysJobs: todayLiveJobs,
-    openEstimates,
-    revenueThisWeek: paymentLedger ? formatCurrency(paymentLedger.totalAmount) : "Unavailable",
-    invoicesWaiting,
-    unscheduledJobs,
-    overdueTasks,
-    scopeLabel: projectScopeLabel,
-  });
+  const receivables = {
+    ...receivablesBase,
+    isPartial: invoiceQueues.openUnavailable || receivablesBase.isPartial,
+  };
+
+  const currentSchedule = scheduleWindow.today.items.map((job) => toScheduleItem(job, scheduleWindow.timezone));
+  const upcomingSchedule = scheduleWindow.upcoming.items.map((job) => toScheduleItem(job, scheduleWindow.timezone));
+  const attentionUnavailable = Boolean(staleProposalQueue.error) || invoiceQueues.overdueUnavailable;
+  const notificationCount = attentionUnavailable ? null : staleProposalQueue.queue.total + invoiceQueues.overdue.total;
 
   return (
     <div className="flex flex-col gap-6">
@@ -367,116 +291,29 @@ export default async function DashboardPage() {
         companyName={companyName}
         currentDateLabel={currentDateLabel}
         notificationCount={notificationCount}
-        todaysJobsCount={todayLiveJobs}
-        weather={weather}
+        todaysJobsCount={scheduleWindow.today.total}
         projectScopeLabel={projectScopeLabel}
-        reviewQueue={{
-          estimates: attentionEstimates.length,
-          proposals: attentionProposals.length,
-          invoices: attentionInvoices.length,
-          starts: attentionReadyToStart.length,
-        }}
       />
 
       <TodayCommandBoard
-        schedule={ownerScheduleItems}
-        estimates={attentionEstimates}
-        proposals={attentionProposals}
-        invoices={attentionInvoices}
-        readyToStart={attentionReadyToStart}
-        continueWorking={continueWorkingRows}
-        kpis={ownerKpis}
-        receivables={receivablesSummary}
+        currentSchedule={currentSchedule}
+        upcomingSchedule={upcomingSchedule}
+        estimates={progressEstimates}
+        proposals={staleProposals}
+        invoices={invoiceRows}
+        readyToStart={readyToStart}
+        continueWorking={continueWorking}
+        receivables={receivables}
         errors={{
-          estimates: estimateAttentionQueue.error,
-          proposals: proposalAttentionQueues.error,
-          invoices: invoiceAttentionQueues.error,
+          currentSchedule: scheduleWindow.today.error,
+          upcomingSchedule: scheduleWindow.upcoming.error,
+          estimates: estimateProgressQueue.error,
+          proposals: staleProposalQueue.error,
+          invoices: invoiceQueues.error,
+          openInvoicesUnavailable: invoiceQueues.openUnavailable,
+          overdueInvoicesUnavailable: invoiceQueues.overdueUnavailable,
         }}
       />
-
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <OwnerTaskBoard tasks={dashboardTasks} now={now} timeZone={timeZone} errorMessage={dashboardTasksError} />
-        <OwnerActivityFeed
-          entries={mergedActivityEntries}
-          title="Recent activity"
-          description="Task movement plus proposal, contract, and invoice milestones from the live activity timeline."
-          emptyState={
-            <EmptyState
-              title={activityErrorMessage ? "Recent activity is temporarily unavailable." : "No recent activity yet."}
-              description={
-                activityErrorMessage
-                  ? `${activityErrorMessage}. Open the project workspace directly if you need activity detail right away.`
-                  : "Task, proposal, contract, and invoice updates will appear here as work moves."
-              }
-            />
-          }
-        />
-      </div>
-
-      <CollapsibleCard
-        id="knowledge-coverage"
-        title="Knowledge Runtime Coverage"
-        description="Live read-only estimating knowledge coverage. Open the diagnostic view for trade coverage and runtime health."
-      >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="font-mono text-lg font-medium tabular-nums text-foreground">
-            {knowledgeStats ? `${knowledgeStats.tradesCount} trades / ${knowledgeStats.assembliesCount} assemblies` : "Unavailable"}
-          </p>
-          <Link href="/dashboard/knowledge-coverage" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            View coverage
-          </Link>
-        </div>
-      </CollapsibleCard>
-
-      <CollapsibleCard
-        id="recent-project-lifecycle"
-        title="Recent project lifecycle"
-        description={`Signed in as ${session?.email}. Latest proposal, contract, invoice, and change-order state for the ${projectScopeLabel}; this is a recent-project snapshot, not an organization-wide work queue.`}
-      >
-        <div className="flex flex-col gap-3">
-          {projectDetails.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No projects yet.</p>
-          ) : (
-            projectDetails.map((project) => {
-              const latestProposal = project.proposals[0] ?? null;
-              const latestContract = project.contracts[0] ?? null;
-              const latestInvoice = project.invoices[0] ?? null;
-
-              return (
-                <div key={project.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium text-foreground">{project.name}</div>
-                      <div className="text-sm text-muted-foreground">{project.customer?.name ?? "No customer linked"}</div>
-                    </div>
-                    <Link href={`/projects/${project.id}`} className={buttonVariants({ variant: "outline" })}>
-                      Open project
-                    </Link>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg border border-border/60 bg-background/80 p-3">
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proposal</div>
-                      <div className="mt-2">{latestProposal ? <StatusBadge status={getProposalDisplayStatus(latestProposal)} /> : "No proposal"}</div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/80 p-3">
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Contract</div>
-                      <div className="mt-2">{latestContract ? <StatusBadge status={latestContract.status} /> : "No contract"}</div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/80 p-3">
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Invoice</div>
-                      <div className="mt-2">{latestInvoice ? <StatusBadge status={getInvoiceDisplayStatus(latestInvoice)} /> : "No invoice"}</div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-background/80 p-3">
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Change orders</div>
-                      <div className="mt-2">{project.changeOrders.length > 0 ? <StatusBadge status={project.changeOrders[0].status} /> : "No change order"}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </CollapsibleCard>
     </div>
   );
 }

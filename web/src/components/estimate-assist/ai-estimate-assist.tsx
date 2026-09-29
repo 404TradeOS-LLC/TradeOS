@@ -192,7 +192,7 @@ export function AIEstimateAssist({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[]>([]);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(
-    initialStructuredDraft || initialSuggestions.length > 0 ? "Loaded from AI estimator" : null
+    initialStructuredDraft || initialSuggestions.length > 0 ? "Loaded from Athena review" : null
   );
   const [applySummary, setApplySummary] = useState<ApplySuggestionsResponse | null>(null);
 
@@ -289,7 +289,7 @@ export function AIEstimateAssist({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardTitle>Scope of work</CardTitle>
-                <CardDescription>Describe the job once, then let AI draft a reviewed starting point for the estimate team.</CardDescription>
+                <CardDescription>Describe the job once, then let Athena draft a reviewed starting point for the estimate team.</CardDescription>
               </div>
               <Badge variant="outline" className="gap-1.5">
                 <Sparkles className="size-3.5" />
@@ -334,7 +334,7 @@ export function AIEstimateAssist({
                   Photo context
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Jobsite photos can stay attached to the project record while AI Estimate Assist uses scope and field notes for reviewed suggestions.
+                  Jobsite photos can stay attached to the project record while Athena uses scope and field notes for reviewed suggestions.
                 </p>
               </div>
             </div>
@@ -352,7 +352,7 @@ export function AIEstimateAssist({
                 ) : (
                   <>
                     <WandSparkles className="size-4" />
-                    Run AI Estimate Assist
+                    Run Athena review
                   </>
                 )}
               </Button>
@@ -365,7 +365,7 @@ export function AIEstimateAssist({
           <CardHeader className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>AI estimator review pipeline</CardTitle>
+                <CardTitle>Athena review pipeline</CardTitle>
                 <CardDescription>
                   Review the detected trade, runtime matches, assumptions, missing inputs, and warnings before anything reaches the estimate. Generated drafts are review-only.
                 </CardDescription>
@@ -415,7 +415,7 @@ export function AIEstimateAssist({
           <CardContent className="space-y-4">
             {suggestions.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
-                No review draft yet. Run AI Estimate Assist to build a contractor-facing draft from the scope.
+                No review draft yet. Run Athena review to build a contractor-facing draft from the scope.
               </div>
             ) : (
               suggestions.map((suggestion) => (
@@ -570,7 +570,7 @@ export function AIEstimateAssist({
               Open estimate builder
             </Link>
             <p className="text-sm text-muted-foreground">
-              AI helps with scope understanding and selection only. Pricing still comes exclusively from the estimate engine.
+              Athena helps with scope understanding and selection only. Pricing still comes exclusively from the estimate engine.
             </p>
           </CardContent>
         </Card>
