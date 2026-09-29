@@ -5,18 +5,24 @@ import { getSession, getSessionToken } from "@/lib/session";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
-async function resolveAthenaEnabled(token: string | null): Promise<boolean> {
-  if (!token) return false;
+interface AthenaCapabilityResolution {
+  enabled: boolean;
+  retryOnClient: boolean;
+}
+
+async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabilityResolution> {
+  if (!token) return { enabled: false, retryOnClient: false };
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
   try {
     const capabilities = await getAthenaCapabilities(token, controller.signal);
-    return capabilities.kernelEnabled === true;
+    return { enabled: capabilities.kernelEnabled === true, retryOnClient: false };
   } catch {
-    // Capability discovery is advisory UI gating. Fail closed without breaking
-    // the authenticated app shell if the backend is unavailable or slow.
-    return false;
+    // Capability discovery is advisory UI gating. Fail closed on the initial
+    // render, but let the client make one bounded retry so a transient timeout
+    // does not hide Athena for the lifetime of the mounted app shell.
+    return { enabled: false, retryOnClient: true };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -27,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
 
   const token = await getSessionToken();
-  const athenaEnabled = await resolveAthenaEnabled(token);
+  const athenaCapability = await resolveAthenaEnabled(token);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -37,7 +43,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <AppNav email={session.email} athenaEnabled={athenaEnabled} />
+      <AppNav
+        email={session.email}
+        athenaEnabled={athenaCapability.enabled}
+        athenaCapabilityRetry={athenaCapability.retryOnClient}
+      />
       <main
         id="main-content"
         tabIndex={-1}
