@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
 import { getAthenaCapabilities } from "@/lib/api";
@@ -34,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const token = await getSessionToken();
   const athenaCapability = await resolveAthenaEnabled(token);
+  const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -46,7 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppNav
         email={session.email}
         athenaEnabled={athenaCapability.enabled}
-        athenaCapabilityRetry={athenaCapability.retryOnClient}
+        athenaCapabilityRetryKey={athenaCapabilityRetryKey}
       />
       <main
         id="main-content"
