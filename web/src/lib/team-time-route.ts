@@ -24,6 +24,31 @@ function isSameOriginRequest(request: Request) {
   }
 }
 
+async function readBodyWithinLimit(request: Request): Promise<string | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(bytes);
+}
+
 export function createTeamTimePostHandler({ isEnabled, getAccessToken, env, fetchImpl = fetch, timeoutMs = 15_000 }: TeamTimeRouteDependencies) {
   return async function POST(request: Request): Promise<Response> {
     if (!isEnabled()) return json({ error: "Team & Time is not enabled here." }, 404);
