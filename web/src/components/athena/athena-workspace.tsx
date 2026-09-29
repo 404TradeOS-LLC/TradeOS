@@ -198,6 +198,9 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
       });
       const resultId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: resultId, role: "athena", text: result.summary, result }]);
+      if (result.error?.retryable) {
+        setRetrySubmission({ message: trimmed, idempotencyKey });
+      }
     } catch (error) {
       // Preserve the same request key only when the outcome is genuinely
       // ambiguous/retryable. Validation, auth, feature-disabled, and conflict
@@ -303,9 +306,9 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
 
             {retrySubmission && !isSending ? (
               <div className="rounded-2xl border border-warning/30 bg-warning/10 p-4" role="alert">
-                <p className="text-sm font-medium text-foreground">The response was lost or could not be reached.</p>
+                <p className="text-sm font-medium text-foreground">This request is safe to retry.</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Your original request key is preserved. Retry safely to reuse that same key rather than risking a duplicate action.
+                  The original request key is preserved so Athena can reconcile the same operation instead of creating a duplicate.
                 </p>
                 <Button
                   type="button"
