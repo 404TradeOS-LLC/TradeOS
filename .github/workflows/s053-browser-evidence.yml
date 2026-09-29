@@ -16,7 +16,7 @@ jobs:
   evidence:
     name: S053 scope-to-estimate evidence 1440/768/390
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     defaults:
       run:
         working-directory: app
@@ -55,6 +55,13 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: node --check scripts/s053-browser-evidence.mjs
+      - run: node --check scripts/s053-preview-pair.mjs
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Prepare exact S053 staging Preview pair
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s053-preview-pair.mjs
       - name: Verify preview deployment identity
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -70,6 +77,11 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: node scripts/s027-deployment-identity.mjs --verify
+      - name: Remove temporary S053 Preview environment overrides
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s053-preview-pair.mjs --cleanup
       - name: Remove runtime storage state
         if: always()
         run: rm -f "$S053_STORAGE_STATE_PATH"
