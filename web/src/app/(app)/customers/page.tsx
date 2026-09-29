@@ -8,7 +8,10 @@ import { CustomerDirectory } from "@/components/customers/customer-directory";
 export default async function CustomersPage() {
   const token = await getSessionToken();
   const [customers, settings] = token
-    ? await Promise.all([listCustomers(token), getOrganizationSettings(token)])
+    ? await Promise.all([
+        listCustomers(token),
+        getOrganizationSettings(token).catch(() => null),
+      ])
     : [[], null];
   const canWrite = settings && ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
 
