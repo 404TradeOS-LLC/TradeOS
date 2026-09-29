@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-27
+last_verified: 2026-09-28
 source_of_truth: false
 related_code:
   - app/modules/crm/service.ts
@@ -74,10 +74,16 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - `/crm` — first-class relationship/pre-job operating overview derived from Customers, Projects, Project Tasks, Site Visit activity, and Proposal queue state
 - `/customers`
 - `/customers/new`
-- `/customers/[id]`
+- `/customers/[id]` — canonical customer operating workspace composed from the Customer record, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
 The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded remain canonical Project statuses; Ready to Estimate is derived from a real Site Visit milestone; Proposal Sent is derived from Proposal status; and Follow-ups are existing incomplete Project Tasks.
+
+The Customer workspace also does not create a new customer-analytics domain. It loads at most the eight most recent linked Project details and discloses failed/bounded Project coverage as partial data. Needs You is derived only from overdue Invoice balances, the existing 14-day stale-unanswered Proposal policy, and blocked Project Tasks. Current work uses canonical Project plus real Job/Proposal/Estimate context. Customer money uses server-returned Invoice `amount`, `paidAmount`, and `balanceDue`, excluding voided Invoices. Upcoming work uses dispatcher Jobs filtered by `customerId` and preserves real assigned-technician names.
+
+Recent customer activity is limited to facts already present in those records (Proposal send/view/response timestamps, recorded Invoice payments, Site Visit captures, and Project file timestamps). TradeOS does not synthesize messaging history when no customer communication contract exists. The Customer page routes file access back through the authenticated Project Documents workspace rather than exposing raw storage URLs.
+
+Customer-scoped Athena remains deferred while the contractor workspace is not authoritative on current `main`; the Customer page must not link users into the operator observability route by pretending it is the contractor assistant.
 
 ## Tests
 
@@ -95,4 +101,4 @@ The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded r
 
 ## Last verified date
 
-2026-09-27
+2026-09-28
