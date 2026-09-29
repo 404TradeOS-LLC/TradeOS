@@ -383,7 +383,7 @@ Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor
 
 `.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
-`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It targets only the recorded TradeOS Staging backend, writes the public staging Supabase URL only to Preview scope for the `staging` branch, redeploys that backend with the current Vercel CLI syntax, and verifies `/ready`. It may not target Production, copy Production secrets, or change auth policy.
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, resolves only a READY Preview backend deployment carrying `githubCommitRef=staging`, fails closed when no such deployment is available, redeploys that resolved staging backend, and verifies `/ready`. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
 
 ## Production migration history reconciliation
 
