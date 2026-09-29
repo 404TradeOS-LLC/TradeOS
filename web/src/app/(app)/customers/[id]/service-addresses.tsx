@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   createServiceAddressAction,
   removeServiceAddressAction,
@@ -40,7 +40,9 @@ function AddressFields({ address }: { address?: ServiceAddress }) {
 function ExistingAddress({ customerId, address, canWrite }: { customerId: string; address: ServiceAddress; canWrite: boolean }) {
   const [updateState, updateAction, updating] = useActionState(updateServiceAddressAction, undefined);
   const [removeState, removeAction, removing] = useActionState(removeServiceAddressAction, undefined);
-  const [editingRevision, setEditingRevision] = useState(0);
+  const [hideUpdateError, setHideUpdateError] = useState(false);
+
+  useEffect(() => setHideUpdateError(false), [updateState]);
 
   return (
     <li className="rounded-md border p-3">
@@ -52,12 +54,12 @@ function ExistingAddress({ customerId, address, canWrite }: { customerId: string
       {canWrite ? (
         <details className="text-sm">
           <summary className="cursor-pointer font-medium">Edit address</summary>
-          <form action={updateAction} className="mt-3 space-y-3" onChange={() => setEditingRevision((revision) => revision + 1)}>
+          <form action={updateAction} className="mt-3 space-y-3" onChange={() => setHideUpdateError(true)} onSubmit={() => setHideUpdateError(true)}>
             <input type="hidden" name="customerId" value={customerId} />
             <input type="hidden" name="addressId" value={address.id} />
             <AddressFields address={address} />
-            {updateState?.error && editingRevision === 0 ? <p role="alert" className="text-destructive">{updateState.error}</p> : null}
-            <Button type="submit" disabled={updating} onClick={() => setEditingRevision(0)}>{updating ? "Saving…" : "Save address"}</Button>
+            {updateState?.error && !hideUpdateError ? <p role="alert" className="text-destructive">{updateState.error}</p> : null}
+            <Button type="submit" disabled={updating}>{updating ? "Saving…" : "Save address"}</Button>
           </form>
           <form action={removeAction} className="mt-3">
             <input type="hidden" name="customerId" value={customerId} />
@@ -73,6 +75,10 @@ function ExistingAddress({ customerId, address, canWrite }: { customerId: string
 
 export function ServiceAddresses({ customerId, addresses, canWrite }: { customerId: string; addresses: ServiceAddress[]; canWrite: boolean }) {
   const [createState, createAction, creating] = useActionState(createServiceAddressAction, undefined);
+  const [hideCreateError, setHideCreateError] = useState(false);
+
+  useEffect(() => setHideCreateError(false), [createState]);
+
   return (
     <div className="space-y-4">
       {addresses.length ? (
@@ -83,10 +89,10 @@ export function ServiceAddresses({ customerId, addresses, canWrite }: { customer
       {canWrite ? (
         <details className="rounded-md border p-3">
           <summary className="cursor-pointer text-sm font-medium">Add service address</summary>
-          <form action={createAction} className="mt-3 space-y-3">
+          <form action={createAction} className="mt-3 space-y-3" onChange={() => setHideCreateError(true)} onSubmit={() => setHideCreateError(true)}>
             <input type="hidden" name="customerId" value={customerId} />
             <AddressFields />
-            {createState?.error ? <p role="alert" className="text-sm text-destructive">{createState.error}</p> : null}
+            {createState?.error && !hideCreateError ? <p role="alert" className="text-sm text-destructive">{createState.error}</p> : null}
             <Button type="submit" disabled={creating}>{creating ? "Saving…" : "Save address"}</Button>
           </form>
         </details>
