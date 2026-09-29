@@ -1,0 +1,95 @@
+name: S053 authenticated browser evidence
+
+on:
+  push:
+    branches:
+      - evidence/s053-auth-browser-6271713
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeos-beta-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: S053 scope-to-estimate evidence 1440/768/390
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: app
+    env:
+      S053_BASE_URL: https://tradeos-costbook-7i9s7btcn-billykshowalters.vercel.app
+      S053_EXPECTED_SHA: 627171352e3fae36e14ccad948257ab7ae01b264
+      S053_SANITIZED_TENANT: "true"
+      S053_ALLOW_MUTATIONS: "true"
+      S053_STORAGE_STATE_PATH: /tmp/s053-storage-state.json
+      S053_EVIDENCE_DIR: ../artifacts/s053-browser-evidence
+      S027_BASE_URL: https://tradeos-costbook-7i9s7btcn-billykshowalters.vercel.app
+      S027_EXPECTED_SHA: 627171352e3fae36e14ccad948257ab7ae01b264
+      S027_SANITIZED_TENANT: "true"
+      S027_ALLOW_MUTATIONS: "true"
+      S027_STORAGE_STATE_PATH: /tmp/s053-storage-state.json
+      S027_EVIDENCE_DIR: ../artifacts/s053-browser-evidence
+      BETA_RC_BASE_URL_RESOLVED: https://tradeos-costbook-7i9s7btcn-billykshowalters.vercel.app
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_SMOKE_ORG_LABEL: TradeOS Beta Smoke
+      BETA_SMOKE_ORG_ID: 9814bd72-626a-42f4-8871-cd755cb9d685
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_STORAGE_STATE_PATH: /tmp/s053-storage-state.json
+      BETA_EVIDENCE_DIR: ../artifacts/s053-browser-evidence
+      BETA_RC_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
+      BETA_RC_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
+      BETA_RC_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: node --check scripts/s053-browser-evidence.mjs
+      - name: Verify preview deployment identity
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s027-deployment-identity.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Authenticate dedicated smoke tenant
+        run: node scripts/beta-evidence/auth-setup.mjs
+      - name: Capture S053 authenticated evidence
+        run: node scripts/s053-browser-evidence.mjs
+      - name: Verify deployment did not change during capture
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s027-deployment-identity.mjs --verify
+      - name: Remove runtime storage state
+        if: always()
+        run: rm -f "$S053_STORAGE_STATE_PATH"
+      - name: Scan artifact for credential material
+        id: credential_scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="../artifacts/s053-browser-evidence"
+          [ -d "$bundle" ] || exit 1
+          if grep -rlIE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}' "$bundle" >/dev/null 2>&1; then
+            echo "::error::Credential material detected; refusing artifact upload."
+            exit 1
+          fi
+      - name: Upload evidence artifact
+        if: ${{ always() && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: s053-browser-evidence-${{ github.run_id }}
+          path: artifacts/s053-browser-evidence
+          if-no-files-found: error
+          retention-days: 30
