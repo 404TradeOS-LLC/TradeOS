@@ -1,28 +1,15 @@
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { DashboardFreshnessLabel } from "@/components/dashboard/dashboard-freshness-label";
 import { OwnerDashboardGreeting, OwnerDashboardSynthesis } from "@/components/dashboard/owner-dashboard-greeting";
-import { buildReviewQueueMetrics, type ReviewQueueCounts } from "@/components/dashboard/owner-dashboard-header-model";
 
 interface OwnerDashboardHeaderProps {
   companyName: string;
   currentDateLabel: string;
-  notificationCount: number;
+  notificationCount: number | null;
   todaysJobsCount: number;
-  weather?: unknown;
   projectScopeLabel: string;
-  reviewQueue?: ReviewQueueCounts;
-}
-
-function MetricChip({ label, value }: { label: string; value: number }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-      <span className="tabular-nums text-foreground">{value}</span>
-      {label}
-    </span>
-  );
 }
 
 export function OwnerDashboardHeader({
@@ -31,12 +18,11 @@ export function OwnerDashboardHeader({
   notificationCount,
   todaysJobsCount,
   projectScopeLabel,
-  reviewQueue,
 }: OwnerDashboardHeaderProps) {
-  const hasAttention = notificationCount > 0;
-  const metrics = buildReviewQueueMetrics(reviewQueue);
+  const attentionUnavailable = notificationCount == null;
+  const hasAttention = notificationCount != null && notificationCount > 0;
   const attentionTone =
-    notificationCount >= 15 ? "destructive" : notificationCount >= 5 ? "warning" : "info";
+    (notificationCount ?? 0) >= 15 ? "destructive" : (notificationCount ?? 0) >= 5 ? "warning" : "info";
   const attentionClasses: Record<"info" | "warning" | "destructive", string> = {
     info: "border-info/30 bg-info/10 text-info",
     warning: "border-warning/30 bg-warning/10 text-warning",
@@ -44,44 +30,48 @@ export function OwnerDashboardHeader({
   };
 
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/98 p-5 shadow-(--elev-1) sm:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <header className="border-b border-border/70 pb-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <OwnerDashboardGreeting />
+              <OwnerDashboardGreeting /> · {companyName}
             </p>
             <Badge
               variant="outline"
-              className={hasAttention ? attentionClasses[attentionTone] : "border-border/70 bg-muted/30 text-muted-foreground"}
+              className={
+                attentionUnavailable
+                  ? "border-warning/30 bg-warning/10 text-warning"
+                  : hasAttention
+                    ? attentionClasses[attentionTone]
+                    : "border-border/70 bg-muted/30 text-muted-foreground"
+              }
             >
-              {hasAttention ? `Needs attention · ${notificationCount}` : "On track"}
+              {attentionUnavailable ? "Needs you · unavailable" : hasAttention ? `Needs you · ${notificationCount}` : "On track"}
             </Badge>
           </div>
-          <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{companyName}</h1>
-          <OwnerDashboardSynthesis notificationCount={notificationCount} todaysJobsCount={todaysJobsCount} />
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <CalendarDays aria-hidden="true" className="size-4" />
-              {currentDateLabel}
-            </span>
+
+          <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Today</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{currentDateLabel} · What needs action now?</p>
+          {notificationCount == null ? (
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Some Needs you sources are unavailable. Review the visible queue before assuming you are clear.
+            </p>
+          ) : (
+            <OwnerDashboardSynthesis notificationCount={notificationCount} todaysJobsCount={todaysJobsCount} />
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>{projectScopeLabel}</span>
             <span aria-hidden="true">·</span>
             <DashboardFreshnessLabel />
           </div>
-          {metrics.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {metrics.map((metric) => (
-                <MetricChip key={metric.key} label={metric.label} value={metric.value} />
-              ))}
-            </div>
-          ) : null}
         </div>
 
-        <Link href="/projects" className={buttonVariants()}>
+        <Link href="/projects" className={buttonVariants({ variant: "outline" })}>
           Review work
         </Link>
       </div>
-    </section>
+    </header>
   );
 }
