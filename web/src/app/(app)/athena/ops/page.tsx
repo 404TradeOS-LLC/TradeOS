@@ -50,15 +50,18 @@ export default async function AthenaOpsPage({ searchParams }: { searchParams: Pr
   let overview: AthenaOverviewMetrics | null = null;
   let alerts: AthenaAlertRecord[] = [];
   let loadState: AthenaLoadOutcome | null = null;
+  let alertsLoadState: AthenaLoadOutcome | null = null;
 
-  try {
-    [overview, alerts] = await Promise.all([
-      getAthenaObservabilityOverview(access.token, window),
-      listAthenaAlerts(access.token, { status: "active" }),
-    ]);
-  } catch (error) {
-    loadState = describeAthenaLoadError(error);
-  }
+  const [overviewResult, alertsResult] = await Promise.allSettled([
+    getAthenaObservabilityOverview(access.token, window),
+    listAthenaAlerts(access.token, { status: "active" }),
+  ]);
+
+  if (overviewResult.status === "fulfilled") overview = overviewResult.value;
+  else loadState = describeAthenaLoadError(overviewResult.reason);
+
+  if (alertsResult.status === "fulfilled") alerts = alertsResult.value;
+  else alertsLoadState = describeAthenaLoadError(alertsResult.reason);
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,7 +98,7 @@ export default async function AthenaOpsPage({ searchParams }: { searchParams: Pr
             />
           )}
 
-          <AthenaAlertsPanel alerts={alerts} />
+          {alertsLoadState ? <AthenaStatePanel state={alertsLoadState} /> : <AthenaAlertsPanel alerts={alerts} />}
         </>
       )}
     </div>
