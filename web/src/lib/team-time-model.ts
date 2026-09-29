@@ -21,7 +21,7 @@ export function calculateShiftHours(shift: Shift, now = Date.now()): string {
 }
 
 function csvCell(value: unknown) {
-  const safe = String(value ?? "").replace(/^[=+@-]/, "\u200b$&").replaceAll('"', '""');
+  const safe = String(value ?? "").replace(/^[=+\\-@\\t\\r]/, "\u200b$&").replaceAll('"', '""');
   return `"${safe}"`;
 }
 
