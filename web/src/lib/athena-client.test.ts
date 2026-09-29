@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ClientApiError } from "./clientApi";
 import {
+  AthenaClientError,
   isAthenaRetryableClientError,
   sendAthenaMessage,
   type AthenaKernelResult,
-} from "./athena-client";
+} from "./athena-client.ts";
 
 const originalFetch = globalThis.fetch;
 
@@ -98,7 +98,7 @@ test("sendAthenaMessage throws the proxy error for a 401 error payload", async (
   await assert.rejects(
     () => sendAthenaMessage({ message: "hello" }),
     (error: unknown) =>
-      error instanceof ClientApiError &&
+      error instanceof AthenaClientError &&
       error.status === 401 &&
       error.message === "Session expired"
   );
@@ -110,7 +110,7 @@ test("sendAthenaMessage rejects malformed non-JSON bodies without leaking parser
   await assert.rejects(
     () => sendAthenaMessage({ message: "hello" }),
     (error: unknown) =>
-      error instanceof ClientApiError &&
+      error instanceof AthenaClientError &&
       error.status === 502 &&
       error.message === "Request failed"
   );
@@ -118,9 +118,9 @@ test("sendAthenaMessage rejects malformed non-JSON bodies without leaking parser
 
 test("retry classification only retries ambiguous transport and retryable HTTP outcomes", () => {
   assert.equal(isAthenaRetryableClientError(new Error("network disconnected")), true);
-  assert.equal(isAthenaRetryableClientError(new ClientApiError("timeout", 408)), true);
-  assert.equal(isAthenaRetryableClientError(new ClientApiError("rate limited", 429)), true);
-  assert.equal(isAthenaRetryableClientError(new ClientApiError("server error", 500)), true);
-  assert.equal(isAthenaRetryableClientError(new ClientApiError("validation", 400)), false);
-  assert.equal(isAthenaRetryableClientError(new ClientApiError("disabled", 404)), false);
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("timeout", 408)), true);
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("rate limited", 429)), true);
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("server error", 500)), true);
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("validation", 400)), false);
+  assert.equal(isAthenaRetryableClientError(new AthenaClientError("disabled", 404)), false);
 });
