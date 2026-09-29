@@ -1,0 +1,44 @@
+name: S053 Preview env diagnostic
+
+on:
+  push:
+    branches:
+      - evidence/s053-auth-browser-6271713
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+      TARGET_BRANCH: feature/athena-contractor-estimating-copilot
+    steps:
+      - name: Inspect Preview env metadata without values
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const token = process.env.VERCEL_TOKEN;
+          const team = process.env.TEAM_ID;
+          const project = process.env.PROJECT_ID;
+          const branch = process.env.TARGET_BRANCH;
+          async function inspect(label, suffix) {
+            const url = new URL(`https://api.vercel.com/v10/projects/${project}/env`);
+            url.searchParams.set('teamId', team);
+            if (suffix) url.searchParams.set('gitBranch', suffix);
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error(`${label} env lookup failed: ${res.status}`);
+            const payload = await res.json();
+            const rows = payload.envs ?? payload;
+            const summary = rows
+              .filter((row) => ['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','BACKEND_API_URL','SUPABASE_SERVICE_ROLE_KEY','NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET','SUPABASE_STORAGE_BUCKET_PUBLIC'].includes(row.key))
+              .map(({key,target,gitBranch,createdAt,updatedAt,type}) => ({key,target,gitBranch:gitBranch ?? null,createdAt,updatedAt,type}));
+            console.log(label + ': ' + JSON.stringify(summary));
+          }
+          await inspect('all-env', null);
+          await inspect('branch-env', branch);
+          NODE
