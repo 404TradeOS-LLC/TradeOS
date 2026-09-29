@@ -46,3 +46,9 @@ export interface AssemblyUnitCostResult {
   unitCost: number;
   componentCount: number;
 }
+
+export interface InstallCatalogAssemblyInput {
+  orgId: string;
+  templateId: string;
+  componentMappings: Array<{ componentKey: string; costItemId: string }>;
+}

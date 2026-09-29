@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-14
+last_verified: 2026-09-22
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -12,43 +12,47 @@ related_docs:
 
 # Session Handoff
 
-## Mission
-
-Continue draft PR #507, `codex/financial-intelligence-live-data`, with the
-first organization-wide Financial Intelligence backend summary and connect the
-owner dashboard to it without claiming that estimated cost is actual job cost.
-
 ## Current truth
 
-- `origin/main` is `5c1eb6c99fb3e2310fb91ddcb112f69765ab2d4e`.
-- Draft PR #507 is the single active financial-intelligence implementation.
-  Autonomy reconciliation classified this session `EXISTING_WORK_FOUND`; no
-  competing branch or PR was created.
-- `GET /api/v1/intelligence/financial-summary` now requires `billing.read`,
-  derives organization scope from authenticated request context, and runs
-  inside the existing request-scoped database session and forced RLS boundary.
-- The summary returns source-aware current-week recorded cash, exact open and
-  overdue receivables, unsigned proposal opportunity, and projected committed
-  margin from unique persisted Estimate snapshots linked to accepted
-  proposals. Independent source failures remain null/unavailable.
-- The dashboard prefers the exact aggregate and retains its prior bounded
-  queue logic as a visibly labeled degraded fallback.
-- Actual job margin remains unavailable. The current schema does not persist
-  actual field labor, material usage/purchases, or equipment usage against a
-  Job, so no realized margin is inferred.
-- Local verification passed backend unit tests (262 suites / 2,285 tests),
-  backend lint/typecheck and build, frontend unit tests (280), frontend lint
-  and build, PR/docs tests, docs ownership, preflight, and diff whitespace.
-  The focused financial suites passed 10 backend tests and 4 frontend model
-  tests. The PostgreSQL/RLS regression is committed but local integration was
-  blocked because this environment has neither Docker nor PostgreSQL; required
-  CI remains authoritative for that lane.
-- Other open PRs observed during reconciliation: #506, #503, #502, #500, #497,
-  #491, #489, and #482. None substantially overlaps PR #507.
+- S051 implementation merged in PR #538:
+  https://github.com/404TradeOS-LLC/TradeOS/pull/538
+- Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
+- The matrix/validator is now on `main`; do not continue the old S051 branch.
+- The change adds a machine-readable matrix of 10 journeys and 49 UI/API
+  actions or reads, plus a static route/controller/contract drift validator,
+  regression tests, and beta-evidence documentation.
+- The matrix identifies two current gaps: no customer proposal accept/decline
+  UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
+- Static validation is not rendered-browser certification. No current-head
+  browser evidence is claimed. Hosted verification passed on code head
+  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
+  remain outstanding.
+- No application behavior, API contract, database schema, or runtime security
+  policy was changed.
+
+## Verification completed
+
+- `npm run connection-matrix:check` — passed (10 journeys, 49 mapped actions).
+- `npm run connection-matrix:test` — passed.
+- `npm run pr:test` — passed (65 tests).
+- `npm run docs:test` — passed.
+- `npm run docs:check -- --base origin/main` — passed.
+- `npm run pr:preflight -- --base origin/main` — passed.
+- `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
+  passed.
+
+## Next action
+
+After the S053 readiness PR merges, create a fresh implementation branch from
+current `main`. Certify the existing scope → Athena → reviewed Costbook/assembly
+→ persisted estimate-line path; do not change pricing policy, schema, auth/RLS,
+or introduce unreviewed AI writes.
 
 ## Next Eligible Sprint
-Sprint ID: NONE
-Eligibility: `NONE`; no numbered sprint is currently authorized by this non-sprint continuation.
-Dependencies: PR #507 must pass exact-head required CI before it can leave draft status.
-Overlap check: PR #507 remains the single active financial-intelligence lane; no competing implementation was found.
-Startup prompt: Inspect PR #507 exact-head CI and review state, repair only deterministic findings, and retain draft status until rendered browser evidence is available.
+
+Sprint ID: S053
+Eligibility: `READY` in the separate governance promotion; implementation starts only after that PR merges.
+Dependencies: S051 is DONE; no competing S053 implementation was found.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
+Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
+

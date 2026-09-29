@@ -11,10 +11,12 @@
     "docs:test": "node --test scripts/__tests__/docs-check.test.mjs",
     "costbook:audit-provenance": "node scripts/costbook-provenance-audit.mjs",
     "costbook:audit-provenance:test": "node --test scripts/__tests__/costbook-provenance-audit.test.mjs",
+    "connection-matrix:check": "node scripts/connection-matrix-check.mjs",
+    "connection-matrix:test": "node --test scripts/__tests__/connection-matrix.test.mjs",
     "pr:body-check": "node scripts/pr-body-check.mjs",
     "pr:preflight": "node scripts/pr-preflight.mjs",
     "pr:preflight:run": "node scripts/pr-preflight.mjs --run",
-    "pr:test": "node --test scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs",
+    "pr:test": "node --test scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/connection-matrix.test.mjs",
     "prompt": "node scripts/prompt-manager.mjs",
     "prompts": "node scripts/prompt-manager.mjs",
     "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs"

@@ -14,7 +14,9 @@ const MAX_INT32 = 2_147_483_647;
 
 function hasAtMostFourDecimalPlaces(value: number): boolean {
   const scaled = value * 10_000;
-  return Math.abs(scaled - Math.round(scaled)) < 1e-7;
+  const nearestInteger = Math.round(scaled);
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(scaled));
+  return Math.abs(scaled - nearestInteger) <= tolerance;
 }
 
 function boundedNumeric(max: number) {

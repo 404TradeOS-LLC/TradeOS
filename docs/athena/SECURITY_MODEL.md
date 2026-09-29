@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-28
 source_of_truth: true
 related_code:
   - app/backend/controllers/athena.controller.ts
@@ -56,6 +56,26 @@ authentication, membership, and database-session model as the rest of the app.
 - action idempotency: dedup-eligible production actions use a durable
   organization/tool/version/key claim inside the same request-scoped RLS
   transaction as tool execution rather than process-local memory.
+
+## Contractor workspace capability boundary
+
+The authenticated contractor workspace uses the existing Athena trust boundary
+rather than creating a browser-side authority layer.
+
+- `GET /api/v1/athena/capabilities` is mounted behind the normal authenticated
+  API middleware and re-resolves authenticated context before returning only the
+  deployment's `kernelEnabled` flag. It exposes no tenant data and grants no
+  permission.
+- Browser-supplied `selectedScope` on `POST /api/v1/athena/chat` is validated
+  and bounded, but remains an untrusted narrowing hint. Organization, actor,
+  permissions, object visibility, approvals, service validation, request-scoped
+  database sessions, and forced RLS remain server-owned.
+- The contractor workspace renders returned kernel states and does not simulate
+  approval or write directly to business-domain endpoints. Operator
+  observability remains a separate owner/admin surface under `/athena/ops`.
+- A completed terminal kernel envelope is a known backend outcome; the browser
+  must not treat it as an ambiguous transport failure and replay the same
+  idempotency key as a generic retry.
 
 ## Approval model
 

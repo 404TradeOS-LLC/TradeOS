@@ -132,6 +132,14 @@ export function getOrganizationSettings(token: string) {
   return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token });
 }
 
+export interface AthenaCapabilities {
+  kernelEnabled: boolean;
+}
+
+export function getAthenaCapabilities(token: string, signal?: AbortSignal) {
+  return apiFetch<AthenaCapabilities>("/api/v1/athena/capabilities", { token, signal });
+}
+
 export type SettingsAssetKey = "logoUrl" | "darkLogoUrl" | "iconUrl" | "watermarkUrl";
 
 export interface SettingsAssetUploadResponse {
@@ -242,6 +250,7 @@ export interface CostbookMaterial {
   supplierId: string | null;
   supplierName: string | null;
   lastPriceUpdate: string | null;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -370,6 +379,21 @@ export function listCustomers(token: string) {
 
 export function getCustomer(token: string, id: string) {
   return apiFetch<Customer & { projects: Project[] }>(`/api/v1/customers/${id}`, { token });
+}
+
+export interface CustomerPortalAccessTokenIssue {
+  id: string;
+  customerId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export function issueCustomerPortalAccessToken(token: string, customerId: string) {
+  return apiFetch<CustomerPortalAccessTokenIssue>("/api/v1/customer-portal/access-tokens", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ customerId }),
+  });
 }
 
 export const PROJECT_STATUSES = projectStatuses;
@@ -610,6 +634,49 @@ export interface AIEstimateSuggestion {
   };
   provenanceStatus: CostDataProvenanceStatus;
   provenanceDetail?: AIEstimateProvenanceDetail;
+}
+
+export interface StructuredAIEstimateDraftLineItem {
+  draftLineItemId: string;
+  source: "knowledge-runtime";
+  reviewToken: string | null;
+  targetKind: "assembly" | "costItem";
+  targetId: string | null;
+  targetCode: string | null;
+  targetName: string | null;
+  targetResolution: AIEstimateSuggestion["resolution"];
+  description: string;
+  quantity: number;
+  unitOfMeasure: string;
+  unitCost: number;
+  lineCost: number;
+  confidence: number;
+  rationale: string;
+  reviewWarnings: string[];
+  costBreakdown: { laborCostPerUnit: number; materialCostPerUnit: number; equipmentCostPerUnit: number; totalUnitCost: number; componentCount?: number } | null;
+  provenanceStatus: CostDataProvenanceStatus;
+  provenanceDetail?: AIEstimateProvenanceDetail;
+}
+
+export interface StructuredAIEstimateDraft {
+  generationId?: string;
+  estimateId: string;
+  projectId: string;
+  scopeOfWork: string;
+  detectedTrade: string | null;
+  confidenceScore: number;
+  lineItems: StructuredAIEstimateDraftLineItem[];
+  subtotalCost: number;
+  validation: { status: "blocked" | "needs_review" | "ready_for_review"; reviewRequired: boolean; missingInformation: string[]; warnings: string[] };
+  toolRuns: Array<{ name: string; status: "passed" | "warning" | "failed"; summary: string }>;
+}
+
+export function getStructuredAIEstimateDraft(token: string, estimateId: string, scopeOfWork: string) {
+  return apiFetch<StructuredAIEstimateDraft>(`/api/v1/estimates/${estimateId}/ai-estimator/draft`, {
+    token,
+    method: "POST",
+    body: JSON.stringify({ scopeOfWork }),
+  });
 }
 
 export function getAIEstimateSuggestions(token: string, estimateId: string, scopeOfWork: string) {

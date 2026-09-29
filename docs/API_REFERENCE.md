@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-14
+last_verified: 2026-09-11
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -54,6 +54,9 @@ Public routes are limited to:
 requires `documents.manage`. Its body is `{ customerId }`; it returns a raw,
 high-entropy `token` exactly once to the authenticated caller, along with its
 customer scope and expiration. The raw token is never persisted or logged.
+After the token row is created, the service schedules a server-side
+transactional email to the customer record through the shared Resend adapter;
+email delivery does not expand the endpoint's `documents.manage` boundary.
 `POST /api/v1/customer-portal/access-tokens/:id/revoke` is staff-authenticated,
 requires `documents.manage`, and revokes the access value plus every session
 redeemed from it.
@@ -61,8 +64,10 @@ redeemed from it.
 `POST /api/v1/customer-portal/redeem` accepts `{ token }` without a staff
 session. Redemption is rate-limited, organization/customer-bound, atomic, and
 single-use. It returns an opaque short-lived `sessionToken`; the web route
-immediately stores that value in an HttpOnly cookie and does not expose it to
-browser JavaScript. Expired, revoked, malformed, or replayed values return a
+stores that value in an HttpOnly cookie and does not expose it to browser
+JavaScript. The emailed web GET is non-consuming and redirects through a
+token-free confirmation screen; only its exact-origin POST submits the token
+to this endpoint. Expired, revoked, malformed, or replayed values return a
 non-success response.
 
 The following routes require
@@ -163,6 +168,8 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 - `/api/v1/athena`
+  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled.
+  - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
@@ -181,7 +188,11 @@ been configured.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
-`POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no payment processor or public checkout contract is introduced.
+`POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
+
+### TradeOS subscription billing
+
+`GET /api/v1/billing` and `GET /api/v1/billing/catalog` require `billing.read`. The summary is the tenant-scoped Stripe subscription projection; the catalog is the server-owned Starter/Pro/Business/Scale presentation and price contract used by both checkout validation and the billing UI. `POST /api/v1/billing/checkout` and `POST /api/v1/billing/portal` require an organization owner or admin. Checkout requests validate the configured Stripe Price against the selected catalog amount, currency, and recurring interval; an organization-scoped persisted checkout attempt and stable Stripe idempotency key prevent duplicate sessions. `POST /api/v1/billing/webhook` accepts only a valid Stripe-signed raw body. Webhook event claiming is atomic, and subscription events hydrate the current Stripe subscription before updating the local projection so out-of-order delivery cannot restore stale access. Only `active` and `trialing` states grant entitlements.
 
 `GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
 
@@ -358,12 +369,15 @@ Costbook material DTO:
   "supplierId": null,
   "supplierName": null,
   "lastPriceUpdate": "2026-08-11T00:00:00.000Z",
+  "isActive": true,
   "createdAt": "2026-08-10T00:00:00.000Z",
   "updatedAt": "2026-08-11T00:00:00.000Z"
 }
 ```
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the existing `Material` table has no active/archive state, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+
+A later follow-up (migration `20260912120000_add_material_active_state`) adds an `is_active` column to `materials`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern: `GET /api/v1/costbook/materials` accepts an `active` filter (`true`/`false`), a PATCH that changes `isActive` additionally requires `costbook.manage` (matching the hierarchy activation boundary), and `DELETE /api/v1/costbook/materials/:id` requires `costbook.manage` and soft-deactivates the material (sets `isActive: false`) rather than deleting the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 Costbook labor-rate DTO:
 
@@ -545,6 +559,8 @@ persisted organization branding when authenticated context is available.
 ## Costbook continuation API additions
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
+
+`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
 
 The S027 catalog continuation applies the same page envelope and opaque
 keyset-cursor contract to materials, labor rates, equipment, hierarchy,

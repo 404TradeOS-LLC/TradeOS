@@ -31,6 +31,15 @@ jest.mock("../modules/proposals/service", () => ({ ProposalsService: jest.fn().m
 jest.mock("../modules/invoices/service", () => ({ InvoicesService: jest.fn().mockImplementation(() => ({})) }));
 jest.mock("../modules/contracts/service", () => ({ ContractsService: jest.fn().mockImplementation(() => ({})) }));
 
+const mockSendCustomerPortalAccess = jest.fn();
+const mockScheduleEmailInBackground = jest.fn((send: () => Promise<void>) => {
+  void send();
+});
+jest.mock("../modules/email/service", () => ({
+  emailService: { sendCustomerPortalAccess: mockSendCustomerPortalAccess },
+  scheduleEmailInBackground: mockScheduleEmailInBackground,
+}));
+
 import { CustomerPortalService, hashPortalSecret } from "../modules/customer-portal/service";
 
 describe("CustomerPortalService", () => {
@@ -41,6 +50,33 @@ describe("CustomerPortalService", () => {
   it("uses a one-way digest for portal secrets", () => {
     expect(hashPortalSecret("test-secret")).toBe("9caf06bb4436cdbfa20af9121a626bc1093c4f54b31c0fa937957856135345b6");
     expect(hashPortalSecret("test-secret")).not.toContain("test-secret");
+  });
+
+  it("schedules server-side delivery after issuing an access token", async () => {
+    const expiresAt = new Date("2026-09-20T12:00:00.000Z");
+    mockPrisma.customer.findFirst.mockResolvedValue({ id: "customer-a", email: "customer@example.com" });
+    mockPrisma.customerPortalAccessToken.create.mockResolvedValue({
+      id: "access-1",
+      customerId: "customer-a",
+      expiresAt,
+    });
+    mockSendCustomerPortalAccess.mockResolvedValue({ sent: true });
+
+    const result = await new CustomerPortalService().issueAccessToken({
+      orgId: "org-a",
+      customerId: "customer-a",
+      createdByUserId: "user-a",
+    });
+
+    expect(mockScheduleEmailInBackground).toHaveBeenCalledTimes(1);
+    expect(mockSendCustomerPortalAccess).toHaveBeenCalledWith({
+      to: "customer@example.com",
+      token: result.token,
+      expiresAt,
+    });
+    expect(mockPrisma.customerPortalAccessToken.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ tokenHash: hashPortalSecret(result.token) }),
+    }));
   });
 
   it("atomically consumes an unused access token before creating a session", async () => {

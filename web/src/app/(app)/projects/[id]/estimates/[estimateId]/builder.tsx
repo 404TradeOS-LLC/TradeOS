@@ -5,17 +5,21 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
+import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { Estimate } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface LineItem {
   id: string;
+  costItemId: string | null;
+  assemblyId: string | null;
   description: string;
   quantity: number;
   unitOfMeasure: string;
@@ -38,9 +42,21 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId }: { projectId: string; projectName: string; estimateId: string }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
+  const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
+  const [scopeDraft, setScopeDraft] = useState(simpleScope ?? "");
+  const [persistedScope, setPersistedScope] = useState(simpleScope ?? "");
+
+  const saveScope = useMutation({
+    mutationFn: () =>
+      clientFetch(`/projects/${projectId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ simpleScope: scopeDraft.trim() }),
+      }),
+    onSuccess: () => setPersistedScope(scopeDraft.trim()),
+  });
 
   const { data: estimate, isLoading, isError, error } = useQuery({
     queryKey: estimateKey,
@@ -91,10 +107,10 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
   const pricingModeLabel = estimate.targetMarginPct != null ? "Target margin" : "Markup";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title={`Estimate v${estimate.version}`}
-        description="Build the estimate quickly with keyboard-first line-item search, then tune pricing with live margin and markup feedback."
+        description="Shape the scope, price the work, and send a clear proposal from one focused workspace."
         breadcrumbs={[
           { label: projectName, href: `/projects/${projectId}` },
           { label: `Estimate v${estimate.version}` },
@@ -105,7 +121,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
               Compare versions
             </Link>
             <Link href={`/projects/${projectId}/estimates/${estimateId}/assist`} className={buttonVariants({ variant: "outline" })}>
-              AI assist
+              Athena review
             </Link>
             {isDraft ? (
               <span className={buttonVariants({ variant: "outline" })} aria-disabled="true">
@@ -121,18 +137,49 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
         }
       />
 
-      <Card className="border-border/70 bg-muted/10">
-        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricTile label="Line items" value={runningTotals.lineItemCount.toString()} detail="Counted in the running total" />
-          <MetricTile label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} detail="Cost basis from line items" />
-          <MetricTile label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} detail="After overhead, before tax" accent={runningTotals.grossProfit >= 0} />
-          <MetricTile label="Total price" value={formatCurrency(runningTotals.totalPrice)} detail="Customer-facing price" highlight />
-        </CardContent>
-      </Card>
+      <div className="hidden grid-cols-2 gap-x-5 gap-y-3 border-y border-border/70 bg-muted/20 px-3 py-3 sm:grid-cols-4 sm:px-4 lg:grid" aria-label="Estimate summary">
+        <SummaryValue label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
+        <SummaryValue label="Sell price" value={formatCurrency(runningTotals.preTaxTotalPrice)} />
+        <SummaryValue label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} tone={runningTotals.grossProfit >= 0 ? "positive" : "negative"} />
+        <SummaryValue label="Margin" value={formatPercent(runningTotals.marginPct)} tone={runningTotals.marginPct >= 0 ? "positive" : "negative"} />
+      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
-        <div className="space-y-6">
-          <Card className="border-border/70">
+      <MobileEstimateFlow
+        projectId={projectId}
+        projectName={projectName}
+        simpleScope={scopeDraft}
+        onScopeChange={(value) => {
+          saveScope.reset();
+          setScopeDraft(value);
+        }}
+        onSaveScope={async () => {
+          try {
+            await saveScope.mutateAsync();
+            return true;
+          } catch {
+            return false;
+          }
+        }}
+        scopeDirty={scopeDraft.trim() !== persistedScope.trim()}
+        scopeSavePending={saveScope.isPending}
+        scopeSaveSuccess={saveScope.isSuccess}
+        scopeSaveError={saveScope.isError ? (saveScope.error instanceof Error ? saveScope.error.message : "Unable to save scope.") : null}
+        estimate={estimate}
+        runningTotals={runningTotals}
+        estimateId={estimateId}
+        isDraft={isDraft}
+        mobileStage={mobileStage}
+        onStageChange={setMobileStage}
+        onUpdated={invalidate}
+        onRemoveLineItem={(lineItemId) => removeLineItem.mutate(lineItemId)}
+        removeLineItemPending={removeLineItem.isPending}
+        onFinalize={() => finalize.mutate()}
+        finalizePending={finalize.isPending}
+      />
+
+      <div className="hidden grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
+        <div className="space-y-5">
+          <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -142,7 +189,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
                 {isDraft && <Badge variant="outline">{estimate.lineItems.length} saved</Badge>}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-0 sm:px-0">
               {isDraft && <LineItemPicker estimateId={estimateId} onAdded={invalidate} />}
 
               {estimate.lineItems.length === 0 ? (
@@ -150,11 +197,11 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
                   No line items yet. Add an assembly or cost item to start the estimate.
                 </div>
               ) : (
-                <ul className="space-y-3">
+                <ul className="divide-y divide-border/70">
                   {groupLineItems(estimate.lineItems).map(([section, sectionItems]) => (
                     <li key={section} className="space-y-2">
                       <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{section}</div>
-                      <ul className="space-y-3">
+                      <ul className="space-y-0">
                         {sectionItems.map((li) => (
                           <EditableLineItem key={li.id} estimateId={estimateId} lineItem={li} isDraft={isDraft} onUpdated={invalidate} onRemove={() => removeLineItem.mutate(li.id)} removing={removeLineItem.isPending} />
                         ))}
@@ -175,34 +222,14 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
           )}
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-20 xl:self-start">
+        <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
+          <ContextualAthenaPanel
+            estimateId={estimateId}
+            projectId={projectId}
+            scopeOfWork={scopeDraft}
+            headingId="desktop-contextual-athena-heading"
+          />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
-
-          <Card className="border-border/70 bg-muted/10">
-            <CardHeader>
-              <CardTitle>Running totals</CardTitle>
-              <CardDescription>Live pricing signals update as line items and pricing change.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <StatBlock label="Job cost" value={formatCurrency(runningTotals.subtotalCost)} />
-                <StatBlock label="Cost + overhead" value={formatCurrency(runningTotals.costAfterOverhead)} />
-                <StatBlock label="Gross profit" value={formatCurrency(runningTotals.grossProfit)} valueClassName={runningTotals.grossProfit >= 0 ? "text-foreground" : "text-destructive"} />
-                <StatBlock label="Markup" value={formatPercent(runningTotals.markupPct)} />
-                <StatBlock label="Margin" value={formatPercent(runningTotals.marginPct)} />
-              </div>
-              <div className="rounded-xl border border-border/70 bg-background/80 p-4">
-                <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  <span>Total price</span>
-                  <span>{pricingModeLabel}</span>
-                </div>
-                <div className="mt-2 text-3xl font-semibold">{formatCurrency(runningTotals.totalPrice)}</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {formatCurrency(runningTotals.preTaxTotalPrice)} pre-tax + {formatCurrency(runningTotals.taxAmount)} tax · {formatPercent(runningTotals.marginPct)} gross margin
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card className="border-border/70">
             <CardHeader>
@@ -221,6 +248,227 @@ export function EstimateBuilder({ projectId, projectName, estimateId }: { projec
     </div>
   );
 }
+
+type MobileEstimateStage = "scope" | "items" | "price" | "review";
+
+function MobileEstimateFlow({
+  projectId,
+  projectName,
+  simpleScope,
+  onScopeChange,
+  onSaveScope,
+  scopeDirty,
+  scopeSavePending,
+  scopeSaveSuccess,
+  scopeSaveError,
+  estimate,
+  runningTotals,
+  estimateId,
+  isDraft,
+  mobileStage,
+  onStageChange,
+  onUpdated,
+  onRemoveLineItem,
+  removeLineItemPending,
+  onFinalize,
+  finalizePending,
+}: {
+  projectId: string;
+  projectName: string;
+  simpleScope: string;
+  onScopeChange: (value: string) => void;
+  onSaveScope: () => Promise<boolean>;
+  scopeDirty: boolean;
+  scopeSavePending: boolean;
+  scopeSaveSuccess: boolean;
+  scopeSaveError: string | null;
+  estimate: EstimateDetail;
+  runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
+  estimateId: string;
+  isDraft: boolean;
+  mobileStage: MobileEstimateStage;
+  onStageChange: (stage: MobileEstimateStage) => void;
+  onUpdated: () => void;
+  onRemoveLineItem: (lineItemId: string) => void;
+  removeLineItemPending: boolean;
+  onFinalize: () => void;
+  finalizePending: boolean;
+}) {
+  const stages: Array<{ id: MobileEstimateStage; label: string }> = [
+    { id: "scope", label: "Scope" },
+    { id: "items", label: "Items" },
+    { id: "price", label: "Price" },
+    { id: "review", label: "Review" },
+  ];
+  const stageIndex = stages.findIndex((stage) => stage.id === mobileStage);
+
+  const goToStage = async (stage: MobileEstimateStage) => {
+    if (stage === mobileStage || scopeSavePending) return;
+    if (mobileStage === "scope" && isDraft && scopeDirty) {
+      const saved = await onSaveScope();
+      if (!saved) return;
+    }
+    onStageChange(stage);
+  };
+
+  const advance = () => {
+    const next = stages[stageIndex + 1];
+    if (next) void goToStage(next.id);
+  };
+
+  return (
+    <section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow">
+      <div className="grid grid-cols-4 border-b border-border/70" role="tablist" aria-label="Estimate stages">
+        {stages.map((stage, index) => (
+          <button
+            key={stage.id}
+            type="button"
+            role="tab"
+            aria-selected={mobileStage === stage.id}
+            onClick={() => void goToStage(stage.id)}
+            disabled={scopeSavePending && mobileStage === "scope" && stage.id !== "scope"}
+            className={cn(
+              "min-h-11 border-b-2 px-1 text-xs font-semibold transition-colors",
+              mobileStage === stage.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"
+            )}
+          >
+            <span className="mr-1 text-[10px] tabular-nums">{index + 1}</span>
+            {stage.label}
+          </button>
+        ))}
+      </div>
+
+      {mobileStage === "scope" ? (
+        <div className="space-y-4">
+          <div className="space-y-3 border-b border-border/70 pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Plain-language scope</p>
+                <p className="mt-1 text-sm text-muted-foreground">Edit the Project scope here; Athena reviews the same saved scope.</p>
+              </div>
+              {scopeSaveSuccess && !scopeSavePending ? <span className="text-xs font-medium text-success">Saved</span> : null}
+            </div>
+            <Textarea
+              value={simpleScope}
+              onChange={(event) => onScopeChange(event.target.value)}
+              rows={5}
+              maxLength={5000}
+              disabled={!isDraft || scopeSavePending}
+              aria-label="Estimate scope"
+              placeholder="Describe what you’re building or fixing…"
+            />
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="outline" onClick={() => void onSaveScope()} disabled={!isDraft || scopeSavePending || !simpleScope.trim()}>
+                {scopeSavePending ? "Saving scope…" : "Save scope"}
+              </Button>
+              {!isDraft ? <span className="text-xs text-muted-foreground">Finalized estimates keep their pricing snapshot; duplicate the estimate to revise it.</span> : null}
+            </div>
+            {scopeSaveError ? <p className="text-sm text-destructive" role="alert">{scopeSaveError}</p> : null}
+          </div>
+          <ContextualAthenaPanel
+            estimateId={estimateId}
+            projectId={projectId}
+            scopeOfWork={simpleScope}
+            headingId="mobile-contextual-athena-heading"
+          />
+          <div className="text-sm text-muted-foreground">
+            Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
+          </div>
+          <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
+        </div>
+      ) : null}
+
+      {mobileStage === "items" ? (
+        <div className="space-y-4">
+          {isDraft ? <LineItemPicker estimateId={estimateId} onAdded={onUpdated} /> : null}
+          {estimate.lineItems.length === 0 ? (
+            <p className="border-b border-border/70 py-4 text-sm text-muted-foreground">No line items yet.</p>
+          ) : (
+            <ul className="divide-y divide-border/70">
+              {estimate.lineItems.map((lineItem) => (
+                <EditableLineItem
+                  key={lineItem.id}
+                  estimateId={estimateId}
+                  lineItem={lineItem}
+                  isDraft={isDraft}
+                  onUpdated={onUpdated}
+                  onRemove={() => onRemoveLineItem(lineItem.id)}
+                  removing={removeLineItemPending}
+                />
+              ))}
+            </ul>
+          )}
+          <MobileStageAction label="Continue to price" onClick={advance} />
+        </div>
+      ) : null}
+
+      {mobileStage === "price" ? (
+        <div className="space-y-4">
+          <PricingPanel
+            estimateId={estimateId}
+            estimate={estimate}
+            hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)}
+            pricingModeLabel={estimate.targetMarginPct != null ? "Target margin" : "Markup"}
+            isDraft={isDraft}
+            onUpdated={onUpdated}
+          />
+          <MobileStageAction label="Continue to review" onClick={advance} />
+        </div>
+      ) : null}
+
+      {mobileStage === "review" ? (
+        <div className="space-y-5 pb-24">
+          <div className="border-b border-border/70 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Customer-facing review</p>
+                <h2 className="mt-2 text-xl font-semibold text-foreground">{projectName}</h2>
+              </div>
+              <StatusBadge status={estimate.status} />
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">{simpleScope?.trim() || "Estimate scope"}</p>
+          </div>
+          <div className="space-y-3">
+            {estimate.lineItems.map((lineItem) => (
+              <div key={lineItem.id} className="flex items-start justify-between gap-4 border-b border-border/60 pb-3 text-sm">
+                <span className="min-w-0">{lineItem.description} <span className="text-muted-foreground">× {lineItem.quantity}</span></span>
+                <span className="shrink-0 font-mono font-semibold">{formatCurrency(lineItem.lineCost)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border py-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="font-medium">Estimate total</span>
+              <span className="text-2xl font-semibold tabular-nums text-primary">{formatCurrency(runningTotals.totalPrice)}</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{formatPercent(runningTotals.marginPct)} gross margin · {runningTotals.lineItemCount} line items</p>
+          </div>
+          {isDraft ? (
+            <>
+              <p className="text-sm text-muted-foreground">Finalizing locks this reviewed estimate version. The next step is creating the customer proposal.</p>
+              <MobileStageAction label={finalizePending ? "Finalizing…" : "Finalize estimate"} onClick={onFinalize} disabled={finalizePending || estimate.lineItems.length === 0} />
+            </>
+          ) : (
+            <Link href={`/projects/${estimate.projectId}/proposals/new?estimateId=${estimateId}`} className={buttonVariants({ variant: "default" }) + " flex min-h-11 w-full items-center justify-center"}>
+              Create proposal
+            </Link>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MobileStageAction({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border/70 bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <Button type="button" className="min-h-11 w-full" onClick={onClick} disabled={disabled}>
+        {label}
+      </Button>
+    </div>
+  );
+}
+
 
 function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: () => void }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -651,7 +899,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
     onSuccess: () => { setError(null); setEditing(false); onUpdated(); },
     onError: (err) => setError(err instanceof Error ? err.message : "Failed to update line item"),
   });
-  return <li className="rounded-xl border border-border/70 bg-card px-4 py-3 shadow-(--elev-1)">
+  return <li className="border-b border-border/70 px-0 py-4 last:border-b-0">
     {editing && isDraft ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} aria-label="Description" />
       <Input value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} aria-label="Section" />
@@ -663,7 +911,7 @@ function EditableLineItem({ estimateId, lineItem, isDraft, onUpdated, onRemove, 
       <div className="flex gap-2"><Button size="sm" onClick={() => update.mutate()} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save"}</Button><Button size="sm" variant="ghost" onClick={() => { setError(null); setEditing(false); }}>Cancel</Button></div>
       {error && <p className="sm:col-span-2 lg:col-span-4 text-sm text-destructive">{error}</p>}
     </div> : <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
+      <div className="space-y-1"><div className="font-medium">{lineItem.description}</div><div className="flex flex-wrap gap-2 text-sm text-muted-foreground"><span>{lineItem.quantity} {lineItem.unitOfMeasure} × {formatCurrency(lineItem.unitCost)}</span><Badge variant="outline">{lineItem.costType}</Badge><Badge variant="outline">{lineItem.assemblyId ? "Assembly source" : lineItem.costItemId ? "Costbook source" : "Custom item"}</Badge>{lineItem.taxable && <Badge variant="secondary">taxable</Badge>}</div></div>
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end"><span className="text-base font-semibold">{formatCurrency(lineItem.lineCost)}</span>{isDraft && <div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" size="sm" onClick={onRemove} disabled={removing}>Remove</Button></div>}</div>
     </div>}
   </li>;
@@ -813,39 +1061,11 @@ function PricingPanel({
   );
 }
 
-function MetricTile({
-  label,
-  value,
-  detail,
-  accent,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  accent?: boolean;
-  highlight?: boolean;
-}) {
+function SummaryValue({ label, value, tone }: { label: string; value: string; tone?: "positive" | "negative" }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-border/70 bg-background/80 p-3",
-        highlight && "bg-primary/5",
-        accent === false && "opacity-90"
-      )}
-    >
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-2xl font-semibold tabular-nums", highlight && "text-primary")}>{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
-    </div>
-  );
-}
-
-function StatBlock({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-background/80 p-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
-      <div className={cn("mt-2 text-lg font-semibold tabular-nums", valueClassName)}>{value}</div>
+    <div className="min-w-0">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+      <div className={cn("mt-1 truncate text-base font-semibold tabular-nums", tone === "positive" && "text-success", tone === "negative" && "text-destructive")}>{value}</div>
     </div>
   );
 }

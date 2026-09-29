@@ -1,13 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-05
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260912044500_add_stripe_billing
   - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
+  - app/modules/billing
   - app/modules/athena-memory
   - app/modules/athena-events
   - app/modules/athena-observability
@@ -23,7 +25,7 @@ This file defines the canonical business entities as implemented in the reposito
 The tenant boundary for all application data.
 
 - persistent model: `Organization`
-- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, and branding
+- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, branding, and synchronized subscription billing state
 - Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
 
 ## User
@@ -143,6 +145,19 @@ A recorded payment event stored in `Payment`.
 - belongs to one invoice and organization
 - tracks amount, payment date, method, reference, notes, and status
 - only `recorded` payments count toward reconciliation and queue balance derivation; concurrent payment reconciliation serializes on the Invoice row and preserves the Payment/status/audit transaction boundary
+
+## Organization subscription billing
+
+TradeOS SaaS subscription state is projected into `organization_billing`, one row per organization, by the Stripe Billing integration introduced in migration `20260912044500_add_stripe_billing`.
+
+- Stripe is authoritative for subscription/payment lifecycle; browser Checkout redirects never grant plan access by themselves
+- the row stores Stripe customer/subscription identifiers, the normalized internal TradeOS plan (`starter`, `pro`, `business`, or `scale`), billing interval, Stripe status, active price id, trial/period boundaries, cancellation-at-period-end state, last invoice status, and a short-lived pending Checkout attempt/session projection used for organization-scoped concurrency control
+- the server-owned catalog is shared by the billing UI and Checkout price validation; configured Stripe Prices must match its amount, currency, and recurring interval
+- plan entitlements are resolved inside TradeOS from the normalized plan, apply only to `active` and `trialing` subscriptions, and are deliberately independent of Stripe price identifiers
+- `organization_billing` uses forced organization-scoped RLS; authenticated reads are tenant-scoped and writes require the existing organization-admin boundary
+- signed Stripe webhook processing establishes an explicit tenant database context from immutable `tradeos_org_id` metadata before mutating billing state
+- `stripe_webhook_events` atomically claims processed Stripe event ids per organization so concurrent retries are idempotent; subscription event payloads are hydrated from Stripe before projection so stale delivery order cannot restore older state. The table is forced-RLS protected and is control-plane synchronization history rather than customer/project accounting data
+- subscription billing is distinct from contractor invoice payments: this entity family pays 404 TradeOS LLC for the SaaS product and does not make TradeOS the merchant of record for a contractor's customer transaction
 
 ## Change Order
 
@@ -265,7 +280,7 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
 - a material may link to a supplier only when that supplier belongs to the same authenticated organization
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
-- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+- a later follow-up (migration `20260912120000_add_material_active_state`) adds an `isActive` flag to `Material`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern; deactivating a material (`DELETE /api/v1/costbook/materials/:id`, or a PATCH that sets `isActive`) requires `costbook.manage` and never deletes the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 ## Costbook labor-rates foundation
 
@@ -329,6 +344,18 @@ Cost Item and Assembly lookup semantics remain unchanged: both services support 
 - import endpoints derive `orgId` and importer identity from authenticated context; callers cannot choose another tenant
 - benchmark values are installed/composite evidence and are not raw material cost, employee wage, equipment-only cost, or customer bill rate; this entity has no autonomous promotion path into those pricing tables
 
+## Regional supplier evidence intake
+
+Draft PR #531 adds a separate, tenant-scoped evidence boundary for regional supplier workbook observations. It is intentionally not a replacement for current Material pricing or the human-reviewed `SupplierPriceUpdate` workflow.
+
+- `SupplierProduct` stores a supplier catalog row, canonical material key, optional organization-scoped Material link, availability state, and source-file/row provenance.
+- `SupplierPriceObservation` stores dated supplier/store observations, priced or unavailable status, raw price components, normalized unit-price fields, eligibility reason, and source provenance. Unavailable observations are retained rather than converted into invented prices.
+- Product and observation keys are unique within organization and supplier so re-importing a batch is idempotent; writes occur through `RegionalSupplierEvidenceService` only.
+- `POST /api/v1/costbook/supplier-evidence/import` derives organization scope from the authenticated request, resolves an explicitly supplied tenant-local Supplier, validates optional Material links in that same organization, and requires `costbook.manage`.
+- `GET /api/v1/costbook/supplier-evidence` and `GET /api/v1/costbook/supplier-evidence/summary` are tenant-scoped review reads requiring `costbook.read`.
+- Both tables use forced RLS with tenant-scoped reads and manager-only writes. No production import or migration deployment is included in the draft PR.
+- The supplied eight-workbook bundle validated to 5,189 products/observations, including 701 unavailable observations. Carter Lumber is preserved as catalog-only evidence because its 670 observations are unavailable.
+
 ## Core relationships
 
 Canonical relationship flow:
@@ -341,6 +368,8 @@ Operational sub-relationships:
 - `Project -> SiteVisit`
 - `Project -> ProjectTask`
 - `Invoice -> Payment`
+- `Organization -> organization_billing`
+- `Organization -> stripe_webhook_events`
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
 

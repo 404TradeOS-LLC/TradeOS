@@ -59,13 +59,15 @@ test("review and promote controls only render for a candidate in the right state
   assert.match(source, /\{promotable \? \(/);
 });
 
-test("the detail panel surfaces complete provenance evidence", () => {
+test("the detail panel surfaces complete provenance evidence through the shared primitive", () => {
   const source = readSource("page.tsx");
+  const provenance = readSource("../../../../components/costbook/pricing-provenance.tsx");
   for (const field of ["sourceName", "sourceDate", "retrievedAt", "regionalBasis", "confidence", "provenanceStatus"]) {
-    assert.match(source, new RegExp(`candidate\\.${field}`), `${field} must be shown to the reviewer`);
+    assert.match(source, new RegExp(`candidate\\.${field}`), `${field} must be passed to the reviewer evidence primitive`);
   }
-  assert.match(source, /provenanceExplanation\(candidate\.provenanceStatus\)/);
-  assert.match(source, /freshnessLabel\(candidate\.sourceDate\)/);
+  assert.match(source, /<PricingProvenance\s+mode="research"/);
+  assert.match(provenance, /provenanceExplanation\(props\.provenanceStatus\)/);
+  assert.match(provenance, /freshnessLabel\(props\.sourceDate\)/);
 });
 
 test("the detail panel shows current Costbook price and the difference, not just the proposal", () => {

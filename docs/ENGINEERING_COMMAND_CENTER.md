@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-22
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,7 +15,6 @@ related_code:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
   - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
-  - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
   - scripts/sprint-state-check.mjs
@@ -40,6 +39,19 @@ related_code:
 ---
 
 # TradeOS Engineering Command Center
+
+Successor backlog: the 2026-09-22 vertical audit at `main`
+`9a27682a575f6c8b13337a61e88cdd7b838dcfe2` confirms that the authenticated
+frontend/backend seam is substantial and historically exercised, but the
+current head is not beta-certified across every contractor/customer journey.
+The audit and limitations are recorded in
+`docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is the
+successor sprint promoted to `READY` in a separate governance PR. S051 added an
+executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
+validation. It does not certify rendered browser behavior or current-head
+browser evidence, and must not repair application behavior or absorb later
+vertical sprints.
 
 S027 continuation: the Costbook browser-evidence lane now covers all nine routes
 at all four required widths, visible keyboard focus, equipment mutations and
@@ -84,7 +96,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
 - **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
-- **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
+- **CodeRabbit repository policy (reversed 2026-09-15):** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run. Its repository-level configuration (`.coderabbit.yaml`) was deleted on 2026-09-15 after its per-hour review-quota limits repeatedly left stale, uncleared `CHANGES_REQUESTED` reviews blocking otherwise-green, already-repaired PRs. Configuration removal does not by itself revoke the GitHub App's installation or repository access; until an organization administrator uninstalls it (see Known Limitations in the removal PR), it may continue to auto-review with its own default settings. The CI-required checks and manual/agent review in `AGENTS.md` and this document remain the authoritative merge gate regardless of whether the app is still installed.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
 - **Artifact upload runtime maintenance:** PR #308 updates the authenticated RC smoke and S027 browser-evidence artifact publication steps from `actions/upload-artifact@v6` to `@v7`. Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
@@ -108,7 +120,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is the next `READY` successor for scope-to-estimate certification; S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
@@ -140,7 +152,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 
 1. inspect required CI and every unresolved review thread on the current head;
 2. treat deterministic, scoped automated-review findings as auto-fix candidates;
-3. for CodeRabbit findings with structured fix instructions, prefer `@coderabbitai autofix` on the current PR branch, then inspect the resulting diff and verification evidence;
+3. for automated-review findings with structured fix instructions, apply the proposed repair directly on the current PR branch, then inspect the resulting diff and verification evidence;
 4. repair objective docs drift, formatting, lint/type errors, missing behavioral regression coverage, and other low-risk deterministic findings without a separate product-decision pause;
 5. do **not** auto-apply findings that would change migrations/schema/data, authentication/authorization/RLS, billing/money semantics, major architecture, production trust boundaries, destructive operations, or other protected decisions;
 6. resolve a review thread only after the fix is present and verified on the current head;
@@ -148,7 +160,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 8. enable GitHub auto-merge when the PR is otherwise safe so the required ruleset remains the final gate instead of requiring another manual merge round trip;
 9. finish the oldest/highest-value viable PR before opening competing work unless explicit priority says otherwise.
 
-Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; `.coderabbit.yaml` now tells automated review to flag source-text substitutes for behavioral coverage.
+Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; review (human or agent) should flag source-text substitutes for behavioral coverage.
 
 Production repair should use the health split first:
 
@@ -211,6 +223,8 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
+- The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
 
 ## Session execution
 
@@ -236,13 +250,14 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [CI_ACCELERATION.md](CI_ACCELERATION.md)
+- [TradeOS Product Design Contract](../.stitch/DESIGN.md) — canonical written UI/design contract paired with the canonical Figma master; capability/current-state docs still govern shipped behavior
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is the next eligible sprint.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is in review; no successor sprint is eligible until merge and a separate readiness assessment.
 
 ## S028 completion
 
@@ -260,3 +275,8 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 ### GitHub Actions runtime maintenance
 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
+
+
+## S053 implementation update — 2026-09-22
+
+PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.

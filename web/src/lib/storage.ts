@@ -1,15 +1,16 @@
 import "server-only";
 
 import type { ProjectFile } from "@/lib/api";
-import { createClient } from "@/lib/supabase/server";
+import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
+import { isPublicStorageBucketValue } from "@/lib/storage-visibility";
 
 export interface ProjectFileAsset extends ProjectFile {
   accessUrl: string;
-  accessMode: "public" | "signed" | "legacy";
+  accessMode: "public" | "private-proxy" | "legacy";
 }
 
 export function isPublicStorageBucket() {
-  return (process.env.SUPABASE_STORAGE_BUCKET_PUBLIC ?? "true").toLowerCase() === "true";
+  return isPublicStorageBucketValue(process.env.SUPABASE_STORAGE_BUCKET_PUBLIC);
 }
 
 export function buildStorageObjectUrl(bucket: string, path: string, isPublicBucket: boolean) {
@@ -22,44 +23,31 @@ export function buildStorageObjectUrl(bucket: string, path: string, isPublicBuck
   return `${supabaseUrl}/storage/v1/object/${objectAccessSegment}/${bucket}/${path}`;
 }
 
-export async function resolveProjectFileAssets(projectFiles: ProjectFile[]): Promise<ProjectFileAsset[]> {
+export function resolveProjectFileAssets(projectId: string, projectFiles: ProjectFile[]): ProjectFileAsset[] {
   const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "project-files";
-  const isPublicBucket = (process.env.SUPABASE_STORAGE_BUCKET_PUBLIC ?? "true").toLowerCase() === "true";
-  const supabase = await createClient();
+  const isPublicBucket = isPublicStorageBucket();
 
-  return Promise.all(
-    projectFiles.map(async (file) => {
-      if (!file.storagePath) {
-        return {
-          ...file,
-          accessUrl: file.fileUrl,
-          accessMode: "legacy" as const,
-        };
-      }
-
-      if (isPublicBucket) {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(file.storagePath);
-        return {
-          ...file,
-          accessUrl: data.publicUrl,
-          accessMode: "public" as const,
-        };
-      }
-
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(file.storagePath, 60 * 60);
-      if (error || !data?.signedUrl) {
-        return {
-          ...file,
-          accessUrl: file.fileUrl,
-          accessMode: "legacy" as const,
-        };
-      }
-
+  return projectFiles.map((file) => {
+    if (!file.storagePath) {
       return {
         ...file,
-        accessUrl: data.signedUrl,
-        accessMode: "signed" as const,
+        accessUrl: file.fileUrl,
+        accessMode: "legacy" as const,
       };
-    })
-  );
+    }
+
+    if (isPublicBucket) {
+      return {
+        ...file,
+        accessUrl: buildStorageObjectUrl(bucket, file.storagePath, true),
+        accessMode: "public" as const,
+      };
+    }
+
+    return {
+      ...file,
+      accessUrl: buildProjectFileAccessUrl(projectId, file),
+      accessMode: "private-proxy" as const,
+    };
+  });
 }

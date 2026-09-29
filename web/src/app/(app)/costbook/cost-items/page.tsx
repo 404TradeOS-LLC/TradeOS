@@ -11,7 +11,7 @@ import { getSessionToken } from "@/lib/session";
 
 type Subcategory = { id: string; code: string; name: string; isActive: boolean };
 type LaborRate = { id: string; role: string; active: boolean };
-type Material = { id: string; sku: string | null; name: string };
+type Material = { id: string; sku: string | null; name: string; isActive: boolean };
 type Equipment = { id: string; name: string };
 
 export const metadata: Metadata = {
@@ -71,7 +71,7 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
         apiFetch<CatalogPage<CostItemCatalogRecord>>(`/api/v1/costbook/cost-items${buildCostbookQuery(costItemQuery)}`, { token }),
         loadAllCatalogPages<Subcategory>("/api/v1/costbook/subcategories", token, { active: true }),
         loadAllCatalogPages<LaborRate>("/api/v1/costbook/labor-rates", token, { active: true }),
-        loadAllCatalogPages<Material>("/api/v1/costbook/materials", token),
+        loadAllCatalogPages<Material>("/api/v1/costbook/materials", token, { active: true }),
         loadAllCatalogPages<Equipment>("/api/v1/costbook/equipment", token),
       ]);
       workspace = loadedWorkspace;
@@ -124,7 +124,7 @@ export default async function CostbookCostItemsPage({ searchParams }: { searchPa
             initialCostItems={costItems}
             subcategories={subcategories.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.code} · ${item.name}` }))}
             laborRates={laborRates.filter((item) => item.active).map((item) => ({ id: item.id, label: item.role }))}
-            materials={materials.map((item) => ({ id: item.id, label: item.sku ? `${item.sku} · ${item.name}` : item.name }))}
+            materials={materials.filter((item) => item.isActive).map((item) => ({ id: item.id, label: item.sku ? `${item.sku} · ${item.name}` : item.name }))}
             equipment={equipment.map((item) => ({ id: item.id, label: item.name }))}
             canWrite={workspace.permissions.canWrite}
             canManage={workspace.permissions.canManage}
