@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { assertApprovedRcUrl, assertNonProductionDataPlane } from "./beta-evidence/lib/rc-target.mjs";
-import { deploymentSupabaseProjectRef } from "./s027-evidence-contract.mjs";
 
 const TEAM_ID = "team_nY1VrcaEYEr4rcW7Gxweq7LP";
 const WEB_PROJECT_ID = "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36";
@@ -28,14 +27,43 @@ assert.ok(deployment.meta?.githubCommitRef, "Preview deployment branch metadata 
 assert.ok(Number.isFinite(Number(deployment.createdAt)), "Preview deployment creation timestamp required");
 
 const envUrl = new URL(`https://api.vercel.com/v10/projects/${WEB_PROJECT_ID}/env`);
-// Fetch the full Preview env inventory. Vercel branch-filtered env reads now return only branch overrides,
-// which would hide shared Preview values; deploymentSupabaseProjectRef applies branch-over-shared precedence itself.
-envUrl.searchParams.set("decrypt", "true");
 envUrl.searchParams.set("teamId", TEAM_ID);
+// Fetch all Preview env metadata. Vercel's gitBranch filter returns only branch
+// overrides and omits shared Preview values, so precedence is resolved here.
 const envResponse = await fetch(envUrl, { headers, signal: AbortSignal.timeout(30_000) });
 assert.equal(envResponse.status, 200, "Vercel Preview environment lookup failed");
 const envPayload = await envResponse.json();
-const deployedSupabaseRef = deploymentSupabaseProjectRef(envPayload.envs ?? envPayload, deployment.meta.githubCommitRef, deployment.createdAt);
+const envs = envPayload.envs ?? envPayload;
+const previewUrls = envs.filter((env) =>
+  env?.key === "NEXT_PUBLIC_SUPABASE_URL" &&
+  (Array.isArray(env.target) ? env.target.includes("preview") : env.target === "preview")
+);
+const branchScoped = previewUrls.filter((env) => env.gitBranch === deployment.meta.githubCommitRef);
+const sharedPreview = previewUrls.filter((env) => !env.gitBranch);
+const candidates = branchScoped.length > 0 ? branchScoped : sharedPreview;
+const candidate = [...candidates]
+  .sort((a, b) => Number(b.updatedAt ?? b.createdAt ?? 0) - Number(a.updatedAt ?? a.createdAt ?? 0))[0];
+assert.ok(candidate?.id, "Vercel Preview NEXT_PUBLIC_SUPABASE_URL metadata is required for deployment data-plane attestation");
+const configuredAt = Number(candidate.updatedAt ?? candidate.createdAt ?? 0);
+assert.ok(Number.isFinite(configuredAt) && configuredAt > 0, "Vercel Supabase environment timestamp is required");
+assert.ok(configuredAt <= Number(deployment.createdAt), "Vercel Supabase environment changed after this deployment; redeploy before mutating evidence");
+
+const envValueUrl = new URL(`https://api.vercel.com/v1/projects/${WEB_PROJECT_ID}/env/${candidate.id}`);
+envValueUrl.searchParams.set("teamId", TEAM_ID);
+const envValueResponse = await fetch(envValueUrl, { headers, signal: AbortSignal.timeout(30_000) });
+assert.equal(envValueResponse.status, 200, "Vercel Preview Supabase environment value lookup failed");
+const envValuePayload = await envValueResponse.json();
+assert.equal(typeof envValuePayload.value, "string", "Vercel Preview NEXT_PUBLIC_SUPABASE_URL decrypted value is required");
+let supabaseUrl;
+try {
+  supabaseUrl = new URL(envValuePayload.value);
+} catch {
+  assert.fail("Vercel Preview NEXT_PUBLIC_SUPABASE_URL must be a valid URL");
+}
+assert.equal(supabaseUrl.protocol, "https:", "Vercel Preview NEXT_PUBLIC_SUPABASE_URL must use HTTPS");
+const supabaseMatch = supabaseUrl.hostname.toLowerCase().match(/^([a-z0-9]{20})\.supabase\.co$/);
+assert.ok(supabaseMatch, "Vercel Preview NEXT_PUBLIC_SUPABASE_URL must identify a Supabase project");
+const deployedSupabaseRef = supabaseMatch[1];
 assertNonProductionDataPlane(deployedSupabaseRef);
 assert.equal(deployedSupabaseRef, expectedSupabaseRef, "Selected Preview deployment is not attested to the expected RC Supabase project");
 
