@@ -28,7 +28,9 @@
     "lint": "tsc --noEmit",
     "beta:evidence": "node scripts/beta-evidence/run.mjs"
   },
-  "prisma": { "seed": "ts-node db/seed/seed.ts" },
+  "prisma": {
+    "seed": "ts-node db/seed/seed.ts"
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
@@ -53,10 +55,13 @@
     "nodemon": "^3.1.4",
     "playwright": "^1.63.0",
     "prisma": "^6.19.3",
-    "supertest": "^7.2.2",
-    "ts-jest": "^29.4.12",
+    "supertest": "^7.3.0",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   },
-  "overrides": { "deepmerge-ts": "8.0.0", "qs": "6.16.0" }
+  "overrides": {
+    "deepmerge-ts": "8.0.0",
+    "qs": "6.16.0"
+  }
 }
