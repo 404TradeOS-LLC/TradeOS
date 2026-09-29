@@ -223,6 +223,8 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
+- The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
 
 ## Session execution
 
@@ -248,6 +250,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [CI_ACCELERATION.md](CI_ACCELERATION.md)
+- [TradeOS Product Design Contract](../.stitch/DESIGN.md) — canonical written UI/design contract paired with the canonical Figma master; capability/current-state docs still govern shipped behavior
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)

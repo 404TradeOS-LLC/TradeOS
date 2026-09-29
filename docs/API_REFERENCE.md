@@ -170,6 +170,8 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 - `/api/v1/athena`
+  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled.
+  - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.

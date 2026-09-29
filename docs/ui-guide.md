@@ -25,13 +25,26 @@ exists today; update it whenever a new reusable component or pattern is added.
 ### `components/ui/` — shadcn primitives
 `button`, `card` (`Card`/`CardHeader`/`CardTitle`/`CardDescription`/`CardAction`/
 `CardContent`/`CardFooter`), `badge`, `input`, `label`, `textarea`, `checkbox`, `select` /
-`select-field`, and `empty-state`.
+`select-field`, `empty-state`, and `feedback-state`.
 
-- **`EmptyState`** (`components/ui/empty-state.tsx`) is the standard "nothing here yet" block
-  — dashed border, title, description, optional `action`. **Use this for every empty list**
-  instead of a bare `<p className="text-sm text-muted-foreground">…</p>`. It was already used
-  throughout the project-detail sidebar but not on the top-level Customers/Projects pages or
-  the customer detail page; that inconsistency is now fixed.
+- **`EmptyState`** (`components/ui/empty-state.tsx`) is only for genuine absence: a real
+  collection loaded successfully and contains no records yet. It remains the standard
+  "nothing here yet" block with title, description, optional icon, and optional forward action.
+  Do **not** use it for filtered-no-match, permission, not-found, network/load failure, partial
+  data, mutation failure, or unknown/trust states.
+- **`FilteredEmptyState`** (`components/ui/feedback-state.tsx`) is for a healthy collection
+  where the active search/filter set produced no rows. Copy should say "No matches" and the
+  forward action should clear/refine filters rather than onboarding the user as if the catalog
+  were genuinely empty.
+- **`FeedbackState`** (`components/ui/feedback-state.tsx`) covers non-empty recovery and
+  boundary panels: error, partial/degraded, restricted, not-found, mutation-failure, and
+  unknown/verify. Error and mutation-failure states announce urgently; calm boundary states
+  use polite status semantics. Copy should answer what happened, whether work/data is safe,
+  and what the contractor should do next.
+- `TRADEOS_STATE_TAXONOMY` encodes the canonical eight product state types:
+  `loading | empty | filtered-empty | partial | restricted | not-found | mutation-failure | unknown`.
+  Loading remains layout-specific so route skeletons preserve final geometry instead of
+  collapsing into a generic spinner.
 
 ### `components/shared/` — cross-page composition helpers
 
@@ -73,7 +86,7 @@ instead of copy-pasting a third time.
 
 ## Patterns
 
-- **Empty states**: always `EmptyState`, never a bare muted `<p>`.
+- **State selection**: use `EmptyState` only for genuine absence; `FilteredEmptyState` for no-match search/filter results; `FeedbackState` for recovery, restricted, not-found, partial, mutation-failure, or unknown/trust boundaries. Never turn a failed/forbidden request into “no data.”
 - **List-of-links rows**: always `ListRowLink`.
 - **Priced rows**: always `LineItemRow`.
 - **Status text**: always `StatusBadge`, not a raw `Badge` with the enum value passed straight

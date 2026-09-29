@@ -4,6 +4,7 @@ import { athenaController } from "../controllers/athena.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const athenaRouter = Router();
+athenaRouter.get("/capabilities", asyncHandler(athenaController.capabilities));
 athenaRouter.post("/chat", asyncHandler(athenaController.chat));
 athenaRouter.get("/approvals", asyncHandler(athenaApprovalsController.list));
 athenaRouter.get("/approvals/:approvalId", asyncHandler(athenaApprovalsController.get));

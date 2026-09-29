@@ -1,3 +1,4 @@
+import { LeadOverview } from "@/components/projects/lead-overview";
 import { ProjectHeader } from "@/components/projects/project-header";
 import { ProjectSidebar } from "@/components/projects/project-sidebar";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
@@ -21,6 +22,26 @@ export default async function ProjectDetailPage({
     getOrganizationSettings(token ?? ""),
   ]);
   const activeTab = resolveProjectWorkspaceTab(resolvedSearchParams.tab);
+  const showCanonicalLeadOverview =
+    activeTab === "overview" &&
+    project.estimates.length === 0 &&
+    project.proposals.length === 0 &&
+    project.contracts.length === 0 &&
+    project.jobs.length === 0 &&
+    (project.status === "lead" || (project.status === "estimating" && project.siteVisits.length > 0));
+
+  if (showCanonicalLeadOverview) {
+    return (
+      <LeadOverview
+        project={project}
+        customer={project.customer}
+        estimates={project.estimates}
+        siteVisits={project.siteVisits}
+        projectFiles={project.projectFiles}
+      />
+    );
+  }
+
   const actions = [
     ...(JOB_MANAGER_ROLES.has(settings.currentRole)
       ? [{ href: `/projects/${project.id}/jobs/new`, label: "Create job" }]

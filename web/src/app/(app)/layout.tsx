@@ -1,38 +1,32 @@
+import { randomUUID } from "node:crypto";
 import { stagingAuthDecision } from "@/lib/staging-auth";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
-import { apiFetch } from "@/lib/api";
-import { isAthenaOperatorRole } from "@/lib/athena-state";
+import { getAthenaCapabilities } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
-import type { OrganizationSettingsResponse } from "@/lib/settings";
-import { handleAthenaNavLookupFailure } from "./layout-athena-error.mjs";
 
-// Bounds how long AppLayout waits on the organization-settings lookup below.
-// The Control Dock's advisory dispatch badge loads after the shell renders so
-// a stalled summary request cannot delay the authenticated page shell.
-const ORG_SETTINGS_TIMEOUT_MS = 5000;
+const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
-async function resolveCanViewAthena(token: string | null): Promise<boolean> {
-  // Athena observability (A10) is owner/admin-only - see
-  // web/src/lib/athena-access.ts. The navigation lookup uses the same settings
-  // endpoint that supplies currentRole elsewhere. A failure here (including a
-  // timeout) hides the link rather than breaking navigation for the whole app,
-  // while still logging the failure for operators.
-  if (!token) return false;
+interface AthenaCapabilityResolution {
+  enabled: boolean;
+  retryOnClient: boolean;
+}
+
+async function resolveAthenaEnabled(token: string | null): Promise<AthenaCapabilityResolution> {
+  if (!token) return { enabled: false, retryOnClient: false };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ATHENA_CAPABILITY_TIMEOUT_MS);
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), ORG_SETTINGS_TIMEOUT_MS);
-    try {
-      const settings = await apiFetch<OrganizationSettingsResponse>("/api/v1/settings", {
-        token,
-        signal: controller.signal,
-      });
-      return isAthenaOperatorRole(settings.currentRole);
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch (error) {
-    return handleAthenaNavLookupFailure(error);
+    const capabilities = await getAthenaCapabilities(token, controller.signal);
+    return { enabled: capabilities.kernelEnabled === true, retryOnClient: false };
+  } catch {
+    // Capability discovery is advisory UI gating. Fail closed on the initial
+    // render, but let the client make one bounded retry so a transient timeout
+    // does not hide Athena for the lifetime of the mounted app shell.
+    return { enabled: false, retryOnClient: true };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -41,7 +35,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
 
   const token = await getSessionToken();
-  const canViewAthena = await resolveCanViewAthena(token);
+  const athenaCapability = await resolveAthenaEnabled(token);
+  const athenaCapabilityRetryKey = athenaCapability.retryOnClient ? randomUUID() : null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -51,7 +46,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to content
       </a>
-      <AppNav email={session.email} canViewAthena={canViewAthena} />
+      <AppNav
+        email={session.email}
+        athenaEnabled={athenaCapability.enabled}
+        athenaCapabilityRetryKey={athenaCapabilityRetryKey}
+      />
       {stagingAuthDecision().enabled && (
         <div role="status" className="fixed bottom-3 left-3 z-50 rounded border border-border bg-surface px-2 py-1 text-xs font-semibold tracking-wide text-muted shadow-sm">
           STAGING · AUTH BYPASS

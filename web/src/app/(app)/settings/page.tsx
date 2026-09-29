@@ -32,6 +32,7 @@ export default async function SettingsPage() {
       </div>
       <SettingsConsole
         initialDraft={mergeTradeOsSettingsDraft(persisted?.settings)}
+        persistedSettingKeys={Object.keys(persisted?.settings ?? {})}
         initialWorkspaceData={{
           currentRole: persisted?.currentRole ?? "technician",
           canManageWorkspace: persisted?.canManageWorkspace ?? false,
@@ -42,10 +43,10 @@ export default async function SettingsPage() {
           version: "0.1.0",
           environment: process.env.NODE_ENV === "production" ? "Production" : "Development",
           gitCommit,
-          buildNumber: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "2026.07.03-rc1",
-          databaseVersion: "Awaiting backend diagnostics endpoint",
-          featureFlags: "project-workspace, ai-estimate-assist, estimate-compare",
-          healthStatus: "Nominal",
+          buildNumber: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "Unavailable",
+          databaseVersion: "Not exposed",
+          featureFlags: "Not exposed",
+          healthStatus: "Not exposed",
         }}
       />
     </>
