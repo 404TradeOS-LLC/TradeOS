@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-09-29
 source_of_truth: true
 related_code:
   - app/modules/knowledge-runtime/README.md
@@ -154,6 +154,11 @@ the former `knowledge-engine/knowledge-engine/` duplicate was removed in the fou
 Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend lockfile's `qs`
 resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
 make the sample runtime-critical or TradeOS-authored.
+
+Dependency maintenance on 2026-09-29 updates the canonical Loki sample backend lockfile's `ip-address`
+resolution from 10.4.0 to 10.7.2. This is still isolated vendored sample maintenance; it does not
+make the sample runtime-critical or TradeOS-authored and does not change the package's provenance
+or licensing posture.
 
 ## 5. Generated outputs and offline tooling
 
