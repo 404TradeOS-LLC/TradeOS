@@ -146,19 +146,19 @@ function NavPill({
 export function AppNav({
   email,
   athenaEnabled = false,
-  athenaCapabilityRetry = false,
+  athenaCapabilityRetryKey = null,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
   athenaEnabled?: boolean;
-  athenaCapabilityRetry?: boolean;
+  athenaCapabilityRetryKey?: string | null;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
-  const [clientAthenaEnabled, setClientAthenaEnabled] = useState<boolean | null>(null);
+  const [clientAthenaCapability, setClientAthenaCapability] = useState<{ key: string; enabled: boolean } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
@@ -166,22 +166,18 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const effectiveAthenaEnabled = athenaCapabilityRetry
-    ? clientAthenaEnabled === true
+  const effectiveAthenaEnabled = athenaCapabilityRetryKey
+    ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
     : athenaEnabled;
   const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
   useBodyScrollLock(mobileOpen || createOpen);
 
   useEffect(() => {
-    if (!athenaCapabilityRetry) {
-      // A definitive server capability result owns navigation state. Discard
-      // any earlier client retry result so enabled -> disabled refreshes fail closed.
-      setClientAthenaEnabled(null);
-      return;
-    }
+    if (!athenaCapabilityRetryKey) return;
 
     let cancelled = false;
+    const retryKey = athenaCapabilityRetryKey;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(
       () => controller.abort(),
@@ -192,7 +188,9 @@ export function AppNav({
       cache: "no-store",
     })
       .then((capabilities) => {
-        if (!cancelled) setClientAthenaEnabled(capabilities.kernelEnabled === true);
+        if (!cancelled) {
+          setClientAthenaCapability({ key: retryKey, enabled: capabilities.kernelEnabled === true });
+        }
       })
       .catch(() => {
         // Initial discovery already failed closed. One bounded client retry is
@@ -206,7 +204,7 @@ export function AppNav({
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [athenaCapabilityRetry]);
+  }, [athenaCapabilityRetryKey]);
 
   useEffect(() => {
     let cancelled = false;
