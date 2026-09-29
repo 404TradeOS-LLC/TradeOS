@@ -115,8 +115,7 @@ function ResultCard({ result }: { result: AthenaKernelResult }) {
         <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-warning">What Athena could not fully verify</p>
           <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
-            {result.warnings.map((warning) => (
-              <li key={warning.code} className="flex gap-2">
+            {result.warnings.map((warning, index) => (\n              <li key={`${warning.code}-${index}`} className="flex gap-2">
                 <span aria-hidden="true">—</span>
                 <span>{warning.message}</span>
               </li>
