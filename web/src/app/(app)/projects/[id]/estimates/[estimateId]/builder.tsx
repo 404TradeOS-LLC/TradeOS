@@ -377,7 +377,7 @@ function MobileEstimateFlow({
             onUpdated={onUpdated}
           />
           <div className="text-sm text-muted-foreground">
-            Athena suggestions are review-first. Confirm suggested work and quantities before pricing; nothing is added automatically.
+            Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
           </div>
           <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
         </div>
