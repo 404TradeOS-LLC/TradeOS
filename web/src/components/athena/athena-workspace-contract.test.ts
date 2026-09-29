@@ -51,7 +51,8 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.match(workspace, /This workspace does not invent one/);
   assert.doesNotMatch(workspace, /conversationId:/);
   assert.match(workspace, /Business changes remain behind registered Athena tools and existing service permissions/);
-  assert.match(workspace, /result\.error\?\.retryable/);
+  assert.doesNotMatch(workspace, /result\.error\?\.retryable/);
+  assert.match(workspace, /server outcome is genuinely ambiguous/);
   assert.match(workspace, /setRetrySubmission\(\{ message: trimmed, idempotencyKey \}\)/);
   assert.match(workspace, /idempotencyKey: retrySubmission\.idempotencyKey/);
   assert.match(workspace, /addUserTurn: false/);
@@ -69,7 +70,10 @@ test("Athena navigation is feature-gated and retries one transient capability fa
   assert.match(nav, /athenaEnabled = false/);
   assert.match(nav, /athenaCapabilityRetry = false/);
   assert.match(nav, /clientFetch<\{ kernelEnabled\?: unknown \}>\("\/api\/v1\/athena\/capabilities"/);
-  assert.match(nav, /const effectiveAthenaEnabled = athenaEnabled \|\| clientAthenaEnabled/);
+  assert.match(nav, /const effectiveAthenaEnabled = athenaCapabilityRetry/);
+  assert.match(nav, /clientAthenaEnabled === true/);
+  assert.match(nav, /ATHENA_CAPABILITY_RETRY_TIMEOUT_MS/);
+  assert.match(nav, /setClientAthenaEnabled\(null\)/);
   assert.match(layout, /getAthenaCapabilities/);
   assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);
   assert.match(layout, /return \{ enabled: false, retryOnClient: true \}/);
