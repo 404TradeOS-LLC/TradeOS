@@ -226,7 +226,6 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
 - The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
 
-
 ## Session execution
 
 The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md`. Use its Canonical Startup Flow before editing and Canonical Completion Flow before handoff. The Command Center reports current operating context and does not define a competing checklist.
@@ -251,6 +250,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [CI_ACCELERATION.md](CI_ACCELERATION.md)
+- [TradeOS Product Design Contract](../.stitch/DESIGN.md) — canonical written UI/design contract paired with the canonical Figma master; capability/current-state docs still govern shipped behavior
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)

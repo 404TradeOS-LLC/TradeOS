@@ -323,6 +323,8 @@ Only create that package when implementation evidence demonstrates a real shared
 
 ## Frontend patterns
 
+For any contractor-facing product UI change, read `.stitch/DESIGN.md` before editing. It is the canonical written design contract paired with the canonical TradeOS Figma master. Use the relevant Figma page status to distinguish approved `[CANONICAL]` visuals from `[TARGET]`, `[AUDIT]`, `[CERTIFICATION]`, and `[STATUS]` material. Historical Sites/design files are reference only unless reconciled into that master. Capability/domain contracts and live implementation remain authoritative for what the product can actually do.
+
 Preferred data paths:
 
 - server components/actions: `web/src/lib/api.ts`;

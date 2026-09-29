@@ -21,8 +21,8 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="projectId" value={projectId} />
       <div>
-        <h3 className="font-medium">Record a payment</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Apply a deposit, progress payment, or other received payment to this invoice.</p>
+        <h3 className="font-medium">Record Payment</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Log a deposit, progress payment, or other money you have already received for this invoice.</p>
         <p className="mt-1 text-sm text-muted-foreground">Current balance: {formatInvoiceCurrency(balanceDue)}</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -61,7 +61,7 @@ export function RecordPaymentForm({ projectId, invoiceId, balanceDue }: { projec
       </div>
       {state?.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
       <Button type="submit" disabled={pending} className="w-full sm:w-auto sm:justify-self-end">
-        {pending ? "Recording…" : "Record payment"}
+        {pending ? "Recording…" : "Record Payment"}
       </Button>
     </form>
   );

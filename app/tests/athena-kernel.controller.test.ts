@@ -61,6 +61,28 @@ describe("athenaController.chat", () => {
     jest.clearAllMocks();
   });
 
+  it("reports kernel capability false without exposing the dark chat route", async () => {
+    isAthenaKernelEnabled.mockReturnValue(false);
+    const req = fakeRequest({ method: "GET", path: "/api/v1/athena/capabilities" });
+    const res = responseDouble();
+
+    await athenaController.capabilities(req, res as never);
+
+    expect(res.json).toHaveBeenCalledWith({ kernelEnabled: false });
+    expect(handleRequest).not.toHaveBeenCalled();
+  });
+
+  it("reports kernel capability true from the same deployment flag used by chat", async () => {
+    isAthenaKernelEnabled.mockReturnValue(true);
+    const req = fakeRequest({ method: "GET", path: "/api/v1/athena/capabilities" });
+    const res = responseDouble();
+
+    await athenaController.capabilities(req, res as never);
+
+    expect(res.json).toHaveBeenCalledWith({ kernelEnabled: true });
+    expect(handleRequest).not.toHaveBeenCalled();
+  });
+
   it("returns 404 (as if the route does not exist) when the kernel is disabled", async () => {
     isAthenaKernelEnabled.mockReturnValue(false);
     const req = fakeRequest();

@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
-import { Package } from "lucide-react";
+import Link from "next/link";
+import { History } from "lucide-react";
 import { MaterialsCatalog } from "@/components/costbook/materials-catalog";
 import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
 import { PageHeader } from "@/components/shared/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ApiClientError, getCostbookWorkspace, listCostbookMaterials, type CostbookMaterial, type CostbookWorkspaceSummary } from "@/lib/api";
+import { buttonVariants } from "@/components/ui/button";
+import { FeedbackState } from "@/components/ui/feedback-state";
+import {
+  ApiClientError,
+  getCostbookWorkspace,
+  listCostbookMaterials,
+  type CostbookMaterial,
+  type CostbookWorkspaceSummary,
+} from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Materials Catalog | TradeOS",
-  description: "Manage organization-scoped Costbook material items with authenticated TradeOS permissions.",
+  description: "Search organization-scoped Material prices with supplier and price-update evidence.",
 };
 
 function toErrorMessage(error: unknown) {
@@ -17,7 +25,15 @@ function toErrorMessage(error: unknown) {
   return "Unable to load Costbook materials from the backend.";
 }
 
-type MaterialsQuery = { limit?: string; cursor?: string; q?: string; sort?: string; order?: "asc" | "desc"; supplierId?: string; active?: string };
+type MaterialsQuery = {
+  limit?: string;
+  cursor?: string;
+  q?: string;
+  sort?: string;
+  order?: "asc" | "desc";
+  supplierId?: string;
+  active?: string;
+};
 
 export default async function CostbookMaterialsPage({ searchParams }: { searchParams: Promise<MaterialsQuery> }) {
   const token = await getSessionToken();
@@ -34,7 +50,15 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
       const active = query.active === "true" ? true : query.active === "false" ? false : undefined;
       const [loadedWorkspace, loadedPage] = await Promise.all([
         getCostbookWorkspace(token),
-        listCostbookMaterials(token, { limit: query.limit ? Number(query.limit) : undefined, cursor: query.cursor, q: query.q, sort: query.sort, order: query.order, supplierId: query.supplierId, active }),
+        listCostbookMaterials(token, {
+          limit: query.limit ? Number(query.limit) : undefined,
+          cursor: query.cursor,
+          q: query.q,
+          sort: query.sort,
+          order: query.order,
+          supplierId: query.supplierId,
+          active,
+        }),
       ]);
       workspace = loadedWorkspace;
       materials = loadedPage.items;
@@ -45,44 +69,74 @@ export default async function CostbookMaterialsPage({ searchParams }: { searchPa
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Materials"
-        description="Organization-scoped material catalog records for Costbook."
+        description="Stored Material prices with supplier and last price-update facts. Missing evidence remains visibly missing."
         backHref="/costbook"
         backLabel="Costbook"
+        action={
+          workspace?.permissions.canManage ? (
+            <Link href="/costbook/price-history" className={buttonVariants({ variant: "outline" })}>
+              <History className="size-4" aria-hidden="true" />
+              Price History
+            </Link>
+          ) : undefined
+        }
       />
 
       {loadError ? (
-        <EmptyState title="Couldn't load materials" description={loadError} />
+        <FeedbackState
+          kind="error"
+          title="Couldn't load materials"
+          description="TradeOS couldn't load the Material catalog. No Costbook data was changed. Try the catalog again."
+          action={
+            <Link href="/costbook/materials" className={buttonVariants()}>
+              Try again
+            </Link>
+          }
+          secondaryAction={
+            <Link href="/costbook" className={buttonVariants({ variant: "outline" })}>
+              Back to Costbook
+            </Link>
+          }
+        />
       ) : workspace ? (
         <>
-          <section className="grid gap-4 sm:grid-cols-3" aria-label="Materials summary">
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Materials in result</p>
-              <p className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{page.total}</p>
-                </div>
-                <Package className="size-5 text-muted-foreground" aria-hidden="true" />
-              </div>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Write Access</p>
-              <p className="mt-2 text-lg font-semibold text-foreground">{workspace.permissions.canWrite ? "Enabled" : "Read Only"}</p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Scope</p>
-              <p className="mt-2 truncate text-sm font-medium text-foreground">{workspace.organizationId}</p>
-            </div>
-          </section>
+          <CatalogQueryControls
+            pathname="/costbook/materials"
+            query={query}
+            total={page.total}
+            shown={materials.length}
+            nextCursor={page.nextCursor}
+            sortOptions={[
+              { value: "name", label: "Name" },
+              { value: "createdAt", label: "Created" },
+              { value: "updatedAt", label: "Updated" },
+            ]}
+            filters={[
+              {
+                name: "active",
+                label: "Status",
+                value: query.active,
+                options: [
+                  { value: "true", label: "Active" },
+                  { value: "false", label: "Inactive" },
+                ],
+              },
+            ]}
+          />
 
-          <CatalogQueryControls pathname="/costbook/materials" query={query} total={page.total} shown={materials.length} nextCursor={page.nextCursor} sortOptions={[{ value: "name", label: "Name" }, { value: "createdAt", label: "Created" }, { value: "updatedAt", label: "Updated" }]} filters={[{ name: "active", label: "Status", value: query.active, options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] }]} />
+          <div className="rounded-xl border border-info/25 bg-info/5 px-4 py-3 text-sm text-muted-foreground">
+            Supplier and last price-update date are evidence fields, not a universal freshness or confidence score. Costbook does not infer “verified” or “current local” pricing from incomplete metadata.
+          </div>
+
           <MaterialsCatalog
             initialMaterials={materials}
             canWrite={workspace.permissions.canWrite}
             canManage={workspace.permissions.canManage}
             activeFilter={query.active === "true" ? true : query.active === "false" ? false : undefined}
+            isFiltered={Boolean(query.q || query.active || query.supplierId)}
           />
         </>
       ) : null}
