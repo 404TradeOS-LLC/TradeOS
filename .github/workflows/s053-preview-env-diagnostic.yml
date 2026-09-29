@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
-      PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
+      VERCEL_ORG_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      VERCEL_PROJECT_ID: prj_jDyORkIa7ug3ZtgtNujwEa65hQ36
       TARGET_BRANCH: feature/athena-contractor-estimating-copilot
     steps:
       - name: Inspect Preview env metadata without values
@@ -23,8 +23,8 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const token = process.env.VERCEL_TOKEN;
-          const team = process.env.TEAM_ID;
-          const project = process.env.PROJECT_ID;
+          const team = process.env.VERCEL_ORG_ID;
+          const project = process.env.VERCEL_PROJECT_ID;
           const branch = process.env.TARGET_BRANCH;
           async function inspect(label, suffix) {
             const url = new URL(`https://api.vercel.com/v10/projects/${project}/env`);
@@ -35,48 +35,53 @@ jobs:
             const payload = await res.json();
             const rows = payload.envs ?? payload;
             const summary = rows
-              .filter((row) => ['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','BACKEND_API_URL','SUPABASE_SERVICE_ROLE_KEY','NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET','SUPABASE_STORAGE_BUCKET_PUBLIC'].includes(row.key))
+              .filter((row) => ['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','BACKEND_API_URL','SUPABASE_SERVICE_ROLE_KEY'].includes(row.key))
               .map(({id,key,target,gitBranch,createdAt,updatedAt,type}) => ({id,key,target,gitBranch:gitBranch ?? null,createdAt,updatedAt,type}));
             console.log(label + ': ' + JSON.stringify(summary));
           }
           await inspect('all-env', null);
           await inspect('branch-env', branch);
-
-          const allUrl = new URL(`https://api.vercel.com/v10/projects/${project}/env`);
-          allUrl.searchParams.set('teamId', team);
-          const allRes = await fetch(allUrl, { headers: { Authorization: `Bearer ${token}` } });
-          if (!allRes.ok) throw new Error(`env metadata lookup failed: ${allRes.status}`);
-          const allPayload = await allRes.json();
-          const rows = allPayload.envs ?? allPayload;
-          const backendCandidates = rows.filter((row) =>
-            row.key === 'BACKEND_API_URL' &&
-            (Array.isArray(row.target) ? row.target.includes('preview') : row.target === 'preview') &&
-            !row.gitBranch
-          );
-          const backendMeta = [...backendCandidates].sort((a,b) => Number(b.updatedAt ?? b.createdAt ?? 0) - Number(a.updatedAt ?? a.createdAt ?? 0))[0];
-          if (!backendMeta?.id) throw new Error('shared Preview BACKEND_API_URL metadata missing');
-          const valueUrl = new URL(`https://api.vercel.com/v1/projects/${project}/env/${backendMeta.id}`);
-          valueUrl.searchParams.set('teamId', team);
-          const valueRes = await fetch(valueUrl, { headers: { Authorization: `Bearer ${token}` } });
-          if (!valueRes.ok) throw new Error(`backend env value lookup failed: ${valueRes.status}`);
-          const valuePayload = await valueRes.json();
-          const backend = new URL(valuePayload.value);
-          const expected = 'tradeos-costbook-git-staging-billykshowalters.vercel.app';
-          const production = new Set(['api.404tradeos.com']);
-          const classification = backend.hostname === expected ? 'expected-staging-alias' : production.has(backend.hostname) ? 'PRODUCTION' : backend.hostname.endsWith('.vercel.app') ? 'other-vercel-preview' : 'other';
-          console.log('backend-classification: ' + classification);
-          if (classification === 'PRODUCTION') throw new Error('Preview BACKEND_API_URL points at Production');
-          for (const probe of [
-            { method:'GET', path:'/health' },
-            { method:'GET', path:'/ready' },
-            { method:'POST', path:'/api/v1/auth/bootstrap' },
-          ]) {
-            const res = await fetch(new URL(probe.path, backend), {
-              method: probe.method,
-              redirect: 'manual',
-              headers: { 'content-type': 'application/json', 'user-agent': 'TradeOS-S053-env-diagnostic/1.0' },
-              ...(probe.method === 'POST' ? { body: '{}' } : {}),
-            });
-            console.log(`backend-probe ${probe.method} ${probe.path}: ${res.status}`);
-          }
           NODE
+      - name: Pull effective Preview env without logging values
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global vercel@latest >/dev/null 2>&1
+          vercel env pull /tmp/s053-preview.env --environment=preview --git-branch="$TARGET_BRANCH" --yes --token="$VERCEL_TOKEN" >/dev/null
+          chmod 600 /tmp/s053-preview.env
+          set -a
+          source /tmp/s053-preview.env
+          set +a
+          expected_supabase='https://qfbgdkbamfaasmtjfyru.supabase.co'
+          expected_backend='https://tradeos-costbook-git-staging-billykshowalters.vercel.app'
+          if [ "${NEXT_PUBLIC_SUPABASE_URL:-}" = "$expected_supabase" ]; then
+            echo 'supabase-classification: expected-staging'
+          elif [[ "${NEXT_PUBLIC_SUPABASE_URL:-}" == *kssaceuetdjwfqnbzhly* ]]; then
+            echo '::error::Preview Supabase URL points at Production'
+            exit 1
+          else
+            echo '::error::Preview Supabase URL is not the documented TradeOS Staging project'
+            exit 1
+          fi
+          if [ "${BACKEND_API_URL:-}" = "$expected_backend" ]; then
+            echo 'backend-classification: expected-staging-alias'
+          elif [ "${BACKEND_API_URL:-}" = 'https://api.404tradeos.com' ]; then
+            echo '::error::Preview BACKEND_API_URL points at Production'
+            exit 1
+          elif [[ "${BACKEND_API_URL:-}" == https://*.vercel.app ]]; then
+            echo 'backend-classification: other-vercel-preview'
+          else
+            echo 'backend-classification: unknown'
+          fi
+          backend="${BACKEND_API_URL%/}"
+          for spec in 'GET /health' 'GET /ready' 'POST /api/v1/auth/bootstrap'; do
+            method="${spec%% *}"
+            path="${spec#* }"
+            if [ "$method" = POST ]; then
+              code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --request POST --header 'content-type: application/json' --data '{}' "$backend$path" || true)
+            else
+              code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$backend$path" || true)
+            fi
+            echo "backend-probe $method $path: $code"
+          done
+          rm -f /tmp/s053-preview.env
