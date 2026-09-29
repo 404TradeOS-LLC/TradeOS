@@ -87,6 +87,14 @@ export function getOrganizationSettings(token: string) {
   return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token });
 }
 
+export interface AthenaCapabilities {
+  kernelEnabled: boolean;
+}
+
+export function getAthenaCapabilities(token: string, signal?: AbortSignal) {
+  return apiFetch<AthenaCapabilities>("/api/v1/athena/capabilities", { token, signal });
+}
+
 export type SettingsAssetKey = "logoUrl" | "darkLogoUrl" | "iconUrl" | "watermarkUrl";
 
 export interface SettingsAssetUploadResponse {

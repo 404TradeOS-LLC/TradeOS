@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -78,6 +78,7 @@ const DOCK_LEFT_LINKS: NavLink[] = [
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
 ];
 const DOCK_RIGHT_LINK: NavLink = { href: "/projects", label: "Work", shortLabel: "Work", icon: BriefcaseBusiness };
+const ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = 1500;
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
@@ -144,17 +145,20 @@ function NavPill({
 
 export function AppNav({
   email,
-  canViewAthena = false,
+  athenaEnabled = false,
+  athenaCapabilityRetryKey = null,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
-  canViewAthena?: boolean;
+  athenaEnabled?: boolean;
+  athenaCapabilityRetryKey?: string | null;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
+  const [clientAthenaCapability, setClientAthenaCapability] = useState<{ key: string; enabled: boolean } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
@@ -162,12 +166,45 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const primaryLinks = useMemo(
-    () => (canViewAthena ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS),
-    [canViewAthena]
-  );
+  const effectiveAthenaEnabled = athenaCapabilityRetryKey
+    ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
+    : athenaEnabled;
+  const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
   useBodyScrollLock(mobileOpen || createOpen);
+
+  useEffect(() => {
+    if (!athenaCapabilityRetryKey) return;
+
+    let cancelled = false;
+    const retryKey = athenaCapabilityRetryKey;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      ATHENA_CAPABILITY_RETRY_TIMEOUT_MS
+    );
+    void clientFetch<{ kernelEnabled?: unknown }>("/api/v1/athena/capabilities", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then((capabilities) => {
+        if (!cancelled) {
+          setClientAthenaCapability({ key: retryKey, enabled: capabilities.kernelEnabled === true });
+        }
+      })
+      .catch(() => {
+        // Initial discovery already failed closed. One bounded client retry is
+        // enough; direct /athena navigation still enforces the backend gate.
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [athenaCapabilityRetryKey]);
 
   useEffect(() => {
     let cancelled = false;
