@@ -68,15 +68,16 @@ test("Athena navigation is feature-gated and retries one transient capability fa
 
   assert.match(nav, /href: "\/athena"/);
   assert.match(nav, /athenaEnabled = false/);
-  assert.match(nav, /athenaCapabilityRetry = false/);
+  assert.match(nav, /athenaCapabilityRetryKey = null/);
   assert.match(nav, /clientFetch<\{ kernelEnabled\?: unknown \}>\("\/api\/v1\/athena\/capabilities"/);
-  assert.match(nav, /const effectiveAthenaEnabled = athenaCapabilityRetry/);
-  assert.match(nav, /clientAthenaEnabled === true/);
+  assert.match(nav, /const effectiveAthenaEnabled = athenaCapabilityRetryKey/);
+  assert.match(nav, /clientAthenaCapability\?\.key === athenaCapabilityRetryKey/);
   assert.match(nav, /ATHENA_CAPABILITY_RETRY_TIMEOUT_MS/);
-  assert.match(nav, /setClientAthenaEnabled\(null\)/);
+  assert.match(nav, /setClientAthenaCapability\(\{ key: retryKey, enabled:/);
   assert.match(layout, /getAthenaCapabilities/);
   assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);
   assert.match(layout, /return \{ enabled: false, retryOnClient: true \}/);
+  assert.match(layout, /athenaCapability\.retryOnClient \? randomUUID\(\) : null/);
   assert.doesNotMatch(layout, /getOrganizationSettings|isAthenaOperatorRole|canViewAthena/);
 });
 
