@@ -27,7 +27,6 @@ jobs:
       BACKEND_PROJECT_ID: prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD
       STAGING_BRANCH: staging
       STAGING_SUPABASE_URL: https://qfbgdkbamfaasmtjfyru.supabase.co
-      STAGING_BACKEND_DEPLOYMENT: https://tradeos-costbook-32iyzg1jx-billykshowalters.vercel.app
       STAGING_BACKEND_ALIAS: https://tradeos-costbook-git-staging-billykshowalters.vercel.app
     steps:
       - name: Require explicit staging-only confirmation
@@ -62,8 +61,22 @@ jobs:
           fi
           printf '%s' "$STAGING_SUPABASE_URL" | VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" vercel env add SUPABASE_URL preview "$STAGING_BRANCH" --token="$VERCEL_TOKEN"
 
+      - name: Resolve current staging backend deployment
+        id: staging-deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_url="$(
+            VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID"               vercel ls --meta githubCommitRef="$STAGING_BRANCH" --yes --token="$VERCEL_TOKEN" 2>&1               | grep -Eo 'https://tradeos-costbook-[a-z0-9-]+\.vercel\.app'               | head -n 1
+          )"
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Could not resolve a current staging backend deployment."
+            exit 1
+          fi
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+
       - name: Redeploy stable staging backend
-        run: vercel redeploy "$STAGING_BACKEND_DEPLOYMENT" --token="$VERCEL_TOKEN"
+        run: vercel redeploy "${{ steps.staging-deployment.outputs.url }}" --token="$VERCEL_TOKEN"
 
       - name: Verify database-backed staging readiness
         shell: bash
