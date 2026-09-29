@@ -859,7 +859,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               title="Starter assemblies"
               description="TradeOS templates that need Costbook mapping before estimate use"
               results={orderedResults.filter((result) => result.kind === "starterAssembly")}
-              baseIndex={orderedResults.filter((result) => result.kind !== "costItem").length}
+              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
               activeIndex={activeResultIndex}
               onSelect={(result, index) => {
                 setSelected(result);
@@ -872,7 +872,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               title="Cost items"
               description="Individual labor or material items"
               results={orderedResults.filter((result) => result.kind === "costItem")}
-              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+              baseIndex={orderedResults.filter((result) => result.kind !== "costItem").length}
               activeIndex={activeResultIndex}
               onSelect={(result, index) => {
                 setSelected(result);
