@@ -1,4 +1,4 @@
-import { ClientApiError } from "@/lib/clientApi";
+import { ClientApiError } from "./clientApi";
 
 export type AthenaKernelState =
   | "created"
