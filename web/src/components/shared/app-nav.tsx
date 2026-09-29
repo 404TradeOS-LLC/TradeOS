@@ -78,6 +78,7 @@ const DOCK_LEFT_LINKS: NavLink[] = [
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
 ];
 const DOCK_RIGHT_LINK: NavLink = { href: "/projects", label: "Work", shortLabel: "Work", icon: BriefcaseBusiness };
+const ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = 1500;
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
@@ -157,7 +158,7 @@ export function AppNav({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
-  const [clientAthenaEnabled, setClientAthenaEnabled] = useState(athenaEnabled);
+  const [clientAthenaEnabled, setClientAthenaEnabled] = useState<boolean | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const createSheetRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
@@ -165,16 +166,27 @@ export function AppNav({
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const effectiveAthenaEnabled = athenaEnabled || clientAthenaEnabled;
+  const effectiveAthenaEnabled = athenaCapabilityRetry
+    ? clientAthenaEnabled === true
+    : athenaEnabled;
   const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
   useBodyScrollLock(mobileOpen || createOpen);
 
   useEffect(() => {
-    if (athenaEnabled || !athenaCapabilityRetry) return;
+    if (!athenaCapabilityRetry) {
+      // A definitive server capability result owns navigation state. Discard
+      // any earlier client retry result so enabled -> disabled refreshes fail closed.
+      setClientAthenaEnabled(null);
+      return;
+    }
 
     let cancelled = false;
     const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      ATHENA_CAPABILITY_RETRY_TIMEOUT_MS
+    );
     void clientFetch<{ kernelEnabled?: unknown }>("/api/v1/athena/capabilities", {
       signal: controller.signal,
       cache: "no-store",
@@ -183,14 +195,18 @@ export function AppNav({
         if (!cancelled) setClientAthenaEnabled(capabilities.kernelEnabled === true);
       })
       .catch(() => {
-        // Initial discovery already failed closed. One client retry is enough;
-        // direct /athena navigation still enforces the backend feature gate.
+        // Initial discovery already failed closed. One bounded client retry is
+        // enough; direct /athena navigation still enforces the backend gate.
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [athenaCapabilityRetry, athenaEnabled]);
+  }, [athenaCapabilityRetry]);
 
   useEffect(() => {
     let cancelled = false;
