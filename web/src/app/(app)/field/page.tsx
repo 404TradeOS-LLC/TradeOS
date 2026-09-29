@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldJobActions } from "@/components/field/field-job-actions";
 import { FieldNoteForm } from "@/components/field/field-note-form";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { getFieldJob, getDispatchSummary, getOrganizationSettings, listFieldJobs, ApiClientError, type FieldJobDetail } from "@/lib/api";
+import {
+  getFieldJob,
+  getDispatchSummary,
+  getOrganizationSettings,
+  listFieldJobs,
+  ApiClientError,
+  type FieldJobDetail,
+} from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "My field day | TradeOS",
-  description: "Assigned jobs, job context, field status actions, and notes for technicians.",
+  description: "A focused mobile workspace for technicians to see today's jobs, act on the current job, and report back to the office.",
 };
 
 function formatAddress(address: FieldJobDetail["serviceAddress"]) {
@@ -18,8 +24,28 @@ function formatAddress(address: FieldJobDetail["serviceAddress"]) {
   return [address.addressLine1, address.addressLine2, `${address.city}, ${address.state} ${address.postalCode}`].filter(Boolean).join(", ");
 }
 
+function mapsHref(address: FieldJobDetail["serviceAddress"]) {
+  if (!address) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formatAddress(address))}`;
+}
+
 function errorMessage(error: unknown) {
   return error instanceof ApiClientError ? error.message : "Unable to load the field workspace.";
+}
+
+const FIELD_STATUS_PRIORITY: Record<FieldJobDetail["status"], number> = {
+  on_site: 0,
+  traveling: 1,
+  paused: 2,
+  dispatched: 3,
+  scheduled: 4,
+  unscheduled: 5,
+  completed: 6,
+  cancelled: 7,
+};
+
+function prioritizeFieldJobs(jobs: Awaited<ReturnType<typeof listFieldJobs>>) {
+  return [...jobs].sort((left, right) => FIELD_STATUS_PRIORITY[left.status] - FIELD_STATUS_PRIORITY[right.status]);
 }
 
 export default async function FieldPage({ searchParams }: { searchParams: Promise<{ job?: string; updated?: string }> }) {
@@ -36,7 +62,7 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
   let loadError: string | null = null;
   try {
     const summary = await getDispatchSummary(token);
-    jobs = await listFieldJobs(token, summary.todayRangeUtc);
+    jobs = prioritizeFieldJobs(await listFieldJobs(token, summary.todayRangeUtc));
   } catch (error) {
     loadError = errorMessage(error);
   }
@@ -46,6 +72,7 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
   const selectedId = query.job && jobs.some((job) => job.id === query.job) ? query.job : jobs[0]?.id;
   let selectedJob: FieldJobDetail | null = null;
   let selectedError: string | null = null;
+
   if (selectedId) {
     try {
       selectedJob = await getFieldJob(token, selectedId);
@@ -55,72 +82,171 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
   }
 
   const timezone = settings.settings.timezone || "UTC";
+  const addressLink = mapsHref(selectedJob?.serviceAddress ?? null);
 
   return (
-    <div className="grid gap-6">
-      <header className="grid gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-foreground">Field day</p>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">Your assigned work</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">Job context, field actions, and notes in one place. Updates are saved to the job record and visible to the office.</p>
+    <div className="mx-auto grid w-full max-w-4xl gap-4 pb-28 sm:gap-5 2xl:pb-6">
+      <header className="grid gap-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-copper">Field day</p>
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Today</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {jobs.length} assigned job{jobs.length === 1 ? "" : "s"} · current job first
+            </p>
+          </div>
+          <a href="/dispatch" className="hidden shrink-0 text-sm font-medium text-copper hover:underline sm:block">Open Dispatch</a>
+        </div>
       </header>
 
-      {query.updated ? <p className="rounded-lg border border-success/20 bg-success/10 px-3 py-2 text-sm text-success" role="status">Job updated successfully.</p> : null}
+      {query.updated ? (
+        <p className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success" role="status">
+          Job updated successfully.
+        </p>
+      ) : null}
 
       {jobs.length === 0 ? (
         <EmptyState title="No assigned jobs today" description="Your dispatcher has not assigned work for today. This view only shows jobs assigned to your authenticated technician account." />
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(16rem,0.35fr)_minmax(0,1fr)]">
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle>Today</CardTitle>
-              <CardDescription>{jobs.length} assigned job{jobs.length === 1 ? "" : "s"}</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {jobs.map((job) => (
-                <a key={job.id} href={`/field?job=${encodeURIComponent(job.id)}`} className={`grid gap-1 rounded-xl border px-3 py-3 transition-colors hover:bg-muted/60 ${job.id === selectedId ? "border-primary bg-primary/5" : "border-border/70"}`}>
-                  <span className="text-xs text-muted-foreground">#{job.jobNumber}</span>
-                  <span className="font-medium">{job.title}</span>
-                  <span className="text-sm text-muted-foreground">{job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : "Unscheduled"}</span>
-                  <StatusBadge status={job.status} />
-                </a>
-              ))}
-            </CardContent>
-          </Card>
+      ) : selectedError ? (
+        <EmptyState title="Couldn't load this job" description={selectedError} />
+      ) : selectedJob ? (
+        <>
+          <nav aria-label="Today's jobs" className="flex gap-2 overflow-x-auto pb-1">
+            {jobs.map((job) => (
+              <a
+                key={job.id}
+                href={`/field?job=${encodeURIComponent(job.id)}`}
+                aria-current={job.id === selectedId ? "page" : undefined}
+                className={`min-w-[10rem] shrink-0 rounded-xl border px-3 py-2.5 transition-colors ${
+                  job.id === selectedId ? "border-copper bg-copper/10" : "border-border/70 bg-card hover:bg-muted/50"
+                }`}
+              >
+                <span className="block truncate text-xs text-muted-foreground">#{job.jobNumber}</span>
+                <span className="mt-0.5 block truncate text-sm font-medium">{job.title}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : "Unscheduled"}
+                </span>
+              </a>
+            ))}
+          </nav>
 
-          {selectedError ? <EmptyState title="Couldn't load this job" description={selectedError} /> : selectedJob ? (
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="grid gap-1">
-                    <p className="text-xs text-muted-foreground">#{selectedJob.jobNumber} · {selectedJob.jobType}</p>
-                    <CardTitle className="text-2xl">{selectedJob.title}</CardTitle>
-                    <CardDescription>{selectedJob.project?.name ?? "No project linked"} · {selectedJob.customer?.name ?? "No customer linked"}</CardDescription>
-                  </div>
-                  <StatusBadge status={selectedJob.status} />
-                </CardHeader>
-                <CardContent className="grid gap-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Schedule</p><p className="mt-1">{selectedJob.scheduledStart ? formatScheduleInZone(selectedJob.scheduledStart, timezone) : "Unscheduled"}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Arrival window</p><p className="mt-1">{selectedJob.arrivalWindowStart && selectedJob.arrivalWindowEnd ? `${formatScheduleInZone(selectedJob.arrivalWindowStart, timezone)} – ${formatScheduleInZone(selectedJob.arrivalWindowEnd, timezone)}` : "No arrival window"}</p></div>
-                  </div>
-                  <div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Service address</p><p className="mt-1">{formatAddress(selectedJob.serviceAddress)}</p></div>
-                  <div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Job briefing</p><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{selectedJob.description || "No additional briefing was provided."}</p></div>
-                  {selectedJob.equipment.length > 0 ? <div><p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Equipment</p><ul className="mt-1 grid gap-1 text-sm text-muted-foreground">{selectedJob.equipment.map((item) => <li key={item.id}>{item.name}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</li>)}</ul></div> : null}
-                  <FieldJobActions job={selectedJob} />
-                </CardContent>
-              </Card>
+          <section aria-labelledby="current-job-heading" className="grid gap-4">
+            <section className="overflow-hidden rounded-2xl border border-border/70 bg-card">
+              <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">#{selectedJob.jobNumber} · {selectedJob.jobType}</p>
+                  <h2 id="current-job-heading" className="mt-1 truncate font-heading text-xl font-semibold tracking-tight sm:text-2xl">
+                    {selectedJob.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedJob.customer?.name ?? "No customer linked"} · {selectedJob.project?.name ?? "No project linked"}
+                  </p>
+                </div>
+                <StatusBadge status={selectedJob.status} />
+              </header>
 
-              <Card>
-                <CardHeader><CardTitle>Job notes</CardTitle><CardDescription>Keep the office up to date with observations from the field.</CardDescription></CardHeader>
-                <CardContent className="grid gap-5">
-                  <FieldNoteForm jobId={selectedJob.id} />
-                  {selectedJob.notes.length > 0 ? <div className="grid gap-3 border-t border-border/70 pt-4">{selectedJob.notes.map((note) => <article key={note.id} className="rounded-lg bg-muted/40 p-3"><p className="whitespace-pre-wrap text-sm">{note.body}</p><p className="mt-2 text-xs text-muted-foreground">{formatScheduleInZone(note.createdAt, timezone)}</p></article>)}</div> : <p className="text-sm text-muted-foreground">No notes yet.</p>}
-                </CardContent>
-              </Card>
-            </div>
-          ) : null}
-        </div>
-      )}
+              <div className="grid gap-4 p-4 sm:p-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-label="Job schedule">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Today on site</p>
+                    <p className="mt-1 text-sm font-medium">
+                      {selectedJob.scheduledStart ? formatScheduleInZone(selectedJob.scheduledStart, timezone) : "Unscheduled"}
+                    </p>
+                    {selectedJob.arrivalWindowStart && selectedJob.arrivalWindowEnd ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Arrival {formatScheduleInZone(selectedJob.arrivalWindowStart, timezone)} – {formatScheduleInZone(selectedJob.arrivalWindowEnd, timezone)}
+                      </p>
+                    ) : null}
+                    {selectedJob.actualStart ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Started {formatScheduleInZone(selectedJob.actualStart, timezone)}</p>
+                    ) : null}
+                  </section>
+
+                  <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-label="Job location">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Location</p>
+                    <p className="mt-1 text-sm font-medium">{formatAddress(selectedJob.serviceAddress)}</p>
+                    {addressLink ? (
+                      <a href={addressLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-copper hover:underline">
+                        Open directions
+                      </a>
+                    ) : null}
+                  </section>
+                </div>
+
+                {selectedJob.status === "completed" ? (
+                  <section className="rounded-xl border border-success/30 bg-success/10 p-4" aria-label="Field completion">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-success">Field complete</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">Field work is complete.</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {selectedJob.readyForInvoiceAt
+                        ? "The office has marked this job ready for invoice."
+                        : "Ready for invoice is a separate office handoff; completing field work does not create or send an invoice."}
+                    </p>
+                  </section>
+                ) : null}
+
+                <section className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {selectedJob.status === "completed" ? "Completed work" : "Work briefing"}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-6">
+                    {selectedJob.description || "No additional briefing was provided."}
+                  </p>
+                </section>
+
+                {selectedJob.equipment.length > 0 ? (
+                  <details className="rounded-xl border border-border/70 bg-background/70">
+                    <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium">
+                      Equipment <span className="ml-1 text-muted-foreground">({selectedJob.equipment.length})</span>
+                    </summary>
+                    <ul className="grid gap-2 border-t border-border/60 px-3 py-3 text-sm text-muted-foreground">
+                      {selectedJob.equipment.map((item) => (
+                        <li key={item.id}>{item.name}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </div>
+            </section>
+
+            {selectedJob.status !== "completed" && selectedJob.status !== "cancelled" ? (
+              <section className="grid gap-2" aria-labelledby="field-action-heading">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Field action</p>
+                  <h3 id="field-action-heading" className="mt-1 font-heading text-lg font-medium">What happens next?</h3>
+                </div>
+                <FieldJobActions job={selectedJob} />
+              </section>
+            ) : null}
+
+            <section className="grid gap-4 rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-labelledby="report-back-heading">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Report back</p>
+                <h3 id="report-back-heading" className="mt-1 font-heading text-lg font-medium">Job notes</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Leave the office the field context it actually needs.</p>
+              </div>
+
+              {selectedJob.notes.length > 0 ? (
+                <div className="grid gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recent notes</p>
+                  {selectedJob.notes.map((note) => (
+                    <article key={note.id} className="rounded-xl bg-muted/40 p-3">
+                      <p className="whitespace-pre-wrap text-sm">{note.body}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">{formatScheduleInZone(note.createdAt, timezone)}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl bg-muted/30 px-3 py-3 text-sm text-muted-foreground">No field notes yet.</p>
+              )}
+
+              <div className="border-t border-border/70 pt-4">
+                <FieldNoteForm jobId={selectedJob.id} />
+              </div>
+            </section>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

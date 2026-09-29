@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-17
+last_verified: 2026-09-28
 source_of_truth: false
 related_code:
   - app/backend/routes/projects.routes.ts
@@ -68,6 +68,17 @@ Proposal workflow side effects are deliberately mapped to the project lifecycle:
 - `/projects/[id]`
 - `/projects/[id]/intake`
 
+The default Project detail route has a bounded Project-backed Lead presentation for the two approved pre-estimate states:
+
+- **New Lead** — no Estimate/Site Visit and no downstream Proposal/Contract/Job.
+- **Ready to Estimate** — a Site Visit exists, no Estimate exists, and no downstream Proposal/Contract/Job exists.
+
+These states do not create a separate Lead model or qualification field. Once an Estimate exists, normal Project workspace presentation resumes.
+
+`/projects/[id]/intake` is the field capture surface for the current Site Visit contract. Photos, measurements, and notes are the primary mobile inputs; secondary timing/location/transcript/customer/material/safety/verification fields are progressively disclosed. Saving continues through the existing Site Visit action and intake-analysis backend path.
+
+The supported handoff after a captured Site Visit is **Create Estimate** through the existing Project-linked Estimate action. The UI does not claim Site Visit context is automatically transformed into priced line items; the visit remains attached to the Project for estimator review.
+
 Project workspace surfaces also expose the current job and field-coordination workflow for the linked project.
 
 ## Tests
@@ -87,4 +98,4 @@ Project workspace surfaces also expose the current job and field-coordination wo
 
 ## Last verified date
 
-2026-08-17
+2026-09-28
