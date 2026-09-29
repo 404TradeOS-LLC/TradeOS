@@ -66,9 +66,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          deployment_url="$(
-            VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID"               vercel ls --meta githubCommitRef="$STAGING_BRANCH" --yes --token="$VERCEL_TOKEN" 2>&1               | grep -Eo 'https://tradeos-costbook-[a-z0-9-]+\.vercel\.app'               | head -n 1
+          listing="$(
+            VERCEL_ORG_ID="$VERCEL_TEAM_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" \
+              vercel list --environment preview --status READY \
+                --meta githubCommitRef="$STAGING_BRANCH" --yes --token="$VERCEL_TOKEN" 2>&1
           )"
+          deployment_url="$(printf '%s\n' "$listing" | grep -m 1 -Eo 'https://tradeos-costbook-[a-z0-9-]+\.vercel\.app' || true)"
           if [ -z "$deployment_url" ]; then
             echo "::error::Could not resolve a current staging backend deployment."
             exit 1
