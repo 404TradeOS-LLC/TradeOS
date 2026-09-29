@@ -15,6 +15,8 @@ test("root Athena route is the contractor workspace and operator observability l
   assert.doesNotMatch(rootPage, /getAthenaObservabilityOverview|SummaryMetricCard|AthenaWindowSwitcher/);
   assert.match(opsPage, /getAthenaOperatorContext/);
   assert.match(opsPage, /getAthenaObservabilityOverview/);
+  assert.match(opsPage, /Promise\.allSettled/);
+  assert.match(opsPage, /alertsLoadState/);
   assert.match(opsPage, /AthenaSectionTabs active="overview"/);
   assert.match(tabs, /href: "\/athena\/ops", label: "Overview"/);
   assert.match(tabs, /href: "\/athena\/approvals"/);
@@ -49,6 +51,7 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.match(workspace, /This workspace does not invent one/);
   assert.doesNotMatch(workspace, /conversationId:/);
   assert.match(workspace, /Business changes remain behind registered Athena tools and existing service permissions/);
+  assert.match(workspace, /result\.error\?\.retryable/);
   assert.match(workspace, /setRetrySubmission\(\{ message: trimmed, idempotencyKey \}\)/);
   assert.match(workspace, /idempotencyKey: retrySubmission\.idempotencyKey/);
   assert.match(workspace, /addUserTurn: false/);
@@ -58,15 +61,19 @@ test("Athena workspace renders truthful kernel states without inventing context 
   assert.doesNotMatch(workspace, /clientFetch\(|fetch\("\/api\/v1\/(jobs|projects|estimates|invoices|customers)/);
 });
 
-test("Athena navigation is available to authenticated users without an operator-only shell lookup", async () => {
+test("Athena navigation is feature-gated and retries one transient capability failure", async () => {
   const nav = await readSource("../shared/app-nav.tsx");
   const layout = await readSource("../../app/(app)/layout.tsx");
 
   assert.match(nav, /href: "\/athena"/);
-  assert.match(nav, /const primaryLinks = \[\.\.\.PRIMARY_NAV_LINKS, ATHENA_NAV_LINK\]/);
-  assert.doesNotMatch(nav, /canViewAthena/);
-  assert.doesNotMatch(layout, /resolveCanViewAthena|getOrganizationSettings|isAthenaOperatorRole|canViewAthena/);
-  assert.match(layout, /<AppNav email=\{session\.email\} \/>/);
+  assert.match(nav, /athenaEnabled = false/);
+  assert.match(nav, /athenaCapabilityRetry = false/);
+  assert.match(nav, /clientFetch<\{ kernelEnabled\?: unknown \}>\("\/api\/v1\/athena\/capabilities"/);
+  assert.match(nav, /const effectiveAthenaEnabled = athenaEnabled \|\| clientAthenaEnabled/);
+  assert.match(layout, /getAthenaCapabilities/);
+  assert.match(layout, /return \{ enabled: capabilities\.kernelEnabled === true, retryOnClient: false \}/);
+  assert.match(layout, /return \{ enabled: false, retryOnClient: true \}/);
+  assert.doesNotMatch(layout, /getOrganizationSettings|isAthenaOperatorRole|canViewAthena/);
 });
 
 test("Athena root scope normalizes repeated query params and never blocks on operator discovery", async () => {
