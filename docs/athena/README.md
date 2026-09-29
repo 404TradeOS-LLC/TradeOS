@@ -97,6 +97,19 @@ replace service-owned lifecycle rules.
 - [Examples](examples/README.md)
 - [Appendices](appendices/README.md)
 
+## Contractor workspace and operator observability
+
+The web product has two distinct Athena surfaces:
+
+- `/athena` is the authenticated contractor-facing Workspace. It uses the existing kernel chat endpoint and selected-scope contract; it is not an observability dashboard and does not grant new business permissions.
+- `/athena/ops` is the owner/admin observability overview. The existing `/athena/approvals`, `/athena/traces`, `/athena/tools`, `/athena/models`, and `/athena/events` routes remain operator surfaces and continue to call `getAthenaOperatorContext()`.
+
+The reusable browser client lives at `web/src/lib/athena-client.ts` and supports only the public chat contract: message, optional conversation id, optional selected scope, safe interaction metadata, and optional idempotency key. The current contractor workspace deliberately does not generate a `conversationId`, because the platform does not yet have a durable contractor conversation/session lifecycle behind that reference; visible turns are page-local UI history. The workspace renders only fields present in `AthenaKernelResult`. It does not infer hidden planner steps, tool arguments, provider payloads, or business-state changes.
+
+The current result contract has two visible product limits. First, it does not return a provider-by-provider context attribution list; the UI must not invent a “context used” panel beyond selected scope and generic trust boundaries. Second, `awaiting_approval` does not itself provide a contractor-ready confirmation payload; the UI reports that confirmation is required and leaves execution blocked rather than exposing operator IDs/hashes or inventing a direct write. A future contractor approval card must bind to the existing durable approval/risk/idempotency contract.
+
+Clarification follows the product behavior contract: when the kernel returns `needs_clarification`, the workspace presents one question at a time.
+
 ## Relationship To Existing TradeOS AI
 
 Athena extends existing TradeOS seams rather than replacing them:

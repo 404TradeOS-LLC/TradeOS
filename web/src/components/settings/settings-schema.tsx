@@ -306,9 +306,9 @@ export const settingsSections: SettingsSectionDefinition[] = [
   },
   {
     id: "team",
-    title: "Team",
-    description: "Who has access to the workspace and how active the team is.",
-    summary: "People, seat usage, and onboarding state.",
+    title: "Team & Access",
+    description: "People, roles, and workspace access using the current membership model.",
+    summary: "Permission-aware team and access posture.",
     icon: Users,
     keywords: ["users", "seats", "invite", "teammates"],
     stats: [
@@ -480,9 +480,9 @@ export const settingsSections: SettingsSectionDefinition[] = [
   },
   {
     id: "costbook",
-    title: "CostBook",
-    description: "Regional pricing and estimating defaults that shape margins.",
-    summary: "Labor, markup, overhead, waste, and supplier defaults.",
+    title: "Pricing",
+    description: "Defaults that shape every estimate before job-specific pricing overrides them.",
+    summary: "Labor, markup, overhead, waste, materials, and supplier defaults.",
     icon: SwatchBook,
     keywords: ["labor rate", "markup", "overhead", "profit", "regional pricing", "supplier"],
     stats: [
@@ -553,7 +553,7 @@ export const settingsSections: SettingsSectionDefinition[] = [
   },
   {
     id: "ai",
-    title: "AI",
+    title: "Athena",
     description: "Provider, model, and automation defaults for estimating workflows.",
     summary: "Model selection, permissions, cost guardrails, and automation.",
     icon: Bot,
@@ -875,7 +875,7 @@ export const settingsSections: SettingsSectionDefinition[] = [
   },
   {
     id: "notifications",
-    title: "Notifications",
+    title: "Communication",
     description: "How teams and customers hear about the work that matters.",
     summary: "Email, SMS, reminders, digests, and project alert preferences.",
     icon: Bell,
@@ -947,7 +947,7 @@ export const settingsSections: SettingsSectionDefinition[] = [
   },
   {
     id: "integrations",
-    title: "Integrations",
+    title: "Connections",
     description: "Future-ready connection points for communication, accounting, and infrastructure.",
     summary: "Connection status across office, comms, accounting, and platform services.",
     icon: Globe,

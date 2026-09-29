@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CatalogQueryControls } from "@/components/costbook/catalog-query-controls";
+import { PricingProvenance } from "@/components/costbook/pricing-provenance";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
@@ -11,12 +12,10 @@ import {
   formatCurrency,
   formatDate,
   formatPriceDelta,
-  freshnessLabel,
   getResearchReviewCapabilities,
   isOpenForReview,
   isPromotable,
   matchStatusLabel,
-  provenanceExplanation,
   provenanceLabel,
   reviewStatusBadgeToken,
   reviewStatusLabel,
@@ -379,16 +378,18 @@ function CandidateDetail({
 
       <div className="rounded-md border border-border/70 p-3">
         <h3 className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Provenance</h3>
-        <p className="mt-2 text-sm font-medium text-foreground">{provenanceLabel(candidate.provenanceStatus)}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{provenanceExplanation(candidate.provenanceStatus)}</p>
-        <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-          <DetailPair label="Source" value={candidate.sourceName} />
-          <DetailPair label="Source reference" value={candidate.sourceUrl ?? candidate.sourceIdentifier ?? "n/a"} />
-          <DetailPair label="Observed" value={`${formatDate(candidate.sourceDate)} · ${freshnessLabel(candidate.sourceDate)}`} />
-          <DetailPair label="Retrieved" value={formatDate(candidate.retrievedAt)} />
-          <DetailPair label="Market basis" value={candidate.regionalBasis} />
-          <DetailPair label="Confidence" value={candidate.confidence} />
-        </dl>
+        <div className="mt-3">
+          <PricingProvenance
+            mode="research"
+            provenanceStatus={candidate.provenanceStatus}
+            sourceName={candidate.sourceName}
+            sourceReference={candidate.sourceUrl ?? candidate.sourceIdentifier}
+            sourceDate={candidate.sourceDate}
+            retrievedAt={candidate.retrievedAt}
+            regionalBasis={candidate.regionalBasis}
+            confidence={candidate.confidence}
+          />
+        </div>
         {candidate.researchNotes ? (
           <p className="mt-3 text-xs text-muted-foreground">{candidate.researchNotes}</p>
         ) : null}
