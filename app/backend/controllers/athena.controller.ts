@@ -71,6 +71,14 @@ export const athenaChatRequestSchema = z.object({
 });
 
 export const athenaController = {
+  async capabilities(req: Request, res: Response): Promise<void> {
+    // This route is mounted behind the normal authenticated /api/v1 middleware.
+    // Resolve auth explicitly as defense in depth, then report the same
+    // deployment flag that gates POST /chat so web navigation can fail closed.
+    requireAuthContext(req);
+    res.json({ kernelEnabled: isAthenaKernelEnabled() });
+  },
+
   async chat(req: Request, res: Response): Promise<void> {
     if (!isAthenaKernelEnabled()) throw new ApiError(404, `Route not found: ${req.method} ${req.path}`);
     const auth = requireAuthContext(req);

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-11
+last_verified: 2026-09-28
 source_of_truth: true
 ---
 
@@ -93,6 +93,15 @@ route, conversation, or workflow state. Examples include `customerId`,
 must treat selected scope as a narrowing constraint, not authorization by
 itself. Application services remain responsible for proving the actor can see
 the selected record.
+
+The contractor-facing web workspace may send these selected-scope identifiers
+through the existing authenticated `POST /api/v1/athena/chat` contract after
+client-side shape validation. That browser input is still untrusted narrowing
+context: it cannot choose an organization, grant a role or permission, approve
+an action, or bypass provider/service object checks. The authenticated
+`GET /api/v1/athena/capabilities` route reports only whether the Athena kernel
+feature is enabled for navigation gating; it does not hydrate business context
+or widen the Context Engine scope.
 
 ## Provider Contract
 
