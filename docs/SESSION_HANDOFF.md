@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-24
+last_verified: 2026-09-25
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
