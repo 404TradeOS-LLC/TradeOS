@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   createServiceAddressAction,
   removeServiceAddressAction,
@@ -22,6 +22,7 @@ function AddressFields({ address }: { address?: ServiceAddress }) {
         ["city", "City", address?.city ?? "", true],
         ["state", "State", address?.state ?? "", true],
         ["postalCode", "Postal code", address?.postalCode ?? "", true],
+        ["country", "Country", address?.country ?? "US", true],
       ] as const).map(([name, label, value, required]) => (
         <div className="flex flex-col gap-1" key={name}>
           <Label htmlFor={`${prefix}-${name}`}>{label}</Label>
@@ -39,6 +40,7 @@ function AddressFields({ address }: { address?: ServiceAddress }) {
 function ExistingAddress({ customerId, address, canWrite }: { customerId: string; address: ServiceAddress; canWrite: boolean }) {
   const [updateState, updateAction, updating] = useActionState(updateServiceAddressAction, undefined);
   const [removeState, removeAction, removing] = useActionState(removeServiceAddressAction, undefined);
+  const [editingRevision, setEditingRevision] = useState(0);
 
   return (
     <li className="rounded-md border p-3">
@@ -50,12 +52,12 @@ function ExistingAddress({ customerId, address, canWrite }: { customerId: string
       {canWrite ? (
         <details className="text-sm">
           <summary className="cursor-pointer font-medium">Edit address</summary>
-          <form action={updateAction} className="mt-3 space-y-3">
+          <form action={updateAction} className="mt-3 space-y-3" onChange={() => setEditingRevision((revision) => revision + 1)}>
             <input type="hidden" name="customerId" value={customerId} />
             <input type="hidden" name="addressId" value={address.id} />
             <AddressFields address={address} />
-            {updateState?.error ? <p role="alert" className="text-destructive">{updateState.error}</p> : null}
-            <Button type="submit" disabled={updating}>{updating ? "Saving…" : "Save address"}</Button>
+            {updateState?.error && editingRevision === 0 ? <p role="alert" className="text-destructive">{updateState.error}</p> : null}
+            <Button type="submit" disabled={updating} onClick={() => setEditingRevision(0)}>{updating ? "Saving…" : "Save address"}</Button>
           </form>
           <form action={removeAction} className="mt-3">
             <input type="hidden" name="customerId" value={customerId} />
