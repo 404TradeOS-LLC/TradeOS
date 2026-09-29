@@ -36,7 +36,7 @@ jobs:
             const rows = payload.envs ?? payload;
             const summary = rows
               .filter((row) => ['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','BACKEND_API_URL','SUPABASE_SERVICE_ROLE_KEY','NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET','SUPABASE_STORAGE_BUCKET_PUBLIC'].includes(row.key))
-              .map(({key,target,gitBranch,createdAt,updatedAt,type}) => ({key,target,gitBranch:gitBranch ?? null,createdAt,updatedAt,type}));
+              .map(({id,key,target,gitBranch,createdAt,updatedAt,type}) => ({id,key,target,gitBranch:gitBranch ?? null,createdAt,updatedAt,type}));
             console.log(label + ': ' + JSON.stringify(summary));
           }
           await inspect('all-env', null);
