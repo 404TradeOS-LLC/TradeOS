@@ -11,10 +11,17 @@ export function FieldNoteForm({ jobId }: { jobId: string }) {
   return (
     <form action={action} className="grid gap-3">
       <input type="hidden" name="jobId" value={jobId} />
-      <Textarea name="body" rows={4} maxLength={5000} placeholder="Record what the office should know about this job…" aria-label="Job note" required />
+      <Textarea
+        name="body"
+        rows={3}
+        maxLength={5000}
+        placeholder="What should the office know about this job?"
+        aria-label="Job note"
+        required
+      />
       {state?.error ? <p className="text-sm text-destructive" role="alert">{state.error}</p> : null}
       <Button type="submit" disabled={pending} className="min-h-11 w-full sm:w-auto sm:justify-self-end">
-        {pending ? "Saving…" : "Save note"}
+        {pending ? "Saving…" : "Add note"}
       </Button>
     </form>
   );

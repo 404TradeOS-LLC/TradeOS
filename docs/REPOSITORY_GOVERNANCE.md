@@ -311,6 +311,8 @@ do not recreate it automatically.
 
 The executable agent startup and completion sequences are owned only by the [Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document owns the repository policy those flows enforce: branch and worktree lifecycle, PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists, and backend, frontend, docs, or recovery contracts may link to the canonical flows and add lane-specific requirements; they must not duplicate or weaken the general sequence.
 
+For contractor-facing product UI work, `.stitch/DESIGN.md` is the canonical written design contract and companion to the canonical TradeOS Figma master. Contributor and agent instructions may require it for frontend/design changes, but it does not override capability, security, lifecycle, data, or implementation truth. Historical Sites/Figma artifacts are reference material unless reconciled into the canonical master.
+
 Use one clean `main` worktree plus one linked worktree per active mission.
 
 Standard flow:
