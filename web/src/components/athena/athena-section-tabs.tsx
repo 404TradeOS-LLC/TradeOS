@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // these is its own page.tsx with its own loading.tsx, not a client-rendered
 // tab switch over one route.
 export const ATHENA_SECTIONS = [
-  { key: "overview", href: "/athena", label: "Overview" },
+  { key: "overview", href: "/athena/ops", label: "Overview" },
   { key: "approvals", href: "/athena/approvals", label: "Approvals" },
   { key: "traces", href: "/athena/traces", label: "Traces" },
   { key: "tools", href: "/athena/tools", label: "Tool Health" },

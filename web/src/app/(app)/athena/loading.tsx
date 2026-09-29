@@ -1,15 +1,19 @@
-export default function AthenaOverviewLoading() {
+export default function AthenaLoading() {
   return (
-    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6">
-      <span className="sr-only">Loading Athena overview</span>
-      <div className="h-14 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
-      <div className="h-14 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div key={index} className="h-20 animate-pulse rounded-lg border border-border/70 bg-muted/30" />
-        ))}
+    <div role="status" aria-live="polite" aria-busy="true" className="grid gap-5">
+      <span className="sr-only">Loading Athena workspace</span>
+      <div className="h-24 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
+        <div className="grid content-start gap-4">
+          <div className="h-64 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+          <div className="h-56 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+        </div>
+        <div className="h-[40rem] animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+        <div className="grid content-start gap-4">
+          <div className="h-64 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+          <div className="h-44 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
+        </div>
       </div>
-      <div className="h-64 animate-pulse rounded-2xl border border-border/70 bg-muted/30" />
     </div>
   );
 }
