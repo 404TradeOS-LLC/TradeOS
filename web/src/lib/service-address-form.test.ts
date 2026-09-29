@@ -9,13 +9,14 @@ test("address submission preserves only trimmed CRM fields and selected primary 
   data.set("city", " Terre Haute ");
   data.set("state", " IN ");
   data.set("postalCode", " 47802 ");
+  data.set("country", " CA ");
   data.set("isPrimary", "on");
   data.set("customerId", "not-an-address-field");
 
   assert.deepEqual(parseServiceAddressForm(data), {
     input: {
       label: "Shop", addressLine1: "10 Main St", addressLine2: "",
-      city: "Terre Haute", state: "IN", postalCode: "47802", isPrimary: true,
+      city: "Terre Haute", state: "IN", postalCode: "47802", country: "CA", isPrimary: true,
     },
   });
 });
