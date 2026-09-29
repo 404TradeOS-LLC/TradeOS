@@ -28,7 +28,8 @@ assert.ok(deployment.meta?.githubCommitRef, "Preview deployment branch metadata 
 assert.ok(Number.isFinite(Number(deployment.createdAt)), "Preview deployment creation timestamp required");
 
 const envUrl = new URL(`https://api.vercel.com/v10/projects/${WEB_PROJECT_ID}/env`);
-envUrl.searchParams.set("gitBranch", deployment.meta.githubCommitRef);
+// Fetch the full Preview env inventory. Vercel branch-filtered env reads now return only branch overrides,
+// which would hide shared Preview values; deploymentSupabaseProjectRef applies branch-over-shared precedence itself.
 envUrl.searchParams.set("decrypt", "true");
 envUrl.searchParams.set("teamId", TEAM_ID);
 const envResponse = await fetch(envUrl, { headers, signal: AbortSignal.timeout(30_000) });
