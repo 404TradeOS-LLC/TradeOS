@@ -72,35 +72,31 @@ export default async function AthenaOpsPage({ searchParams }: { searchParams: Pr
       />
       <AthenaSectionTabs active="overview" />
 
+      <AthenaWindowSwitcher basePath="/athena/ops" active={preset} />
+
       {loadState || !overview ? (
         <AthenaStatePanel state={loadState ?? { kind: "error", message: "Unable to load Athena overview metrics." }} />
+      ) : hasAthenaActivity(overview) ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryMetricCard label="Requests" value={formatAthenaCount(overview.requestCount)} />
+          <SummaryMetricCard label="Success rate" value={formatAthenaPercent(overview.successRate)} />
+          <SummaryMetricCard label="Error rate" value={formatAthenaPercent(overview.errorRate)} />
+          <SummaryMetricCard label="Degraded rate" value={formatAthenaPercent(overview.degradedRate)} />
+          <SummaryMetricCard label="Denied rate" value={formatAthenaPercent(overview.deniedRate)} />
+          <SummaryMetricCard label="Latency p50" value={formatAthenaMs(overview.latencyMsP50)} />
+          <SummaryMetricCard label="Latency p95" value={formatAthenaMs(overview.latencyMsP95)} />
+          <SummaryMetricCard label="Latency p99" value={formatAthenaMs(overview.latencyMsP99)} />
+          <SummaryMetricCard label="Total cost" value={formatAthenaUsd(overview.totalCostUsd)} />
+          <SummaryMetricCard label="Avg. trace completeness" value={formatAthenaPercent(overview.averageTraceCompleteness)} />
+        </div>
       ) : (
-        <>
-          <AthenaWindowSwitcher basePath="/athena/ops" active={preset} />
-
-          {hasAthenaActivity(overview) ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <SummaryMetricCard label="Requests" value={formatAthenaCount(overview.requestCount)} />
-              <SummaryMetricCard label="Success rate" value={formatAthenaPercent(overview.successRate)} />
-              <SummaryMetricCard label="Error rate" value={formatAthenaPercent(overview.errorRate)} />
-              <SummaryMetricCard label="Degraded rate" value={formatAthenaPercent(overview.degradedRate)} />
-              <SummaryMetricCard label="Denied rate" value={formatAthenaPercent(overview.deniedRate)} />
-              <SummaryMetricCard label="Latency p50" value={formatAthenaMs(overview.latencyMsP50)} />
-              <SummaryMetricCard label="Latency p95" value={formatAthenaMs(overview.latencyMsP95)} />
-              <SummaryMetricCard label="Latency p99" value={formatAthenaMs(overview.latencyMsP99)} />
-              <SummaryMetricCard label="Total cost" value={formatAthenaUsd(overview.totalCostUsd)} />
-              <SummaryMetricCard label="Avg. trace completeness" value={formatAthenaPercent(overview.averageTraceCompleteness)} />
-            </div>
-          ) : (
-            <EmptyState
-              title="No Athena activity in this window"
-              description="No requests were recorded in the selected time window. Widen the window above, or check back once Athena has processed some requests."
-            />
-          )}
-
-          {alertsLoadState ? <AthenaStatePanel state={alertsLoadState} /> : <AthenaAlertsPanel alerts={alerts} />}
-        </>
+        <EmptyState
+          title="No Athena activity in this window"
+          description="No requests were recorded in the selected time window. Widen the window above, or check back once Athena has processed some requests."
+        />
       )}
+
+      {alertsLoadState ? <AthenaStatePanel state={alertsLoadState} /> : <AthenaAlertsPanel alerts={alerts} />}
     </div>
   );
 }
