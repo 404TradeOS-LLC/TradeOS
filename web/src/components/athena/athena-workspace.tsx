@@ -198,9 +198,10 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
       });
       const resultId = nextTurnIdRef.current++;
       setTurns((current) => [...current, { id: resultId, role: "athena", text: result.summary, result }]);
-      if (result.error?.retryable) {
-        setRetrySubmission({ message: trimmed, idempotencyKey });
-      }
+      // A typed terminal envelope means the backend outcome is known. Do not
+      // replay that recorded result with the same idempotency key. Same-key
+      // retry is reserved for thrown transport/runtime failures where the
+      // server outcome is genuinely ambiguous.
     } catch (error) {
       // Preserve the same request key only when the outcome is genuinely
       // ambiguous/retryable. Validation, auth, feature-disabled, and conflict
