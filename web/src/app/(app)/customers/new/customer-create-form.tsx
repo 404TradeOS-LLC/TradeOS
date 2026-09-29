@@ -44,7 +44,7 @@ export function CustomerCreateForm() {
             <Input id="billingAddress" name="billingAddress" value={values.billingAddress} onChange={(event) => setValues({ ...values, billingAddress: event.target.value })} placeholder="123 Main St, Indianapolis, IN" />
           </div>
 
-          {matches.length > 0 ? (
+          {resultIsCurrent && state?.customerMatchLookupFailed ? null : matches.length > 0 ? (
             <section aria-labelledby="possible-matches-heading" className="rounded-xl border border-border bg-muted/30 p-4">
               <h2 id="possible-matches-heading" className="font-semibold">Possible existing customers</h2>
               <p className="mt-1 text-sm text-muted-foreground">These records match the name or email you entered. Choose one to open it, or create a separate customer record.</p>
@@ -67,7 +67,7 @@ export function CustomerCreateForm() {
             </section>
           ) : null}
           {resultIsCurrent && state?.customerMatchLookupFailed ? (
-            <p role="status" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Some possible-match searches could not finish. Retry the search before creating this customer.</p>
+            <p role="status" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Some possible-match searches could not finish. Refine the name or email, then check again before creating this customer.</p>
           ) : resultIsCurrent && state?.customerMatches ? (
             <p role="status" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">No likely matches found in this organization. You can create this customer.</p>
           ) : null}
