@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,16 @@ export function AthenaEstimatingCopilot({
   const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setScope(scopeOfWork);
+    setDraft(null);
+    setDraftScope("");
+    setAcceptedIds([]);
+    setActiveQuestion(null);
+    setAnswer("");
+    setApplyNotice("");
+  }, [scopeOfWork]);
 
   const generate = useMutation({
     mutationFn: (scopeToEstimate: string) =>
