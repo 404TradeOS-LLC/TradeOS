@@ -151,6 +151,7 @@ The current Customer workflow now exposes the existing CRM/Project relationship 
 
 Automated unit/controller coverage owns the bounded search, fail-closed duplicate workflow, service-address parent checks, permission denial, and Customer-linked Project persistence. Authenticated browser mutation/reload evidence and disposable PostgreSQL/RLS certification are still outstanding; this section does not claim those acceptance gates complete.
 
+
 ## Project-backed Lead and Site Visit workspace
 
 TradeOS now presents two canonical pre-estimate Lead states directly from existing Project/SiteVisit truth instead of introducing a parallel Lead database.
@@ -181,6 +182,30 @@ No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate
 - Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. The server-owned catalog drives both displayed prices and checkout validation. Persisted organization-scoped attempts plus stable Stripe idempotency keys prevent duplicate Checkout sessions, while authoritative subscription hydration protects against out-of-order webhook delivery. Stripe—not the browser return URL—is authoritative for subscription state, and only `active` or `trialing` grants entitlements. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
 - Knowledge Runtime integration and backend structured estimator orchestration. `knowledge-runtime/repository.ts`'s trade classifier (`inferTrade()`) was rewritten 2026-09-08 from raw substring matching (which misclassified the Tree Service assembly-index record as trade "Trim") to a deterministic, word-boundary/token-aware matcher that prioritizes each record's own curated `category` field and returns `null` on genuine ambiguity rather than guessing. Full before/after audit of the entire Knowledge Engine corpus: `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md`. No pricing value or Costbook record changed.
+
+## CRM operating overview
+
+The authenticated `/crm` route now composes the pre-job relationship workflow from existing organization-scoped sources: Customers, Projects, incomplete Project Tasks, `site_visit.created` activity, and the Proposal work queue. It introduces no Lead table, opportunity table, CRM-stage field, or follow-up table.
+
+Pipeline lanes are derived at render time. Project `lead` remains Lead unless a real Site Visit milestone exists; Site Visit activity plus pre-proposal work can surface Ready to Estimate; Project `estimating` remains the estimating source; Proposal `sent`/`viewed` supplies Proposal Sent; and Project `awarded` supplies Awarded. Accepted-proposal side effects therefore stay owned by the existing Project/Proposal lifecycle rather than CRM.
+
+The Follow-ups surface uses existing incomplete organization Project Tasks, including tasks created through Athena's bounded `create-follow-up` tool. Because Project Tasks do not persist a separate follow-up type, the UI describes them honestly as Project Tasks due next rather than inferring a new record class. Source reads use independent settled loading so one unavailable queue degrades visibly without blanking healthy CRM data.
+
+## Customer workspace
+
+The authenticated `/customers/[id]` surface now follows the canonical Customer overview without inventing a separate customer analytics model.
+
+- The page loads the canonical Customer record plus a bounded fan-out of the most recent eight linked Project details. Individual Project failures degrade locally; if a Project detail fails or the customer has more Projects than the bounded fan-out, the workspace explicitly reports partial coverage instead of treating missing work or money as zero.
+- **Needs You** is limited to supported human-attention signals in the loaded customer work: overdue Invoices with a positive balance, stale unanswered Proposals using the existing 14-day dashboard staleness policy, and blocked Project Tasks. Draft Estimates and normal progression do not become attention items.
+- **Current work** is derived from real Project status plus the latest available non-terminal Job, Proposal, or Estimate context. The surface does not fabricate completion percentages or unsupported customer-stage fields.
+- **Money** aggregates server-derived Invoice `amount`, `paidAmount`, and `balanceDue` across the loaded Project details while excluding voided Invoices from the financial rollup. Partial Project coverage remains disclosed next to the workspace.
+- **Upcoming** uses the dispatcher Jobs list filtered by the real `customerId` and the backend-provided current-week time boundary, so scheduled time and assigned-technician names come from the Job/assignment source of truth.
+- **Recent activity** is composed only from timestamps already present in loaded Project records: Proposal sent/viewed/responded events, recorded Invoice payments, Site Visit captures, and Project file creation. TradeOS does not synthesize customer messaging history when no such communication contract exists.
+- Customer files link back into the authenticated Project Documents workspace; the Customer page does not expose raw Project-file storage URLs.
+- Existing Customer edit, portal-link issuance, and soft-delete actions are preserved behind their current permissions. Portal link issuance remains limited to owner/admin/dispatcher/estimator.
+- The canonical Figma customer-scoped Athena card is intentionally deferred while contractor Athena is not authoritative on current `main`; the Customer workspace does not link into the operator-only Athena observability route.
+
+No Customer/CRM backend route, schema, permission, RLS, Invoice/Proposal/Job lifecycle, portal-session, or communication subsystem changes are included in this frontend composition slice.
 
 ## Costbook domain
 
