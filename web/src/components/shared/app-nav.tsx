@@ -171,10 +171,7 @@ export function AppNav({
   useBodyScrollLock(mobileOpen || createOpen);
 
   useEffect(() => {
-    if (athenaEnabled || !athenaCapabilityRetry) {
-      setClientAthenaEnabled(athenaEnabled);
-      return;
-    }
+    if (athenaEnabled || !athenaCapabilityRetry) return;
 
     let cancelled = false;
     const controller = new AbortController();
