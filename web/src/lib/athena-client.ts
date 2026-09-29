@@ -1,4 +1,12 @@
-import { ClientApiError } from "./clientApi";
+export class AthenaClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = "AthenaClientError";
+  }
+}
 
 export type AthenaKernelState =
   | "created"
@@ -132,7 +140,7 @@ export async function sendAthenaMessage(input: AthenaChatInput): Promise<AthenaK
     try {
       body = JSON.parse(text);
     } catch {
-      throw new ClientApiError(response.ok ? "Invalid Athena response" : "Request failed", response.status);
+      throw new AthenaClientError(response.ok ? "Invalid Athena response" : "Request failed", response.status);
     }
   }
 
@@ -143,16 +151,16 @@ export async function sendAthenaMessage(input: AthenaChatInput): Promise<AthenaK
   if (isAthenaKernelResult(body)) return body;
 
   if (!response.ok) {
-    throw new ClientApiError(getProxyErrorMessage(body), response.status);
+    throw new AthenaClientError(getProxyErrorMessage(body), response.status);
   }
 
-  throw new ClientApiError("Invalid Athena response", response.status);
+  throw new AthenaClientError("Invalid Athena response", response.status);
 }
 
 export function isAthenaRetryableClientError(error: unknown): boolean {
-  // A thrown non-ClientApiError is typically a transport/runtime failure where
+  // A thrown non-AthenaClientError is typically a transport/runtime failure where
   // the server outcome is ambiguous. Preserve the idempotency key for a retry.
-  if (!(error instanceof ClientApiError)) return true;
+  if (!(error instanceof AthenaClientError)) return true;
 
   // Deterministic client/auth/configuration outcomes require a changed input,
   // session, or deployment state. Retry only timeouts/rate limits/server faults.
@@ -160,7 +168,7 @@ export function isAthenaRetryableClientError(error: unknown): boolean {
 }
 
 export function describeAthenaClientError(error: unknown): string {
-  if (error instanceof ClientApiError) {
+  if (error instanceof AthenaClientError) {
     if (error.status === 404) return "Athena is not enabled in this environment yet.";
     if (error.status === 403) return "Athena could not perform that request with your current access.";
     if (error.status === 409) return "Athena found a conflict and did not apply the requested change.";
