@@ -1,10 +1,10 @@
 export class AthenaClientError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number
-  ) {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
     super(message);
     this.name = "AthenaClientError";
+    this.status = status;
   }
 }
 
