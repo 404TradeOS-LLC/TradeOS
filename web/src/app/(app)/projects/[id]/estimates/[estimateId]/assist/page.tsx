@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AIEstimateAssist } from "@/components/estimate-assist/ai-estimate-assist";
 import { buttonVariants } from "@/components/ui/button";
-import { getAIEstimateSuggestions, getKnowledgeStats, getKnowledgeTrades } from "@/lib/api";
+import { getKnowledgeStats, getKnowledgeTrades } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +12,7 @@ export default async function AIEstimateAssistPage({
 }) {
   const { id, estimateId } = await params;
   const token = await getSessionToken();
-  const initial = token
-    ? await getAIEstimateSuggestions(token, estimateId, "")
-    : { scopeOfWork: "", suggestions: [], knowledgeMatch: null };
-  const initialScope = initial.scopeOfWork.trim();
+  const initialScope = "";
   const [knowledgeStats, knowledgeTrades] = token
     ? await Promise.all([
         // Both are supplementary context for the assist panel (it already
@@ -34,9 +31,9 @@ export default async function AIEstimateAssistPage({
             ← Back to estimate builder
           </Link>
           <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">AI Estimate Assist</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Athena Estimate Review</h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Turn a plain-English scope into reviewable draft line items, then accept or reject them before they reach the estimate.
+              Turn a plain-English scope into reviewable draft line items with Athena, then accept or reject them before they reach the estimate.
             </p>
           </div>
         </div>
@@ -48,11 +45,12 @@ export default async function AIEstimateAssistPage({
       <AIEstimateAssist
         projectId={id}
         estimateId={estimateId}
-        initialScopeOfWork={initial.scopeOfWork}
-        initialSuggestions={initial.suggestions}
+        initialScopeOfWork={initialScope}
+        initialSuggestions={[]}
         initialKnowledgeStats={knowledgeStats}
         initialKnowledgeTrades={knowledgeTrades}
-        initialKnowledgeMatch={initialScope ? initial.knowledgeMatch : null}
+        initialKnowledgeMatch={null}
+        initialStructuredDraft={null}
       />
     </div>
   );

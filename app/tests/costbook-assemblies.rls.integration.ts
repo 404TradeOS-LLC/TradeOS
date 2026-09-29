@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { prisma } from "../db/client";
 import { runWithDatabaseSession } from "../db/requestSession";
 import type { SupportedRole } from "../domain";
+import { AssembliesDatabaseService } from "../modules/assemblies-database/service";
 
 const appClient = new PrismaClient({ datasources: { db: { url: required("TEST_DATABASE_URL") } } });
 const adminClient = new PrismaClient({ datasources: { db: { url: required("TEST_DATABASE_ADMIN_URL") } } });
@@ -19,8 +20,12 @@ const subA = "76000000-0000-0000-0000-000000000051";
 const subB = "86000000-0000-0000-0000-000000000052";
 const itemA = "76000000-0000-0000-0000-000000000061";
 const itemB = "86000000-0000-0000-0000-000000000062";
+const excavationItemA = "76000000-0000-0000-0000-000000000063";
+const haulItemA = "76000000-0000-0000-0000-000000000064";
+const excavationEquipmentA = "76000000-0000-0000-0000-000000000065";
 const assemblyA = "76000000-0000-0000-0000-000000000071";
 const assemblyB = "86000000-0000-0000-0000-000000000072";
+const service = new AssembliesDatabaseService();
 
 function inSession<T>(userId: string, orgId: string, role: SupportedRole, operation: () => Promise<T>) {
   return runWithDatabaseSession(appClient, { userId, orgId, role }, operation, "assembly-integration-test");
@@ -48,6 +53,11 @@ describe("live Costbook assembly RLS", () => {
     await inSession(ownerB, orgB, "owner", () => prisma.subcategory.create({ data: { id: subB, categoryId: categoryB, code: "B", name: "B" } }));
     await inSession(ownerA, orgA, "owner", () => prisma.costItem.create({ data: { id: itemA, orgId: orgA, subcategoryId: subA, code: "ITEM-A", name: "Item A", unitOfMeasure: "EA" } }));
     await inSession(ownerB, orgB, "owner", () => prisma.costItem.create({ data: { id: itemB, orgId: orgB, subcategoryId: subB, code: "ITEM-B", name: "Item B", unitOfMeasure: "EA" } }));
+    await inSession(ownerA, orgA, "owner", () => prisma.equipment.create({ data: { id: excavationEquipmentA, orgId: orgA, name: "Excavation crew" } }));
+    await inSession(ownerA, orgA, "owner", () => prisma.costItem.createMany({ data: [
+      { id: excavationItemA, orgId: orgA, subcategoryId: subA, code: "EXC-A", name: "Excavation", unitOfMeasure: "CY", equipmentId: excavationEquipmentA },
+      { id: haulItemA, orgId: orgA, subcategoryId: subA, code: "HAUL-A", name: "Haul allowance", unitOfMeasure: "CY" },
+    ] }));
     await inSession(ownerA, orgA, "owner", () => prisma.assembly.create({ data: { id: assemblyA, orgId: orgA, code: "ASM-A", name: "Assembly A", unitOfMeasure: "EA" } }));
     await inSession(ownerB, orgB, "owner", () => prisma.assembly.create({ data: { id: assemblyB, orgId: orgB, code: "ASM-B", name: "Assembly B", unitOfMeasure: "EA" } }));
   });
@@ -85,6 +95,45 @@ describe("live Costbook assembly RLS", () => {
     await expect(inSession(ownerA, orgA, "owner", () => prisma.assemblyItem.create({
       data: { assemblyId: assemblyA, costItemId: itemB, quantityPerUnit: 1 },
     }))).rejects.toBeTruthy();
+  });
+
+  it("installs a reviewed starter recipe atomically inside the active tenant session", async () => {
+    const installed = await inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
+      orgId: orgA,
+      templateId: "site-excavation",
+      componentMappings: [
+        { componentKey: "excavation", costItemId: excavationItemA },
+        { componentKey: "haul", costItemId: haulItemA },
+      ],
+    }));
+
+    const ownComponents = await inSession(ownerA, orgA, "owner", () => prisma.assemblyItem.findMany({
+      where: { assemblyId: installed.id },
+      orderBy: { sortOrder: "asc" },
+    }));
+    const foreignView = await inSession(ownerB, orgB, "owner", () => prisma.assembly.findFirst({ where: { id: installed.id } }));
+
+    expect(installed.code).toBe("31 23 16-TOS-001");
+    expect(ownComponents.map((row) => row.costItemId)).toEqual([excavationItemA, haulItemA]);
+    expect(foreignView).toBeNull();
+  });
+
+  it("rejects foreign starter mappings without leaving a partial assembly", async () => {
+    await expect(inSession(ownerA, orgA, "owner", () => service.installStarterCatalogAssembly({
+      orgId: orgA,
+      templateId: "slab-four-inch",
+      componentMappings: [
+        { componentKey: "base", costItemId: itemB },
+        { componentKey: "concrete", costItemId: excavationItemA },
+        { componentKey: "reinforcing", costItemId: itemA },
+        { componentKey: "place-finish", costItemId: haulItemA },
+      ],
+    }))).rejects.toThrow("inactive or outside this organization");
+
+    const partial = await inSession(ownerA, orgA, "owner", () => prisma.assembly.findFirst({
+      where: { orgId: orgA, code: "03 30 00-TOS-001" },
+    }));
+    expect(partial).toBeNull();
   });
 });
 

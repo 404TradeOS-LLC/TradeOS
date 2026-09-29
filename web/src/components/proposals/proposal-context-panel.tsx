@@ -6,11 +6,12 @@ import { InfoPanel } from "@/components/shared/info-panel";
 import { SummaryList } from "@/components/shared/summary-list";
 
 interface ProposalContextPanelProps {
+  projectId: string;
   latestVisit: SiteVisit | null;
   projectFiles: ProjectFile[];
 }
 
-export async function ProposalContextPanel({ latestVisit, projectFiles }: ProposalContextPanelProps) {
+export async function ProposalContextPanel({ projectId, latestVisit, projectFiles }: ProposalContextPanelProps) {
   const measurements = latestVisit?.measurementsJson && typeof latestVisit.measurementsJson === "object" ? latestVisit.measurementsJson : null;
 
   return (
@@ -56,7 +57,7 @@ export async function ProposalContextPanel({ latestVisit, projectFiles }: Propos
         </CardContent>
       </Card>
 
-      <ProjectPhotoPanel projectFiles={projectFiles} title="Photo evidence" emptyMessage="No project photos attached yet." />
+      <ProjectPhotoPanel projectFiles={projectFiles} projectId={projectId} title="Photo evidence" emptyMessage="No project photos attached yet." />
     </div>
   );
 }

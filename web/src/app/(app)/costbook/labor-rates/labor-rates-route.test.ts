@@ -29,8 +29,8 @@ test("labor-rates loading route exposes a dedicated loading summary", () => {
 test("costbook navigation links include the labor-rates surface", () => {
   const source = readSource("../page.tsx");
 
-  assert.match(source, /href:\s*"\/costbook\/labor-rates"/);
-  assert.match(source, /label:\s*"Labor Rates"/);
+  assert.match(source, /href(?:=|:)\s*"\/costbook\/labor-rates"/);
+  assert.match(source, /label:\s*"Labor"/);
 });
 
 test("labor-rates catalog preserves the factual empty-state copy", () => {

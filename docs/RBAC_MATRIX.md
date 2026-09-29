@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-14
+last_verified: 2026-08-24
 source_of_truth: true
 related_code:
   - app/domain/contracts.ts
@@ -74,6 +74,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - no role bypasses RLS
 - cross-organization reads and writes are denied by session-scoped RLS
 - customer portal sessions are scoped to one organization and customer; they can read only that customer's shared project documents and can write only the exact pending contract-sign transition
+- issuing and emailing a customer portal access link remains a staff-only `documents.manage` action; delivery is a server-side side effect and grants no additional staff or portal permission
 - request headers cannot select or impersonate a tenant
 - S018 authentication hardening preserves these role boundaries. ADR-010 adds a separate non-staff customer portal principal; it is not a canonical staff role, cannot reach staff routes, and does not expand the staff permission matrix.
 - waiting longer to acquire the request-scoped transaction changes only
@@ -83,15 +84,10 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - background/operator scripts identify their actor by `--user-id`, never by a
   supplied role: `runWithBackgroundDatabaseSession` independently re-verifies
   that user has an active membership in `--org-id` and resolves the role from
-  that membership before anything runs. It now also passes that resolved
-  identity to the operation it invokes, purely so a background caller can
-  hand it to a service method that expects an explicit `AuthContext` (for
-  example, `app/scripts/ingest-jones-and-sons-candidates.ts` submitting a
-  Costbook research candidate) — this widens what data a caller can read, not
-  what a role can do, and every write it triggers still passes through the
-  same RLS write policies (for candidates, `costbook_research_candidates_write_policy`,
-  which independently requires owner/admin) as if a human had made the call
-  over the API.
+  that membership before anything runs. It can pass that resolved identity to
+  a service method that expects an explicit `AuthContext`; writes still pass
+  through the same role checks and RLS write policies as authenticated HTTP
+  requests.
 
 ## Assigned-technician restrictions
 

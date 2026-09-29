@@ -22,7 +22,7 @@ describe("CostDatabaseService cost-item tenant references", () => {
     jest.clearAllMocks();
     mockPrisma.subcategory.findFirst.mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" });
     mockPrisma.laborRate.findFirst.mockResolvedValue({ id: "22222222-2222-4222-8222-222222222222" });
-    mockPrisma.material.findFirst.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333" });
+    mockPrisma.material.findFirst.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333", isActive: true });
     mockPrisma.equipment.findFirst.mockResolvedValue({ id: "44444444-4444-4444-8444-444444444444" });
     mockPrisma.subcontractor.findFirst.mockResolvedValue({ id: "55555555-5555-4555-8555-555555555555" });
   });
@@ -57,7 +57,7 @@ describe("CostDatabaseService cost-item tenant references", () => {
 
     expect(mockPrisma.material.findFirst).toHaveBeenCalledWith({
       where: { id: "33333333-3333-4333-8333-333333333333", orgId: "org-1" },
-      select: { id: true },
+      select: { id: true, isActive: true },
     });
     expect(mockPrisma.costItem.create).not.toHaveBeenCalled();
   });
@@ -107,9 +107,48 @@ describe("CostDatabaseService cost-item tenant references", () => {
 
     expect(mockPrisma.material.findFirst).toHaveBeenCalledWith({
       where: { id: "33333333-3333-4333-8333-333333333333", orgId: "org-1" },
-      select: { id: true },
+      select: { id: true, isActive: true },
     });
     expect(mockPrisma.costItem.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects linking a cost item to an inactive material", async () => {
+    mockPrisma.material.findFirst.mockResolvedValue({ id: "33333333-3333-4333-8333-333333333333", isActive: false });
+    const service = new CostDatabaseService();
+
+    await expect(service.create({
+      orgId: "org-1",
+      subcategoryId: "11111111-1111-4111-8111-111111111111",
+      materialId: "33333333-3333-4333-8333-333333333333",
+      code: "CI-INACTIVE",
+      name: "Inactive-material item",
+      unitOfMeasure: "EA",
+    })).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(mockPrisma.costItem.create).not.toHaveBeenCalled();
+  });
+
+  it("preserves an existing cost item's link to a since-deactivated material on an unrelated update", async () => {
+    mockPrisma.costItem.findFirst.mockResolvedValue({ id: "cost-item-1", orgId: "org-1" });
+    mockPrisma.costItem.update.mockResolvedValue({
+      id: "cost-item-1",
+      orgId: "org-1",
+      subcategoryId: "11111111-1111-4111-8111-111111111111",
+      code: "CI-5",
+      name: "Renamed item",
+      unitOfMeasure: "EA",
+      productionRate: null,
+      laborRateId: null,
+      materialId: "33333333-3333-4333-8333-333333333333",
+      equipmentId: null,
+      subcontractorId: null,
+      isActive: true,
+    });
+
+    const result = await new CostDatabaseService().update("cost-item-1", { name: "Renamed item" }, "org-1");
+
+    expect(mockPrisma.material.findFirst).not.toHaveBeenCalled();
+    expect(result.materialId).toBe("33333333-3333-4333-8333-333333333333");
   });
 
   it("allows an update to explicitly clear a nullable catalog reference without a lookup", async () => {

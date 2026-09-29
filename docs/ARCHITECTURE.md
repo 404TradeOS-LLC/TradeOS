@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-14
+last_verified: 2026-08-09
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -76,6 +76,15 @@ scope. Public requests use a dedicated portal database session with
 lookups re-check the project/customer relationship. The portal does not reuse a
 staff role. Its only write policy is the exact pending-contract signing
 transition, with a separate contract-event insert policy.
+Issuance also schedules the raw one-time value for server-side transactional
+email delivery after the hashed token record exists. The provider API key and
+message construction remain in the backend email adapter; no browser or portal
+principal receives provider credentials or gains staff-route authority.
+The emailed GET is deliberately non-consuming: it moves the opaque value into
+a short-lived, HttpOnly, path-scoped pending cookie and redirects to a clean
+confirmation page. Only an explicit same-origin POST redeems the single-use
+value, so email security scanners and link previews cannot consume it before
+the customer acts.
 
 The S018/S042 hardening keeps this three-layer boundary intact: locally issued access JWTs expire after a finite default lifetime and reject malformed registered claims, refresh rotation is single-use under concurrency, local refresh sessions are revoked at logout/password reset/inactive-account rejection, and inactive application users cannot receive a refreshed or bootstrapped session. Supabase bearer verification remains the established signature/issuer/audience/expiration path with finite `exp`/`iat` required; captured access JWTs remain valid until expiry by policy. S043 records server-derived authentication outcomes, authorization denials, security decisions, and sensitive-action terminal outcomes in the durable Athena audit trail when a verified organization context exists; malformed tokens without trustworthy tenant context remain fail-closed and are never enriched from client input.
 
@@ -96,11 +105,11 @@ Service-level transactions opened through `runInDatabaseTransaction` also bind t
 Background jobs use the same session model through `runWithBackgroundDatabaseSession`.
 That function independently re-verifies the calling identity's active
 organization membership before opening the session — it never trusts a
-caller-supplied role — and now also hands its resolved `AuthContext` to the
-operation it runs (additive; existing zero-argument callers are unaffected),
-so a background caller that needs to call a service method taking an explicit
-`AuthContext` (for example `CostbookCandidateService.create()`) does not have
-to re-derive or separately trust that identity.
+caller-supplied role — and also hands its resolved `AuthContext` to the
+operation it runs. Existing zero-argument callers remain compatible. A
+background caller that needs to call a service method taking an explicit
+`AuthContext`, such as `CostbookCandidateService.create()`, can therefore
+reuse the verified identity instead of re-deriving it.
 
 Database search-index changes do not alter this tenancy model. The `pg_trgm` extension and the GIN trigram indexes added in migration `20260703090000_add_search_trgm_indexes` operate below the query planner and do not bypass or weaken RLS.
 

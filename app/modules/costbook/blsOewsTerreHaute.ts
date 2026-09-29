@@ -19,7 +19,7 @@ export const BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS =
   "Terre Haute, IN Metropolitan Statistical Area (Clay, Sullivan, Vermillion, and Vigo counties)";
 
 /**
- * May 2025 OEWS wage estimates for a first contractor-trade ingestion slice.
+ * May 2025 OEWS wage estimates for contractor-trade ingestion slices.
  *
  * These are employee wage benchmarks, not organization-specific loaded labor
  * costs or customer-facing bill rates. They enter TradeOS as source-backed
@@ -84,6 +84,28 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
     hourlyMedian: 22.06,
     hourlyP75: 28.0,
     hourlyP90: 29.49,
+  },
+  {
+    socCode: "47-2073",
+    occupation: "Operating Engineers and Other Construction Equipment Operators",
+    trade: "Heavy Equipment Operator",
+    category: "Sitework",
+    hourlyP10: 20.85,
+    hourlyP25: 24.17,
+    hourlyMedian: 29.63,
+    hourlyP75: 40.4,
+    hourlyP90: 44.46,
+  },
+  {
+    socCode: "47-2211",
+    occupation: "Sheet Metal Workers",
+    trade: "Sheet Metal Worker",
+    category: "HVAC",
+    hourlyP10: 17.73,
+    hourlyP25: 22.71,
+    hourlyMedian: 36.44,
+    hourlyP75: 42.77,
+    hourlyP90: 47.39,
   },
 ] as const;
 

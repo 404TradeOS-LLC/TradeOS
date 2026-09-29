@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-30
+last_verified: 2026-09-27
 source_of_truth: false
 related_code:
   - app/modules/invoices
@@ -110,10 +110,18 @@ Invoice DTOs and queue items derive `overdue` from a non-terminal sent/viewed/pa
 ## Frontend surfaces
 
 - `/projects/[id]/invoices/new`
-- `/projects/[id]/invoices/[invoiceId]`
+- `/projects/[id]/invoices/[invoiceId]` — canonical contractor Invoice workspace
 - `/dashboard/revenue-this-week` — transaction-level weekly payment ledger; each row links back to its invoice
 - `/portal/invoices/[invoiceId]`
 - `/customer-portal/invoices/[invoiceId]`
+
+The authenticated Invoice workspace presents server-derived `amount`, `paidAmount`, `balanceDue`, and recorded-payment count first, then billing/customer/job context, work performed, activity, and document access. It does not maintain a second client-side balance calculation.
+
+For an eligible sent/overdue Invoice with a positive balance, `RecordPaymentForm` is the primary billing action when the current role has the same `billing.write` grant pinned by the existing frontend/backend role regression test. The form is explicitly framed as recording money already received; it does not imply TradeOS processed a customer payment. The supported manual mark-paid path and Invoice void action remain available under progressive disclosure.
+
+The Invoice PDF and staff portal preview are direct existing destinations. The UI does not claim customer-view telemetry because no such telemetry contract currently exists.
+
+The canonical Money-page Expense receipt-capture frame remains a design `[TARGET]`, not current production authority.
 
 The staff portal project summary lists every invoice for the selected
 organization project. The staff portal invoice detail reads `paidAmount`,
@@ -161,7 +169,7 @@ payment reconciliation, and organization/RLS boundaries are unchanged.
 
 ## Last verified date
 
-2026-08-30
+2026-09-27
 
 ## S022 rendering boundary
 

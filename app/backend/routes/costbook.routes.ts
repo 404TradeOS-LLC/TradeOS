@@ -10,6 +10,9 @@ import { asyncHandler } from "../middleware/asyncHandler";
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
+costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
+costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 
@@ -24,6 +27,8 @@ costbookRouter.delete("/cost-items/:id", asyncHandler(costItemCtrl.remove));
 costbookRouter.get("/assemblies", asyncHandler(assemblyCtrl.list));
 costbookRouter.get("/assemblies/search", asyncHandler(assemblyCtrl.search));
 costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates));
+costbookRouter.get("/assemblies/starter-catalog", asyncHandler(assemblyCtrl.starterCatalog));
+costbookRouter.post("/assemblies/starter-catalog/install", asyncHandler(assemblyCtrl.installStarterCatalog));
 costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
 costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
 costbookRouter.get("/assemblies/:id", asyncHandler(assemblyCtrl.getById));
@@ -47,6 +52,7 @@ costbookRouter.get("/materials", asyncHandler(ctrl.listMaterials));
 costbookRouter.get("/materials/:id", asyncHandler(ctrl.getMaterial));
 costbookRouter.post("/materials", asyncHandler(ctrl.createMaterial));
 costbookRouter.patch("/materials/:id", asyncHandler(ctrl.updateMaterial));
+costbookRouter.delete("/materials/:id", asyncHandler(ctrl.removeMaterial));
 costbookRouter.get("/divisions", asyncHandler(ctrl.listDivisions));
 costbookRouter.get("/divisions/:id", asyncHandler(ctrl.getDivision));
 costbookRouter.post("/divisions", asyncHandler(ctrl.createDivision));

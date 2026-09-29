@@ -27,11 +27,11 @@ function field(block, name) {
   return match[1].trim();
 }
 
-test("sprint backlog has exactly S001 through S050 once", () => {
+test("sprint backlog has exactly S001 through S100 once", () => {
   const ids = sprintBlocks().map((block) => block.id);
-  const expected = Array.from({ length: 50 }, (_, index) => `S${String(index + 1).padStart(3, "0")}`);
+  const expected = Array.from({ length: 100 }, (_, index) => `S${String(index + 1).padStart(3, "0")}`);
   assert.deepEqual(ids, expected);
-  assert.equal(new Set(ids).size, 50);
+  assert.equal(new Set(ids).size, 100);
 });
 
 test("sprint statuses use only the allowed vocabulary", () => {

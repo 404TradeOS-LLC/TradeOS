@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-28
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -34,6 +34,7 @@ related_code:
   - app/prisma/migrations/20260811150000_restrict_costbook_equipment_writes/migration.sql
   - app/prisma/migrations/20260812120000_add_costbook_hierarchy_foundation/migration.sql
   - app/prisma/migrations/20260812173000_harden_costbook_hierarchy_rls/migration.sql
+  - app/prisma/migrations/20260912120000_add_material_active_state/migration.sql
   - app/modules/admin-dashboard
   - app/prisma/migrations/20260703090000_add_search_trgm_indexes/migration.sql
   - app/backend/routes/costDatabase.routes.ts
@@ -110,6 +111,8 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies`
 - `/api/v1/costbook/assemblies/search`
 - `/api/v1/costbook/assemblies/templates`
+- `/api/v1/costbook/assemblies/starter-catalog`
+- `/api/v1/costbook/assemblies/starter-catalog/install`
 - `/api/v1/costbook/assemblies/:id`
 - `/api/v1/costbook/assemblies/:id/unit-cost`
 - `/api/v1/costbook/assemblies/:id/items`
@@ -134,12 +137,13 @@ consumers.
 
 ### Materials
 
-- `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`.
-- `POST /api/v1/costbook/materials` and `PATCH /api/v1/costbook/materials/:id` require `costbook.write`.
+- `GET /api/v1/costbook/materials` and `GET /api/v1/costbook/materials/:id` require `costbook.read`; the list route accepts an `active` filter.
+- `POST /api/v1/costbook/materials` and `PATCH /api/v1/costbook/materials/:id` require `costbook.write`; a PATCH that includes `isActive` additionally requires `costbook.manage`.
+- `DELETE /api/v1/costbook/materials/:id` requires `costbook.manage` and soft-deactivates the row (sets `isActive: false`) so historical CostItem/Estimate references are preserved.
 - Material request bodies are strict and do not accept caller-supplied organization IDs.
 - Unit-cost changes use the existing material price-audit behavior.
 
-The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists.
+The material DTO includes `id`, `organizationId`, `sku`, `name`, `unitOfMeasure`, `unitCost`, `wasteFactorPct`, `supplierId`, `supplierName`, `lastPriceUpdate`, `isActive`, `createdAt`, and `updatedAt`. The existing `materials` table is reused; no duplicate table exists.
 
 ### Labor rates
 
@@ -184,6 +188,8 @@ Cost remains derived rather than stored as a flat CostItem price. `UnitCostBreak
 ### Assemblies, pricing, history, and supplier feeds
 
 The unified Assembly surface reuses `AssembliesDatabaseService` and the existing `Assembly`/`AssemblyItem` models. Reads require `costbook.read`; ordinary Assembly/component edits require `costbook.write`; lifecycle deactivation requires `costbook.manage`. New components must be active and belong to the authenticated organization, cycle prevention remains enforced, and the database independently validates the parent Assembly plus referenced CostItem/child Assembly tenant scope.
+
+The residential starter catalog adds a versioned, read-only TradeOS recipe library organized by NAHB work groups and CSI section codes. It stores no tenant prices. Each component publishes compatible units and Cost Item kinds. Installation requires `costbook.write`, a complete one-to-one mapping from every recipe slot to a distinct active same-organization compatible Cost Item, and an unused organization assembly code. A successful install atomically writes the recipe into the existing tenant-scoped `Assembly`/`AssemblyItem` tables as a reusable template; the existing unit-cost resolver and Estimate snapshot behavior remain authoritative. The catalog endpoint also returns a derived NAHB/CSI coverage matrix, and the web mapper searches the full organization Costbook instead of relying on a preloaded dropdown. See `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
 
 `POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
 
@@ -230,7 +236,7 @@ Current behavior:
 - assemblies may be marked `isTemplate` for reusable quick-add behavior
 - materials participate in supplier review queue history through related audit records
 - labor rates use `active`; delete is soft deactivate
-- material archive/deactivate is not exposed because the existing `Material` schema has no active/archive column
+- materials use `isActive` (migration `20260912120000_add_material_active_state`); API delete is soft deactivate and `materials_write_policy` (already `costbook.manage`-gated) covers the new column without any RLS change
 - Costbook workspace foundation state uses `foundation`, `active`, and `archived`
 - Division/Category/Subcategory use `isActive`; API delete is soft deactivate and active descendants cannot be stranded beneath inactive parents
 - CostItem uses `isActive`; API delete is soft deactivate so historical Estimate/Change Order references remain valid
@@ -238,16 +244,20 @@ Current behavior:
 ## Frontend surfaces
 
 - Estimate Builder and AI Estimate Assist consume existing organization-scoped CostItems/Assemblies through estimating services; Estimate lines preserve the source IDs and pricing values captured at line creation
-- `/costbook` shows the workspace summary, permissions, organization-scoped catalog counts, and links to implemented management surfaces
-- `/costbook/materials` provides real-data material management
+- `/costbook` is the search-first pricing workspace. Materials, Labor, Equipment, and Assemblies remain separate real server-paginated catalogs, but the landing surface makes those four catalogs the primary navigation/search decision instead of leading with foundation/admin counts. Recent Material pricing is shown with the stored unit cost plus only the supplier and `lastPriceUpdate` facts actually present on the Material DTO.
+- `PricingProvenance` is the shared frontend evidence primitive. Its ordinary Material mode intentionally has no confidence/freshness verdict: supplier name and last-price-update date do not become “verified”, “high confidence”, “current local”, or a stale/not-stale classification. Its Research mode may show the richer stored provenance status, source/date, retrieval date, regional basis, and confidence because those fields actually exist on `CostbookResearchCandidate`.
+- `/costbook/materials` leads with the existing server-side search/filter/pagination controls and renders Material rows around current stored price, supplier/date evidence, active state, and permission-aware edit/deactivate actions. Create/edit remains the existing Costbook write path; manager-only deactivation remains unchanged.
 - `/costbook/labor-rates` provides real-data labor-rate management
 - `/costbook/equipment` provides real-data equipment management
 - `/costbook/divisions` renders Division → Category → Subcategory management
 - `/costbook/cost-items` provides real-data CostItem create/edit/deactivate management, read-only behavior for actors without writes, responsive desktop/mobile presentation, and honest empty/load/error/mutation states
-- `/costbook/assemblies` provides Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states
+- `/costbook/assemblies` provides NAHB-group/CSI-code starter browsing and safe Cost Item mapping/installation alongside Assembly create/edit/deactivate, component composition, template state, current unit-cost display, and permission-aware states. Selected Assemblies now link to the read-first detail route.
+- `/costbook/assemblies/[id]` is the canonical estimator-first Assembly detail. It reads the existing organization-scoped Assembly, bounded component page, and recursively resolved current unit cost. The page shows stored scope/description and quantity-per-output-unit recipe rows, but does not infer sell price, gross margin, confidence, job inputs, or component-level provenance that the API does not expose. Unit-cost failure degrades locally so the recipe remains inspectable. Estimate application remains in the Estimate Items workflow rather than becoming a direct mutation from Costbook detail.
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
-- `/costbook/research-review` is the human review surface for researched pricing candidates: real queue and corpus counts, a paginated/searchable/filterable candidate table, and a detail panel showing complete provenance beside the current Costbook price and the difference. Approve/reject/promote render only for `costbook.manage`; read-only viewers get a truthful explanation rather than disabled controls
+- `/costbook/research-review` remains the human review surface for researched pricing candidates and now renders its stronger source evidence through the shared `PricingProvenance` primitive. Real queue/corpus counts, match analysis, approve/reject, and explicit promotion behavior are unchanged; approval/promotion remain `costbook.manage` actions and research never becomes production pricing merely by appearing in the queue.
+
+No organization-wide “price health” score or stale-age threshold is derived by this frontend. Supplier proposals, research candidates, and Athena recommendations remain review/recommendation inputs and do not auto-write production Costbook pricing.
 
 ## Tests
 
@@ -258,6 +268,8 @@ Current behavior:
 - `app/tests/costbook-candidates.controller.test.ts`
 - `web/src/components/costbook/research-review-model.test.ts`
 - `web/src/app/(app)/costbook/research-review/research-review-route.test.ts`
+- `web/src/app/(app)/costbook/costbook-pricing-intelligence-contract.test.ts`
+- `web/src/app/(app)/costbook/assemblies/[id]/assembly-detail-contract.test.ts`
 - `app/tests/cost-database.tenant-references.test.ts`
 - `app/tests/costbook-cost-items.rls.integration.ts`
 - `app/tests/costbook.service.test.ts`
@@ -269,6 +281,7 @@ Current behavior:
 - `app/tests/costbook.rls.integration.ts`
 - `app/tests/material-price-audit.test.ts`
 - `app/tests/assemblies-database.service.test.ts`
+- `app/tests/assembly-starter-catalog.test.ts`
 - `app/tests/estimate-engine.formulas.test.ts`
 - `app/tests/costbook-assemblies.rls.integration.ts`
 - `app/tests/costbook-pricing.test.ts`
@@ -290,7 +303,7 @@ Current behavior:
 
 ## Known limitations
 
-- system-wide shared template catalogs are not the current model; assemblies are tenant-scoped
+- the starter recipe definitions are shared read-only application data, but every installed Assembly remains tenant-scoped and must map to that tenant's active Cost Items
 - only `name` columns are trigram-indexed today, so combined name-or-code substring search may still scan when the planner has to satisfy the `code` branch
 - supplier feed transport requires explicit operator configuration per Supplier; no supplier-SKU matching layer is implemented
 - pricing preview is not a persisted organization-wide pricing-policy/rules system
@@ -310,4 +323,4 @@ Current behavior:
 
 ## Last verified date
 
-2026-09-12
+2026-09-28

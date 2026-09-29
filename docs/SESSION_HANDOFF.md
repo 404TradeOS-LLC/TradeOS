@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-09-22
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -12,48 +12,47 @@ related_docs:
 
 # Session Handoff
 
-## Mission
-
-S049 (stale branch, PR, and worktree retirement) is `DONE`. Readiness PR #494
-reconciled live GitHub state and classified every remote branch without a
-currently-open PR; the founder then executed the recorded branch deletions
-directly. This session independently confirmed the deletions against live
-`origin` state before marking the sprint complete.
-
 ## Current truth
 
-- `origin/main` is at squash commit `0b6f98ad309df62ff729d7303d18c09d5ae59f49`
-  (PR #494, S049 readiness/documentation, merged 2026-09-12), itself built on
-  `eaa3144b648ed7cbaf2b580cc31fcc42ba3ebf3a` (PR #480, Costbook provenance
-  contract).
-- Open PRs: #482 (canonical design-contract docs), #489 draft (Costbook
-  materials-catalog active/deactivate state), #491 (Stripe subscription
-  billing — protected billing/money-movement scope per `AGENTS.md`; a
-  founder decision is needed before merge), #492 (BLS OEWS labor candidate
-  source), #493 draft (trusted Knowledge Engine pricing pipeline). None
-  overlap a numbered sprint.
-- S049's 23 `SAFE_TO_DELETE` branches (listed in `docs/SPRINT_BACKLOG.md`'s
-  S049 entry) are confirmed gone from `origin` via `git fetch --prune` +
-  `git branch -r`. All 23 `REQUIRES_REVIEW` branches, `main` (protected by
-  the live default-branch ruleset), `staging` (unprotected but retained as
-  the deployment branch), and every branch behind an open PR remain
-  present, untouched.
-- `feat/stripe-connect-payments` (no open PR) still contains a complete,
-  previously-ungoverned Stripe billing implementation; combined with open PR
-  #491, this remains a founder-decision item.
-- 20 `codeql-autofix/alert-3-*` branches remain as orphaned artifacts of a
-  CodeQL autofix workflow whose PR-creation step appears to be failing
-  silently; the underlying alert remains unaddressed on `main`. Separate
-  CI-repair finding, not yet actioned.
-- `docs/tradeos-design-system` still carries ~104 unabsorbed brand-asset
-  files never merged anywhere; not yet reviewed for disposition.
-- S039, S044, and S045 remain blocked on production access. S046 depends on
-  S045. S048 requires a founder decision selecting beta tenants and a
-  rollout date.
+- S051 implementation merged in PR #538:
+  https://github.com/404TradeOS-LLC/TradeOS/pull/538
+- Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
+- The matrix/validator is now on `main`; do not continue the old S051 branch.
+- The change adds a machine-readable matrix of 10 journeys and 49 UI/API
+  actions or reads, plus a static route/controller/contract drift validator,
+  regression tests, and beta-evidence documentation.
+- The matrix identifies two current gaps: no customer proposal accept/decline
+  UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
+- Static validation is not rendered-browser certification. No current-head
+  browser evidence is claimed. Hosted verification passed on code head
+  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
+  remain outstanding.
+- No application behavior, API contract, database schema, or runtime security
+  policy was changed.
+
+## Verification completed
+
+- `npm run connection-matrix:check` — passed (10 journeys, 49 mapped actions).
+- `npm run connection-matrix:test` — passed.
+- `npm run pr:test` — passed (65 tests).
+- `npm run docs:test` — passed.
+- `npm run docs:check -- --base origin/main` — passed.
+- `npm run pr:preflight -- --base origin/main` — passed.
+- `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
+  passed.
+
+## Next action
+
+After the S053 readiness PR merges, create a fresh implementation branch from
+current `main`. Certify the existing scope → Athena → reviewed Costbook/assembly
+→ persisted estimate-line path; do not change pricing policy, schema, auth/RLS,
+or introduce unreviewed AI writes.
 
 ## Next Eligible Sprint
-Sprint ID: NONE
-Eligibility: `NONE`; No numbered sprint is currently `READY`. S049 is `DONE`. S048 needs a founder decision; S039/S044/S045 are `BLOCKED` on production access.
-Dependencies: S036 and S049 are `DONE`. S044/S045 remain blocked on production access and S046 is blocked by S045.
-Overlap check: open PRs at this reconciliation are #482, #489, #491, #492, and #493; none overlap any numbered sprint.
-Startup prompt: No numbered sprint is `READY`. S048 requires a founder decision (beta tenants and rollout date) before it can be promoted.
+
+Sprint ID: S053
+Eligibility: `READY` in the separate governance promotion; implementation starts only after that PR merges.
+Dependencies: S051 is DONE; no competing S053 implementation was found.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
+Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
+

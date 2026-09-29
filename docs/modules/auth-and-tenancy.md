@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-14
+last_verified: 2026-08-14
 source_of_truth: false
 related_code:
   - app/backend/middleware/auth.ts
@@ -70,8 +70,8 @@ Request-scoped and service-level database transactions use the shared async-loca
 - `POST /api/v1/account/invites` — persists a hashed invitation token and schedules the raw token for post-response delivery through the server-side Resend adapter when configured; owner/admin authorization remains unchanged.
 - `POST /api/v1/auth/bootstrap` — links a verified Supabase Auth identity (Bearer token verified via `verifyAnyAuthToken`) to an application `AppUser`/`OrganizationMembership`. Idempotent: if the identity (matched by `authSubject` or `email`) already has an active membership, returns that existing user/organization/role and does not create anything, regardless of what `organizationName` was passed. `organizationName` is required only to provision a brand-new organization for a never-before-seen identity; role is always `owner` for that path and is never taken from the request — when it's missing, the response is a `400` with `details: { code: "organization_name_required" }` (a stable, machine-readable discriminator; the response's `error` message text is UI copy, not a contract). Called from `web/src/app/actions/auth.ts` after `signupAction` (when Supabase returns a session immediately, i.e. email confirmation is disabled), every `loginAction`, and `finishSetupAction` (see "Finish-setup recovery flow" below).
 - `GET /api/v1/account`
-- `POST /api/v1/customer-portal/redeem` — rate-limited single-use magic-link redemption; returns an opaque short-lived portal session
-- `POST /api/v1/customer-portal/access-tokens` — staff `documents.manage` issuance for an emailed customer record
+- `POST /api/v1/customer-portal/redeem` — rate-limited single-use magic-link redemption reached by the web flow only after a non-consuming GET and explicit same-origin customer confirmation; returns an opaque short-lived portal session
+- `POST /api/v1/customer-portal/access-tokens` — staff `documents.manage` issuance for an emailed customer record; after persistence, the backend schedules the one-time link through the shared transactional email adapter
 
 ## Permissions
 
@@ -86,10 +86,11 @@ Special constraints:
 - organization provisioning uses a separate high-entropy secret
 - team invites are currently limited to `dispatcher` and `technician`
 - transactional delivery requires `RESEND_API_KEY`, a verified `EMAIL_FROM`, and `APP_BASE_URL`; the API key remains server-only and email failures never expose tokens to callers
+- customer-portal email GETs never redeem the one-time value; the web stores it briefly in an HttpOnly, path-scoped pending cookie, removes it from the visible URL, and requires an exact-origin POST from the confirmation screen
 
 ## Transactional email delivery
 
-The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API directly, keeping the dependency footprint unchanged while providing one outbound primitive for auth notifications. It sends password-reset and team-invite messages with:
+The shared adapter in `app/modules/email/service.ts` uses Resend's HTTPS API directly, keeping the dependency footprint unchanged while providing one outbound primitive for auth and customer-portal notifications. It sends password-reset, team-invite, and customer-portal access messages with:
 
 - a verified sender from `EMAIL_FROM`
 - links built from `APP_BASE_URL`
@@ -125,18 +126,13 @@ The email links target the implemented `/reset-password?token=...` and `/invite/
 - Security audit persistence uses the same transaction client when the
   authentication seam has a verified membership, preserving `app.user_id`,
   `app.org_id`, and `app.role` without widening lookup scope.
-- `runWithBackgroundDatabaseSession` (`app/db/requestSession.ts`) is the
-  identity boundary for operator/background scripts: it re-verifies that the
-  supplied `userId` has an active `organizationMembership` in the supplied
-  `orgId` and derives the role from that row — it never accepts a
-  caller-supplied role. It now also hands that resolved `AuthContext` to the
-  operation it runs, an additive change (every existing zero-argument
-  caller — supplier price sync, Athena observability retention/export/alerts —
-  is unaffected) that lets a new caller pass the verified identity straight
-  into a service method requiring an explicit `AuthContext`, instead of
-  re-deriving or trusting one, while every write that identity makes still
-  goes through the same RLS-enforced write paths as an authenticated HTTP
-  request would.
+- `runWithBackgroundDatabaseSession` is the identity boundary for
+  operator/background scripts: it re-verifies that the supplied `userId` has
+  an active organization membership in the supplied `orgId` and derives the
+  role from that membership. It can also pass the resolved `AuthContext`
+  directly to the operation, allowing a service that requires explicit auth
+  context to reuse the verified identity while preserving the same RLS-backed
+  write boundary.
 
 ## Frontend surfaces
 

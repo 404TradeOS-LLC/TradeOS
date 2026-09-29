@@ -285,7 +285,7 @@ describe("CostbookCandidateService review/promote audit evidence", () => {
     mockPrisma.subcategory.findFirst.mockResolvedValue({ id: "subcategory-1" });
     // CostDatabaseService.create independently re-verifies that every
     // referenced component belongs to the authenticated organization.
-    mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", orgId: "org-1" });
+    mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", orgId: "org-1", isActive: true });
     mockPrisma.material.create.mockResolvedValue({ id: "material-1", name: "x", unitOfMeasure: "SQ", unitCost: 95, wasteFactorPct: 0, supplier: null, sku: null, lastPriceUpdate: null, orgId: "org-1", createdAt: new Date(), updatedAt: new Date(), supplierId: null });
     mockPrisma.costItem.create.mockResolvedValue({
       id: "cost-item-1",
@@ -328,7 +328,7 @@ describe("CostbookCandidateService review/promote audit evidence", () => {
     transaction.costbookResearchCandidate.findFirst.mockResolvedValue(approved);
     transaction.costbookResearchCandidate.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.subcategory.findFirst.mockResolvedValue({ id: "subcategory-1" });
-    mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", orgId: "org-1" });
+    mockPrisma.material.findFirst.mockResolvedValue({ id: "material-1", orgId: "org-1", isActive: true });
     mockPrisma.material.create.mockResolvedValue({ id: "material-1", name: "x", unitOfMeasure: "SQ", unitCost: 95, wasteFactorPct: 0, supplier: null, sku: null, lastPriceUpdate: null, orgId: "org-1", createdAt: new Date(), updatedAt: new Date(), supplierId: null });
     mockPrisma.costItem.create.mockResolvedValue({
       id: "cost-item-1",
