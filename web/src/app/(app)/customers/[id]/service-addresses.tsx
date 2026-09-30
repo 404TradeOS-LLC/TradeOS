@@ -64,7 +64,7 @@ function ExistingAddress({ customerId, address, canWrite }: { customerId: string
           <form action={removeAction} className="mt-3">
             <input type="hidden" name="customerId" value={customerId} />
             <input type="hidden" name="addressId" value={address.id} />
-            {removeState?.error ? <p role="alert" className="text-destructive">{removeState.error}</p> : null}
+            {removeState?.error && !removing ? <p role="alert" className="text-destructive">{removeState.error}</p> : null}
             <Button type="submit" variant="destructive" disabled={removing}>{removing ? "Removing…" : "Remove address"}</Button>
           </form>
         </details>
