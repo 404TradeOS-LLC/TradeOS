@@ -342,7 +342,7 @@ function MobileEstimateFlow({
         ))}
       </div>
 
-      {mobileStage === "scope" ? (
+      <div className={cn(mobileStage === "scope" ? "block" : "hidden")} aria-hidden={mobileStage !== "scope"}>
         <div className="space-y-4">
           <div className="space-y-3 border-b border-border/70 pb-4">
             <div className="flex items-center justify-between gap-3">
@@ -381,7 +381,7 @@ function MobileEstimateFlow({
           </div>
           <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
         </div>
-      ) : null}
+      </div>
 
       {mobileStage === "items" ? (
         <div className="space-y-4">
