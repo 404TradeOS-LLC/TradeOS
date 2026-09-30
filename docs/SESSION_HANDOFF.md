@@ -14,7 +14,7 @@ related_docs:
 
 ## Current truth
 
-- TradeOS visual/UI design authority is being consolidated to one source: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. The active cleanup branch is `chore/figma-single-design-authority`; legacy repository design contracts, screenshots, and the unmerged legacy design-system bundle are preserved only under `docs/archive/design-sources/`. Do not use any archived design artifact, stale branch, other Figma file, Sites/Stitch output, or prior chat as current visual authority.
+- TradeOS visual/UI design authority is being consolidated to one source: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. The active cleanup branch is `chore/figma-single-design-authority`; legacy repository design contracts and screenshots are preserved under `docs/archive/design-sources/`, while the unmerged legacy design branches are preserved only as explicitly named `archive/*` branches. Do not use any archived design artifact, stale branch, other Figma file, Sites/Stitch output, or prior chat as current visual authority.
 - S051 implementation merged in PR #538:
   https://github.com/404TradeOS-LLC/TradeOS/pull/538
 - Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
