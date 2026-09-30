@@ -74,7 +74,7 @@
   /* Blueprint register: the quiet, data-dense product theme from the
      canonical 404TradeOS Design System. Space Grotesk is reserved for
      headings/display moments; body/UI text stays on system sans. Copper is
-     the sole brand accent (see docs/404 TradeOS Design System/tokens) -
+     the sole brand accent (see .stitch/DESIGN.md) -
      amber is reserved for warnings, green for success/online states, blue
      for informational states. Never introduce a new accent color. */
   --font-sans: var(--font-inter);
