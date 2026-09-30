@@ -14,9 +14,7 @@ const MATCH_LABELS = { name: "Name matches", email: "Email matches" } as const;
 export function CustomerCreateForm() {
   const [state, formAction, isPending] = useActionState(createCustomerAction, undefined);
   const [values, setValues] = useState({ name: "", email: "", phone: "", billingAddress: "" });
-  const [hideError, setHideError] = useState(false);
-
-  useEffect(() => setHideError(false), [state]);
+  const [hiddenErrorState, setHiddenErrorState] = useState<typeof state>(undefined);
 
   const resultIsCurrent = state?.customerInput?.name === values.name.trim()
     && state.customerInput.email === values.email.trim()
