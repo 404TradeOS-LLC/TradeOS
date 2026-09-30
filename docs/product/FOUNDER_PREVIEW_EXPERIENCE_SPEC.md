@@ -217,9 +217,37 @@ in `docs/product/TRADEOS_UX_ADVANTAGES.md` item 6. **New work for this preview**
 technician-specific reduced navigation does not yet exist as a distinct surface; owner/
 admin navigation already exists and should not be rebuilt.
 
-## Visual design authority
+## Design-system alignment
 
-This document defines product outcomes, supported behavior, and acceptance requirements; it is **not** a visual design source. The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. Open and inspect the applicable Figma pages and current frames before implementing this experience. Any historical visual guidance, token references, external design repositories, screenshots, or prior mockups are superseded unless their direction is present in that canonical Figma file.
+Reference only — do not duplicate the full design system into this repository. The
+canonical source lives in `404TradeOS-LLC/404-tradeos`,
+`docs/design/source-import/project/`.
+
+- **Blueprint** (the light, cool-graphite product theme — `.theme-blueprint` token set:
+  `--ink-*` neutrals on `--paper`/`--ink-50` surfaces) is the correct environment for
+  the TradeOS product UI described in this spec, not **Forge** (the dark, warm-copper
+  marketing theme), which belongs to the 404 TradeOS marketing site only.
+- Copper (`--copper-500` / `#B87333`) remains the sole accent color, used sparingly —
+  primary actions and active states only, never as a background fill for informational
+  content.
+- Green (`--status-online` / `--success-600`) means success/online state only — never
+  used for a neutral "informational" badge.
+- One primary action per screen: on the command center, the single primary action is
+  "resolve the next queue item," not a competing set of equally weighted buttons.
+- Borders over shadows: use `--border-default` / `--border-strong` token-equivalent
+  hairlines for card and row separation, not drop shadows.
+- Space Grotesk for headings/display text only; Roboto Mono for machine-output,
+  timestamps, and dense tabular labels (job IDs, dollar figures in tables); system sans
+  for body/UI text — matching `docs/design/source-import/project/tokens/fonts.css`.
+- Dense but readable: the Tier 2 queue should read as a compact list, not cards with
+  large whitespace — this is an operational tool, not a marketing page.
+- No modal-on-modal stacking: inline row actions (expand-in-place) are preferred over a
+  modal launching a second modal, consistent with `docs/product/TRADEOS_OWNER_EXPERIENCE.md`'s
+  same-row action requirement.
+- No marketing language inside the product: the command center and onboarding screens
+  use plain operational language ("3 things need you today"), never marketing copy.
+- No blank screens, real data over placeholders, and when in doubt, cut rather than add
+  — apply this literally to every screen enumerated above.
 
 ## Screen-by-screen acceptance checklist
 

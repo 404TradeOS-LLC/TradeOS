@@ -12,8 +12,6 @@ related_code:
 
 # TradeOS UX Advantages
 
-> **Visual/UI authority:** this document defines product/UX doctrine, outcomes, behavior, or acceptance requirements; it is not a visual design source. The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design.
-
 Ten realistic, experience-level differentiators TradeOS can credibly own against
 ServiceTitan, Jobber, Housecall Pro, Buildertrend, FieldPulse, Workiz, and Service
 Fusion — grounded in the evidence in `docs/research/CONTRACTOR_UX_RESEARCH.md`. These

@@ -39,7 +39,19 @@ interface PickerResult {
   name: string;
   code: string;
   unitOfMeasure: string;
-  kind: "costItem" | "assembly";
+  kind: "costItem" | "assembly" | "starterAssembly";
+}
+
+interface StarterAssemblyTemplate {
+  id: string;
+  name: string;
+  code: string;
+  unitOfMeasure: string;
+}
+
+interface AssemblyCostPreview {
+  unitCost: number;
+  componentCount: number;
 }
 
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
@@ -489,6 +501,13 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     return () => clearTimeout(timeout);
   }, [query]);
 
+  const { data: starterCatalog } = useQuery({
+    queryKey: ["starter-assembly-catalog"],
+    queryFn: () =>
+      clientFetch<{ items: StarterAssemblyTemplate[] }>("/costbook/assemblies/starter-catalog"),
+    staleTime: 10 * 60_000,
+  });
+
   const { data: searchData, isError: searchFailed, error: searchError } = useQuery({
     queryKey: ["item-search", debouncedQuery],
     queryFn: async (): Promise<{ items: PickerResult[]; failedSources: string[] }> => {
@@ -524,11 +543,32 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
   const orderedResults = useMemo(() => {
     const items = searchData?.items ?? [];
-    return [...items.filter((result) => result.kind === "assembly"), ...items.filter((result) => result.kind === "costItem")];
-  }, [searchData]);
+    const normalizedQuery = debouncedQuery.trim().toLowerCase();
+    const starterResults: PickerResult[] = normalizedQuery
+      ? (starterCatalog?.items ?? [])
+          .filter((template) => `${template.code} ${template.name}`.toLowerCase().includes(normalizedQuery))
+          .map((template) => ({ ...template, kind: "starterAssembly" as const }))
+      : [];
+    const installedCodes = new Set(
+      items.filter((result) => result.kind === "assembly").map((result) => result.code.toLowerCase())
+    );
+    const setupRequired = starterResults.filter((result) => !installedCodes.has(result.code.toLowerCase()));
+    return [
+      ...items.filter((result) => result.kind === "assembly"),
+      ...setupRequired,
+      ...items.filter((result) => result.kind === "costItem"),
+    ];
+  }, [debouncedQuery, searchData, starterCatalog]);
 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
+
+  const { data: assemblyCostPreview, isLoading: assemblyCostLoading, isError: assemblyCostFailed } = useQuery({
+    queryKey: ["assembly-cost-preview", selected?.id],
+    queryFn: () => clientFetch<AssemblyCostPreview>(`/costbook/assemblies/${selected?.id}/unit-cost`),
+    enabled: selected?.kind === "assembly",
+    staleTime: 60_000,
+  });
 
   // Real-time validity for inline feedback - errors show only once a field
   // has a value (never on the untouched "1" default), rather than only
@@ -557,6 +597,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setError("Pick a result from the list first.");
       return;
     }
+    if (target.kind === "starterAssembly") {
+      setError("This starter assembly needs Costbook setup before it can be added to an estimate.");
+      return;
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Quantity must be a positive number");
@@ -567,6 +611,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
   const addLineItem = useMutation({
     mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable, sourceKey }: { item: PickerResult; quantity: number; section: string; costType?: LineItem["costType"]; taxable: boolean; sourceKey: string }) => {
+      if (item.kind === "starterAssembly") throw new Error("Starter assemblies must be configured in Costbook before estimate use.");
       return clientFetch(`/estimates/${estimateId}/line-items`, {
         method: "POST",
         body: JSON.stringify({
@@ -710,8 +755,12 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           ) : null}
         </div>
 
-        <Button type="button" onClick={() => commitLineItem(selected ?? activeResult)} disabled={addLineItem.isPending || (!selected && !activeResult)}>
-          {addLineItem.isPending ? "Adding…" : "Add"}
+        <Button
+          type="button"
+          onClick={() => commitLineItem(selected ?? activeResult)}
+          disabled={addLineItem.isPending || (!selected && !activeResult) || selected?.kind === "starterAssembly"}
+        >
+          {addLineItem.isPending ? "Adding…" : selected?.kind === "starterAssembly" ? "Setup required" : "Add"}
         </Button>
       </div>
 
@@ -807,10 +856,23 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               }}
             />
             <ResultGroup
+              title="Starter assemblies"
+              description="TradeOS templates that need Costbook mapping before estimate use"
+              results={orderedResults.filter((result) => result.kind === "starterAssembly")}
+              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+              activeIndex={activeResultIndex}
+              onSelect={(result, index) => {
+                setSelected(result);
+                setActiveIndex(index);
+                setQuery(result.name);
+                setError(null);
+              }}
+            />
+            <ResultGroup
               title="Cost items"
               description="Individual labor or material items"
               results={orderedResults.filter((result) => result.kind === "costItem")}
-              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+              baseIndex={orderedResults.filter((result) => result.kind !== "costItem").length}
               activeIndex={activeResultIndex}
               onSelect={(result, index) => {
                 setSelected(result);
@@ -839,11 +901,29 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
       {selected && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
-          <Badge variant={selected.kind === "assembly" ? "default" : "secondary"}>{selected.kind === "assembly" ? "Assembly" : "Cost item"}</Badge>
+          <Badge variant={selected.kind === "assembly" ? "default" : "secondary"}>
+            {selected.kind === "assembly" ? "Installed assembly" : selected.kind === "starterAssembly" ? "Setup required" : "Cost item"}
+          </Badge>
           <span className="font-medium">{selected.name}</span>
           <span className="text-muted-foreground">
             {selected.code} · {selected.unitOfMeasure}
           </span>
+          {selected.kind === "assembly" ? (
+            <span className="text-muted-foreground">
+              {assemblyCostLoading
+                ? "Checking current cost…"
+                : assemblyCostFailed
+                  ? "Cost preview unavailable"
+                  : assemblyCostPreview
+                    ? `${formatCurrency(assemblyCostPreview.unitCost)}/${selected.unitOfMeasure} · ${assemblyCostPreview.componentCount} components`
+                    : null}
+            </span>
+          ) : null}
+          {selected.kind === "starterAssembly" ? (
+            <Link href="/costbook/assemblies" className="font-medium text-primary underline underline-offset-4">
+              Map in Costbook
+            </Link>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -1129,7 +1209,7 @@ function ResultGroup({
                 </div>
               </div>
               <Badge variant={result.kind === "assembly" ? "default" : "secondary"} className="shrink-0">
-                {result.kind === "assembly" ? "Assembly" : "Cost item"}
+                {result.kind === "assembly" ? "Installed" : result.kind === "starterAssembly" ? "Setup required" : "Cost item"}
               </Badge>
             </button>
           );

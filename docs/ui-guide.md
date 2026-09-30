@@ -1,8 +1,7 @@
 # UI Guide
 
-> **Implementation inventory only — not visual design authority.** The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. Open the relevant Figma page and inspect its current frames before visual work. This document records production implementation conventions, reusable components, runtime tokens, accessibility behavior, and integration details; it must not be used to invent or override visual direction.
-
-Frontend implementation conventions for the `web/` Next.js app. Update this inventory whenever a reusable production component or implementation pattern changes.
+Design system and UI conventions for the `web/` Next.js front end. This doc covers what
+exists today; update it whenever a new reusable component or pattern is added.
 
 ## Foundations
 

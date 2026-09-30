@@ -71,12 +71,12 @@
   --font-source-sans-3: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   --font-jetbrains-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas", monospace;
 
-  /* Runtime theme implementation. Canonical visual intent lives only in the
-     TradeOS Figma master (file key xImUa9CYUjx3Cb3zTrkfnY); this file owns
-     the exact production CSS values and accessibility behavior. Space Grotesk
-     is reserved for headings/display moments; body/UI text stays on system
-     sans. Copper is the sole brand accent; semantic status colors keep their
-     runtime meanings below. */
+  /* Blueprint register: the quiet, data-dense product theme from the
+     canonical 404TradeOS Design System. Space Grotesk is reserved for
+     headings/display moments; body/UI text stays on system sans. Copper is
+     the sole brand accent (see docs/404 TradeOS Design System/tokens) -
+     amber is reserved for warnings, green for success/online states, blue
+     for informational states. Never introduce a new accent color. */
   --font-sans: var(--font-inter);
   --font-heading-base: var(--font-space-grotesk);
   --font-mono-base: var(--font-ibm-plex-mono);
@@ -189,9 +189,9 @@
 }
 
 :root {
-  /* Runtime elevation values. Canonical visual intent lives in Figma; these
-     exact CSS values remain implementation truth. Borders do most structural
-     separation; shadows are reserved for floating/overlay chrome. */
+  /* Elevation - restrained two-part shadows (ambient + key), from the
+     404TradeOS Design System's tokens/elevation.css. Borders do most of the
+     separation work; shadows are reserved for floating/overlay chrome. */
   --elev-1: 0 1px 2px rgba(16, 20, 28, 0.06), 0 1px 1px rgba(16, 20, 28, 0.04);
   --elev-2: 0 2px 8px rgba(16, 20, 28, 0.08), 0 1px 2px rgba(16, 20, 28, 0.05);
   --elev-3: 0 8px 24px rgba(16, 20, 28, 0.1), 0 2px 6px rgba(16, 20, 28, 0.06);
