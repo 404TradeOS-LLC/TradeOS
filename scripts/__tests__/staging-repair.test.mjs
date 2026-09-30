@@ -53,7 +53,7 @@ test("redeploys by verified ID and proves runtime on that replacement's immutabl
   assert.equal(result.deploymentId, "dpl_replacement");
   const mutation = r.calls.find(c => c.init.method === "POST" && c.route);
   assert.deepEqual(JSON.parse(mutation.init.body), {
-    deploymentId: "dpl_staging", name: "tradeos-costbook", project: projectId, target: "preview",
+    deploymentId: "dpl_staging", name: "tradeos-costbook", project: projectId,
   });
   const requests = r.calls.filter(c => c.url);
   assert.equal(requests.length, 3);
@@ -79,7 +79,7 @@ test("recovers a missing deployment from staging only and rejects a branch SHA r
   await r.run();
   const mutation = r.calls.find(c => c.init.method === "POST" && c.route);
   assert.deepEqual(JSON.parse(mutation.init.body), {
-    name: "tradeos-costbook", project: projectId, target: "preview",
+    name: "tradeos-costbook", project: projectId,
     gitSource: { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging" },
     projectSettings: { commandForIgnoringBuildStep: "exit 1" },
   });

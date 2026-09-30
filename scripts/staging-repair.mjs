@@ -14,6 +14,7 @@ export const INVALID_SUPABASE_PROBE_TOKEN = [
 
 const REPORT_PATH = "artifacts/staging-repair/deployment.json";
 
+/** Fail closed unless the deployment belongs to the captured staging commit and Preview boundary. */
 export function assertStagingDeployment(d, expectedSha) {
   assert.match(expectedSha, /^[a-f0-9]{40}$/, "A full staging SHA is required");
   assert.equal(d.projectId ?? d.project?.id, PROJECT_ID, "Unexpected backend project");
@@ -29,6 +30,7 @@ export function assertStagingDeployment(d, expectedSha) {
   return d;
 }
 
+/** Select the newest READY Preview for the captured commit, independent of list ordering. */
 export function selectStagingDeployment(deployments, expectedSha) {
   const matches = deployments.filter(d =>
     (d.state ?? d.readyState) === "READY" &&
@@ -40,15 +42,16 @@ export function selectStagingDeployment(deployments, expectedSha) {
   return matches[0] ?? null;
 }
 
+/** Replace the staging backend and retain identity evidence only after immutable runtime checks. */
 export async function repairStagingBackend({ expectedSha, api, request = fetch,
   pause = ms => new Promise(resolve => setTimeout(resolve, ms)), record = async () => {} }) {
   assert.match(expectedSha, /^[a-f0-9]{40}$/, "A full staging SHA is required");
   const evidence = { expectedSha, branch: "staging", environment: "preview", status: "unverified" };
   await record(evidence);
-  const query = new URLSearchParams({ projectId: PROJECT_ID, branch: "staging", sha: expectedSha, target: "preview", state: "READY", limit: "100" });
+  const query = new URLSearchParams({ projectId: PROJECT_ID, branch: "staging", sha: expectedSha, state: "READY", limit: "100" });
   const listing = await api("/v7/deployments?" + query);
   const source = selectStagingDeployment(listing.deployments ?? [], expectedSha);
-  let payload = { name: PROJECT_NAME, project: PROJECT_ID, target: "preview" };
+  let payload = { name: PROJECT_NAME, project: PROJECT_ID };
   if (source) {
     const sourceId = source.id ?? source.uid;
     assert.match(sourceId, /^dpl_[A-Za-z0-9]+$/, "Source deployment ID is required");
@@ -109,6 +112,7 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch,
   return evidence;
 }
 
+/** Run the guarded manual workflow without exposing API credentials in logs or artifacts. */
 async function main() {
   assert.equal(process.env.REPAIR_CONFIRM, "REPAIR_STAGING_AUTH", "Explicit staging-only confirmation is required");
   const token = process.env.VERCEL_TOKEN;

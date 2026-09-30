@@ -155,7 +155,7 @@ prove authenticated login. A sanitized `staging-repair-*` artifact retains
 identity/readiness evidence, including available identity on failure. If no
 READY deployment exists for the captured staging SHA, it creates a fresh
 Preview from the fixed `staging` branch with the build-skip optimization
-overridden for that one deployment. It rejects any branch movement by checking
+disabled through the fresh deployment project settings. It rejects any branch movement by checking
 the returned deployment against the captured SHA before runtime probes; it
 never substitutes an older commit. Vercel CLI 59.11.2 is pinned for the branch
 environment update, which supplies its value and confirmation non-interactively. It cannot target Production or
