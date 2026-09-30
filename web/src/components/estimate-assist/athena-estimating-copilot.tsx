@@ -203,8 +203,14 @@ export function AthenaEstimatingCopilot({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-foreground">{line.description}</span>
                         <Badge variant="outline">{line.targetKind === "assembly" ? "Assembly" : "Costbook"}</Badge>
+                        <Badge variant={line.provenanceStatus === "verified" ? "secondary" : "outline"}>
+                          {line.provenanceStatus === "verified" ? "Verified price" : "Unverified price"}
+                        </Badge>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">{line.quantity} {line.unitOfMeasure} · {line.rationale}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Pricing source: {line.provenanceDetail?.sourceName ?? line.provenanceDetail?.sourceType ?? line.provenanceStatus}
+                      </p>
                       {line.reviewWarnings.length > 0 ? <p className="mt-1 text-xs text-warning">{line.reviewWarnings[0]}</p> : null}
                     </div>
                     <span className="shrink-0 font-mono text-sm font-semibold">{formatCurrency(line.lineCost)}</span>
