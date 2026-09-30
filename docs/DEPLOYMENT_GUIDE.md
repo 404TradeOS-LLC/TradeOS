@@ -149,7 +149,8 @@ Vercel data, verifies the team/project/repository boundary, and redeploys by
 verified ID using the deployment API. It polls only the returned replacement
 ID and probes that immutable hostname, never a mutable branch alias. Success
 requires matching `/health` SHA, database and schema `/ready` checks, and a 401
-from unauthenticated `/api/v1/auth/bootstrap`. This rejection check does not
+from `/api/v1/auth/bootstrap` with a public, deliberately invalid ES256 JWT
+that reaches Supabase issuer initialization before rejection. This rejection check does not
 prove authenticated login. A sanitized `staging-repair-*` artifact retains
 identity/readiness evidence, including available identity on failure. If no
 READY deployment exists for the captured staging SHA, it creates a fresh

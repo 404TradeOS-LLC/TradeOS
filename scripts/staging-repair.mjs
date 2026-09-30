@@ -5,6 +5,13 @@ import { pathToFileURL } from "node:url";
 const TEAM_ID = "team_nY1VrcaEYEr4rcW7Gxweq7LP";
 const PROJECT_ID = "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD";
 const PROJECT_NAME = "tradeos-costbook";
+// Public, deliberately invalid ES256 JWT: reaches Supabase issuer initialization
+// without authenticating a user or carrying any credential.
+export const INVALID_SUPABASE_PROBE_TOKEN = [
+  { alg: "ES256", typ: "JWT" },
+  { iss: "https://qfbgdkbamfaasmtjfyru.supabase.co/auth/v1", sub: "staging-repair-probe", aud: "authenticated", iat: 0, exp: 1 },
+].map(value => Buffer.from(JSON.stringify(value)).toString("base64url")).join(".") + "." + Buffer.alloc(64).toString("base64url");
+
 const REPORT_PATH = "artifacts/staging-repair/deployment.json";
 
 export function assertStagingDeployment(d, expectedSha) {
@@ -90,14 +97,14 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch,
   assert.equal(readyBody.checks?.database?.status, "ok", "Replacement database check failed");
   assert.equal(readyBody.checks?.schema?.status, "ok", "Replacement schema check failed");
   const auth = await runtime("/api/v1/auth/bootstrap", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + INVALID_SUPABASE_PROBE_TOKEN }, body: "{}",
   });
-  assert.equal(auth.status, 401, "Unauthenticated bootstrap must return 401; check the staging auth issuer configuration");
+  assert.equal(auth.status, 401, "Invalid Supabase token bootstrap must return 401; check the staging auth issuer configuration");
   // Re-check the exact ID after runtime probes; a moving branch alias is never evidence.
   const final = assertStagingDeployment(await api("/v13/deployments/" + created.id), expectedSha);
   assert.equal(final.readyState, "READY", "Replacement state changed during verification");
   assert.equal(final.url, replacement.url, "Replacement hostname changed during verification");
-  Object.assign(evidence, { status: "ready", database: "ok", schema: "ok", unauthenticatedBootstrap: 401 });
+  Object.assign(evidence, { status: "ready", database: "ok", schema: "ok", invalidSupabaseTokenBootstrap: 401 });
   await record(evidence);
   return evidence;
 }
@@ -123,7 +130,7 @@ async function main() {
   };
   const result = await repairStagingBackend({ expectedSha: process.env.STAGING_EXPECTED_SHA, api, record });
   if (process.env.GITHUB_STEP_SUMMARY) await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,
-    `Staging backend READY: ${result.deploymentId} at ${result.url}, SHA ${result.expectedSha}. Database/schema checks passed; unauthenticated bootstrap returned 401. Authenticated browser certification is still required.\n`);
+    `Staging backend READY: ${result.deploymentId} at ${result.url}, SHA ${result.expectedSha}. Database/schema checks passed; invalid Supabase token bootstrap returned 401 after issuer initialization. Authenticated browser certification is still required.\n`);
   console.log("Staging backend readiness verified: " + result.deploymentId);
 }
 

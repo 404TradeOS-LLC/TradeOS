@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertStagingDeployment, repairStagingBackend, selectStagingDeployment } from "../staging-repair.mjs";
+import { INVALID_SUPABASE_PROBE_TOKEN, assertStagingDeployment, repairStagingBackend, selectStagingDeployment } from "../staging-repair.mjs";
 
 const sha = "a".repeat(40);
 const projectId = "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD";
@@ -58,7 +58,10 @@ test("redeploys by verified ID and proves runtime on that replacement's immutabl
   const requests = r.calls.filter(c => c.url);
   assert.equal(requests.length, 3);
   assert.ok(requests.every(c => new URL(c.url).hostname === deployment().url && c.init.redirect === "error"));
-  assert.ok(requests.every(c => !c.init.headers?.Authorization));
+  assert.ok(requests.slice(0, 2).every(c => !c.init.headers?.Authorization));
+  assert.equal(requests[2].init.headers.Authorization, "Bearer " + INVALID_SUPABASE_PROBE_TOKEN);
+  assert.equal(JSON.parse(Buffer.from(INVALID_SUPABASE_PROBE_TOKEN.split(".")[0], "base64url")).alg, "ES256");
+  assert.equal(result.invalidSupabaseTokenBootstrap, 401);
 });
 
 test("never certifies stale health, failed database, missing auth issuer, or redirects", async () => {
