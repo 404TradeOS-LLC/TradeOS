@@ -40,9 +40,7 @@ function AddressFields({ address }: { address?: ServiceAddress }) {
 function ExistingAddress({ customerId, address, canWrite }: { customerId: string; address: ServiceAddress; canWrite: boolean }) {
   const [updateState, updateAction, updating] = useActionState(updateServiceAddressAction, undefined);
   const [removeState, removeAction, removing] = useActionState(removeServiceAddressAction, undefined);
-  const [hideUpdateError, setHideUpdateError] = useState(false);
-
-  useEffect(() => setHideUpdateError(false), [updateState]);
+  const [hiddenUpdateState, setHiddenUpdateState] = useState<typeof updateState>(undefined);
 
   return (
     <li className="rounded-md border p-3">
@@ -75,9 +73,7 @@ function ExistingAddress({ customerId, address, canWrite }: { customerId: string
 
 export function ServiceAddresses({ customerId, addresses, canWrite }: { customerId: string; addresses: ServiceAddress[]; canWrite: boolean }) {
   const [createState, createAction, creating] = useActionState(createServiceAddressAction, undefined);
-  const [hideCreateError, setHideCreateError] = useState(false);
-
-  useEffect(() => setHideCreateError(false), [createState]);
+  const [hiddenCreateState, setHiddenCreateState] = useState<typeof createState>(undefined);
 
   return (
     <div className="space-y-4">
