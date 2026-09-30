@@ -177,6 +177,8 @@ The Knowledge Runtime is review-first and read-only by default. It may retrieve,
 
 ## Source-of-Truth Layers
 
+**Visual/UI authority is intentionally separate from the document hierarchy below.** The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. Repository documents may define doctrine, capability, acceptance criteria, implementation truth, or historical evidence, but they must not become a competing source for visual hierarchy, composition, component appearance, responsive layouts, or interaction-state design.
+
 1. Bible volumes — doctrine, intent, standards, and decision boundaries.
 2. `docs/CURRENT_STATE.md` — verified implementation truth now.
 3. `docs/SPRINT_BACKLOG.md` — executable work queue and completion evidence.
