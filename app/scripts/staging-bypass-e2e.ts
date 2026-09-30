@@ -46,9 +46,14 @@ async function main(): Promise<void> {
       process.stdout.write(`PASS ${path}\n`);
     }
     const protectedResponse = await context.request.get(new URL("/api/v1/settings", api).toString(), {
+      maxRedirects: 0,
       headers: { Authorization: `Bearer ${STAGING_AUTH.marker}` },
     });
     if (!protectedResponse.ok()) throw new Error(`Protected API returned HTTP ${protectedResponse.status()}`);
+    const protectedPayload = await protectedResponse.json().catch(() => null) as Record<string, unknown> | null;
+    if (!protectedPayload || typeof protectedPayload !== "object" || Array.isArray(protectedPayload)) {
+      throw new Error("Protected API did not return the expected settings JSON");
+    }
     if (failures.length) throw new Error(`Browser failures: ${failures.join("; ")}`);
     process.stdout.write("PASS protected API and browser error checks\n");
   } finally {
