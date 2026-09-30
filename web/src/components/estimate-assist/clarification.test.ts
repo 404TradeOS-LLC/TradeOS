@@ -45,3 +45,9 @@ test("blank answers and the Other choice cannot advance clarification", () => {
   assert.equal(submitClarification("Paint cabinets", question, "Other"), null);
   assert.equal(submitClarification("Paint cabinets", null, "Satin"), null);
 });
+
+
+test("serializes numeric field-count identifiers in number-first estimator phrasing", () => {
+  expect(appendClarification("Remove trees", "tree count", "2")).toBe("Remove trees\n2 tree");
+  expect(appendClarification("Paint rooms", "room count", "4")).toBe("Paint rooms\n4 room");
+});
