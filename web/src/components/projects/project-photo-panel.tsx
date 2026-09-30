@@ -6,7 +6,7 @@ import { resolveProjectFileAssets } from "@/lib/storage";
 
 interface ProjectPhotoPanelProps {
   projectFiles: ProjectFile[];
-  projectId?: string;
+  projectId: string;
   editable?: boolean;
   title?: string;
   emptyMessage?: string;
@@ -20,7 +20,7 @@ export async function ProjectPhotoPanel({
   emptyMessage = "No project photos saved yet.",
 }: ProjectPhotoPanelProps) {
   const photoFiles = projectFiles.filter((file) => file.fileType === "photo");
-  const photoAssets = await resolveProjectFileAssets(photoFiles);
+  const photoAssets = resolveProjectFileAssets(projectId, photoFiles);
 
   return (
     <Card className="border-border/70 bg-card/90">
@@ -74,13 +74,13 @@ export async function ProjectPhotoPanel({
   );
 }
 
-function describeFileSource(url: string, accessMode: "public" | "signed" | "legacy") {
+function describeFileSource(url: string, accessMode: "public" | "private-proxy" | "legacy") {
   try {
     const hostname = new URL(url).hostname;
-    if (accessMode === "signed") return `${hostname} • private signed access`;
+    if (accessMode === "private-proxy") return "TradeOS • private authenticated access";
     if (accessMode === "public") return `${hostname} • storage public URL`;
     return `${hostname} • saved file URL`;
   } catch {
-    return accessMode === "signed" ? "Private signed access" : "Saved file URL";
+    return accessMode === "private-proxy" ? "Private authenticated access" : "Saved file URL";
   }
 }

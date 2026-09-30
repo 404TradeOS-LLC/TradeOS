@@ -1,23 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
   BriefcaseBusiness,
   CalendarDays,
+  CalendarPlus,
   ChevronRight,
+  ClipboardPlus,
+  FileText,
   LayoutGrid,
   MoreHorizontal,
   Palette,
   Plus,
+  Receipt,
   Settings,
   Sparkles,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { CommandPaletteTrigger } from "@/components/shared/global-command-palette";
+import { KeyboardShortcutsOverlay } from "@/components/shared/keyboard-shortcuts-overlay";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
@@ -32,13 +40,15 @@ interface NavLink {
 
 const PRIMARY_NAV_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutGrid },
+  { href: "/crm", label: "CRM", shortLabel: "CRM", icon: Users },
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
   { href: "/projects", label: "Projects", shortLabel: "Projects", icon: BriefcaseBusiness },
-  { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
-  { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
+  { href: "/estimates", label: "Estimates", shortLabel: "Estimates", icon: FileText },
 ];
 
 const SECONDARY_NAV_LINKS: NavLink[] = [
+  { href: "/customers", label: "Customers", shortLabel: "Customers", icon: Users },
+  { href: "/costbook", label: "Costbook", shortLabel: "Costbook", icon: BookOpen },
   { href: "/brand-studio", label: "Brand Studio", shortLabel: "Brand", icon: Palette },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
@@ -50,7 +60,16 @@ const ATHENA_NAV_LINK: NavLink = {
   icon: Sparkles,
 };
 
-const CREATE_LINK = { href: "/projects/new", label: "Create project" };
+const CREATE_LINK = { label: "Create" };
+
+const CREATE_OPTIONS = [
+  { href: "/projects/new?intent=estimate#simpleScope", label: "Estimate from scope", helper: "Start with a plain-language scope and turn it into priced work.", icon: FileText, featured: true },
+  { href: "/projects/new", label: "Job", helper: "Create the project container for field work.", icon: ClipboardPlus, featured: false },
+  { href: "/customers/new", label: "Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
+  { href: "/projects", label: "Invoice", helper: "Choose the project that is ready to bill.", icon: Receipt, featured: false },
+  { href: "/projects", label: "Change Order", helper: "Open the project workspace to record a change.", icon: ClipboardPlus, featured: false },
+  { href: "/dispatch", label: "Schedule", helper: "Place work on the dispatch calendar.", icon: CalendarPlus, featured: false },
+] as const;
 
 // The 404TradeOS Control Dock keeps five thumb-reachable slots on mobile:
 // Today, Dispatch, Create, Work, and More (everything else, unchanged routes).
@@ -59,6 +78,7 @@ const DOCK_LEFT_LINKS: NavLink[] = [
   { href: "/dispatch", label: "Dispatch", shortLabel: "Dispatch", icon: CalendarDays },
 ];
 const DOCK_RIGHT_LINK: NavLink = { href: "/projects", label: "Work", shortLabel: "Work", icon: BriefcaseBusiness };
+const ATHENA_CAPABILITY_RETRY_TIMEOUT_MS = 1500;
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
@@ -125,27 +145,66 @@ function NavPill({
 
 export function AppNav({
   email,
-  canViewAthena = false,
+  athenaEnabled = false,
+  athenaCapabilityRetryKey = null,
   dispatchAttentionCount = null,
 }: {
   email?: string | null;
-  canViewAthena?: boolean;
+  athenaEnabled?: boolean;
+  athenaCapabilityRetryKey?: string | null;
   dispatchAttentionCount?: number | null;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [clientDispatchAttentionCount, setClientDispatchAttentionCount] = useState<number | null>(null);
+  const [clientAthenaCapability, setClientAthenaCapability] = useState<{ key: string; enabled: boolean } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const createSheetRef = useRef<HTMLDivElement>(null);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
   const dockMoreButtonRef = useRef<HTMLButtonElement>(null);
   const effectiveDispatchAttentionCount = clientDispatchAttentionCount ?? dispatchAttentionCount;
   const dispatchBadgeCount = Math.max(effectiveDispatchAttentionCount ?? 0, 0);
 
-  const primaryLinks = useMemo(
-    () => (canViewAthena ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS),
-    [canViewAthena]
-  );
+  const effectiveAthenaEnabled = athenaCapabilityRetryKey
+    ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
+    : athenaEnabled;
+  const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
 
-  useBodyScrollLock(mobileOpen);
+  useBodyScrollLock(mobileOpen || createOpen);
+
+  useEffect(() => {
+    if (!athenaCapabilityRetryKey) return;
+
+    let cancelled = false;
+    const retryKey = athenaCapabilityRetryKey;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      ATHENA_CAPABILITY_RETRY_TIMEOUT_MS
+    );
+    void clientFetch<{ kernelEnabled?: unknown }>("/api/v1/athena/capabilities", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then((capabilities) => {
+        if (!cancelled) {
+          setClientAthenaCapability({ key: retryKey, enabled: capabilities.kernelEnabled === true });
+        }
+      })
+      .catch(() => {
+        // Initial discovery already failed closed. One bounded client retry is
+        // enough; direct /athena navigation still enforces the backend gate.
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [athenaCapabilityRetryKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +228,10 @@ export function AppNav({
   }, []);
 
   useEffect(() => {
-    const closeSheetOnHistoryNavigation = () => setMobileOpen(false);
+    const closeSheetOnHistoryNavigation = () => {
+      setMobileOpen(false);
+      setCreateOpen(false);
+    };
     window.addEventListener("popstate", closeSheetOnHistoryNavigation);
     return () => window.removeEventListener("popstate", closeSheetOnHistoryNavigation);
   }, []);
@@ -216,6 +278,44 @@ export function AppNav({
     };
   }, [mobileOpen]);
 
+  useEffect(() => {
+    if (!createOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const fallbackFocusTarget = createButtonRef.current;
+    createSheetRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setCreateOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !createSheetRef.current) return;
+      const focusable = createSheetRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+      const focusOutsideSheet = !createSheetRef.current.contains(activeElement);
+      if (event.shiftKey && (focusOutsideSheet || activeElement === createSheetRef.current || activeElement === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (focusOutsideSheet || activeElement === createSheetRef.current || activeElement === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      (previouslyFocused ?? fallbackFocusTarget)?.focus();
+    };
+  }, [createOpen]);
+
   return (
     <>
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl supports-[backdrop-filter]:bg-background/75">
@@ -250,6 +350,14 @@ export function AppNav({
 
           <div className="flex items-center gap-2">
             <div className="hidden 2xl:block">
+              <WhatsNewPopover />
+            </div>
+
+            <div className="hidden 2xl:block">
+              <ThemeToggle />
+            </div>
+
+            <div className="hidden 2xl:block">
               <CommandPaletteTrigger />
             </div>
 
@@ -267,6 +375,60 @@ export function AppNav({
         </div>
       </div>
     </header>
+
+    {createOpen ? (
+      <div role="dialog" aria-modal="true" aria-label="Create" className="fixed inset-0 z-50 2xl:hidden">
+        <button
+          type="button"
+          aria-label="Close create menu"
+          className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] animate-in fade-in-0 duration-(--dur-2)"
+          onClick={() => setCreateOpen(false)}
+        />
+        <div
+          ref={createSheetRef}
+          tabIndex={-1}
+          className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border/70 bg-card p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] shadow-(--elev-4) outline-none animate-in slide-in-from-bottom duration-(--dur-3) ease-(--ease-emphasized)"
+        >
+          <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border" aria-hidden="true" />
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-copper">Create</p>
+              <h2 className="mt-1 text-xl font-semibold text-foreground">What are you starting?</h2>
+            </div>
+            <button type="button" onClick={() => setCreateOpen(false)} className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+              Close
+            </button>
+          </div>
+          <nav aria-label="Create options" className="grid gap-2">
+            {CREATE_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              return (
+                <Link
+                  key={option.label}
+                  href={option.href}
+                  onClick={() => setCreateOpen(false)}
+                  className={cn(
+                    "group flex min-h-14 items-center gap-3 rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                    option.featured
+                      ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                      : "border-border/70 bg-background/70 text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", option.featured ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{option.label}</span>
+                    <span className="mt-0.5 block text-sm text-muted-foreground">{option.helper}</span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    ) : null}
 
     {mobileOpen ? (
       <div
@@ -319,6 +481,8 @@ export function AppNav({
                 <div className="truncate text-sm font-medium text-foreground">{email ?? "Signed in"}</div>
                 <div className="text-xs text-muted-foreground">Secure workspace</div>
               </div>
+              <WhatsNewPopover />
+              <ThemeToggle />
               <form action={logoutAction}>
                 <Button type="submit" variant="outline" size="sm">
                   Sign out
@@ -344,13 +508,16 @@ export function AppNav({
           />
         ))}
 
-        <Link
-          href={CREATE_LINK.href}
+        <button
+          ref={createButtonRef}
+          type="button"
           aria-label={CREATE_LINK.label}
+          aria-expanded={createOpen}
+          onClick={() => setCreateOpen(true)}
           className="mx-1 flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-(--elev-1) outline-none transition-transform focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
         >
           <Plus className="size-5" aria-hidden="true" />
-        </Link>
+        </button>
 
         <DockLink link={DOCK_RIGHT_LINK} pathname={pathname} />
 
@@ -370,6 +537,8 @@ export function AppNav({
         </button>
       </div>
     </nav>
+
+    <KeyboardShortcutsOverlay />
     </>
   );
 }

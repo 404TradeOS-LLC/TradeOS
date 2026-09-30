@@ -1,4 +1,6 @@
-import { prisma } from "../../db/client";
+import { Prisma } from "@prisma/client";
+import { basePrisma, prisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { CostDatabaseService } from "../cost-database/service";
 import { canTransitionChangeOrderStatus } from "../../domain";
@@ -37,19 +39,29 @@ export class ChangeOrdersService {
       if (!estimate) throw new ApiError(404, `Estimate ${input.estimateId} not found`);
     }
 
-    const nextNumber = (await prisma.changeOrder.aggregate({
-      where: { projectId: input.projectId },
-      _max: { coNumber: true },
-    }))._max.coNumber ?? 0;
+    const row = await runInDatabaseTransaction(basePrisma, async (transaction) => {
+      // MAX(coNumber) + 1 is only safe when competing creates for the same
+      // project are serialized. The composite unique constraint prevents
+      // corruption, but without this lock one legitimate request can still
+      // lose the race and fail with a uniqueness conflict.
+      await transaction.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`change-order-number:${input.projectId}`}, 0))`
+      );
 
-    const row = await prisma.changeOrder.create({
-      data: {
-        projectId: input.projectId,
-        estimateId: input.estimateId,
-        coNumber: nextNumber + 1,
-        description: input.description,
-        scheduleImpactDays: input.scheduleImpactDays,
-      },
+      const nextNumber = (await transaction.changeOrder.aggregate({
+        where: { projectId: input.projectId },
+        _max: { coNumber: true },
+      }))._max.coNumber ?? 0;
+
+      return transaction.changeOrder.create({
+        data: {
+          projectId: input.projectId,
+          estimateId: input.estimateId,
+          coNumber: nextNumber + 1,
+          description: input.description,
+          scheduleImpactDays: input.scheduleImpactDays,
+        },
+      });
     });
     return toDTO(row);
   }

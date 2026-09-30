@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - docs/TRADEOS_BIBLE.md
@@ -12,7 +12,7 @@ related_code:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-# TradeOS 50-Sprint Backlog
+# TradeOS 100-Sprint Backlog
 
 Status vocabulary: `DONE`, `IN_REVIEW`, `READY`, `BLOCKED`, `PLANNED`, `DEFERRED`, `CANCELLED`.
 
@@ -289,7 +289,7 @@ Founder-decision boundary: NO. Stop only if implementation would change customer
 
 ### S027 — Intelligent Costbook production readiness
 
-Status: BLOCKED
+Status: DONE
 Dependencies: none
 Objective: Transform Costbook into a production-ready, AI-assisted estimating system grounded in live tenant APIs, supplier/regional pricing, Knowledge Runtime retrieval, and review-first AI workflows.
 Allowed paths: established Costbook/pricing/supplier/Knowledge Runtime/AI Estimate Assist backend modules and routes; matching Costbook/dashboard/estimate-assist frontend surfaces; required schema/migrations/tests when explicitly reviewed; canonical Knowledge Engine Costbook exports/metadata only when required; and required owner documentation.
@@ -297,8 +297,9 @@ Forbidden paths: broad application redesign; autonomous AI database writes; dire
 Required verification: backend unit/type/build/integration/RLS coverage; frontend unit/lint/build coverage; docs tests/ownership; focused Costbook search/browse/pricing/supplier/Knowledge Runtime/AI behavior tests; and E2E coverage for representative contractor Costbook workflows before production-readiness claims.
 Acceptance: user-visible Costbook surfaces use live data; category/search/filter/sort/pagination and assemblies/labor/material/equipment/regional/supplier-backed pricing are coherent; statistics and supplier-sync state are truthful; Knowledge Runtime/semantic matching extend existing architecture; AI remains review-first for writes; loading/error/empty/accessibility/responsive behavior is production-ready.
 Founder decision required: NO.
-Reconciled continuation: the server-side catalog pagination/search/filter/sort blocker is closed in the stacked S027 catalog-query continuation. Canonical Costbook collection routes now use the shared bounded `{items,total,nextCursor}` contract with opaque organization/query-bound cursors, deterministic ordering, allowlisted sorting, and server-side query execution; legacy typeahead search routes remain explicitly compatibility-scoped. The remaining S027 gate is authenticated rendered browser evidence at 1440/1024/768/390px, which is an environment/evidence gate, not a founder decision.
-Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 remains `BLOCKED` until the remaining browser-evidence gate is closed.
+Reconciled continuation: the server-side catalog pagination/search/filter/sort blocker is closed in the stacked S027 catalog-query continuation. Canonical Costbook collection routes now use the shared bounded `{items,total,nextCursor}` contract with opaque organization/query-bound cursors, deterministic ordering, allowlisted sorting, and server-side query execution; legacy typeahead search routes remain explicitly compatibility-scoped. The authenticated rendered browser gate is also closed: S027 workflow run `#22` on `main` at `c7003f3` passed all 36 route/viewport captures at 1440/1024/768/390px, including keyboard focus, equipment mutation/error states, pricing preview, deployment immutability, and credential scanning; artifact `#10042902412` was uploaded.
+Evidence: PR #260 merged as `cb4ebedc38e0591ae2d7703c15f66a541cf7a8c8`; the final authenticated browser-evidence gate passed in workflow run `#22` with artifact `#10042902412`.
+Reconciled evidence: the original 2026-08-09 and 2026-08-12 blockers are resolved—PR #94 (`ab89268...`), PR #95 (`5e59880...`), PR #96 (`7b80ec...`), hierarchy hardening via PR #151 ancestry/merge commit `c948998c1`, equipment catalog via merged PR #183, and issue #153 completed 2026-08-14. Current merged scope includes C005 hierarchy, CostItem management via PR #210, and assemblies/pricing-preview/price-history/supplier-feed work via PR #216. PR #257's readiness verification also closes the former PostgreSQL/RLS execution gate with a passing PostgreSQL-backed integration rehearsal. The dedicated evidence matrix is `docs/architecture/COSTBOOK_S027_READINESS.md`; S027 is `DONE` after the authenticated browser evidence run.
 
 ### S028 — Estimate-to-proposal workflow verification
 
@@ -397,10 +398,16 @@ Evidence: Inventory PR #377 merged as `34a079bdd45aaf73c144682b6650a59a8d513d91`
 
 ### S036 — Database index hardening
 
-Status: PLANNED
+Status: DONE
 Dependencies: S027, S035
 Objective: Add only verified indexes with migration and rollback evidence.
 Acceptance: improved plans without excessive write/index cost.
+Readiness contract: `docs/architecture/S036_DATABASE_INDEX_HARDENING_PLAN.md` bounds S036 to candidate indexes justified by the S035 inventory, isolated PostgreSQL plan evidence, measured write-cost review, reversible migration/rollback proof, and focused regression coverage. The implementation must use a new isolated worktree and implementation PR after this governance promotion; no production database change, live-customer workload capture, unrelated query rewrite, schema redesign, or S027/S044/S045/S046/S048/launch work is authorized.
+Founder-decision boundary: NO for repository and disposable PostgreSQL evidence. Production database access, production index application, or a latency/write-cost SLO requires separate authorization.
+Required implementation validation: candidate-by-candidate `EXPLAIN`/plan evidence; index size and write-cost review; migration apply and rollback rehearsal against disposable PostgreSQL; focused query-contract and tenant/RLS regression tests; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app lint, typecheck, build, unit, and integration checks.
+Forbidden in S036: production database changes, unapproved customer workload capture, speculative indexes, query rewrites, ORM replacement, schema/domain redesign, permissions/auth/RLS redesign, runtime tracing, provider work, S027 browser evidence, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, and launch approval.
+Evidence: Implementation PR #476 merged on 2026-09-08 as `96caffc8877f77b96f8c3ae099d147c839be355f`; isolated plan, write-cost, migration apply/rollback, and focused regression evidence are recorded in `docs/performance/S036_JOB_ASSIGNMENT_INDEX_EVIDENCE.md`.
+Implementation status: DONE after PR #476 merged; production application remains separately gated by the documented maintenance window and production cost-budget review.
 
 ### S037 — Application observability baseline
 
@@ -535,11 +542,19 @@ Acceptance: onboarding checklist, support path, feedback capture, and rollback p
 
 ### S049 — Stale branch, PR, and worktree retirement
 
-Status: PLANNED
+Status: DONE
 Dependencies: S013
 Objective: Remove stale branches/worktrees only after verifying merge, ownership, and live overlap state.
 Execution condition: reverify every open PR and active worktree at promotion time; do not preserve already-merged PRs such as #30 as current blockers.
-Acceptance: no misleading active branch, obsolete draft PR, or abandoned worktree remains.
+Acceptance: no misleading, undocumented, or unexplained active branch, obsolete draft PR, or abandoned worktree remains — every branch is either removed, behind a live open PR, or explicitly classified with an owner and next step (a separate CI-pipeline repair, a founder decision, or a pending content review) rather than left silently stale.
+Readiness evidence (2026-09-12): `origin/main` re-fetched at `eaa3144b648ed7cbaf2b580cc31fcc42ba3ebf3a`. Live open PRs at promotion time: #482 (`docs/canonical-tradeos-design`), #489 draft (`claude/costbook-materials-catalog-i21zbo`), #491 (`feat/stripe-billing-subscriptions`), #492 (`feature/costbook-bls-oews-ingestion`) — none overlap S049 scope. PR #470 (Costbook/Knowledge Engine audit) closed unmerged 2026-09-12 without landing its findings; its branch `claude/costbook-knowledge-engine-audit-0dska3` is an active agent lane, not a cleanup target. The single active worktree (`/home/user/TradeOS`) is on this S049 branch; no other linked worktree exists.
+Branch inventory: 51 remote branches existed at promotion time (excluding `main`/`staging`). Two independent read-only investigations classified every branch without a currently-open PR:
+- 23 branches classified `SAFE_TO_DELETE` — content is fully absorbed by a later merged PR, an equivalent fix already exists verbatim on `main`, or the branch is an ancient/throwaway scratch base: `claude/costbook-stage6-reviewed-ingestion` (PR #474, merged), `audit/s010-contract-lifecycle-plan`, `chore/web-dependency-audit-fix`, `docs/engineering-sprint-system`, `docs/s017-completion-evidence`, `docs/s027-costbook-reconciliation`, `docs/s037-readiness`, `docs/s041-rls-policy-coverage-readiness`, `fix/athena-context-interaction-propagation`, `fix/contracts-prevent-duplicate-proposal-contracts`, `fix/costbook-candidate-promotion-atomicity`, `fix/equipment-loading-edit-race-copy`, `fix/estimate-deliverability-gate`, `fix/server-api-non-json-failures`, `fix/vercel-ignore-missing-git-object`, `fix/vercel-main-handoff-recovery`, `ops/repair-beta-evidence-backend-target`, `ops/repair-staging-supabase-auth`, `ops/run-beta-evidence-final`, `rc/beta-evidence-provisioning`, `repair/athena-a7-memory`, `tmp/a7-original-base`, `tmp/pr258-doc-reconstruct-source`. (`claude/costbook-item-provenance-metadata`, PR #480's head branch, is not counted here: it was already auto-deleted by GitHub on that PR's squash-merge and was absent from the live 51-branch inventory at promotion time — an earlier version of this record incorrectly listed it as a 24th branch requiring action.)
+- 23 branches classified `REQUIRES_REVIEW` and are explicitly not deletion candidates from this promotion: 20 `codeql-autofix/alert-3-<runid>` branches (an earlier version of this record undercounted these as 18), each an isolated single-commit trivial test-file diff with zero PR trail across all 20 attempts — this pattern indicates the CodeQL autofix workflow's PR-creation step is failing silently, and the underlying CodeQL alert #3 remains unaddressed on `main`; this is a separate CI-repair finding recorded here, not a branch-hygiene one. `claude/tradeos-rc-auth-password-reset-r6wbi3` carries a `--require-backend-host` smoke-check guard that never landed on `main`. `docs/tradeos-design-system` carries roughly 104 unabsorbed brand-asset/token files never merged anywhere. `feat/stripe-connect-payments` carries a complete, previously-ungoverned Stripe billing implementation with no numbered-sprint authorization — a separate branch from currently-open PR #491 (`feat/stripe-billing-subscriptions`); together they are a founder-decision item, not an S049 cleanup target.
+- `main`, `staging`, the branches behind currently-open PRs #482/#489/#491/#492, and this session's own `claude/costbook-knowledge-engine-audit-0dska3` lane are `RETAIN`.
+Execution gap (closed 2026-09-12): readiness PR #494 merged as `0b6f98ad309df62ff729d7303d18c09d5ae59f49` because the agent session's git/GitHub credentials did not carry ref-deletion permission. The founder then executed the deletions directly. This was independently confirmed from the agent session — not taken on the founder's word — via `git fetch origin --prune` followed by `git branch -r`: all 23 `SAFE_TO_DELETE` branches listed above are gone from `origin`, and every other branch remains present and untouched: `main` and `staging` (2 protected/deployment branches), the five branches behind open PRs #482/#489/#491/#492/#493, this session's own `claude/costbook-knowledge-engine-audit-0dska3` lane, and all 23 `REQUIRES_REVIEW` branches — 29 branches excluding `main`/`staging` (31 including them), matching 51 minus the 23 deleted plus the 1 new branch (`claude/costbook-trusted-pricing-pipeline-9gc0ny`, PR #493) opened since promotion.
+Founder-decision boundary: NO for the classification/documentation/verification performed here. The Stripe billing branch/PR pair surfaced above remains a separate founder decision outside S049's own scope.
+Evidence: readiness/documentation PR #494 merged as `0b6f98ad309df62ff729d7303d18c09d5ae59f49`; founder-executed branch deletion confirmed live against `origin` in this completion-evidence PR, with the branch-inventory arithmetic corrected to 23 `SAFE_TO_DELETE` + 23 `REQUIRES_REVIEW` + 4 open-PR branches (the count at promotion time, before PR #493 opened) + 1 session lane = 51; the 5th open PR (#493) that appeared by completion time is separately accounted for above as the 1 new branch opened since promotion.
 
 ### S050 — Launch stabilization and next roadmap
 
@@ -548,27 +563,416 @@ Dependencies: S048, S049
 Objective: Triage beta findings, stabilize launch-critical defects, and produce the next evidence-backed roadmap.
 Acceptance: launch decision, known-risk register, and successor backlog approved.
 
+## Phase 11 — Vertical Integration and Workflow Certification
+
+The successor backlog is derived from
+`docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. For S051-S100,
+merged code is necessary but is not sufficient for `DONE` when a sprint owns a
+contractor- or customer-facing workflow. Completion requires the frontend action
+and backend contract to be connected, relevant permission/tenant-negative cases
+to pass, resulting state to refresh correctly, and retained browser evidence for
+the role and viewport set named by the sprint. Historical evidence may establish
+a baseline but cannot certify a changed current head.
+
+### S051 — Executable frontend/backend connection matrix
+
+Status: DONE
+Implementation PR: #538 (merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`).
+Evidence: PR #538 merged S051 and published the matrix/validator on `main`.
+Dependencies: none
+Objective: Create the governed action-to-route certification inventory for every release-critical frontend read and mutation.
+Acceptance: the inventory names the UI action, route and method, request/response contract, permission, tenant/RLS expectation, refresh behavior, automated evidence, browser checkpoint, and current result; CI fails when a release-critical entry loses its owner or mapped contract.
+Readiness evidence: the 2026-09-22 vertical audit inspected `main` at `9a27682a575f6c8b13337a61e88cdd7b838dcfe2`, the authenticated API clients/proxy, backend mounts, 174 frontend call sites, 308 TypeScript test files, the retained September 5 RC evidence, and live open-PR overlap. No open PR owns a repository-wide connection matrix or its drift check.
+Allowed implementation paths: a machine-readable record under `docs/testing/`, a narrowly scoped validation script and tests under `scripts/`, required package script wiring, and owner documentation needed by `DOC_OWNERSHIP.yml`.
+Forbidden in S051: application behavior changes, endpoint/DTO changes, schema or migration changes, auth/RBAC/RLS changes, deployment or secret changes, browser fixture creation, and implementation of S052-S100.
+Founder-decision boundary: NO for the bounded inventory and drift validator; stop if an apparent mismatch requires choosing new product, permission, financial, legal, or data behavior.
+Required validation: focused validator tests; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; `git diff --check`; exact-head required CI.
+
+### S052 — Customer and project vertical certification
+
+Status: PLANNED
+Dependencies: S051
+Objective: Certify customer creation/update, service address, project creation, scope persistence, and project workspace refresh as one tenant-safe workflow.
+Acceptance: owner/admin happy path plus validation, duplicate, inactive-membership, and cross-tenant denial evidence pass at 1440/768/390.
+
+### S053 — Scope-to-Athena-to-estimate certification
+
+Status: READY
+Readiness evidence: S051 is DONE through merged PR #538; S052 remains unstarted; no competing S053 implementation PR or branch was found during the 2026-09-22 reconciliation; the scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract is explicit below; this readiness promotion changes documentation only.
+Dependencies: S051
+Objective: Connect and certify plain-language scope → Athena matches → reviewed Costbook/assembly choices → persisted estimate lines.
+Acceptance: provenance, confidence, setup-required behavior, explicit review, line persistence, pricing refresh, denial paths, and no-silent-write behavior pass at 1440/768/390.
+
+### S054 — Proposal and customer acceptance certification
+
+Status: PLANNED
+Dependencies: S052, S053, S059
+Objective: Certify estimate finalization, proposal value/scope transfer, delivery, customer review, acceptance/decline, and contractor-side refresh.
+Acceptance: customer-facing amounts remain cent-exact, concurrent terminal actions fail closed, audit attribution is correct, and staff/customer roles pass their supported viewports.
+
+### S055 — Contract signature vertical certification
+
+Status: PLANNED
+Dependencies: S054
+Objective: Certify accepted proposal → contract → customer signature/decline → rendered signed evidence.
+Acceptance: identity/session scope, signature attribution, expiry/replay, concurrent transition, audit history, PDF/rendering, and cross-tenant denial pass without stronger legal claims than ADR-007 permits.
+
+### S056 — Project-to-job scheduling and dispatch certification
+
+Status: PLANNED
+Dependencies: S052
+Objective: Certify project job creation, service-address handling, assignment, conflict preview, schedule/reschedule, and dispatch as one workflow.
+Acceptance: owner/dispatcher and technician boundaries, deterministic conflicts, refresh behavior, and tenant denials pass at desktop and mobile handoff viewports.
+
+### S057 — Mobile field execution certification
+
+Status: PLANNED
+Dependencies: S056
+Objective: Certify a technician's mobile day from assigned work through travel, arrival, notes, pause/resume where eligible, completion, and failure recovery.
+Acceptance: 390/768 evidence proves permitted lifecycle actions, readable job context, retry-safe errors, assignment scoping, audit events, and owner/technician role separation.
+
+### S058 — Invoice and payment vertical certification
+
+Status: PLANNED
+Dependencies: S053, S054, S057
+Objective: Certify invoice readiness, creation, issue, partial/full payment, derived overdue state, voiding, and zero-balance reconciliation.
+Acceptance: sell-price/tax fidelity, cent-safe balances, permission failures, concurrent final payment, terminal exclusions, and staff/customer presentation pass with retained evidence.
+
+### S059 — Customer portal access and session certification
+
+Status: PLANNED
+Dependencies: S051
+Objective: Certify staff issuance, single-use access redemption, customer-scoped session, revocation, expiry, replay denial, and cross-tenant isolation.
+Acceptance: the current magic-link model passes authenticated browser and negative security evidence without broadening customer authorization or exposing bearer material.
+
+### S060 — Today command board live-data certification
+
+Status: PLANNED
+Dependencies: S051, S052, S056, S058
+Objective: Certify the latest Today command board against the same live sources that own customer, estimate, Job, task, activity, invoice, and payment state.
+Acceptance: counts and destinations agree with source records, independent failures degrade truthfully, stale/empty/error states are actionable, and 1440/1024/768/390 evidence is retained.
+
+## Phase 12 — Contractor UX Completion
+
+### S061 — Today page structural completion
+
+Status: PLANNED
+Dependencies: S060
+Objective: Remove remaining competing dashboard regions and finish the Now / Needs you / Coming up / Money operating rhythm.
+Acceptance: the page is action-led rather than a repeated-card wall, preserves compact density, and does not hide required secondary diagnostics.
+
+### S062 — Universal Create continuity
+
+Status: PLANNED
+Dependencies: S052, S056, S058
+Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
+Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
+
+### S063 — CRM lead and proposal-pipeline workspace
+
+Status: PLANNED
+Dependencies: S052, S054
+Objective: Complete the pre-job lifecycle as Leads + Customers + Follow-ups + Proposal Pipeline without creating a parallel customer source of truth.
+Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and accepted-proposal handoff are connected and mobile usable.
+
+### S064 — Embedded assembly picker in estimate Items
+
+Status: BLOCKED
+Dependencies: S053
+Blocked by: resolve open PR #520 and reconcile its Assembly Catalog mapping changes before implementation.
+Objective: Embed installed and starter assembly selection inside the estimate Items stage.
+Acceptance: search, setup-required mapping, cost preview, quantity, explicit add, provenance, and line refresh work without leaving the estimate.
+
+### S065 — Project planning and quantity-takeoff MVP
+
+Status: PLANNED
+Dependencies: S053, S064
+Objective: Add the smallest production-worthy plan → measured quantities → assemblies → estimate workflow.
+Acceptance: contractor-entered dimensions/quantities remain reviewable, calculations are reproducible, takeoff revisions are versioned, and estimate application is explicit.
+
+### S066 — Mobile job action workspace
+
+Status: PLANNED
+Dependencies: S057
+Objective: Turn project/job mobile pages into one field action workspace for instructions, contacts, schedule, files, notes, status, and blockers.
+Acceptance: the next action is obvious, critical context remains reachable offline only when explicitly supported, and role restrictions remain intact.
+
+### S067 — Scheduling calendar and visit continuity
+
+Status: PLANNED
+Dependencies: S056
+Objective: Connect schedule visits, Jobs, technician assignments, conflicts, and rescheduling into one consistent calendar experience.
+Acceptance: create/edit/move actions share canonical time/conflict rules and refresh Today, Dispatch, project, and field surfaces consistently.
+
+### S068 — Change-order customer workflow
+
+Status: PLANNED
+Dependencies: S054, S059
+Objective: Complete change-order draft, pricing, customer review/approval/rejection, audit, and downstream financial visibility.
+Acceptance: original contract/invoice truth is preserved, customer decisions are attributable, and approved changes do not silently mutate historical snapshots.
+
+### S069 — Closeout and warranty workspace
+
+Status: PLANNED
+Dependencies: S057, S058
+Objective: Complete field completion → punch/closeout documents → customer handoff → warranty record organization.
+Acceptance: required artifacts and unresolved items are explicit, tenant-scoped, auditable, and reachable from the project without inventing unsupported warranty promises.
+
+### S070 — Cross-workflow state continuity
+
+Status: PLANNED
+Dependencies: S061, S063, S066, S067, S068, S069
+Objective: Eliminate stale counts, dead-end returns, and conflicting labels across Today, CRM, Projects, Estimates, Dispatch, Field, Portal, and financial surfaces.
+Acceptance: canonical statuses, breadcrumbs/back behavior, notifications/refreshes, and destination links remain coherent after every certified mutation.
+
+## Phase 13 — Production Reliability, Security, and Operations
+
+### S071 — Deployment identity and data-plane proof
+
+Status: PLANNED
+Dependencies: S051
+Objective: Replace operator-attested RC data-plane identity with a safe runtime build/environment identity contract.
+Acceptance: evidence automation verifies commit, environment, backend host, and non-secret data-plane identifier from the deployment and fails closed on mismatch.
+
+### S072 — Schema drift and readiness gate
+
+Status: PLANNED
+Dependencies: S071
+Objective: Extend readiness checks so frontend-critical schema drift is detected before traffic reaches an incompatible backend/database pair.
+Acceptance: migration head and critical contract checks fail deployment safely with actionable, non-secret diagnostics.
+
+### S073 — Release-critical RLS coverage matrix
+
+Status: PLANNED
+Dependencies: S051
+Objective: Map every S052-S060 persisted resource to forced-RLS policy and live same-org/cross-org evidence.
+Acceptance: no critical resource is certified from application filters or mocks alone; gaps create blocking test ownership.
+
+### S074 — Durable authentication and portal email delivery
+
+Status: PLANNED
+Dependencies: S059
+Objective: Add retryable, observable delivery for invitations, recovery, and customer portal access without losing durable issuance state.
+Acceptance: a transactional outbox or approved equivalent proves idempotent delivery, retry/dead-letter handling, redaction, and safe provider failure behavior.
+
+### S075 — Private project-file storage completion
+
+Status: BLOCKED
+Dependencies: S051
+Blocked by: open security PR #532 must be reviewed, merged or superseded, and deployed-environment bucket posture must be verified.
+Objective: Finish private-by-default project photo/document delivery and legacy-record handling.
+Acceptance: same-tenant authorized access works, guessed/cross-tenant paths fail, deletes are exact and recoverable, and live bucket/runtime configuration is proven.
+
+### S076 — Product SLO and error-budget instrumentation
+
+Status: PLANNED
+Dependencies: S060, S071
+Objective: Make the existing SLO/incident policy measurable for authenticated critical workflows.
+Acceptance: latency, availability, error, and dependency signals cover named journeys without customer data or secret leakage and have actionable thresholds/owners.
+
+### S077 — Retry and dead-letter operator controls
+
+Status: PLANNED
+Dependencies: S076
+Objective: Provide governed visibility and recovery for existing Athena, supplier, email, and scheduled-job retry/dead-letter seams.
+Acceptance: authorized operators can inspect, replay safely, and audit outcomes without duplicating side effects or crossing tenants.
+
+### S078 — Backup and restore rehearsal
+
+Status: BLOCKED
+Dependencies: S039, S072
+Blocked by: S039 production/staging backup access and an approved disposable restore target.
+Objective: Execute and retain database/storage restore evidence against stated RPO/RTO targets.
+Acceptance: restore, application verification, migration compatibility, rollback, timing, and artifact redaction are documented from an actual rehearsal.
+
+### S079 — Secrets and environment inventory closure
+
+Status: BLOCKED
+Dependencies: S044, S045, S071
+Blocked by: authorized live deployment and secret-metadata access.
+Objective: Close ownership, least-privilege, rotation, Preview/Staging/Production separation, and topology gaps.
+Acceptance: authoritative non-secret inventory, owner, rotation trigger, and environment separation evidence exist without exposing values.
+
+### S080 — Production migration deployment certification
+
+Status: BLOCKED
+Dependencies: S046, S072, S078, S079
+Blocked by: completion of the existing S046 production migration gate and its production-access dependencies.
+Objective: Exercise approval, ordering, backup, deploy, health verification, failure stop, and rollback/recovery for production migrations.
+Acceptance: one representative additive migration passes the approved runbook with retained evidence and no direct destructive operation.
+
+## Phase 14 — Costbook, Athena, and Financial Intelligence
+
+### S081 — Persisted organization pricing policy
+
+Status: PLANNED
+Dependencies: S053, S058
+Objective: Replace calculation-only pricing preview with governed organization pricing rules consumed consistently by estimating.
+Acceptance: precedence, effective dates, permissions, audit, historical estimate snapshots, rollback, and RLS are defined and verified before any automatic application.
+
+### S082 — Regional supplier evidence completion
+
+Status: BLOCKED
+Dependencies: S073
+Blocked by: open draft PR #531 owns this schema/RLS/import lane and must pass its database/security gates or be superseded explicitly.
+Objective: Land tenant-scoped regional supplier observations without silently changing current Material costs.
+Acceptance: migration/RLS rehearsal, idempotent import, unavailable observations, Carter catalog-only handling, review UI, and provenance pass before price promotion is considered.
+
+### S083 — Supplier identity and SKU matching
+
+Status: PLANNED
+Dependencies: S082
+Objective: Add governed supplier identity, SKU matching, ambiguity handling, and connector contracts.
+Acceptance: matches are tenant-scoped, confidence/explanation is visible, ambiguous rows require human resolution, and no connector auto-applies current price.
+
+### S084 — Governed Costbook-to-Knowledge export
+
+Status: PLANNED
+Dependencies: S082, S083
+Objective: Implement Stage 7 regeneration of the Knowledge Engine export from reviewed Costbook/candidate records.
+Acceptance: export is deterministic, versioned, provenance-preserving, reversible, and cannot include unapproved or cross-tenant data.
+
+### S085 — Documented provenance pilot
+
+Status: BLOCKED
+Dependencies: S082
+Blocked by: authoritative/licensed sources or qualified-estimator reviewed data for a bounded pilot set.
+Objective: Move a useful pilot subset from unverified legacy to genuinely documented item/assembly provenance.
+Acceptance: source/license, date, retrieval, region, confidence, reviewer, and price basis are complete and pass the structural audit without fabricated certainty.
+
+### S086 — Athena estimate action completion
+
+Status: PLANNED
+Dependencies: S053, S081, S084
+Objective: Let Athena prepare reviewable estimate/assembly actions using governed pricing and provenance while Estimate Engine remains authoritative.
+Acceptance: plan/explanation, permission, approval, idempotency, audit, apply result, and denial paths are browser-certified; no autonomous unreviewed price write is introduced.
+
+### S087 — Athena operational action certification
+
+Status: PLANNED
+Dependencies: S056, S057, S077, S086
+Objective: Certify approved Athena actions for office, dispatch, and field workflows through existing domain services.
+Acceptance: read context, recommendation, approval, execution, event/audit, refresh, retry, denial, and rollback behavior pass per tool risk class.
+
+### S088 — Live financial intelligence completion
+
+Status: BLOCKED
+Dependencies: S058, S060
+Blocked by: open draft PR #507 is the single existing financial-summary lane and must be rebased, verified, and advanced rather than duplicated.
+Objective: Complete truthful cash, receivables, unsigned opportunity, and projected-margin intelligence with explicit coverage metadata.
+Acceptance: exact aggregation, missing-data semantics, tenant/RLS evidence, degraded UI, and current-head browser proof pass without claiming unavailable actual job margin.
+
+### S089 — Actual job-cost capture foundation
+
+Status: PLANNED
+Dependencies: S057, S081
+Objective: Persist verified labor, material, equipment, and approved change cost actuals against Jobs without replacing accounting systems.
+Acceptance: source, quantity/rate, correction, attribution, audit, permissions, RLS, and estimate-vs-actual reconciliation are explicit and financially tested.
+
+### S090 — SaaS subscription billing certification
+
+Status: BLOCKED
+Dependencies: S071, S073, S079
+Blocked by: protected billing/schema PR #491 and sandbox provider configuration/evidence.
+Objective: Resolve the existing Stripe subscription lane and certify Checkout, webhook projection, entitlements, portal, cancellation, retry, and tenant isolation.
+Acceptance: provider amounts match the server catalog, webhooks are authentic/idempotent, entitlements fail closed, migration/RLS pass, and sandbox lifecycle evidence is retained before live-mode consideration.
+
+## Phase 15 — Beta Operations and Release Certification
+
+### S091 — Beta cohort and rollout decision
+
+Status: BLOCKED
+Dependencies: S048, S052, S053, S054, S055, S056, S057, S058, S059, S060
+Blocked by: founder selection of beta tenants, start window, support owner, and risk acceptance.
+Objective: Convert the existing S048 decision into a controlled cohort and rollout record.
+Acceptance: tenant eligibility, consent, onboarding owner, data policy, support path, rollback, and stop criteria are approved.
+
+### S092 — Beta tenant lifecycle tooling
+
+Status: PLANNED
+Dependencies: S091
+Objective: Make provision, invite, training, health check, suspension, export, and offboarding repeatable for beta tenants.
+Acceptance: every step is least-privilege, auditable, reversible where possible, and does not require ad hoc production mutation.
+
+### S093 — In-product feedback and support triage
+
+Status: PLANNED
+Dependencies: S092
+Objective: Capture contextual beta feedback, severity, workflow location, consented diagnostics, owner, and resolution without collecting secrets or excess customer data.
+Acceptance: feedback reaches a governed queue, P0/P1 escalation is defined, and users can understand what diagnostic context is shared.
+
+### S094 — Critical workflow performance budgets
+
+Status: PLANNED
+Dependencies: S052, S053, S054, S055, S056, S057, S058, S059, S060, S076
+Objective: Define and verify practical latency/loading budgets for the certified contractor journeys and Costbook cold/concurrent paths.
+Acceptance: representative fixtures, percentile budgets, failure thresholds, and regression ownership exist for backend and rendered user experience.
+
+### S095 — Accessibility certification
+
+Status: PLANNED
+Dependencies: S061, S062, S063, S064, S065, S066, S067, S068, S069, S070
+Objective: Certify keyboard, focus, semantics, contrast, zoom/reflow, reduced motion, and error messaging across release-critical staff and customer workflows.
+Acceptance: automated checks and manual keyboard/screen-reader evidence cover 1440/768/390 without weakening the TradeOS visual system.
+
+### S096 — Scheduled full-regression evidence
+
+Status: PLANNED
+Dependencies: S071, S073, S094, S095
+Objective: Run critical repository, integration, RLS, migration, and browser evidence on a governed cadence and release-candidate trigger.
+Acceptance: failures retain useful redacted diagnostics, stale artifacts cannot pass, flaky ownership is explicit, and no production mutation occurs.
+
+### S097 — Customer portal beta evidence
+
+Status: PLANNED
+Dependencies: S054, S055, S058, S059, S074
+Objective: Produce the retained end-to-end customer portal evidence explicitly absent from the current beta suite.
+Acceptance: issuance/delivery, redemption, proposal decision, contract signature, invoice view/payment handoff, expiry, replay, revocation, and cross-tenant denial pass in one isolated run.
+
+### S098 — Multi-role multi-viewport contractor evidence
+
+Status: PLANNED
+Dependencies: S052, S053, S054, S055, S056, S057, S058, S059, S060, S095, S096
+Objective: Certify owner/admin, office/dispatcher, technician, and customer handoffs at their supported desktop/tablet/mobile viewports.
+Acceptance: one correlated release-candidate run retains business assertions, responsive checks, tenant denials, console/network failures, and artifact credential scanning.
+
+### S099 — Production-like release rehearsal
+
+Status: PLANNED
+Dependencies: S078, S079, S080, S090, S091, S092, S093, S094, S095, S096, S097, S098
+Objective: Rehearse deploy, migrations, provisioning, smoke, observability, incident response, rollback, restore, and communications in the approved production-like environment.
+Acceptance: owners, timing, commands, approvals, evidence, stop conditions, rollback, and residual risks are recorded from the rehearsal rather than inferred.
+
+### S100 — TradeOS beta release certification
+
+Status: PLANNED
+Dependencies: S099
+Objective: Make the founder beta decision from current-head evidence rather than sprint count.
+Acceptance: all required contractor/customer journeys are current-head certified; the connection matrix has no P0 disconnected or unowned path; tenant/security, migration/restore, financial, mobile/accessibility, and environment gates pass; open risks have explicit owner and founder disposition; the exact release SHA and deployment are correlated; and the signed decision states `GO`, `CONDITIONAL GO`, or `NO-GO`.
+
 ## Current out-of-band authorized work
 
-The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. As of the 2026-08-21 reconciliation, the S027 server-side catalog continuation has landed through PR #260 and S027 remains blocked only on authenticated rendered browser evidence. That evidence work does not occupy lifecycle-normalization scope.
+The numbered sprint queue is not the only permitted maintenance activity. Existing PRs/issues may represent directly authorized bounded work. S027 is now complete: its server-side catalog continuation landed through PR #260 and authenticated rendered browser evidence passed in workflow run `#22`. S051 is DONE through PR #538, merged 2026-09-22 as `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
 
 The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The 2026-08-16-era list (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved: #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that resolution, itself closed unmerged without landing its diff. None of those older entries remain live overlap risk.
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
+S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) closed unmerged on 2026-09-12 without landing its findings. The 2026-09-22 successor-backlog reconciliation found 17 open PRs. Explicit gates are recorded where they overlap successor work: #520 gates S064; #532 gates S075; #531 gates S082; #507 gates S088; and #491 gates S090. Routine Dependabot and post-merge documentation PRs do not authorize or complete a numbered sprint. No open PR implements S051's repository-wide action-to-route matrix and drift validator.
+
 ## Active Sprint and Next Eligibility
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S043 and S047 are DONE with merged implementation and completion evidence. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
-Dependencies: S022, S028, S033, and S040 are DONE; no founder decision or external credential is required to implement the bounded smoke-suite contract.
-Protected boundary: Do not mix S027 browser evidence, S036 index work, S044/S045 deployment inventory, S046 migration gates, S048 beta selection, or launch approval into the S047 implementation lane.
+Active Sprint: NONE (S051 complete; S053 readiness promotion in review)
+Completion status: S051 is merged and reconciled. S053 is promoted to `READY` by this governance-only change; implementation remains gated on readiness-PR merge. S039/S044/S045 and their dependent production gates remain blocked.
+Dependencies: S053 depends on S051 and has no competing implementation lane.
+Protected boundary: S053 is limited to the existing scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S022, S028, S033, S040, and S047 are DONE with merged evidence. S044/S045 are blocked on production access and S046 is blocked by S045.
-Dependencies: S022, S028, S033, and S040 are DONE; repository implementation requires no founder decision or external credential. Live authenticated deployment evidence requires the existing scoped RC storage-state secret and selected deployment URL.
-Overlap check: PR #397 is merged and no open S047 implementation lane remains. Keep S027 browser evidence, S036, S044, S045, S046, and S048 independent.
-Startup prompt: No numbered sprint is currently eligible. Resume only after a lower-numbered READY sprint is promoted under `docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md` or after the external evidence blockers are removed.
+Sprint ID: S053
+Eligibility: S053 is `READY` after S051 merged; this readiness promotion must merge before implementation begins.
+Dependencies: S051 is `DONE`; S052 is not required for the S053 contract.
+Overlap check: 17 open PRs were reconciled on 2026-09-22; no competing S053 implementation PR or branch was found.
+Startup prompt: After this readiness PR merges, create the S053 implementation branch and certify scope → Athena → reviewed Costbook/assembly → persisted estimate lines without silent writes.

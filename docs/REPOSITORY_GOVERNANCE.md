@@ -1,11 +1,10 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-15
 source_of_truth: true
 related_code:
   - AGENTS.md
-  - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
   - scripts/sprint-state-check.mjs
@@ -24,6 +23,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -46,6 +47,14 @@ related_code:
 ---
 
 # Repository Governance
+
+The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
+and runtime-authentication seam. It verifies a Ready non-production web
+deployment and its full commit through Vercel before and after capture, requires
+confirmation that the test tenant is sanitized before creating equipment fixtures, and removes only
+fixtures created by that run. Session files remain outside the repository and
+uploaded artifacts; failure diagnostics are published only after credential
+scanning. Passing runner tests alone are not S027 completion evidence.
 
 This document defines the required repository workflow for TradeOS. The Bible defines doctrine, the Sprint Backlog defines executable work, and this file defines repository controls and merge discipline.
 
@@ -85,7 +94,7 @@ Protect `main` with a branch ruleset that:
 Expected verification jobs are:
 
 - `Docs consistency` (validates required PR-description structure first, then runs PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation);
-- `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
+- `App lint, unit tests, and build` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, runs Prisma schema validation, a high-severity production-dependency audit, TypeScript typechecking, backend unit tests, the `athena:contracts` and `athena:smoke` named gates, the backend build, the root-level `costbook:audit-provenance` Costbook Knowledge Engine provenance/data-quality audit (blocking on structural defects — duplicate IDs, missing identity fields, non-numeric costs, dangling assembly references — never on missing-provenance/source/confidence warnings), and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup);
 - `App integration tests` (for pull requests that change `app/**` or `packages/knowledge-engine/**`, rehearses the production migration-deployment path against an isolated PostgreSQL instance before the live integration/RLS tests; for unrelated pull-request diffs the same required job reports success without expensive setup and no longer waits for the ordinary app lane before starting);
 - `Web lint and build` (for pull requests that change `web/**`, runs a high-severity production-dependency audit, frontend unit tests, lint, build, and a tracked-source cleanliness check; for unrelated pull-request diffs the same required job reports success without expensive setup).
 
@@ -125,7 +134,15 @@ without changing product authentication or authorization policy.
 The companion `Repair staging Supabase auth configuration` workflow is a
 manual, confirmation-gated operational control. Its repository contract fixes
 the Vercel project, `staging` branch, Preview environment, and public staging
-Supabase URL, then requires database-backed readiness. Changes that broaden it
+Supabase URL, then requires database-backed readiness. The repair resolves a
+READY Preview using structured Vercel data and the captured staging SHA,
+verifies team/project/repository ownership before redeploying by ID, and
+creates a fresh fixed-branch staging Preview if no matching READY deployment
+exists (requiring the same captured SHA), and checks the new immutable deployment URL for matching runtime SHA, database
+and schema readiness, and invalid Supabase token rejection after issuer initialization. The workflow
+retains only whitelisted deployment/readiness evidence, never environment
+values or response bodies. A passing repair is not authenticated browser
+certification or proof that staging equals current main. Changes that broaden it
 to Production, accept an operator-provided target/value, or expose the Vercel
 token require an explicit governance review and are prohibited by its contract
 test.
@@ -256,7 +273,7 @@ Once a PR exists, use one continuous repair loop:
 
 1. inspect current-head CI plus every unresolved review thread;
 2. automatically repair deterministic, scoped findings such as objective documentation drift, formatting, lint/type failures, missing behavioral regression coverage, and low-risk localized correctness issues;
-3. for CodeRabbit findings with structured fix instructions, `@coderabbitai autofix` may commit the proposed repair directly to the current PR branch, after which the resulting diff and tests must still be inspected;
+3. for automated-review findings with structured fix instructions, apply the proposed repair directly to the current PR branch, after which the resulting diff and tests must still be inspected;
 4. do not auto-apply findings that would change migrations/schema/data, authentication or authorization policy, RLS, billing/money semantics, destructive operations, major architecture/repository boundaries, production trust boundaries, or other protected decisions;
 5. prefer tests that execute the real behavior or mocked failure path; source-text assertions are appropriate only when source shape itself is the deliberate repository contract;
 6. resolve a review thread only after its fix is present and verified on the current head;
@@ -301,6 +318,8 @@ do not recreate it automatically.
 ## Branch and worktree lifecycle
 
 The executable agent startup and completion sequences are owned only by the [Next Sprint Protocol](agent-prompts/NEXT_SPRINT_PROTOCOL.md). This document owns the repository policy those flows enforce: branch and worktree lifecycle, PR readiness, review, merge, and cleanup. `AGENTS.md`, compatibility checklists, and backend, frontend, docs, or recovery contracts may link to the canonical flows and add lane-specific requirements; they must not duplicate or weaken the general sequence.
+
+For contractor-facing product UI work, `.stitch/DESIGN.md` is the canonical written design contract and companion to the canonical TradeOS Figma master. Contributor and agent instructions may require it for frontend/design changes, but it does not override capability, security, lifecycle, data, or implementation truth. Historical Sites/Figma artifacts are reference material unless reconciled into the canonical master.
 
 Use one clean `main` worktree plus one linked worktree per active mission.
 
@@ -372,7 +391,7 @@ Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor
 
 `.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
-`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It targets only the recorded TradeOS Staging backend, writes the public staging Supabase URL only to Preview scope for the `staging` branch, redeploys that backend with the current Vercel CLI syntax, and verifies `/ready`. It may not target Production, copy Production secrets, or change auth policy.
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It checks the replacement immutable hostname for matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
 
 ## Production migration history reconciliation
 
@@ -383,6 +402,16 @@ The temporary `.github/workflows/reconcile-production-migration.yml` workflow ex
 PR #30 has landed, but the temporary reconciliation workflow still materializes only `app/prisma/migrations/20260728120000_add_settings_asset_uploads/migration.sql` from its pinned `refs/pull/30/head` source. It must fail closed if the ref, path, or pinned SHA-256 checksum cannot be verified, and it must not execute code from the fetched pull-request ref. `prisma migrate resolve --applied` remains a hard-fail step. `prisma migrate status` is diagnostic and non-blocking because known earlier pending migrations can return a nonzero status after the target history row has been recorded.
 
 CI schema validation and migration rehearsal must remain isolated from production. Pull-request verification may exercise the tracked migration path against a disposable database but must never use production credentials, apply pull-request migrations to production, or mutate production migration history.
+
+The `.github/workflows/s036-index-evidence.yml` workflow is a supplemental,
+pull-request-scoped evidence lane for the S036 index candidate. It uses a
+disposable PostgreSQL service and an isolated synthetic schema, applies the
+tracked migration unmodified, captures redacted before/after planner output,
+records index size and controlled write observations, rehearses rollback, and
+uploads the generated artifact for review. The companion
+`app/scripts/s036-index-evidence.sh` cleans up the synthetic schema on exit.
+This lane must never use production credentials or data and does not by itself
+authorize production application, merge, or an S036 completion claim.
 
 ## Session continuity
 
@@ -472,3 +501,5 @@ Labels should be applied consistently during triage. Do not create one-off label
 ## CodeQL and code-quality autofix
 
 Scheduled and manually dispatched maintenance workflows may generate isolated pull requests for bounded CodeQL remediations or deterministic frontend ESLint fixes. They must preserve required repository checks, immutable action pinning, branch-current validation, and documentation governance. They may not write directly to `main` or autonomously change product behavior, database/schema/migrations, authentication/authorization/RLS, billing semantics, or production trust boundaries.
+
+The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable commit. Its embedded script must remain compatible with the v9 execution contract: use the injected `github`, `context`, and `core` objects; do not call CommonJS `require('@actions/github')`; and do not redeclare the injected `getOctokit` parameter with `const` or `let`. Moving the action runtime major does not by itself authorize permission, trigger, product, schema, auth/RLS, billing, or production-trust changes.

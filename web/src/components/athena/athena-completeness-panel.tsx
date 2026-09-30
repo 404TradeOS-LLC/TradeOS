@@ -23,7 +23,7 @@ export function AthenaCompletenessPanel({ completeness }: { completeness: Athena
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-2 gap-2">
           {completeness.expectedSpanTypes.map((spanType) => {
             const isObserved = observed.has(spanType);
             return (

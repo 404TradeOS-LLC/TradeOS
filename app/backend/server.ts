@@ -45,6 +45,8 @@ import { paymentsRouter } from "./routes/payments.routes";
 import { athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
 import { customerPortalRouter } from "./routes/customerPortal.routes";
+import { billingRouter } from "./routes/billing.routes";
+import { stripeWebhookRouter } from "./routes/stripeWebhook.routes";
 
 export function createServer() {
   const app = express();
@@ -55,7 +57,20 @@ export function createServer() {
   app.use(requestLogger);
   app.use(securityHeaders);
   app.use(cors({ origin: buildCorsOriginHandler() }));
-  app.use(express.json());
+  // Stripe signature verification requires the exact request bytes. Mount the
+  // webhook before JSON/urlencoded parsing and before authenticated /api/v1
+  // middleware. The handler resolves TradeOS tenant metadata from Stripe and
+  // establishes its own tenant-scoped database session before writing.
+  app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookRouter);
+
+  // Only the bounded regional-supplier import needs the larger JSON allowance.
+  // Other routes retain the normal parser limit so unauthenticated traffic
+  // cannot make every endpoint buffer a large request body.
+  app.use(
+    "/api/v1/costbook/supplier-evidence/import",
+    express.json({ limit: process.env.API_JSON_BODY_LIMIT ?? "48mb" })
+  );
+  app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT ?? "2mb" }));
   app.use(express.urlencoded({ extended: false }));
 
   app.get("/health", (_req: Request, res: Response) => {
@@ -73,6 +88,7 @@ export function createServer() {
   app.use("/api/v1/customer-portal", customerPortalRouter);
   app.use("/api/v1", requireAuth, databaseSession);
   app.use("/api/v1/account", accountRouter);
+  app.use("/api/v1/billing", billingRouter);
   app.use("/api/v1/costbook", costbookRouter);
   app.use("/api/v1/cost-database", costDatabaseRouter);
   app.use("/api/v1/labor-rates", laborDatabaseRouter);

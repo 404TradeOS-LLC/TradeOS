@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { CalendarClock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DispatchJobActions } from "@/components/dispatch/dispatch-job-actions";
+import { AssignedTechnicians } from "@/components/shared/assigned-technicians";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSection } from "@/components/shared/table-section";
 import type { DispatchJob } from "@/lib/api";
@@ -66,6 +68,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
           />
         ) : (
           <EmptyState
+            icon={CalendarClock}
             title="No jobs yet"
             description="This organization has no jobs recorded yet. Jobs created from a project will appear here once they exist - nothing here is fabricated."
           />
@@ -83,7 +86,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
       >
         {/* Table is desktop-only (md:block above); the card list below is the mobile equivalent, not a duplicate render. */}
         <table className="min-w-[820px] text-left text-sm">
-        <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <thead className="sticky top-16 z-10 border-b border-border bg-card text-xs uppercase tracking-[0.18em] text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2">Customer / Project</th>
             <th scope="col" className="px-3 py-2">Status</th>
@@ -122,11 +125,7 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
                 {job.scheduledStart ? formatScheduleInZone(job.scheduledStart, timezone) : <span className="text-muted-foreground">Unscheduled</span>}
               </td>
               <td className="px-3 py-3 text-sm text-foreground">
-                {job.assignedTechnicians.length > 0 ? (
-                  job.assignedTechnicians.map((tech) => tech.name).join(", ")
-                ) : (
-                  <span className="text-muted-foreground">Unassigned</span>
-                )}
+                <AssignedTechnicians technicians={job.assignedTechnicians} />
               </td>
               <td className="px-3 py-3">{job.priority ? <StatusBadge status={job.priority} /> : <span className="text-sm text-muted-foreground">—</span>}</td>
               <td className="px-3 py-3">
@@ -173,9 +172,9 @@ export function DispatchWorkQueueTable({ jobs, isFiltered, total, timezone, canM
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Assigned</p>
-                <p className="mt-1 text-foreground">
-                  {job.assignedTechnicians.length > 0 ? job.assignedTechnicians.map((tech) => tech.name).join(", ") : "Unassigned"}
-                </p>
+                <div className="mt-1 text-foreground">
+                  <AssignedTechnicians technicians={job.assignedTechnicians} />
+                </div>
               </div>
             </div>
 

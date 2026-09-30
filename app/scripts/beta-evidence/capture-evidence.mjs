@@ -145,7 +145,21 @@ try {
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
-  page.on("requestfailed", (request) => failedRequests.push(`${request.method()} ${request.url()}`));
+  page.on("requestfailed", (request) => {
+    const failure = request.failure();
+    const requestUrl = new URL(request.url());
+    // Next.js and the browser can cancel stale same-origin navigations or
+    // mutation fetches while a newer route transition wins. These are expected
+    // browser cancellations, not failed product requests; keep real transport
+    // failures fail-closed.
+    if (
+      failure?.errorText === "net::ERR_ABORTED" &&
+      requestUrl.origin === parsedBaseUrl.origin
+    ) {
+      return;
+    }
+    failedRequests.push(`${request.method()} ${request.url()}`);
+  });
 
   // ---- 01 authenticated shell -------------------------------------------
   await page.goto(new URL("/dashboard", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
@@ -174,10 +188,14 @@ try {
   await page.getByRole("button", { name: "Create project" }).click();
   await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
 
-  await page.getByText(projectName, { exact: true }).first().click();
+  const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
+  const projectHref = await projectLink.getAttribute("href");
+  const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
+  assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
+  await projectLink.click();
+  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
   await page.waitForLoadState("networkidle");
-  const projectId = /\/projects\/([^/?]+)/.exec(page.url())?.[1];
-  assertBusiness("project workspace resolves an id", Boolean(projectId), `url was ${page.url()}`);
+  assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
   await checkpoint("02", "project-or-customer");
 
   // ---- 03 estimate line items -------------------------------------------
@@ -185,7 +203,7 @@ try {
     waitUntil: "networkidle",
     timeout: 60_000,
   });
-  await page.getByRole("button", { name: /create first estimate|new estimate/i }).click();
+  await page.getByRole("button", { name: "Create first estimate", exact: true }).click();
   await page.waitForURL(new RegExp(`/projects/${projectId}/estimates/[^/]+$`), { timeout: 60_000 });
   const estimateId = /\/estimates\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("estimate resolves an id", Boolean(estimateId), `url was ${page.url()}`);
@@ -234,18 +252,25 @@ try {
   // share is 4037.50/5100, so tax = 5610 * 0.7916667 * 0.07 = 310.89 and the
   // customer-facing total is 5920.89. These are the numbers the estimate engine
   // must produce, not merely numbers that happen to be on screen.
-  await page.getByText("$310.89", { exact: true }).waitFor({ timeout: 60_000 });
-  await page.getByText("$5,920.89", { exact: true }).waitFor({ timeout: 60_000 });
-  assertions.push({ name: "pre-markup tax and total match the shipped formula", passed: true });
+  const reloadedPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "pre-markup tax and total match the shipped formula",
+    reloadedPricingText.includes("$310.89") && reloadedPricingText.includes("$5,920.89"),
+    "expected the rendered tax $310.89 and total $5,920.89 after reload",
+  );
   await checkpoint("05", "estimate-reloaded");
 
   // ---- 06 markup + finalize ---------------------------------------------
   await page.getByRole("button", { name: "Markup %" }).click();
   await page.getByLabel("Percentage").fill("20");
   await page.getByRole("button", { name: "Apply" }).click();
-  await page.getByText("$6,732.00", { exact: true }).waitFor({ timeout: 60_000 });
-  await page.getByText("$7,105.07", { exact: true }).waitFor({ timeout: 60_000 });
-  assertions.push({ name: "post-markup pricing matches the shipped formula", passed: true });
+  await page.getByText("$7,105.07", { exact: true }).first().waitFor({ timeout: 60_000 });
+  const markedUpPricingText = await page.locator("body").innerText();
+  assertBusiness(
+    "post-markup pricing matches the shipped formula",
+    markedUpPricingText.includes("$6,732.00") && markedUpPricingText.includes("$7,105.07"),
+    "expected the rendered pre-tax $6,732.00 and total $7,105.07 after markup",
+  );
 
   await page.getByRole("button", { name: "Finalize estimate" }).click();
   await page.getByText("ready", { exact: true }).waitFor({ timeout: 60_000 });
@@ -257,7 +282,7 @@ try {
   await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/new`), { timeout: 60_000 });
   await page.locator("select[name=estimateId]").selectOption(estimateId);
   await page.getByRole("button", { name: "Create proposal" }).click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/[^/]+$`), { timeout: 60_000 });
+  await page.waitForURL(new RegExp(`/projects/${projectId}/proposals/(?!new(?:$|[/?]))[^/?]+$`), { timeout: 60_000 });
   const proposalId = /\/proposals\/([^/?]+)$/.exec(page.url())?.[1];
   assertBusiness("proposal resolves an id", Boolean(proposalId), `url was ${page.url()}`);
 
@@ -295,11 +320,11 @@ try {
   assertBusiness("invoice resolves an id", Boolean(invoiceId), `url was ${page.url()}`);
 
   // The invoice must bill the customer-facing sell price, not the direct cost.
-  const invoiceText = await page.locator("body").innerText();
+  const invoiceTotalText = await page.getByText("Total", { exact: true }).locator("..").innerText();
   assertBusiness(
     "invoice bills sell price rather than direct cost",
-    invoiceText.includes("$7,105.07") && !invoiceText.includes("$5,100.00"),
-    "expected the sell price $7,105.07 and not the raw direct cost $5,100.00",
+    invoiceTotalText.includes("$7,105.07") && !invoiceTotalText.includes("$5,100.00"),
+    `expected the invoice Total row to show the sell price $7,105.07; rendered row was ${invoiceTotalText}`,
   );
   await checkpoint("08", "downstream-state", { optional: true });
 

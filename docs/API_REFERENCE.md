@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-11
 source_of_truth: true
 related_code:
   - app/backend/server.ts
@@ -54,6 +54,9 @@ Public routes are limited to:
 requires `documents.manage`. Its body is `{ customerId }`; it returns a raw,
 high-entropy `token` exactly once to the authenticated caller, along with its
 customer scope and expiration. The raw token is never persisted or logged.
+After the token row is created, the service schedules a server-side
+transactional email to the customer record through the shared Resend adapter;
+email delivery does not expand the endpoint's `documents.manage` boundary.
 `POST /api/v1/customer-portal/access-tokens/:id/revoke` is staff-authenticated,
 requires `documents.manage`, and revokes the access value plus every session
 redeemed from it.
@@ -61,8 +64,10 @@ redeemed from it.
 `POST /api/v1/customer-portal/redeem` accepts `{ token }` without a staff
 session. Redemption is rate-limited, organization/customer-bound, atomic, and
 single-use. It returns an opaque short-lived `sessionToken`; the web route
-immediately stores that value in an HttpOnly cookie and does not expose it to
-browser JavaScript. Expired, revoked, malformed, or replayed values return a
+stores that value in an HttpOnly cookie and does not expose it to browser
+JavaScript. The emailed web GET is non-consuming and redirects through a
+token-free confirmation screen; only its exact-origin POST submits the token
+to this endpoint. Expired, revoked, malformed, or replayed values return a
 non-success response.
 
 The following routes require
@@ -163,9 +168,19 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/brand-studio`
 - `/api/v1/intelligence`
 - `/api/v1/athena`
+  - `GET /api/v1/athena/capabilities` — authenticated, read-only deployment capability discovery. Returns `{ kernelEnabled: boolean }` from the same `ATHENA_KERNEL_ENABLED` feature gate that controls `POST /api/v1/athena/chat`. It exposes no customer, tenant, model, provider, or permission payload and exists so contractor navigation can fail closed when Athena is disabled.
+  - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+
+### CRM Customer search and service addresses
+
+`GET /api/v1/customers` requires `crm.read`. It accepts optional `query` and `limit` parameters; an explicit query is trimmed and validated and `limit` is restricted to 1–250 before the organization-scoped CRM service read. The service searches name, email, and phone substrings inside the authenticated organization and excludes soft-deleted Customers. This bounded search is used only as advisory duplicate evidence by the create-Customer workflow; a full 250-row result is treated as incomplete rather than evidence that no exact match exists.
+
+`POST /api/v1/customers` and Customer update/archive mutations require `crm.write`. The frontend re-runs the bounded advisory name/email search immediately before creation, blocks the write if any lookup fails or returns a full page, and requires explicit `create-separate` intent when exact normalized name/email matches exist. It never merges Customer records automatically.
+
+`GET /api/v1/customers/:id` requires `crm.read` and returns linked Projects plus active ServiceAddress rows. Service-address create/update/delete routes require `crm.write`; the existing CRM service verifies organization/customer parentage and soft-removes addresses rather than exposing cross-customer mutation.
 
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
@@ -179,7 +194,11 @@ been configured.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
-`POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no payment processor or public checkout contract is introduced.
+`POST /api/v1/invoices/:id/payments` is the authenticated payment-recording boundary used by the invoice detail form. It requires the canonical `billing.write` permission; an authenticated user without that permission receives `403` before any payment is recorded. A valid recorded payment is reconciled inside the authenticated request transaction while the target Invoice row is locked; fully covered eligible `sent` or existing raw `overdue` invoices persist `paid` and emit one transactional `invoice.paid` event. Partial payment and new overdue persistence remain derived, and persisted `paid` invoices are excluded from unpaid/partially-paid/overdue follow-up filters. The form captures amount, date, method, reference, and notes; no contractor-customer payment processor or public checkout contract is introduced.
+
+### TradeOS subscription billing
+
+`GET /api/v1/billing` and `GET /api/v1/billing/catalog` require `billing.read`. The summary is the tenant-scoped Stripe subscription projection; the catalog is the server-owned Starter/Pro/Business/Scale presentation and price contract used by both checkout validation and the billing UI. `POST /api/v1/billing/checkout` and `POST /api/v1/billing/portal` require an organization owner or admin. Checkout requests validate the configured Stripe Price against the selected catalog amount, currency, and recurring interval; an organization-scoped persisted checkout attempt and stable Stripe idempotency key prevent duplicate sessions. `POST /api/v1/billing/webhook` accepts only a valid Stripe-signed raw body. Webhook event claiming is atomic, and subscription events hydrate the current Stripe subscription before updating the local projection so out-of-order delivery cannot restore stale access. Only `active` and `trialing` states grant entitlements.
 
 `GET /api/v1/invoices` requires `billing.read` and returns the organization-scoped invoice work queue. `paidAmount` remains the sum of recorded Payment rows. For non-paid invoices, `balanceDue` is the non-negative remainder of invoice amount minus recorded payments; when persisted invoice status is `paid`, the queue returns `balanceDue: 0` even if the supported manual mark-paid path created no Payment row. Persisted `paid` therefore stays authoritative and consistent with invoice detail presentation without fabricating payment ledger history.
 
@@ -196,6 +215,10 @@ RLS.
 
 `/api/v1/knowledge/*` reads from data vendored into `app/vendor/knowledge-engine/` at build time (`app/scripts/vendor-knowledge-engine.js`) rather than directly from `packages/knowledge-engine/` — that package lives outside the `tradeos-costbook` Vercel project's Root Directory (`app`) and is not present at runtime in production otherwise. The Vercel function package explicitly includes that vendored tree via `app/vercel.json` (`functions.index.ts.includeFiles: "vendor/knowledge-engine/**"`), and the loader resolves both source-style Vercel execution and compiled `dist/` execution paths. No `/api/v1/knowledge/*` request or response contract changes are introduced by that packaging fix. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md)'s Known Limitations.
 
+`/api/v1/knowledge/*` results' `trade` field (on trades, search results, and matcher output) is computed by `knowledge-runtime/repository.ts`'s `inferTrade()`, rewritten 2026-09-08 to a deterministic, word-boundary/token-aware classifier — see `docs/reports/KNOWLEDGE_TRADE_INFERENCE_AUDIT_2026-09-08.md` for the full before/after corpus audit. This is a classification-accuracy fix, not a response-shape change: `trade` was already typed nullable and every consumer already handled `null`; the fix simply makes more records resolve correctly (matching their own curated `category`) and makes genuinely ambiguous assemblies report `null` instead of an arbitrary guess.
+
+`/api/v1/knowledge/*` cost-item and assembly results may now carry additive item-level provenance on `metadata`: `provenanceStatus`, `sourceName`, `sourceUrl`, `sourceIdentifier`, `sourceDate`, `retrievedAt`, `confidence` (`"low" | "medium" | "high"`), `reviewedBy`, and `reviewedAt`. A record-level `provenanceStatus` takes precedence over the existing trade-level default when it is well formed; invalid or blank optional values are ignored rather than trusted. These fields are optional and do not alter pricing, matching, or selection behavior. The current canonical corpus has no real item- or assembly-level source metadata populated.
+
 AI estimating routes under `/api/v1/estimates`:
 
 - `POST /api/v1/estimates/:id/ai-suggestions`
@@ -204,6 +227,10 @@ AI estimating routes under `/api/v1/estimates`:
 - `POST /api/v1/estimates/:id/ai-estimator/apply`
 
 `ai-suggestions` requires `crm.read`; `ai-suggestions/apply` requires `crm.write`. The structured AI estimator endpoints (`ai-estimator/draft`, `ai-estimator/apply`) require `billing.write` and are additionally authenticated, rate-limited, and tenant-scoped like other estimate routes. Draft generation returns reviewable line items, server-signed review tokens for resolved targets, tool-run metadata, target-resolution status, and cost breakdowns. Apply accepts reviewed line items, requires accepted lines to present a matching unexpired review token, validates accepted targets against org-scoped active cost items or assemblies, serializes concurrent apply attempts per estimate, skips duplicate or already-existing reviewed lines, and writes estimate lines only by calling the existing Estimate Engine line-item service.
+
+Every `/api/v1/knowledge/*` search/match result, and every `ai-suggestions`/`ai-estimator/draft` line item, now includes an additive `provenanceStatus` field (`"documented" | "unverified-legacy" | "placeholder"`). It reflects the trust state of the Knowledge Engine pricing behind the suggestion, resolved per-trade from `packages/knowledge-engine/knowledge/knowledge/trade-progress.json` — currently `"unverified-legacy"` for all 24 legacy trades and `"placeholder"` for Tree Service; no trade is `"documented"` yet. This field does not change any existing response field, pricing value, confidence score, or matched target; a caller that ignores it sees no behavior change. See [modules/ai-estimate-assist.md](modules/ai-estimate-assist.md) and `docs/reports/COSTBOOK_KNOWLEDGE_ENGINE_AUDIT_2026-09-08.md`.
+
+`ai-suggestions` and `ai-estimator/draft` line items may additionally include an optional `provenanceDetail` object sourced from the matched Knowledge Runtime record. It carries source name/URL/identifier/date, retrieval timestamp, provenance confidence, and review attribution when present. It is intentionally separate from the existing top-level numeric match-confidence field. The field is absent when the source metadata is absent, so existing callers remain backward-compatible.
 
 Estimate lifecycle behavior:
 
@@ -214,8 +241,7 @@ Estimate lifecycle behavior:
 
 Project Athena A12 business tools (`app/modules/athena-tools/**`) add no new REST routes under `/api/v1/estimates` or `/api/v1/jobs` — they are invoked through the existing Athena kernel chat endpoint (`POST /api/v1/athena/chat`, dark behind `ATHENA_KERNEL_ENABLED`), calling application services directly rather than adding tool-specific HTTP endpoints. `EstimateEngineService` gained one new read-only method, `compareEstimates()` (no route). `EstimateEngineService.create()`/`finalize()` and `JobsService.schedule()`/`addAssignment()`/`complete()` retain the existing additive, optional `athenaEvent` response metadata. A12.1 changes the covered mutation semantics: for `EstimateStarted`, `EstimateCompleted`, `JobScheduled`, `TechnicianAssigned`, `WorkCompleted`, and `ProposalSent`, durable canonical-event persistence is required in the same database transaction as the corresponding business mutation. A required event-persistence failure now rolls the mutation back instead of being treated as a non-blocking publish failure. Subscriber delivery/retry/dead-letter/replay remain asynchronous after commit. No new REST route or response field is introduced by A12.1. See [athena/roadmap/A12.1-transactional-event-reliability-plan.md](athena/roadmap/A12.1-transactional-event-reliability-plan.md).
 
-`POST /api/v1/athena/chat` remains the single production Athena entrypoint. As
-of Friday, August 14, 2026, it:
+`POST /api/v1/athena/chat` remains the single production Athena entrypoint. It:
 - requires standard authenticated organization access;
 - derives actor/org/role from server-trusted auth context, not request body;
 - resolves exact granted permissions from the authenticated TradeOS session when
@@ -230,21 +256,46 @@ of Friday, August 14, 2026, it:
   hash, plan id, and step id;
 - exposes no separate tool-specific mutation endpoints.
 
-**Unreleased (PR #214):** the optional `idempotencyKey` request contract and durable A6 action-idempotency behavior below exist on PR #214 and must not be treated as shipped on `main` or available in production until that PR is merged and deployed.
+The chat request body accepts `message`, optional `conversationId`, optional
+`selectedScope`, optional `idempotencyKey`, and the additive optional A14
+`interaction` object. `interaction.channel` is one of `text`, `mobile`, or
+`voice`; optional structural metadata includes `platform` (`ios`, `android`,
+`web`), `viewportClass` (`compact`, `regular`), and `connectivity` (`online`,
+`degraded`, `offline`). Voice requests may also supply `voiceConfirmation` with
+`toolId`, `toolVersion`, a 64-character lowercase SHA-256 `inputHash`, and
+`confirmed: true`. This proof grants no permission: A4/A6 and the registered
+tool metadata remain authoritative.
 
-PR #214 adds an optional `idempotencyKey` request field: a caller-generated,
-trimmed, non-empty retry key of at most 200 characters. It is not an approval
-token and grants no permission. The controller forwards that stable retry key
-through the existing kernel seam to A6, which binds it to the server-derived
-organization and actor, registered tool/version, and canonical hash of validated
-tool input before tool execution.
+Voice requests are independently disabled unless `ATHENA_VOICE_ENABLED=true`.
+The voice request-scoped registry view only narrows the existing tool surface:
+medium/high-risk tools cannot resolve through the voice-only path and remain on
+the visual/text approval surface. A low-risk tool with `confirmationPolicy:
+never` can continue normally after the existing policy/security checks. A
+low-risk tool with contextual/always confirmation performs a no-mutation
+confirmation pass unless the supplied proof matches the exact registered tool
+id/version and A6 canonical hash of the validated input; changing the payload
+invalidates the proof. The A14 HTTP contract accepts text plus safe interaction
+metadata only; it does not accept or persist raw audio.
 
-Under PR #214, durable action idempotency adds no new REST route. A completed
-duplicate with the same actor/org/tool/version/key/input identity returns the
-original persisted action result without invoking the tool again; reusing the
-same key for different validated input fails closed. The durable store runs
-inside the authenticated request-scoped RLS transaction, while the process-local
-store remains a test/local fixture.
+The A14 post-merge correctness repair makes that confirmation pass a
+kernel-level `needs_clarification` result before A6/idempotency, so an
+unconfirmed no-op is never persisted as a completed action and cannot be
+replayed as if execution succeeded. Mobile field context remains
+`explicit_only` and is activated only for `mobile`/`voice` interactions; normal
+`text` requests do not hydrate it. The assembled bounded context snapshot is
+forwarded into downstream tool execution and the model-provider seam without
+changing authorization, selected scope, or the public request shape.
+
+The optional `idempotencyKey` is a caller-generated, trimmed, non-empty retry key
+of at most 200 characters. It is not an approval token and grants no permission.
+The controller forwards that stable retry key through the existing kernel seam
+to A6, which binds it to the server-derived organization and actor, registered
+tool/version, and canonical hash of validated tool input before tool execution.
+A completed duplicate with the same actor/org/tool/version/key/input identity
+returns the original persisted action result without invoking the tool again;
+reusing the same key for different validated input fails closed. The durable
+store runs inside the authenticated request-scoped RLS transaction, while the
+process-local store remains a test/local fixture.
 
 Approval persistence for Athena remains an internal implementation detail.
 Owner/admin operators may query the bounded security-event view at
@@ -324,12 +375,15 @@ Costbook material DTO:
   "supplierId": null,
   "supplierName": null,
   "lastPriceUpdate": "2026-08-11T00:00:00.000Z",
+  "isActive": true,
   "createdAt": "2026-08-10T00:00:00.000Z",
   "updatedAt": "2026-08-11T00:00:00.000Z"
 }
 ```
 
-C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add material archive/deactivate because the existing `Material` table has no active/archive state, and it does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+C002 uses the existing `materials` table and its forced-RLS tenant policy; migration `20260811130000_restrict_costbook_material_writes` tightens material and material-price-audit writes to the owner/admin Costbook boundary. Material `unitCost` input rejects null, blank, and out-of-precision values before writes reach the database. Supplier price update approve/reject operations that mutate materials or audit rows require `costbook.manage` so the controller contract matches the forced-RLS write policy. C002 does not add labor, equipment, assemblies, pricing calculations, estimate integration, supplier sync automation, Athena recommendations, or autonomous writes.
+
+A later follow-up (migration `20260912120000_add_material_active_state`) adds an `is_active` column to `materials`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern: `GET /api/v1/costbook/materials` accepts an `active` filter (`true`/`false`), a PATCH that changes `isActive` additionally requires `costbook.manage` (matching the hierarchy activation boundary), and `DELETE /api/v1/costbook/materials/:id` requires `costbook.manage` and soft-deactivates the material (sets `isActive: false`) rather than deleting the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 Costbook labor-rate DTO:
 
@@ -397,6 +451,49 @@ Costbook division DTO:
 Category and Subcategory DTOs are the same shape, replacing `organizationId`-only with `divisionId`/`organizationId` (Category) or `categoryId`/`organizationId` (Subcategory); `organizationId` on both is derived through the parent join, not a stored column.
 
 C005 reuses the existing `divisions`/`categories`/`subcategories` tables (no new models) and adds an `isActive` column to all three via migration `20260812120000_add_costbook_hierarchy_foundation` — previously only `CostItem` had a soft-delete flag in this hierarchy. That migration also tightens `divisions_write_policy`/`categories_write_policy`/`subcategories_write_policy` from the generic app-wide write boundary (which also granted the legacy `estimator` role) to the same `current_app_can_manage_costbook()` boundary C002/C003 already use, so legacy `estimator` loses direct database write access to these three tables. The legacy `/api/v1/cost-database/{divisions,categories,subcategories}` list+create routes remain mounted at the same paths, but `createDivision`/`createCategory`/`createSubcategory` require `costbook.write` at the controller layer too. C005 does not add pricing calculations, a first-class assembly builder, supplier synchronization, or Athena recommendation behavior.
+
+Stage 6 research-candidate review queue under `/api/v1/costbook` (see [architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md](architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md)):
+
+- `GET /api/v1/costbook/candidates` — requires `costbook.read`; catalog page of the authenticated organization's research candidates, with an optional `reviewStatus` filter and safe `createdAt`/`updatedAt`/`reviewStatus` sorts.
+- `GET /api/v1/costbook/candidates/:id` — requires `costbook.read`; one candidate in the authenticated organization or 404 for missing/cross-organization IDs.
+- `POST /api/v1/costbook/candidates` — requires `costbook.write`; creates a candidate for the authenticated organization, re-validated through the Stage 5 `costbookResearchCandidateSchema` contract. The request body cannot set `reviewStatus`, `reviewedBy`, `reviewedAt`, or any promotion field — every candidate is created in the `candidate` review state, and the creator's `createdByUserId` is always the authenticated caller's own user id.
+- `POST /api/v1/costbook/candidates/:id/review` — requires `costbook.manage` (mirrors supplier-integration's approve/reject boundary); strict body `{ decision: "approved" | "rejected", reviewNotes? }`. `reviewedByUserId` is always `auth.userId`, never a caller-supplied string, so a synthetic reviewer identity (`"AI"`, `"system"`, etc.) can never be recorded. Fails with 409 if the candidate is not currently `candidate`/`needs-review`, or if a concurrent reviewer claims it first.
+- `POST /api/v1/costbook/candidates/:id/promote` — requires `costbook.manage`; the only path that may copy a candidate's fields into a real `CostItem`. Re-validates `isEligibleForCostbookPromotion()` against the persisted row (never trusting `reviewStatus` alone), requires an existing Subcategory in the organization matching the candidate's `category` (422 if none exists — promotion never creates hierarchy on the candidate's behalf), rejects equipment-only evidence without a positive labor-hours/production-rate basis before creating any component rows, and is serialized per-candidate by a Postgres advisory lock so a repeated call cannot create a second `CostItem`. Returns 409 for an unreviewed, rejected, or already-promoted candidate. Review and promotion both append an immutable `ActivityEvent` (`entityType: "costbook_research_candidate"`, `eventType: "costbook.candidate.approved" | ".rejected" | ".promoted"`) inside the same transaction, recording the reviewer, decision, provenance, and the Cost Item the candidate became.
+- `GET /api/v1/costbook/candidates/summary` — requires `costbook.read`; real counts for the authenticated organization only (`pendingReview`, `approved`, `awaitingPromotion`, `promoted`, `rejected`, plus provenance-state totals). Never a projection: an empty queue returns zeroes.
+- `GET /api/v1/costbook/candidates/corpus-report` — requires `costbook.read`; deterministic classification of the shared read-only Knowledge Engine corpus (`totalItems`, `documented`, `unverifiedLegacy`, `placeholder`, `candidateReady`, `blocked`, and per-reason block counts) plus a plain-language `interpretation`. Reads static files, not tenant data, so it is identical for every organization. The counts are produced by the same normalizer the ingestion route uses, so the report can never claim an item is candidate-ready that ingestion would reject.
+- `GET /api/v1/costbook/candidates/:id/match` — requires `costbook.read`; read-only duplicate analysis of one candidate against the authenticated organization's own catalog through the canonical `CostDatabaseService` search and unit-cost calculation. Returns `new-candidate`, `probable-match`, `ambiguous-match`, or `conflict` with signed price deltas. An ambiguous match never names a best match, so name similarity alone can never steer an overwrite. Mutates nothing.
+- `POST /api/v1/costbook/candidates/from-knowledge` — requires `costbook.write`; strict body `{ knowledgeItemId }`. Normalizes one Knowledge Engine corpus item into a candidate through the Stage 2/3 normalizer and persists it in the `candidate` review state, exactly like a hand-submitted candidate. Fails closed with 422 listing the missing evidence (`missing-source`, `missing-source-date`, `missing-retrieved-at`, `missing-confidence`, `unverified-provenance`, `placeholder-pricing`, unsupported unit, unusable cost) when the corpus item cannot support a traceable candidate, and 404 for an unknown item id. Ingestion can never approve or promote.
+
+Candidate DTO (fields mirror the Stage 5 contract plus review/promotion linkage):
+
+```json
+{
+  "id": "uuid",
+  "orgId": "uuid",
+  "trade": "Roofing",
+  "category": "Roofing",
+  "itemName": "30-Year Architectural Shingle Installation",
+  "unitOfMeasure": "SQ",
+  "materialCostTypical": 95,
+  "sourceName": "Manufacturer published price sheet",
+  "sourceUrl": "https://example.com/pricing/asphalt-shingles",
+  "sourceDate": "2026-08-01",
+  "retrievedAt": "2026-09-08T00:00:00.000Z",
+  "regionalBasis": "US national average",
+  "confidence": "medium",
+  "provenanceStatus": "unverified-legacy",
+  "reviewStatus": "candidate",
+  "reviewedByUserId": null,
+  "reviewedAt": null,
+  "promotedAt": null,
+  "promotedByUserId": null,
+  "promotedCostItemId": null,
+  "createdAt": "2026-09-08T00:00:00.000Z",
+  "updatedAt": "2026-09-08T00:00:00.000Z"
+}
+```
+
+Promotion writes exclusively through existing Costbook services — `CostbookService.createMaterial`/`createLaborRate`/`createEquipment` for any evidenced cost components, then `CostDatabaseService.create` for the `CostItem` itself, tagged with an auditable `notes` string referencing the source candidate. No parallel pricing store is introduced, no existing production `CostItem`/`Material`/`LaborRate`/`Equipment` row is modified, and no Knowledge Engine export data changes. Stage 7 (regenerating the Knowledge Engine corpus from governed Costbook data) is not implemented by this endpoint set.
 
 Settings asset storage metadata routes under `/api/v1/settings`:
 
@@ -469,6 +566,8 @@ persisted organization branding when authenticated context is available.
 
 PR #216 extends the existing Costbook namespace without adding parallel domain systems: `/api/v1/costbook/assemblies` exposes the existing Assembly model and composition service; `POST /api/v1/costbook/pricing/preview` is calculation-only and reuses Estimate pricing formulas; and `GET /api/v1/costbook/price-history` returns tenant-scoped `MaterialPriceAudit` changes separately from persisted Estimate pricing snapshots. Supplier feed transport remains under the existing supplier-integration surface, accepts endpoints only from trusted server configuration, and enqueues review proposals rather than mutating Material prices automatically. These additions preserve the existing `costbook.read` / `costbook.write` / `costbook.manage` split and introduce no Athena Costbook write route.
 
+`GET /api/v1/costbook/assemblies/starter-catalog` requires `costbook.read` and returns `{ catalogVersion, coverage, items }`. Recipes include NAHB work groups, CSI codes, measurement bases, review/version metadata, and component slots with `compatibleUnits` and `allowedCostItemKinds`; `coverage` is derived from those recipes. The response contains no prices. `POST /api/v1/costbook/assemblies/starter-catalog/install` requires `costbook.write`; its strict body contains `templateId` and a `componentMappings` array of `{ componentKey, costItemId }`. Every required slot and every distinct Cost Item must appear exactly once. Each Cost Item must be active, owned by the authenticated organization, and compatible with the slot's unit and kind. The route atomically creates an ordinary tenant-scoped reusable Assembly and AssemblyItem set by joining the active request transaction or opening a direct-service transaction. Duplicate assembly codes return `409`; missing, unknown, or duplicate mappings return `400`; unavailable or cross-tenant Cost Items return `404`; incompatible unit/type mappings return `422`.
+
 The S027 catalog continuation applies the same page envelope and opaque
 keyset-cursor contract to materials, labor rates, equipment, hierarchy,
 CostItems, assemblies, assembly templates, supplier review queues, and the two
@@ -476,7 +575,6 @@ price-history streams. Search and useful filters execute inside the
 organization-scoped database query; the web catalog screens submit those
 criteria to the server and expose next-page navigation rather than treating a
 bounded response as a complete catalog.
-
 
 **Unreleased (PR `#257`):** Supplier price-proposal approval and rejection use an atomic pending-status claim inside the existing transaction: only the reviewer that successfully claims the organization-scoped pending row may continue, and a competing reviewer receives conflict/fail-closed behavior. A downstream Material or audit failure rolls the claim back to `pending`; feeds remain review-first and never auto-apply Material pricing. Approve/reject routes require `costbook.manage`. This is a concurrency repair only: it changes neither the Costbook architecture nor its permission model.
 
@@ -522,7 +620,6 @@ The existing AI Estimate Assist routes expose this contract:
   (reviewer, outcome, and bounded apply counts). The organization is derived
   server-side, and accepted business writes still use the existing
   review-first Estimate Engine path.
-
 
 ## Estimate-backed invoice value transfer
 

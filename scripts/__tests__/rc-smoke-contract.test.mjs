@@ -74,10 +74,13 @@ test("staging auth repair is explicit, branch-scoped, and never targets Producti
   assert.match(stagingAuthRepair, /STAGING_SUPABASE_URL: https:\/\/qfbgdkbamfaasmtjfyru\.supabase\.co/);
   assert.match(stagingAuthRepair, /vercel env (?:update|add) SUPABASE_URL preview/);
   assert.match(stagingAuthRepair, /vercel env update SUPABASE_URL preview "\$STAGING_BRANCH" --value "\$STAGING_SUPABASE_URL" --yes/);
-  assert.match(stagingAuthRepair, /vercel redeploy "\$STAGING_BACKEND_DEPLOYMENT" --token="\$VERCEL_TOKEN"/);
+  assert.match(stagingAuthRepair, /git ls-remote https:\/\/github\.com\/404TradeOS-LLC\/TradeOS\.git refs\/heads\/staging/);
+  assert.match(stagingAuthRepair, /STAGING_EXPECTED_SHA=\$staging_sha/);
+  assert.match(stagingAuthRepair, /node scripts\/staging-repair\.mjs/);
+  assert.match(stagingAuthRepair, /artifacts\/staging-repair/);
+  assert.doesNotMatch(stagingAuthRepair, /grep -m 1 -Eo|STAGING_BACKEND_ALIAS/);
+  assert.doesNotMatch(stagingAuthRepair, /STAGING_BACKEND_DEPLOYMENT:/);
   assert.doesNotMatch(stagingAuthRepair, /vercel redeploy[^\n]*--yes/);
-  assert.match(stagingAuthRepair, /tradeos-costbook-git-staging-billykshowalters\.vercel\.app/);
-  assert.match(stagingAuthRepair, /body\.status !== "ready"/);
   assert.doesNotMatch(stagingAuthRepair, /\bproduction\b/i);
   assert.doesNotMatch(stagingAuthRepair, /kssaceuetdjwfqnbzhly/);
 });

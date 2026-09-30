@@ -1,12 +1,15 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-31
+last_verified: 2026-09-12
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
+  - app/prisma/migrations/20260912044500_add_stripe_billing
+  - app/prisma/migrations/20260905050000_allow_custom_estimate_line_items
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
   - app/domain/contracts.ts
+  - app/modules/billing
   - app/modules/athena-memory
   - app/modules/athena-events
   - app/modules/athena-observability
@@ -22,7 +25,7 @@ This file defines the canonical business entities as implemented in the reposito
 The tenant boundary for all application data.
 
 - persistent model: `Organization`
-- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, and branding
+- owns memberships, cost-book records, customers, projects, jobs, activity, document history, settings, branding, and synchronized subscription billing state
 - Settings Console brand asset storage location (bucket/path/content type/size, not the bytes themselves) is tracked per organization in `SettingsAssetUpload`, one row per `(orgId, assetKey)` for the four brand asset fields (`logoUrl`/`darkLogoUrl`/`iconUrl`/`watermarkUrl`); see [modules/settings-and-operations.md](modules/settings-and-operations.md)
 
 ## User
@@ -96,6 +99,7 @@ A priced commercial draft stored in `Estimate`.
 
 - belongs to one project and organization
 - owns estimate line items
+- estimate line items may reference zero or one Costbook source (`costItemId` or `assemblyId`): zero is a valid custom line item, while referencing both sources simultaneously is prohibited by the database constraint
 - may feed proposals and invoices
 - line items may include an optional `sourceKey` used by reviewed AI-estimator applies to reconcile retries; ordinary manual line items do not need one
 - lifecycle values are `draft`, `ready`, `sent`, `viewed`, `approved`, `declined`, `expired`, and `superseded`; historical `rejected` normalizes to `declined`, while canonical `sent` remains distinct from `ready`
@@ -131,7 +135,7 @@ A billing document stored in `Invoice`.
 - invoice line items store the issued selling-price allocation as `unitPrice`
   and `lineTotal`; estimate and change-order line items retain their separate
   cost-oriented `unitCost`/`lineCost` fields
-- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; synchronized `unit_cost`/`line_cost` aliases remain temporarily so old and new backend versions can roll out safely without changing values, indexes, constraints, or RLS policies
+- the canonical physical invoice-line-item columns are `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08 and removed the synchronized `unit_cost`/`line_cost` aliases plus their sync trigger/function. Disposable PostgreSQL migration coverage confirms canonical values, the invoice-line index/constraints, and tenant-scoped forced RLS survive; live production schema verification confirms the canonical columns, required indexes, and forced RLS.
 - a fully covered eligible `sent` or existing raw `overdue` invoice may be reconciled to persisted `paid` by recorded payment entry; `partially_paid` and new overdue presentation remain derived, and persisted `paid` is authoritative for follow-up exclusion
 
 ## Payment
@@ -141,6 +145,19 @@ A recorded payment event stored in `Payment`.
 - belongs to one invoice and organization
 - tracks amount, payment date, method, reference, notes, and status
 - only `recorded` payments count toward reconciliation and queue balance derivation; concurrent payment reconciliation serializes on the Invoice row and preserves the Payment/status/audit transaction boundary
+
+## Organization subscription billing
+
+TradeOS SaaS subscription state is projected into `organization_billing`, one row per organization, by the Stripe Billing integration introduced in migration `20260912044500_add_stripe_billing`.
+
+- Stripe is authoritative for subscription/payment lifecycle; browser Checkout redirects never grant plan access by themselves
+- the row stores Stripe customer/subscription identifiers, the normalized internal TradeOS plan (`starter`, `pro`, `business`, or `scale`), billing interval, Stripe status, active price id, trial/period boundaries, cancellation-at-period-end state, last invoice status, and a short-lived pending Checkout attempt/session projection used for organization-scoped concurrency control
+- the server-owned catalog is shared by the billing UI and Checkout price validation; configured Stripe Prices must match its amount, currency, and recurring interval
+- plan entitlements are resolved inside TradeOS from the normalized plan, apply only to `active` and `trialing` subscriptions, and are deliberately independent of Stripe price identifiers
+- `organization_billing` uses forced organization-scoped RLS; authenticated reads are tenant-scoped and writes require the existing organization-admin boundary
+- signed Stripe webhook processing establishes an explicit tenant database context from immutable `tradeos_org_id` metadata before mutating billing state
+- `stripe_webhook_events` atomically claims processed Stripe event ids per organization so concurrent retries are idempotent; subscription event payloads are hydrated from Stripe before projection so stale delivery order cannot restore older state. The table is forced-RLS protected and is control-plane synchronization history rather than customer/project accounting data
+- subscription billing is distinct from contractor invoice payments: this entity family pays 404 TradeOS LLC for the SaaS product and does not make TradeOS the merchant of record for a contractor's customer transaction
 
 ## Change Order
 
@@ -263,7 +280,7 @@ C002 exposes the existing `Material` model through the unified Costbook boundary
 - Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
 - a material may link to a supplier only when that supplier belongs to the same authenticated organization
 - material unit-cost changes continue to write `MaterialPriceAudit` rows for audit history, but C002 does not introduce a price-history engine or pricing calculations
-- material archive/deactivate is not modeled in C002 because the existing `Material` table has no active/archive state
+- a later follow-up (migration `20260912120000_add_material_active_state`) adds an `isActive` flag to `Material`, matching the C005 Division/Category/Subcategory and existing CostItem/LaborRate soft-delete pattern; deactivating a material (`DELETE /api/v1/costbook/materials/:id`, or a PATCH that sets `isActive`) requires `costbook.manage` and never deletes the row, preserving historical CostItem/Estimate references. `materials_write_policy` already restricted every material write to the `costbook.manage` boundary, so no RLS policy changed.
 
 ## Costbook labor-rates foundation
 
@@ -304,6 +321,41 @@ PR #216 does not add replacement catalog entities. It promotes the existing `Ass
 
 Cost Item and Assembly lookup semantics remain unchanged: both services support case-insensitive substring search across `name` and `code`. PostgreSQL `pg_trgm` GIN indexes cover both searched fields, including additive `code` indexes, so code substring matching has an index path without changing organization scope, RLS, catalog ownership, or DTO behavior.
 
+## Costbook research candidates (Stage 6 ingestion)
+
+`CostbookResearchCandidate` (new model, 2026-09-08) is the persisted form of the Stage 5 `CostbookResearchCandidate` type contract (`app/modules/costbook/candidateCostItem.ts`), per `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md`. It is not a production Costbook entity — it is a staged, org-scoped research proposal awaiting a named human review decision, mirroring the `SupplierPriceUpdate` staged-review precedent rather than a new review-queue shape.
+
+- belongs to one organization (`orgId`, cascade-deleted with it); carries the same evidence fields as the Stage 5 contract (trade/category/item/unit, material/labor/equipment cost evidence, source name/URL/identifier/date, retrieval timestamp, regional basis, qualitative confidence, research notes) plus the shared `provenanceStatus` vocabulary (`app/modules/costbook/provenance.ts`)
+- lifecycle: `reviewStatus` moves `candidate -> needs-review -> approved | rejected`; every candidate starts as `candidate`, and no code path defaults it to `approved` — a database check constraint additionally requires `reviewedByUserId`/`reviewedAt` whenever `reviewStatus` is `approved` or `rejected`, and requires an `approved` review plus `promotedAt`/`promotedByUserId` whenever `promotedCostItemId` is set, independent of the application-layer `isEligibleForCostbookPromotion()` gate
+- `reviewedByUserId`/`promotedByUserId`/`createdByUserId` are foreign keys to `AppUser` (`onDelete: SetNull`), never a free-text field — a reviewer or promoter is always a real authenticated user id, so a synthetic string like `"AI"` or `"system"` can never appear there
+- `promotedCostItemId` is a unique, nullable foreign key to `CostItem`, set only once by the reviewed promotion service (`app/modules/costbook/candidateCostItemService.ts`) after it re-validates `isEligibleForCostbookPromotion()` against the persisted row inside a transaction serialized by a per-candidate Postgres advisory lock — a candidate can promote to at most one `CostItem`, and promotion writes through the existing `CostbookService`/`CostDatabaseService` methods (Material/LaborRate/Equipment/CostItem), never a second parallel pricing store
+- promotion requires an existing `Subcategory` in the organization's Costbook hierarchy whose name matches the candidate's `category` (case-insensitive); it does not create Division/Category/Subcategory structure on the candidate's behalf
+- select/write RLS policies mirror the `materials_write_policy` shape: any org member may read the queue (`costbook.read`), but insert/update is restricted to `current_app_can_manage_costbook()` (owner/admin), matching `costbook.write`/`costbook.manage` both being owner/admin-only today
+- Stage 7 (regenerating the Knowledge Engine's static corpus from governed Costbook/candidate data) remains unimplemented; this model does not touch `packages/knowledge-engine/**`
+
+
+## Costbook composite installed-price benchmarks
+
+`CostbookCompositePriceBenchmark` is an organization-scoped reference entity for externally sourced installed/composite unit-price evidence such as INDOT awarded-bid summaries. It is deliberately separate from `Material`, `LaborRate`, `Equipment`, `CostItem`, estimate snapshots, and customer selling-price records.
+
+- belongs to one organization and stores source name/identifier/year, item code/description/unit, low/weighted-average/high price, optional bid count/total quantity/extended total, geography, price-basis text, source URL/file/row, retrieval timestamp, and importer identity
+- unique by `(orgId, sourceName, sourceYear, itemCode)` so repeated imports update the same benchmark observation instead of duplicating it
+- forced RLS limits reads to the authenticated organization and writes to the established owner/admin Costbook management boundary
+- import endpoints derive `orgId` and importer identity from authenticated context; callers cannot choose another tenant
+- benchmark values are installed/composite evidence and are not raw material cost, employee wage, equipment-only cost, or customer bill rate; this entity has no autonomous promotion path into those pricing tables
+
+## Regional supplier evidence intake
+
+Draft PR #531 adds a separate, tenant-scoped evidence boundary for regional supplier workbook observations. It is intentionally not a replacement for current Material pricing or the human-reviewed `SupplierPriceUpdate` workflow.
+
+- `SupplierProduct` stores a supplier catalog row, canonical material key, optional organization-scoped Material link, availability state, and source-file/row provenance.
+- `SupplierPriceObservation` stores dated supplier/store observations, priced or unavailable status, raw price components, normalized unit-price fields, eligibility reason, and source provenance. Unavailable observations are retained rather than converted into invented prices.
+- Product and observation keys are unique within organization and supplier so re-importing a batch is idempotent; writes occur through `RegionalSupplierEvidenceService` only.
+- `POST /api/v1/costbook/supplier-evidence/import` derives organization scope from the authenticated request, resolves an explicitly supplied tenant-local Supplier, validates optional Material links in that same organization, and requires `costbook.manage`.
+- `GET /api/v1/costbook/supplier-evidence` and `GET /api/v1/costbook/supplier-evidence/summary` are tenant-scoped review reads requiring `costbook.read`.
+- Both tables use forced RLS with tenant-scoped reads and manager-only writes. No production import or migration deployment is included in the draft PR.
+- The supplied eight-workbook bundle validated to 5,189 products/observations, including 701 unavailable observations. Carter Lumber is preserved as catalog-only evidence because its 670 observations are unavailable.
+
 ## Core relationships
 
 Canonical relationship flow:
@@ -316,6 +368,8 @@ Operational sub-relationships:
 - `Project -> SiteVisit`
 - `Project -> ProjectTask`
 - `Invoice -> Payment`
+- `Organization -> organization_billing`
+- `Organization -> stripe_webhook_events`
 - `Job -> JobAssignment`
 - `ActivityEvent` may describe changes across multiple entity types
 
@@ -338,6 +392,7 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 
 - Job remains organization-owned through orgId and retains the existing project, customer, service-address, scheduling, lifecycle, and archive relationships.
 - JobAssignment is the active technician relationship when both removedAt and declinedAt are null. Declined assignments remain provenance/history but are not active dispatch ownership, technician job access, queue assignment, or conflict participation.
+- S036's review-only index candidate adds a partial `(org_id, job_id)` lookup for active JobAssignment rows (`removed_at IS NULL AND declined_at IS NULL`); it changes no entity, relationship, authorization, RLS, or assignment lifecycle semantics and is not production-applied until its plan, write-cost, and rollback evidence is accepted.
 - Dispatcher mutations continue to use the established manager authorization and owner/admin conflict-override rules. The browser surface calls the authenticated same-origin proxy; it does not hold backend bearer credentials.
 - The S030 RLS hardening migration aligns the forced jobs and job_equipment policies with the active-assignment invariant. It changes existing policy predicates only and does not add entities or alter tenant ownership.
 - S030 does not introduce persisted derived lifecycle states, route optimization, GPS, notifications, billing behavior, or concurrency semantics.

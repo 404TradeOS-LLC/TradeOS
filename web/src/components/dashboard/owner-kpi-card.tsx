@@ -1,7 +1,43 @@
+"use client";
+
 import Link from "next/link";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CircleDollarSign,
+  ClipboardCheck,
+  ListTodo,
+  ReceiptText,
+  type LucideIcon,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useCountUp } from "@/hooks/use-count-up";
 import { cn } from "@/lib/utils";
-import type { OwnerKpi } from "./owner-dashboard-data";
+import type { OwnerKpi, OwnerKpiIcon } from "./owner-dashboard-data";
+
+const CURRENCY_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+const KPI_ICONS: Record<OwnerKpiIcon, LucideIcon> = {
+  "calendar-clock": CalendarClock,
+  "clipboard-check": ClipboardCheck,
+  "circle-dollar-sign": CircleDollarSign,
+  "receipt-text": ReceiptText,
+  "alert-triangle": AlertTriangle,
+  "list-todo": ListTodo,
+};
+
+/** Animates kpi.value if it's a plain number or currency string; otherwise renders it as-is. */
+function AnimatedKpiValue({ value }: { value: string }) {
+  const trimmed = value.trim();
+  const isCurrency = trimmed.startsWith("$");
+  const numeric = Number(trimmed.replace(/[^0-9.-]/g, ""));
+  const animated = useCountUp(Number.isFinite(numeric) ? numeric : 0);
+
+  if (!Number.isFinite(numeric) || trimmed.replace(/[^0-9.-]/g, "") === "") {
+    return <>{value}</>;
+  }
+  return <>{isCurrency ? CURRENCY_FORMAT.format(animated) : Math.round(animated).toLocaleString("en-US")}</>;
+}
 
 interface OwnerKpiCardProps {
   kpi: OwnerKpi;
@@ -14,7 +50,7 @@ const toneClasses: Record<OwnerKpi["tone"], string> = {
 };
 
 export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
-  const Icon = kpi.icon;
+  const Icon = KPI_ICONS[kpi.icon];
 
   return (
     <Card className={cn("relative border-border/70 bg-card/98", kpi.href && "transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-(--elev-2)")}>
@@ -28,7 +64,9 @@ export function OwnerKpiCard({ kpi }: OwnerKpiCardProps) {
       <CardContent className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{kpi.label}</p>
-          <p className="mt-3 font-mono text-[1.75rem] font-semibold tabular-nums text-foreground">{kpi.value}</p>
+          <p className="mt-3 font-mono text-[1.75rem] font-semibold tabular-nums text-foreground">
+            <AnimatedKpiValue value={kpi.value} />
+          </p>
           <p className="mt-2 text-sm leading-5 text-muted-foreground">{kpi.helper}</p>
         </div>
         <div className={cn("rounded-xl p-2.5 ring-1 shadow-(--elev-1)", toneClasses[kpi.tone])}>
@@ -45,7 +83,7 @@ interface OwnerKpiGridProps {
 
 export function OwnerKpiGrid({ kpis }: OwnerKpiGridProps) {
   return (
-    <section aria-labelledby="owner-kpis-heading" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <section aria-labelledby="owner-kpis-heading" className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
       <h2 id="owner-kpis-heading" className="sr-only">
         Owner dashboard key metrics
       </h2>

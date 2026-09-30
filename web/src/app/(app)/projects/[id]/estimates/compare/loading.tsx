@@ -1,6 +1,7 @@
 export default function EstimateCompareLoading() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading estimate comparison">
+    <div role="status" aria-live="polite" aria-busy="true" className="flex flex-col gap-6" aria-label="Loading estimate comparison">
+      <span className="sr-only">Loading estimate comparison</span>
       <div className="space-y-2">
         <div className="h-8 w-56 animate-pulse rounded-md bg-muted" />
         <div className="h-4 w-72 max-w-full animate-pulse rounded-md bg-muted" />

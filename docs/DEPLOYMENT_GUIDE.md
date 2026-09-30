@@ -143,10 +143,22 @@ The manual `Repair staging Supabase auth configuration` workflow is the
 bounded recovery path when the stable `staging` backend loses its
 branch-scoped `SUPABASE_URL`. It requires the exact `REPAIR_STAGING_AUTH`
 confirmation, writes only the public TradeOS Staging project URL to Preview
-scope for the `staging` branch, redeploys the recorded stable staging backend,
-and requires database-backed `/ready` success. The environment update supplies
-its value and confirmation non-interactively, while `vercel redeploy` is invoked
-without the unsupported legacy `--yes` option. It cannot target Production or
+scope for the `staging` branch, and captures that branch's current full SHA.
+`scripts/staging-repair.mjs` selects a READY Preview for that SHA from structured
+Vercel data, verifies the team/project/repository boundary, and redeploys by
+verified ID using the deployment API. It polls only the returned replacement
+ID and probes that immutable hostname, never a mutable branch alias. Success
+requires matching `/health` SHA, database and schema `/ready` checks, and a 401
+from `/api/v1/auth/bootstrap` with a public, deliberately invalid ES256 JWT
+that reaches Supabase issuer initialization before rejection. This rejection check does not
+prove authenticated login. A sanitized `staging-repair-*` artifact retains
+identity/readiness evidence, including available identity on failure. If no
+READY deployment exists for the captured staging SHA, it creates a fresh
+Preview from the fixed `staging` branch with the build-skip optimization
+disabled through the fresh deployment project settings. It rejects any branch movement by checking
+the returned deployment against the captured SHA before runtime probes; it
+never substitutes an older commit. Vercel CLI 59.11.2 is pinned for the branch
+environment update, which supplies its value and confirmation non-interactively. It cannot target Production or
 the Production Supabase project and does not rotate database or JWT secrets.
 
 ### Vercel Authentication (Preview protection)

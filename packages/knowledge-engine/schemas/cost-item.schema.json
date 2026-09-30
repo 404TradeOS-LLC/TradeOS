@@ -93,6 +93,51 @@
     },
     "confidenceScore": {
       "type": "number"
+    },
+    "provenanceStatus": {
+      "type": "string",
+      "enum": ["documented", "unverified-legacy", "placeholder"],
+      "description": "Trust state of this item's pricing, shared with the relational Costbook's candidate-ingestion vocabulary (app/modules/costbook/provenance.ts). 'documented' means a recorded source, date, and human review pass exist; do not set it without those. Absent is normalized by the app to 'unverified-legacy', never treated as 'documented' by omission."
+    },
+    "sourceName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name of the source this price traces to (e.g. a manufacturer price sheet, a public cost index). Required alongside sourceUrl/sourceIdentifier when provenanceStatus is 'documented'."
+    },
+    "sourceUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL of the cited source, when it has one. Do not cite a licensed/proprietary dataset (e.g. RSMeans) this project has no right to reproduce."
+    },
+    "sourceIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Non-URL identifier for the source (a document name, catalog number, internal reference), when sourceUrl does not apply."
+    },
+    "sourceDate": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "ISO calendar date (YYYY-MM-DD) the cited source itself states or was published, distinct from retrievedAt."
+    },
+    "retrievedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp this value was collected/generated, distinct from the source's own sourceDate."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Qualitative research confidence in this specific value, distinct from the existing numeric confidenceScore (a different, pre-existing field)."
+    },
+    "reviewedBy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Named human reviewer identifier. Never a synthetic value like \"AI\"/\"system\"/a model name - mirrors the relational Costbook's reviewed-candidate identity rule."
+    },
+    "reviewedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of the human review recorded in reviewedBy."
     }
   },
   "required": [

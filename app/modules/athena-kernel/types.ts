@@ -1,31 +1,15 @@
 import type { CanonicalRole } from "../../domain";
 
-// A1 TypeScript contracts, mapped from docs/athena/contracts/README.md (C001-C011)
-// and docs/athena/05-runtime/README.md. The full 15-state union is kept so
-// A2-A6 can extend the lifecycle without redesigning these types, even though
-// A1's own runtime never enters executing/awaitingApproval/partiallySucceeded
-// for production business actions (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md).
-
 export const athenaKernelStates = [
-  "created",
-  "context_building",
-  "routing",
-  "planning",
-  "policy_check",
-  "awaiting_approval",
-  "executing",
-  "degraded",
-  "needs_clarification",
-  "partially_succeeded",
-  "succeeded",
-  "failed",
-  "denied",
-  "expired",
-  "cancelled",
+  "created", "context_building", "routing", "planning", "policy_check", "awaiting_approval", "executing", "degraded", "needs_clarification", "partially_succeeded", "succeeded", "failed", "denied", "expired", "cancelled",
 ] as const;
 export type AthenaKernelState = (typeof athenaKernelStates)[number];
 
 export type AthenaRequestSource = "http" | "job" | "test";
+export type AthenaInteractionChannel = "text" | "mobile" | "voice";
+export type AthenaMobilePlatform = "ios" | "android" | "web";
+export type AthenaViewportClass = "compact" | "regular";
+export type AthenaConnectivityState = "online" | "degraded" | "offline";
 
 export interface AthenaSelectedScope {
   customerId?: string;
@@ -36,11 +20,27 @@ export interface AthenaSelectedScope {
   page?: string;
 }
 
+export interface AthenaVoiceConfirmationProof {
+  toolId: string;
+  toolVersion: string;
+  inputHash: string;
+  confirmed: true;
+}
+
+export interface AthenaInteractionContext {
+  channel: AthenaInteractionChannel;
+  platform?: AthenaMobilePlatform;
+  viewportClass?: AthenaViewportClass;
+  connectivity?: AthenaConnectivityState;
+  voiceConfirmation?: AthenaVoiceConfirmationProof;
+}
+
 export interface AthenaKernelRequest {
   message: string;
   conversationId?: string;
   selectedScope?: AthenaSelectedScope;
   requestSource: AthenaRequestSource;
+  interaction?: AthenaInteractionContext;
 }
 
 export interface AthenaActorContext {
@@ -62,21 +62,9 @@ export interface AthenaExecutionContext {
   featureFlags: string[];
 }
 
-export interface AthenaWarning {
-  code: string;
-  message: string;
-}
-
-export interface AthenaFollowUp {
-  kind: "question" | "action";
-  label: string;
-}
-
-export interface AthenaTelemetryReference {
-  traceId: string;
-  executionId: string;
-}
-
+export interface AthenaWarning { code: string; message: string; }
+export interface AthenaFollowUp { kind: "question" | "action"; label: string; }
+export interface AthenaTelemetryReference { traceId: string; executionId: string; }
 export type AthenaErrorCategory = "validation" | "authorization" | "conflict" | "timeout" | "provider" | "service" | "unknown";
 
 export interface AthenaToolError {
@@ -85,6 +73,13 @@ export interface AthenaToolError {
   retryable: boolean;
   safeSummary: string;
   correlationId: string;
+}
+
+export interface AthenaVoiceConfirmationChallenge {
+  toolId: string;
+  toolVersion: string;
+  inputHash: string;
+  prompt: string;
 }
 
 export interface AthenaKernelResult {
@@ -97,57 +92,25 @@ export interface AthenaKernelResult {
   warnings: AthenaWarning[];
   followUps: AthenaFollowUp[];
   telemetry: AthenaTelemetryReference;
+  voiceConfirmation?: AthenaVoiceConfirmationChallenge;
   error?: AthenaToolError;
 }
 
-// Narrowed C001 AI Context: request/organization/user/permissions/selectedScope/
-// budget/telemetry only. A1 never populates provider sections (weather,
-// calendar, dispatch, customers, costbook, knowledgeEngine, inventory,
-// notifications) - those are A3+ work per docs/athena/07-context-engine/README.md.
 export interface AthenaRequestContextSection {
   requestId: string;
   traceId: string;
   executionId: string;
   requestSource: AthenaRequestSource;
   receivedAt: string;
+  interaction?: Omit<AthenaInteractionContext, "voiceConfirmation">;
 }
+export interface AthenaOrganizationContextSection { orgId: string; }
+export interface AthenaUserContextSection { userId: string; role: CanonicalRole; }
+export interface AthenaPermissionSnapshot { role: CanonicalRole; permissions: string[]; }
+export interface AthenaContextBudget { maxBytes: number; maxEstimatedTokens: number; maxProviderCount: number; }
+export interface AthenaConversationContextSection { conversationId: string; }
+export interface AthenaTelemetryContextSection { traceId: string; executionId: string; }
 
-export interface AthenaOrganizationContextSection {
-  orgId: string;
-}
-
-export interface AthenaUserContextSection {
-  userId: string;
-  role: CanonicalRole;
-}
-
-export interface AthenaPermissionSnapshot {
-  role: CanonicalRole;
-  permissions: string[];
-}
-
-export interface AthenaContextBudget {
-  maxBytes: number;
-  maxEstimatedTokens: number;
-  maxProviderCount: number;
-}
-
-export interface AthenaConversationContextSection {
-  conversationId: string;
-}
-
-export interface AthenaTelemetryContextSection {
-  traceId: string;
-  executionId: string;
-}
-
-// C001 provider-section shapes (docs/athena/contracts/README.md,
-// docs/athena/roadmap/A3-context-engine-implementation-plan.md). Added here
-// (not in athena-context-engine/types.ts) so AthenaAIContext stays the one
-// canonical context type instead of forking into a kernel version and a
-// richer "extended" version. Purely additive: no A1/A2 code path sets these
-// fields, so every existing minimal-context assertion (e.g.
-// `context).not.toHaveProperty("customers")`) keeps passing unchanged.
 export interface AthenaFreshnessEvidence {
   status: "live" | "fresh" | "stale" | "unavailable";
   fetchedAt: string;
@@ -170,13 +133,6 @@ export interface AthenaProviderSection<TData = unknown> {
   maxBytes: number;
   estimatedTokens?: number;
   truncationReason?: string;
-  // A11 hardening (athena-security/contextTrust.ts's
-  // scanContextSectionForInjection): computed once at fetch time and stored
-  // here (rather than only in the assembler's own warnings array) so a
-  // cache hit can re-emit the same advisory warning for identical cached
-  // content, instead of the scan silently going stale for the rest of
-  // provider.freshnessTtlMs. Purely additive, same posture as every other
-  // optional field on this interface.
   injectionScan?: { suspicious: boolean; matchedPatternNames: string[] };
 }
 
@@ -190,9 +146,6 @@ export interface AthenaAIContext {
   budget: AthenaContextBudget;
   conversation?: AthenaConversationContextSection;
   telemetry: AthenaTelemetryContextSection;
-  // A3 provider sections. Every field stays unset in A1/A2 code paths and in
-  // any A3 provider not yet implemented - see the A3 plan's "Deferred
-  // Sections" table for why each unbuilt section is still typed here.
   knowledgeEngine?: AthenaProviderSection;
   dispatch?: AthenaProviderSection;
   weather?: AthenaProviderSection;
@@ -202,17 +155,11 @@ export interface AthenaAIContext {
   costbook?: AthenaProviderSection;
   inventory?: AthenaProviderSection;
   notifications?: AthenaProviderSection;
-  // A7 memory-backed preferences (docs/athena/roadmap/
-  // A7-memory-implementation-plan.md, C006 in docs/athena/contracts/
-  // README.md). Additive only, same posture as every other provider
-  // section above: no A1-A6 code path sets this field, so every existing
-  // minimal-context assertion keeps passing unchanged.
   memory?: AthenaProviderSection;
+  mobile?: AthenaProviderSection;
 }
 
-// C007 Permission (narrowed to A1's two capabilities)
 export type AthenaCapability = "draft_response" | "mutate_business_record";
-
 export interface AthenaPermissionDecision {
   version: "1.0.0";
   orgId: string;
@@ -225,19 +172,10 @@ export interface AthenaPermissionDecision {
   reasonCode: string;
 }
 
-// C011 Telemetry
 export type AthenaTelemetrySpanType = "kernel" | "context" | "planner" | "tool" | "action" | "approval" | "memory" | "event" | "model";
 export type AthenaTelemetryStatus = "ok" | "error" | "denied" | "degraded";
 export type AthenaTelemetryRedaction = "none" | "metadata_only" | "field_redacted" | "payload_omitted";
-
-export interface AthenaTelemetryCost {
-  provider?: string;
-  model?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  estimatedUsd?: number;
-}
-
+export interface AthenaTelemetryCost { provider?: string; model?: string; inputTokens?: number; outputTokens?: number; estimatedUsd?: number; }
 export interface AthenaTelemetryRecord {
   id: string;
   version: "1.0.0";
@@ -253,5 +191,4 @@ export interface AthenaTelemetryRecord {
   metadata: Record<string, unknown>;
 }
 
-// Cancellation/expiry reason codes (docs/athena/roadmap/A1-ai-kernel-implementation-plan.md)
 export type AthenaCancellationReason = "user_cancelled" | "client_closed" | "deadline_exceeded" | "provider_timeout" | "shutdown";

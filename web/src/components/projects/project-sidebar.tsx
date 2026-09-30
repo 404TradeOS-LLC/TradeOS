@@ -9,6 +9,7 @@ import { RecentDocumentsCard } from "@/components/projects/recent-documents-card
 import type { ChangeOrder, Contract, Customer, Invoice, JobSummary, Project, ProjectTask, SiteVisit, Proposal, Estimate, ProjectFile } from "@/lib/api";
 import { ProjectPhotoGallery } from "@/components/projects/project-photo-gallery";
 import { buildProjectActivity, getInvoiceDisplayStatus } from "@/lib/document-workflow";
+import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
 
 interface ProjectSidebarProps {
   project: Project;
@@ -49,13 +50,13 @@ export function ProjectSidebar({ project, customer, siteVisits, proposals, estim
       />
       <ProjectActivityFeed items={activity} />
       <ProjectNotesCard title="Project notes" notes={project.simpleScope} />
-      <ProjectPhotoGallery projectFiles={projectFiles} />
+      <ProjectPhotoGallery projectFiles={projectFiles} projectId={project.id} />
       <RecentDocumentsCard
         documents={[
           ...proposals.map((proposal) => ({ id: proposal.id, href: `/projects/${project.id}/proposals/${proposal.id}`, label: proposal.estimateId ? "Estimate-based proposal" : "Project draft proposal", status: proposal.status })),
           ...contracts.map((contract) => ({ id: contract.id, href: `/projects/${project.id}/contracts/${contract.id}`, label: "Customer contract", status: contract.status })),
           ...invoices.map((invoice) => ({ id: invoice.id, href: `/projects/${project.id}/invoices/${invoice.id}`, label: `Invoice #${invoice.invoiceNumber}`, status: getInvoiceDisplayStatus(invoice) })),
-          ...projectFiles.slice(0, 3).map((file) => ({ id: file.id, href: file.fileUrl, label: file.fileName })),
+          ...projectFiles.slice(0, 3).map((file) => ({ id: file.id, href: buildProjectFileAccessUrl(project.id, file), label: file.fileName })),
         ]}
       />
     </div>

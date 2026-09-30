@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-25
+last_verified: 2026-09-10
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -36,6 +36,8 @@ related_code:
   - .github/workflows/preview-smoke-check.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -47,6 +49,11 @@ related_code:
 ---
 
 # TradeOS Documentation
+
+S027's authenticated evidence workflow captures all nine Costbook routes at
+1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
+deployment identity, test-tenant, mutation, and artifact controls are described
+in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 
@@ -95,7 +102,11 @@ When that smoke reports `SUPABASE_URL is not configured`, use the guarded
 `Repair staging Supabase auth configuration` workflow documented in
 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
 `staging` backend and the TradeOS Staging Supabase URL; it is not a general
-environment editor.
+environment editor. The repair captures the current staging branch SHA,
+redeploys by a verified Vercel deployment ID, and checks the replacement
+immutable URL rather than a branch alias. Its retained artifact proves only
+backend readiness and invalid Supabase token rejection after issuer initialization; authenticated browser
+certification remains a separate gate.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -167,7 +178,7 @@ is skipped when the diff has no `web/**` changes. Pushes to `main` still run
 all lanes. This keeps branch-protection semantics stable while avoiding
 unrelated installs/tests/builds on single-lane PRs.
 
-The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
+The expensive App and Web verification work is additionally split into independent child jobs so typecheck/lint, unit tests, Athena checks, dependency audit/build, and database integration can execute concurrently. Summary jobs preserve the exact required branch-protection check names. A `Costbook provenance audit` child job (2026-09-10) runs the root-level `npm run costbook:audit-provenance` deterministic validator against the canonical Knowledge Engine export whenever `app/**` or `packages/knowledge-engine/**` changes; it fails the `App lint, unit tests, and build` summary only on structural defects (duplicate IDs, missing identity fields, non-numeric costs, dangling assembly references), never on missing-provenance/source/confidence warnings. Supplemental sprint-governance, migration-safety, branch-currency, merge-readiness, browser-evidence, live-doc-reconciliation, nightly-regression, and workflow-health workflows shorten feedback and evidence loops without becoming new merge authority merely by existing; see `docs/CI_ACCELERATION.md`.
 
 `Docs consistency` also validates that the PR body contains every required default-template section and a real non-placeholder Summary before installing the docs checker dependencies. It then runs the focused PR-preflight tests, autonomy-reconciliation tests, and documentation ownership validation. This converts missing PR-template sections and missing owner docs into early, deterministic failures rather than late review churn.
 
@@ -181,9 +192,16 @@ Changes under `.github/workflows/**` and `.github/actions/**` additionally trigg
 
 The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
 
-The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL` using the current non-interactive Vercel CLI contract, redeploys the recorded staging backend, and requires `/ready` before the authenticated RC smoke can resume.
+The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL`, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It requires matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization on the replacement immutable hostname before the authenticated RC smoke can resume.
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
+
+The `s036-index-evidence.yml` workflow is the disposable PostgreSQL evidence
+lane for S036. It applies the tracked migration inside an isolated synthetic
+schema, captures redacted plan and write-cost observations, rehearses index
+rollback, and retains the generated artifact for review. It never uses
+production credentials or data and does not establish production rollout or
+merge authority.
 
 The enforcement flow is:
 
@@ -286,3 +304,7 @@ architecture.
 ### Automated maintenance
 
 The repository's CodeQL and frontend code-quality autofix workflows are governed maintenance lanes. They create isolated pull requests, preserve required checks and branch protection, and require review before generated changes land. See the workflow files and [REPOSITORY_GOVERNANCE.md](REPOSITORY_GOVERNANCE.md) for the safety boundary.
+
+### GitHub Actions runtime maintenance
+
+`.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.

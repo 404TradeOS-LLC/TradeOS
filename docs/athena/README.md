@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-30
+last_verified: 2026-09-11
 source_of_truth: true
 related_docs:
   - ../TRADEOS_BIBLE.md
@@ -97,6 +97,19 @@ replace service-owned lifecycle rules.
 - [Examples](examples/README.md)
 - [Appendices](appendices/README.md)
 
+## Contractor workspace and operator observability
+
+The web product has two distinct Athena surfaces:
+
+- `/athena` is the authenticated contractor-facing Workspace. It uses the existing kernel chat endpoint and selected-scope contract; it is not an observability dashboard and does not grant new business permissions.
+- `/athena/ops` is the owner/admin observability overview. The existing `/athena/approvals`, `/athena/traces`, `/athena/tools`, `/athena/models`, and `/athena/events` routes remain operator surfaces and continue to call `getAthenaOperatorContext()`.
+
+The reusable browser client lives at `web/src/lib/athena-client.ts` and supports only the public chat contract: message, optional conversation id, optional selected scope, safe interaction metadata, and optional idempotency key. The current contractor workspace deliberately does not generate a `conversationId`, because the platform does not yet have a durable contractor conversation/session lifecycle behind that reference; visible turns are page-local UI history. The workspace renders only fields present in `AthenaKernelResult`. It does not infer hidden planner steps, tool arguments, provider payloads, or business-state changes.
+
+The current result contract has two visible product limits. First, it does not return a provider-by-provider context attribution list; the UI must not invent a “context used” panel beyond selected scope and generic trust boundaries. Second, `awaiting_approval` does not itself provide a contractor-ready confirmation payload; the UI reports that confirmation is required and leaves execution blocked rather than exposing operator IDs/hashes or inventing a direct write. A future contractor approval card must bind to the existing durable approval/risk/idempotency contract.
+
+Clarification follows the product behavior contract: when the kernel returns `needs_clarification`, the workspace presents one question at a time.
+
 ## Relationship To Existing TradeOS AI
 
 Athena extends existing TradeOS seams rather than replacing them:
@@ -154,3 +167,32 @@ S028 implementation PR #338 merged as
 persistence and proposal handoff through existing Athena-aware service
 boundaries. Review-first AI behavior, organization context, permission checks,
 and audit evidence remain unchanged.
+
+## A14 voice and mobile readiness
+
+A14 adds a governed interaction envelope for `text`, `mobile`, and `voice`
+requests without creating a second Athena runtime. Voice requests are disabled
+independently unless `ATHENA_VOICE_ENABLED=true`. The request-scoped voice view
+of the existing tool registry exposes low-risk tools only; medium/high-risk
+operations remain on the visual/text approval path. Low-risk actions whose tool
+metadata requires confirmation use the existing A6 canonical input hash so a
+voice confirmation is bound to the exact tool id, tool version, and validated
+input and becomes invalid if that payload changes.
+
+Mobile field context is provided through the existing C010 context-provider
+architecture and delegates selected-job access to `JobsService`, preserving the
+current actor scope and forced-RLS boundary. That minimized context includes job
+identity/status/priority, city/state, schedule windows, and selected page while
+omitting customer contact details, full street address, and assignment identity.
+The backend A14 contract accepts text plus safe channel metadata; it does not
+accept or persist raw audio. A14 is readiness infrastructure, not a production
+speech provider integration or an offline execution engine.
+
+The A14 post-merge correctness repair tightens the runtime to match those
+contracts: a voice action that still needs confirmation returns a kernel-level
+`needs_clarification` challenge before A6/idempotency so a confirmation no-op is
+never persisted as a completed action; mobile field context remains
+`explicit_only` and is requested only for `mobile`/`voice`, not ordinary
+`text`; and the assembled bounded context is forwarded into both downstream
+tool execution and the model-provider seam. These are correctness fixes inside
+the existing A14 architecture, not a new milestone or broader authority grant.

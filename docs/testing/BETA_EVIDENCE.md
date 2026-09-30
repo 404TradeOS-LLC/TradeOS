@@ -21,6 +21,23 @@ artifacts, and security validation — all passing in one run.
 
 ## Architecture
 
+The release-critical action inventory lives in
+[`FRONTEND_BACKEND_CONNECTION_MATRIX.json`](FRONTEND_BACKEND_CONNECTION_MATRIX.json).
+It maps audited frontend reads/mutations to their mounted backend route,
+request/response contract source, permission and tenant boundary, refresh rule,
+automated evidence, browser checkpoint, and current evidence state. Run
+`npm run connection-matrix:check` to detect route, mount, source-symbol, or
+required-contract drift. The matrix is an inventory and validator; `PARTIAL`,
+`HISTORICALLY_CERTIFIED`, or a passing static check does not constitute current
+head browser certification.
+
+**Follow-up risks (tracked, not yet closed):**
+
+- **The drift validator itself does not run in CI.** `npm run connection-matrix:check` is defined in `package.json` but is not invoked by any workflow under `.github/workflows/`; only its synthetic-fixture unit tests run automatically.
+- **Coverage is one-directional and can silently decay.** The validator checks every declared matrix action against the codebase, but nothing checks the reverse, so a new frontend call site or backend route can exist without a matrix entry.
+- **Two documented gaps have no enforced remediation tracking.** The `proposal-acceptance` and `athena-actions` gaps are recorded in the matrix without a linked sprint dependency enforcing closure.
+
+
 ```text
 resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  ->  upload
    (fail closed)      (runtime state)     (1440/1024/768/390)     (artifacts)   (30 days)

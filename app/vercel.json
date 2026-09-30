@@ -9,7 +9,7 @@
   "ignoreCommand": "sh vercel-ignore-build.sh",
   "functions": {
     "index.ts": {
-      "includeFiles": "vendor/knowledge-engine/**"
+      "includeFiles": "{vendor/knowledge-engine/**,node_modules/pdfkit/js/standard-fonts/**}"
     }
   }
 }

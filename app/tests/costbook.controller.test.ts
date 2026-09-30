@@ -11,6 +11,7 @@ const mockService = {
   getMaterial: jest.fn(),
   createMaterial: jest.fn(),
   updateMaterial: jest.fn(),
+  deactivateMaterial: jest.fn(),
   listDivisions: jest.fn(),
   listDivisionsPage: jest.fn(),
   getDivision: jest.fn(),
@@ -75,6 +76,7 @@ describe("costbookController materials endpoints", () => {
     mockService.getMaterial.mockResolvedValue({ id: materialId });
     mockService.createMaterial.mockResolvedValue({ id: materialId });
     mockService.updateMaterial.mockResolvedValue({ id: materialId });
+    mockService.deactivateMaterial.mockResolvedValue(undefined);
     mockService.listDivisions.mockResolvedValue([]);
     mockService.listDivisionsPage.mockResolvedValue({ items: [], total: 0, nextCursor: null });
     mockService.getDivision.mockResolvedValue({ id: materialId });
@@ -123,6 +125,20 @@ describe("costbookController materials endpoints", () => {
       filters: { supplierId },
     });
     expect(res.json).toHaveBeenCalledWith({ items: [], total: 0, nextCursor: null });
+  });
+
+  it("forwards the active filter when listing materials", async () => {
+    const res = response();
+
+    await costbookController.listMaterials(
+      authedRequest({ role: "technician", query: { active: "false" } }),
+      res as never
+    );
+
+    expect(mockService.listMaterialsPage).toHaveBeenCalledWith(
+      "org-from-auth",
+      expect.objectContaining({ filters: expect.objectContaining({ active: false }) })
+    );
   });
 
   it("denies Costbook materials reads to viewer/no-access roles", async () => {
@@ -419,6 +435,29 @@ describe("costbookController materials endpoints", () => {
     ).rejects.toThrow("You do not have permission");
 
     expect(mockService.deactivateLaborRate).not.toHaveBeenCalled();
+  });
+
+  it("requires Costbook manage permission to deactivate a material", async () => {
+    await expect(
+      costbookController.removeMaterial(
+        authedRequest({ role: "technician", params: { id: materialId } }),
+        response() as never
+      )
+    ).rejects.toThrow("You do not have permission");
+
+    expect(mockService.deactivateMaterial).not.toHaveBeenCalled();
+  });
+
+  it("allows a manager to deactivate a material", async () => {
+    const res = response();
+
+    await costbookController.removeMaterial(authedRequest({ role: "admin", params: { id: materialId } }), res as never);
+
+    expect(mockService.deactivateMaterial).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-from-auth", role: "admin" }),
+      materialId
+    );
+    expect(res.status).toHaveBeenCalledWith(204);
   });
 
   it("allows read-only Costbook roles to list divisions", async () => {

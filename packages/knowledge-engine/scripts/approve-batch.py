@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
+import re
 import shutil
 from datetime import datetime
 
@@ -8,6 +9,50 @@ ACTIVE_RUN_PATH = "runtime/active-run.json"
 MASTER_COSTBOOK_PATH = "knowledge/cost-items/costbook.json"
 EXPORT_COSTBOOK_PATH = "exports/json/costbook.json"
 PROGRESS_PATH = "runtime/progress.json"
+
+# Costbook item-level provenance contract (schemas/cost-item.schema.json). Mirrors
+# scripts/validate_batch.py and scripts/costbook-provenance-audit.mjs's
+# KNOWN_PROVENANCE_STATUS/KNOWN_CONFIDENCE; kept in sync by hand since hyphenated
+# script filenames in this directory can't import one another as Python modules.
+KNOWN_PROVENANCE_STATUS = {"documented", "unverified-legacy", "placeholder"}
+KNOWN_CONFIDENCE = {"low", "medium", "high"}
+SOURCE_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+REQUIRED_PROVENANCE_FIELDS = ["provenanceStatus", "sourceName", "sourceDate", "retrievedAt", "confidence"]
+
+
+def is_iso_datetime(value: str) -> bool:
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+    except Exception:
+        return False
+
+
+def find_provenance_errors(items: list) -> list:
+    """Validate the Costbook item-level provenance contract on newly generated cost items.
+
+    Returns a list of {"index", "id", "errors"} for any item missing or misusing a
+    required provenance field. This never touches items already merged into the
+    master/export costbook — it only gates what this run is about to add.
+    """
+    batch_errors = []
+    for i, item in enumerate(items):
+        errors = []
+        for field in REQUIRED_PROVENANCE_FIELDS:
+            value = item.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(f"Missing field: {field} (required provenance field for new items)")
+        if "provenanceStatus" in item and item["provenanceStatus"] not in KNOWN_PROVENANCE_STATUS:
+            errors.append(f"Invalid provenanceStatus: {item['provenanceStatus']!r}")
+        if "confidence" in item and item["confidence"] not in KNOWN_CONFIDENCE:
+            errors.append(f"Invalid confidence: {item['confidence']!r}")
+        if isinstance(item.get("sourceDate"), str) and item["sourceDate"] and not SOURCE_DATE_PATTERN.match(item["sourceDate"]):
+            errors.append(f"sourceDate not in YYYY-MM-DD format: {item['sourceDate']!r}")
+        if isinstance(item.get("retrievedAt"), str) and item["retrievedAt"] and not is_iso_datetime(item["retrievedAt"]):
+            errors.append(f"retrievedAt not a valid ISO 8601 timestamp: {item['retrievedAt']!r}")
+        if errors:
+            batch_errors.append({"index": i, "id": item.get("id"), "errors": errors})
+    return batch_errors
 
 def load_json(path, default):
     if not os.path.exists(path):
@@ -65,10 +110,22 @@ def approve_batch():
         
     print(f"[{datetime.now().isoformat()}] Approving Batch {current_batch_num}...")
     print(f"  Loaded {actual_count} items from staged payload.")
-    
+
     trade = active.get("trade")
     run_type = active.get("type")
-    
+
+    # Costbook item-level provenance contract: block the merge if any newly
+    # generated cost item is missing a required provenance field. This does not
+    # retroactively validate items already in the master/export costbook.
+    if run_type == "cost-items":
+        provenance_errors = find_provenance_errors(batch_data)
+        if provenance_errors:
+            print(f"[REJECTED] Batch {current_batch_num} failed the provenance contract:")
+            for err in provenance_errors:
+                print(f"  Item {err['index']} (id={err['id']}): {', '.join(err['errors'])}")
+            print("\nFix the staged batch file and re-run this script. No items were merged.")
+            return
+
     # 1. Save to modular folder structure for historical safety
     archive_dir = f"knowledge/{run_type}/{trade.lower().replace(' ', '_')}"
     archive_file = os.path.join(archive_dir, os.path.basename(staged_file))

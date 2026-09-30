@@ -22,7 +22,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { AIEstimateSuggestion, KnowledgeScopeMatch, KnowledgeSearchResult, KnowledgeStats, KnowledgeTrade } from "@/lib/api";
+import type {
+  AIEstimateProvenanceDetail,
+  AIEstimateSuggestion,
+  StructuredAIEstimateDraft,
+  StructuredAIEstimateDraftLineItem,
+  CostDataProvenanceStatus,
+  KnowledgeScopeMatch,
+  KnowledgeSearchResult,
+  KnowledgeStats,
+  KnowledgeTrade,
+} from "@/lib/api";
 import { clientFetch } from "@/lib/clientApi";
 
 type SuggestionStatus = "pending" | "accepted" | "rejected";
@@ -41,11 +51,13 @@ interface SuggestionDraft extends AIEstimateSuggestion {
   status: SuggestionStatus;
   description: string;
   selectedTarget: EstimateTargetOption | null;
+  originalTargetId?: string | null;
+  originalTargetKind?: "assembly" | "costItem" | null;
 }
 
 interface ApplySuggestionsResponse {
-  applied: Array<{ suggestionId: string; lineItemId: string; title: string; quantity: number }>;
-  skipped: Array<{ suggestionId: string; title: string; status: SuggestionStatus; reason: string }>;
+  applied: Array<{ draftLineItemId: string; lineItemId: string; quantity: number }>;
+  skipped: Array<{ draftLineItemId: string; status: string; reason: string }>;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -66,11 +78,56 @@ function confidenceTone(confidence: number) {
   return "outline";
 }
 
+function provenanceStatusLabel(status: CostDataProvenanceStatus): string {
+  if (status === "documented") return "Documented source";
+  if (status === "placeholder") return "Placeholder pricing";
+  return "Unverified pricing";
+}
+
+function provenanceStatusTone(status: CostDataProvenanceStatus): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "documented") return "default";
+  if (status === "placeholder") return "destructive";
+  return "outline";
+}
+
+function readProvenanceStatus(metadata: Record<string, unknown>): CostDataProvenanceStatus | null {
+  const value = metadata.provenanceStatus;
+  return value === "documented" || value === "unverified-legacy" || value === "placeholder" ? value : null;
+}
+
+function ProvenanceBadge({ status }: { status: CostDataProvenanceStatus }) {
+  return (
+    <Badge variant={provenanceStatusTone(status)} title="Trust state of the underlying Knowledge Engine pricing — never implies verified/current/local pricing on its own.">
+      {provenanceStatusLabel(status)}
+    </Badge>
+  );
+}
+
+function ProvenanceSourceNote({ detail }: { detail?: AIEstimateProvenanceDetail }) {
+  if (!detail || (!detail.sourceName && !detail.sourceUrl && !detail.confidence)) return null;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Source:{" "}
+      {detail.sourceUrl ? (
+        <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">
+          {detail.sourceName ?? detail.sourceUrl}
+        </a>
+      ) : (
+        (detail.sourceName ?? "cited, no URL provided")
+      )}
+      {detail.sourceDate ? ` · ${detail.sourceDate}` : ""}
+      {detail.confidence ? ` · ${detail.confidence} confidence` : ""}
+    </p>
+  );
+}
+
 function toDraft(suggestion: AIEstimateSuggestion): SuggestionDraft {
   return {
     ...suggestion,
     status: "pending",
     description: suggestion.title,
+    originalTargetId: suggestion.resolution.target?.id ?? null,
+    originalTargetKind: suggestion.resolution.target?.kind ?? null,
     selectedTarget: suggestion.resolution.target
       ? {
           id: suggestion.resolution.target.id,
@@ -85,6 +142,29 @@ function toDraft(suggestion: AIEstimateSuggestion): SuggestionDraft {
   };
 }
 
+function structuredToDraft(line: StructuredAIEstimateDraftLineItem): SuggestionDraft {
+  return {
+    id: line.draftLineItemId,
+    kind: line.targetKind,
+    code: line.targetCode ?? "UNRESOLVED",
+    title: line.description,
+    rationale: line.rationale,
+    quantity: line.quantity,
+    unit: line.unitOfMeasure,
+    confidence: line.confidence,
+    provenanceStatus: line.provenanceStatus,
+    provenanceDetail: line.provenanceDetail,
+    resolution: line.targetResolution,
+    status: "pending",
+    description: line.description,
+    originalTargetId: line.targetId,
+    originalTargetKind: line.targetKind,
+    selectedTarget: line.targetId && line.targetName && line.targetCode
+      ? { id: line.targetId, kind: line.targetKind, code: line.targetCode, name: line.targetName, unitOfMeasure: line.unitOfMeasure }
+      : null,
+  };
+}
+
 export function AIEstimateAssist({
   projectId,
   estimateId,
@@ -93,6 +173,7 @@ export function AIEstimateAssist({
   initialKnowledgeStats,
   initialKnowledgeTrades,
   initialKnowledgeMatch,
+  initialStructuredDraft,
 }: {
   projectId: string;
   estimateId: string;
@@ -101,15 +182,17 @@ export function AIEstimateAssist({
   initialKnowledgeStats: KnowledgeStats | null;
   initialKnowledgeTrades: KnowledgeTrade[];
   initialKnowledgeMatch: KnowledgeScopeMatch | null;
+  initialStructuredDraft?: StructuredAIEstimateDraft | null;
 }) {
   const [scopeOfWork, setScopeOfWork] = useState(initialScopeOfWork || "");
-  const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialSuggestions.map(toDraft));
+  const [suggestions, setSuggestions] = useState<SuggestionDraft[]>(initialStructuredDraft?.lineItems.map(structuredToDraft) ?? initialSuggestions.map(toDraft));
+  const [structuredDraft, setStructuredDraft] = useState<StructuredAIEstimateDraft | null>(initialStructuredDraft ?? null);
   const [knowledgeMatch, setKnowledgeMatch] = useState<KnowledgeScopeMatch | null>(initialKnowledgeMatch);
   const [searchMode, setSearchMode] = useState<"assemblies" | "cost-items">("assemblies");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[]>([]);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(
-    initialSuggestions.length > 0 ? "Loaded from AI suggestion service" : null
+    initialStructuredDraft || initialSuggestions.length > 0 ? "Loaded from Athena review" : null
   );
   const [applySummary, setApplySummary] = useState<ApplySuggestionsResponse | null>(null);
 
@@ -135,8 +218,8 @@ export function AIEstimateAssist({
 
   const regenerateSuggestions = useMutation({
     mutationFn: async () => {
-      return clientFetch<{ scopeOfWork: string; suggestions: AIEstimateSuggestion[]; knowledgeMatch: KnowledgeScopeMatch }>(
-        `/estimates/${estimateId}/ai-suggestions`,
+      return clientFetch<StructuredAIEstimateDraft>(
+        `/estimates/${estimateId}/ai-estimator/draft`,
         {
           method: "POST",
           body: JSON.stringify({ scopeOfWork }),
@@ -144,8 +227,9 @@ export function AIEstimateAssist({
       );
     },
     onSuccess: (payload) => {
-      setSuggestions(payload.suggestions.map(toDraft));
-      setKnowledgeMatch(payload.knowledgeMatch);
+      setStructuredDraft(payload);
+      setSuggestions(payload.lineItems.map(structuredToDraft));
+      setKnowledgeMatch(null);
       setScopeOfWork(payload.scopeOfWork);
       setLastGeneratedAt(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
       setApplySummary(null);
@@ -169,18 +253,20 @@ export function AIEstimateAssist({
 
   const applyAcceptedSuggestions = useMutation({
     mutationFn: () =>
-      clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-suggestions/apply`, {
+      clientFetch<ApplySuggestionsResponse>(`/estimates/${estimateId}/ai-estimator/apply`, {
         method: "POST",
         body: JSON.stringify({
-          suggestions: suggestions.map((suggestion) => ({
-            id: suggestion.id,
-            kind: suggestion.kind,
-            title: suggestion.title,
+          // Omit generationId so users with billing.write can apply reviewed lines without an owner/admin-only generation-record lookup.
+          lineItems: suggestions.map((suggestion) => ({
+            draftLineItemId: suggestion.id,
             quantity: suggestion.quantity,
             status: suggestion.status,
             description: suggestion.description,
             targetId: suggestion.selectedTarget?.id,
             targetKind: suggestion.selectedTarget?.kind,
+            reviewToken: suggestion.originalTargetId === suggestion.selectedTarget?.id && suggestion.originalTargetKind === suggestion.selectedTarget?.kind
+              ? structuredDraft?.lineItems.find((line) => line.draftLineItemId === suggestion.id)?.reviewToken ?? undefined
+              : undefined,
           })),
         }),
       }),
@@ -193,7 +279,7 @@ export function AIEstimateAssist({
     setSuggestions((current) => current.map((suggestion) => (suggestion.id === id ? updater(suggestion) : suggestion)));
   };
 
-  const acceptedReadyToApply = reviewStats.acceptedReadyCount > 0;
+  const acceptedReadyToApply = suggestions.some((suggestion) => suggestion.status === "accepted" && suggestion.selectedTarget && suggestion.originalTargetId === suggestion.selectedTarget.id && suggestion.originalTargetKind === suggestion.selectedTarget.kind);
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
@@ -203,7 +289,7 @@ export function AIEstimateAssist({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardTitle>Scope of work</CardTitle>
-                <CardDescription>Describe the job once, then let AI draft a reviewed starting point for the estimate team.</CardDescription>
+                <CardDescription>Describe the job once, then let Athena draft a reviewed starting point for the estimate team.</CardDescription>
               </div>
               <Badge variant="outline" className="gap-1.5">
                 <Sparkles className="size-3.5" />
@@ -248,7 +334,7 @@ export function AIEstimateAssist({
                   Photo context
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Jobsite photos can stay attached to the project record while AI Estimate Assist uses scope and field notes for reviewed suggestions.
+                  Jobsite photos can stay attached to the project record while Athena uses scope and field notes for reviewed suggestions.
                 </p>
               </div>
             </div>
@@ -257,7 +343,7 @@ export function AIEstimateAssist({
               <p className="text-sm text-muted-foreground">
                 Leave the scope blank if needed. We will fall back to the project scope or the seeded sample scope for validation.
               </p>
-              <Button onClick={() => regenerateSuggestions.mutate()} disabled={regenerateSuggestions.isPending}>
+              <Button onClick={() => regenerateSuggestions.mutate()} disabled={regenerateSuggestions.isPending || !scopeOfWork.trim()}>
                 {regenerateSuggestions.isPending ? (
                   <>
                     <RefreshCw className="size-4 animate-spin" />
@@ -266,11 +352,12 @@ export function AIEstimateAssist({
                 ) : (
                   <>
                     <WandSparkles className="size-4" />
-                    Run AI Estimate Assist
+                    Run Athena review
                   </>
                 )}
               </Button>
             </div>
+            {regenerateSuggestions.isError ? <p className="text-sm text-destructive" role="alert">{regenerateSuggestions.error instanceof Error ? regenerateSuggestions.error.message : "Unable to generate a structured estimate draft."}</p> : null}
           </CardContent>
         </Card>
 
@@ -278,16 +365,29 @@ export function AIEstimateAssist({
           <CardHeader className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>AI suggestion pipeline</CardTitle>
+                <CardTitle>Athena review pipeline</CardTitle>
                 <CardDescription>
-                  Review the detected trade, runtime matches, assumptions, missing inputs, and warnings before anything reaches the estimate.
+                  Review the detected trade, runtime matches, assumptions, missing inputs, and warnings before anything reaches the estimate. Generated drafts are review-only.
                 </CardDescription>
               </div>
               {knowledgeMatch ? <Badge variant={confidenceTone(knowledgeMatch.confidenceScore)}>{knowledgeMatch.confidenceScore}% confidence</Badge> : null}
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {knowledgeMatch ? (
+            {structuredDraft ? (
+              <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={structuredDraft.validation.status === "blocked" ? "destructive" : structuredDraft.validation.status === "needs_review" ? "outline" : "secondary"}>
+                    {structuredDraft.validation.status === "ready_for_review" ? "Ready for review" : structuredDraft.validation.status === "needs_review" ? "Needs review" : "Setup required"}
+                  </Badge>
+                  {structuredDraft.detectedTrade ? <span className="text-sm text-muted-foreground">Detected trade: {structuredDraft.detectedTrade}</span> : null}
+                  <span className="text-sm text-muted-foreground">{structuredDraft.confidenceScore}% confidence</span>
+                </div>
+                {[...structuredDraft.validation.missingInformation, ...structuredDraft.validation.warnings].slice(0, 5).map((warning) => (
+                  <p key={warning} className="flex items-start gap-2 text-sm text-muted-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />{warning}</p>
+                ))}
+              </div>
+            ) : knowledgeMatch ? (
               <KnowledgeMatchPanel match={knowledgeMatch} />
             ) : (
               <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
@@ -315,7 +415,7 @@ export function AIEstimateAssist({
           <CardContent className="space-y-4">
             {suggestions.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-8 text-sm text-muted-foreground">
-                No review draft yet. Run AI Estimate Assist to build a contractor-facing draft from the scope.
+                No review draft yet. Run Athena review to build a contractor-facing draft from the scope.
               </div>
             ) : (
               suggestions.map((suggestion) => (
@@ -372,8 +472,8 @@ export function AIEstimateAssist({
                 {applySummary.skipped.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {applySummary.skipped.slice(0, 4).map((entry) => (
-                      <div key={`${entry.suggestionId}-${entry.status}`} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{entry.title}</span>
+                      <div key={`${entry.draftLineItemId}-${entry.status}`} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">{entry.draftLineItemId}</span>
                         <span> · {entry.reason}</span>
                       </div>
                     ))}
@@ -470,7 +570,7 @@ export function AIEstimateAssist({
               Open estimate builder
             </Link>
             <p className="text-sm text-muted-foreground">
-              AI helps with scope understanding and selection only. Pricing still comes exclusively from the estimate engine.
+              Athena helps with scope understanding and selection only. Pricing still comes exclusively from the estimate engine.
             </p>
           </CardContent>
         </Card>
@@ -530,6 +630,7 @@ function SuggestionCard({
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{suggestion.kind === "assembly" ? "Assembly suggestion" : "Cost item suggestion"}</Badge>
             <Badge variant={confidenceTone(suggestion.confidence)}>{suggestion.confidence}% confidence</Badge>
+            <ProvenanceBadge status={suggestion.provenanceStatus} />
             <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{suggestion.code}</span>
           </div>
           <div className="space-y-2">
@@ -539,6 +640,7 @@ function SuggestionCard({
               aria-label="Suggestion title"
             />
             <p className="max-w-2xl text-sm text-muted-foreground">{suggestion.rationale}</p>
+            <ProvenanceSourceNote detail={suggestion.provenanceDetail} />
           </div>
         </div>
 
@@ -710,15 +812,19 @@ function MatchList({ title, results }: { title: string; results: KnowledgeSearch
         {results.length === 0 ? (
           <p className="text-sm text-muted-foreground">No matches found.</p>
         ) : (
-          results.map((result) => (
-            <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{result.name}</span>
-                <Badge variant="outline">{result.confidence}%</Badge>
+          results.map((result) => {
+            const provenanceStatus = readProvenanceStatus(result.metadata);
+            return (
+              <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground">{result.name}</span>
+                  <Badge variant="outline">{result.confidence}%</Badge>
+                  {provenanceStatus ? <ProvenanceBadge status={provenanceStatus} /> : null}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -764,16 +870,20 @@ function SearchResultsList({ results, emptyLabel }: { results: KnowledgeSearchRe
 
   return (
     <div className="space-y-3">
-      {results.map((result) => (
-        <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-foreground">{result.name}</span>
-            <Badge variant="outline">{result.type === "assembly" ? "Assembly" : "Cost item"}</Badge>
-            <Badge variant={confidenceTone(result.confidence)}>{result.confidence}%</Badge>
+      {results.map((result) => {
+        const provenanceStatus = readProvenanceStatus(result.metadata);
+        return (
+          <div key={result.id} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-foreground">{result.name}</span>
+              <Badge variant="outline">{result.type === "assembly" ? "Assembly" : "Cost item"}</Badge>
+              <Badge variant={confidenceTone(result.confidence)}>{result.confidence}%</Badge>
+              {provenanceStatus ? <ProvenanceBadge status={provenanceStatus} /> : null}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{result.rationale}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

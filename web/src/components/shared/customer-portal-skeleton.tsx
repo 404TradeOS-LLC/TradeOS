@@ -14,6 +14,8 @@ export function CustomerPortalSkeleton({ label, cards = 2 }: CustomerPortalSkele
   return (
     <main
       className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-6 py-10"
+      role="status"
+      aria-live="polite"
       aria-busy="true"
       aria-label={label}
     >

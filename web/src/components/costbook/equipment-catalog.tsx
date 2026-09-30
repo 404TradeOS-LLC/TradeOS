@@ -207,7 +207,7 @@ export function EquipmentCatalog({
         <section className="overflow-hidden rounded-lg border border-border/70 bg-card" aria-label="Equipment catalog">
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <thead className="sticky top-16 z-10 border-b border-border bg-card text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-medium">Name</th>
                   <th scope="col" className="px-4 py-3 text-right font-medium">Ownership</th>

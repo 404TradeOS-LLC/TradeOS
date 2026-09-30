@@ -6,6 +6,8 @@ import { ApiError } from "../../backend/middleware/errorHandler";
 import { ContractsService } from "../contracts/service";
 import { InvoicesService } from "../invoices/service";
 import { ProposalsService } from "../proposals/service";
+import { logError } from "../../backend/logging";
+import { emailService, scheduleEmailInBackground } from "../email/service";
 
 export const CUSTOMER_PORTAL_SESSION_HEADER = "x-tradeos-portal-session";
 export const CUSTOMER_PORTAL_ACCESS_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,7 +46,8 @@ export class CustomerPortalService {
       select: { id: true, email: true },
     });
     if (!customer) throw new ApiError(404, `Customer ${input.customerId} not found`);
-    if (!customer.email) throw new ApiError(409, "Customer must have an email address before a portal link can be issued");
+    const customerEmail = customer.email;
+    if (!customerEmail) throw new ApiError(409, "Customer must have an email address before a portal link can be issued");
 
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + CUSTOMER_PORTAL_ACCESS_TOKEN_TTL_MS);
@@ -56,6 +59,13 @@ export class CustomerPortalService {
         expiresAt,
         createdByUserId: input.createdByUserId,
       },
+    });
+    scheduleEmailInBackground(async () => {
+      try {
+        await emailService.sendCustomerPortalAccess({ to: customerEmail, token, expiresAt: row.expiresAt });
+      } catch (error) {
+        logError("customer_portal.access_email_failed", { error: error instanceof Error ? error.name : "UnknownError" });
+      }
     });
     return { id: row.id, customerId: row.customerId, expiresAt: row.expiresAt, token };
   }

@@ -3,11 +3,16 @@ import { costbookController as ctrl } from "../controllers/costbook.controller";
 import { costbookPricingController as pricingCtrl } from "../controllers/costbookPricing.controller";
 import { costDatabaseController as costItemCtrl } from "../controllers/costDatabase.controller";
 import { assembliesDatabaseController as assemblyCtrl } from "../controllers/assembliesDatabase.controller";
+import { costbookCandidatesController as candidateCtrl } from "../controllers/costbookCandidates.controller";
+import { costbookCompositeBenchmarksController as compositeBenchmarkCtrl } from "../controllers/costbookCompositeBenchmarks.controller";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const costbookRouter = Router();
 
 costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
+costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
+costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
+costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 
@@ -22,6 +27,8 @@ costbookRouter.delete("/cost-items/:id", asyncHandler(costItemCtrl.remove));
 costbookRouter.get("/assemblies", asyncHandler(assemblyCtrl.list));
 costbookRouter.get("/assemblies/search", asyncHandler(assemblyCtrl.search));
 costbookRouter.get("/assemblies/templates", asyncHandler(assemblyCtrl.templates));
+costbookRouter.get("/assemblies/starter-catalog", asyncHandler(assemblyCtrl.starterCatalog));
+costbookRouter.post("/assemblies/starter-catalog/install", asyncHandler(assemblyCtrl.installStarterCatalog));
 costbookRouter.get("/assemblies/:id/unit-cost", asyncHandler(assemblyCtrl.getUnitCost));
 costbookRouter.get("/assemblies/:id/items", asyncHandler(assemblyCtrl.listItems));
 costbookRouter.get("/assemblies/:id", asyncHandler(assemblyCtrl.getById));
@@ -45,6 +52,7 @@ costbookRouter.get("/materials", asyncHandler(ctrl.listMaterials));
 costbookRouter.get("/materials/:id", asyncHandler(ctrl.getMaterial));
 costbookRouter.post("/materials", asyncHandler(ctrl.createMaterial));
 costbookRouter.patch("/materials/:id", asyncHandler(ctrl.updateMaterial));
+costbookRouter.delete("/materials/:id", asyncHandler(ctrl.removeMaterial));
 costbookRouter.get("/divisions", asyncHandler(ctrl.listDivisions));
 costbookRouter.get("/divisions/:id", asyncHandler(ctrl.getDivision));
 costbookRouter.post("/divisions", asyncHandler(ctrl.createDivision));
@@ -60,3 +68,26 @@ costbookRouter.get("/subcategories/:id", asyncHandler(ctrl.getSubcategory));
 costbookRouter.post("/subcategories", asyncHandler(ctrl.createSubcategory));
 costbookRouter.patch("/subcategories/:id", asyncHandler(ctrl.updateSubcategory));
 costbookRouter.delete("/subcategories/:id", asyncHandler(ctrl.removeSubcategory));
+
+// Composite installed-price benchmark/history ingestion. These records are
+// reference evidence only and are intentionally isolated from material,
+// labor, equipment, and customer bill-rate tables.
+costbookRouter.post("/benchmarks/composite/import", asyncHandler(compositeBenchmarkCtrl.importRows));
+
+// Stage 6 research-candidate review queue (see
+// docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md). A candidate is
+// never a production Costbook record; only /promote writes one, and only
+// for a candidate a named human reviewer already approved.
+costbookRouter.get("/candidates", asyncHandler(candidateCtrl.list));
+costbookRouter.post("/candidates", asyncHandler(candidateCtrl.create));
+// Static segments must precede "/:id" so they are not parsed as a candidate id.
+costbookRouter.get("/candidates/summary", asyncHandler(candidateCtrl.summary));
+costbookRouter.get("/candidates/corpus-report", asyncHandler(candidateCtrl.corpusReport));
+// Stage 2/3 ingestion: normalizes one Knowledge Engine corpus item into an
+// unreviewed candidate, or fails closed listing the missing source evidence.
+costbookRouter.post("/candidates/from-knowledge", asyncHandler(candidateCtrl.ingestFromKnowledge));
+costbookRouter.get("/candidates/:id", asyncHandler(candidateCtrl.getById));
+// Read-only duplicate/price-delta analysis against this organization's catalog.
+costbookRouter.get("/candidates/:id/match", asyncHandler(candidateCtrl.match));
+costbookRouter.post("/candidates/:id/review", asyncHandler(candidateCtrl.review));
+costbookRouter.post("/candidates/:id/promote", asyncHandler(candidateCtrl.promote));

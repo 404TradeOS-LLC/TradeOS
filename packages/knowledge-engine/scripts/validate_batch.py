@@ -9,6 +9,12 @@ For each file it:
   * Loads the JSON array.
   * Validates each item against the raw input schema (`Data/raw/items.json`).
   * Ensures required fields exist and that numeric cost fields are numbers (or numeric strings) with two‑decimal precision.
+  * Requires the Costbook item-level provenance contract (`provenanceStatus`, `sourceName`,
+    `sourceDate`, `retrievedAt`, `confidence` — see
+    `packages/knowledge-engine/schemas/cost-item.schema.json` and
+    `docs/reports/COSTBOOK_ITEM_PROVENANCE_METADATA_2026-09-09.md`) on every newly submitted item,
+    so provenance can never regress for items introduced through this pipeline. This does not
+    retroactively touch any item already merged into the canonical corpus.
   * Adds a `pricingStatus` field set to "placeholder" if not present.
   * Detects duplicate `name`/`category`/`unit` combinations across pending items and existing items.
   * Moves the file to `review/approved/` if it passes validation, otherwise to `review/rejected/`.
@@ -17,7 +23,9 @@ The script does **not** modify the production `Data/raw/items.json`; approved it
 `Data/working/costbook_pending.json` for later merging.
 """
 import json
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -26,6 +34,23 @@ WORKING_PENDING = Path("Data/working/costbook_pending.json")
 REVIEW_PENDING = Path("review/pending")
 APPROVED_DIR = Path("review/approved")
 REJECTED_DIR = Path("review/rejected")
+
+# Mirrors packages/knowledge-engine/schemas/cost-item.schema.json and
+# scripts/costbook-provenance-audit.mjs's KNOWN_PROVENANCE_STATUS/KNOWN_CONFIDENCE.
+# Keep these three in sync by hand; there is no shared runtime between the Python
+# pipeline and the Node/TypeScript app to import from directly.
+KNOWN_PROVENANCE_STATUS = {"documented", "unverified-legacy", "placeholder"}
+KNOWN_CONFIDENCE = {"low", "medium", "high"}
+SOURCE_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+REQUIRED_PROVENANCE_FIELDS = ["provenanceStatus", "sourceName", "sourceDate", "retrievedAt", "confidence"]
+
+
+def is_iso_datetime(value: str) -> bool:
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+    except Exception:
+        return False
 
 def load_json(file_path: Path):
     with open(file_path, "r", encoding="utf-8") as f:
@@ -63,6 +88,19 @@ def validate_item(item: dict, existing_ids: set, existing_keys: set) -> list:
     key = (item.get("name", "").lower(), item.get("category", "").lower(), item.get("unit", "").lower())
     if key in existing_keys:
         errors.append("Duplicate name/category/unit combo with existing items")
+    # Costbook item-level provenance contract: required for every newly submitted item.
+    for field in REQUIRED_PROVENANCE_FIELDS:
+        value = item.get(field)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"Missing field: {field} (required provenance field for new items)")
+    if "provenanceStatus" in item and item["provenanceStatus"] not in KNOWN_PROVENANCE_STATUS:
+        errors.append(f"Invalid provenanceStatus: {item['provenanceStatus']!r}")
+    if "confidence" in item and item["confidence"] not in KNOWN_CONFIDENCE:
+        errors.append(f"Invalid confidence: {item['confidence']!r}")
+    if isinstance(item.get("sourceDate"), str) and item["sourceDate"] and not SOURCE_DATE_PATTERN.match(item["sourceDate"]):
+        errors.append(f"sourceDate not in YYYY-MM-DD format: {item['sourceDate']!r}")
+    if isinstance(item.get("retrievedAt"), str) and item["retrievedAt"] and not is_iso_datetime(item["retrievedAt"]):
+        errors.append(f"retrievedAt not a valid ISO 8601 timestamp: {item['retrievedAt']!r}")
     return errors
 
 def main() -> None:

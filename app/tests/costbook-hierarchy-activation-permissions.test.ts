@@ -1,4 +1,5 @@
 const mockService = {
+  updateMaterial: jest.fn(),
   updateDivision: jest.fn(),
   updateCategory: jest.fn(),
   updateSubcategory: jest.fn(),
@@ -50,6 +51,7 @@ function request(body: unknown) {
 }
 
 const cases = [
+  ["material", costbookController.updateMaterial, mockService.updateMaterial],
   ["division", costbookController.updateDivision, mockService.updateDivision],
   ["category", costbookController.updateCategory, mockService.updateCategory],
   ["subcategory", costbookController.updateSubcategory, mockService.updateSubcategory],
@@ -59,6 +61,7 @@ describe("Costbook hierarchy activation permission boundary", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockManageAllowed = true;
+    mockService.updateMaterial.mockResolvedValue({ id: entityId });
     mockService.updateDivision.mockResolvedValue({ id: entityId });
     mockService.updateCategory.mockResolvedValue({ id: entityId });
     mockService.updateSubcategory.mockResolvedValue({ id: entityId });

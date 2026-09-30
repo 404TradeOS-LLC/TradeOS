@@ -248,15 +248,24 @@ export class CostDatabaseService {
       await this.assertSubcategoryBelongsToOrganization(orgId, input.subcategoryId);
     }
 
+    const materialCheck = input.materialId
+      ? prisma.material.findFirst({ where: { id: input.materialId, orgId }, select: { id: true, isActive: true } })
+      : null;
+
     const checks: Array<Promise<unknown>> = [];
+    if (materialCheck) checks.push(materialCheck);
     if (input.laborRateId) checks.push(prisma.laborRate.findFirst({ where: { id: input.laborRateId, orgId }, select: { id: true } }));
-    if (input.materialId) checks.push(prisma.material.findFirst({ where: { id: input.materialId, orgId }, select: { id: true } }));
     if (input.equipmentId) checks.push(prisma.equipment.findFirst({ where: { id: input.equipmentId, orgId }, select: { id: true } }));
     if (input.subcontractorId) checks.push(prisma.subcontractor.findFirst({ where: { id: input.subcontractorId, orgId }, select: { id: true } }));
 
     const results = await Promise.all(checks);
     if (results.some((result) => !result)) {
       throw new ApiError(400, "Cost item references must belong to the authenticated organization");
+    }
+
+    const material = materialCheck ? await materialCheck : null;
+    if (material && !material.isActive) {
+      throw new ApiError(400, "Material must be active to link to a cost item");
     }
   }
 

@@ -33,11 +33,15 @@ const PAGES_WITH_BACK_NAV = [
 ];
 
 for (const relativePath of PAGES_WITH_BACK_NAV) {
-  test(`${relativePath} uses the shared PageHeader with a backHref, not a hand-rolled title block`, () => {
+  test(`${relativePath} uses the shared PageHeader with a backHref or breadcrumbs, not a hand-rolled title block`, () => {
     const source = readSource(relativePath);
     assert.match(source, PAGE_HEADER_IMPORT, "must import the shared PageHeader component");
     assert.match(source, /<PageHeader/, "must render <PageHeader ... />");
-    assert.match(source, /<PageHeader[\s\S]*?backHref=/, "PageHeader must be given a backHref back to its parent");
+    assert.match(
+      source,
+      /<PageHeader[\s\S]*?(backHref=|breadcrumbs=)/,
+      "PageHeader must be given a backHref or a breadcrumbs trail back to its parent"
+    );
     assert.doesNotMatch(source, /←\s*Back to/, "must not still contain the old hand-rolled '← Back to ...' link text");
   });
 }

@@ -40,7 +40,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
             <option value="">Select an estimate…</option>
             {eligibleEstimates.map((estimate) => (
               <option key={estimate.id} value={estimate.id}>
-                v{estimate.version} · {estimate.status} · ${estimate.totalPrice.toFixed(2)}
+                v{estimate.version} · {estimate.status} · ${Number(estimate.totalPrice).toFixed(2)}
               </option>
             ))}
           </SelectField>
@@ -49,7 +49,7 @@ export function NewInvoiceForm({ projectId, estimates, proposals }: { projectId:
               <option value="">Use estimate price</option>
               {acceptedProposals.map((proposal) => (
                 <option key={proposal.id} value={proposal.id}>
-                  Accepted proposal · ${proposal.finalPrice?.toFixed(2)}
+                  Accepted proposal · ${Number(proposal.finalPrice).toFixed(2)}
                 </option>
               ))}
             </SelectField>

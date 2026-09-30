@@ -36,6 +36,7 @@ Provide staff-accessible previews and a customer-scoped public document portal f
 - `/portal/contracts/[contractId]`
 - `/portal/invoices/[invoiceId]`
 - `/customer-portal/access?token=...`
+- `/customer-portal/access/confirm`
 - `/customer-portal`
 - `/customer-portal/projects/[id]`
 - `/customer-portal/proposals/[proposalId]`
@@ -51,7 +52,12 @@ request carries the server-side organization/customer scope in a dedicated
 portal database session. Public resource checks require the requested project
 to belong to both that organization and customer. Staff may revoke an issued
 access value; revocation also invalidates every portal session redeemed from
-that value. See [ADR-010](../decisions/ADR-010-customer-magic-link-portal.md), [RBAC_MATRIX.md](../RBAC_MATRIX.md), and [S018 readiness plan](../architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md).
+that value. Opening the emailed URL does not redeem it: the GET stores the
+validated opaque value in a ten-minute HttpOnly, path-scoped pending cookie,
+redirects to a token-free confirmation URL, and requires an exact-origin POST
+before calling the single-use redemption endpoint. This prevents automated
+email scanners and link previews from consuming the invitation. See
+[ADR-010](../decisions/ADR-010-customer-magic-link-portal.md), [RBAC_MATRIX.md](../RBAC_MATRIX.md), and [S018 readiness plan](../architecture/S018_CUSTOMER_PORTAL_AUTHENTICATION_PLAN.md).
 
 ## Lifecycle and statuses
 
@@ -88,6 +94,7 @@ limited to signing a pending contract through the dedicated portal policy.
 - backend authentication and tenant-boundary behavior is covered by `app/tests/auth.middleware.test.ts`, `app/tests/jwt.local.test.ts`, and the live PostgreSQL assertions in `app/tests/rls.integration.ts`
 - portal access-token/session replay, customer/tenant scoping, and portal-only contract signing are covered by `app/tests/customer-portal.service.test.ts` and `app/tests/customer-portal.migration.test.ts`
 - public portal pages and PDF routes keep portal session tokens server-side; no client-selected organization is accepted
+- the web access-gate regression checks pin non-consuming GET behavior, exact-origin POST redemption, pending-cookie cleanup, and the absence of a raw-token form field
 
 ## Known limitations
 
@@ -96,8 +103,20 @@ limited to signing a pending contract through the dedicated portal policy.
 
 ## Deferred work
 
-- outbound email delivery and customer proposal accept/decline actions remain separate slices; the public identity and contract-signing boundary is implemented here
+- customer proposal accept/decline actions remain a separate slice; the public identity, server-side access-link delivery, scanner-safe confirmation gate, and contract-signing boundary are implemented here
 
 ## Last verified date
 
-2026-08-28 (ADR-010 customer magic-link portal implementation)
+2026-09-21 (scanner-safe server-side portal access delivery)
+
+## Access-link delivery
+
+The staff-only `POST /api/v1/customer-portal/access-tokens` endpoint creates a single-use, customer-scoped token and schedules a server-side transactional email through `EmailService.sendCustomerPortalAccess`. The raw token is never written to logs or server-side persistence; production delivery requires `RESEND_API_KEY`, `EMAIL_FROM`, and an HTTPS `APP_BASE_URL`. The HTTP response may still expose the raw token to the authenticated staff caller for controlled staging and UI flows, but browser code must not send the email or persist it in script-readable storage.
+
+The emailed URL first reaches a non-consuming GET. TradeOS validates the token
+shape, places it in a short-lived HttpOnly cookie restricted to the access
+path, and redirects to `/customer-portal/access/confirm` so the token is no
+longer visible in the address bar. The confirmation button submits an
+exact-origin POST; only that POST calls the backend redemption endpoint, clears
+the pending cookie, and establishes the short-lived portal session. Automated
+GETs therefore cannot spend the invitation.

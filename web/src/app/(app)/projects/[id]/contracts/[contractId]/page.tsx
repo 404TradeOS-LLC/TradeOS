@@ -21,8 +21,7 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Contract"
-        backHref={`/projects/${projectId}`}
-        backLabel="Back to project"
+        breadcrumbs={[{ label: project.name, href: `/projects/${projectId}` }, { label: "Contract" }]}
         action={<StatusBadge status={contract.status} />}
       />
 

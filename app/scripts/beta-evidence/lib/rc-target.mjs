@@ -18,16 +18,16 @@ export const PRODUCTION_HOSTNAMES = Object.freeze([
 // so the two checks cannot drift apart.
 export const PRODUCTION_SUPABASE_REF = "kssaceuetdjwfqnbzhly";
 
-// The frontend Vercel project that serves the contractor UI. Preview
-// deployments are always `<project>-<something>.vercel.app`; the bare
-// `tradeos-costbook-web.vercel.app` alias tracks Production and is therefore
-// NOT an approved RC host.
-const APPROVED_RC_HOST = /^tradeos-costbook-web-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/;
+// The frontend Vercel project serves Preview deployments with the
+// `tradeos-costbook-<hash>-<scope>.vercel.app` hostname, while some older
+// aliases retain the `-web` project slug. The bare project aliases track
+// Production and are therefore NOT approved RC hosts.
+const APPROVED_RC_HOST = /^(?:tradeos-costbook|tradeos-costbook-web)-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.vercel\.app$/;
 
 // `-git-main-` previews build from the default branch and share Production's
 // environment variables. They look like Previews but are not an isolated RC
 // target, so they are rejected for mutating evidence.
-const PRODUCTION_TRACKING_ALIAS = /^tradeos-costbook-web-git-main-[a-z0-9-]+\.vercel\.app$/;
+const PRODUCTION_TRACKING_ALIAS = /^(?:tradeos-costbook|tradeos-costbook-web)-git-main-[a-z0-9-]+\.vercel\.app$/;
 
 export const SUPPORTED_ENVIRONMENTS = Object.freeze(["preview", "staging"]);
 
@@ -96,7 +96,7 @@ export function assertApprovedRcUrl(rawUrl) {
   if (!APPROVED_RC_HOST.test(hostname)) {
     fail(
       "RC_URL_NOT_APPROVED",
-      `${hostname} is not an approved tradeos-costbook-web Vercel Preview host.`,
+      `${hostname} is not an approved TradeOS Vercel Preview host.`,
     );
   }
 

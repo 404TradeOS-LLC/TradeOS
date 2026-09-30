@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-27
+last_verified: 2026-09-22
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,7 +15,6 @@ related_code:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
   - .github/CODEOWNERS
   - docs/decisions/ADR-009-solo-maintainer-founder-merge-exception.md
-  - .coderabbit.yaml
   - scripts/pr-preflight.mjs
   - scripts/pr-body-check.mjs
   - scripts/sprint-state-check.mjs
@@ -27,6 +26,8 @@ related_code:
   - .github/workflows/dependabot-patch-automerge.yml
   - .github/workflows/sprint-governance.yml
   - .github/workflows/migration-safety.yml
+  - .github/workflows/s036-index-evidence.yml
+  - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
@@ -38,6 +39,28 @@ related_code:
 ---
 
 # TradeOS Engineering Command Center
+
+Successor backlog: the 2026-09-22 vertical audit at `main`
+`9a27682a575f6c8b13337a61e88cdd7b838dcfe2` confirms that the authenticated
+frontend/backend seam is substantial and historically exercised, but the
+current head is not beta-certified across every contractor/customer journey.
+The audit and limitations are recorded in
+`docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is the
+successor sprint promoted to `READY` in a separate governance PR. S051 added an
+executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
+validation. It does not certify rendered browser behavior or current-head
+browser evidence, and must not repair application behavior or absorb later
+vertical sprints.
+
+S027 continuation: the Costbook browser-evidence lane now covers all nine routes
+at all four required widths, visible keyboard focus, equipment mutations and
+validation errors, and calculated pricing preview. Runtime Beta authentication
+replaces the missing stored-session secret. Workflow run `#22` passed the live
+evidence contract on `main` at `c7003f3`; its credential-scanned artifact
+`#10042902412` was uploaded. S027 and S036 are complete; S036 implementation PR #476 merged on 2026-09-08. Production application of the index remains separately gated.
+
+S049 (stale branch/PR/worktree retirement) is `DONE` as of 2026-09-12: a governance-only readiness promotion (PR #494, merged `0b6f98ad`) reconciled live GitHub state (open PRs #482, #489, #491, #492, #493; PR #470 closed unmerged) and classified 23 remote branches `SAFE_TO_DELETE` and 23 `REQUIRES_REVIEW`. The agent session's credentials could not delete remote refs, so the founder executed the deletions directly; this was independently confirmed against live `origin` state (all 23 gone, everything else untouched) before closing the sprint. The same reconciliation flagged `feat/stripe-connect-payments` (no open PR) and open PR #491 (`feat/stripe-billing-subscriptions`, a separate branch) as two related Stripe billing items still needing a founder decision.
 
 ## Purpose
 
@@ -73,7 +96,7 @@ The repository now has a stronger autonomous-maintenance safety envelope:
 - **Sensitive ownership:** PR #175 merged as `38232b19b3ca02de0856ffbf6ba1f6a798b5ca62`, adding `.github/CODEOWNERS` coverage for governance, auth/tenancy/RLS, schema/migrations, deployment, Athena foundation/security, and billing/payment surfaces.
 - **Autonomous agent contract:** PR #177 merged as `25ce0817b8a87a068348496fca12bd32230bfaf9`, strengthening `AGENTS.md` while preserving repository governance as the controlling merge policy.
 - **Production health surface:** PR #178 merged as `834fb3433604045a46dfe377df47fa08cee499d8`, separating dependency-free `/health` liveness from database-aware `/ready` readiness and adding structured readiness-failure logging.
-- **CodeRabbit repository policy:** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run.
+- **CodeRabbit repository policy (reversed 2026-09-15):** PR #180 merged as `bdcc4bd1dcbf07abb38dd85a924786b6549040a3`, adding repository-level assertive review guidance with failed commit status when automated review cannot run. Its repository-level configuration (`.coderabbit.yaml`) was deleted on 2026-09-15 after its per-hour review-quota limits repeatedly left stale, uncleared `CHANGES_REQUESTED` reviews blocking otherwise-green, already-repaired PRs. Configuration removal does not by itself revoke the GitHub App's installation or repository access; until an organization administrator uninstalls it (see Known Limitations in the removal PR), it may continue to auto-review with its own default settings. The CI-required checks and manual/agent review in `AGENTS.md` and this document remain the authoritative merge gate regardless of whether the app is still installed.
 - **API development toolchain:** PR #169 merged as `919beaaec3b08d92d268b3a8ac24f11842eb7a82`, advancing the backend development stack through TypeScript 6 and Jest 30 with explicit compatibility migrations and full App/Web/docs/live migration rehearsal validation.
 - **GitHub Actions runtime:** PR #181 merged as `1d6120ad4598b60d3c14a91366cb73b2bf42bd48`, replacing stale #130/#131 with one governed update to `actions/checkout@v7` and `actions/setup-node@v7` while preserving the explicit TradeOS Node workload versions. Checkout call sites are maintained on v7.0.1 as of 2026-08-18; this patch maintenance does not alter the workload runtime matrix.
 - **Artifact upload runtime maintenance:** PR #308 updates the authenticated RC smoke and S027 browser-evidence artifact publication steps from `actions/upload-artifact@v6` to `@v7`. Existing artifact names and directory paths remain unchanged, v7 direct-upload mode is not enabled, and no workflow permission/secret/trigger, explicit Node workload version, auth/RLS, schema, or TradeOS product-runtime behavior changes.
@@ -87,7 +110,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 - S012 Job lifecycle normalization is `DONE`: readiness PR #285 merged as `5264ad84202d832a93ba0a73cb2b291bd0965d46`, implementation PR #286 merged as `403d84cb6187b59cf468802977a19fbc847ce314`, and separate completion evidence records the exact-head CI and PostgreSQL/RLS verification. The implementation centralizes the existing transition contract, preserves `on_site -> completed`, and keeps existing Job statuses, assignment/conflict and role boundaries, forced RLS, activity/required-event behavior, completion/readiness metadata, and request-scoped transactions. Dispatch attention remains derived. No Job schema/status expansion, generic status patch, Dispatcher redesign, automatic invoice creation, billing change, Project-to-Job redesign, unrelated concurrency repair, or later sprint work shipped.
 - S010 is `DONE`. The implementation normalizes `toDTO()` to return canonical `sent` for stored `pending_signature`, confined to `app/modules/contracts/service.ts`. No Contract schema migration, default change, or `sign()`/`void()` guard change was made; persisted status remains `pending_signature` — see `docs/architecture/S010_CONTRACT_LIFECYCLE_PLAN.md`.
 - S013 is complete: PR #30 merged as `2d80214a99b476e9a271c04fbe8a608eb80b3883`.
-- S027 remains `BLOCKED/PARTIAL`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 has merged the standardized server-side catalog pagination/search/filter/sort contract. The remaining S027 promotion gate is authenticated rendered Costbook browser evidence — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
+- S027 is `DONE`. PR #257 completed the bounded supplier-review concurrency repair and PostgreSQL-backed readiness evidence. PR #260 merged the standardized server-side catalog pagination/search/filter/sort contract. Workflow run `#22` passed all 36 authenticated route/viewport captures at 1440/1024/768/390px, including keyboard focus, equipment mutation/error states, pricing preview, deployment immutability, and credential scanning — see `docs/architecture/COSTBOOK_S027_READINESS.md` and `docs/SPRINT_BACKLOG.md`.
 - S018 remains `DONE` for staff-session hardening. ADR-010 now authorizes the separate `/customer-portal/*` customer magic-link surface: one-time hashed access tokens, short-lived hashed sessions, customer/tenant checks, and a contract-only customer signing policy. This is implemented in the current portal lane without changing the canonical staff role model or legal-signature posture.
 - S019 Portal proposal acceptance flow is `DONE` after implementation PR #296 merged on 2026-08-24 as `9291ccd58624326b1bb142d47d50f97f85b413e3`; exact-head Verify repository #1358 and the required docs/governance checks passed. The bounded implementation hardens the existing authenticated proposal review/view/accept/decline and audit/event boundary with organization-scoped conditional transitions, fail-closed competing mutations, and bounded portal action feedback. No customer identity, permission widening, RBAC/RLS redesign, schema, portal redesign, or later sprint work is authorized. See `docs/architecture/S019_PORTAL_PROPOSAL_ACCEPTANCE_PLAN.md`.
 - S021 is `DONE` after implementation PR #299 merged on 2026-08-24 as `514c94900263744ac8cf498c6b06da336e097512`; completion-evidence PR #300 records the separate governance-only reconciliation. The bounded implementation presents existing invoice amount, recorded-payment aggregation, derived balance/partial/overdue/voided semantics, billing authorization, authenticated portal reads, and forced PostgreSQL RLS evidence. New payment processing, public payment links, ledger/money semantics, schema, auth, or RLS/RBAC changes remain forbidden. S020 is now `DONE` after implementation PR #322 and separate completion evidence; its founder/legal-signature boundary remains resolved by ADR-007. See `docs/architecture/S021_PORTAL_INVOICE_PRESENTATION_PLAN.md`.
@@ -97,9 +120,9 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is the next `READY` successor for scope-to-estimate certification; S039/S044/S045 and their dependent production operations remain blocked.
 
-Prioritize existing authorized work before inventing new scope. S025, S026, S028, S030, S031, S032, S033, S034, S035, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. No numbered sprint is currently READY. S027 remains independently BLOCKED on authenticated rendered Costbook browser evidence, S036 remains blocked by S027, and S044/S045 remain blocked on production access.
+Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
 The earlier S027 implementation slice PR #260 is merged. The 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #249, and #250. The earlier 2026-08-16 queue (PR #217, #225, #226, #227, #229, #230, #231) is also fully resolved — #217, #225, #226, #227, #229, and #231 merged; #230 closed unmerged. PR #237, opened to record that earlier resolution, itself closed unmerged without landing its diff. The prior 2026-08-12 queue (PR #151, PR #128, PR #145/issue #144, issue #153) remains resolved as previously recorded. None of those older items is live overlap for the next lifecycle readiness assessment.
 
@@ -129,7 +152,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 
 1. inspect required CI and every unresolved review thread on the current head;
 2. treat deterministic, scoped automated-review findings as auto-fix candidates;
-3. for CodeRabbit findings with structured fix instructions, prefer `@coderabbitai autofix` on the current PR branch, then inspect the resulting diff and verification evidence;
+3. for automated-review findings with structured fix instructions, apply the proposed repair directly on the current PR branch, then inspect the resulting diff and verification evidence;
 4. repair objective docs drift, formatting, lint/type errors, missing behavioral regression coverage, and other low-risk deterministic findings without a separate product-decision pause;
 5. do **not** auto-apply findings that would change migrations/schema/data, authentication/authorization/RLS, billing/money semantics, major architecture, production trust boundaries, destructive operations, or other protected decisions;
 6. resolve a review thread only after the fix is present and verified on the current head;
@@ -137,7 +160,7 @@ Once a PR exists, use one continuous repair loop rather than waiting for serial 
 8. enable GitHub auto-merge when the PR is otherwise safe so the required ruleset remains the final gate instead of requiring another manual merge round trip;
 9. finish the oldest/highest-value viable PR before opening competing work unless explicit priority says otherwise.
 
-Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; `.coderabbit.yaml` now tells automated review to flag source-text substitutes for behavioral coverage.
+Regression tests should exercise the actual behavior/failure path whenever practical. Static source-text tests are appropriate only when the source shape itself is the intended convention; review (human or agent) should flag source-text substitutes for behavioral coverage.
 
 Production repair should use the health split first:
 
@@ -149,11 +172,13 @@ Production repair should use the health split first:
 
 CI speed comes from parallel execution and earlier evidence, never from skipping required coverage. `Verify repository` keeps the established required App, App integration, and Web check names while independent child jobs execute typecheck/lint, unit tests, Athena checks, build/audit, and database verification concurrently. Sprint-governance, migration-safety, branch-currency, merge-readiness, live-doc reconciliation, browser evidence, nightly full regression, and workflow-health reporting are supplemental automation unless the live ruleset is separately changed to require a specific check.
 
-The authenticated S027 browser workflow remains operator-triggered and requires its scoped Playwright storage-state secret. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-web-*.vercel.app` Preview host pattern, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
+The S036 disposable index-evidence workflow is a supplemental, pull-request-scoped PostgreSQL evidence lane. It uses a disposable PostgreSQL service and an isolated synthetic schema, applies the tracked S036 migration unmodified, captures redacted before/after JSON plans, records index size and controlled write observations, rehearses rollback, and uploads the artifact for review. It never uses production credentials or data and does not authorize production application; PR #476 records repository completion, while production application remains separately gated.
+
+The authenticated S027 browser workflow remains operator-triggered and uses the Beta smoke credentials to create fresh runtime authentication state outside the checkout; no serialized Playwright storage-state secret is required. S047 is complete through PR #397 and its completion evidence. The RC workflow no longer depends on baked owner/admin or technician cookie jars: it exercises the owner authentication lifecycle with the maintained Beta smoke credentials, creates fresh owner/admin state through the real login form using those credentials, validates the named organization, and fresh-authenticates the organization-matched technician with its isolated field password for the Field leg. Runtime state stays outside the checkout and is removed before artifact publication. The workflow binds mutating golden runs to the approved `tradeos-costbook-*.vercel.app` and `tradeos-costbook-web-*.vercel.app` Preview host patterns, excludes `-git-main-` previews and Production aliases, runs the S047 golden and resource-backed business-flow checks, publishes failure diagnostics, and fail-closes mutation or screenshot publication outside the documented sanitized non-production boundary. See [CI_ACCELERATION.md](CI_ACCELERATION.md) for the workflow inventory and evidence boundaries.
 
 RC smoke run #11 identified a staging deployment configuration failure before credential evaluation: the stable backend returned `SUPABASE_URL is not configured`. The guarded `Repair staging Supabase auth configuration` workflow owns that exact recovery by restoring the public TradeOS Staging URL only to Preview scope for the `staging` branch, redeploying the stable backend, and checking `/ready`. It does not copy Production configuration or change application auth policy.
 
-The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. The workflow now uses `env update --value ... --yes` and the current non-interactive redeploy syntax; its contract test locks both forms before another staging repair dispatch.
+The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. A later dispatch restored the branch-scoped staging Supabase URL but exposed a stale pinned deployment URL. The workflow uses `env update --value ... --yes` with pinned Vercel CLI 59.11.2. Its repair helper resolves structured deployment data for the captured staging branch SHA, verifies project/team/repository and Preview identity, redeploys by ID, and checks the replacement immutable URL for runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It retains deployment identity on failure instead of certifying a moving alias. Regression coverage rejects stale commits, foreign targets, redirects, and failed readiness. A fresh repair dispatch and authenticated evidence remain required; this repository change does not establish current-main release certification.
 
 The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with a negative probe, and validates every retained screenshot against its declared viewport width before publishing artifacts. It refuses to run against production hosts, the Production alias, or `-git-main-` previews, and refuses mutating runs unless the release-candidate data plane is proven non-production. Beta evidence is UNVERIFIED until a `full` run passes; see [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
 
@@ -166,7 +191,7 @@ The manual `Repair RC beta Vercel wiring` workflow is the guarded operational pa
 Expected required CI jobs include:
 
 - `Docs consistency` — validates PR-description structure first, then PR-preflight tests, autonomy-reconciliation regressions, and documentation ownership validation;
-- `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, and tracked-source cleanliness when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
+- `App lint, unit tests, and build` — Prisma schema validation, high-severity production dependency audit, TypeScript typecheck, backend unit tests, Athena contracts/smoke, build, the `Costbook provenance audit` child job (`npm run costbook:audit-provenance`, blocking only on structural corpus defects, never on missing-provenance warnings, added 2026-09-10), and tracked-source cleanliness when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
 - `App integration tests` — production migration-path rehearsal against disposable PostgreSQL plus live integration/RLS verification when the pull request changes `app/**` or `packages/knowledge-engine/**`; the required job still reports success without expensive setup for unrelated pull-request diffs;
 - `Web lint and build` — production dependency audit, frontend unit tests, lint, build, and tracked-source cleanliness when the pull request changes `web/**`; the required job still reports success without expensive setup for unrelated pull-request diffs.
 
@@ -198,6 +223,10 @@ The exact required-check and ruleset configuration remains live GitHub state and
 - S027 implementation must extend existing Costbook, supplier, Knowledge Runtime, AI Estimate Assist, and Estimate Engine seams; do not create mock production data or autonomous AI write paths.
 - PR #257 does not alter Costbook architecture or permissions. Its supplier proposal claim is transactional and review-first: only a successfully claimed pending row may mutate Material/audit state.
 - CODEOWNERS currently provides routing/visibility. ADR-009 records the founder-authorized solo-maintainer merge exception: live rules must keep required checks and review-thread resolution while removing the implicit extra-approval deadlock; code-owner approval should be raised only when another qualified maintainer joins.
+- `.coderabbit.yaml` was deleted 2026-09-15, removing its per-path automated review guidance for auth/tenant-isolation/RLS, Athena boundaries, behavioral coverage, and server/client boundary checks.
+- The CodeRabbit GitHub App's repository access was not revoked by that deletion, so default app review behavior may continue independently of repository configuration until access is explicitly reconciled.
+- **Sensitive-change review gap:** CODEOWNERS routes these paths but does not itself require an approving review. Until equivalent path-specific review is restored, a green PR can still lack explicit review of JWT/membership/forced-RLS tenant boundaries, migration and data-integrity effects, API/server-client compatibility, or the regression tests that demonstrate those contracts. For each affected PR, record the relevant contract and test evidence in its risk review and verify the final head before merge.
+- **Unsettled app behavior and access:** If the installed CodeRabbit app continues default reviews, quota-limited or stale `CHANGES_REQUESTED` reviews may again block a repaired PR, while an absent app review must not be counted as coverage. An organization administrator needs to verify its current repository access and granted permissions, then decide whether to retain, scope, or remove it; update this record and the review workflow after that decision.
 
 ## Session execution
 
@@ -205,7 +234,7 @@ The sole executable general session contract is `docs/agent-prompts/NEXT_SPRINT_
 
 ## Next engineer starts here
 
-S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, and S010 through PR #276. S011 is `DONE` through PR #283 and completion evidence #284. S012 is `DONE` through readiness #285, implementation #286, and completion evidence #288. S014 is `DONE` through founder-decision PR #301 and ADR-006. S015 implementation PR #310 and completion-evidence PR #312 are merged. S016 implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; its separate completion-evidence lane records the exact-head checks, review disposition, and residual production/browser evidence limitation. S017 implementation PR #317 and corrective PR #319 are merged; its separate completion evidence is recorded. S018 implementation PR #290 and completion evidence #292 are merged. S019 implementation PR #296 and separate completion evidence #297 are merged. S020 implementation PR #322 and completion evidence #323 are merged. S021 implementation PR #299 and completion-evidence PR #300 are merged. S024 is `DONE` through founder-decision PR #301 and ADR-008. S022 readiness PR #324, implementation PR #325, focused coverage PR #328, and completion evidence PR #329 are merged. S025 implementation PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44, with completion evidence recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md. S026, S028, S030, S040, S041, S042, and S047 are DONE with merged evidence. S040 implementation PR #346 merged as `6fb0596c6a865923627e621c0933033dad3c636b`; completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`. S041 implementation PR #351 merged with completion evidence in `docs/architecture/S041_COMPLETION_EVIDENCE.md`; S042 readiness #353 and implementation #354 are merged, with completion evidence in `docs/architecture/S042_COMPLETION_EVIDENCE.md`. S043 implementation PR #395 merged as `ca042c3a282b03d26f5f5fa389b7b49b9aa02e85`, with completion evidence in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 implementation PR #397 merged as `49f6e729b4b23b26b2b43ebd784107fc8bc19661`, with completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. No numbered sprint is currently eligible.
+S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, and S010 through PR #276. S011 is `DONE` through PR #283 and completion evidence #284. S012 is `DONE` through readiness #285, implementation #286, and completion evidence #288. S014 is `DONE` through founder-decision PR #301 and ADR-006. S015 implementation PR #310 and completion-evidence PR #312 are merged. S016 implementation PR #314 merged as `e1618db5926134d4cc6ec9b4c05fd754f4b2ca2b`; its separate completion-evidence lane records the exact-head checks, review disposition, and residual production/browser evidence limitation. S017 implementation PR #317 and corrective PR #319 are merged; its separate completion evidence is recorded. S018 implementation PR #290 and completion evidence #292 are merged. S019 implementation PR #296 and separate completion evidence #297 are merged. S020 implementation PR #322 and completion evidence #323 are merged. S021 implementation PR #299 and completion-evidence PR #300 are merged. S024 is `DONE` through founder-decision PR #301 and ADR-008. S022 readiness PR #324, implementation PR #325, focused coverage PR #328, and completion evidence PR #329 are merged. S025 implementation PR #331 merged on 2026-08-25 as cffc92697196fea22b144424fd9fec4d8865aa44, with completion evidence recorded in docs/architecture/S025_COMPLETION_EVIDENCE.md. S026, S027, S028, S030, S040, S041, S042, and S047 are DONE with merged evidence. S040 implementation PR #346 merged as `6fb0596c6a865923627e621c0933033dad3c636b`; completion evidence is recorded in `docs/architecture/S040_COMPLETION_EVIDENCE.md`. S041 implementation PR #351 merged with completion evidence in `docs/architecture/S041_COMPLETION_EVIDENCE.md`; S042 readiness #353 and implementation #354 are merged, with completion evidence in `docs/architecture/S042_COMPLETION_EVIDENCE.md`. S043 implementation PR #395 merged as `ca042c3a282b03d26f5f5fa389b7b49b9aa02e85`, with completion evidence in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 implementation PR #397 merged as `49f6e729b4b23b26b2b43ebd784107fc8bc19661`, with completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
 ## Source-of-truth links
 
@@ -223,13 +252,14 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [CI_ACCELERATION.md](CI_ACCELERATION.md)
+- [TradeOS Product Design Contract](../.stitch/DESIGN.md) — canonical written UI/design contract paired with the canonical Figma master; capability/current-state docs still govern shipped behavior
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 remains blocked on authenticated rendered Costbook browser evidence.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is in review; no successor sprint is eligible until merge and a separate readiness assessment.
 
 ## S028 completion
 
@@ -237,9 +267,18 @@ S028 implementation PR #338 merged on 2026-08-25 as dcc72796c1bfd945de1f83030621
 
 ## S030 readiness
 
-S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; the Dispatcher Workspace completion evidence records the shipped assignment, scheduling, conflict, lifecycle, responsive, organization/RLS, and declined-assignment reactivation behavior. Authenticated browser evidence remains environment-dependent. S027 remains independently blocked on authenticated Costbook browser evidence.
+S030 implementation PR #341 merged as `d8e07606737de561b7cbed4e0be72ce875fae73c`; the Dispatcher Workspace completion evidence records the shipped assignment, scheduling, conflict, lifecycle, responsive, organization/RLS, and declined-assignment reactivation behavior. Authenticated browser evidence remains environment-dependent. S027 is independently complete after run `#22`.
 
 
 ## Automated maintenance lanes
 
 TradeOS includes two governed maintenance workflows: CodeQL remediation runs on a schedule or manual dispatch and opens isolated PRs for bounded alerts; the frontend code-quality lane runs ESLint autofix on a schedule or manual dispatch and opens a PR only after tests, lint, build, and diff validation pass. Neither lane writes directly to `main`, bypasses branch protection, or makes product, schema, authentication, authorization, billing, or production-trust decisions.
+
+### GitHub Actions runtime maintenance
+
+The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
+
+
+## S053 implementation update — 2026-09-22
+
+PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.

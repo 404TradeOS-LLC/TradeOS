@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { WorkflowNotification, formatDateTime } from "@/lib/document-workflow";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +22,10 @@ export function NotificationCenter({ title = "Notifications", items }: Notificat
       </CardHeader>
       <CardContent className="space-y-3">
         {items.length === 0 ? (
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-            No document notifications yet. Proposal, contract, and invoice alerts will appear here.
-          </div>
+          <EmptyState
+            title="No document notifications yet"
+            description="Proposal, contract, and invoice alerts will appear here."
+          />
         ) : (
           items.map((item) => (
             <div key={item.id} className={cn("rounded-xl border p-4", NOTIFICATION_TONES[item.status])}>

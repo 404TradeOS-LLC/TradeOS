@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -119,6 +119,7 @@ export function CustomerDirectory({ customers }: { customers: Customer[] }) {
 
       {filteredCustomers.length === 0 ? (
         <EmptyState
+          icon={customers.length === 0 ? Users : undefined}
           title={customers.length === 0 ? "No customers yet." : "No customers match your filters."}
           description={
             customers.length === 0

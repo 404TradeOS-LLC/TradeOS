@@ -53,7 +53,7 @@ export function ReceivablesCard({ summary, errorMessage = null }: ReceivablesCar
           <EmptyState title="Nothing outstanding right now." description="No open invoices need follow-up across the organization." />
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatBlock label="Total outstanding" value={formatCurrency(summary.loadedOutstanding)} />
               <StatBlock label="Overdue" value={formatCurrency(summary.loadedOverdueOutstanding)} tone={summary.overdueInvoiceTotal > 0 ? "attention" : "neutral"} />
               <StatBlock label="Open invoices" value={String(summary.openInvoiceTotal)} />

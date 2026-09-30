@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectField } from "@/components/ui/select-field";
@@ -47,6 +48,9 @@ interface DispatchFilterBarProps {
  * only escapable via clearing every other filter.
  */
 export function DispatchFilterBar({ view, status, scheduled, assigned, q }: DispatchFilterBarProps) {
+  const hasActiveFilters =
+    view !== "attention" || Boolean(status) || (scheduled && scheduled !== "all") || (assigned && assigned !== "all") || Boolean(q);
+
   return (
     <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
       <SelectField label="View" name="view" defaultValue={view}>
@@ -89,9 +93,19 @@ export function DispatchFilterBar({ view, status, scheduled, assigned, q }: Disp
         <Input id="dispatch-search" name="q" type="search" defaultValue={q ?? ""} placeholder="Job #, title, address…" />
       </div>
 
-      <button type="submit" className={cn(buttonVariants(), "sm:col-span-2 lg:col-span-5")}>
-        Apply filters
-      </button>
+      <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-5">
+        <button type="submit" className={buttonVariants()}>
+          Apply filters
+        </button>
+        {hasActiveFilters ? (
+          <Link
+            href="/dispatch"
+            className={cn(buttonVariants({ variant: "ghost" }), "text-muted-foreground")}
+          >
+            Clear all
+          </Link>
+        ) : null}
+      </div>
     </form>
   );
 }
