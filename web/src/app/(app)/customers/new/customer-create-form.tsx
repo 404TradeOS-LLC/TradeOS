@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ export function CustomerCreateForm() {
 
   function updateValue(field: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
-    setHideError(true);
+    setHiddenErrorState(state);
   }
 
   return (
@@ -35,7 +35,7 @@ export function CustomerCreateForm() {
         <CardTitle>Customer details</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="flex flex-col gap-4" onSubmit={() => setHideError(true)}>
+        <form action={formAction} className="flex flex-col gap-4" onSubmit={() => setHiddenErrorState(state)}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" name="name" value={values.name} onChange={(event) => updateValue("name", event.target.value)} required placeholder="Smith Family" />
@@ -81,7 +81,7 @@ export function CustomerCreateForm() {
             <p role="status" className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">No likely matches found in this organization. You can create this customer.</p>
           ) : null}
 
-          {state?.error && !hideError && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+          {state?.error && hiddenErrorState !== state && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
 
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button type="submit" name="intent" value="check" variant="outline" disabled={isPending}>
