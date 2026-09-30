@@ -34,6 +34,7 @@ import {
 import { getSessionToken } from "@/lib/session";
 import { CustomerPortalLink } from "./customer-portal-link";
 import { EditCustomerForm } from "./edit-form";
+import { ServiceAddresses } from "./service-addresses";
 
 const CUSTOMER_PROJECT_DETAIL_LIMIT = 8;
 const CUSTOMER_SCHEDULE_LIMIT = 8;
@@ -243,6 +244,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const money = moneySummary(projects);
   const activity = buildCustomerActivity(projects);
   const canIssuePortalLink = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
+  const canWrite = ["owner", "admin", "dispatcher", "estimator"].includes(settings.currentRole);
   const staleCutoff = Date.parse(getStaleProposalCutoffIso(new Date()));
 
   const overdueInvoices = projects.flatMap((project) =>
@@ -308,9 +310,11 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                 Email
               </a>
             ) : null}
-            <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants()}>
-              New project
-            </Link>
+            {canWrite ? (
+              <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants()}>
+                New project
+              </Link>
+            ) : null}
           </div>
         }
       />
@@ -413,9 +417,11 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
                     title="No active customer work"
                     description="Create the next project when this customer is ready for more work."
                     action={
-                      <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants()}>
-                        New project
-                      </Link>
+                      canWrite ? (
+                        <Link href={`/projects/new?customerId=${customer.id}`} className={buttonVariants()}>
+                          New project
+                        </Link>
+                      ) : undefined
                     }
                   />
                 </div>
@@ -584,6 +590,15 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </CardContent>
           </Card>
 
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>Service addresses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ServiceAddresses customerId={customer.id} addresses={customer.serviceAddresses ?? []} canWrite={canWrite} />
+            </CardContent>
+          </Card>
+
           {canIssuePortalLink ? (
             <Card className="border-border/70">
               <CardHeader>
@@ -596,22 +611,26 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             </Card>
           ) : null}
 
-          <details className="rounded-xl border border-border/70 bg-card p-4">
-            <summary className="cursor-pointer text-sm font-medium text-foreground">Edit customer</summary>
-            <div className="mt-4">
-              <EditCustomerForm customer={customer} />
-            </div>
-          </details>
+          {canWrite ? (
+            <details className="rounded-xl border border-border/70 bg-card p-4">
+              <summary className="cursor-pointer text-sm font-medium text-foreground">Edit customer</summary>
+              <div className="mt-4">
+                <EditCustomerForm customer={customer} />
+              </div>
+            </details>
+          ) : null}
 
-          <details className="rounded-xl border border-border/70 bg-card p-4">
-            <summary className="cursor-pointer text-sm font-medium text-foreground">Customer administration</summary>
-            <form action={deleteCustomerAction} className="mt-4">
-              <input type="hidden" name="customerId" value={customer.id} />
-              <Button type="submit" variant="destructive">
-                Remove customer
-              </Button>
-            </form>
-          </details>
+          {canWrite ? (
+            <details className="rounded-xl border border-border/70 bg-card p-4">
+              <summary className="cursor-pointer text-sm font-medium text-foreground">Customer administration</summary>
+              <form action={deleteCustomerAction} className="mt-4">
+                <input type="hidden" name="customerId" value={customer.id} />
+                <Button type="submit" variant="destructive">
+                  Remove customer
+                </Button>
+              </form>
+            </details>
+          ) : null}
 
           <div className="rounded-xl border border-info/25 bg-info/5 p-4">
             <div className="flex gap-3">

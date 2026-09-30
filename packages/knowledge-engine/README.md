@@ -155,11 +155,6 @@ Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend l
 resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
 make the sample runtime-critical or TradeOS-authored.
 
-Dependency maintenance on 2026-09-29 updates that same canonical Loki sample backend lockfile's
-transitive `ip-address` resolution from 10.4.0 to 10.7.2. This remains isolated vendored sample
-maintenance under `agent-skills/skills/`; it does not change TradeOS production App/Web runtime
-dependencies or make the sample TradeOS-authored.
-
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.

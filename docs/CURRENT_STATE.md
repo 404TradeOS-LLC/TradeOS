@@ -138,6 +138,19 @@ The authenticated `/settings` surface now follows the canonical contractor-contr
 
 No backend Settings route, permission, tenant, RLS, Brand Studio, supplier, billing, or Team & Time contract changes are included in this frontend reorganization.
 
+## Customer ↔ Project connection
+
+The current Customer workflow now exposes the existing CRM/Project relationship directly without adding a parallel lead or address model.
+
+- Customer list/detail reads use the canonical `crm.read` permission and Customer/address writes use `crm.write`; technician/read-only roles do not receive write controls.
+- Customer creation performs an advisory same-organization duplicate check using exact normalized name/email comparison over bounded authenticated Customer searches. Each term requests at most 250 rows. A failed search or a full 250-row result is treated as incomplete, and creation fails closed until the lookup can complete.
+- Possible matches are advisory: staff can open an existing Customer or explicitly create a separate record. TradeOS does not silently merge Customer records or use phone-only similarity as a definitive match.
+- Customer detail loads active CRM ServiceAddress rows and lets authorized staff add, edit, and soft-remove them through the existing organization/customer-scoped service boundary.
+- Project create/update coverage verifies that the selected `customerId`, `siteAddress`, and plain-language `simpleScope` remain organization-scoped and persist through the existing Project controller.
+- No schema, migration, RLS, Customer merge, Lead database, CRM-stage, or Project-parent model was added.
+
+Automated unit/controller coverage owns the bounded search, fail-closed duplicate workflow, service-address parent checks, permission denial, and Customer-linked Project persistence. Authenticated browser mutation/reload evidence and disposable PostgreSQL/RLS certification are still outstanding; this section does not claim those acceptance gates complete.
+
 ## Project-backed Lead and Site Visit workspace
 
 TradeOS now presents two canonical pre-estimate Lead states directly from existing Project/SiteVisit truth instead of introducing a parallel Lead database.
@@ -662,8 +675,3 @@ This is an interim production composition, not a claim that Schedule has an appr
 The mobile technician field workspace now presents today's assigned jobs through a current-job-first mobile layout with schedule/arrival context, service address directions, job briefing, bounded lifecycle actions, equipment disclosure, and a dedicated report-back notes area. This remains a frontend refinement over the existing authenticated technician and job APIs; no new backend endpoint or data model is introduced.
 
 Current-job selection is lifecycle-aware: On site, Traveling, Paused, and Dispatched work ranks ahead of Scheduled/Unscheduled and terminal Completed/Cancelled records while preserving the server's existing schedule ordering inside a lifecycle tier. The selected-job workspace uses a section landmark inside the app shell rather than nesting a second `main`, and the dominant mobile lifecycle action is viewport-fixed above the Control Dock so it remains reachable while the technician moves through briefing and report-back content.
-
-
-## S064 branch note
-
-The current S064 draft adds assembly discovery and pricing preview to Estimate Items. Installed assemblies use the existing explicit line-item addition path. Starter catalog entries that still need Costbook configuration are shown separately and direct users to Costbook. PR #560 touches the same estimate builder, so integration remains pending before this work is ready to land.

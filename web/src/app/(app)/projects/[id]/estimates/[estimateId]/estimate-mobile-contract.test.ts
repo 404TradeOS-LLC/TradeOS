@@ -70,21 +70,3 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.match(builder, /Create proposal/);
   assert.doesNotMatch(builder, />Send proposal</);
 });
-
-
-test("S064 assembly picker distinguishes installed assemblies from setup-required starters before explicit add", async () => {
-  const builder = await readSource("./builder.tsx");
-
-  assert.match(builder, /starter-assembly-catalog/);
-  assert.match(builder, /\/costbook\/assemblies\/starter-catalog/);
-  assert.match(builder, /starterAssembly/);
-  assert.match(builder, /Starter assemblies/);
-  assert.match(builder, /Setup required/);
-  assert.match(builder, /Map in Costbook/);
-  assert.match(builder, /\/costbook\/assemblies\/\$\{selected\?\.id\}\/unit-cost/);
-  assert.match(builder, /Checking current cost/);
-  assert.match(builder, /componentCount/);
-  assert.match(builder, /target\.kind === "starterAssembly"/);
-  assert.match(builder, /needs Costbook setup before it can be added/);
-  assert.match(builder, /sourceKey: `builder:\$\{crypto\.randomUUID\(\)\}`/);
-});
