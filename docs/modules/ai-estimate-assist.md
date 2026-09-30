@@ -54,10 +54,12 @@ Route-level permission checks were added in `app/backend/controllers/aiEstimateA
 - structured estimator draft lines with resolved targets include server-signed review tokens binding the estimate, organization, draft line, target kind, target ID, engine version, and issue time
 - structured estimator apply validates accepted targets against org-scoped active cost items or assemblies before writing, requires accepted lines to present matching unexpired review tokens, skips fabricated or foreign targets with the same safe reason, serializes concurrent apply attempts per estimate, and uses server-built `sourceKey` values plus existing-line reconciliation for retry protection
 - structured estimator apply accepts the draft generation ID and, for owner/admin reviewers, records append-only review provenance (reviewer, outcome, bounded apply counts) inside the existing transaction; signed review tokens still bind accepted lines to server-generated draft targets without storing the full contractor prompt
+- structured estimator draft returns advisory parsed scope (job type, quantities, materials, existing conditions, prep, site constraints, assumptions, customer-facing wording, exclusions, and missing information) alongside matched targets and cost review. Its compact clarification is answered one question at a time using suggested choices or free text; answers trigger draft regeneration and never silently add an estimate line. A scope describing work on a 2.5-car garage floor without an area adds a visible 600 SF assumption. Unknown or ambiguous item counts remain placeholders without an apply token until clarified. Customer wording preserves the contractor's stated scope; no unstated tasks or exclusions are generated. Owner/admin apply includes generation provenance; dispatcher apply omits the owner/admin-only generation link while retaining billing.write and review-token enforcement. The frontend displays selected item cost and combined cost; final sell price, tax, overhead and rounding come from the Estimate Engine after explicit application.
 
 ## Frontend surfaces
 
 - `/projects/[id]/estimates/[estimateId]/assist`
+- `/projects/[id]/estimates/[estimateId]` — embedded Athena copilot within the existing builder; explicit acceptance refreshes estimate Items without leaving the workspace
 
 ## Tests
 

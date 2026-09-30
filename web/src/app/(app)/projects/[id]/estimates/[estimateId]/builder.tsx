@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
-import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
+import { AthenaEstimatingCopilot } from "@/components/estimate-assist/athena-estimating-copilot";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -42,7 +42,7 @@ interface PickerResult {
   kind: "costItem" | "assembly";
 }
 
-export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
+export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope, currentRole }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null; currentRole: string | null }) {
   const queryClient = useQueryClient();
   const estimateKey = ["estimate", estimateId];
   const [mobileStage, setMobileStage] = useState<MobileEstimateStage>("scope");
@@ -167,6 +167,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         estimate={estimate}
         runningTotals={runningTotals}
         estimateId={estimateId}
+        currentRole={currentRole}
         isDraft={isDraft}
         mobileStage={mobileStage}
         onStageChange={setMobileStage}
@@ -223,11 +224,12 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         </div>
 
         <div className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <ContextualAthenaPanel
+          <AthenaEstimatingCopilot
             estimateId={estimateId}
-            projectId={projectId}
+            currentRole={currentRole}
             scopeOfWork={scopeDraft}
-            headingId="desktop-contextual-athena-heading"
+            estimate={estimate}
+            onUpdated={invalidate}
           />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
@@ -264,6 +266,7 @@ function MobileEstimateFlow({
   estimate,
   runningTotals,
   estimateId,
+  currentRole,
   isDraft,
   mobileStage,
   onStageChange,
@@ -285,6 +288,7 @@ function MobileEstimateFlow({
   estimate: EstimateDetail;
   runningTotals: { totalPrice: number; marginPct: number; lineItemCount: number };
   estimateId: string;
+  currentRole: string | null;
   isDraft: boolean;
   mobileStage: MobileEstimateStage;
   onStageChange: (stage: MobileEstimateStage) => void;
@@ -338,7 +342,7 @@ function MobileEstimateFlow({
         ))}
       </div>
 
-      {mobileStage === "scope" ? (
+      <div className={cn(mobileStage === "scope" ? "block" : "hidden")} aria-hidden={mobileStage !== "scope"}>
         <div className="space-y-4">
           <div className="space-y-3 border-b border-border/70 pb-4">
             <div className="flex items-center justify-between gap-3">
@@ -365,18 +369,19 @@ function MobileEstimateFlow({
             </div>
             {scopeSaveError ? <p className="text-sm text-destructive" role="alert">{scopeSaveError}</p> : null}
           </div>
-          <ContextualAthenaPanel
+          <AthenaEstimatingCopilot
             estimateId={estimateId}
-            projectId={projectId}
+            currentRole={currentRole}
             scopeOfWork={simpleScope}
-            headingId="mobile-contextual-athena-heading"
+            estimate={estimate}
+            onUpdated={onUpdated}
           />
           <div className="text-sm text-muted-foreground">
             Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
           </div>
           <MobileStageAction label={scopeSavePending ? "Saving scope…" : "Continue to items"} onClick={advance} disabled={scopeSavePending} />
         </div>
-      ) : null}
+      </div>
 
       {mobileStage === "items" ? (
         <div className="space-y-4">
