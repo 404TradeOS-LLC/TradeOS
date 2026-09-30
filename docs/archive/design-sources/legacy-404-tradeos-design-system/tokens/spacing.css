@@ -1,0 +1,27 @@
+/* ── 404 TradeOS — Spacing, radii, shadow tokens ── */
+
+:root {
+  /* Spacing scale */
+  --space-xs:  4px;   /* icon gaps, tight internal padding */
+  --space-sm:  8px;   /* component internal gaps */
+  --space-md:  16px;  /* default padding, grid gaps */
+  --space-lg:  24px;  /* section internal padding */
+  --space-xl:  40px;  /* page section padding */
+  --space-2xl: 64px;  /* major section breaks */
+
+  /* Corner radii — sharp/industrial, small values.
+     Terminal frames and module cards use the sharpest (2px). */
+  --radius-input:  3px;
+  --radius-btn:    6px;
+  --radius-card:   10px;
+  --radius-panel:  14px;
+  --radius-frame:  2px;   /* TerminalFrame / OSModuleCard — CNC-sharp */
+  --radius-pill:   999px;
+
+  /* Border widths */
+  --border-width: 1px;
+
+  /* Shadows — used sparingly; industrial UI favors borders over shadow */
+  --shadow-panel: 0 12px 40px rgba(0,0,0,0.45);
+  --shadow-glow:  0 0 6px currentColor;  /* status LEDs */
+}

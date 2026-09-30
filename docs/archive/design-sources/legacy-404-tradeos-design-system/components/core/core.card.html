@@ -1,0 +1,52 @@
+<!-- @dsCard group="Components" viewport="700x320" name="Core — buttons, labels, status, cards" subtitle="Button, SecLabel, StatusLED, StatusPill, Card, BlinkingCursor" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--color-forge-black); padding: 24px; }
+  .grid { display: flex; flex-direction: column; gap: 20px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Button, SecLabel, StatusLED, StatusPill, Card, BlinkingCursor } = window.Ds404TradeOSDesignSystem_f45b1c;
+  function Demo() {
+    return (
+      <div className="grid">
+        <div className="row">
+          <Button variant="primary">Get a quote</Button>
+          <Button variant="outline">See our work</Button>
+          <Button variant="ghost">See pricing</Button>
+        </div>
+        <div className="row">
+          <StatusLED status="online" label="ONLINE" />
+          <StatusLED status="processing" label="BUILDING" />
+          <StatusLED status="error" label="404" />
+          <StatusLED status="idle" label="IDLE" />
+        </div>
+        <div className="row">
+          <StatusPill tone="online">Status: Online</StatusPill>
+          <StatusPill tone="copper" dot={false}>Week 1–2</StatusPill>
+          <StatusPill tone="neutral" dot={false}>v2.4</StatusPill>
+          <span className="mono-label">SCANNING<BlinkingCursor /></span>
+        </div>
+        <Card style={{ maxWidth: 360 }}>
+          <SecLabel>Installed module</SecLabel>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 18, color: "var(--color-bone)" }}>Website design</div>
+          <p style={{ fontSize: 14, color: "var(--color-forge-muted)", margin: "6px 0 0" }}>Fast, mobile-first sites built to convert.</p>
+        </Card>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Semantic — status" subtitle="Green (online only) & red (errors)" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; background: var(--color-forge-black); padding: 20px; font-family: var(--font-mono); }
+  .row { display: flex; gap: 14px; }
+  .sw { flex: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--color-forge-border); }
+  .chip { height: 66px; }
+  .meta { padding: 8px 10px; background: var(--color-forge-dark); }
+  .name { color: var(--color-bone); font-size: 12px; font-family: var(--font-sans); font-weight: 500; }
+  .hex { color: var(--color-copper); font-size: 11px; margin-top: 2px; }
+  .role { color: var(--color-forge-rust); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+</style></head>
+<body>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:#00C896"></div><div class="meta"><div class="role">Success / online ONLY</div><div class="name">System green</div><div class="hex">#00C896</div></div></div>
+    <div class="sw"><div class="chip" style="background:#E24B4A"></div><div class="meta"><div class="role">Errors / warnings</div><div class="name">Error red</div><div class="hex">#E24B4A</div></div></div>
+    <div class="sw"><div class="chip" style="background:#F7F2EC"></div><div class="meta"><div class="role">Light bg / print</div><div class="name">Bone white</div><div class="hex">#F7F2EC</div></div></div>
+  </div>
+</body></html>

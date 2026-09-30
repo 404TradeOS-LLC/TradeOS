@@ -1,0 +1,11 @@
+/* ── 404 TradeOS — Webfont declarations ──
+   Space Grotesk (variable, weights 300–700) — display/headlines only.
+   Body sans is the system stack; mono is Courier New (system) — no files. */
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("../assets/fonts/SpaceGrotesk-VariableFont_wght.ttf") format("truetype-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}

@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>TradeOS icon mark — dark variant (preferred avatar)</title>
+  <desc>Dark variant app icon with copper border — preferred social avatar and profile image</desc>
+
+  <rect width="120" height="120" rx="24" fill="#0D0A07"></rect>
+  <rect x="10" y="10" width="100" height="100" rx="16" fill="none" stroke="#B87333" stroke-width="1.5"></rect>
+
+  
+  <text x="60" y="34" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="11" font-weight="400" fill="#E8C99A" text-anchor="middle" letter-spacing="2">404</text>
+
+  
+  <line x1="22" y1="42" x2="98" y2="42" stroke="#3d2a10" stroke-width="0.75"></line>
+
+  
+  <text x="60" y="60" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="10" font-weight="400" fill="#B87333" text-anchor="middle" letter-spacing="2">TRADE</text>
+
+  
+  <line x1="22" y1="68" x2="98" y2="68" stroke="#3d2a10" stroke-width="0.75"></line>
+
+  
+  <text x="60" y="96" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, sans-serif" font-size="28" font-weight="500" fill="#E8C99A" text-anchor="middle" letter-spacing="-0.5">OS</text>
+</svg>

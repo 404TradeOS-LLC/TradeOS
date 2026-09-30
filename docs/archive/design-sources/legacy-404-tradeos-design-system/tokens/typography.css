@@ -1,0 +1,58 @@
+/* ── 404 TradeOS — Typography tokens ──
+   Three families, strict roles:
+   · Space Grotesk → display / headlines / wordmark / brand (weights 400–500)
+   · System sans   → body + PRODUCT UI (premium native stack: SF / Segoe)
+   · Mono          → labels, code, data, measurement readouts, terminal chrome
+   Never use 600/700 for headings; never use mono for prose.
+
+   Refinement note: the mono stack now prefers premium engineering monospaces
+   (SF Mono / Menlo / Consolas) and falls back to Courier — the terminal ROLE
+   is preserved, the dated Courier look is not forced. */
+
+:root {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-sans:    system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:    "SFMono-Regular", ui-monospace, "Menlo", "Consolas", "Roboto Mono", "Courier New", monospace;
+
+  /* Brand / marketing type scale (px) — expressive, large */
+  --text-display-size: 46px;   /* wordmark / hero numerals */
+  --text-h1-size:      32px;
+  --text-h2-size:      22px;
+  --text-body-size:    16px;
+  --text-small-size:   14px;   /* min body size */
+  --text-label-size:   11px;   /* mono UI labels */
+  --text-badge-size:   10px;   /* 404 badge */
+
+  /* Product UI type scale — dense, precise, for the platform (light surface).
+     Enterprise data screens need a tighter, more numerous scale than marketing. */
+  --ui-display: 30px;   /* page titles */
+  --ui-title:   20px;   /* section / card titles */
+  --ui-subtitle:16px;   /* subsection */
+  --ui-body:    14px;   /* default product text + table cells */
+  --ui-sm:      13px;   /* secondary */
+  --ui-xs:      12px;   /* metadata, captions */
+  --ui-micro:   11px;   /* mono labels, table headers */
+  --ui-lh-tight: 1.3; /* @kind other */
+  --ui-lh:       1.5; /* @kind other */
+
+  /* Weights — headings cap at 500; product UI uses up to 600 for emphasis */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;      /* buttons / product UI emphasis, never brand headings */
+
+  /* Tracking */
+  --track-display: -0.033em;   /* tight, geometric */
+  --track-heading: -0.02em;
+  --track-tight:   -0.01em;    /* product titles */
+  --track-body:    0; /* @kind other */
+  --track-mono:    0.14em;      /* mono labels: min 1.5px letter-spacing */
+  --track-mono-tight: 0.06em;   /* mono data / readouts */
+  --track-badge:   0.12em;
+
+  --leading-tight: 1.05;
+  --leading-heading: 1.2;
+  --leading-body: 1.75;
+
+  /* Tabular numerals for all data/metrics — non-negotiable in the platform */
+  --numeric-tabular: tabular-nums; /* @kind other */
+}

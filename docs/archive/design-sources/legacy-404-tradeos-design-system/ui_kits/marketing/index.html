@@ -1,0 +1,56 @@
+<!-- @dsCard group="Marketing" viewport="1280x760" name="404 TradeOS — marketing site" subtitle="Interactive: home, services, pricing, work, contact" -->
+<!-- @startingPoint section="Marketing" subtitle="404 TradeOS marketing site — interactive" viewport="1280x800" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 TradeOS — Web design for the trades</title>
+<link rel="icon" href="../../assets/logos/tradeos-favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  a { cursor: pointer; }
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr !important; }
+    .hero-panel { display: none; }
+    .svc-grid, .proc-grid, .price-grid, .work-grid { grid-template-columns: 1fr !important; }
+    .nav-links a:not(.btn-primary) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="decor.jsx"></script>
+<script type="text/babel" src="parts.jsx"></script>
+<script type="text/babel" src="Home.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel">
+  const { useState } = React;
+  function App() {
+    const [page, setPage] = useState("home");
+    const go = (p) => { setPage(p); window.scrollTo(0, 0); };
+    const screens = {
+      home: <Home go={go} />,
+      services: <Services go={go} />,
+      pricing: <Pricing go={go} />,
+      work: <Work go={go} />,
+      about: <About go={go} />,
+      contact: <Contact go={go} />,
+    };
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <CustomCursor />
+        <Nav page={page} go={go} />
+        <main style={{ flex: 1 }}>{screens[page] || screens.home}</main>
+        <Footer />
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

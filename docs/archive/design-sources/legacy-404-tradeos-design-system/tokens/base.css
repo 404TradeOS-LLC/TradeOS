@@ -1,0 +1,287 @@
+/* ── 404 TradeOS — Base reset + reusable component classes ──
+   Ported from the production app/globals.css so consumers get the real
+   brand primitives as plain className strings (no build step). */
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--color-forge-black);
+  color: var(--color-forge-muted);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+h1, h2, h3, .wordmark {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--track-heading);
+}
+
+::selection {
+  background: var(--color-copper);
+  color: var(--color-forge-black);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-copper);
+  outline-offset: 2px;
+}
+
+/* ── Logo badge — 404 · TRADE · OS ── */
+.badge-404 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-forge-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  background: var(--color-forge-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.badge-404 .b-404   { color: var(--color-copper-light); }
+.badge-404 .b-sep   { display: inline-block; width: 1px; height: 12px; background: var(--color-forge-border); }
+.badge-404 .b-trade { color: var(--color-copper); }
+.badge-404 .b-os    { color: var(--color-copper-light); }
+
+/* ── Wordmark ── */
+.wordmark {
+  color: var(--color-bone);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+.wordmark .os { color: var(--color-copper); }
+
+/* ── Section eyebrow label ── */
+.sec-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-copper);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ── Mono technical label ── */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-forge-rust);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── Buttons ── */
+.btn-primary,
+.btn-outline,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 10px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.08s ease-out, filter 0.08s ease-out;
+}
+.btn-primary {
+  background: var(--color-copper);
+  color: var(--color-forge-black);
+  font-weight: 600;
+  border: none;
+}
+.btn-primary:hover { background: var(--color-copper-light); }
+
+.btn-outline {
+  border: 1.5px solid var(--color-copper);
+  color: var(--color-copper);
+  font-weight: 500;
+  background: transparent;
+}
+.btn-outline:hover { background: rgba(184,115,51,0.1); }
+
+.btn-ghost {
+  border: 1px solid var(--color-forge-border);
+  color: var(--color-forge-muted);
+  font-weight: 500;
+  background: transparent;
+}
+.btn-ghost:hover {
+  border-color: rgba(184,115,51,0.5);
+  color: var(--color-copper-light);
+}
+.btn-primary:active, .btn-outline:active, .btn-ghost:active {
+  transform: scale(0.96);
+  filter: brightness(1.15);
+}
+
+/* ── Cards / panels ── */
+.card {
+  background: var(--color-forge-dark);
+  border: 1px solid var(--color-forge-border);
+  border-radius: 12px;
+  padding: 24px;
+}
+.card-panel {
+  background: var(--color-forge-dark);
+  border: 1px solid var(--color-forge-border);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+/* ── Layout helpers ── */
+.section-pad { padding: 80px 24px; }
+@media (min-width: 768px)  { .section-pad { padding: 80px 40px; } }
+@media (min-width: 1024px) { .section-pad { padding: 80px 64px; } }
+
+.rule { border: none; border-top: 1px solid var(--color-forge-border); }
+.text-balance { text-wrap: balance; }
+
+/* ── Status pill (online) ── */
+.status-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-system-green);
+  background: rgba(0,200,150,0.1);
+  border: 1px solid rgba(0,200,150,0.3);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+/* ── Animation atoms ── */
+@keyframes led-pulse   { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes cursor-blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
+@keyframes fade-up      { from { transform: translateY(20px); } to { transform: none; } }
+
+.led-pulse   { animation: led-pulse 2s ease-in-out infinite; }
+.blink-cursor { animation: cursor-blink 1s steps(1) infinite; }
+
+/* Content is visible by default; the entrance only runs when motion is allowed,
+   so print / reduced-motion / static capture always show the end state. */
+.fade-up { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up { animation: fade-up 0.5s ease-out both; }
+  .fade-up-delay-1 { animation-delay: 0.1s; }
+  .fade-up-delay-2 { animation-delay: 0.2s; }
+  .fade-up-delay-3 { animation-delay: 0.3s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led-pulse, .blink-cursor { animation: none; }
+}
+
+/* ── Grid / scanline industrial texture overlays ── */
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(184,115,51,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(184,115,51,0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+}
+.scanline-overlay {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(184,115,51,0.035) 0px,
+    rgba(184,115,51,0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* ── Mouse-tracking CNC crosshair + scan ring + coordinate readout ──
+   Parent sets --mx / --my (px, relative to the hero box) on mousemove. */
+.hero-crosshair-h, .hero-crosshair-v {
+  position: absolute;
+  background: color-mix(in oklab, var(--color-copper) 22%, transparent);
+  will-change: transform;
+  transition: transform 0.25s ease-out;
+}
+.hero-crosshair-h { left: 0; right: 0; height: 1px; transform: translate3d(0, var(--my, 25vh), 0); }
+.hero-crosshair-v { top: 0; bottom: 0; width: 1px; transform: translate3d(var(--mx, 50vw), 0, 0); }
+
+.hero-scan-ring {
+  position: absolute; top: 0; left: 0; width: 90px; height: 90px;
+  border: 1px solid color-mix(in oklab, var(--color-copper) 55%, transparent);
+  border-radius: 50%;
+  transform: translate3d(var(--mx, 50vw), var(--my, 25vh), 0) translate(-50%, -50%);
+  will-change: transform;
+  transition: transform 0.25s ease-out;
+}
+.hero-scan-ring::before {
+  content: ""; position: absolute; inset: -1px; border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--color-copper) 25%, transparent);
+  animation: scan-ring-pulse 2s ease-out infinite;
+}
+@keyframes scan-ring-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.hero-coord-readout {
+  position: absolute; top: 0; left: 0;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--color-copper-light); opacity: 0.75; white-space: nowrap;
+  transform: translate3d(calc(var(--mx, 50vw) + 14px), calc(var(--my, 25vh) + 14px), 0);
+  will-change: transform; transition: transform 0.25s ease-out;
+}
+@media (max-width: 768px) {
+  .hero-crosshair-h, .hero-crosshair-v, .hero-scan-ring, .hero-coord-readout { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-crosshair-h, .hero-crosshair-v, .hero-scan-ring, .hero-coord-readout { transition: none; }
+  .hero-scan-ring::before { animation: none; }
+}
+
+/* ── Custom cursor — CNC reticle ──
+   Add .custom-cursor-active to <html> to hide the OS cursor; JS positions
+   .custom-cursor-dot / .custom-cursor-ring via transform. */
+.custom-cursor-active, .custom-cursor-active * { cursor: none !important; }
+.custom-cursor-dot, .custom-cursor-ring {
+  position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999; will-change: transform;
+}
+.custom-cursor-dot { width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--color-copper-light); }
+.custom-cursor-ring { width: 28px; height: 28px; margin: -14px; transition: width .18s ease, height .18s ease, margin .18s ease, opacity .18s ease; }
+.custom-cursor-tick { position: absolute; background: color-mix(in oklab, var(--color-copper) 70%, transparent); transition: background .18s ease; }
+.custom-cursor-tick-t, .custom-cursor-tick-b { left: 50%; width: 1px; height: 6px; margin-left: -0.5px; }
+.custom-cursor-tick-t { top: 0; } .custom-cursor-tick-b { bottom: 0; }
+.custom-cursor-tick-l, .custom-cursor-tick-r { top: 50%; width: 6px; height: 1px; margin-top: -0.5px; }
+.custom-cursor-tick-l { left: 0; } .custom-cursor-tick-r { right: 0; }
+.custom-cursor-ring.cursor-ring-active { width: 44px; height: 44px; margin: -22px; }
+.custom-cursor-ring.cursor-ring-active .custom-cursor-tick { background: var(--color-copper); }
+.custom-cursor-ring.cursor-ring-pressed { width: 22px; height: 22px; margin: -11px; }
+@media (pointer: coarse) { .custom-cursor-dot, .custom-cursor-ring { display: none; } }
+
+/* ── CRT hover distortion (TerminalFrame / OSModuleCard) ── */
+.crt-hover { position: relative; }
+.crt-hover::before, .crt-hover::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  mix-blend-mode: screen; transition: opacity 0.15s ease; border-radius: inherit;
+}
+.crt-hover::before { background: linear-gradient(90deg, color-mix(in oklab, #ff3b3b 50%, transparent), transparent 2%); transform: translateX(-1px); }
+.crt-hover::after  { background: linear-gradient(90deg, transparent 98%, color-mix(in oklab, #00e5ff 45%, transparent)); transform: translateX(1px); }
+.crt-hover:hover::before, .crt-hover:hover::after { opacity: 0.5; animation: crt-flicker 2.4s steps(8) infinite; }
+@keyframes crt-flicker { 0%,92%,100% { opacity: 0.5; } 93% { opacity: 0.15; } 95% { opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .crt-hover::before, .crt-hover::after { display: none; } }
+
+/* ── Page boot-transition wipe (terminal redraw) ── */
+@keyframes boot-wipe { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+.boot-wipe {
+  position: fixed; inset: 0; z-index: 9998; pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom,
+      color-mix(in oklab, var(--color-copper) 14%, transparent) 0px,
+      color-mix(in oklab, var(--color-copper) 14%, transparent) 1px,
+      transparent 1px, transparent 3px),
+    var(--color-forge-black);
+  animation: boot-wipe 0.28s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) { .boot-wipe { display: none; } }

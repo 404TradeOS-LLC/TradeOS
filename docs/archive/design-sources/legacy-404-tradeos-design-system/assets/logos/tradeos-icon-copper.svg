@@ -1,0 +1,21 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>TradeOS icon mark — copper variant</title>
+  <desc>Copper background app icon for use on dark backgrounds and app stores</desc>
+
+  <rect width="120" height="120" rx="24" fill="#B87333"></rect>
+
+  
+  <text x="60" y="36" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="12" font-weight="400" fill="#0D0A07" text-anchor="middle" letter-spacing="2">404</text>
+
+  
+  <line x1="20" y1="44" x2="100" y2="44" stroke="#0D0A07" stroke-width="0.5" opacity="0.4"></line>
+
+  
+  <text x="60" y="64" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="10" font-weight="400" fill="#0D0A07" text-anchor="middle" letter-spacing="2">TRADE</text>
+
+  
+  <line x1="20" y1="72" x2="100" y2="72" stroke="#0D0A07" stroke-width="0.5" opacity="0.4"></line>
+
+  
+  <text x="60" y="100" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, sans-serif" font-size="30" font-weight="500" fill="#0D0A07" text-anchor="middle" letter-spacing="-0.5">OS</text>
+</svg>

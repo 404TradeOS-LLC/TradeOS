@@ -1,0 +1,144 @@
+/* ── 404 TradeOS — Color tokens ──
+   Copper is the sole accent. Green is reserved for success/online states.
+   All text-on-background pairs are WCAG AA-verified (see readme.md).
+   Never introduce a new color. */
+
+:root {
+  /* Base palette */
+  --color-copper:        #B87333; /* primary accent, CTAs, active states */
+  --color-copper-light:  #E8C99A; /* headlines / highlights on dark */
+  --color-copper-dark:   #8A5620; /* hover / pressed on copper */
+  --color-forge-black:   #0D0A07; /* primary background */
+  --color-forge-dark:    #1E1610; /* secondary background / cards */
+  --color-forge-border:  #3d2a10; /* borders / dividers */
+  --color-forge-rust:    #998066; /* muted text / mono labels (AA) */
+  --color-forge-muted:   #C8C0B0; /* body text on dark (AAA) */
+  --color-bone:          #F7F2EC; /* primary text on dark (AAA) / light bg */
+  --color-system-green:  #00C896; /* success / online ONLY */
+  --color-error-red:     #E24B4A; /* errors / warnings */
+
+  /* Semantic aliases — reference these in components */
+  --surface-base:     var(--color-forge-black);
+  --surface-raised:   var(--color-forge-dark);
+  --surface-card:     var(--color-forge-dark);
+  --surface-light:    var(--color-bone);
+
+  --border-default:   var(--color-forge-border);
+  --border-hover:     color-mix(in oklab, var(--color-copper) 50%, transparent);
+
+  --text-display:     var(--color-bone);
+  --text-heading:     var(--color-bone);
+  --text-body:        var(--color-forge-muted);
+  --text-muted:       var(--color-forge-rust);
+  --text-accent:      var(--color-copper);
+  --text-accent-hi:   var(--color-copper-light);
+  --text-on-copper:   var(--color-forge-black);
+
+  --accent:           var(--color-copper);
+  --accent-hover:     var(--color-copper-light);
+  --accent-press:     var(--color-copper-dark);
+
+  --status-online:    var(--color-system-green);
+  --status-error:     var(--color-error-red);
+  --status-processing:var(--color-copper);
+  --status-idle:      var(--color-forge-rust);
+
+  /* ══════════════════════════════════════════════════════════════════
+     ENTERPRISE LAYER — Construction Intelligence Platform
+     Copper stays the signature. Added: a precise copper ramp, a cool
+     graphite "ink" neutral scale for the light PRODUCT surface
+     (the "Blueprint" environment), and semantic + status families that
+     work in both Forge (dark/brand) and Blueprint (light/product) modes.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* Copper ramp — one hue, engineered steps (from tint to forge) */
+  --copper-50:  #FBF3E9;
+  --copper-100: #F2DEC2;
+  --copper-200: #E8C99A;   /* = copper-light */
+  --copper-300: #D9A868;
+  --copper-400: #C98A45;
+  --copper-500: #B87333;   /* = copper (brand primary) */
+  --copper-600: #9E6029;
+  --copper-700: #8A5620;   /* = copper-dark */
+  --copper-800: #6B4218;
+  --copper-900: #4A2D10;
+
+  /* Ink / graphite — cool neutral scale for the light product UI.
+     Blueprint-cool, not warm; reads as engineered, not rugged. */
+  --ink-950: #0B0E14;   /* carbon — premium dark-mode alt to forge-black */
+  --ink-900: #12151C;
+  --ink-800: #1B1F28;
+  --ink-700: #262B36;
+  --ink-600: #3A4150;   /* strong body on light */
+  --ink-500: #566072;
+  --ink-400: #7B8698;   /* muted on light (AA) */
+  --ink-300: #A8B1C0;
+  --ink-200: #D3D9E2;   /* borders on light */
+  --ink-150: #E2E7EE;
+  --ink-100: #EDF0F5;   /* hairlines / row hover */
+  --ink-50:  #F5F7FA;   /* app canvas */
+  --paper:   #FFFFFF;   /* cards / sheets */
+
+  /* Blueprint accent line (structural grid / measurement motifs) */
+  --blueprint-line:      color-mix(in oklab, var(--ink-500) 16%, transparent);
+  --blueprint-line-copper: color-mix(in oklab, var(--copper-500) 14%, transparent);
+
+  /* Extended status (both environments) */
+  --color-info-blue:    #2F6FED;   /* informational / links in product UI */
+  --color-warn-amber:   #D9891F;   /* warnings (distinct from copper) */
+  --success-600:        #0E9F6E;   /* success text on light (AA) */
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   BLUEPRINT (light) environment — the product / app / docs surface.
+   Apply to a subtree: <div class="theme-blueprint"> … </div>
+   Copper remains the accent; neutrals go cool graphite on paper.
+   ────────────────────────────────────────────────────────────────── */
+.theme-blueprint {
+  --surface-base:   var(--ink-50);
+  --surface-raised: var(--paper);
+  --surface-card:   var(--paper);
+  --surface-sunken: var(--ink-100);
+  --surface-light:  var(--paper);
+
+  --border-default: var(--ink-200);
+  --border-strong:  var(--ink-300);
+  --border-hover:   color-mix(in oklab, var(--copper-500) 55%, var(--ink-200));
+
+  --text-display:   var(--ink-900);
+  --text-heading:   var(--ink-900);
+  --text-body:      var(--ink-600);
+  --text-muted:     var(--ink-400);
+  --text-accent:    var(--copper-600);
+  --text-accent-hi: var(--copper-700);
+  --text-on-copper: #FFFFFF;
+
+  --accent:         var(--copper-500);
+  --accent-hover:   var(--copper-600);
+  --accent-press:   var(--copper-700);
+
+  --status-online:  var(--success-600);
+  --status-error:   var(--color-error-red);
+  --status-processing: var(--copper-600);
+  --status-idle:    var(--ink-400);
+
+  color: var(--text-body);
+  background: var(--surface-base);
+}
+
+/* CARBON (cool dark) — a premium dark-mode alt to the warm Forge black,
+   for product dark themes and dense dashboards. */
+.theme-carbon {
+  --surface-base:   var(--ink-950);
+  --surface-raised: var(--ink-900);
+  --surface-card:   var(--ink-900);
+  --surface-sunken: #070A0F;
+  --border-default: var(--ink-700);
+  --border-strong:  var(--ink-600);
+  --text-display:   #F4F6FA;
+  --text-heading:   #F4F6FA;
+  --text-body:      var(--ink-300);
+  --text-muted:     var(--ink-500);
+  color: var(--text-body);
+  background: var(--surface-base);
+}

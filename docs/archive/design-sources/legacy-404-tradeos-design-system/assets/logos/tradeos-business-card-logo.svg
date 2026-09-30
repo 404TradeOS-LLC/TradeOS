@@ -1,0 +1,18 @@
+<svg width="200" height="76" viewBox="0 0 200 76" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>TradeOS business card logo</title>
+  <desc>Business card and print-ready logo with 404 badge, wordmark, and tagline on light background</desc>
+
+  
+  <rect x="0" y="0" width="130" height="24" rx="3" fill="#0D0A07"></rect>
+  <text x="7" y="16.5" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="10" font-weight="400" fill="#E8C99A" letter-spacing="1.5">404</text>
+  <rect x="36" y="4" width="0.75" height="16" fill="#3d2a10"></rect>
+  <text x="42" y="16.5" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="10" font-weight="400" fill="#B87333" letter-spacing="1.5">TRADE</text>
+  <rect x="106" y="4" width="0.75" height="16" fill="#3d2a10"></rect>
+  <text x="112" y="16.5" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="10" font-weight="400" fill="#E8C99A" letter-spacing="1.5">OS</text>
+
+  
+  <text x="0" y="56" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, sans-serif" font-size="28" font-weight="500" fill="#0D0A07" letter-spacing="-0.75">Trade<tspan fill="#B87333">OS</tspan></text>
+
+  
+  <text x="1" y="72" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="8.5" font-weight="400" fill="#B87333" letter-spacing="2">WEB FOR THE TRADES</text>
+</svg>

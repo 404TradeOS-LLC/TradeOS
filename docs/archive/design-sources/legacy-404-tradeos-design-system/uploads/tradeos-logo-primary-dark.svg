@@ -1,0 +1,20 @@
+<svg width="280" height="90" viewBox="0 0 280 90" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>TradeOS primary logo — dark background</title>
+  <desc>TradeOS logo with 404 TRADE OS badge above TradeOS wordmark, for use on dark/black backgrounds</desc>
+
+  
+  <rect x="0" y="0" width="118" height="26" rx="4" fill="#1E1610" stroke="#3d2a10" stroke-width="0.75"></rect>
+  
+  <text x="8" y="18" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="11" font-weight="400" fill="#E8C99A" letter-spacing="1.5">404</text>
+  
+  <rect x="40" y="4" width="1" height="18" fill="#3d2a10"></rect>
+  
+  <text x="46" y="18" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="11" font-weight="400" fill="#B87333" letter-spacing="1.5">TRADE</text>
+  
+  <rect x="100" y="4" width="1" height="18" fill="#3d2a10"></rect>
+  
+  <text x="106" y="18" font-family="&#39;Courier New&#39;, Courier, monospace" font-size="11" font-weight="400" fill="#E8C99A" letter-spacing="1.5">OS</text>
+
+  
+  <text x="0" y="76" font-family="system-ui, -apple-system, &#39;Segoe UI&#39;, sans-serif" font-size="46" font-weight="500" fill="#F7F2EC" letter-spacing="-1.5">Trade<tspan fill="#B87333">OS</tspan></text>
+</svg>

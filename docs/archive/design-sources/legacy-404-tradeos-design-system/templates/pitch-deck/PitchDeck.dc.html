@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Pitch Deck" description="10-slide 404 TradeOS investor/sales pitch deck — forge-black + copper, Space Grotesk" -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  html, body { margin: 0; background: #000; }
+  .deck-stage { position: fixed; inset: 0; background: #000; overflow: hidden; }
+  .deck-canvas { position: absolute; top: 50%; left: 50%; width: 1280px; height: 720px; transform-origin: center; }
+  .slide { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--color-forge-black); overflow: hidden; }
+  .slide[data-active] { display: flex; }
+  @keyframes led-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes scan-ring-pulse { 0%{transform:scale(1);opacity:.8} 100%{transform:scale(1.7);opacity:0} }
+  @media print {
+    .deck-stage { position: static; }
+    .deck-canvas { position: static; transform: none !important; }
+    .slide { display: flex !important; page-break-after: always; }
+    .deck-nav { display: none !important; }
+  }
+</style>
+</helmet>
+
+<div class="deck-stage">
+  <div class="deck-canvas" id="deckCanvas">
+
+    <!-- 01 · TITLE -->
+    <section class="slide" data-slide="0" data-active data-screen-label="01" style="justify-content: space-between; padding: 72px 80px;">
+      <div style="position:absolute; inset:0; pointer-events:none; background-image: linear-gradient(rgba(184,115,51,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(184,115,51,0.07) 1px, transparent 1px); background-size: 48px 48px; -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 40%, transparent 100%); mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 40%, transparent 100%);"></div>
+      <div style="display:flex; align-items:center; gap:10px; position:relative;">
+        <span style="display:inline-flex; align-items:center; gap:8px; border:1px solid var(--color-forge-border); border-radius:4px; padding:3px 10px; background:var(--color-forge-dark); font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;">
+          <span style="color:var(--color-copper-light)">404</span><span style="width:1px;height:13px;background:var(--color-forge-border)"></span>
+          <span style="color:var(--color-copper)">TRADE</span><span style="width:1px;height:13px;background:var(--color-forge-border)"></span>
+          <span style="color:var(--color-copper-light)">OS</span>
+        </span>
+      </div>
+      <div style="position:relative;">
+        <div style="font-family:var(--font-mono); font-size:13px; color:var(--color-copper); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:20px;">Investor Brief · Series Seed · 2026</div>
+        <h1 style="font-family:var(--font-display); font-weight:500; font-size:82px; line-height:1.0; letter-spacing:-0.033em; color:var(--color-bone); margin:0;">Stop being a 404.<br><span style="color:var(--color-copper)">Start getting found.</span></h1>
+        <p style="font-family:var(--font-sans); font-size:20px; color:var(--color-forge-muted); line-height:1.6; margin:26px 0 0; max-width:720px;">The operating system for trade businesses online — websites, SEO, and lead generation that turn skilled trades into found, booked, and paid.</p>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; position:relative; font-family:var(--font-mono); font-size:12px; color:var(--color-forge-rust); letter-spacing:0.06em;">
+        <span>404TRADEOS.COM · TERRE HAUTE, IN</span>
+        <span style="display:inline-flex; align-items:center; gap:8px; color:var(--color-system-green);"><span style="width:7px;height:7px;border-radius:50%;background:var(--color-system-green);box-shadow:0 0 6px var(--color-system-green);animation:led-pulse 2s ease-in-out infinite;"></span>SYSTEM ONLINE</span>
+      </div>
+    </section>
+
+    <!-- 02 · PROBLEM -->
+    <section class="slide" data-slide="1" data-screen-label="02" style="padding: 64px 80px;">
+      <div style="font-family:var(--font-mono); font-size:13px; color:var(--color-copper); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:10px;">01 · The problem</div>
+      <h2 style="font-family:var(--font-display); font-weight:500; font-size:46px; line-height:1.05; letter-spacing:-0.02em; color:var(--color-bone); margin:0 0 40px; max-width:900px;">Great tradespeople are invisible online.</h2>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:20px; flex:1;">
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="font-family:var(--font-display); font-size:52px; font-weight:500; color:var(--color-copper); letter-spacing:-0.03em;">68%</div>
+          <p style="font-family:var(--font-sans); font-size:16px; color:var(--color-forge-muted); line-height:1.55; margin:16px 0 0;">of trade businesses have no website — or one that hasn't been touched in years.</p>
+        </div>
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="font-family:var(--font-display); font-size:52px; font-weight:500; color:var(--color-copper); letter-spacing:-0.03em;">#1</div>
+          <p style="font-family:var(--font-sans); font-size:16px; color:var(--color-forge-muted); line-height:1.55; margin:16px 0 0;">source of new work is still word of mouth — unpredictable and impossible to scale.</p>
+        </div>
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:13px; color:var(--color-error-red); letter-spacing:0.06em;"><span style="width:7px;height:7px;border-radius:50%;background:var(--color-error-red)"></span>ERROR 404</div>
+          <p style="font-family:var(--font-sans); font-size:16px; color:var(--color-forge-muted); line-height:1.55; margin:16px 0 0;">When a homeowner searches, a competitor shows up first. The job is lost before the phone rings.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 · SOLUTION -->
+    <section class="slide" data-slide="2" data-screen-label="03" style="padding: 64px 80px;">
+      <div style="font-family:var(--font-mono); font-size:13px; color:var(--color-copper); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:10px;">02 · The solution</div>
+      <h2 style="font-family:var(--font-display); font-weight:500; font-size:46px; line-height:1.05; letter-spacing:-0.02em; color:var(--color-bone); margin:0 0 16px; max-width:900px;">One system. Found, booked, paid.</h2>
+      <p style="font-family:var(--font-sans); font-size:19px; color:var(--color-forge-muted); line-height:1.6; margin:0 0 40px; max-width:760px;">TradeOS installs a complete online presence and runs it — so trades focus on the work, not the marketing.</p>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:20px; flex:1;">
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px;">
+          <div style="width:44px;height:44px;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--color-forge-black);background:linear-gradient(135deg,var(--color-copper),var(--color-copper-dark));font-family:var(--font-mono);font-weight:700;font-size:14px;margin-bottom:18px;">01</div>
+          <h3 style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--color-bone);margin:0 0 8px;">Get found</h3>
+          <p style="font-family:var(--font-sans);font-size:15px;color:var(--color-forge-muted);line-height:1.6;margin:0;">A fast, mobile-first site plus local SEO that ranks on Google Maps for your trade.</p>
+        </div>
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px;">
+          <div style="width:44px;height:44px;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--color-forge-black);background:linear-gradient(135deg,var(--color-copper),var(--color-copper-dark));font-family:var(--font-mono);font-weight:700;font-size:14px;margin-bottom:18px;">02</div>
+          <h3 style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--color-bone);margin:0 0 8px;">Get booked</h3>
+          <p style="font-family:var(--font-sans);font-size:15px;color:var(--color-forge-muted);line-height:1.6;margin:0;">Lead capture, click-to-call, and booking widgets wired straight to the CostBook app.</p>
+        </div>
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; padding:26px;">
+          <div style="width:44px;height:44px;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--color-forge-black);background:linear-gradient(135deg,var(--color-copper),var(--color-copper-dark));font-family:var(--font-mono);font-weight:700;font-size:14px;margin-bottom:18px;">03</div>
+          <h3 style="font-family:var(--font-display);font-weight:500;font-size:22px;color:var(--color-bone);margin:0 0 8px;">Get paid</h3>
+          <p style="font-family:var(--font-sans);font-size:15px;color:var(--color-forge-muted);line-height:1.6;margin:0;">Estimates, proposals, and invoicing that convert quotes into revenue faster.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 · PRODUCT ARCHITECTURE -->
+    <section class="slide" data-slide="3" data-screen-label="04" style="padding: 64px 80px;">
+      <div style="font-family:var(--font-mono); font-size:13px; color:var(--color-copper); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:10px;">03 · Product architecture</div>
+      <h2 style="font-family:var(--font-display); font-weight:500; font-size:46px; line-height:1.05; letter-spacing:-0.02em; color:var(--color-bone); margin:0 0 36px;">Modules on one operating system.</h2>
+      <div style="flex:1; display:flex; flex-direction:column; gap:16px;">
+        <div style="border:1px solid var(--color-forge-border); background:var(--color-forge-dark); border-radius:2px; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 18px; border-bottom:1px solid var(--color-forge-border); background:var(--color-forge-black);">
+            <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-forge-rust); letter-spacing:0.14em;">TRADEOS // PLATFORM LAYER</span>
+            <span style="display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:12px; color:var(--color-system-green);"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-system-green);box-shadow:0 0 6px var(--color-system-green);animation:led-pulse 2s ease-in-out infinite;"></span>ONLINE</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:18px;">
+            <div style="border:1px solid var(--color-forge-border);border-radius:2px;padding:16px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-forge-rust);">MOD-01</div><div style="font-family:var(--font-display);font-size:17px;color:var(--color-bone);margin-top:4px;">Website</div></div>
+            <div style="border:1px solid var(--color-forge-border);border-radius:2px;padding:16px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-forge-rust);">MOD-02</div><div style="font-family:var(--font-display);font-size:17px;color:var(--color-bone);margin-top:4px;">Local SEO</div></div>
+            <div style="border:1px solid var(--color-forge-border);border-radius:2px;padding:16px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-forge-rust);">MOD-03</div><div style="font-family:var(--font-display);font-size:17px;color:var(--color-bone);margin-top:4px;">Lead capture</div></div>
+            <div style="border:1px solid var(--color-forge-border);border-radius:2px;padding:16px;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-forge-rust);">MOD-04</div><div style="font-family:var(--font-display);font-size:17px;color:var(--color-bone);margin-top:4px;">Google Ads</div></div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; color:var(--color-copper); font-family:var(--font-mono); font-size:20px;">↓</div>
+        <div style="border:1px solid rgba(184,115,51,0.5); background:var(--color-forge-dark); border-radius:2px; padding:20px 22px; display:flex; align-items:center; justify-content:space-between;">
+          <div><div style="font-family:var(--font-mono); font-size:12px; color:var(--color-copper); letter-spacing:0.14em;">COSTBOOK // OPERATIONS LAYER</div><div style="font-family:var(--font-sans); font-size:15px; color:var(--color-forge-muted); margin-top:6px;">Estimates → proposals → contracts → invoices, synced to every lead the platform captures.</div></div>
+          <span style="font-family:var(--font-mono); font-size:12px; color:var(--color-forge-rust);">v2.4</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 · ROADMAP -->
+    <section class="slide" data-slide="4" data-screen-label="05" style="padding: 64px 80px;">
+      <div style="font-family:var(--font-mono); font-size:13px; color:var(--color-copper); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:10px;">04 · Roadmap</div>
+      <h2 style="font-family:var(--font-display); font-weight:500; font-size:46px; line-height:1.05; letter-spacing:-0.02em; color:var(--color-bone); margin:0 0 44px;">Where we're building next.</h2>
+      <div style="flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:0; position:relative;">
+        <div style="position:absolute; top:15px; left:6%; right:6%; height:1px; background:var(--color-forge-border);"></div>
+        <div style="position:relative; padding-right:16px;"><div style="width:14px;height:14px;border-radius:50%;background:var(--color-copper);box-shadow:0 0 8px var(--color-copper);margin-left:8px;margin-bottom:22px;"></div><div style="font-family:var(--font-mono);font-size:12px;color:var(--color-copper);letter-spacing:0.1em;">NOW · 2026</div><div style="font-family:var(--font
+</x-dc>
+</body>
+</html>

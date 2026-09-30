@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeOS Brand Style Guide v1.0</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --copper: #B87333; --copper-light: #E8C99A; --black: #0D0A07;
+    --dark: #1E1610; --border: #3d2a10; --text: #C8C0B0;
+    --white: #F7F2EC; --green: #00C896; --red: #E24B4A;
+    --mono: 'Courier New', Courier, monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { background: #fff !important; }
+  }
+  body { font-family: var(--sans); background: #F7F2EC; color: #1E1610; line-height: 1.6; }
+
+  .cover { background: #0D0A07; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 4rem; }
+  .cover-tag { font-family: var(--mono); font-size: 11px; color: var(--copper); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 2rem; }
+  .cover-title { font-size: 56px; font-weight: 500; color: #F7F2EC; letter-spacing: -2px; line-height: 1.05; margin-bottom: 0.5rem; }
+  .cover-title span { color: var(--copper); }
+  .cover-sub { font-size: 16px; color: var(--text); margin-top: 1.5rem; max-width: 480px; line-height: 1.7; }
+  .cover-meta { margin-top: 3rem; display: flex; gap: 2rem; }
+  .cover-meta-item { }
+  .cover-meta-label { font-family: var(--mono); font-size: 10px; color: #3d2a10; letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .cover-meta-val { font-size: 13px; color: var(--text); }
+
+  .section { padding: 4rem; max-width: 1000px; margin: 0 auto; }
+  .section-num { font-family: var(--mono); font-size: 11px; color: var(--copper); letter-spacing: 0.16em; text-transform: uppercase; display: block; margin-bottom: 0.5rem; }
+  .section-title { font-size: 32px; font-weight: 500; color: #0D0A07; letter-spacing: -0.75px; margin-bottom: 2rem; line-height: 1.2; }
+  .section-body { font-size: 15px; color: #444; line-height: 1.8; margin-bottom: 1.5rem; }
+  .divider { border: none; border-top: 1px solid #e0d0b8; margin: 3rem 0; }
+  .page-break { border: none; border-top: 3px solid var(--copper); margin: 0; }
+
+  .logo-row { display: flex; gap: 2rem; flex-wrap: wrap; margin: 2rem 0; }
+  .logo-box { padding: 2.5rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: 1; min-width: 280px; }
+  .logo-box.light { background: #F7F2EC; border: 1px solid #e0d0b8; }
+  .logo-box.dark { background: #0D0A07; }
+  .logo-box.copper { background: #B87333; }
+  .logo-label { font-family: var(--mono); font-size: 10px; color: #888; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 8px; text-align: center; }
+  .logo-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 280px; }
+
+  .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 2rem 0; }
+  .color-swatch { border-radius: 10px; overflow: hidden; border: 1px solid #e0d0b8; }
+  .swatch-block { height: 80px; }
+  .swatch-info { padding: 10px 12px; background: #fff; }
+  .swatch-role { font-size: 10px; font-family: var(--mono); color: #888; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; display: block; }
+  .swatch-name { font-size: 13px; font-weight: 500; color: #0D0A07; display: block; margin-bottom: 2px; }
+  .swatch-hex { font-size: 12px; font-family: var(--mono); color: var(--copper); }
+
+  .type-table { width: 100%; margin: 2rem 0; border-collapse: collapse; }
+  .type-table th { font-family: var(--mono); font-size: 10px; color: var(--copper); letter-spacing: 0.1em; text-transform: uppercase; text-align: left; padding: 8px 12px; border-bottom: 2px solid #e0d0b8; }
+  .type-table td { padding: 14px 12px; border-bottom: 1px solid #e8ddd0; vertical-align: middle; }
+  .type-sample { font-size: 24px; font-weight: 500; color: #0D0A07; letter-spacing: -0.5px; }
+  .type-sample.body { font-size: 16px; font-weight: 400; letter-spacing: 0; }
+  .type-sample.mono { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--copper); letter-spacing: 0.08em; }
+  .type-spec { font-family: var(--mono); font-size: 11px; color: #888; }
+
+  .icon-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 2rem 0; }
+  .icon-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .icon-label { font-family: var(--mono); font-size: 10px; color: #888; letter-spacing: 0.08em; }
+
+  .rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 2rem 0; }
+  .rule-card { border-radius: 10px; padding: 1.25rem; }
+  .rule-card.do { background: #eafaf2; border: 1px solid #a8e6c6; }
+  .rule-card.dont { background: #fdf0ef; border: 1px solid #f5b8b8; }
+  .rule-head { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; display: block; font-weight: 700; }
+  .rule-card.do .rule-head { color: #1a8a50; }
+  .rule-card.dont .rule-head { color: #c0392b; }
+  .rule-body { font-size: 13px; color: #444; line-height: 1.7; }
+
+  .spacing-row { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+  .spacing-bar { background: var(--copper); height: 8px; border-radius: 2px; }
+  .spacing-label { font-family: var(--mono); font-size: 11px; color: #888; width: 80px; flex-shrink: 0; }
+  .spacing-val { font-size: 12px; color: #444; }
+
+  .use-case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 2rem 0; }
+  .use-case { border-radius: 10px; overflow: hidden; border: 1px solid #e0d0b8; }
+  .use-case-preview { height: 120px; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .use-case-label { padding: 8px 12px; background: #fff; border-top: 1px solid #e0d0b8; font-family: var(--mono); font-size: 10px; color: #888; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .contact-block { background: #0D0A07; border-radius: 12px; padding: 2rem; margin-top: 2rem; }
+  .contact-label { font-family: var(--mono); font-size: 10px; color: var(--copper); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1rem; display: block; }
+  .contact-row { display: flex; gap: 2rem; flex-wrap: wrap; }
+  .contact-item { }
+  .contact-type { font-family: var(--mono); font-size: 10px; color: #3d2a10; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .contact-val { font-size: 14px; color: var(--text); }
+
+  table { width: 100%; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-tag">Brand identity system</div>
+  <div class="cover-title">Trade<span>OS</span></div>
+  <div style="font-family: var(--mono); font-size: 12px; color: #3d2a10; letter-spacing: 0.12em; margin-top: 0.5rem;">[ 404 · TRADE · OS ]</div>
+  <div class="cover-sub">This document defines the visual identity of TradeOS — logo usage, color system, typography, icon marks, spacing, and brand voice guidelines. All decisions made here are final until a formal version update is issued.</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Version</span>
+      <span class="cover-meta-val">v1.0 — June 2026</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Brand</span>
+      <span class="cover-meta-val">TradeOS</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Domain</span>
+      <span class="cover-meta-val">tradeos.io</span>
+    </div>
+    <div class="cover-meta-item">
+      <span class="cover-meta-label">Contact</span>
+      <span class="cover-meta-val">hello@tradeos.io</span>
+    </div>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 1 — LOGO SYSTEM -->
+<div class="section">
+  <span class="section-num">01 — Logo system</span>
+  <div class="section-title">The TradeOS mark</div>
+  <div class="section-body">The TradeOS logo consists of two components: the <strong>badge</strong> (a monospace-type pill reading 404 · TRADE · OS) and the <strong>wordmark</strong> (the mixed-typeface TradeOS logotype with copper OS suffix). These two components always appear together in the full lockup. The badge signals technical credibility; the wordmark signals a modern, professional business.</div>
+
+  <!-- PRIMARY LIGHT -->
+  <div style="margin: 2rem 0;">
+    <div class="logo-label" style="text-align:left; margin-bottom: 8px;">Primary lockup — light background</div>
+    <div class="logo-box light">
+      <svg width="280" height="90" viewBox="0 0 280 90" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="118" height="26" rx="4" fill="#0D0A07"/>
+        <text x="8" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">404</text>
+        <rect x="40" y="4" width="1" height="18" fill="#3d2a10"/>
+        <text x="46" y="18" font-family="'Courier New', monospace" font-size="11" fill="#B87333" letter-spacing="1.5">TRADE</text>
+        <rect x="100" y="4" width="1" height="18" fill="#3d2a10"/>
+        <text x="106" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">OS</text>
+        <text x="0" y="76" font-family="system-ui, -apple-system, sans-serif" font-size="46" font-weight="500" fill="#0D0A07" letter-spacing="-1.5">Trade<tspan fill="#B87333">OS</tspan></text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- PRIMARY DARK -->
+  <div style="margin: 2rem 0;">
+    <div class="logo-label" style="text-align:left; margin-bottom: 8px;">Primary lockup — dark background</div>
+    <div class="logo-box dark">
+      <svg width="280" height="90" viewBox="0 0 280 90" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="118" height="26" rx="4" fill="#1E1610" stroke="#3d2a10" stroke-width="0.75"/>
+        <text x="8" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">404</text>
+        <rect x="40" y="4" width="1" height="18" fill="#3d2a10"/>
+        <text x="46" y="18" font-family="'Courier New', monospace" font-size="11" fill="#B87333" letter-spacing="1.5">TRADE</text>
+        <rect x="100" y="4" width="1" height="18" fill="#3d2a10"/>
+        <text x="106" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">OS</text>
+        <text x="0" y="76" font-family="system-ui, -apple-system, sans-serif" font-size="46" font-weight="500" fill="#F7F2EC" letter-spacing="-1.5">Trade<tspan fill="#B87333">OS</tspan></text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- STACKED -->
+  <div class="logo-row">
+    <div class="logo-wrap">
+      <div class="logo-label" style="text-align:left; width:100%; margin-bottom:8px;">Stacked — light</div>
+      <div class="logo-box light" style="min-width:unset; flex:none; width:100%;">
+        <svg width="180" height="88" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="118" height="26" rx="4" fill="#0D0A07"/>
+          <text x="8" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">404</text>
+          <rect x="40" y="4" width="1" height="18" fill="#3d2a10"/>
+          <text x="46" y="18" font-family="'Courier New', monospace" font-size="11" fill="#B87333" letter-spacing="1.5">TRADE</text>
+          <rect x="100" y="4" width="1" height="18" fill="#3d2a10"/>
+          <text x="106" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">OS</text>
+          <line x1="0" y1="34" x2="118" y2="34" stroke="#B87333" stroke-width="1"/>
+          <text x="0" y="68" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="500" fill="#0D0A07" letter-spacing="-1">Trade<tspan fill="#B87333">OS</tspan></text>
+          <text x="1" y="84" font-family="'Courier New', monospace" font-size="9" fill="#B87333" letter-spacing="2">WEB FOR THE TRADES</text>
+        </svg>
+      </div>
+    </div>
+    <div class="logo-wrap">
+      <div class="logo-label" style="text-align:left; width:100%; margin-bottom:8px;">Stacked — dark</div>
+      <div class="logo-box dark" style="min-width:unset; flex:none; width:100%;">
+        <svg width="180" height="88" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="118" height="26" rx="4" fill="#1E1610" stroke="#3d2a10" stroke-width="0.75"/>
+          <text x="8" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">404</text>
+          <rect x="40" y="4" width="1" height="18" fill="#3d2a10"/>
+          <text x="46" y="18" font-family="'Courier New', monospace" font-size="11" fill="#B87333" letter-spacing="1.5">TRADE</text>
+          <rect x="100" y="4" width="1" height="18" fill="#3d2a10"/>
+          <text x="106" y="18" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" letter-spacing="1.5">OS</text>
+          <line x1="0" y1="34" x2="118" y2="34" stroke="#B87333" stroke-width="1"/>
+          <text x="0" y="68" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="500" fill="#F7F2EC" letter-spacing="-1">Trade<tspan fill="#B87333">OS</tspan></text>
+          <text x="1" y="84" font-family="'Courier New', monospace" font-size="9" fill="#B87333" letter-spacing="2">WEB FOR THE TRADES</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ICON MARKS -->
+  <span class="section-num">01b — Icon marks</span>
+  <div class="section-title" style="font-size:22px; margin-top:0.5rem;">Icons, avatars & favicon</div>
+
+  <div class="icon-row">
+    <div class="icon-item">
+      <svg width="96" height="96" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="120" rx="24" fill="#0D0A07"/>
+        <rect x="10" y="10" width="100" height="100" rx="16" fill="none" stroke="#B87333" stroke-width="1.5"/>
+        <text x="60" y="34" font-family="'Courier New', monospace" font-size="11" fill="#E8C99A" text-anchor="middle" letter-spacing="2">404</text>
+        <line x1="22" y1="42" x2="98" y2="42" stroke="#3d2a10" stroke-width="0.75"/>
+        <text x="60" y="60" font-family="'Courier New', monospace" font-size="10" fill="#B87333" text-anchor="middle" letter-spacing="2">TRADE</text>
+        <line x1="22" y1="68" x2="98" y2="68" stroke="#3d2a10" stroke-width="0.75"/>
+        <text x="60" y="96" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="500" fill="#E8C99A" text-anchor="middle" letter-spacing="-0.5">OS</text>
+      </svg>
+      <span class="icon-label">Dark avatar (preferred)</span>
+    </div>
+    <div class="icon-item">
+      <svg width="96" height="96" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="120" rx="24" fill="#B87333"/>
+        <text x="60" y="36" font-family="'Courier New', monospace" font-size="12" fill="#0D0A07" text-anchor="middle" letter-spacing="2">404</text>
+        <line x1="20" y1="44" x2="100" y2="44" stroke="#0D0A07" stroke-width="0.5" opacity="0.4"/>
+        <text x="60" y="64" font-family="'Courier New', monospace" font-size="10" fill="#0D0A07" text-anchor="middle" letter-spacing="2">TRADE</text>
+        <line x1="20" y1="72" x2="100" y2="72" stroke="#0D0A07" stroke-width="0.5" opacity="0.4"/>
+        <text x="60" y="100" font-family="system-ui, -apple-system, sans-serif" font-size="30" font-weight="500" fill="#0D0A07" text-anchor="middle">OS</text>
+      </svg>
+      <span class="icon-label">Copper (app store)</span>
+    </div>
+    <div class="icon-item">
+      <svg width="48" height="48" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="6" fill="#B87333"/>
+        <text x="16" y="11" font-family="'Courier New', monospace" font-size="6.5" fill="#0D0A07" text-anchor="middle" letter-spacing="0.5">404</text>
+        <line x1="4" y1="14" x2="28" y2="14" stroke="#0D0A07" stroke-width="0.4" opacity="0.4"/>
+        <text x="16" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500" fill="#0D0A07" text-anchor="middle">TO</text>
+      </svg>
+      <span class="icon-label">Favicon 32px</span>
+    </div>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 2 — COLOR -->
+<div class="section">
+  <span class="section-num">02 — Color system</span>
+  <div class="section-title">Brand palette</div>
+  <div class="section-body">The TradeOS palette is built around copper — a material that evokes trade craftsmanship, durability, and warmth — set against deep forge blacks. Never use more than two accent colors simultaneously. The copper tone is the sole accent; all other colors are neutrals.</div>
+
+  <div class="color-grid">
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#B87333;"></div>
+      <div class="swatch-info"><span class="swatch-role">Primary accent</span><span class="swatch-name">Copper</span><span class="swatch-hex">#B87333</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#E8C99A;"></div>
+      <div class="swatch-info"><span class="swatch-role">Headlines / light</span><span class="swatch-name">Light copper</span><span class="swatch-hex">#E8C99A</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#0D0A07;"></div>
+      <div class="swatch-info"><span class="swatch-role">Primary bg</span><span class="swatch-name">Forge black</span><span class="swatch-hex">#0D0A07</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#1E1610;"></div>
+      <div class="swatch-info"><span class="swatch-role">Secondary bg</span><span class="swatch-name">Dark bronze</span><span class="swatch-hex">#1E1610</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#F7F2EC; border:1px solid #e0d0b8;"></div>
+      <div class="swatch-info"><span class="swatch-role">Light bg / print</span><span class="swatch-name">Bone white</span><span class="swatch-hex">#F7F2EC</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#C8C0B0;"></div>
+      <div class="swatch-info"><span class="swatch-role">Body text</span><span class="swatch-name">Warm gray</span><span class="swatch-hex">#C8C0B0</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#3d2a10;"></div>
+      <div class="swatch-info"><span class="swatch-role">Borders / dividers</span><span class="swatch-name">Dark rust</span><span class="swatch-hex">#3d2a10</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#00C896;"></div>
+      <div class="swatch-info"><span class="swatch-role">Success / online</span><span class="swatch-name">System green</span><span class="swatch-hex">#00C896</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#E24B4A;"></div>
+      <div class="swatch-info"><span class="swatch-role">Error / warning</span><span class="swatch-name">Error red</span><span class="swatch-hex">#E24B4A</span></div>
+    </div>
+    <div class="color-swatch">
+      <div class="swatch-block" style="background:#5a3d1e;"></div>
+      <div class="swatch-info"><span class="swatch-role">Muted text</span><span class="swatch-name">Rust</span><span class="swatch-hex">#5a3d1e</span></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div style="background:#0D0A07; border-radius:10px; padding:1.5rem; margin-top:1.5rem;">
+    <div style="font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.14em; text-transform:uppercase; margin-bottom:1rem;">WCAG contrast ratios</div>
+    <table style="width:100%; font-size:13px; color:var(--text); border-collapse:collapse;">
+      <tr style="border-bottom:1px solid #1E1610;"><td style="padding:8px 0; color:#5a3d1e; font-family:var(--mono);">Foreground</td><td style="padding:8px 0; color:#5a3d1e; font-family:var(--mono);">Background</td><td style="padding:8px 0; color:#5a3d1e; font-family:var(--mono);">Ratio</td><td style="padding:8px 0; color:#5a3d1e; font-family:var(--mono);">Grade</td></tr>
+      <tr style="border-bottom:1px solid #1E1610;"><td style="padding:8px 0;">#F7F2EC</td><td style="padding:8px 0;">#0D0A07</td><td style="padding:8px 0; color:#00C896; font-family:var(--mono);">18.1:1</td><td style="padding:8px 0; color:#00C896;">AAA ✓</td></tr>
+      <tr style="border-bottom:1px solid #1E1610;"><td style="padding:8px 0;">#E8C99A</td><td style="padding:8px 0;">#0D0A07</td><td style="padding:8px 0; color:#00C896; font-family:var(--mono);">9.2:1</td><td style="padding:8px 0; color:#00C896;">AAA ✓</td></tr>
+      <tr style="border-bottom:1px solid #1E1610;"><td style="padding:8px 0;">#C8C0B0</td><td style="padding:8px 0;">#0D0A07</td><td style="padding:8px 0; color:#00C896; font-family:var(--mono);">7.8:1</td><td style="padding:8px 0; color:#00C896;">AAA ✓</td></tr>
+      <tr style="border-bottom:1px solid #1E1610;"><td style="padding:8px 0;">#B87333</td><td style="padding:8px 0;">#0D0A07</td><td style="padding:8px 0; color:#00C896; font-family:var(--mono);">4.6:1</td><td style="padding:8px 0; color:#00C896;">AA ✓</td></tr>
+      <tr><td style="padding:8px 0;">#0D0A07</td><td style="padding:8px 0;">#B87333</td><td style="padding:8px 0; color:#00C896; font-family:var(--mono);">4.6:1</td><td style="padding:8px 0; color:#00C896;">AA ✓</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 3 — TYPOGRAPHY -->
+<div class="section">
+  <span class="section-num">03 — Typography</span>
+  <div class="section-title">Type system</div>
+  <div class="section-body">TradeOS uses two typefaces: a system sans-serif for all display and body text, and Courier New (monospace) for all badge, label, code, and system UI text. The mix of humanist sans and hard-edged monospace is the personality of the brand — professional meets technical.</div>
+
+  <table class="type-table">
+    <thead>
+      <tr><th>Role</th><th>Sample</th><th>Specification</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">Display</span></td>
+        <td><span class="type-sample">Trade<span style="color:#B87333;">OS</span></span></td>
+        <td><span class="type-spec">System sans · 46px · 500 · -1.5px tracking</span></td>
+      </tr>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">Heading 1</span></td>
+        <td><span class="type-sample" style="font-size:32px;">Web for the trades</span></td>
+        <td><span class="type-spec">System sans · 32px · 500 · -0.75px tracking</span></td>
+      </tr>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">Heading 2</span></td>
+        <td><span class="type-sample" style="font-size:22px;">Every site we build ranks.</span></td>
+        <td><span class="type-spec">System sans · 22px · 500 · -0.5px tracking</span></td>
+      </tr>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">Body</span></td>
+        <td><span class="type-sample body">Professional websites built for trade businesses. Fast, mobile-first, and built to rank.</span></td>
+        <td><span class="type-spec">System sans · 16px · 400 · 0 tracking · 1.75 line-height</span></td>
+      </tr>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">UI / Badge</span></td>
+        <td><span class="type-sample mono">404 · TRADE · OS</span></td>
+        <td><span class="type-spec">Courier New · 11px · 400 · 1.5px tracking</span></td>
+      </tr>
+      <tr>
+        <td><span style="font-family:var(--mono); font-size:11px; color:var(--copper);">Labels</span></td>
+        <td><span class="type-sample mono" style="font-size:11px; text-transform:uppercase; letter-spacing:0.16em;">WEB FOR THE TRADES</span></td>
+        <td><span class="type-spec">Courier New · 9–11px · 400 · 2px tracking · ALL CAPS</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 4 — SPACING -->
+<div class="section">
+  <span class="section-num">04 — Spacing & layout</span>
+  <div class="section-title">Spacing system</div>
+
+  <div style="margin: 2rem 0;">
+    <div class="spacing-row"><span class="spacing-label">xs — 4px</span><div class="spacing-bar" style="width:4px;"></div><span class="spacing-val">Icon gaps, tight internal padding</span></div>
+    <div class="spacing-row"><span class="spacing-label">sm — 8px</span><div class="spacing-bar" style="width:8px;"></div><span class="spacing-val">Component internal gaps</span></div>
+    <div class="spacing-row"><span class="spacing-label">md — 16px</span><div class="spacing-bar" style="width:16px;"></div><span class="spacing-val">Default padding, grid gaps</span></div>
+    <div class="spacing-row"><span class="spacing-label">lg — 24px</span><div class="spacing-bar" style="width:24px;"></div><span class="spacing-val">Section internal padding</span></div>
+    <div class="spacing-row"><span class="spacing-label">xl — 40px</span><div class="spacing-bar" style="width:40px;"></div><span class="spacing-val">Page section padding</span></div>
+    <div class="spacing-row"><span class="spacing-label">2xl — 64px</span><div class="spacing-bar" style="width:64px;"></div><span class="spacing-val">Major section breaks</span></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:1.5rem;">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:40px; height:40px; background:var(--copper); border-radius:3px;"></div><span style="font-size:11px; color:#888; font-family:var(--mono);">3px inputs</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:40px; height:40px; background:var(--copper); border-radius:6px;"></div><span style="font-size:11px; color:#888; font-family:var(--mono);">6px buttons</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:40px; height:40px; background:var(--copper); border-radius:10px;"></div><span style="font-size:11px; color:#888; font-family:var(--mono);">10px cards</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:40px; height:40px; background:var(--copper); border-radius:14px;"></div><span style="font-size:11px; color:#888; font-family:var(--mono);">14px panels</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:56px; height:24px; background:var(--copper); border-radius:99px;"></div><span style="font-size:11px; color:#888; font-family:var(--mono);">pill badges</span></div>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 5 — USAGE RULES -->
+<div class="section">
+  <span class="section-num">05 — Usage rules</span>
+  <div class="section-title">Do's and don'ts</div>
+
+  <div class="rule-grid">
+    <div class="rule-card do">
+      <span class="rule-head">Do — logo placement</span>
+      <div class="rule-body">Always use the full lockup (badge + wordmark) when space allows. Keep clearspace equal to the cap-height of the wordmark on all four sides. Use bone white (#F7F2EC) or forge black (#0D0A07) as background only.</div>
+    </div>
+    <div class="rule-card dont">
+      <span class="rule-head">Don't — logo placement</span>
+      <div class="rule-body">Don't place the logo on busy photographic backgrounds. Don't use the wordmark without the badge except in nav bars at small sizes. Don't place the logo on any color other than white, black, or copper.</div>
+    </div>
+    <div class="rule-card do">
+      <span class="rule-head">Do — color usage</span>
+      <div class="rule-body">Copper (#B87333) is the sole accent color. Use it for the OS tspan, the badge text, CTA buttons, and active states only. Always pair with forge black or bone white as the background surface.</div>
+    </div>
+    <div class="rule-card dont">
+      <span class="rule-head">Don't — color usage</span>
+      <div class="rule-body">Don't recolor the OS tspan to any color other than #B87333. Don't use gradients on the logo or badge. Don't introduce secondary accent colors — the copper is the only color that matters.</div>
+    </div>
+    <div class="rule-card do">
+      <span class="rule-head">Do — typography</span>
+      <div class="rule-body">Use system sans (400 and 500 weights only) for all headings and body. Use Courier New for all badges, labels, and system UI text. Letter-space all monospace labels at minimum 1.5px.</div>
+    </div>
+    <div class="rule-card dont">
+      <span class="rule-head">Don't — typography</span>
+      <div class="rule-body">Don't use 600 or 700 weight — too heavy against the brand aesthetic. Don't use decorative typefaces. Don't mix monospace and sans within the same text element (the wordmark exception is intentional and specific to the logo mark only).</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <span class="section-num">05b — Minimum sizes</span>
+  <table style="width:100%; font-size:13px; border-collapse:collapse; margin-top:1.5rem;">
+    <thead>
+      <tr style="border-bottom:2px solid #e0d0b8;">
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">Mark</th>
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">Min width</th>
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">When to use</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px;">Full lockup (badge + wordmark)</td><td style="padding:10px 12px; font-family:var(--mono); color:var(--copper);">200px wide</td><td style="padding:10px 12px; color:#666;">Hero sections, print, presentations</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px;">Compact (badge + wordmark inline)</td><td style="padding:10px 12px; font-family:var(--mono); color:var(--copper);">160px wide</td><td style="padding:10px 12px; color:#666;">Navigation bars, email headers</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px;">Wordmark only</td><td style="padding:10px 12px; font-family:var(--mono); color:var(--copper);">100px wide</td><td style="padding:10px 12px; color:#666;">Tight nav bars only</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px;">Icon mark (dark or copper)</td><td style="padding:10px 12px; font-family:var(--mono); color:var(--copper);">48×48px</td><td style="padding:10px 12px; color:#666;">Social avatars, app icons</td></tr>
+      <tr><td style="padding:10px 12px;">Favicon (TO monogram)</td><td style="padding:10px 12px; font-family:var(--mono); color:var(--copper);">16×16px</td><td style="padding:10px 12px; color:#666;">Browser tabs only</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 6 — BRAND VOICE -->
+<div class="section">
+  <span class="section-num">06 — Brand voice</span>
+  <div class="section-title">How TradeOS sounds</div>
+  <div class="section-body">The TradeOS voice is direct, honest, and trade-aware. We speak to plumbers and electricians like a knowledgeable peer — not a salesperson, not a tech bro, not a corporate agency. Every word we write respects the fact that our clients are skilled professionals who have no time for fluff.</div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:2rem 0;">
+    <div style="background:#0D0A07; border-radius:10px; padding:1.25rem;">
+      <span style="font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.12em; text-transform:uppercase; display:block; margin-bottom:10px;">We are</span>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--green);">+</span><span>Direct — we say what we mean, no padding</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--green);">+</span><span>Honest — we don't overpromise or hide the fine print</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--green);">+</span><span>Trade-literate — we understand plumbing, HVAC, electrical</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--green);">+</span><span>Confident — we know this space and don't hedge</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--green);">+</span><span>Midwest-grounded — approachable, not coastal</span></div>
+      </div>
+    </div>
+    <div style="background:#1a0808; border:1px solid #4a1a1a; border-radius:10px; padding:1.25rem;">
+      <span style="font-family:var(--mono); font-size:10px; color:var(--red); letter-spacing:0.12em; text-transform:uppercase; display:block; margin-bottom:10px;">We are not</span>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--red);">—</span><span>Salesy — no exclamation marks, no hype</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--red);">—</span><span>Technical for the sake of it — jargon-free</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--red);">—</span><span>Casual to the point of unprofessional</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--red);">—</span><span>Corporate — no "synergy", no "solutions"</span></div>
+        <div style="display:flex; gap:8px; font-size:13px; color:var(--text);"><span style="color:var(--red);">—</span><span>Generic — every word should feel trade-specific</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#1E1610; border-radius:10px; padding:1.5rem; margin-top:1.5rem;">
+    <span style="font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.14em; text-transform:uppercase; display:block; margin-bottom:1rem;">Tone examples</span>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="padding:10px 12px; background:#0D0A07; border-radius:6px; border-left:2px solid #4a1a1a;">
+        <span style="font-size:10px; font-family:var(--mono); color:#5a3d1e; display:block; margin-bottom:4px;">AVOID</span>
+        <span style="font-size:13px; color:var(--text);">"Unlock the power of digital transformation for your trade business ecosystem!"</span>
+      </div>
+      <div style="padding:10px 12px; background:#0a2010; border-radius:6px; border-left:2px solid #1a5a30;">
+        <span style="font-size:10px; font-family:var(--mono); color:#1a5a30; display:block; margin-bottom:4px;">PREFERRED</span>
+        <span style="font-size:13px; color:var(--text);">"A website that gets you found on Google when a homeowner needs a plumber in Terre Haute."</span>
+      </div>
+      <div style="padding:10px 12px; background:#0D0A07; border-radius:6px; border-left:2px solid #4a1a1a;">
+        <span style="font-size:10px; font-family:var(--mono); color:#5a3d1e; display:block; margin-bottom:4px;">AVOID</span>
+        <span style="font-size:13px; color:var(--text);">"We leverage cutting-edge SEO strategies to maximize your online visibility!"</span>
+      </div>
+      <div style="padding:10px 12px; background:#0a2010; border-radius:6px; border-left:2px solid #1a5a30;">
+        <span style="font-size:10px; font-family:var(--mono); color:#1a5a30; display:block; margin-bottom:4px;">PREFERRED</span>
+        <span style="font-size:13px; color:var(--text);">"We track your rankings monthly and tell you exactly what moved and why."</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="page-break">
+
+<!-- SECTION 7 — FILE INDEX -->
+<div class="section">
+  <span class="section-num">07 — Asset index</span>
+  <div class="section-title">Downloadable files</div>
+  <div class="section-body">All SVG files are vector — infinitely scalable with no quality loss. Open in Linearity Curve, Figma, Illustrator, or any SVG editor. For web use, embed directly. For print, export from Linearity at 300dpi minimum.</div>
+
+  <table style="width:100%; font-size:13px; border-collapse:collapse; margin-top:1.5rem;">
+    <thead>
+      <tr style="border-bottom:2px solid #e0d0b8;">
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">File</th>
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">Format</th>
+        <th style="text-align:left; padding:8px 12px; font-family:var(--mono); font-size:10px; color:var(--copper); letter-spacing:0.1em; text-transform:uppercase;">Use</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-logo-primary-light.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Website, print on white/light</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-logo-primary-dark.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Website, print on black/dark</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-logo-stacked-light.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Business cards, proposals, print</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-logo-stacked-dark.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Dark background print, decals</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-icon-dark-variant.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Social avatar, profile photo ★ preferred</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-icon-copper.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">App store icon, copper backgrounds</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-favicon.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Browser tab, 16–32px contexts</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-wordmark-light.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Nav bars on light backgrounds</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-wordmark-dark.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Nav bars on dark backgrounds</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-business-card-logo.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Business card front, with 404 + tagline</td></tr>
+      <tr style="border-bottom:1px solid #e8ddd0;"><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-email-signature-logo.svg</td><td style="padding:10px 12px; color:#888;">SVG vector</td><td style="padding:10px 12px; color:#666;">Email signature, with 404 badge</td></tr>
+      <tr><td style="padding:10px 12px; font-family:var(--mono); font-size:12px;">tradeos-style-guide.html</td><td style="padding:10px 12px; color:#888;">HTML</td><td style="padding:10px 12px; color:#666;">This document — open in any browser</td></tr>
+    </tbody>
+  </table>
+
+  <div class="contact-block" style="margin-top:2rem;">
+    <span class="contact-label">Brand questions & updates</span>
+    <div class="contact-row">
+      <div class="contact-item"><span class="contact-type">Email</span><span class="contact-val">hello@tradeos.io</span></div>
+      <div class="contact-item"><span class="contact-type">Phone</span><span class="contact-val">(812) 555-0100</span></div>
+      <div class="contact-item"><span class="contact-type">Domain</span><span class="contact-val">tradeos.io</span></div>
+      <div class="contact-item"><span class="contact-type">Version</span><span class="contact-val">v1.0 — June 2026</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
