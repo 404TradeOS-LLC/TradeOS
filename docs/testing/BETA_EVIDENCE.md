@@ -377,3 +377,15 @@ documentation and configuration are never substitutes for a passing run.
 | `No tenant-isolation probe could be constructed` | only an estimate id was supplied | also supply `BETA_RC_FOREIGN_PROJECT_ID` |
 | viewport shows `STALE` | a capture report is left over from an earlier run | clear the evidence directory and re-run |
 | `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |
+
+
+## Shared Preview configuration attestation
+
+The S027 identity check fetches the full Vercel project environment inventory
+before selecting the frontend's effective `NEXT_PUBLIC_SUPABASE_URL`. Vercel's
+`gitBranch` query filter returns only branch overrides and omits shared Preview
+values, so it must not be used for this lookup. The local contract prefers the
+selected deployment's branch override, otherwise selects shared Preview values,
+and ignores Production and other branches. Configuration newer than the selected
+deployment is rejected until redeployment. No environment values or credentials
+are written to identity evidence; only the selected Supabase project ref is kept.

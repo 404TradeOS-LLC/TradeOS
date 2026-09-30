@@ -28,7 +28,8 @@ assert.ok(deployment.meta?.githubCommitRef, "Preview deployment branch metadata 
 assert.ok(Number.isFinite(Number(deployment.createdAt)), "Preview deployment creation timestamp required");
 
 const envUrl = new URL(`https://api.vercel.com/v10/projects/${WEB_PROJECT_ID}/env`);
-envUrl.searchParams.set("gitBranch", deployment.meta.githubCommitRef);
+// Fetch shared Preview values and branch overrides together; gitBranch filtering
+// excludes shared values. The contract below selects the applicable configuration.
 envUrl.searchParams.set("decrypt", "true");
 envUrl.searchParams.set("teamId", TEAM_ID);
 const envResponse = await fetch(envUrl, { headers, signal: AbortSignal.timeout(30_000) });
