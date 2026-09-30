@@ -65,7 +65,7 @@ It classified these as `REQUIRES_REVIEW` because they contain unique or insuffic
 - `docs/s027-costbook-reconciliation`
 - `repair/athena-a7-memory`
 
-The previously listed legacy design-system branch was resolved by the 2026-09-29 single-design-authority consolidation: its unique visual/design assets were preserved under `docs/archive/design-sources/`, and the canonical Figma file is now the sole visual/UI authority.
+The previously listed legacy design-system branch was resolved by the 2026-09-29 single-design-authority consolidation: its exact historical state was preserved on `archive/design-system-legacy-2026-09-29`, active repository design artifacts were moved under `docs/archive/design-sources/`, and the canonical Figma file is now the sole visual/UI authority.
 
 Active PR branches must be retained. Revalidate live GitHub state immediately before any branch deletion; this dated register is not authorization to delete a ref whose state has since changed.
 
