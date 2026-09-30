@@ -139,7 +139,7 @@ READY Preview using structured Vercel data and the captured staging SHA,
 verifies team/project/repository ownership before redeploying by ID, and
 creates a fresh fixed-branch staging Preview if no matching READY deployment
 exists (requiring the same captured SHA), and checks the new immutable deployment URL for matching runtime SHA, database
-and schema readiness, and unauthenticated bootstrap rejection. The workflow
+and schema readiness, and invalid Supabase token rejection after issuer initialization. The workflow
 retains only whitelisted deployment/readiness evidence, never environment
 values or response bodies. A passing repair is not authenticated browser
 certification or proof that staging equals current main. Changes that broaden it
@@ -391,7 +391,7 @@ Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor
 
 `.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
-`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, resolves only a READY Preview backend deployment carrying `githubCommitRef=staging`, fails closed when no such deployment is available, redeploys that resolved staging backend, and verifies `/ready`. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It checks the replacement immutable hostname for matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
 
 ## Production migration history reconciliation
 
