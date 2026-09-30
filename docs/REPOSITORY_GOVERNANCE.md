@@ -134,7 +134,15 @@ without changing product authentication or authorization policy.
 The companion `Repair staging Supabase auth configuration` workflow is a
 manual, confirmation-gated operational control. Its repository contract fixes
 the Vercel project, `staging` branch, Preview environment, and public staging
-Supabase URL, then requires database-backed readiness. Changes that broaden it
+Supabase URL, then requires database-backed readiness. The repair resolves a
+READY Preview using structured Vercel data and the captured staging SHA,
+verifies team/project/repository ownership before redeploying by ID, and
+creates a fresh fixed-branch staging Preview if no matching READY deployment
+exists (requiring the same captured SHA), and checks the new immutable deployment URL for matching runtime SHA, database
+and schema readiness, and unauthenticated bootstrap rejection. The workflow
+retains only whitelisted deployment/readiness evidence, never environment
+values or response bodies. A passing repair is not authenticated browser
+certification or proof that staging equals current main. Changes that broaden it
 to Production, accept an operator-provided target/value, or expose the Vercel
 token require an explicit governance review and are prohibited by its contract
 test.

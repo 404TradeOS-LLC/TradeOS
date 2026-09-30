@@ -102,7 +102,11 @@ When that smoke reports `SUPABASE_URL is not configured`, use the guarded
 `Repair staging Supabase auth configuration` workflow documented in
 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
 `staging` backend and the TradeOS Staging Supabase URL; it is not a general
-environment editor.
+environment editor. The repair captures the current staging branch SHA,
+redeploys by a verified Vercel deployment ID, and checks the replacement
+immutable URL rather than a branch alias. Its retained artifact proves only
+backend readiness and unauthenticated rejection; authenticated browser
+certification remains a separate gate.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
