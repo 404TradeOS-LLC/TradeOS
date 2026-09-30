@@ -1,9 +1,13 @@
 /** Preserve numeric item counts in the same contractor phrasing the estimator parses. */
 export function appendClarification(scope: string, question: string, answer: string): string {
+  const numericAnswer = /^\d+(?:\.\d+)?$/.test(answer.trim());
   const countQuestion = question.match(/^How many (.+) are included\?$/i);
-  const clarification = countQuestion && /^\d+(?:\.\d+)?$/.test(answer.trim())
+  const fieldCount = question.match(/^(.+?)\s+count$/i);
+  const clarification = numericAnswer && countQuestion
     ? `${answer.trim()} ${countQuestion[1]}`
-    : `${question}: ${answer.trim()}`;
+    : numericAnswer && fieldCount
+      ? `${answer.trim()} ${fieldCount[1]}`
+      : `${question}: ${answer.trim()}`;
   return `${scope.trim()}\n${clarification}`.trim();
 }
 
