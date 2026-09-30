@@ -14,6 +14,7 @@ related_docs:
 
 ## Current truth
 
+- TradeOS visual/UI design authority is one source: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design. Legacy repository design contracts and screenshots are preserved only under `docs/archive/design-sources/`; historical branch-only design sources are preserved only on explicitly named `archive/*` branches. Do not use archived design artifacts, stale branches, other Figma files, Sites/Stitch output, or prior chats as current visual authority.
 - S051 implementation merged in PR #538:
   https://github.com/404TradeOS-LLC/TradeOS/pull/538
 - Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.

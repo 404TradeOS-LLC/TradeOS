@@ -13,6 +13,8 @@ related_docs:
 
 # TradeOS Bible — Volume 1: Vision
 
+> **Visual/UI authority:** this document defines product/UX doctrine, outcomes, behavior, or acceptance requirements; it is not a visual design source. The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design.
+
 ## 1. Purpose of this volume
 
 This volume defines why TradeOS exists, who it serves, how it should feel, and which principles must remain stable as implementation changes.

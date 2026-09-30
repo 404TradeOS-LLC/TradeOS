@@ -252,7 +252,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [DOC_OWNERSHIP.yml](DOC_OWNERSHIP.yml)
 - [CI_ACCELERATION.md](CI_ACCELERATION.md)
-- [TradeOS Product Design Contract](../.stitch/DESIGN.md) — canonical written UI/design contract paired with the canonical Figma master; capability/current-state docs still govern shipped behavior
+- [Canonical TradeOS Figma](https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design) — sole visual/UI design authority; inspect the actual target page and frame status before UI work; capability/current-state docs still govern shipped behavior
 - [modules/](modules/)
 - [decisions/](decisions/)
 - [agent-prompts/](agent-prompts/)

@@ -11,9 +11,9 @@ interface StatusBadgeProps {
 // success/warning/info/destructive language used everywhere else in the
 // app - and so the light/dark swap is free (each token flips under .dark).
 // "Processing"/category states with no severity (field_execution, viewed,
-// policy_check, ...) use the brand copper family per the design system's
-// --status-processing: copper convention, rather than inventing a new
-// color the design system doesn't define. Neutral/closed states use muted.
+// policy_check, ...) use the canonical production token mapping. Visual intent
+// is governed only by the canonical TradeOS Figma file; this component owns
+// the exact runtime classes. Neutral/closed states use muted.
 //
 // Uses --accent/--accent-foreground rather than --primary/--primary-foreground:
 // copper itself (--primary, #b87333) is only 3.74:1 as text on the card

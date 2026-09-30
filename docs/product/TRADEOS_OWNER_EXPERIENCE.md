@@ -13,6 +13,8 @@ related_code:
 
 # TradeOS Owner Experience
 
+> **Visual/UI authority:** this document defines product/UX doctrine, outcomes, behavior, or acceptance requirements; it is not a visual design source. The sole visual/UI design authority is the canonical TradeOS Figma file: https://www.figma.com/file/xImUa9CYUjx3Cb3zTrkfnY?type=design.
+
 This document defines the intended owner/admin daily experience of TradeOS. It is a
 product-direction document, not an implementation ticket list — implementation
 boundaries for the current build are in
