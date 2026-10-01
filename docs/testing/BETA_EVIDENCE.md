@@ -389,3 +389,8 @@ selected deployment's branch override, otherwise selects shared Preview values,
 and ignores Production and other branches. Configuration newer than the selected
 deployment is rejected until redeployment. No environment values or credentials
 are written to identity evidence; only the selected Supabase project ref is kept.
+
+The RC authentication lifecycle smoke scopes credential-error alerts to the login
+form. A page-wide alert can be Next.js's route announcement after successful
+navigation and must not be interpreted as a rejected login. Dashboard URL,
+refresh persistence, logout, and protected-route denial still remain required.

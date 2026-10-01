@@ -28,7 +28,9 @@ related_docs:
   A staging-only `BACKEND_API_URL` override now pins the verified backend
   `https://tradeos-costbook-6tij63lsx-billykshowalters.vercel.app`.
   Replacement frontend `dpl_46S63m9K9pebE3t1VV2niF3CP3Lb` is READY at the
-  staging SHA. Attempt 2 of the same RC smoke run is pending verification.
+  staging SHA. Attempt 2 reached dashboard and authenticated API HTTP 200, but the runner
+  rejected a page-wide alert during navigation. Its credential-error locator is
+  now scoped to the login form; a passing lifecycle/browser run is still required.
 - S027 run `36792720050` failed before authentication because its Vercel
   branch-only environment query omitted the configured shared Preview URL.
   `fix/preview-shared-env-attestation` repairs that read path while preserving
