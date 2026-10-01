@@ -44,7 +44,7 @@ Native execution and activation have not been certified by local mocked tests.
    stays within GitHub's 50-character label-name limit. Store a dedicated,
    expiring fine-grained personal access token as the repository secret
    `TRADEOS_MERGE_QUEUE_TOKEN`, scoped only to `404TradeOS-LLC/TradeOS`.
-   Grant Contents, Pull requests, and Issues **write**, and Checks **read**;
+   Grant Contents and Pull requests **write**, and Checks and Commit statuses **read**;
    its owner must have repository write access. Give it no administration or
    ruleset-bypass privileges. Secret creation/rotation is an administrator task.
    The action intentionally refuses apply mode without this secret. Its own

@@ -61,6 +61,13 @@ function api(snapshots = [fixture()], enabled = true) {
 test("an explicitly queued green main PR is eligible", () => {
   assert.deepEqual(queueBlockers(fixture(), repository), []);
 });
+test("stale head consent cannot hide valid current-head consent", () => {
+  const pr = fixture();
+  pr.labels.nodes.unshift({ name: QUEUE_HEAD_LABEL_PREFIX + "b".repeat(40) });
+  assert.deepEqual(queueBlockers(pr, repository), []);
+  pr.labels.nodes = pr.labels.nodes.filter(({ name }) => name !== QUEUE_HEAD_LABEL_PREFIX + head);
+  assert.ok(queueBlockers(pr, repository).includes("queue consent is not bound to current head"));
+});
 for (const [name, override] of [
   ["draft", { isDraft: true }],
   ["closed", { state: "CLOSED" }],

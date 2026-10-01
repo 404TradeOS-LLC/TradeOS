@@ -23,8 +23,7 @@ export function queueBlockers(pr, repository, { requireConsent = true } = {}) {
   }
   if (requireConsent && !labels.includes(QUEUE_LABEL)) blockers.push("queue label missing");
   if (requireConsent) {
-    const headConsent = labels.find((label) => label.startsWith(QUEUE_HEAD_LABEL_PREFIX));
-    if (headConsent !== `${QUEUE_HEAD_LABEL_PREFIX}${pr.headRefOid}`) blockers.push("queue consent is not bound to current head");
+    if (!labels.includes(`${QUEUE_HEAD_LABEL_PREFIX}${pr.headRefOid}`)) blockers.push("queue consent is not bound to current head");
   }
   if (labels.some((label) => STOP_LABELS.has(label))) blockers.push("stop/review label present");
   if (!Array.isArray(pr.labels?.nodes) || !Array.isArray(pr.reviewThreads?.nodes) ||
