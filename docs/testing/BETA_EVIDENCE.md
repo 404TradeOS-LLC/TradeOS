@@ -379,16 +379,16 @@ documentation and configuration are never substitutes for a passing run.
 | `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |
 
 
-## Shared Preview configuration attestation
+## Preview configuration attestation
 
 The S027 identity check fetches the full Vercel project environment inventory
 before selecting the frontend's effective `NEXT_PUBLIC_SUPABASE_URL`. Vercel's
-`gitBranch` query filter returns only branch overrides and omits shared Preview
-values, so it must not be used for this lookup. The local contract prefers the
-selected deployment's branch override, otherwise selects shared Preview values,
-and ignores Production and other branches. Configuration newer than the selected
-deployment is rejected until redeployment. No environment values or credentials
-are written to identity evidence; only the selected Supabase project ref is kept.
+`gitBranch` query filter can omit shared values, but a shared value cannot prove
+what an immutable deployment used after a branch override is deleted. The local
+contract therefore requires the selected deployment's exact branch override,
+ignores Production and other branches, and rejects configuration newer than the
+deployment until redeployment. No environment values or credentials are written
+to identity evidence; only the selected Supabase project ref is kept.
 
 The RC authentication lifecycle smoke scopes credential-error alerts to the login
 form. A page-wide alert can be Next.js's route announcement after successful

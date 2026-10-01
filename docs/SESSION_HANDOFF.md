@@ -32,9 +32,10 @@ related_docs:
   rejected a page-wide alert during navigation. Its credential-error locator is
   now scoped to the login form; a passing lifecycle/browser run is still required.
 - S027 run `36792720050` failed before authentication because its Vercel
-  branch-only environment query omitted the configured shared Preview URL.
-  `fix/preview-shared-env-attestation` repairs that read path while preserving
-  branch precedence, configuration timestamps, and non-production safeguards.
+  branch-only environment query could not attest the effective Preview URL.
+  `fix/preview-shared-env-attestation` now reads the complete inventory and
+  requires the exact deployment branch override, preserving configuration
+  timestamps and failing closed if that override disappears.
 - This is operational maintenance, Sprint ID: NONE. No auth bypass, RLS,
   migration, credential, or product behavior change is included. Passing
   readiness alone does not certify authenticated workflows or the whole release.
@@ -42,7 +43,7 @@ related_docs:
 ## Verification
 
 The new behavioral regression fails against original main and passes after
-removing the branch-only API filter. Six focused evidence-contract tests pass.
+requiring the exact deployment branch override. Six focused evidence-contract tests pass.
 Required repository checks and authenticated live results remain to be recorded
 for the final head; no pending check is represented as passing.
 

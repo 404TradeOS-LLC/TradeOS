@@ -58,19 +58,20 @@ test("binds Supabase attestation to applicable Preview configuration", () => {
     { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], gitBranch: "rc/beta", value: "https://bbbbbbbbbbbbbbbbbbbb.supabase.co", updatedAt: 1_500 },
   ];
   assert.equal(deploymentSupabaseProjectRef(envs, "rc/beta", deployedAt), "bbbbbbbbbbbbbbbbbbbb");
-  assert.equal(deploymentSupabaseProjectRef([envs[0]], "rc/beta", deployedAt), "aaaaaaaaaaaaaaaaaaaa");
+  assert.throws(() => deploymentSupabaseProjectRef([envs[0]], "rc/beta", deployedAt), /Branch-scoped/);
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], updatedAt: 2_500 }], "rc/beta", deployedAt), /redeploy before mutating evidence/);
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "https://example.com" }], "rc/beta", deployedAt), /identify a Supabase project/);
   assert.throws(() => deploymentSupabaseProjectRef([{ ...envs[1], value: "http://bbbbbbbbbbbbbbbbbbbb.supabase.co" }], "rc/beta", deployedAt), /must use HTTPS/);
 });
 
-test("deployment identity reads shared Preview values without a branch-only API filter", () => {
+test("deployment identity requires the exact branch-scoped Preview value", () => {
   const evidenceDir = fs.mkdtempSync(path.join(os.tmpdir(), "s027-identity-"));
   const ref = "qfbgdkbamfaasmtjfyru";
   const sha = "a".repeat(40);
   const preload = `
     const envs = [
       { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], value: "https://${ref}.supabase.co", updatedAt: 1000 },
+      { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], gitBranch: "staging", value: "https://${ref}.supabase.co", updatedAt: 1000 },
       { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["preview"], gitBranch: "other", value: "https://bbbbbbbbbbbbbbbbbbbb.supabase.co", updatedAt: 1500 },
       { key: "NEXT_PUBLIC_SUPABASE_URL", target: ["production"], value: "https://cccccccccccccccccccc.supabase.co", updatedAt: 1500 }
     ];
