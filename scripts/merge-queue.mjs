@@ -1,6 +1,7 @@
 import { validatePrBody } from "./pr-body-check.mjs";
 
 export const QUEUE_LABEL = "status:merge-queue";
+export const QUEUE_HEAD_LABEL_PREFIX = "merge-queue-head:";
 export const REQUIRED_CHECKS = [
   "Web lint and build", "App lint, unit tests, and build",
   "App integration tests", "Docs consistency",
@@ -19,6 +20,10 @@ export function queueBlockers(pr, repository, { requireConsent = true } = {}) {
     blockers.push("wrong base or fork");
   }
   if (requireConsent && !labels.includes(QUEUE_LABEL)) blockers.push("queue label missing");
+  if (requireConsent) {
+    const headConsent = labels.find((label) => label.startsWith(QUEUE_HEAD_LABEL_PREFIX));
+    if (headConsent !== `${QUEUE_HEAD_LABEL_PREFIX}${pr.headRefOid}`) blockers.push("queue consent is not bound to current head");
+  }
   if (labels.some((label) => STOP_LABELS.has(label))) blockers.push("stop/review label present");
   if (!Array.isArray(pr.labels?.nodes) || !Array.isArray(pr.reviewThreads?.nodes) ||
       pr.labels?.pageInfo?.hasNextPage !== false || pr.reviewThreads?.pageInfo?.hasNextPage !== false) {
@@ -108,6 +113,7 @@ export async function runMergeQueue({ github, context, core, apply = false, prNu
       // Consume one-shot consent before enqueue. Rejected/ejected heads never
       // automatically loop back into the queue on every scheduled poll.
       await github.rest.issues.removeLabel({ owner, repo: name, issue_number: number, name: QUEUE_LABEL });
+      await github.rest.issues.removeLabel({ owner, repo: name, issue_number: number, name: `${QUEUE_HEAD_LABEL_PREFIX}${fresh.headRefOid}` });
       const final = await read(number);
       if (final?.headRefOid !== fresh.headRefOid ||
           queueBlockers(final, repository, { requireConsent: false }).length) {
