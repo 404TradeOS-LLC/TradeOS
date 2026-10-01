@@ -1,6 +1,7 @@
 const ACTIONS = new Set([
   "bootstrap", "configure_profile", "clock_in", "break_start", "break_end", "clock_out", "correct", "approve", "reopen",
 ]);
+const MAX_BODY_BYTES = 20_000;
 
 type TeamTimeRouteDependencies = {
   isEnabled: () => boolean;
@@ -56,8 +57,8 @@ export function createTeamTimePostHandler({ isEnabled, getAccessToken, env, fetc
 
     let body: unknown;
     try {
-      const rawBody = await request.text();
-      if (new TextEncoder().encode(rawBody).byteLength > 20_000) return json({ error: "This time request is too large." }, 413);
+      const rawBody = await readBodyWithinLimit(request);
+      if (rawBody === null) return json({ error: "This time request is too large." }, 413);
       body = JSON.parse(rawBody);
     } catch {
       return json({ error: "Send a valid time request." }, 400);
