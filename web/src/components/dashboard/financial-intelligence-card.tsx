@@ -33,7 +33,7 @@ export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntel
             </CardDescription>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-background/20 px-3 py-1.5 text-xs text-background/80">
-            <ShieldCheck className="size-4" aria-hidden="true" /> {summary.exactOrganizationSummary ? "Organization-wide" : "Verified fallback"}
+            <ShieldCheck className="size-4" aria-hidden="true" /> {summary.exactOrganizationSummary ? "Organization-wide" : "Partial fallback"}
           </div>
         </div>
       </CardHeader>
