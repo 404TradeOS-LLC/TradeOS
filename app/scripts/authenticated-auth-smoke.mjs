@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
+import { signOutOfWorkspace } from "./auth-workspace-navigation.mjs";
 
 const baseUrl = process.env.RC_BASE_URL;
 const email = process.env.RC_AUTH_EMAIL;
@@ -83,7 +84,7 @@ try {
   });
 
   await recordStep("logout clears the authenticated session", async () => {
-    await page.getByRole("button", { name: "Sign out" }).first().click();
+    await signOutOfWorkspace(page);
     await page.waitForURL(/\/login(?:\?|$)/, { timeout: 60_000 });
   });
 

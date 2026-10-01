@@ -37,6 +37,18 @@ related_docs:
   provision the repository token/label; record one dry-run/apply/group-CI trial;
   enable automatic entry after success and monitor failure/ejection summaries.
 
+## Staging fixture and evidence repair — 2026-10-01
+
+- Existing PR #561 reconciled with main `6a2d921`; preserved canonical design
+  authority, current tokens, dependency lockfiles and Customer-to-Project work.
+- Production and immutable staging API readiness now pass. The latest RC smoke
+  passed login/refresh but timed out on Sign out at the default 1280px viewport.
+  The account control is under More below 1536px; the runner now opens that menu
+  and clicks the visible Sign out button. Logout and protected-route denial
+  assertions remain required; no authentication control was weakened.
+- The credential-free fixture stays off by default; no Preview or Production
+  bypass was enabled. Fresh CI and live browser certification remain required.
+
 ## Active S059 release repair — 2026-10-01
 
 - Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
