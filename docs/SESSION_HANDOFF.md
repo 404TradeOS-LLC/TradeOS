@@ -12,6 +12,31 @@ related_docs:
 
 # Session Handoff
 
+## Active maintenance: native merge queue — 2026-10-01
+
+- Classification: `NEW_WORK_REQUIRED`; current main verified as
+  `89a79d29d399c922b023ae4392514cd09708aa0f`. No viable existing native queue
+  implementation or competing open queue PR/branch was found. Work is on
+  `ci/native-merge-queue`, Sprint ID: NONE.
+- Adds guarded one-shot label consent, dry-run/apply, exact-head native enqueue,
+  and disabled-by-default automatic wakeups. Required CI now supports
+  `merge_group`, running all product lanes and checking docs against the event
+  base SHA. Existing required check names and protections are preserved.
+- Ruleset `18958081` has no queue rule in the observed snapshot. Import the
+  additive template after CI support lands, configure the dedicated token, and
+  record a live group-CI trial before enabling automatic entry. The connected
+  GitHub app cannot administer rulesets/secrets; no live activation or enqueue
+  is claimed. See `docs/testing/MERGE_QUEUE.md`.
+- Thirty-five focused boundary/contract tests pass. Full local root regression
+  and final-head hosted CI evidence are recorded in the PR; live enqueue and
+  synthetic group execution remain unverified until activation.
+- PR #604 separately containerizes browser evidence. Shared package/docs metadata
+  must retain both changes when rebasing either PR; this queue lane changes no
+  browser runners, application code, auth, RLS, schema, or sprint completion.
+- Next five tasks: review/land CI support; activate the additive queue rule;
+  provision the repository token/label; record one dry-run/apply/group-CI trial;
+  enable automatic entry after success and monitor failure/ejection summaries.
+
 ## Active S059 release repair — 2026-10-01
 
 - Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
