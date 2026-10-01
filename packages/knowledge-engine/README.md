@@ -357,3 +357,6 @@ same duplicate/canonical-path confusion this document addresses. That branch was
 this phase. Flagging it here so a founder reviewing this PR can decide whether that branch's work
 should be coordinated with, superseded by, or discarded relative to this one — it was not
 investigated further since it falls outside this phase's scope.
+
+
+<!-- PR #507 docs-consistency: this branch inherits agent-skills changes from its reconciled main history; this README remains the package-level provenance and license authority for that vendored content. -->
