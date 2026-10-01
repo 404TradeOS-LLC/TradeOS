@@ -62,13 +62,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  runtime:
+    name: Resolve locked browser image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select Playwright image from lockfile
+        id: image
+        run: node scripts/browser-container.mjs resolve
+
   evidence:
     name: Beta evidence ${{ inputs.mode }}
+    needs: runtime
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: ${{ needs.runtime.outputs.image }}
+      options: --init --ipc=host
     defaults:
       run:
         working-directory: app
     env:
+      PLAYWRIGHT_DOCKER_IMAGE: ${{ needs.runtime.outputs.image }}
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
       BETA_RC_BASE_URL: ${{ inputs.rc_base_url }}
       BETA_RC_BASE_URL_VARIABLE: ${{ vars.BETA_RC_BASE_URL }}
@@ -102,6 +124,8 @@ jobs:
           cache-dependency-path: app/package-lock.json
 
       - run: npm ci
+      - name: Verify preinstalled browser runtime
+        run: node ../scripts/browser-container.mjs verify
 
       - name: Record run identity
         shell: bash
@@ -185,9 +209,6 @@ jobs:
           fi
           exit "$fail"
 
-      - name: Install Chromium
-        if: inputs.mode == 'full'
-        run: npx playwright install --with-deps chromium
 
       - name: Authenticate and bootstrap storage state
         if: inputs.mode == 'full'

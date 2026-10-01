@@ -394,3 +394,34 @@ The RC authentication lifecycle smoke scopes credential-error alerts to the logi
 form. A page-wide alert can be Next.js's route announcement after successful
 navigation and must not be interpreted as a rejected login. Dashboard URL,
 refresh persistence, logout, and protected-route denial still remain required.
+
+## Docker runner
+
+The existing **Beta Evidence** and **S027 authenticated browser evidence** workflows
+run their evidence jobs in the official Playwright Ubuntu Noble Docker image.
+A read-only preparation job derives the versioned image tag from
+`app/package-lock.json`; `playwright` and `playwright-core` must agree on a
+stable version. Dependency upgrades therefore select the matching browser image
+without a separate workflow edit. Chromium uses `/ms-playwright`, with
+`--init --ipc=host`; the job installs application dependencies with `npm ci`
+and does not download or install browser system dependencies on the runner.
+
+Before authentication, `scripts/browser-container.mjs verify` checks the installed
+package against the image and lockfile, requires the preinstalled executable,
+and launches/closes headless Chromium. Its `browser-runtime.json` records the
+image tag, package/browser versions, runner source SHA, run ID, and attempt.
+This is runner evidence, not proof of a deployed application's identity or an
+authenticated workflow. The versioned upstream image tag is not digest-pinned.
+
+Dispatch the same workflows with their existing inputs and dedicated test-account
+secrets. S027 retains Vercel deployment/data-plane attestation before and after
+capture, its required full deployed SHA and sanitized-tenant confirmation. Beta
+retains separate preflight/full modes, tenant-isolation probes, and all four
+viewport checkpoints. Credential scans, session cleanup, serialized runs, artifact
+names, and 30-day retention remain in force. An unavailable image, package
+mismatch, browser launch error, authentication failure, or incomplete capture
+fails the job; no fallback to an unverified host browser is used.
+
+A full passing GitHub run and its artifacts are still required for live browser
+certification. Docker supplies the browser runtime; it does not provision a
+staging database, create a smoke account, or establish deployment readiness.
