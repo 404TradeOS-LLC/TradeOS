@@ -57,7 +57,7 @@ async function main() {
     // organization membership - runWithBackgroundDatabaseSession re-verifies
     // it and resolves the real role from the database; nothing here ever
     // trusts a caller-supplied role.
-    (auth) => ingestJonesAndSonsTerreHauteCandidates(auth)
+    (auth) => ingestJonesAndSonsTerreHauteCandidates(auth, { retrievedAt: "2026-09-12T00:00:00.000Z", loggedDate: "2026-09-12" })
   );
 
   for (const candidate of result.created) {
