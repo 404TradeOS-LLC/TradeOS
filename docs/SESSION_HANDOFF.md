@@ -47,6 +47,13 @@ requiring the exact deployment branch override. Six focused evidence-contract te
 Required repository checks and authenticated live results remain to be recorded
 for the final head; no pending check is represented as passing.
 
+## Active follow-on: Team & Time staging interface
+
+- PR #562 adds the feature-flagged responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
+- The work requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
+- The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
+- The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
+
 ## Next action
 
 Verify RC smoke attempt 2, publish the bounded attestation repair through normal

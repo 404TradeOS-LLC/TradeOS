@@ -19,5 +19,7 @@ export const config = {
     "/portal/:path*",
     "/projects/:path*",
     "/settings/:path*",
+    "/team-time/:path*",
+    "/api/team-time",
   ],
 };

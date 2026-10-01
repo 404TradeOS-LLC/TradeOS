@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
 import { getAthenaCapabilities } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
+import { isTeamTimeEnabled } from "@/lib/team-time-config";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
@@ -49,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         email={session.email}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
+        teamTimeEnabled={isTeamTimeEnabled()}
       />
       <main
         id="main-content"
