@@ -1,7 +1,21 @@
 # S059 customer portal security evidence
 
-Status: pending authenticated browser and real PostgreSQL/RLS run. This file is
-the capture contract, not certification that the journey has passed.
+Status: pending authenticated browser certification and fresh exact-head
+PostgreSQL/RLS CI. This file is the capture contract, not certification that
+the journey has passed.
+
+## Build and deployment reconciliation — 2026-10-01
+
+The portal branch removed the existing web `allowImportingTsExtensions` setting,
+causing TS5097 in `create-customer-workflow.ts`. Restore the current-main setting
+and the merged Customer-to-Project form, tests, and documentation; portal
+certification must not roll back CRM behavior. Current production web/API are
+`tradeos-costbook-web` / `tradeos-costbook`, both READY at main `6a2d921`.
+Production and the pinned staging backend returned `/ready` HTTP 200 with
+database/schema `ok`. The historical Vercel project named `tradeos` is not the
+current application. These checks do not prove authenticated portal behavior.
+
+## Browser capture contract
 
 Use an isolated non-production organization with synthetic customers A and B,
 and a separate organization C. Run at the exact deployed branch SHA with an

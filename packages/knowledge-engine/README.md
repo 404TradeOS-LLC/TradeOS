@@ -357,6 +357,3 @@ same duplicate/canonical-path confusion this document addresses. That branch was
 this phase. Flagging it here so a founder reviewing this PR can decide whether that branch's work
 should be coordinated with, superseded by, or discarded relative to this one — it was not
 investigated further since it falls outside this phase's scope.
-
-
-<!-- S059 docs-consistency note: this PR's inherited merge-base includes agent-skills provenance changes. The vendored agent-skills content remains governed by this README; S059 itself does not change its provenance or licensing. -->
