@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
+import { signOutOfWorkspace } from "./auth-workspace-navigation.mjs";
 
 const baseUrl = process.env.RC_BASE_URL;
 const email = process.env.RC_AUTH_EMAIL;
@@ -57,7 +58,7 @@ try {
     await page.locator('[name="email"]').fill(email);
     await page.locator('[name="password"]').fill(rejectedPassword);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.getByRole("alert").waitFor({ state: "visible", timeout: 60_000 });
+    await page.locator("form").getByRole("alert").waitFor({ state: "visible", timeout: 60_000 });
     if (new URL(page.url()).pathname !== "/login") throw new Error("Rejected credentials left the login route.");
     await context.close();
   });
@@ -71,7 +72,7 @@ try {
     await page.getByRole("button", { name: "Sign in" }).click();
     await Promise.race([
       page.waitForURL(/\/dashboard(?:\?|$)/, { timeout: 60_000 }),
-      page.getByRole("alert").waitFor({ state: "visible", timeout: 60_000 }).then(() => {
+      page.locator("form").getByRole("alert").waitFor({ state: "visible", timeout: 60_000 }).then(() => {
         throw new Error("RC smoke owner login returned an alert before reaching the authenticated workspace.");
       }),
     ]);
@@ -83,7 +84,7 @@ try {
   });
 
   await recordStep("logout clears the authenticated session", async () => {
-    await page.getByRole("button", { name: "Sign out" }).first().click();
+    await signOutOfWorkspace(page);
     await page.waitForURL(/\/login(?:\?|$)/, { timeout: 60_000 });
   });
 

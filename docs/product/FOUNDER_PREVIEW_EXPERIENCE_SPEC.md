@@ -220,10 +220,8 @@ admin navigation already exists and should not be rebuilt.
 ## Design-system alignment
 
 Reference only — do not duplicate the full design system into this repository. The
-canonical Figma named in `.stitch/DESIGN.md` defines design truth. Production code
-defines exact runtime and accessibility values. The external
-`404TradeOS-LLC/404-tradeos/docs/design/source-import/project/` path is reference
-material unless reconciled into the canonical Figma.
+canonical source lives in `404TradeOS-LLC/404-tradeos`,
+`docs/design/source-import/project/`.
 
 - **Blueprint** (the light, cool-graphite product theme — `.theme-blueprint` token set:
   `--ink-*` neutrals on `--paper`/`--ink-50` surfaces) is the correct environment for

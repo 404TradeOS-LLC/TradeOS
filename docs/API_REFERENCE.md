@@ -176,6 +176,14 @@ Mounted route groups from `app/backend/server.ts`:
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
 
+### CRM Customer search and service addresses
+
+`GET /api/v1/customers` requires `crm.read`. It accepts optional `query` and `limit` parameters; an explicit query is trimmed and validated and `limit` is restricted to 1–250 before the organization-scoped CRM service read. The service searches name, email, and phone substrings inside the authenticated organization and excludes soft-deleted Customers. This bounded search is used only as advisory duplicate evidence by the create-Customer workflow; a full 250-row result is treated as incomplete rather than evidence that no exact match exists.
+
+`POST /api/v1/customers` and Customer update/archive mutations require `crm.write`. The frontend re-runs the bounded advisory name/email search immediately before creation, blocks the write if any lookup fails or returns a full page, and requires explicit `create-separate` intent when exact normalized name/email matches exist. It never merges Customer records automatically.
+
+`GET /api/v1/customers/:id` requires `crm.read` and returns linked Projects plus active ServiceAddress rows. Service-address create/update/delete routes require `crm.write`; the existing CRM service verifies organization/customer parentage and soft-removes addresses rather than exposing cross-customer mutation.
+
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
 and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
