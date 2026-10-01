@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The owner dashboard prefers `GET /api/v1/intelligence/financial-summary`, a read-only organization-scoped aggregate built from existing persisted sources:
+`GET /api/v1/intelligence/financial-summary` is implemented as a read-only organization-scoped aggregate built from existing persisted sources. Owner-dashboard integration is deferred on this branch:
 
 - all recorded payments in the current organization week;
 - all open and overdue invoice balances after recorded payments;
@@ -11,7 +11,7 @@ The owner dashboard prefers `GET /api/v1/intelligence/financial-summary`, a read
 
 Each source carries `complete`, `partial`, or `unavailable` coverage plus an explanation. The endpoint uses the authenticated organization id, requires `billing.read`, and runs inside the established request-scoped database session and forced-RLS boundary. Independent source failures return `null` values with unavailable coverage instead of replacing unknown money with zero or blanking healthy sources.
 
-The dashboard retains the earlier payment/invoice/proposal queue calculation as a degraded fallback if the aggregate endpoint itself is unavailable. It labels that state as fallback coverage rather than organization-wide exact coverage.
+The existing dashboard payment/invoice/proposal queue calculation remains unchanged until the deferred integration lands. The prepared card/model support degraded fallback coverage, but this branch does not claim that card is currently rendered on the dashboard.
 
 ## Deliberately unavailable
 
