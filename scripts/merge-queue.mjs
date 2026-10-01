@@ -1,7 +1,9 @@
 import { validatePrBody } from "./pr-body-check.mjs";
 
 export const QUEUE_LABEL = "status:merge-queue";
-export const QUEUE_HEAD_LABEL_PREFIX = "merge-queue-head:";
+// GitHub label names are limited to 50 characters. Keep the full 40-character
+// SHA in the consent label while leaving room for the prefix.
+export const QUEUE_HEAD_LABEL_PREFIX = "mqh:";
 export const REQUIRED_CHECKS = [
   "Web lint and build", "App lint, unit tests, and build",
   "App integration tests", "Docs consistency",

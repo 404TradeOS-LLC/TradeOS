@@ -38,16 +38,20 @@ Native execution and activation have not been certified by local mocked tests.
    Confirm `Require merge queue` applies to `main`, with squash merging,
    `ALLGREEN`, one concurrent build, one PR per merge, and a 60-minute timeout.
    There are no bypass actors in the template.
-3. Create the `status:merge-queue` label from `.github/labels.yml`. Store a
-   dedicated, expiring fine-grained personal access token as the repository
-   secret `TRADEOS_MERGE_QUEUE_TOKEN`, scoped only to `404TradeOS-LLC/TradeOS`.
+3. Create the `status:merge-queue` label from `.github/labels.yml`. For each
+   reviewed head, also create and apply the temporary consent label
+   `mqh:<full-40-character-SHA>`; this binds consent to that exact head and
+   stays within GitHub's 50-character label-name limit. Store a dedicated,
+   expiring fine-grained personal access token as the repository secret
+   `TRADEOS_MERGE_QUEUE_TOKEN`, scoped only to `404TradeOS-LLC/TradeOS`.
    Grant Contents, Pull requests, and Issues **write**, and Checks **read**;
    its owner must have repository write access. Give it no administration or
    ruleset-bypass privileges. Secret creation/rotation is an administrator task.
    The action intentionally refuses apply mode without this secret. Its own
    `GITHUB_TOKEN` is read-only and is used only for dry-run inspection.
 4. After reviewing one bounded PR's final head, remove stop/review labels only
-   when resolved, add `status:merge-queue`, and dispatch `Native merge queue`
+   when resolved, add both `status:merge-queue` and
+   `mqh:<that-head's-full-40-character-SHA>`, and dispatch `Native merge queue`
    on `main` with its PR number and `apply=false`. Inspect the summary. Then
    dispatch with `apply=true`. Confirm that both `merge_group` workflows
    started and all four required contexts report on the synthetic group SHA.
@@ -77,12 +81,13 @@ contract. All reported checks must be green. GitHub independently enforces the
 live required-check app identities and rules at enqueue and merge time.
 
 `status:do-not-merge`, `status:blocked`, `status:superseded`, and
-`owner:human-review` stop entry. A maintainer adds `status:merge-queue` only after
-the applicable governance/risk review of the current head; the label does not
-replace review or authorize unresolved PR-only risks. Fork PRs require manual
-handling. API errors, missing evidence, or truncated connections fail closed.
+`owner:human-review` stop entry. A maintainer adds `status:merge-queue` and the
+matching `mqh:<full-40-character-SHA>` only after the applicable governance/risk
+review of the current head; both labels are required and do not replace review
+or authorize unresolved PR-only risks. Fork PRs require manual handling. API
+errors, missing evidence, or truncated connections fail closed.
 
-The opt-in label authorizes **one enqueue attempt** and is removed before the
+The opt-in labels authorize **one enqueue attempt** and are removed before the
 mutation. A second fresh read catches head/blocker changes after label removal,
 and `expectedHeadOid` rejects a concurrent head change at enqueue. Consent may
 be consumed even if the API rejects entry. Review the summary, repair the

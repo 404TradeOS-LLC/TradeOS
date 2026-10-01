@@ -7,6 +7,11 @@ import { REQUIRED_PR_SECTIONS } from "../pr-body-check.mjs";
 
 const repository = "404TradeOS-LLC/TradeOS";
 const head = "a".repeat(40);
+
+test("head-bound consent labels fit GitHub's label-name limit", () => {
+  assert.ok((QUEUE_HEAD_LABEL_PREFIX + head).length <= 50);
+});
+
 function fixture(overrides = {}) {
   return {
     id: "PR_1", number: 1, state: "OPEN", isDraft: false, baseRefName: "main",
