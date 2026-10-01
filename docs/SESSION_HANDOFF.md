@@ -12,6 +12,20 @@ related_docs:
 
 # Session Handoff
 
+## Active S059 release repair — 2026-10-01
+
+- Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
+  reconciliation classification: `EXISTING_WORK_FOUND`. Main is `6a2d921`.
+- Reproduced TS5097 with web TypeScript checking. Restored current-main compiler
+  configuration and Customer-to-Project UI/test/docs rather than changing imports
+  incompatibly with the Node test runner. Auth policy and RLS remain unchanged.
+- Production web/API both identify `6a2d921`, and production plus immutable staging
+  backend readiness returned HTTP 200 with database/schema `ok`. The old project
+  named `tradeos` caused a false deployment-drift report.
+- Local web build/lint passed and all 411 web tests passed after repair.
+- Authenticated portal certification and fresh exact-head CI remain required.
+  S059 stays incomplete.
+
 ## Current truth
 
 - PR #597 merged as `3288f3c7a967b75b507b7544328c817a513fb835`.
