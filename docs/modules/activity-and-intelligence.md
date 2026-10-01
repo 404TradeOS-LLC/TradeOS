@@ -59,7 +59,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - notification center
 - project activity feed and related timeline surfaces
 - the owner dashboard's "Recent task movement" panel, sourced from `/api/v1/intelligence/activity?entityType=task`
-- the owner dashboard's Financial Intelligence card, sourced primarily from `/api/v1/intelligence/financial-summary`
+- Financial Intelligence card/model prepared for a deferred owner-dashboard integration, sourced primarily from `/api/v1/intelligence/financial-summary`; this branch does not currently render that card on the dashboard
 
 ## Tests
 
