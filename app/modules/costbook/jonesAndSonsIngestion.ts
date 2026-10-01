@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { hasPermission } from "../../domain";
 import type { AuthContext } from "../../backend/auth/context";
@@ -63,18 +64,28 @@ export async function ingestJonesAndSonsTerreHauteCandidates(
 
   for (const candidate of candidates) {
     const sourceIdentifier = candidate.sourceIdentifier;
-    if (sourceIdentifier) {
-      const existing = await prisma.costbookResearchCandidate.findFirst({
+    if (!sourceIdentifier) {
+      result.created.push(await service.create(auth, candidate));
+      continue;
+    }
+
+    const outcome = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`}, 0))`
+      );
+      const existing = await tx.costbookResearchCandidate.findFirst({
         where: { orgId: auth.orgId, sourceIdentifier },
         select: { id: true },
       });
-      if (existing) {
-        result.skipped.push({ sourceIdentifier, existingCandidateId: existing.id });
-        continue;
-      }
-    }
+      if (existing) return { existingCandidateId: existing.id } as const;
+      return { created: await new CostbookCandidateService(tx).create(auth, candidate) } as const;
+    });
 
-    result.created.push(await service.create(auth, candidate));
+    if ("existingCandidateId" in outcome) {
+      result.skipped.push({ sourceIdentifier, existingCandidateId: outcome.existingCandidateId });
+    } else {
+      result.created.push(outcome.created);
+    }
   }
 
   return result;
