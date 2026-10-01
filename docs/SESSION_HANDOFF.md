@@ -1,85 +1,59 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
-  - docs/CURRENT_STATE.md
-  - docs/ENGINEERING_COMMAND_CENTER.md
-  - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
+  - docs/REPOSITORY_GOVERNANCE.md
+  - docs/testing/BETA_EVIDENCE.md
 ---
 
 # Session Handoff
 
-## Active S059 release repair — 2026-10-01
+## Docker browser evidence maintenance
 
-- Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
-  reconciliation classification: `EXISTING_WORK_FOUND`. Main is `6a2d921`.
-- Reproduced TS5097 with web TypeScript checking. Restored current-main compiler
-  configuration and Customer-to-Project UI/test/docs rather than changing imports
-  incompatibly with the Node test runner. Auth policy and RLS remain unchanged.
-- Production web/API both identify `6a2d921`, and production plus immutable staging
-  backend readiness returned HTTP 200 with database/schema `ok`. The old project
-  named `tradeos` caused a false deployment-drift report.
-- Local web build/lint passed and all 411 web tests passed after repair.
-- Authenticated portal certification and fresh exact-head CI remain required.
-  S059 stays incomplete.
-
-## Current truth
-
-- PR #597 merged as `3288f3c7a967b75b507b7544328c817a513fb835`.
-  Production frontend `dpl_GmtT3say5KK8qY57PHU7QT1cWw2R` and backend
-  `dpl_CRLBHggXh7zuJkUTBQioGVQH8HuZ` both identify that main commit.
-- The production Supabase project was paused. It was restored on 2026-09-30;
-  `/ready` returned HTTP 200 with database and schema checks `ok` at 23:52 UTC.
-- Staging commit `9ca5876eef05daaa5e59ed6c39b2b52bbe6ce74e` retains both
-  histories and uses the exact main tree `63d8faaa417f8dafebcc1e8aa68930fd1605c56b`.
-  Repair run `36792529613` passed immutable backend identity/readiness and
-  invalid-token auth initialization against `dpl_FX2x1wPMHzXYsfDcCRNB7WcipL7V`.
-- RC smoke run `36793045095` first failed after successful Supabase login:
-  frontend organization bootstrap called an obsolete API deployment (HTTP 410).
-  A staging-only `BACKEND_API_URL` override now pins the verified backend
-  `https://tradeos-costbook-6tij63lsx-billykshowalters.vercel.app`.
-  Replacement frontend `dpl_46S63m9K9pebE3t1VV2niF3CP3Lb` is READY at the
-  staging SHA. Attempt 2 reached dashboard and authenticated API HTTP 200, but the runner
-  rejected a page-wide alert during navigation. Its credential-error locator is
-  now scoped to the login form; a passing lifecycle/browser run is still required.
-- S027 run `36792720050` failed before authentication because its Vercel
-  branch-only environment query could not attest the effective Preview URL.
-  `fix/preview-shared-env-attestation` now reads the complete inventory and
-  requires the exact deployment branch override, preserving configuration
-  timestamps and failing closed if that override disappears.
-- This is operational maintenance, Sprint ID: NONE. No auth bypass, RLS,
-  migration, credential, or product behavior change is included. Passing
-  readiness alone does not certify authenticated workflows or the whole release.
+- Mission: containerize the existing Beta Evidence and S027 browser evidence
+  workflows. Sprint ID: NONE; no sprint implementation or status change.
+- GitHub source: `404TradeOS-LLC/TradeOS` main at
+  `89a79d29d399c922b023ae4392514cd09708aa0f`.
+- Reconciliation: `NEW_WORK_REQUIRED`. Open PRs and relevant remote branches
+  were checked; no open Docker-runner implementation was found. PR #602 is
+  merged and its deployment/data-plane attestation is preserved.
+- Branch: `ci/docker-browser-evidence`. The prior local linked worktrees point
+  to an unavailable Git directory, so exact-main files were fetched through
+  the GitHub connector into a separate local validation snapshot. Its local
+  commit IDs are snapshot IDs, not GitHub main history.
+- Both workflows derive the official Playwright Noble image from the app
+  lockfile and verify the installed package and preinstalled Chromium before
+  login. The guard records image/browser/runner identity without credentials.
+- Existing manual triggers, shared serialization, responsive captures,
+  non-production/tenant guards, deployment attestation, session cleanup, and
+  credential-gated uploads are retained. No app/web behavior, database,
+  authentication policy, deployment configuration, or secret changed.
 
 ## Verification
 
-The new behavioral regression fails against original main and passes after
-requiring the exact deployment branch override. Six focused evidence-contract tests pass.
-Required repository checks and authenticated live results remain to be recorded
-for the final head; no pending check is represented as passing.
+- `npm run pr:test`: 82 tests pass, including six container regressions.
+- `npm run docs:test`: 39 tests pass.
+- Focused beta/container contracts: 40 tests pass.
+- Lockfile image resolution selects `mcr.microsoft.com/playwright:v1.63.0-noble`.
+- YAML parsing, embedded Bash syntax, and JavaScript syntax pass.
+- Documentation ownership/preflight and final whitespace checks are required
+  on the final patch before publishing.
 
-## Active follow-on: Team & Time staging interface
+## Remaining evidence
 
-- PR #562 adds the feature-flagged responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
-- The work requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
-- The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
-- The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
-
-## Next action
-
-Verify RC smoke attempt 2, publish the bounded attestation repair through normal
-CI/review, and rerun S027 against the immutable replacement frontend with expected
-staging SHA and the canonical sanitized Beta Smoke organization. Retain artifacts
-and deployment identity before/after capture. Do not claim full release
-certification from readiness or a repository merge alone.
+Docker and actionlint are unavailable in this local runtime. A live GitHub
+container launch and authenticated capture remain unverified. The PR's
+Workflow security lane provides actionlint; dispatch the existing workflows
+after review to obtain browser-runtime and responsive artifacts. A runner
+check or repository merge alone never certifies release behavior.
 
 ## Next Eligible Sprint
 
 Sprint ID: S053
-Eligibility: READY in the canonical backlog; operational recovery does not start or complete this sprint.
+Eligibility: READY in the inspected canonical backlog.
 Dependencies: S051 is DONE.
-Overlap check: Live open PRs reviewed on 2026-09-30; no competing S053 implementation found.
-Startup prompt: Reconcile current main and complete S053 startup before implementing its bounded review, denial, and provenance evidence.
+Overlap check: Reconcile live PRs before starting; this maintenance branch does not implement S053.
+Startup prompt: Complete canonical S053 startup against current main and the refreshed live PR state.

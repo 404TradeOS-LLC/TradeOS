@@ -282,3 +282,13 @@ The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable com
 ## S053 implementation update — 2026-09-22
 
 PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.
+
+## Browser evidence execution
+
+Beta Evidence and S027 authenticated browser evidence now select their official
+Playwright Docker image from the app lockfile and verify the preinstalled
+Chromium executable launches before authentication. Existing viewport,
+non-production, tenant, session cleanup, and artifact contracts continue to
+apply. The runner records its versions and source identity in
+`browser-runtime.json`; see [the runner contract](testing/BETA_EVIDENCE.md#docker-runner).
+A passing runtime check is distinct from passing authenticated release evidence.
