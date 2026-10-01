@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-25
+last_verified: 2026-09-30
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -14,54 +14,58 @@ related_docs:
 
 ## Current truth
 
-- S051 implementation merged in PR #538:
-  https://github.com/404TradeOS-LLC/TradeOS/pull/538
-- Merge commit: `49cfb31ce8badf8a3440792e0f9aa7a8a01026db`.
-- The matrix/validator is now on `main`; do not continue the old S051 branch.
-- The change adds a machine-readable matrix of 10 journeys and 49 UI/API
-  actions or reads, plus a static route/controller/contract drift validator,
-  regression tests, and beta-evidence documentation.
-- The matrix identifies two current gaps: no customer proposal accept/decline
-  UI mapping and no frontend Athena chat mapping to `/api/v1/athena/chat`.
-- Static validation is not rendered-browser certification. No current-head
-  browser evidence is claimed. Hosted verification passed on code head
-  `4c5285c6008ceef0ff37e9f7d0eeb289b76e1e53`; human review and merge evidence
-  remain outstanding.
-- No application behavior, API contract, database schema, or runtime security
-  policy was changed.
+- PR #597 merged as `3288f3c7a967b75b507b7544328c817a513fb835`.
+  Production frontend `dpl_GmtT3say5KK8qY57PHU7QT1cWw2R` and backend
+  `dpl_CRLBHggXh7zuJkUTBQioGVQH8HuZ` both identify that main commit.
+- The production Supabase project was paused. It was restored on 2026-09-30;
+  `/ready` returned HTTP 200 with database and schema checks `ok` at 23:52 UTC.
+- Staging commit `9ca5876eef05daaa5e59ed6c39b2b52bbe6ce74e` retains both
+  histories and uses the exact main tree `63d8faaa417f8dafebcc1e8aa68930fd1605c56b`.
+  Repair run `36792529613` passed immutable backend identity/readiness and
+  invalid-token auth initialization against `dpl_FX2x1wPMHzXYsfDcCRNB7WcipL7V`.
+- RC smoke run `36793045095` first failed after successful Supabase login:
+  frontend organization bootstrap called an obsolete API deployment (HTTP 410).
+  A staging-only `BACKEND_API_URL` override now pins the verified backend
+  `https://tradeos-costbook-6tij63lsx-billykshowalters.vercel.app`.
+  Replacement frontend `dpl_46S63m9K9pebE3t1VV2niF3CP3Lb` is READY at the
+  staging SHA. Attempt 2 reached dashboard and authenticated API HTTP 200, but the runner
+  rejected a page-wide alert during navigation. Its credential-error locator is
+  now scoped to the login form; a passing lifecycle/browser run is still required.
+- S027 run `36792720050` failed before authentication because its Vercel
+  branch-only environment query could not attest the effective Preview URL.
+  `fix/preview-shared-env-attestation` now reads the complete inventory and
+  requires the exact deployment branch override, preserving configuration
+  timestamps and failing closed if that override disappears.
+- This is operational maintenance, Sprint ID: NONE. No auth bypass, RLS,
+  migration, credential, or product behavior change is included. Passing
+  readiness alone does not certify authenticated workflows or the whole release.
 
-## Verification completed
+## Verification
 
-- `npm run connection-matrix:check` — passed (10 journeys, 49 mapped actions).
-- `npm run connection-matrix:test` — passed.
-- `npm run pr:test` — passed (65 tests).
-- `npm run docs:test` — passed.
-- `npm run docs:check -- --base origin/main` — passed.
-- `npm run pr:preflight -- --base origin/main` — passed.
-- `git diff --check` and `node --check scripts/connection-matrix-check.mjs` —
-  passed.
+The new behavioral regression fails against original main and passes after
+requiring the exact deployment branch override. Six focused evidence-contract tests pass.
+Required repository checks and authenticated live results remain to be recorded
+for the final head; no pending check is represented as passing.
 
 ## Active follow-on: Team & Time staging interface
 
-- A separate frontend branch, `feature/team-time-web-workspace`, connects the staging timekeeping function to the existing TradeOS sign-in session. It adds the responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
-- The work is feature-flagged, requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
-- The related open PR #561 is an isolated synthetic auth fixture for preview E2E. It does not issue a Supabase Auth JWT for direct Edge Function access, so it is complementary and not an overlapping implementation.
-- Current local verification: web tests (309), lint (one unrelated pre-existing warning), production build, PR preflight, docs ownership/check, docs tests (39), PR tests (70), and `git diff --check` pass.
-- Staging verification confirms the `team-time` Edge Function is active at version 4 with JWT verification enabled and both Team & Time migrations applied. Its tables have no time profiles or shifts, and staging currently has no active jobs or job assignments. The function/migration source is not yet versioned in this repository.
-- The real phone-to-office test remains blocked on dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
-- Next action for this follow-on: keep the implementation as a draft PR; version the deployed function and migration source, then provision isolated staging accounts/job and run the signed-in worker punch plus supervisor approval test. The S053 estimate-flow eligibility contract below remains unchanged.
+- PR #562 adds the feature-flagged responsive `/team-time` workspace, assigned-job punches, breaks, supervisor review/corrections, employee/subcontractor classification, and approved-hours CSV handoff.
+- The work requires the server-only project ref pinned to TradeOS Staging and matching the project reference in the configured URL hostname, and is explicitly disabled on Vercel Production. It does not submit payroll, verify jobsite location, or replace the existing login.
+- The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
+- The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
 
 ## Next action
 
-After the S053 readiness PR merges, create a fresh implementation branch from
-current `main`. Certify the existing scope → Athena → reviewed Costbook/assembly
-→ persisted estimate-line path; do not change pricing policy, schema, auth/RLS,
-or introduce unreviewed AI writes.
+Verify RC smoke attempt 2, publish the bounded attestation repair through normal
+CI/review, and rerun S027 against the immutable replacement frontend with expected
+staging SHA and the canonical sanitized Beta Smoke organization. Retain artifacts
+and deployment identity before/after capture. Do not claim full release
+certification from readiness or a repository merge alone.
 
 ## Next Eligible Sprint
 
 Sprint ID: S053
-Eligibility: `READY` in the separate governance promotion; implementation starts only after that PR merges.
-Dependencies: S051 is DONE; no competing S053 implementation was found.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; no S053 overlap was found.
-Startup prompt: Start S053 from current `main` after readiness merge and retain explicit review/denial/provenance evidence.
+Eligibility: READY in the canonical backlog; operational recovery does not start or complete this sprint.
+Dependencies: S051 is DONE.
+Overlap check: Live open PRs reviewed on 2026-09-30; no competing S053 implementation found.
+Startup prompt: Reconcile current main and complete S053 startup before implementing its bounded review, denial, and provenance evidence.
