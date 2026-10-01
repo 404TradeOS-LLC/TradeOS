@@ -13,14 +13,16 @@ const mockPrisma = {
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
 
+import { STAGING_AUTH } from "../domain";
 import { signAuthToken } from "../backend/auth/jwt";
 import { requireAuth } from "../backend/middleware/auth";
+import { authRateLimit } from "../backend/middleware/authRateLimit";
 import { databaseSession } from "../backend/middleware/databaseSession";
 import { errorHandler } from "../backend/middleware/errorHandler";
 
 function buildApp() {
   const app = express();
-  app.get("/secure", requireAuth, databaseSession, (req, res) => {
+  app.get("/secure", authRateLimit, requireAuth, databaseSession, (req, res) => {
     const authed = req as express.Request & {
       auth?: { userId: string; orgId: string; role: string; email?: string; canonicalRole?: string };
       orgId?: string;
@@ -57,6 +59,36 @@ describe("requireAuth middleware", () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it("rejects the staging marker while bypass is disabled", async () => {
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+    expect(response.status).toBe(401);
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("resolves a protected API route to the dedicated owner tenant in Preview", async () => {
+    Object.assign(process.env, {
+      TRADEOS_AUTH_BYPASS: "true",
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+      SUPABASE_URL: `https://${STAGING_AUTH.supabaseRef}.supabase.co`,
+      DATABASE_URL: `postgresql://tradeos_app.${STAGING_AUTH.supabaseRef}:placeholder@aws-0-us-east-1.pooler.supabase.com:6543/postgres`,
+    });
+    mockPrisma.appUser.findUnique.mockResolvedValue({ id: STAGING_AUTH.userId, email: STAGING_AUTH.email, isActive: true });
+    mockPrisma.organizationMembership.findFirst.mockResolvedValue({ orgId: STAGING_AUTH.orgId, userId: STAGING_AUTH.userId, role: "owner", status: "active" });
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ userId: STAGING_AUTH.userId, orgId: STAGING_AUTH.orgId, role: "owner", email: STAGING_AUTH.email });
+    expect(mockPrisma.appUser.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { authSubject: STAGING_AUTH.subject } }));
+    expect(mockPrisma.organizationMembership.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ orgId: STAGING_AUTH.orgId, status: "active" }) }));
+  });
+
+  it("denies every protected request when bypass is configured in Vercel Production", async () => {
+    Object.assign(process.env, { TRADEOS_AUTH_BYPASS: "true", NODE_ENV: "production", VERCEL_ENV: "production" });
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+    expect(response.status).toBe(503);
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
   });
 
   it("accepts a signed bearer token and loads the matching membership context", async () => {

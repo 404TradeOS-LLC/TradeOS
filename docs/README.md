@@ -308,12 +308,3 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 ### GitHub Actions runtime maintenance
 
 `.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.
-
-## Browser evidence runner
-
-The existing Beta Evidence and S027 authenticated browser-evidence workflows use
-a lockfile-selected Playwright Docker container, verify Chromium launches before
-login, and retain credential-scanned responsive evidence through their existing
-artifact contracts. See [Beta Evidence](testing/BETA_EVIDENCE.md#docker-runner)
-for inputs, runtime metadata, and the distinction between runner verification
-and live release certification.
