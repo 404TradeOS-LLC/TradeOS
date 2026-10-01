@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { hasPermission } from "../../domain";
 import type { AuthContext } from "../../backend/auth/context";
@@ -68,20 +69,23 @@ export async function ingestJonesAndSonsTerreHauteCandidates(
       continue;
     }
 
-    const lockKey = `costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`;
-    await prisma.$executeRawUnsafe("SELECT pg_advisory_lock(hashtextextended($1, 0))", lockKey);
-    try {
-      const existing = await prisma.costbookResearchCandidate.findFirst({
+    const outcome = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`}, 0))`
+      );
+      const existing = await tx.costbookResearchCandidate.findFirst({
         where: { orgId: auth.orgId, sourceIdentifier },
         select: { id: true },
       });
-      if (existing) {
-        result.skipped.push({ sourceIdentifier, existingCandidateId: existing.id });
-        continue;
-      }
-      result.created.push(await service.create(auth, candidate));
-    } finally {
-      await prisma.$executeRawUnsafe("SELECT pg_advisory_unlock(hashtextextended($1, 0))", lockKey);
+      if (existing) return { kind: "existing" as const, id: existing.id };
+      const created = await new CostbookCandidateService(tx).create(auth, candidate);
+      return { kind: "created" as const, candidate: created };
+    });
+
+    if (outcome.kind === "existing") {
+      result.skipped.push({ sourceIdentifier, existingCandidateId: outcome.id });
+    } else {
+      result.created.push(outcome.candidate);
     }
   }
 
