@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import yaml from "js-yaml";
-import { QUEUE_LABEL, REQUIRED_CHECKS, queueBlockers, runMergeQueue } from "../merge-queue.mjs";
+import { QUEUE_HEAD_LABEL_PREFIX, QUEUE_LABEL, REQUIRED_CHECKS, queueBlockers, runMergeQueue } from "../merge-queue.mjs";
 import { REQUIRED_PR_SECTIONS } from "../pr-body-check.mjs";
 
 const repository = "404TradeOS-LLC/TradeOS";
@@ -12,7 +12,7 @@ function fixture(overrides = {}) {
     id: "PR_1", number: 1, state: "OPEN", isDraft: false, baseRefName: "main",
     headRefOid: head, mergeable: "MERGEABLE", reviewDecision: null, mergeQueueEntry: null,
     headRepository: { nameWithOwner: repository },
-    labels: { nodes: [{ name: QUEUE_LABEL }], pageInfo: { hasNextPage: false } },
+    labels: { nodes: [{ name: QUEUE_LABEL }, { name: QUEUE_HEAD_LABEL_PREFIX + head }], pageInfo: { hasNextPage: false } },
     reviewThreads: { nodes: [], pageInfo: { hasNextPage: false } },
     body: REQUIRED_PR_SECTIONS.map((title) => "## " + title + "\n\nReviewed bounded change.").join("\n\n"),
     commits: { nodes: [{ commit: { oid: head, statusCheckRollup: {
@@ -67,15 +67,15 @@ for (const [name, override] of [
   ["required review", { reviewDecision: "REVIEW_REQUIRED" }],
   ["queued already", { mergeQueueEntry: { id: "ENTRY" } }],
   ["no consent", { labels: { nodes: [], pageInfo: { hasNextPage: false } } }],
-  ["stop label", { labels: { nodes: [{ name: QUEUE_LABEL }, { name: "status:do-not-merge" }],
+  ["stop label", { labels: { nodes: [{ name: QUEUE_LABEL }, { name: QUEUE_HEAD_LABEL_PREFIX + head }, { name: "status:do-not-merge" }],
     pageInfo: { hasNextPage: false } } }],
-  ["human review", { labels: { nodes: [{ name: QUEUE_LABEL }, { name: "owner:human-review" }],
+  ["human review", { labels: { nodes: [{ name: QUEUE_LABEL }, { name: QUEUE_HEAD_LABEL_PREFIX + head }, { name: "owner:human-review" }],
     pageInfo: { hasNextPage: false } } }],
   ["unresolved thread", { reviewThreads: { nodes: [{ isResolved: false }],
     pageInfo: { hasNextPage: false } } }],
   ["truncated threads", { reviewThreads: { nodes: [], pageInfo: { hasNextPage: true } } }],
   ["missing threads", { reviewThreads: null }],
-  ["missing label pagination", { labels: { nodes: [{ name: QUEUE_LABEL }] } }],
+  ["missing label pagination", { labels: { nodes: [{ name: QUEUE_LABEL }, { name: QUEUE_HEAD_LABEL_PREFIX + head }] } }],
   ["invalid body", { body: "Ready!" }],
   ["absent checks", { commits: { nodes: [] } }],
 ]) {
@@ -142,7 +142,8 @@ test("consumes consent and enqueues using an exact-head compare-and-swap", async
   const mock = api([fixture(), fixture(), final]);
   assert.equal((await runMergeQueue({ ...mock, apply: true }))[0].result, "QUEUED");
   assert.equal(mock.calls[0].type, "consume");
-  assert.deepEqual(mock.calls[1], { type: "enqueue", variables: { id: "PR_1", head } });
+  assert.equal(mock.calls[1].type, "consume");
+  assert.deepEqual(mock.calls[2], { type: "enqueue", variables: { id: "PR_1", head } });
 });
 test("a head race before consent consumption performs no mutation", async () => {
   const mock = api([fixture(), fixture({ headRefOid: "b".repeat(40) })]);
@@ -152,7 +153,7 @@ test("a head race before consent consumption performs no mutation", async () => 
 test("a newly added blocker after consent consumption prevents enqueue", async () => {
   const mock = api([fixture(), fixture(), fixture({ isDraft: true })]);
   assert.equal((await runMergeQueue({ ...mock, apply: true }))[0].result, "CHANGED");
-  assert.deepEqual(mock.calls.map((call) => call.type), ["consume"]);
+  assert.deepEqual(mock.calls.map((call) => call.type), ["consume", "consume"]);
   assert.equal(mock.core.failures.length, 1);
 });
 test("an API rejection never falls back to direct merge", async () => {
@@ -171,7 +172,7 @@ test("enqueue rejection consumes consent once and never retries a failed head", 
   };
   assert.equal((await runMergeQueue({ ...mock, apply: true }))[0].result, "API_ERROR");
   assert.equal((await runMergeQueue({ ...mock, apply: true }))[0].result, "BLOCKED");
-  assert.deepEqual(mock.calls.map((call) => call.type), ["consume"]);
+  assert.deepEqual(mock.calls.map((call) => call.type), ["consume", "consume"]);
 });
 test("all current required check providers run on merge groups", () => {
   for (const file of ["verify-repository.yml", "docs-consistency.yml"]) {
