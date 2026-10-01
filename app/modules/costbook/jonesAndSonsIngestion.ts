@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { hasPermission } from "../../domain";
 import type { AuthContext } from "../../backend/auth/context";
@@ -69,22 +68,20 @@ export async function ingestJonesAndSonsTerreHauteCandidates(
       continue;
     }
 
-    const outcome = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw(
-        Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`}, 0))`
-      );
-      const existing = await tx.costbookResearchCandidate.findFirst({
+    const lockKey = `costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`;
+    await prisma.$executeRawUnsafe("SELECT pg_advisory_lock(hashtextextended($1, 0))", lockKey);
+    try {
+      const existing = await prisma.costbookResearchCandidate.findFirst({
         where: { orgId: auth.orgId, sourceIdentifier },
         select: { id: true },
       });
-      if (existing) return { existingCandidateId: existing.id } as const;
-      return { created: await new CostbookCandidateService(tx).create(auth, candidate) } as const;
-    });
-
-    if ("existingCandidateId" in outcome) {
-      result.skipped.push({ sourceIdentifier, existingCandidateId: outcome.existingCandidateId });
-    } else {
-      result.created.push(outcome.created);
+      if (existing) {
+        result.skipped.push({ sourceIdentifier, existingCandidateId: existing.id });
+        continue;
+      }
+      result.created.push(await service.create(auth, candidate));
+    } finally {
+      await prisma.$executeRawUnsafe("SELECT pg_advisory_unlock(hashtextextended($1, 0))", lockKey);
     }
   }
 
