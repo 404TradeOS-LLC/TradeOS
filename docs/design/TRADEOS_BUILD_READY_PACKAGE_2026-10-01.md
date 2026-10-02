@@ -36,7 +36,7 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 - [x] Write the signature motion-system implementation contract.
 - [x] Write the Costbook pricing-trust workspace contract.
 - [x] Write the Customer Portal state matrix.
-- [ ] Reconcile live Figma page enumeration before any destructive or structural Figma write.
+- [x] Figma page enumeration verified: the canonical file contains all 21 documented pages.
 - [x] Reconcile `PRODUCT_COMPLETION_EXECUTION_MAP.md` to the one canonical Figma master and current merged PR state.
 - [ ] Run documentation validation on this branch.
 - [x] Open governed PR #607; required CI must verify the final head before readiness.
