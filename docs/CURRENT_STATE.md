@@ -686,6 +686,12 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
 
+## S064 embedded Assembly Picker — active implementation
+
+The Estimate Items picker now treats assemblies as a first-class embedded estimating choice rather than a bare search result. Installed organization assemblies can resolve their current unit cost and a bounded component preview through the existing Costbook assembly APIs; the picker shows the selected quantity's estimated job cost, persisted assembly identity, and an explicit provenance/trust note before the contractor chooses **Add**. The authoritative write remains the existing Estimate Engine line-item endpoint, and a successful add invalidates the current estimate query so Items and totals refresh in place.
+
+The same search now includes TradeOS starter assembly recipes that are not already installed. These results are explicitly labeled **Setup required**, expose the recipe slots/quantities and reviewed starter-catalog provenance, and cannot be submitted as estimate lines. TradeOS does not invent Cost Item mappings or a price. This is the first S064 slice: inline mapping/install of a setup-required starter recipe remains to be completed before S064 can be considered finished.
+
 ## Sprint execution / certification separation — 2026-10-02
 
 External browser/deployment availability is no longer a global development mutex. When a sprint's implementation is merged and repository-verified but its final authenticated evidence is blocked only by the non-production evidence environment, that sprint remains incomplete (`IN_REVIEW`) and release certification stays blocked, while independent downstream implementation may continue against the landed contract. Reproduced product defects and auth/RBAC/RLS, tenant-isolation, schema/migration, financial-correctness, or unresolved product-policy failures remain hard blockers and are not covered by this exception.
