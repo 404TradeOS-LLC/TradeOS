@@ -69,6 +69,7 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");
   const assist = await readSource("../../../../../../components/estimate-assist/ai-estimate-assist.tsx");
+  const contextualAthena = await readSource("../../../../../../components/estimate-assist/contextual-athena-panel.tsx");
 
   assert.match(builder, /Athena review/);
   assert.match(assistPage, /Athena Estimate Review/);
