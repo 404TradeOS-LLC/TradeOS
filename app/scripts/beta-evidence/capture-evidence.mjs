@@ -300,42 +300,48 @@ async function runS053Certification(projectId, estimateId) {
   );
   await checkpoint("03b", "s053-athena-review", { optional: true });
 
-  await applyButton.click();
-  await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
+  try {
+    await applyButton.click();
+    await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
 
-  const afterApply = await readEstimateDetail(estimateId);
-  const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
-  assertBusiness(
-    "explicit Athena apply persists at least one reviewed estimate line",
-    added.length > 0,
-    `baseline lines=${baseline.lineItems.length}; after apply=${afterApply.lineItems.length}`,
-  );
-  assertBusiness(
-    "pricing refreshes after the reviewed Athena apply",
-    Number(afterApply.subtotalCost ?? 0) !== baselineCost || Number(afterApply.totalPrice ?? 0) !== baselinePrice,
-    `before cost/price=${baselineCost}/${baselinePrice}; after=${afterApply.subtotalCost}/${afterApply.totalPrice}`,
-  );
-  await checkpoint("03c", "s053-athena-applied", { optional: true });
+    const afterApply = await readEstimateDetail(estimateId);
+    const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
+    assertBusiness(
+      "explicit Athena apply persists at least one reviewed estimate line",
+      added.length > 0,
+      `baseline lines=${baseline.lineItems.length}; after apply=${afterApply.lineItems.length}`,
+    );
+    assertBusiness(
+      "pricing refreshes after the reviewed Athena apply",
+      Number(afterApply.subtotalCost ?? 0) !== baselineCost || Number(afterApply.totalPrice ?? 0) !== baselinePrice,
+      `before cost/price=${baselineCost}/${baselinePrice}; after=${afterApply.subtotalCost}/${afterApply.totalPrice}`,
+    );
+    await checkpoint("03c", "s053-athena-applied", { optional: true });
 
-  await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
-    waitUntil: "networkidle",
-    timeout: 60_000,
-  });
-  const afterReload = await readEstimateDetail(estimateId);
-  const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
-  assertBusiness(
-    "reviewed Athena lines survive builder reload",
-    persistedAdded.length === added.length && persistedAdded.length > 0,
-    `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
-  );
+    await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
+      waitUntil: "networkidle",
+      timeout: 60_000,
+    });
+    const afterReload = await readEstimateDetail(estimateId);
+    const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+    assertBusiness(
+      "reviewed Athena lines survive builder reload",
+      persistedAdded.length === added.length && persistedAdded.length > 0,
+      `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+    );
+  } finally {
+    // Preserve the original S053 failure if cleanup also has trouble. Any line
+    // not present in the baseline belongs to this evidence pass and must not
+    // contaminate the next viewport or the canonical fixed-price assertions.
+    const current = await readEstimateDetail(estimateId).catch(() => null);
+    const leftoverIds = (current?.lineItems ?? [])
+      .filter((item) => !baselineIds.has(item.id))
+      .map((item) => item.id);
+    if (leftoverIds.length > 0) {
+      await deleteEvidenceLineItems(estimateId, leftoverIds).catch(() => {});
+    }
+  }
 
-  // The canonical beta flow below asserts fixed pricing values. Remove only the
-  // Athena line(s) created by this S053 evidence pass so those long-standing
-  // formula assertions remain independent and deterministic.
-  await deleteEvidenceLineItems(
-    estimateId,
-    persistedAdded.map((item) => item.id),
-  );
   const afterCleanup = await readEstimateDetail(estimateId);
   assertBusiness(
     "S053 evidence cleanup restores the baseline estimate before canonical pricing checks",
