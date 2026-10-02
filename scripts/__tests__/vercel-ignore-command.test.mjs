@@ -106,7 +106,7 @@ test("automatic Vercel deployments are limited to main and staging", () => {
     ["backend", vercelConfig],
     ["frontend", webVercelConfig],
   ]) {
-    assert.equal(config.git.deploymentEnabled["*"], false, `${name} disables unspecified branches`);
+    assert.equal(config.git.deploymentEnabled["**"], false, `${name} disables unspecified branches`);
     assert.equal(config.git.deploymentEnabled.main, true, `${name} keeps production deployments`);
     assert.equal(config.git.deploymentEnabled.staging, true, `${name} keeps the stable QA environment`);
   }
