@@ -367,6 +367,12 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
   assert.match(capture, /if \(scenario === "s053"\)/);
 });
 
+test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {
+  assert.match(capture, /try \{[\s\S]*await applyButton\.click\(\)[\s\S]*\} finally \{/);
+  assert.match(capture, /filter\(\(item\) => !baselineIds\.has\(item\.id\)\)/);
+  assert.match(capture, /deleteEvidenceLineItems\(estimateId, leftoverIds\)\.catch\(\(\) => \{\}\)/);
+});
+
 test("S053 browser evidence proves review-first behavior before an explicit apply", () => {
   assert.match(capture, /s053-setup-required/);
   assert.match(capture, /s053-athena-review/);
