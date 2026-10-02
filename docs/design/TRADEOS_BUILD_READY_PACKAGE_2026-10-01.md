@@ -63,7 +63,7 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 - [x] Confirm the production motion seam (`framer-motion` + existing CSS/reduced-motion protections) and map Figma motion primitives by purpose before implementation.
 - [ ] Confirm reduced-motion behavior for every signature motion before implementation.
 - [ ] Confirm that no routine hover, tab, row, or dashboard motion is being added only for decoration.
-- [ ] Reconcile Costbook trust copy so factual provenance is never converted into an invented universal score.
+- [x] Reconcile Costbook trust copy so factual provenance is never converted into an invented universal score.
 - [x] Classify current Customer Portal access/document/signature/payment states from current module docs; keep customer actions separate from staff capabilities and unsupported payment/legal claims.
 
 ### P2 — evidence and release follow-through
@@ -126,3 +126,16 @@ npm run docs:check -- --base origin/main
 ```
 
 Do not report these as passed until they actually run on the final branch head.
+
+
+## Current-main reconciliation pass — 2026-10-01
+
+The first five post-Figma handoff tasks are now active on this same PR lane:
+
+1. Figma → production component/state traceability is recorded in `CORE_WORKFLOW_FIGMA_CODE_TRACEABILITY.md`.
+2. Estimate Workspace was reconciled against the landed builder/assist/mobile contract; persisted lines do not carry all pre-apply Athena provenance, so no fabricated post-apply trust detail is allowed.
+3. Customer Portal/Copperline was reconciled: Proposal and Invoice are read-only; pending Contract signing is the current customer mutation; Figma accept/change/pay/selection actions are target-only.
+4. Field Workspace was reconciled against `/field`, FieldJobActions and its contract test; offline/photo/change/inventory capabilities remain target-only.
+5. Costbook trust was reconciled against PricingProvenance/research-review logic: catalog facts stay factual, research provenance uses governed vocabulary, and no universal stale/trust threshold is introduced.
+
+No runtime code was changed in this pass. A repair branch is warranted only if certification reproduces a concrete current-main defect.
