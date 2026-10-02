@@ -240,7 +240,7 @@ A motion implementation is ready only when:
 
 ## Next five TODO items
 
-1. Reconcile the live Figma page-enumeration discrepancy before any broad motion write.
+1. Use the verified 21-page canonical Figma directory for motion work; do not treat incomplete top-level metadata enumeration as missing pages.
 2. Map Lifecycle Line to the real project/proposal/job/invoice lifecycle surfaces that already exist.
 3. Implement one bounded motion proof first, preferably a non-financial read-only lifecycle or estimate interpretation state.
 4. Verify reduced motion and event acknowledgement before expanding to Price Delta/Change Diff.
