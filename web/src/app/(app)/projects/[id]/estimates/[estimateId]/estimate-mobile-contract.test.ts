@@ -76,7 +76,7 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /Estimated job cost for/);
   assert.match(builder, /Provenance: organization Costbook assembly \+ live component pricing/);
   assert.match(builder, /Setup required before this assembly can be priced or added\./);
-  assert.match(builder, /Map each starter recipe slot to an active Costbook item/);
+  assert.match(builder, /Map each starter recipe slot to an active, compatible Costbook item/);
   assert.match(builder, /TradeOS will not invent those mappings or a price/);
   assert.match(builder, /\[item\.kind === "costItem" \? "costItemId" : "assemblyId"\]/);
   assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
