@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
@@ -1214,7 +1214,7 @@ function StarterComponentMappingPicker({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const resultsId = useRef(`starter-map-${component.key}-${Math.random().toString(36).slice(2)}`).current;
+  const resultsId = useId();
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
