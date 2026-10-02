@@ -16,9 +16,9 @@ related_docs:
 
 - PR #618 merged the opt-in S053 Beta Evidence scenario to `main` as `c944876a08bd1bfa6db9ab69900b3547a102513a`. The tooling now requires setup-required failure evidence, review-first/no-silent-write behavior, explicit Apply persistence, pricing refresh, reload persistence, foreign draft/apply denial, exact deployment-SHA correlation, and retained responsive screenshots.
 - No full `mode=full, scenario=s053` run has been dispatched from this connector session because the available GitHub integration does not expose workflow dispatch. S053 therefore remains `READY`, not `DONE`.
-- S059 readiness has been reconciled from current `main`: S051 is DONE, PR #564 is merged, the ADR-010 magic-link/session contract is implemented, and no competing S059 PR/branch is open. This governance branch promotes S059 to `READY` for bounded browser/security certification only.
+- S059 readiness has been prepared from current `main`: S051 is DONE, PR #564 is merged, and the ADR-010 magic-link/session contract is implemented. S059 remains `PLANNED` until S053 reaches `DONE`; only then should a separate governance-only promotion make S059 the single `READY` sprint.
 - S059 must never retain raw access URLs/tokens, cookies, request headers, response bodies, or bearer material in evidence. Expiry must be proven from the current contract without adding a test-only public TTL/backdoor.
-- Canonical execution priority remains S053 first because it is the lower-numbered READY sprint. S059 may be prepared, but implementation/certification execution does not jump ahead of S053 under the Next Sprint Protocol.
+- Canonical execution remains S053 only. S059 preparation may continue, but its certification execution and `READY` promotion do not occur until S053 is `DONE`.
 
 ## Design/backlog reconciliation — 2026-10-02
 
