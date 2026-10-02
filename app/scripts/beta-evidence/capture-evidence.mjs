@@ -198,13 +198,38 @@ async function runS053Certification(projectId, estimateId) {
   });
   await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
 
+  const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
+  const scopeInput = page.locator("textarea").first();
+  await scopeInput.fill(setupScope);
+  await page.getByRole("button", { name: "Run Athena review" }).click();
+  await page.getByText("Setup required", { exact: true }).waitFor({ timeout: 60_000 });
+  const setupText = await page.locator("body").innerText();
+  assertBusiness(
+    "unmapped Athena scope fails safe as setup required",
+    /Setup required/i.test(setupText) && /No generated line item is currently tied to an existing estimate target/i.test(setupText),
+    "expected a blocked setup-required draft for the unmapped certification scope",
+  );
+  const afterSetupDraft = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "setup-required Athena draft does not write estimate lines",
+    afterSetupDraft.lineItems.length === baseline.lineItems.length,
+    `baseline lines=${baseline.lineItems.length}; after setup-required draft=${afterSetupDraft.lineItems.length}`,
+  );
+  const setupApplyButton = page.getByRole("button", { name: /^Add \d+ accepted suggestion/ });
+  assertBusiness(
+    "setup-required Athena draft cannot be applied",
+    !(await setupApplyButton.isEnabled()),
+    "apply control was enabled for an unresolved setup-required draft",
+  );
+  await checkpoint("03a", "s053-setup-required", { optional: true });
+
   const candidateScopes = [
-    "Replace 28 squares of architectural shingles, synthetic underlayment, ridge vent, and chimney flashing on a two-story house.",
+    "Replace 250 sq ft concrete driveway with a 4 inch slab and haul-off.",
     "Build a 12x16 pressure-treated deck with stairs, guard rails, and concrete footings.",
-    "Remove a 60 foot oak tree, grind the stump, and haul away debris.",
+    "Replace a 50-gallon gas water heater and remove the old unit.",
+    "Replace a standard electrical panel.",
   ];
 
-  const scopeInput = page.locator("textarea").first();
   let applyButton = page.getByRole("button", { name: /^Add \d+ accepted suggestion/ });
   let resolvedScope = null;
 
@@ -256,7 +281,7 @@ async function runS053Certification(projectId, estimateId) {
     afterGenerate.lineItems.length === baseline.lineItems.length,
     `baseline lines=${baseline.lineItems.length}; after review=${afterGenerate.lineItems.length}`,
   );
-  await checkpoint("03a", "s053-athena-review", { optional: true });
+  await checkpoint("03b", "s053-athena-review", { optional: true });
 
   await applyButton.click();
   await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
@@ -273,7 +298,7 @@ async function runS053Certification(projectId, estimateId) {
     Number(afterApply.subtotalCost ?? 0) !== baselineCost || Number(afterApply.totalPrice ?? 0) !== baselinePrice,
     `before cost/price=${baselineCost}/${baselinePrice}; after=${afterApply.subtotalCost}/${afterApply.totalPrice}`,
   );
-  await checkpoint("03b", "s053-athena-applied", { optional: true });
+  await checkpoint("03c", "s053-athena-applied", { optional: true });
 
   await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
     waitUntil: "networkidle",
