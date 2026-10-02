@@ -76,6 +76,33 @@ Figma FreshnessIndicator and richer supplier/actual comparison components requir
 
 Classify a design as TARGET/PARTIAL instead of implementing when it would broaden portal authority, advertise unsupported Field persistence, show Estimate provenance not persisted, invent Costbook trust/freshness certainty, or show customer/financial completion before server acknowledgement.
 
+
+## Canonical engineering mapping boards
+
+The canonical Figma Components page now carries explicit manual Figma → production maps because the current Figma seat cannot save native Code Connect records:
+
+- Estimate Workspace: `634:2192`
+- Copperline + Customer Portal: `635:2192`
+- Field Workspace: `635:2238`
+- Costbook + Assemblies: `635:2284`
+- Estimate exception states: `635:2330`
+- Mandatory engineering reuse rule: `635:2376`
+
+These boards are handoff metadata, not runtime evidence. Their `EXACT`, `ALIGN`, `CONVERGE`, and `TARGET` classifications must be reconciled against current `main` whenever implementation ownership changes.
+
+## Mandatory design → engineering extraction rule
+
+Before creating or changing a frontend component for a mapped TradeOS surface:
+
+1. Inspect current `main`, repository design/architecture contracts, relevant API/schema/security ownership, and active PR overlap.
+2. Find the canonical Figma component or screen state on the Components page and read its mapping classification.
+3. For `EXACT`, reuse the named production component rather than forking or restyling a duplicate.
+4. For `ALIGN` or `CONVERGE`, modify or extend the smallest existing production owner before extracting a new shared abstraction.
+5. For `TARGET`, do not make the Figma control interactive or claim it is shipped until backing persistence, permission, API, audit, and state contracts exist.
+6. After implementation, verify the mapped behavior at the relevant breakpoints/states and preserve authentication, organization scope, RLS, auditability, and financial truth. Never claim browser/deployment verification without fresh evidence.
+
+A new React component is justified only when no current production owner safely fits the responsibility or when repeated real production use proves that a shared abstraction is needed. Figma visual parity by itself is not sufficient justification.
+
 ## Verification still required
 
 This is source inspection, not runtime certification. Remaining proof belongs to S053/S059/Field/Costbook evidence lanes and exact-head CI for any repair.
