@@ -11,6 +11,15 @@ authenticated contractor workflow — customer → project → estimate → line
 pricing → save/reload → finalize → proposal → contract → invoice — safely,
 reproducibly, and legibly across desktop, small desktop, tablet, and mobile.
 
+The workflow also supports an opt-in `s053` scenario. That scenario keeps the
+canonical workflow intact but adds Scope → Athena → explicit human review →
+Estimate Engine apply evidence before the normal fixed-price line-item path. It
+asserts that draft generation and local acceptance do not create estimate lines,
+that confidence/provenance are visible, that an explicitly accepted resolved
+suggestion persists only after Apply, that authoritative pricing refreshes, and
+that the applied line survives a builder reload. The run removes only the
+S053-created synthetic line before continuing the canonical fixed-total checks.
+
 It is deliberately narrow about what counts. None of the following is beta
 evidence on its own: a Preview deployment existing, Vercel reporting READY, CI
 being green, Playwright starting, a workflow file existing, screenshots being
@@ -217,6 +226,7 @@ Targeted options:
 
 ```bash
 npm run beta:evidence -- --viewport=390
+npm run beta:evidence -- --scenario=s053 --allow-mutations
 npm run beta:evidence -- --headed
 npm run beta:evidence -- --skip-isolation
 npm run beta:evidence -- --help
@@ -237,9 +247,38 @@ Actions → **Beta Evidence** → Run workflow.
   and reports readiness. It never claims evidence PASS and is safe to run before
   an RC identity exists.
 - `mode: full` captures the real evidence and creates records in the RC tenant.
+- `scenario: canonical` runs the established release workflow unchanged.
+- `scenario: s053` adds the review-first Athena certification checks and two extra
+  truth/viewport-validated checkpoints (`s053-athena-review` and
+  `s053-athena-applied`) at every captured viewport.
 
 Runs are serialized (`concurrency: tradeos-beta-evidence`,
 `cancel-in-progress: false`) so two evidence runs cannot corrupt each other.
+
+## S053 certification scenario
+
+The `s053` scenario is intended for S053 browser certification, not for
+simulating the separate one-question clarification target that production does
+not yet implement.
+
+For every viewport it must prove:
+
+- a real authenticated estimate exists in the synthetic tenant;
+- Athena produces at least one resolved suggestion from one of the bounded
+  certification scopes;
+- confidence and governed provenance language are visible;
+- generating and locally accepting a suggestion leaves authoritative estimate
+  line count unchanged;
+- only an explicit Apply creates the reviewed line through the existing
+  Estimate Engine path;
+- authoritative estimate pricing changes after the applied priced item;
+- the added line survives a builder reload;
+- the S053-created line is removed before the canonical fixed-price beta flow
+  continues, so existing tax/markup assertions remain independent.
+
+If a deployment cannot produce a resolved priced suggestion, the scenario fails.
+That is an evidence failure to investigate; the runner must not silently replace
+it with a custom line or mark S053 certified.
 
 ## Viewports
 
