@@ -358,6 +358,7 @@ const seed = read("app/db/seed/seed.ts");
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
   assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s053/);
   assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
+  assert.match(workflow, /BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario/);
   assert.match(runner, /--scenario=<canonical\|s053>/);
   assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
   assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
@@ -371,6 +372,8 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /unmapped Athena scope fails safe as setup required/);
   assert.match(capture, /setup-required Athena draft does not write estimate lines/);
   assert.match(capture, /setup-required Athena draft cannot be applied/);
+  assert.match(isolation, /foreign S053 Athena draft/);
+  assert.match(isolation, /ai-estimator\/draft/);
   assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
   assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
@@ -384,6 +387,7 @@ test("S053 scenario validation requires its Athena checkpoints and passing asser
   assert.match(validator, /s053-athena-review/);
   assert.match(validator, /s053-athena-applied/);
   assert.match(validator, /scenarioFailures/);
+  assert.match(validator, /foreign S053 Athena draft denial was not proven/);
   assert.match(validator, /Scenario evidence/);
 });
 
