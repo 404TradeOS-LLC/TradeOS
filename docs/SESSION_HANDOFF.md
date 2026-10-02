@@ -24,7 +24,7 @@ related_docs:
 ## Design/backlog reconciliation — 2026-10-02
 
 - Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
-- PR #520 is merged and PR #560's estimate-assist contract is landed. S064 is now `READY`; S053 remains a release-certification prerequisite but no longer blocks S064 implementation while its remaining blocker is external browser-evidence availability.
+- PR #520 is merged and PR #560's estimate-assist contract is landed. S064 is now `IN_REVIEW` in draft PR #624; S053 remains a separate release-certification prerequisite and does not block continued S064 implementation.
 - S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
 
 
@@ -153,8 +153,8 @@ certification from readiness or a repository merge alone.
 
 ## Next Eligible Sprint
 
-Sprint ID: S064
-Eligibility: READY in the canonical backlog; S053 remains IN_REVIEW and still blocks release certification, not S064 implementation.
-Dependencies: S051 is DONE; PR #520 and PR #560 are merged implementation prerequisites.
-Overlap check: Continue S053 evidence/repair work only in its existing lanes; do not duplicate it inside S064.
-Startup prompt: Reconcile current main and implement the bounded embedded Assembly Picker in Estimate Items without weakening review-first writes, provenance, setup-required handling, tenant isolation, pricing truth, or Estimate Engine ownership.
+Sprint ID: NONE
+Eligibility: No numbered sprint is READY; S064 is the active IN_REVIEW sprint in draft PR #624.
+Dependencies: S064 depends on DONE S051; S065 remains blocked on S064 completion.
+Overlap check: Continue S064 only in PR #624; keep S053 browser-evidence and repair work in their existing lanes.
+Startup prompt: Continue PR #624 on feature/s064-embedded-assembly-picker and finish the embedded starter-assembly mapping/install workflow before advancing another numbered sprint.

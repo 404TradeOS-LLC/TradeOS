@@ -43,7 +43,7 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `READY` for implementation. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
 
 
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit
@@ -64,7 +64,7 @@ frontend/backend seam is substantial and historically exercised, but the
 current head is not beta-certified across every contractor/customer journey.
 The audit and limitations are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
-now owns S051-S100; S051 is `DONE` through merged PR #538, and S053's implementation is landed while its final browser certification remains `IN_REVIEW`. S064 is the current `READY` implementation sprint under the evidence-decoupling rule. S051 added an
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053's implementation is landed while its final browser certification remains `IN_REVIEW`. S064 is the active `IN_REVIEW` implementation sprint in PR #624 under the evidence-decoupling rule. S051 added an
 executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
@@ -137,7 +137,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW` for scope-to-estimate browser certification, while S064 is the next `READY` implementation sprint; S039/S044/S045 and their dependent production operations remain blocked.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW` for scope-to-estimate browser certification, while S064 is active `IN_REVIEW` in PR #624; S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
@@ -276,7 +276,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW`, while S064 is `READY` under the evidence-decoupling rule.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW`, while S064 is active `IN_REVIEW` in PR #624 under the evidence-decoupling rule.
 
 ## S028 completion
 
@@ -298,4 +298,4 @@ The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable com
 
 ## S053 certification update — 2026-10-02
 
-The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 is `READY`. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
+The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 can continue independently and is now `IN_REVIEW` in PR #624. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
