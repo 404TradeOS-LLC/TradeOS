@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../db/client";
+import { basePrisma } from "../../db/client";
+import { runInDatabaseTransaction } from "../../db/requestSession";
 import { hasPermission } from "../../domain";
 import type { AuthContext } from "../../backend/auth/context";
 import { buildJonesAndSonsTerreHauteCandidates } from "./jonesAndSonsTerreHaute";
@@ -69,7 +70,7 @@ export async function ingestJonesAndSonsTerreHauteCandidates(
       continue;
     }
 
-    const outcome = await prisma.$transaction(async (tx) => {
+    const outcome = await runInDatabaseTransaction(basePrisma, async (tx) => {
       await tx.$executeRaw(
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-jones-ingest:${auth.orgId}:${sourceIdentifier}`}, 0))`
       );

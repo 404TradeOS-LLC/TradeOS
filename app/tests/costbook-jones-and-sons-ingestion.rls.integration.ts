@@ -91,6 +91,38 @@ describe("Jones & Sons Terre Haute candidate ingestion - end-to-end real-source 
     }
   });
 
+  it("serializes concurrent ingestion so one organization still gets exactly two candidates", async () => {
+    const ownerA = { userId: orgAOwner, orgId: orgA, role: "owner" as const };
+
+    const [firstRun, secondRun] = await Promise.all([
+      runWithDatabaseSession(
+        appClient,
+        ownerA,
+        () => ingestJonesAndSonsTerreHauteCandidates(ownerA, { retrievedAt: RETRIEVED_AT }),
+        "jones-sons-concurrent-a-1"
+      ),
+      runWithDatabaseSession(
+        appClient,
+        ownerA,
+        () => ingestJonesAndSonsTerreHauteCandidates(ownerA, { retrievedAt: RETRIEVED_AT }),
+        "jones-sons-concurrent-a-2"
+      ),
+    ]);
+
+    expect(firstRun.created.length + secondRun.created.length).toBe(2);
+    expect(firstRun.skipped.length + secondRun.skipped.length).toBe(2);
+
+    const rows = await adminClient.costbookResearchCandidate.findMany({
+      where: { orgId: orgA, sourceName: JONES_AND_SONS_SOURCE_NAME },
+      select: { id: true },
+    });
+    expect(rows).toHaveLength(2);
+
+    const ids = rows.map((row) => row.id);
+    await adminClient.activityEvent.deleteMany({ where: { entityId: { in: ids } } });
+    await adminClient.costbookResearchCandidate.deleteMany({ where: { id: { in: ids } } });
+  });
+
   it("ingests the two real, branch-verified Jones & Sons candidates with their true source evidence", async () => {
     const ownerA = { userId: orgAOwner, orgId: orgA, role: "owner" as const };
 

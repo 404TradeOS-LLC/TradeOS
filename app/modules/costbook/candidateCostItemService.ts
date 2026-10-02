@@ -220,8 +220,8 @@ export class CostbookCandidateService {
       where,
       cursorField: field,
       cursorValueType: field === "reviewStatus" ? "string" : "date",
-      findMany: (args) => this.db.costbookResearchCandidate.findMany(args as any) as any,
-      count: (args) => this.db.costbookResearchCandidate.count(args as any),
+      findMany: (args) => prisma.costbookResearchCandidate.findMany(args as any) as any,
+      count: (args) => prisma.costbookResearchCandidate.count(args as any),
       getCursorValue: (row) => (row as any)[field],
       getId: (row) => row.id,
       map: (row) => toDTO(row),
@@ -229,7 +229,7 @@ export class CostbookCandidateService {
   }
 
   async getById(auth: AuthContext, id: string): Promise<CandidateCostItemDTO> {
-    const row = await this.db.costbookResearchCandidate.findFirst({ where: { id, orgId: auth.orgId } });
+    const row = await prisma.costbookResearchCandidate.findFirst({ where: { id, orgId: auth.orgId } });
     if (!row) throw new ApiError(404, `Costbook research candidate ${id} not found`);
     return toDTO(row);
   }
@@ -241,21 +241,21 @@ export class CostbookCandidateService {
    */
   async summary(auth: AuthContext): Promise<CandidateQueueSummaryDTO> {
     const [byReviewStatus, byProvenanceStatus, promoted, awaitingPromotion, total] = await Promise.all([
-      this.db.costbookResearchCandidate.groupBy({
+      prisma.costbookResearchCandidate.groupBy({
         by: ["reviewStatus"],
         where: { orgId: auth.orgId },
         _count: { _all: true },
       }),
-      this.db.costbookResearchCandidate.groupBy({
+      prisma.costbookResearchCandidate.groupBy({
         by: ["provenanceStatus"],
         where: { orgId: auth.orgId },
         _count: { _all: true },
       }),
-      this.db.costbookResearchCandidate.count({ where: { orgId: auth.orgId, promotedCostItemId: { not: null } } }),
-      this.db.costbookResearchCandidate.count({
+      prisma.costbookResearchCandidate.count({ where: { orgId: auth.orgId, promotedCostItemId: { not: null } } }),
+      prisma.costbookResearchCandidate.count({
         where: { orgId: auth.orgId, reviewStatus: "approved", promotedCostItemId: null },
       }),
-      this.db.costbookResearchCandidate.count({ where: { orgId: auth.orgId } }),
+      prisma.costbookResearchCandidate.count({ where: { orgId: auth.orgId } }),
     ]);
 
     const reviewCount = (status: string) =>
@@ -489,7 +489,7 @@ export class CostbookCandidateService {
         );
       }
 
-      const subcategory = await this.db.subcategory.findFirst({
+      const subcategory = await prisma.subcategory.findFirst({
         where: { name: { equals: row.category, mode: "insensitive" }, category: { division: { orgId: auth.orgId } } },
         select: { id: true },
       });

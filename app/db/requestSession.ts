@@ -79,12 +79,6 @@ export interface BackgroundDatabaseSessionInput {
 export async function runWithBackgroundDatabaseSession<T>(
   client: PrismaClient,
   input: BackgroundDatabaseSessionInput,
-  // Accepting the resolved auth is additive: every existing zero-arg
-  // callback (`() => doThing()`) remains a valid argument here under
-  // TypeScript's normal fewer-parameters-is-assignable rule, so no existing
-  // caller needs to change. A caller that needs the real, membership-derived
-  // AuthContext (rather than re-deriving it) can now accept it directly
-  // instead of trusting a caller-supplied role.
   operation: (auth: AuthContext) => Promise<T>
 ): Promise<T> {
   if (!/^[a-z0-9][a-z0-9:_-]{1,63}$/i.test(input.jobName)) {

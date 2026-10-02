@@ -40,6 +40,10 @@ Do not move existing production code solely to make the repository resemble the 
 
 The governing decision is recorded in `docs/decisions/ADR-005-athena-monorepo-platform-boundary.md`.
 
+## Staging authentication fixture
+
+The staging browser flow enters the existing web proxy/session and backend `requireAuth` seams. A fixed public marker crosses the web-to-API boundary only when both layers prove the staging Supabase project; the API also proves the database target, resolves the fixed owner membership, then uses the normal tenant RLS transaction. This fixture flow is limited to Vercel Preview or an explicitly staged local runtime. Production denies it. The marker has no authority when the flag is disabled.
+
 ## Backend and frontend boundaries
 
 Backend responsibilities:
@@ -103,13 +107,8 @@ does not enlarge the database pool or weaken the RLS transaction boundary.
 Service-level transactions opened through `runInDatabaseTransaction` also bind the active Prisma transaction to the same async-local routing, so nested service calls and advisory-lock flows use one transaction even outside an HTTP request.
 
 Background jobs use the same session model through `runWithBackgroundDatabaseSession`.
-That function independently re-verifies the calling identity's active
-organization membership before opening the session — it never trusts a
-caller-supplied role — and also hands its resolved `AuthContext` to the
-operation it runs. Existing zero-argument callers remain compatible. A
-background caller that needs to call a service method taking an explicit
-`AuthContext`, such as `CostbookCandidateService.create()`, can therefore
-reuse the verified identity instead of re-deriving it.
+The background-session boundary also returns its membership-derived `AuthContext` to the operation callback. This is additive for existing zero-argument jobs and lets operator scripts pass the verified actor directly into services that require explicit authorization context. Jones & Sons candidate ingestion uses `runInDatabaseTransaction` inside that ambient RLS transaction so its advisory lock, duplicate check, and candidate insert share one transaction and tenant context.
+
 
 Database search-index changes do not alter this tenancy model. The `pg_trgm` extension and the GIN trigram indexes added in migration `20260703090000_add_search_trgm_indexes` operate below the query planner and do not bypass or weaken RLS.
 

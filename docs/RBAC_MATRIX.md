@@ -13,6 +13,10 @@ related_code:
 
 # RBAC Matrix
 
+## Staging fixture role
+
+The optional Preview staging auth fixture resolves through the existing active `OrganizationMembership` with canonical `owner` role in its dedicated test organization. Its privileges are the ordinary owner permissions, restricted by the same request-scoped tenant RLS. The bypass guard checks the exact fixture identity and staging database target; it does not create a new role or alter the matrix below. Production cannot enable this mode.
+
 ## Canonical roles
 
 Current canonical roles:
@@ -81,13 +85,9 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
   contention handling; verified JWT and organization-membership authorization
   remain enforced upstream, and the transaction-local `app.*` RLS settings
   are still established inside the acquired transaction
-- background/operator scripts identify their actor by `--user-id`, never by a
-  supplied role: `runWithBackgroundDatabaseSession` independently re-verifies
-  that user has an active membership in `--org-id` and resolves the role from
-  that membership before anything runs. It can pass that resolved identity to
-  a service method that expects an explicit `AuthContext`; writes still pass
-  through the same role checks and RLS write policies as authenticated HTTP
-  requests.
+
+
+- Background/operator jobs identify their actor by user and organization, not by a supplied role. `runWithBackgroundDatabaseSession` re-verifies active membership, derives the role, and now passes that resolved `AuthContext` to the operation callback. Jones & Sons candidate ingestion still requires `costbook.write`, while the existing Costbook candidate RLS write policy remains an independent database enforcement layer.
 
 ## Assigned-technician restrictions
 

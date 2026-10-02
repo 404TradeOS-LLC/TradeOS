@@ -181,7 +181,7 @@ full pipeline against these two specific, real records.
   each candidate at `/costbook/research-review`.
 - `app/tests/costbook-jones-and-sons-ingestion.rls.integration.ts` proves
   the complete path against real Postgres and RLS, using these real
-  records rather than synthetic fixtures: ingestion creates exactly the
+  records rather than synthetic fixtures: concurrent same-organization ingestion is serialized so exactly two source candidates exist; ingestion creates exactly the
   two Terre Haute-verified candidates with their true `sourceUrl` /
   `sourceIdentifier` / `confidence: "high"` / `provenanceStatus:
   "documented"`; re-ingestion is a no-op; one organization's ingestion

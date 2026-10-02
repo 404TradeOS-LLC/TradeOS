@@ -1,11 +1,17 @@
-const mockPrisma = {
+const mockTransaction = {
+  $executeRaw: jest.fn(),
   costbookResearchCandidate: {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
 };
+const mockRunInDatabaseTransaction = jest.fn();
+const mockBasePrisma = {};
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: {} }));
+jest.mock("../db/client", () => ({ prisma: mockTransaction, basePrisma: mockBasePrisma }));
+jest.mock("../db/requestSession", () => ({
+  runInDatabaseTransaction: (...args: unknown[]) => mockRunInDatabaseTransaction(...args),
+}));
 
 const mockCreate = jest.fn();
 jest.mock("../modules/costbook/candidateCostItemService", () => {
@@ -28,6 +34,8 @@ const RETRIEVED_AT = "2026-09-14T00:00:00.000Z";
 describe("ingestJonesAndSonsTerreHauteCandidates", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTransaction.$executeRaw.mockResolvedValue(0);
+    mockRunInDatabaseTransaction.mockImplementation(async (_client, operation) => operation(mockTransaction));
   });
 
   it("refuses to submit candidates for a role without costbook.write, before touching the database", async () => {
@@ -35,18 +43,23 @@ describe("ingestJonesAndSonsTerreHauteCandidates", () => {
       ingestJonesAndSonsTerreHauteCandidates(technician, { retrievedAt: RETRIEVED_AT })
     ).rejects.toThrow(/costbook\.write/);
 
-    expect(mockPrisma.costbookResearchCandidate.findFirst).not.toHaveBeenCalled();
+    expect(mockTransaction.costbookResearchCandidate.findFirst).not.toHaveBeenCalled();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("submits only the two Terre Haute branch-verified records, never the unconfirmed-branch ones", async () => {
-    mockPrisma.costbookResearchCandidate.findFirst.mockResolvedValue(null);
+    mockTransaction.costbookResearchCandidate.findFirst.mockResolvedValue(null);
     mockCreate.mockImplementation(async (_auth, input) => ({ id: `candidate-${input.sourceIdentifier}`, ...input }));
 
     const result = await ingestJonesAndSonsTerreHauteCandidates(owner, { retrievedAt: RETRIEVED_AT });
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(result.created).toHaveLength(2);
+    expect(mockRunInDatabaseTransaction).toHaveBeenCalledTimes(2);
+    expect(mockTransaction.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(mockTransaction.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockTransaction.costbookResearchCandidate.findFirst.mock.invocationCallOrder[0]
+    );
     for (const call of mockCreate.mock.calls) {
       const [auth, input] = call;
       expect(auth).toBe(owner);
@@ -62,19 +75,19 @@ describe("ingestJonesAndSonsTerreHauteCandidates", () => {
   });
 
   it("scopes the idempotency lookup to this organization's own candidates", async () => {
-    mockPrisma.costbookResearchCandidate.findFirst.mockResolvedValue(null);
+    mockTransaction.costbookResearchCandidate.findFirst.mockResolvedValue(null);
     mockCreate.mockImplementation(async (_auth, input) => ({ id: `candidate-${input.sourceIdentifier}`, ...input }));
 
     await ingestJonesAndSonsTerreHauteCandidates(owner, { retrievedAt: RETRIEVED_AT });
 
-    for (const call of mockPrisma.costbookResearchCandidate.findFirst.mock.calls) {
+    for (const call of mockTransaction.costbookResearchCandidate.findFirst.mock.calls) {
       expect(call[0].where.orgId).toBe(owner.orgId);
     }
   });
 
   it("skips a record whose sourceIdentifier this organization already has, rather than creating a duplicate", async () => {
     const existingSku = `Jones & Sons SKU ${TERRE_HAUTE_VERIFIED_RECORDS[0].supplierSku}`;
-    mockPrisma.costbookResearchCandidate.findFirst.mockImplementation(async ({ where }: { where: { sourceIdentifier: string } }) =>
+    mockTransaction.costbookResearchCandidate.findFirst.mockImplementation(async ({ where }: { where: { sourceIdentifier: string } }) =>
       where.sourceIdentifier === existingSku ? { id: "already-there" } : null
     );
     mockCreate.mockImplementation(async (_auth, input) => ({ id: `candidate-${input.sourceIdentifier}`, ...input }));
@@ -92,7 +105,7 @@ describe("ingestJonesAndSonsTerreHauteCandidates", () => {
     // this org+sourceIdentifier is enough to skip, whether it was approved,
     // rejected, or still pending - a rejection must stay durable across
     // re-ingestion, not be silently replaced by a fresh reviewable row.
-    mockPrisma.costbookResearchCandidate.findFirst.mockResolvedValue({ id: "rejected-candidate" });
+    mockTransaction.costbookResearchCandidate.findFirst.mockResolvedValue({ id: "rejected-candidate" });
 
     const result = await ingestJonesAndSonsTerreHauteCandidates(owner, { retrievedAt: RETRIEVED_AT });
 

@@ -36,6 +36,8 @@ Protected API routes require:
 
 Tenant impersonation through request-controlled organization headers is not supported.
 
+A staging-only exception accepts the fixed public fixture marker when `TRADEOS_AUTH_BYPASS=true`, Vercel Preview (or local `APP_ENVIRONMENT=staging`), and both backend Supabase URL and database connection resolve to the dedicated staging project. The API then performs the usual active membership lookup and RLS request transaction and checks the exact fixture owner identity. Production or a mismatched data plane returns 503 on protected routes. With the flag absent or false, the marker receives 401 and normal JWT/Supabase verification is unchanged. See `docs/modules/auth-and-tenancy.md`.
+
 Locally issued HS256 access tokens carry a finite expiration (one hour by default; configure the positive `AUTH_JWT_TTL_SECONDS` value when needed). The verifier requires `sub`, `iat`, and `exp`, validates optional registered claims when present, and enforces configured issuer and audience values when `AUTH_ISSUER` and `AUTH_AUDIENCE` are set. Expired, malformed, or invalid-signature bearer requests fail before membership resolution. Refresh and Supabase bootstrap also reject inactive application users. Immediate revocation of an already-issued bearer JWT is not represented by a new token store or provider-introspection call in the current architecture.
 
 `POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
@@ -182,6 +184,9 @@ Change-order reads require `billing.read`; all change-order mutations, including
 
 `GET /api/v1/customers/:id` requires `crm.read` and returns linked Projects plus active ServiceAddress rows. Service-address create/update/delete routes require `crm.write`; the existing CRM service verifies organization/customer parentage and soft-removes addresses rather than exposing cross-customer mutation.
 
+
+`runWithBackgroundDatabaseSession` passes its resolved, membership-derived `AuthContext` to the operation it runs rather than only using it to establish the Postgres RLS session. Existing zero-argument callbacks remain compatible. `app/scripts/ingest-jones-and-sons-candidates.ts` uses that verified context to submit Jones & Sons Terre Haute research candidates without trusting a caller-supplied role.
+
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
 and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
@@ -191,14 +196,6 @@ and bounded next-attempt timestamp. Event subscribers receive an
 organization-scoped stable idempotency key and attempt metadata. These
 contracts do not claim that production scheduling or live failure rehearsal has
 been configured.
-
-`runWithBackgroundDatabaseSession` passes its resolved,
-membership-derived `AuthContext` to the operation it runs, rather than only
-using it to set the Postgres session variables that back RLS. The change is
-additive for existing zero-argument callbacks. The Jones & Sons operator
-ingestion script uses that resolved context to call
-`CostbookCandidateService.create()` without re-deriving or trusting a
-caller-supplied role.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 
