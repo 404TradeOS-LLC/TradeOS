@@ -349,6 +349,7 @@ test("a storage state path whose parent does not exist yet is still checked", as
 const workflow = read(".github/workflows/beta-evidence.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
 const runner = read("app/scripts/beta-evidence/run.mjs");
+const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
 const authSetup = read("app/scripts/beta-evidence/auth-setup.mjs");
 const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
 const seedGuard = read("app/db/seed/productionGuard.ts");
@@ -371,6 +372,14 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
   assert.match(capture, /reviewed Athena lines survive builder reload/);
   assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
+});
+
+test("S053 scenario validation requires its Athena checkpoints and passing assertions", () => {
+  assert.match(validator, /scenario === "s053"/);
+  assert.match(validator, /s053-athena-review/);
+  assert.match(validator, /s053-athena-applied/);
+  assert.match(validator, /scenarioFailures/);
+  assert.match(validator, /Scenario evidence/);
 });
 
 test("the workflow runs every evidence stage at all four viewports", () => {
