@@ -33,7 +33,6 @@ jobs:
       BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
       BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
       BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
-      BETA_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
       S053_TARGET_BRANCH: ${{ github.ref_name }}
       S053_EXPECTED_SHA: ${{ github.sha }}
     steps:
@@ -60,6 +59,13 @@ jobs:
 
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@59.11.2
+
+      - name: Repair and verify current staging backend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          REPAIR_CONFIRM: REPAIR_STAGING_AUTH
+          STAGING_EXPECTED_SHA: ${{ env.S053_STAGING_SHA }}
+        run: node ../scripts/staging-repair.mjs
 
       - name: Prepare exact current-head S053 Preview
         env:
