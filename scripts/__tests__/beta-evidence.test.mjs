@@ -362,6 +362,7 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
   assert.match(workflow, /BETA_REQUIRE_SHA_CORRELATION: \$\{\{ inputs\.scenario == \'s053\' \|\| inputs\.require_sha_correlation \}\}/);
   assert.match(runner, /--scenario=<canonical\|s053>/);
   assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(runner, /BETA_REQUIRE_SHA_CORRELATION: scenario === "s053" \? "true"/);
   assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
   assert.match(capture, /if \(scenario === "s053"\)/);
 });
