@@ -15,7 +15,7 @@ related_code:
 
 # TradeOS Bible
 
-Governance reconciliation (2026-10-02): PR #520 is merged, so S064 no longer carries that stale Assembly Catalog blocker. S064 remains `PLANNED` and depends on S053 completion. This does not alter the startup rule: only a `READY` sprint is directly executable. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
+Governance reconciliation (2026-10-02): PR #520 is merged and PR #560's reviewed estimate-assist contract is landed. S053 remains `IN_REVIEW` until its authenticated browser certification passes, but external evidence availability is no longer a global development mutex. S064 is the single `READY` implementation sprint. `Dependencies:` remains the mechanical implementation selector; `Release certification prerequisites:` block release/beta certification claims without freezing independent implementation when the upstream contract is already merged and repository-verified. Reproduced product defects, auth/RBAC/RLS or tenant-isolation failures, schema/migration failures, financial-correctness failures, and unresolved founder/product decisions remain hard blockers. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
 
 
 The TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
@@ -205,7 +205,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - One sprint runs per branch and pull request.
 - Only merged evidence may mark a sprint `DONE`.
 - Completing a sprint does not implicitly promote a `PLANNED` sprint to
-  `READY`; readiness must be explicit in the backlog after dependency and
+  `READY`; readiness must be explicit in the backlog after implementation-dependency and
   overlap checks.
 - A readiness promotion records scope, forbidden paths, named validation,
   dependency, pull-request, worktree, infrastructure, and founder-decision
@@ -213,7 +213,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Readiness promotion is a governance-only change that lands before the
   implementation branch; an implementation branch may not authorize its own
   sprint.
-- Open PR overlap blocks a sprint from `READY` status.
+- Open PR overlap blocks a sprint from `READY` status when it owns the same implementation scope. Parallel evidence/certification lanes do not block a separate implementation sprint unless they expose a reproduced hard product/security/data defect.
 - Every completed sprint updates its evidence and the session handoff.
 - The session handoff ends with one mechanical resume contract containing
   `Sprint ID`, `Eligibility`, `Dependencies`, `Overlap check`, and `Startup
@@ -234,7 +234,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 ## S026 completion reconciliation
 
-S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 is `DONE` through merged PR #538 (merge commit `49cf31ce8badf8a3440792e0f9aa7a8a01026db`). S053 is the next successor sprint and is promoted `READY` by the governance PR that reconciles the current handoff.
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 is `DONE` through merged PR #538 (merge commit `49cf31ce8badf8a3440792e0f9aa7a8a01026db`). S053 implementation is landed and its browser certification remains `IN_REVIEW`; S064 is the current `READY` implementation sprint under the certification-decoupling rule.
 
 
 ## S028 completion reconciliation
@@ -262,7 +262,7 @@ but no current-head certification for every contractor/customer journey. The
 canonical findings are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
 
-`docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is `IN_REVIEW` in draft PR
+`docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is complete; later certification and implementation tracks may advance independently only where the backlog explicitly separates `Dependencies:` from `Release certification prerequisites:`. Historical text below records the earlier S051 review state in draft PR
 `#538`, which adds the executable connection matrix and drift checks. Static
 validation does not certify rendered browser behavior or current-head browser
 evidence. The successor definition of `DONE`
@@ -273,6 +273,10 @@ sprints remain `PLANNED` or explicitly `BLOCKED`; their numbering is not
 permission to bypass readiness promotion, open-PR overlap, protected decisions,
 or production-access gates.
 
+
+## S064 execution update — 2026-10-02
+
+The numbered queue now separates implementation dependencies from release-certification prerequisites where explicitly declared. S053 remains `IN_REVIEW` until its authenticated browser evidence passes; this does not claim S053 complete. S064 is `READY` because PR #520 and PR #560 already provide the Assembly Catalog mapping and review-first estimate-assist contracts required to build safely. S064 must not weaken Estimate Engine ownership, explicit review, provenance, setup-required handling, pricing truth, or tenant isolation, and any release claim depending on S053 remains blocked until S053 reaches `DONE`.
 
 ## S053 implementation update — 2026-09-22
 
