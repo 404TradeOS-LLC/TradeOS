@@ -387,6 +387,10 @@ candidate-ready, and `POST .../candidates/from-knowledge` correctly rejects
 every item in the canonical corpus today. The end-to-end ready path is proven
 by deterministic fixtures, not by a claim that the research corpus is usable.
 
+### First real-source trade proven end to end: Jones & Sons Terre Haute aggregate (2026-09-14)
+
+The Costbook research pipeline now has one real cited material slice wired through the canonical candidate path: the two branch-verified Jones & Sons Terre Haute aggregate records. `app/modules/costbook/jonesAndSonsIngestion.ts` serializes ingestion per `(orgId, sourceIdentifier)` with a transaction-scoped advisory lock, checks for an existing candidate inside the same RLS-bound transaction, and creates only candidate-state rows. The operator script derives the actor from active organization membership; it never reviews or promotes records. PostgreSQL integration coverage includes same-organization concurrent ingestion, tenant isolation, review, promotion, and source/audit provenance. No live tenant population is claimed; a real operator run and human review/promotion remain separate actions. See `docs/reports/JONES_AND_SONS_TERRE_HAUTE_INGESTION_2026-09-12.md`.
+
 ## Lifecycle normalization status
 
 The bounded lifecycle-normalization sequence through Project, Estimate, Proposal, Contract, Invoice, and Job behavior has landed through the numbered sprint evidence recorded in `docs/SPRINT_BACKLOG.md` and the corresponding architecture/completion records.

@@ -184,6 +184,9 @@ Change-order reads require `billing.read`; all change-order mutations, including
 
 `GET /api/v1/customers/:id` requires `crm.read` and returns linked Projects plus active ServiceAddress rows. Service-address create/update/delete routes require `crm.write`; the existing CRM service verifies organization/customer parentage and soft-removes addresses rather than exposing cross-customer mutation.
 
+
+`runWithBackgroundDatabaseSession` passes its resolved, membership-derived `AuthContext` to the operation it runs rather than only using it to establish the Postgres RLS session. Existing zero-argument callbacks remain compatible. `app/scripts/ingest-jones-and-sons-candidates.ts` uses that verified context to submit Jones & Sons Terre Haute research candidates without trusting a caller-supplied role.
+
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
 and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
