@@ -74,6 +74,15 @@ const probes = [
         body: { scopeOfWork: "Replace a standard electrical panel." },
       }
     : null,
+  scenario === "s053" && foreignEstimateId
+    ? {
+        name: "foreign S053 Athena apply",
+        route: null,
+        apiRoute: `/api/proxy/estimates/${foreignEstimateId}/ai-estimator/apply`,
+        method: "POST",
+        body: { lineItems: [] },
+      }
+    : null,
 ].filter(Boolean);
 
 // A configuration that supplies only BETA_FOREIGN_ESTIMATE_ID satisfies the
