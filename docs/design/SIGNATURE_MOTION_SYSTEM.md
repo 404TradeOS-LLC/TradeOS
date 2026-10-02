@@ -205,9 +205,20 @@ For reduced motion:
 - use the documented reduced token where the Figma component specifies it
 - never require motion to understand success, failure, source, or delta
 
+## Current production motion seam
+
+Current `web/package.json` already includes `framer-motion` (`^13.4.4`). Production also has a global `prefers-reduced-motion` override in `web/src/app/globals.css`, `use-count-up.ts` explicitly checks the media query, and the existing Control Dock attention pulse documents reduced-motion behavior.
+
+Therefore:
+
+- do not add a second animation library for signature motion;
+- prefer the existing Framer Motion seam for stateful JavaScript motion and existing CSS transitions/keyframes for simple interaction motion;
+- keep the current global reduced-motion protections intact and add component-level reduced behavior when the signature sequence needs it;
+- reuse existing attention-motion conventions rather than inventing a competing pulse/glow language.
+
 ## Implementation policy
 
-- Reuse the project's current motion stack if one exists.
+- Reuse the project's current Framer Motion/CSS stack.
 - Do not add a motion dependency merely to animate one small state.
 - Use canonical tokens and components.
 - Keep animation values sourced from Figma motion data when it exists.
