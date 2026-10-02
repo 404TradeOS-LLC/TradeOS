@@ -105,13 +105,16 @@ if (scenario === "s053") {
   for (const viewport of viewports) {
     const report = viewportReports[viewport.name];
     const checkpointNames = new Set((report?.checkpoints ?? []).map((checkpoint) => checkpoint.name));
-    for (const requiredName of ["s053-athena-review", "s053-athena-applied"]) {
+    for (const requiredName of ["s053-setup-required", "s053-athena-review", "s053-athena-applied"]) {
       if (!checkpointNames.has(requiredName)) {
         scenarioFailures.push(`${viewport.name}: missing ${requiredName}`);
       }
     }
     const assertionNames = new Set((report?.assertions ?? []).filter((entry) => entry.passed).map((entry) => entry.name));
     for (const requiredAssertion of [
+      "unmapped Athena scope fails safe as setup required",
+      "setup-required Athena draft does not write estimate lines",
+      "setup-required Athena draft cannot be applied",
       "Athena generation and local acceptance do not silently write estimate lines",
       "explicit Athena apply persists at least one reviewed estimate line",
       "pricing refreshes after the reviewed Athena apply",
