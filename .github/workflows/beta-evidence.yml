@@ -26,6 +26,14 @@ on:
         options:
           - preflight
           - full
+      scenario:
+        description: Evidence scenario to execute
+        required: true
+        default: canonical
+        type: choice
+        options:
+          - canonical
+          - s053
       rc_base_url:
         description: Approved non-production RC base URL (tradeos-costbook-web-*.vercel.app)
         required: false
@@ -70,6 +78,7 @@ jobs:
         working-directory: app
     env:
       BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
+      BETA_SCENARIO: ${{ inputs.scenario }}
       BETA_RC_BASE_URL: ${{ inputs.rc_base_url }}
       BETA_RC_BASE_URL_VARIABLE: ${{ vars.BETA_RC_BASE_URL }}
       # Only the expected side is declared here. resolve-rc-target.mjs derives
