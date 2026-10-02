@@ -227,6 +227,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             estimateId={estimateId}
             projectId={projectId}
             scopeOfWork={scopeDraft}
+            isDraft={isDraft}
             headingId="desktop-contextual-athena-heading"
             onAdded={invalidate}
           />
@@ -370,6 +371,7 @@ function MobileEstimateFlow({
             estimateId={estimateId}
             projectId={projectId}
             scopeOfWork={simpleScope}
+            isDraft={isDraft}
             headingId="mobile-contextual-athena-heading"
             onAdded={onUpdated}
           />
