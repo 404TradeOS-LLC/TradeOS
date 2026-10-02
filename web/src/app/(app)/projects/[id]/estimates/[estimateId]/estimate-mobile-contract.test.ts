@@ -82,6 +82,24 @@ test("embedded assembly picker previews installed assemblies and gates unmapped 
   assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
 });
 
+test("starter assembly setup stays inline and requires install before estimate add", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  assert.match(builder, /assessCostItemMapping/);
+  assert.match(builder, /StarterAssemblySetup/);
+  assert.match(builder, /StarterComponentMappingPicker/);
+  assert.match(builder, /\/costbook\/cost-items\/search\?q=/);
+  assert.match(builder, /\/costbook\/cost-items\/\$\{item\.id\}\/unit-cost/);
+  assert.match(builder, /\/assemblies\/starter-catalog\/install/);
+  assert.match(builder, /componentMappings: template\.components\.map/);
+  assert.match(builder, /Use a different Costbook item for each recipe slot/);
+  assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
+  assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
+  assert.match(builder, /disabled=\{addLineItem\.isPending \|\| \(!selected && !activeResult\) \|\| \(selected \?\? activeResult\)\?\.kind === "starterAssembly"\}/);
+  assert.match(builder, /const resultsId = useId\(\)/);
+  assert.doesNotMatch(builder, /Math\.random\(\)/);
+});
+
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");
