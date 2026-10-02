@@ -991,15 +991,15 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE (S051 complete; S053 readiness promotion in review)
-Completion status: S051 is merged and reconciled. S053 is promoted to `READY` by this governance-only change; implementation remains gated on readiness-PR merge. S039/S044/S045 and their dependent production gates remain blocked.
-Dependencies: S053 depends on S051 and has no competing implementation lane.
-Protected boundary: S053 is limited to the existing scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
+Active Sprint: NONE
+Completion status: S051 is merged and reconciled. S053 implementation is landed and its authenticated browser certification remains `IN_REVIEW`; S064 is the single `READY` implementation sprint. S039/S044/S045 and their dependent production gates remain blocked.
+Dependencies: S064 depends on S051 for sprint governance; its landed implementation prerequisites are PR #520 and PR #560. S053 remains a release-certification prerequisite rather than a development mutex.
+Protected boundary: S064 must preserve explicit reviewed writes through Estimate Engine, provenance, setup-required behavior, pricing truth, and tenant isolation. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: S053
-Eligibility: S053 is `READY` after S051 merged; this readiness promotion must merge before implementation begins.
-Dependencies: S051 is `DONE`; S052 is not required for the S053 contract.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; no competing S053 implementation PR or branch was found.
-Startup prompt: After this readiness PR merges, create the S053 implementation branch and certify scope → Athena → reviewed Costbook/assembly → persisted estimate lines without silent writes.
+Sprint ID: S064
+Eligibility: S064 is `READY`; S053 remains `IN_REVIEW` and incomplete, but its external evidence-only blocker does not block S064 implementation.
+Dependencies: S051 is `DONE`; PR #520 and PR #560 are merged implementation prerequisites.
+Overlap check: Reconcile live S053 evidence/repair lanes separately and do not duplicate them; S064 owns only the embedded Assembly Picker implementation.
+Startup prompt: Create the S064 implementation branch from current main and embed the Assembly Picker in Estimate Items while preserving review-first writes, provenance, setup-required behavior, pricing truth, tenant isolation, and Estimate Engine ownership.
