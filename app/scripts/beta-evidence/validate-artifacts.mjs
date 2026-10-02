@@ -16,6 +16,7 @@ import {
 
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+const scenario = process.env.BETA_SCENARIO || "canonical";
 
 // A targeted single-viewport run validates only what it captured. It is a
 // debugging aid, never a release gate, so its verdict is PARTIAL rather than
@@ -99,13 +100,38 @@ const authResult = auth?.result === "PASS" ? "PASS" : "FAIL";
 const isolationResult = isolation?.result === "PASS" ? "PASS" : "FAIL";
 const artifactResult = validation.ok ? "PASS" : "FAIL";
 
+const scenarioFailures = [];
+if (scenario === "s053") {
+  for (const viewport of viewports) {
+    const report = viewportReports[viewport.name];
+    const checkpointNames = new Set((report?.checkpoints ?? []).map((checkpoint) => checkpoint.name));
+    for (const requiredName of ["s053-athena-review", "s053-athena-applied"]) {
+      if (!checkpointNames.has(requiredName)) {
+        scenarioFailures.push(`${viewport.name}: missing ${requiredName}`);
+      }
+    }
+    const assertionNames = new Set((report?.assertions ?? []).filter((entry) => entry.passed).map((entry) => entry.name));
+    for (const requiredAssertion of [
+      "Athena generation and local acceptance do not silently write estimate lines",
+      "explicit Athena apply persists at least one reviewed estimate line",
+      "pricing refreshes after the reviewed Athena apply",
+      "reviewed Athena lines survive builder reload",
+    ]) {
+      if (!assertionNames.has(requiredAssertion)) {
+        scenarioFailures.push(`${viewport.name}: missing passing assertion "${requiredAssertion}"`);
+      }
+    }
+  }
+}
+const scenarioResult = scenarioFailures.length === 0 ? "PASS" : "FAIL";
+
 const downstreamReported = viewports.some((viewport) =>
   (viewportReports[viewport.name]?.checkpoints ?? []).some((checkpoint) => checkpoint.name === "downstream-state"),
 );
 
 const allViewportsPass = viewports.every((viewport) => viewportResult(viewport.name) === "PASS");
 const everythingClean =
-  authResult === "PASS" && isolationResult === "PASS" && artifactResult === "PASS" && allViewportsPass;
+  authResult === "PASS" && isolationResult === "PASS" && artifactResult === "PASS" && scenarioResult === "PASS" && allViewportsPass;
 const overall = everythingClean ? (isFullMatrix ? "PASS" : "PARTIAL") : "FAIL";
 
 // Phase 21 — machine-readable metadata. Carries no passwords, tokens, cookies,
@@ -121,6 +147,7 @@ const metadata = {
   workflow: process.env.GITHUB_WORKFLOW ?? "Beta Evidence",
   runId: process.env.GITHUB_RUN_ID ?? null,
   smokeTenant: process.env.BETA_SMOKE_TENANT_LABEL ?? null,
+  scenario,
   viewports: viewports.map((viewport) => viewport.width),
   fullViewportMatrix: isFullMatrix,
   staleViewports,
@@ -130,6 +157,7 @@ const metadata = {
     authentication: authResult,
     tenantIsolation: isolationResult,
     artifacts: artifactResult,
+    scenario: scenarioResult,
     viewports: Object.fromEntries(viewports.map((viewport) => [viewport.width, viewportResult(viewport.name)])),
   },
   screenshotCount: captured.length,
@@ -148,6 +176,8 @@ const rows = [
   ["Environment", metadata.environment ?? "UNRESOLVED"],
   ["Deployment SHA correlated", metadata.shaCorrelated ? "YES" : "NO"],
   ["Smoke tenant", metadata.smokeTenant ?? "unset"],
+  ["Scenario", scenario],
+  ["Scenario evidence", scenarioResult],
   ["Authentication", authResult],
   ["Tenant isolation", isolationResult],
   ...VIEWPORTS.map((viewport) => [
@@ -167,6 +197,12 @@ const summary = [
   ...rows.map(([label, value]) => `| ${label} | ${value} |`),
   "",
 ];
+
+if (scenarioFailures.length > 0) {
+  summary.push("## Scenario validation failures", "");
+  for (const item of scenarioFailures) summary.push(`- ${item}`);
+  summary.push("");
+}
 
 if (!validation.ok) {
   summary.push("## Artifact validation failures", "");
