@@ -14,7 +14,11 @@ while ((match = sprintPattern.exec(text)) !== null) {
   const dependencies = depsRaw === "none"
     ? []
     : depsRaw.split(",").map((value) => value.trim()).filter(Boolean);
-  sprints.set(id, { id, title: title.trim(), status, dependencies, body });
+  const certificationRaw = body.match(/^Release certification prerequisites:\s+(.+)\s*$/m)?.[1] ?? "none";
+  const certificationPrerequisites = certificationRaw === "none"
+    ? []
+    : certificationRaw.split(",").map((value) => value.trim()).filter(Boolean);
+  sprints.set(id, { id, title: title.trim(), status, dependencies, certificationPrerequisites, body });
 }
 
 const errors = [];
@@ -31,6 +35,11 @@ for (const sprint of sprints.values()) {
       errors.push(`${sprint.id} depends on unknown sprint ${dep}.`);
     }
   }
+  for (const prerequisite of sprint.certificationPrerequisites) {
+    if (!sprints.has(prerequisite)) {
+      errors.push(`${sprint.id} has unknown release certification prerequisite ${prerequisite}.`);
+    }
+  }
 }
 
 const ready = [...sprints.values()].filter((sprint) => sprint.status === "READY");
@@ -42,6 +51,12 @@ for (const sprint of ready) {
   for (const dep of sprint.dependencies) {
     if (sprints.get(dep)?.status !== "DONE") {
       errors.push(`${sprint.id} is READY but dependency ${dep} is ${sprints.get(dep)?.status ?? "missing"}, not DONE.`);
+    }
+  }
+  for (const prerequisite of sprint.certificationPrerequisites) {
+    const prerequisiteStatus = sprints.get(prerequisite)?.status;
+    if (prerequisiteStatus !== "DONE" && prerequisiteStatus !== "IN_REVIEW") {
+      errors.push(`${sprint.id} is READY but release certification prerequisite ${prerequisite} is ${prerequisiteStatus ?? "missing"}, not IN_REVIEW or DONE.`);
     }
   }
   if (/Founder decision required:\s*YES/i.test(sprint.body)) {
