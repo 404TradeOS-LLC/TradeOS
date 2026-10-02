@@ -210,6 +210,12 @@ Athena must not:
 - use width for provenance, explanation, and review context
 - do not turn the estimator into a dashboard card wall
 
+## Current-main implementation reconciliation — 2026-10-01
+
+Inspected `builder.tsx`, `estimate-mobile-contract.test.ts` and `ai-estimate-assist.tsx`. Persisted Estimate lines do not currently carry complete pre-apply Athena provenance detail; mobile Items intentionally expose only persisted source identity through the authoritative edit/delete path.
+
+Therefore Figma may specify richer trust detail, but current production must not require or fabricate supplier/freshness/confidence badges after apply unless the persisted/API contract is separately extended.
+
 ## Acceptance criteria for S053 certification
 
 - Rough scope can be submitted and restored on failure.
