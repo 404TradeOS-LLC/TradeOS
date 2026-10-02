@@ -38,7 +38,7 @@ jobs:
         run: npm install --global vercel@59.11.2
 
       - name: Redeploy staging backend
-        run: vercel redeploy "$BACKEND_DEPLOYMENT" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+        run: vercel redeploy "$BACKEND_DEPLOYMENT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Redeploy staging frontend
-        run: vercel redeploy "$WEB_DEPLOYMENT" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+        run: vercel redeploy "$WEB_DEPLOYMENT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
