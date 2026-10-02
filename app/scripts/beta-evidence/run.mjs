@@ -29,6 +29,7 @@ if (hasFlag("help")) {
       "",
       "Options:",
       "  --viewport=<1440|1024|768|390>  Capture a single viewport instead of all four",
+      "  --scenario=<canonical|s053>      Run the normal beta flow or add S053 Athena certification checks",
       "  --allow-mutations               Consent to creating records in the RC tenant (required to capture)",
       "  --headed                        Run the browser headed (local debugging)",
       "  --skip-isolation                Skip the tenant-isolation probe",
@@ -60,6 +61,12 @@ const viewports = requestedViewport
   ? VIEWPORTS.filter((viewport) => viewport.name === requestedViewport)
   : VIEWPORTS;
 
+const scenario = flagValue("scenario") || process.env.BETA_SCENARIO || "canonical";
+if (!["canonical", "s053"].includes(scenario)) {
+  console.error(`--scenario must be canonical or s053; received "${scenario}".`);
+  process.exit(2);
+}
+
 const runId = process.env.BETA_RUN_ID || `local-${Date.now()}`;
 const storageStatePath =
   process.env.BETA_STORAGE_STATE_PATH || path.join("/tmp", `tradeos-beta-storage-state-${runId}.json`);
@@ -75,6 +82,7 @@ const baseEnv = {
   BETA_STORAGE_STATE_PATH: storageStatePath,
   BETA_EVIDENCE_DIR: evidenceDir,
   BETA_ALLOW_MUTATIONS: String(allowMutations),
+  BETA_SCENARIO: scenario,
   BETA_STARTED_AT: process.env.BETA_STARTED_AT ?? new Date().toISOString(),
   ...(hasFlag("headed") ? { PWDEBUG: "0", BETA_HEADED: "true" } : {}),
 };
