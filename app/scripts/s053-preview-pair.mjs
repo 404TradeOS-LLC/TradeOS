@@ -11,6 +11,8 @@ const STAGING_SUPABASE_URL = "https://qfbgdkbamfaasmtjfyru.supabase.co";
 const STATE_PATH = "/tmp/s053-preview-pair-state.json";
 const REPORT_PATH = "../artifacts/beta-evidence/s053-preview-pair.json";
 const MANAGED_COMMENT = "Temporary S053 current-main evidence; remove after run";
+const STAGING_FIXTURE_MARKER = "tradeos-staging-fixture-v1";
+const STAGING_FOREIGN_ESTIMATE_ID = "70000000-0000-4000-8000-000000000004";
 
 const token = process.env.VERCEL_TOKEN?.trim();
 const targetBranch = process.env.S053_TARGET_BRANCH?.trim();
@@ -129,6 +131,17 @@ async function verifyBackend() {
     signal: AbortSignal.timeout(30_000),
   });
   assert.equal(bootstrap.status, 401, "Unauthenticated staging bootstrap must fail with 401");
+
+  const foreignFixture = await fetch(new URL("/api/v1/estimates/" + STAGING_FOREIGN_ESTIMATE_ID, backendUrl), {
+    headers: { Authorization: "Bearer " + STAGING_FIXTURE_MARKER, Accept: "application/json" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  assert.equal(
+    foreignFixture.status,
+    200,
+    "Staging foreign-estimate fixture must exist and be readable only through the dedicated staging fixture identity",
+  );
+
   return backendUrl;
 }
 
@@ -222,6 +235,7 @@ async function setup() {
     frontend: { deploymentId: deployment.id, url: frontendUrl },
     backend: { url: backendUrl, commitSha: stagingSha, readiness: "verified" },
     dataPlaneRef,
+    foreignEstimateFixture: { id: STAGING_FOREIGN_ESTIMATE_ID, existenceVerifiedWithStagingFixtureIdentity: true },
   }, null, 2));
 
   assert.ok(process.env.GITHUB_ENV, "GITHUB_ENV is required");
@@ -230,7 +244,8 @@ async function setup() {
     "BETA_RC_BASE_URL=" + frontendUrl + "\n" +
     "BETA_RC_DEPLOYMENT_URL=" + frontendUrl + "\n" +
     "BETA_RC_DEPLOYMENT_SHA=" + expectedSha + "\n" +
-    "BETA_EXPECTED_SHA=" + expectedSha + "\n"
+    "BETA_EXPECTED_SHA=" + expectedSha + "\n" +
+    "BETA_FOREIGN_ESTIMATE_ID=" + STAGING_FOREIGN_ESTIMATE_ID + "\n"
   );
 
   console.log("Prepared exact S053 Preview " + deployment.id + " for " + expectedSha);
