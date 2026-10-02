@@ -226,6 +226,7 @@ Targeted options:
 
 ```bash
 npm run beta:evidence -- --viewport=390
+export BETA_EXPECTED_SHA="<exact deployed commit SHA>"
 npm run beta:evidence -- --scenario=s053 --allow-mutations
 npm run beta:evidence -- --headed
 npm run beta:evidence -- --skip-isolation
@@ -248,9 +249,10 @@ Actions → **Beta Evidence** → Run workflow.
   an RC identity exists.
 - `mode: full` captures the real evidence and creates records in the RC tenant.
 - `scenario: canonical` runs the established release workflow unchanged.
-- `scenario: s053` adds the review-first Athena certification checks and two extra
-  truth/viewport-validated checkpoints (`s053-athena-review` and
-  `s053-athena-applied`) at every captured viewport.
+- `scenario: s053` adds the review-first Athena certification checks and three extra
+  truth/viewport-validated checkpoints (`s053-setup-required`, `s053-athena-review`,
+  and `s053-athena-applied`) at every captured viewport. It forces deployment SHA
+  correlation and requires the foreign estimate fixture for draft/apply denial.
 
 Runs are serialized (`concurrency: tradeos-beta-evidence`,
 `cancel-in-progress: false`) so two evidence runs cannot corrupt each other.
@@ -281,9 +283,11 @@ For every viewport it must prove:
   and requires a 403/404 denial. The `s053` scenario therefore requires
   `BETA_RC_FOREIGN_ESTIMATE_ID` in addition to the ordinary foreign resource fixture.
 
-If a deployment cannot produce a resolved priced suggestion, the scenario fails.
-That is an evidence failure to investigate; the runner must not silently replace
-it with a custom line or mark S053 certified.
+If a deployment cannot produce a resolved priced suggestion, cannot prove the
+setup-required state, lacks exact deployed-SHA correlation, or cannot deny both
+foreign-estimate Athena draft and apply requests, the scenario fails. Those are
+evidence failures to investigate; the runner must not silently substitute a
+custom line or mark S053 certified.
 
 ## Viewports
 
