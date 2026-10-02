@@ -1046,7 +1046,9 @@
       "refresh": "Exchange the one-time token for an HttpOnly scoped session; portal mutations refresh only that customer's document state.",
       "automatedEvidence": [
         "app/tests/customer-portal.service.test.ts",
-        "web/src/lib/customer-portal-session.test.ts"
+        "web/src/lib/customer-portal-session.test.ts",
+        "web/src/lib/customer-portal-access.test.ts",
+        "app/tests/customer-portal.migration.test.ts"
       ],
       "browserCheckpoint": "Issue/deliver link, redeem, view allowed customer records, sign exact pending contract, then prove replay/expiry/revocation/cross-tenant denial without exposing bearer material.",
       "actions": [

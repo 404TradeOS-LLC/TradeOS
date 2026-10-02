@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { stagingAuthDecision } from "@/lib/staging-auth";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/shared/app-nav";
 import { getAthenaCapabilities } from "@/lib/api";
 import { getSession, getSessionToken } from "@/lib/session";
+import { isTeamTimeEnabled } from "@/lib/team-time-config";
 
 const ATHENA_CAPABILITY_TIMEOUT_MS = 1500;
 
@@ -49,7 +51,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         email={session.email}
         athenaEnabled={athenaCapability.enabled}
         athenaCapabilityRetryKey={athenaCapabilityRetryKey}
+        teamTimeEnabled={isTeamTimeEnabled()}
       />
+      {stagingAuthDecision().enabled && (
+        <div role="status" className="fixed bottom-3 left-3 z-50 rounded border border-border bg-surface px-2 py-1 text-xs font-semibold tracking-wide text-muted shadow-sm">
+          STAGING · AUTH BYPASS
+        </div>
+      )}
       <main
         id="main-content"
         tabIndex={-1}

@@ -1,3 +1,4 @@
+import { STAGING_AUTH, evaluateStagingAuth } from "../../domain";
 import { NextFunction, Request, Response } from "express";
 import { verifyAnyAuthToken } from "../auth/jwt";
 import { ApiError } from "./errorHandler";
@@ -15,6 +16,27 @@ export interface AuthedRequest extends Request {
 export function requireAuth(req: AuthedRequest, _res: Response, next: NextFunction): void {
   const bearer = req.header("authorization");
   const token = bearer?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+  const bypass = evaluateStagingAuth(process.env, "api");
+  if (bypass.blocked) {
+    logError("auth.bypass_blocked", { reasonCode: bypass.reason });
+    return next(new ApiError(503, "Staging authentication bypass is blocked"));
+  }
+  if (token === STAGING_AUTH.marker) {
+    if (!bypass.enabled) return next(new ApiError(401, "Invalid bearer token"));
+    void resolveAuthContext({ sub: STAGING_AUTH.subject, orgId: STAGING_AUTH.orgId })
+      .then((auth) => {
+        if (auth.userId !== STAGING_AUTH.userId || auth.orgId !== STAGING_AUTH.orgId ||
+            auth.email !== STAGING_AUTH.email || auth.canonicalRole !== "owner") {
+          throw new ApiError(403, "Staging fixture identity mismatch");
+        }
+        req.auth = auth;
+        req.orgId = auth.orgId;
+        next();
+      })
+      .catch((error) => next(error));
+    return;
+  }
 
   if (token) {
     void verifyAnyAuthToken(token)
