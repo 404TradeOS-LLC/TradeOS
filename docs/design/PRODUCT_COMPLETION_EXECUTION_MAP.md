@@ -73,7 +73,7 @@ slice complete from a Figma frame, API test, or green build alone.
 
 ## First five implementation tasks
 
-1. Reconcile the live Figma page-enumeration discrepancy before any structural page rewrite; keep file `xImUa9CYUjx3Cb3zTrkfnY` as the sole product-design authority.
+1. Keep file `xImUa9CYUjx3Cb3zTrkfnY` as the sole product-design authority and use the verified 21-page directory for future inspection.
 2. Certify S053's landed PR #560 Scope → Athena → reviewed Costbook/assembly → Estimate Items path on current `main`; do not recreate the superseded PR #559 lane.
 3. Prepare S064's embedded Assembly Picker only after S053 completion, building on the mapping hardening already merged through PR #520.
 4. Complete the customer-portal transaction-state specification against S059/S054 contracts, then implement only eligible slices.
