@@ -228,6 +228,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
             projectId={projectId}
             scopeOfWork={scopeDraft}
             headingId="desktop-contextual-athena-heading"
+            onAdded={invalidate}
           />
           <PricingPanel estimateId={estimateId} estimate={estimate} hasTaxableLineItems={estimate.lineItems.some((lineItem) => lineItem.taxable)} pricingModeLabel={pricingModeLabel} isDraft={isDraft} onUpdated={invalidate} />
 
@@ -370,6 +371,7 @@ function MobileEstimateFlow({
             projectId={projectId}
             scopeOfWork={simpleScope}
             headingId="mobile-contextual-athena-heading"
+            onAdded={onUpdated}
           />
           <div className="text-sm text-muted-foreground">
             Athena suggestions are review-first. Nothing is added automatically; open Athena review for deeper scope analysis.
