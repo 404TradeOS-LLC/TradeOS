@@ -34,7 +34,7 @@ The canonical written visual contract landed through [PR #558](https://github.co
 - Production component authority: `web/src/components/ui/` and
   `web/src/components/shared/`. A Figma component is a specification; its
   behavior, data, and accessibility come from the production component.
-- The live Figma connector used on 2026-10-01 enumerated only `00 — Product Design Cover` and `03 — Components`, while the canonical written design contract lists the full working page structure. Treat that as a connector/enumeration discrepancy, not evidence that the other canonical pages are absent. Do not recreate or delete pages until the discrepancy is reconciled.
+- Figma enumeration verified 2026-10-02: the canonical file contains all 21 documented pages and cover frame `348:2` contains the matching page directory.
 - Canva owns subsequent marketing and sales materials after approved product
   screenshots and logo masters are available; it does not define product UI.
 
