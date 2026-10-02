@@ -1,0 +1,174 @@
+name: S053 authenticated browser evidence
+
+on:
+  push:
+    branches:
+      - evidence/s053-current-main-20261002
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeos-beta-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: S053 current-main evidence 1440/1024/768/390
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app
+    env:
+      BETA_EVIDENCE_DIR: ../artifacts/beta-evidence
+      BETA_SCENARIO: s053
+      BETA_EXPECTED_ENVIRONMENT: preview
+      BETA_SMOKE_TENANT_LABEL: TradeOS Beta Smoke
+      BETA_SMOKE_ORG_LABEL: TradeOS Beta Smoke
+      BETA_REQUIRE_SHA_CORRELATION: "true"
+      BETA_ALLOW_MUTATIONS: "true"
+      BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
+      BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
+      S053_TARGET_BRANCH: ${{ github.ref_name }}
+      S053_EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Capture current staging backend SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin staging --quiet
+          echo "S053_STAGING_SHA=$(git rev-parse origin/staging)" >> "$GITHUB_ENV"
+
+      - run: npm ci
+      - run: node --check scripts/s053-preview-pair.mjs
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.11.2
+
+      - name: Repair and verify current staging backend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          REPAIR_CONFIRM: REPAIR_STAGING_AUTH
+          STAGING_EXPECTED_SHA: ${{ env.S053_STAGING_SHA }}
+        run: node ../scripts/staging-repair.mjs
+
+      - name: Prepare exact current-head S053 Preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s053-preview-pair.mjs
+
+      - name: Record run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "BETA_RUN_ID=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "BETA_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "BETA_STORAGE_STATE_PATH=${RUNNER_TEMP}/beta-storage-state.json"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve and prove the RC target
+        run: node scripts/beta-evidence/resolve-rc-target.mjs
+
+      - name: Export resolved RC URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved="$(node -e 'const t=require("../artifacts/beta-evidence/rc-target.json");process.stdout.write(t.baseUrl)')"
+          echo "BETA_RC_BASE_URL_RESOLVED=$resolved" >> "$GITHUB_ENV"
+
+      - name: Require S053 evidence prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          for value in "$BETA_SMOKE_EMAIL" "$BETA_SMOKE_PASSWORD" "$BETA_RC_SUPABASE_PROJECT_REF" "$BETA_FOREIGN_ESTIMATE_ID"; do
+            [ -n "$value" ] || fail=1
+          done
+          if [ -z "$BETA_FOREIGN_PROJECT_ID" ] && [ -z "$BETA_FOREIGN_CUSTOMER_ID" ]; then
+            fail=1
+          fi
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Required sanitized S053 evidence fixtures/secrets are not fully provisioned."
+          fi
+          exit "$fail"
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Authenticate sanitized smoke tenant
+        run: node scripts/beta-evidence/auth-setup.mjs
+
+      - name: Capture S053 evidence at 1440px
+        env:
+          BETA_VIEWPORT: "1440"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture S053 evidence at 1024px
+        env:
+          BETA_VIEWPORT: "1024"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture S053 evidence at 768px
+        env:
+          BETA_VIEWPORT: "768"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Capture S053 evidence at 390px
+        env:
+          BETA_VIEWPORT: "390"
+        run: node scripts/beta-evidence/capture-evidence.mjs
+
+      - name: Prove tenant isolation
+        run: node scripts/beta-evidence/tenant-isolation.mjs
+
+      - name: Validate evidence artifacts
+        if: always()
+        run: node scripts/beta-evidence/validate-artifacts.mjs
+
+      - name: Remove temporary S053 Preview overrides
+        if: always()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/s053-preview-pair.mjs --cleanup
+
+      - name: Remove runtime storage state
+        if: always()
+        run: rm -f "${BETA_STORAGE_STATE_PATH:-}"
+
+      - name: Scan evidence bundle for credential material
+        id: credential_scan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="../artifacts/beta-evidence"
+          [ -d "$bundle" ] || exit 1
+          if grep -rlIE '"cookies"[[:space:]]*:|sb-[a-z0-9-]+-auth-token|tradeos_(access|refresh)_token|Bearer [A-Za-z0-9._-]{20,}' "$bundle" >/dev/null 2>&1; then
+            echo "::error::Credential material detected; refusing artifact upload."
+            exit 1
+          fi
+
+      - name: Upload S053 evidence
+        if: ${{ always() && steps.credential_scan.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: s053-current-main-evidence-${{ github.run_id }}
+          path: artifacts/beta-evidence
+          if-no-files-found: error
+          retention-days: 30

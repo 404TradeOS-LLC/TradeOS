@@ -40,6 +40,7 @@ related_code:
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s053-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -66,7 +67,7 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
 
-The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow now retains the existing `canonical` scenario and adds an opt-in `s053` scenario for authenticated Scope → Athena → reviewed Estimate Engine certification. The S053 scenario is evidence tooling only: it does not change product behavior and does not complete S053 until a full non-production run passes.
+The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow retains the existing `canonical` scenario and an opt-in `s053` scenario for authenticated Scope → Athena → reviewed Estimate Engine certification. The bounded `s053-browser-evidence.yml` branch wrapper is used only to obtain exact-head hosted evidence when the connector cannot manually dispatch the canonical workflow: it reuses the canonical S053 capture/tenant-isolation scripts, the guarded staging-backend repair contract, non-production data-plane attestation, credential scanning, and cleanup. It changes no product behavior and does not complete S053 until a full retained run passes.
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 

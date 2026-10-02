@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-15
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -27,6 +27,7 @@ related_code:
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s053-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -50,6 +51,8 @@ related_code:
 ---
 
 # Repository Governance
+
+The S053 certification wrapper is evidence-only and shares the Beta Evidence concurrency group. It must target an exact-head non-production frontend Preview, use the current `staging` backend/data plane, reuse the existing guarded staging-repair contract if an exact staging backend Preview is absent, and retain the canonical Beta Evidence S053 behavior/tenant-isolation assertions. A synthetic foreign estimate may be used only after its existence is proven through the dedicated staging fixture identity; the Beta smoke session must still receive 403/404 for its estimate and Athena draft/apply routes. No Production target, auth/RLS weakening, or silent substitution for missing evidence is permitted.
 
 The S027 Costbook evidence workflow shares the Beta Evidence concurrency group
 and runtime-authentication seam. It verifies a Ready non-production web
