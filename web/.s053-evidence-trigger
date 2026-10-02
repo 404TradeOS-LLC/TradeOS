@@ -1,0 +1,2 @@
+S053 authenticated browser evidence branch trigger.
+This file has no runtime behavior. It exists only so the frontend Preview is rebuilt from the exact evidence-branch SHA.
