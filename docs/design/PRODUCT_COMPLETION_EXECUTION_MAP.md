@@ -47,8 +47,8 @@ The canonical written visual contract landed through [PR #558](https://github.co
 | Page header, row links, priced rows, status | `web/src/components/shared/` | Map Figma variants to `PageHeader`, `ListRowLink`, `LineItemRow`, `StatusBadge`. |
 | Navigation and create/command entry | `AppNav`, `GlobalCommandPalette` | Verify Control Dock at 390 px before changing labels or routes. |
 | Today / decision queue | `TodayCommandBoard` | PR #553 is merged; preserve the single Today command surface rather than reintroducing duplicate dashboard regions. |
-| Scope and contextual Athena | `web/src/components/estimate-assist/` | PR #560 is merged and PR #559 is closed/superseded; finish S053 certification on current `main` and retain explicit review before any estimate write. |
-| Costbook and assembly catalog | `web/src/components/costbook/` | PR #520 is merged; S064 remains gated by S053 completion, with provenance and setup-required states preserved. |
+| Scope and contextual Athena | `web/src/components/estimate-assist/` | PR #560 is merged and PR #559 is closed/superseded; S053 certification continues in parallel on current `main`, and explicit review remains mandatory before any estimate write. |
+| Costbook and assembly catalog | `web/src/components/costbook/` | PR #520 is merged; S064 may proceed as the active implementation sprint while S053 browser certification continues in parallel, with provenance, setup-required states, review-first writes, and release-certification prerequisites preserved. |
 | Field actions | `web/src/components/field/` | Build on merged PR #554 and S057 evidence before S066 expansion. |
 
 Keep page files thin and reuse established API paths. Never copy a proposal,
@@ -59,7 +59,7 @@ invoice, or estimate status treatment into a second one-off component.
 | Order | Contractor outcome | Backlog gate | Design and production handoff |
 | --- | --- | --- | --- |
 | 0 | Consistent foundation | This map plus merged PR #558 | Audit existing tokens and components; map the canonical Figma source and release contract; verify 390/768/1024/1440, light/dark, focus, loading, error, and empty states. |
-| 1 | Rough scope becomes reviewed priced estimate | S053 certification, then S064 | PR #560 landed the contractor-first estimator flow; certify explicit reviewed add, provenance, persisted refresh, and responsive behavior. The one-question clarification flow remains separate TARGET work until its persisted answer/regenerate contract exists. |
+| 1 | Rough scope becomes reviewed priced estimate | S053 certification + S064 implementation in parallel | PR #560 landed the contractor-first estimator flow. Continue S053 browser certification without making it a development mutex; implement S064 against the landed review-first contract. Release certification still requires S053 to pass. The one-question clarification flow remains separate TARGET work until its persisted answer/regenerate contract exists. |
 | 2 | Customer can review and approve work | S059 then S054 | Portal access and scope first; proposal acceptance, signature, and deposit behavior follow their separate governed contracts. |
 | 3 | Customer work becomes dispatched field work | S052, S056, S057, then S061–S067 | CRM → project/job → schedule → field; preserve existing identity, conflict, and job transition rules. |
 | 4 | Work changes can be priced and billed | S068, S058 | Change order review, invoice, payment state; protect historical snapshots and exact money values. |
@@ -74,8 +74,8 @@ slice complete from a Figma frame, API test, or green build alone.
 ## First five implementation tasks
 
 1. Keep file `xImUa9CYUjx3Cb3zTrkfnY` as the sole product-design authority and use the verified 21-page directory for future inspection.
-2. Certify S053's landed PR #560 Scope → Athena → reviewed Costbook/assembly → Estimate Items path on current `main`; do not recreate the superseded PR #559 lane.
-3. Prepare S064's embedded Assembly Picker only after S053 completion, building on the mapping hardening already merged through PR #520.
+2. Continue certifying S053's landed PR #560 Scope → Athena → reviewed Costbook/assembly → Estimate Items path on current `main`; do not recreate the superseded PR #559 lane.
+3. Start S064's embedded Assembly Picker now against the landed PR #560/PR #520 contracts; keep S053 as a parallel release-certification prerequisite rather than a development blocker.
 4. Complete the customer-portal transaction-state specification against S059/S054 contracts, then implement only eligible slices.
 5. Carry the signature motion system into production only where TradeOS is understanding, connecting, changing, or completing, with acknowledged state and reduced-motion behavior.
 
