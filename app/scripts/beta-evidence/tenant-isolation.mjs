@@ -17,6 +17,7 @@ const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const foreignCustomerId = process.env.BETA_FOREIGN_CUSTOMER_ID;
 const foreignProjectId = process.env.BETA_FOREIGN_PROJECT_ID;
 const foreignEstimateId = process.env.BETA_FOREIGN_ESTIMATE_ID;
+const scenario = process.env.BETA_SCENARIO || "canonical";
 
 function startupFailure(message) {
   console.error(`::error::[tenant-isolation] ${message}`);
@@ -64,6 +65,15 @@ const probes = [
         apiRoute: `/api/proxy/estimates/${foreignEstimateId}`,
       }
     : null,
+  scenario === "s053" && foreignEstimateId
+    ? {
+        name: "foreign S053 Athena draft",
+        route: null,
+        apiRoute: `/api/proxy/estimates/${foreignEstimateId}/ai-estimator/draft`,
+        method: "POST",
+        body: { scopeOfWork: "Replace a standard electrical panel." },
+      }
+    : null,
 ].filter(Boolean);
 
 // A configuration that supplies only BETA_FOREIGN_ESTIMATE_ID satisfies the
@@ -95,7 +105,9 @@ try {
   for (const probe of probes) {
     // Primary security assertion: the authenticated proxy/backend must deny the
     // foreign resource. A successful 2xx here is an actual cross-tenant leak.
-    const apiResponse = await context.request.get(new URL(probe.apiRoute, parsedBaseUrl).toString(), {
+    const apiResponse = await context.request.fetch(new URL(probe.apiRoute, parsedBaseUrl).toString(), {
+      method: probe.method ?? "GET",
+      ...(probe.body ? { data: probe.body } : {}),
       timeout: 60_000,
     });
     const apiStatus = apiResponse.status();
@@ -104,18 +116,25 @@ try {
     // Secondary browser/UX observation. Next.js may return an outer 200 while a
     // server component renders an error boundary after the backend returned 404,
     // so browser status alone is not the security verdict.
-    const response = await page.goto(new URL(probe.route, parsedBaseUrl).toString(), {
-      waitUntil: "networkidle",
-      timeout: 60_000,
-    });
-    const pageStatus = response?.status() ?? 0;
-    const finalPath = new URL(page.url()).pathname;
-    const bodyText = (await page.locator("body").innerText()).trim();
-    const deniedByPageStatus = pageStatus === 403 || pageStatus === 404;
-    const deniedByRedirect = finalPath === "/login";
-    const deniedByNotFoundUi = /could not be found|not found|no access|unauthori[sz]ed|request failed|internal server error|something went wrong/i.test(
-      bodyText,
-    );
+    let pageStatus = 0;
+    let finalPath = null;
+    let deniedByPageStatus = false;
+    let deniedByRedirect = false;
+    let deniedByNotFoundUi = false;
+    if (probe.route) {
+      const response = await page.goto(new URL(probe.route, parsedBaseUrl).toString(), {
+        waitUntil: "networkidle",
+        timeout: 60_000,
+      });
+      pageStatus = response?.status() ?? 0;
+      finalPath = new URL(page.url()).pathname;
+      const bodyText = (await page.locator("body").innerText()).trim();
+      deniedByPageStatus = pageStatus === 403 || pageStatus === 404;
+      deniedByRedirect = finalPath === "/login";
+      deniedByNotFoundUi = /could not be found|not found|no access|unauthori[sz]ed|request failed|internal server error|something went wrong/i.test(
+        bodyText,
+      );
+    }
 
     const result = {
       name: probe.name,
