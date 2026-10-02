@@ -23,6 +23,7 @@ const viewportName = process.env.BETA_VIEWPORT;
 const runId = process.env.BETA_RUN_ID;
 const tenantLabel = process.env.BETA_SMOKE_TENANT_LABEL || "TradeOS Beta Smoke";
 const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
+const scenario = process.env.BETA_SCENARIO || "canonical";
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
 function startupFailure(message) {
@@ -33,6 +34,7 @@ function startupFailure(message) {
 if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
 if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
 if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
+if (!["canonical", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical or s053; received "${scenario}".`);
 if (!allowMutations) {
   startupFailure(
     "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
@@ -136,6 +138,170 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
   }
 }
 
+async function readEstimateDetail(estimateId) {
+  const result = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/proxy/estimates/${id}`, {
+      headers: { Accept: "application/json" },
+    });
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    return { ok: response.ok, status: response.status, body };
+  }, estimateId);
+
+  assertBusiness(
+    "estimate detail API is readable during evidence capture",
+    result.ok,
+    `GET estimate returned HTTP ${result.status}`,
+  );
+  assertBusiness(
+    "estimate detail includes lineItems",
+    Array.isArray(result.body?.lineItems),
+    "expected the authoritative estimate response to include lineItems",
+  );
+  return result.body;
+}
+
+async function deleteEvidenceLineItems(estimateId, lineItemIds) {
+  for (const lineItemId of lineItemIds) {
+    const result = await page.evaluate(
+      async ({ id, itemId }) => {
+        const response = await fetch(`/api/proxy/estimates/${id}/line-items/${itemId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        });
+        return { ok: response.ok, status: response.status };
+      },
+      { id: estimateId, itemId: lineItemId },
+    );
+    assertBusiness(
+      "S053 evidence cleanup removes only the run-created Athena line",
+      result.ok,
+      `DELETE line item returned HTTP ${result.status}`,
+    );
+  }
+}
+
+async function runS053Certification(projectId, estimateId) {
+  const baseline = await readEstimateDetail(estimateId);
+  const baselineIds = new Set(baseline.lineItems.map((item) => item.id));
+  const baselineCost = Number(baseline.subtotalCost ?? 0);
+  const baselinePrice = Number(baseline.totalPrice ?? 0);
+
+  await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}/assist`, parsedBaseUrl).toString(), {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
+  await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
+
+  const candidateScopes = [
+    "Replace 28 squares of architectural shingles, synthetic underlayment, ridge vent, and chimney flashing on a two-story house.",
+    "Build a 12x16 pressure-treated deck with stairs, guard rails, and concrete footings.",
+    "Remove a 60 foot oak tree, grind the stump, and haul away debris.",
+  ];
+
+  const scopeInput = page.locator("textarea").first();
+  let applyButton = page.getByRole("button", { name: /^Add \d+ accepted suggestion/ });
+  let resolvedScope = null;
+
+  for (const candidateScope of candidateScopes) {
+    await scopeInput.fill(candidateScope);
+    await page.getByRole("button", { name: "Run Athena review" }).click();
+    await page.getByRole("heading", { name: "Human review" }).waitFor({ timeout: 60_000 });
+
+    const acceptButtons = page.getByRole("button", { name: "Accept", exact: true });
+    const acceptCount = await acceptButtons.count();
+    if (acceptCount === 0) continue;
+
+    for (let index = 0; index < acceptCount; index += 1) {
+      await acceptButtons.nth(index).click();
+      if (await applyButton.isEnabled()) {
+        resolvedScope = candidateScope;
+        break;
+      }
+    }
+    if (resolvedScope) break;
+  }
+
+  assertBusiness(
+    "Athena returns at least one explicitly reviewable resolved suggestion",
+    Boolean(resolvedScope) && (await applyButton.isEnabled()),
+    "none of the deterministic certification scopes produced a resolved suggestion",
+  );
+
+  const reviewText = await page.locator("body").innerText();
+  assertBusiness(
+    "Athena review exposes confidence",
+    /\d+% confidence/i.test(reviewText),
+    "expected a visible confidence value in the review",
+  );
+  assertBusiness(
+    "Athena review exposes provenance state",
+    /Documented source|Unverified pricing|Placeholder pricing/i.test(reviewText),
+    "expected a governed provenance label",
+  );
+  assertBusiness(
+    "Athena review states that generated output is review-only",
+    /Nothing is committed until you explicitly apply accepted items/i.test(reviewText),
+    "review-first language was not visible",
+  );
+
+  const afterGenerate = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "Athena generation and local acceptance do not silently write estimate lines",
+    afterGenerate.lineItems.length === baseline.lineItems.length,
+    `baseline lines=${baseline.lineItems.length}; after review=${afterGenerate.lineItems.length}`,
+  );
+  await checkpoint("03a", "s053-athena-review", { optional: true });
+
+  await applyButton.click();
+  await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
+
+  const afterApply = await readEstimateDetail(estimateId);
+  const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
+  assertBusiness(
+    "explicit Athena apply persists at least one reviewed estimate line",
+    added.length > 0,
+    `baseline lines=${baseline.lineItems.length}; after apply=${afterApply.lineItems.length}`,
+  );
+  assertBusiness(
+    "pricing refreshes after the reviewed Athena apply",
+    Number(afterApply.subtotalCost ?? 0) !== baselineCost || Number(afterApply.totalPrice ?? 0) !== baselinePrice,
+    `before cost/price=${baselineCost}/${baselinePrice}; after=${afterApply.subtotalCost}/${afterApply.totalPrice}`,
+  );
+  await checkpoint("03b", "s053-athena-applied", { optional: true });
+
+  await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
+  const afterReload = await readEstimateDetail(estimateId);
+  const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+  assertBusiness(
+    "reviewed Athena lines survive builder reload",
+    persistedAdded.length === added.length && persistedAdded.length > 0,
+    `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+  );
+
+  // The canonical beta flow below asserts fixed pricing values. Remove only the
+  // Athena line(s) created by this S053 evidence pass so those long-standing
+  // formula assertions remain independent and deterministic.
+  await deleteEvidenceLineItems(
+    estimateId,
+    persistedAdded.map((item) => item.id),
+  );
+  const afterCleanup = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "S053 evidence cleanup restores the baseline estimate before canonical pricing checks",
+    afterCleanup.lineItems.length === baseline.lineItems.length,
+    `expected ${baseline.lineItems.length} baseline lines; found ${afterCleanup.lineItems.length}`,
+  );
+}
+
 try {
   context = await browser.newContext({
     storageState,
@@ -207,6 +373,10 @@ try {
   await page.waitForURL(new RegExp(`/projects/${projectId}/estimates/[^/]+$`), { timeout: 60_000 });
   const estimateId = /\/estimates\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("estimate resolves an id", Boolean(estimateId), `url was ${page.url()}`);
+
+  if (scenario === "s053") {
+    await runS053Certification(projectId, estimateId);
+  }
 
   const custom = page.getByLabel("Custom line item");
   await custom.fill("Remove glued-down linoleum");
@@ -348,6 +518,7 @@ try {
         baseUrl: parsedBaseUrl.origin,
         runId,
         tenantLabel,
+        scenario,
         viewport,
         checkpoints,
         assertions,
