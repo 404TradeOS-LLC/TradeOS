@@ -60,7 +60,7 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 
 ### P1 — design/system hardening
 
-- [ ] Map Figma motion primitives to production components by exact purpose, not by visual similarity alone.
+- [x] Confirm the production motion seam (`framer-motion` + existing CSS/reduced-motion protections) and map Figma motion primitives by purpose before implementation.
 - [ ] Confirm reduced-motion behavior for every signature motion before implementation.
 - [ ] Confirm that no routine hover, tab, row, or dashboard motion is being added only for decoration.
 - [ ] Reconcile Costbook trust copy so factual provenance is never converted into an invented universal score.
