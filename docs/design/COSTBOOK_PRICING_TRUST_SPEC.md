@@ -36,6 +36,14 @@ Current repository documentation reports the canonical Costbook workspace alread
 
 Do not create a second Costbook or duplicate Estimate Workspace pricing controls.
 
+## Current production component mapping
+
+- Figma `PricingProvenance` maps to `web/src/components/costbook/pricing-provenance.tsx`.
+- Catalog mode shows stored supplier/update facts and explicitly avoids confidence/current-local-market claims.
+- Research mode uses `research-review-model.ts` for governed provenance labels, source/date/region/confidence presentation, review capability and factual age text.
+- Figma `FreshnessIndicator`, `SupplierPriceRow` and `JobActualComparison` do not create a production enum/API by themselves; treat them as design contracts until backing data is proven.
+- Open PR #506 owns Jones & Sons ingestion and must not be duplicated.
+
 ## Existing trust rules
 
 Preserve the current product rule that ordinary catalog records do not receive invented labels such as:
