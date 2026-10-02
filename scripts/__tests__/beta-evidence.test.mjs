@@ -348,10 +348,30 @@ test("a storage state path whose parent does not exist yet is still checked", as
 
 const workflow = read(".github/workflows/beta-evidence.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
+const runner = read("app/scripts/beta-evidence/run.mjs");
 const authSetup = read("app/scripts/beta-evidence/auth-setup.mjs");
 const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
 const seedGuard = read("app/db/seed/productionGuard.ts");
 const seed = read("app/db/seed/seed.ts");
+
+test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
+  assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s053/);
+  assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
+  assert.match(runner, /--scenario=<canonical\|s053>/);
+  assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(capture, /if \(scenario === "s053"\)/);
+});
+
+test("S053 browser evidence proves review-first behavior before an explicit apply", () => {
+  assert.match(capture, /s053-athena-review/);
+  assert.match(capture, /s053-athena-applied/);
+  assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
+  assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
+  assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
+  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
+});
 
 test("the workflow runs every evidence stage at all four viewports", () => {
   for (const viewport of ["1440", "1024", "768", "390"]) {
