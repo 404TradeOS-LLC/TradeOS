@@ -18,13 +18,13 @@ related_docs:
 - Branch: `test/s053-browser-certification`.
 - The existing Beta Evidence workflow gains an opt-in `s053` scenario. It keeps the canonical full workflow and adds Athena review checkpoints asserting visible confidence/provenance, no estimate-line write before explicit Apply, reviewed Estimate Engine persistence, pricing refresh, and reload persistence.
 - The scenario uses only the approved non-production synthetic tenant and existing Beta smoke authentication/data-plane guards. It does not weaken auth/RLS, introduce product writes outside the existing Estimate Engine path, or claim the one-question clarification target exists.
-- S053 remains incomplete until the branch is verified/merged and a full authenticated `s053` evidence run passes at the required viewports with retained artifacts.
+- S053 remains incomplete until a full authenticated `s053` evidence run passes at the required viewports with retained artifacts. Its status is now `IN_REVIEW`; this evidence requirement remains a release gate, not a mutex on unrelated implementation.
 
 
 ## Design/backlog reconciliation — 2026-10-02
 
 - Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
-- PR #520 is merged. S064's stale Assembly Catalog blocker is removed; S064 is `PLANNED` and remains gated by S053 completion.
+- PR #520 is merged and PR #560's estimate-assist contract is landed. S064 is now `READY`; S053 remains a release-certification prerequisite but no longer blocks S064 implementation while its remaining blocker is external browser-evidence availability.
 - S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
 
 
@@ -153,8 +153,8 @@ certification from readiness or a repository merge alone.
 
 ## Next Eligible Sprint
 
-Sprint ID: S053
-Eligibility: READY in the canonical backlog; operational recovery does not start or complete this sprint.
-Dependencies: S051 is DONE.
-Overlap check: Live open PRs reviewed on 2026-09-30; no competing S053 implementation found.
-Startup prompt: Reconcile current main and complete S053 startup before implementing its bounded review, denial, and provenance evidence.
+Sprint ID: S064
+Eligibility: READY in the canonical backlog; S053 remains IN_REVIEW and still blocks release certification, not S064 implementation.
+Dependencies: S051 is DONE; PR #520 and PR #560 are merged implementation prerequisites.
+Overlap check: Continue S053 evidence/repair work only in its existing lanes; do not duplicate it inside S064.
+Startup prompt: Reconcile current main and implement the bounded embedded Assembly Picker in Estimate Items without weakening review-first writes, provenance, setup-required handling, tenant isolation, pricing truth, or Estimate Engine ownership.
