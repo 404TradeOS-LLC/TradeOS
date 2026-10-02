@@ -698,7 +698,7 @@ Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and
 
 ### S064 — Embedded assembly picker in estimate Items
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: S051
 Release certification prerequisites: S053
 Readiness note: PR #520 merged on 2026-09-22 and its Assembly Catalog mapping changes are part of main; PR #560 landed the scope-to-reviewed-estimate contract and PR #618 landed its governed evidence scenario. S053 remains IN_REVIEW for final authenticated browser certification, but that external evidence-only gate no longer blocks S064 implementation. S064 must preserve review-first writes, provenance, setup-required handling, tenant boundaries, and Estimate Engine ownership, and no release-certification claim may rely on S053 until S053 reaches DONE.
@@ -991,15 +991,15 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE
-Completion status: S051 is merged and reconciled. S053 implementation is landed and its authenticated browser certification remains `IN_REVIEW`; S064 is the single `READY` implementation sprint. S039/S044/S045 and their dependent production gates remain blocked.
-Dependencies: S064 depends on S051 for sprint governance; its landed implementation prerequisites are PR #520 and PR #560. S053 remains a release-certification prerequisite rather than a development mutex.
+Active Sprint: S064 — Embedded assembly picker in estimate Items
+Completion status: S064 is `IN_REVIEW` in draft PR #624. The first slice adds installed-assembly cost/component preview and starter-recipe setup-required gating; inline mapping/install remains active work on the same branch. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
+Dependencies: S064 depends on S051 for sprint governance; PR #520 and PR #560 are merged implementation prerequisites.
 Protected boundary: S064 must preserve explicit reviewed writes through Estimate Engine, provenance, setup-required behavior, pricing truth, and tenant isolation. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: S064
-Eligibility: S064 is `READY`; S053 remains `IN_REVIEW` and incomplete, but its external evidence-only blocker does not block S064 implementation.
-Dependencies: S051 is `DONE`; PR #520 and PR #560 are merged implementation prerequisites.
-Overlap check: Reconcile live S053 evidence/repair lanes separately and do not duplicate them; S064 owns only the embedded Assembly Picker implementation.
-Startup prompt: Create the S064 implementation branch from current main and embed the Assembly Picker in Estimate Items while preserving review-first writes, provenance, setup-required behavior, pricing truth, tenant isolation, and Estimate Engine ownership.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; continue active S064 PR #624 until its bounded implementation and verification are complete.
+Dependencies: S064 remains `IN_REVIEW`; S065 depends on S064 and is not eligible.
+Overlap check: Continue S064 only in PR #624 and keep S053 evidence/repair work in its existing separate lanes.
+Startup prompt: Continue PR #624 on feature/s064-embedded-assembly-picker, finish inline setup-required mapping/install inside Estimate Items, run required verification, and do not start S065 until S064 is merged and reconciled.
