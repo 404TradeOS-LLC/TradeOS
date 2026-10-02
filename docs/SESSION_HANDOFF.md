@@ -12,14 +12,13 @@ related_docs:
 
 # Session Handoff
 
-## Active S053 browser certification tooling — 2026-10-02
+## S053/S059 certification queue — 2026-10-02
 
-- Classification: `NEW_WORK_REQUIRED`; no open S053 PR/branch overlapped this certification-tooling gap when current main `8d6c8a838e8fcafe0de7049aaaed75b655d1e25f` was reconciled.
-- Branch: `test/s053-browser-certification`.
-- The existing Beta Evidence workflow gains an opt-in `s053` scenario. It keeps the canonical full workflow and adds Athena review checkpoints asserting visible confidence/provenance, no estimate-line write before explicit Apply, reviewed Estimate Engine persistence, pricing refresh, and reload persistence.
-- The scenario uses only the approved non-production synthetic tenant and existing Beta smoke authentication/data-plane guards. It does not weaken auth/RLS, introduce product writes outside the existing Estimate Engine path, or claim the one-question clarification target exists.
-- S053 remains incomplete until the branch is verified/merged and a full authenticated `s053` evidence run passes at the required viewports with retained artifacts.
-
+- PR #618 merged the opt-in S053 Beta Evidence scenario to `main` as `c944876a08bd1bfa6db9ab69900b3547a102513a`. The tooling now requires setup-required failure evidence, review-first/no-silent-write behavior, explicit Apply persistence, pricing refresh, reload persistence, foreign draft/apply denial, exact deployment-SHA correlation, and retained responsive screenshots.
+- No full `mode=full, scenario=s053` run has been dispatched from this connector session because the available GitHub integration does not expose workflow dispatch. S053 therefore remains `READY`, not `DONE`.
+- S059 readiness has been reconciled from current `main`: S051 is DONE, PR #564 is merged, the ADR-010 magic-link/session contract is implemented, and no competing S059 PR/branch is open. This governance branch promotes S059 to `READY` for bounded browser/security certification only.
+- S059 must never retain raw access URLs/tokens, cookies, request headers, response bodies, or bearer material in evidence. Expiry must be proven from the current contract without adding a test-only public TTL/backdoor.
+- Canonical execution priority remains S053 first because it is the lower-numbered READY sprint. S059 may be prepared, but implementation/certification execution does not jump ahead of S053 under the Next Sprint Protocol.
 
 ## Design/backlog reconciliation — 2026-10-02
 
@@ -86,20 +85,6 @@ related_docs:
   assertions remain required; no authentication control was weakened.
 - The credential-free fixture stays off by default; no Preview or Production
   bypass was enabled. Fresh CI and live browser certification remain required.
-
-## Active S059 release repair — 2026-10-01
-
-- Continue existing PR #564 on `feature/s059-customer-portal-session-certification`;
-  reconciliation classification: `EXISTING_WORK_FOUND`. Main is `6a2d921`.
-- Reproduced TS5097 with web TypeScript checking. Restored current-main compiler
-  configuration and Customer-to-Project UI/test/docs rather than changing imports
-  incompatibly with the Node test runner. Auth policy and RLS remain unchanged.
-- Production web/API both identify `6a2d921`, and production plus immutable staging
-  backend readiness returned HTTP 200 with database/schema `ok`. The old project
-  named `tradeos` caused a false deployment-drift report.
-- Local web build/lint passed and all 411 web tests passed after repair.
-- Authenticated portal certification and fresh exact-head CI remain required.
-  S059 stays incomplete.
 
 ## Current truth
 
