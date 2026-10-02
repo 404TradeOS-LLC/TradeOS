@@ -6,6 +6,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/clientApi";
 import { PageHeader } from "@/components/shared/page-header";
 import { ContextualAthenaPanel } from "@/components/estimate-assist/contextual-athena-panel";
+import { assessCostItemMapping, type StarterCatalogComponent, type StarterCatalogTemplate } from "@/components/costbook/assembly-catalog-model";
+import type { CostItemCatalogRecord } from "@/components/costbook/cost-item-catalog-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -41,24 +43,7 @@ interface PickerResult {
   unitOfMeasure: string;
   kind: "costItem" | "assembly" | "starterAssembly";
   description?: string | null;
-  starterTemplate?: {
-    id: string;
-    trade: string;
-    measurementBasis: string;
-    wasteGuidance: string;
-    review: {
-      status: "reviewed";
-      source: string;
-      reviewedOn: string;
-      regionalBasis: string;
-    };
-    components: Array<{
-      key: string;
-      label: string;
-      quantityPerUnit: number;
-      compatibleUnits: string[];
-    }>;
-  };
+  starterTemplate?: StarterCatalogTemplate;
 }
 
 interface AssemblyPreviewData {
@@ -506,6 +491,7 @@ function MobileStageAction({ label, onClick, disabled = false }: { label: string
 
 
 function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: () => void }) {
+  const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -536,28 +522,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           `/assemblies/search?q=${encodeURIComponent(debouncedQuery)}`
         ),
         clientFetch<{
-          items: Array<{
-            id: string;
-            code: string;
-            name: string;
-            description: string;
-            unitOfMeasure: string;
-            trade: string;
-            measurementBasis: string;
-            wasteGuidance: string;
-            review: {
-              status: "reviewed";
-              source: string;
-              reviewedOn: string;
-              regionalBasis: string;
-            };
-            components: Array<{
-              key: string;
-              label: string;
-              quantityPerUnit: number;
-              compatibleUnits: string[];
-            }>;
-          }>;
+          items: StarterCatalogTemplate[];
         }>("/assemblies/starter-catalog"),
       ]);
       const costItems = costItemsResult.status === "fulfilled" ? costItemsResult.value : [];
@@ -582,14 +547,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           unitOfMeasure: template.unitOfMeasure,
           description: template.description,
           kind: "starterAssembly" as const,
-          starterTemplate: {
-            id: template.id,
-            trade: template.trade,
-            measurementBasis: template.measurementBasis,
-            wasteGuidance: template.wasteGuidance,
-            review: template.review,
-            components: template.components,
-          },
+          starterTemplate: template,
         })),
         ...costItems.map((costItem) => ({ ...costItem, kind: "costItem" as const })),
       ];
@@ -1065,23 +1023,17 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           ) : null}
 
           {selected.kind === "starterAssembly" && selected.starterTemplate ? (
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
-              <p className="font-medium text-foreground">Setup required before this assembly can be priced or added.</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Map each starter recipe slot to an active Costbook item. TradeOS will not invent those mappings or a price.
-              </p>
-              <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                {selected.starterTemplate.components.map((component) => (
-                  <div key={component.key}>
-                    {component.label} · {component.quantityPerUnit} per {selected.unitOfMeasure} · {component.compatibleUnits.join("/")}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Provenance: {selected.starterTemplate.review.source}, reviewed {selected.starterTemplate.review.reviewedOn}. {selected.starterTemplate.review.regionalBasis}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">{selected.starterTemplate.wasteGuidance}</p>
-            </div>
+            <StarterAssemblySetup
+              key={selected.id}
+              template={selected.starterTemplate}
+              quantity={quantity}
+              onInstalled={(assembly) => {
+                setSelected({ ...assembly, kind: "assembly" });
+                setQuery(assembly.name);
+                setError(null);
+                void queryClient.invalidateQueries({ queryKey: ["item-search"] });
+              }}
+            />
           ) : null}
         </div>
       )}
@@ -1100,6 +1052,259 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     customAdd.mutate({ description: custom.description.trim(), unitOfMeasure: custom.unitOfMeasure.trim(), quantity: qty, unitCost, section: custom.section.trim() || "General", costType: custom.costType, taxable: custom.taxable });
   }
 
+}
+
+function StarterAssemblySetup({
+  template,
+  quantity,
+  onInstalled,
+}: {
+  template: StarterCatalogTemplate;
+  quantity: string;
+  onInstalled: (assembly: { id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }) => void;
+}) {
+  const [mappings, setMappings] = useState<Record<string, CostItemCatalogRecord>>({});
+  const [error, setError] = useState<string | null>(null);
+  const mappedIds = template.components.map((component) => mappings[component.key]?.id ?? "");
+  const mappingComplete = mappedIds.every(Boolean);
+  const duplicateMapping = mappingComplete && new Set(mappedIds).size !== mappedIds.length;
+  const incompatibleComponent = template.components.find((component) => {
+    const item = mappings[component.key];
+    return item && !assessCostItemMapping(component, item).compatible;
+  });
+
+  const preview = useQuery({
+    queryKey: ["starter-assembly-cost-preview", template.id, ...mappedIds],
+    queryFn: async () => {
+      const resolved = await Promise.all(template.components.map(async (component) => {
+        const item = mappings[component.key];
+        if (!item) throw new Error(`Map ${component.label} before previewing cost.`);
+        const result = await clientFetch<{ totalUnitCost: number }>(`/costbook/cost-items/${item.id}/unit-cost`);
+        return { component, item, unitCost: result.totalUnitCost };
+      }));
+      const unitCost = resolved.reduce((total, row) => total + row.unitCost * row.component.quantityPerUnit, 0);
+      return { unitCost, resolved };
+    },
+    enabled: mappingComplete && !duplicateMapping && !incompatibleComponent,
+    staleTime: 60_000,
+  });
+
+  const install = useMutation({
+    mutationFn: async () => {
+      if (!mappingComplete) throw new Error("Map every recipe slot before installing the assembly.");
+      if (duplicateMapping) throw new Error("Use a different Costbook item for each recipe slot.");
+      if (incompatibleComponent) throw new Error(`${incompatibleComponent.label} is mapped to an incompatible Costbook item.`);
+      return clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>(
+        "/assemblies/starter-catalog/install",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            templateId: template.id,
+            componentMappings: template.components.map((component) => ({
+              componentKey: component.key,
+              costItemId: mappings[component.key].id,
+            })),
+          }),
+        }
+      );
+    },
+    onSuccess: (assembly) => {
+      setError(null);
+      onInstalled(assembly);
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Starter assembly could not be installed."),
+  });
+
+  const outputQuantity = Number(quantity) > 0 ? Number(quantity) : 0;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
+      <div>
+        <p className="font-medium text-foreground">Setup required before this assembly can be priced or added.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Map each starter recipe slot to an active, compatible Costbook item. TradeOS will not invent those mappings or a price.
+        </p>
+      </div>
+
+      <div className="grid gap-3">
+        {template.components.map((component) => {
+          const usedIds = new Set(Object.entries(mappings).filter(([key]) => key !== component.key).map(([, item]) => item.id));
+          return (
+            <StarterComponentMappingPicker
+              key={component.key}
+              component={component}
+              value={mappings[component.key]}
+              unavailableIds={usedIds}
+              disabled={install.isPending}
+              onSelect={(item) => {
+                setMappings((current) => {
+                  const next = { ...current };
+                  if (item) next[component.key] = item;
+                  else delete next[component.key];
+                  return next;
+                });
+                setError(null);
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Pre-install cost preview</p>
+          {!mappingComplete ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Map {template.components.length - mappedIds.filter(Boolean).length} more component{template.components.length - mappedIds.filter(Boolean).length === 1 ? "" : "s"} to resolve current Costbook cost.
+            </p>
+          ) : duplicateMapping ? (
+            <p className="mt-1 text-sm text-warning">Each recipe slot must use a different Costbook item.</p>
+          ) : incompatibleComponent ? (
+            <p className="mt-1 text-sm text-warning">{incompatibleComponent.label} needs a compatible unit and cost type.</p>
+          ) : preview.isLoading ? (
+            <p className="mt-1 text-sm text-muted-foreground">Resolving mapped Costbook costs…</p>
+          ) : preview.isError ? (
+            <p className="mt-1 text-sm text-warning" role="alert">
+              Cost preview unavailable. {preview.error instanceof Error ? preview.error.message : "Try again."}
+            </p>
+          ) : preview.data ? (
+            <div className="mt-2 grid gap-1 text-sm">
+              <span><strong className="font-medium">{formatCurrency(preview.data.unitCost)}</strong> / {template.unitOfMeasure}</span>
+              <span className="text-muted-foreground">
+                {outputQuantity} {template.unitOfMeasure} job cost · {formatCurrency(preview.data.unitCost * outputQuantity)}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          onClick={() => install.mutate()}
+          disabled={install.isPending || !mappingComplete || duplicateMapping || Boolean(incompatibleComponent)}
+        >
+          {install.isPending ? "Installing…" : "Install assembly"}
+        </Button>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        <p>Measured by {template.measurementBasis.toLowerCase()}. {template.wasteGuidance}</p>
+        <p className="mt-1">
+          Provenance: {template.review.source}, reviewed {template.review.reviewedOn}. {template.review.regionalBasis}
+        </p>
+        <p className="mt-1">Installation creates the tenant assembly only. Review its resolved cost, then use the separate Add action to write the estimate line.</p>
+      </div>
+      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+function StarterComponentMappingPicker({
+  component,
+  value,
+  unavailableIds,
+  disabled,
+  onSelect,
+}: {
+  component: StarterCatalogComponent;
+  value?: CostItemCatalogRecord;
+  unavailableIds: Set<string>;
+  disabled: boolean;
+  onSelect: (item: CostItemCatalogRecord | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const resultsId = useRef(`starter-map-${component.key}-${Math.random().toString(36).slice(2)}`).current;
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
+  const search = useQuery({
+    queryKey: ["starter-cost-item-search", component.key, debouncedQuery],
+    queryFn: () => clientFetch<CostItemCatalogRecord[]>(`/costbook/cost-items/search?q=${encodeURIComponent(debouncedQuery)}`),
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const displayValue = editing ? query : value ? `${value.code} · ${value.name}` : "";
+  const assessment = value ? assessCostItemMapping(component, value) : null;
+
+  return (
+    <div className="grid gap-2 rounded-lg border border-border/70 bg-background/75 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:items-start">
+      <div>
+        <p className="text-sm font-medium text-foreground">{component.label} · {component.quantityPerUnit}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{component.help}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Compatible: {component.compatibleUnits.join(", ")} · {component.allowedCostItemKinds.join(", ")}
+        </p>
+      </div>
+      <div className="relative">
+        <Input
+          role="combobox"
+          aria-label={`Map ${component.label}`}
+          aria-expanded={open}
+          aria-controls={resultsId}
+          autoComplete="off"
+          placeholder="Search active Costbook items…"
+          value={displayValue}
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onChange={(event) => {
+            setEditing(true);
+            setQuery(event.target.value);
+            if (value) onSelect(null);
+            setOpen(true);
+          }}
+        />
+        {open && !disabled ? (
+          <div id={resultsId} role="listbox" className="absolute z-30 mt-1 max-h-64 w-full min-w-[280px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg">
+            {search.isLoading ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">Searching Costbook…</p>
+            ) : search.isError ? (
+              <p className="px-3 py-2 text-xs text-destructive" role="alert">Cost Items could not be loaded.</p>
+            ) : (search.data ?? []).length === 0 ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">No active Cost Items found.</p>
+            ) : (
+              (search.data ?? []).map((item) => {
+                const itemAssessment = assessCostItemMapping(component, item);
+                const unavailable = unavailableIds.has(item.id);
+                const selectable = !unavailable && itemAssessment.compatible;
+                const detail = unavailable
+                  ? "Already mapped to another slot"
+                  : itemAssessment.compatible
+                    ? `${item.unitOfMeasure} · ${itemAssessment.kind}`
+                    : itemAssessment.reasons.join(" · ");
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={value?.id === item.id}
+                    disabled={!selectable}
+                    className="grid w-full gap-0.5 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      onSelect(item);
+                      setEditing(false);
+                      setQuery("");
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="font-medium text-foreground">{item.code} · {item.name}</span>
+                    <span className="text-xs text-muted-foreground">{detail}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : null}
+        {assessment && !assessment.compatible ? <p className="mt-1 text-xs text-warning">{assessment.reasons.join(" · ")}</p> : null}
+      </div>
+    </div>
+  );
 }
 
 const costTypes: LineItem["costType"][] = ["labor", "material", "equipment", "disposal", "subcontractor", "other"];
