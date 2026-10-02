@@ -10,9 +10,12 @@ It is a working handoff, not a competing source of truth. Current `main`, canoni
 - Base: `main`
 - Base SHA inspected: `9e53cde9c35396bf5d5b2bd22b154c9b37e3d9de`
 - Base commit: `ci: add guarded native merge queue and merge-group checks (#605)`
-- Relevant open work inspected:
-  - PR #506 — Costbook Jones & Sons ingestion. This overlaps Costbook data ingestion, not this documentation package. Do not duplicate its ingestion work.
-  - PR #507 — financial intelligence. No direct overlap with this package.
+- Relevant live work inspected:
+  - PR #506 — open Costbook Jones & Sons ingestion. This overlaps Costbook data ingestion, not this documentation package. Do not duplicate its ingestion work.
+  - PR #507 — open financial intelligence. No direct overlap with this package.
+  - PR #560 — merged S053 estimator implementation; PR #559 is closed/superseded. Do not create a second estimator implementation lane.
+  - PR #520 — merged assembly-catalog mapping hardening; treat it as landed prerequisite context rather than pending overlap.
+  - PR #553 — merged Today-command-surface cleanup; do not continue describing it as open.
 - Design authority: `.stitch/DESIGN.md` names Figma file `xImUa9CYUjx3Cb3zTrkfnY` as canonical.
 - Classification: `NEW_WORK_REQUIRED` for this documentation/specification package.
 - Chosen action: create one docs-only branch and hand off the next implementation slices without changing runtime behavior.
@@ -34,17 +37,18 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 - [x] Write the Costbook pricing-trust workspace contract.
 - [x] Write the Customer Portal state matrix.
 - [ ] Reconcile live Figma page enumeration before any destructive or structural Figma write.
-- [ ] Reconcile `PRODUCT_COMPLETION_EXECUTION_MAP.md` to the one canonical Figma master.
+- [x] Reconcile `PRODUCT_COMPLETION_EXECUTION_MAP.md` to the one canonical Figma master and current merged PR state.
 - [ ] Run documentation validation on this branch.
 - [ ] Open a governed PR and let required CI verify the final head.
 
 ### P0 — next executable product slice
 
-- [ ] Execute S053 only after the canonical startup/reconciliation flow on a fresh implementation branch.
+- [ ] Finish S053 certification against the implementation already merged through PR #560; do not open a duplicate estimator feature branch.
 - [ ] Preserve the established loop: rough scope → Athena interpretation → at most one necessary clarification → reviewed Costbook/assembly choices → Estimate Items → Price → Review.
 - [ ] Prove explicit human review before persistence; no silent AI write.
 - [ ] Prove source/provenance and setup-required behavior.
-- [ ] Retain 1440 / 768 / 390 evidence and permission/tenant denial evidence.
+- [ ] Retain 1440 / 768 / 390 authenticated evidence and permission/tenant denial evidence.
+- [ ] Open a repair branch only if certification finds a concrete defect on current `main`.
 
 ### P1 — prepare now, implement only when eligible
 
@@ -72,13 +76,14 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 
 ## Next five implementation slices
 
-Only the first item is currently identified as executable by the canonical backlog evidence inspected in this pass. The others are preparation targets and must be re-reconciled immediately before implementation.
+Only the first item is currently actionable from the inspected backlog state, but its implementation lane already merged through PR #560. The action is certification on current `main`, not a second implementation. The others are preparation targets and must be re-reconciled immediately before implementation.
 
 1. **S053 — Scope-to-Athena-to-estimate certification**
-   - Target branch when started: `feat/s053-scope-athena-estimate-certification`
-   - Outcome: one continuous, reviewable estimating act from rough scope to persisted Estimate Items.
+   - Current implementation evidence: PR #560 merged; PR #559 was closed as superseded.
+   - Default action: certify current `main`; create `fix/s053-estimate-certification-findings` only if browser/runtime evidence exposes a concrete defect.
+   - Outcome: prove one continuous, reviewable estimating act from rough scope to persisted Estimate Items.
    - Safety: no schema/RLS/payment/auth redesign; no silent AI writes.
-   - Required verification: repository preflight/docs checks; app + web applicable tests/lint/build; Postgres/RLS evidence; 1440/768/390 rendered flow evidence; exact-head CI.
+   - Required verification: repository preflight/docs checks; applicable app + web tests/lint/build; Postgres/RLS evidence; authenticated 1440/768/390 rendered flow evidence; exact-head CI.
 
 2. **S059 — Customer portal access and session certification**
    - Target branch when eligible: `feat/s059-customer-portal-session-certification`
