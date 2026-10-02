@@ -1,4 +1,6 @@
 import "server-only";
+import { STAGING_AUTH } from "@/domain";
+import { stagingAuthDecision } from "@/lib/staging-auth";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -14,6 +16,9 @@ export interface SessionClaims {
 }
 
 export async function getSessionToken(): Promise<string | null> {
+  const bypass = stagingAuthDecision();
+  if (bypass.blocked) return null;
+  if (bypass.enabled) return STAGING_AUTH.marker;
   const cookieStore = await cookies();
   const localToken = cookieStore.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
   if (localToken && isUsableLocalAccessToken(localToken)) return localToken;
@@ -26,6 +31,9 @@ export async function getSessionToken(): Promise<string | null> {
 }
 
 export async function getSession(): Promise<SessionClaims | null> {
+  const bypass = stagingAuthDecision();
+  if (bypass.blocked) return null;
+  if (bypass.enabled) return { sub: STAGING_AUTH.subject, email: STAGING_AUTH.email };
   const cookieStore = await cookies();
   const localToken = cookieStore.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
   const localClaims = localToken ? decodeLocalAccessToken(localToken) : null;

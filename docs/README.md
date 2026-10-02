@@ -42,6 +42,9 @@ related_code:
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
+  - .github/workflows/merge-queue.yml
+  - .github/merge-queue-ruleset.json
+  - scripts/merge-queue.mjs
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -49,6 +52,14 @@ related_code:
 ---
 
 # TradeOS Documentation
+
+Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
+The opt-in action consumes `status:merge-queue` once, then GitHub validates the
+synthetic group with the four existing required checks. The ruleset template
+and repository variable are activation instructions, not evidence of live
+enforcement. Apply mode requires a dedicated repository token to allow group CI;
+its default workflow token remains read-only. Both required-check providers
+include `merge_group`, and Docs consistency uses the group's immutable base SHA.
 
 S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
@@ -102,7 +113,11 @@ When that smoke reports `SUPABASE_URL is not configured`, use the guarded
 `Repair staging Supabase auth configuration` workflow documented in
 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md). It is restricted to the stable
 `staging` backend and the TradeOS Staging Supabase URL; it is not a general
-environment editor.
+environment editor. The repair captures the current staging branch SHA,
+redeploys by a verified Vercel deployment ID, and checks the replacement
+immutable URL rather than a branch alias. Its retained artifact proves only
+backend readiness and invalid Supabase token rejection after issuer initialization; authenticated browser
+certification remains a separate gate.
 
 Temporary production migration-history workflows are governed by `docs/REPOSITORY_GOVERNANCE.md` and must stay manual, approval-gated, and history-only. If the migration file being reconciled has not merged yet, the workflow may materialize only that exact file from the named pull-request ref and must verify its pinned checksum before any database write.
 
@@ -188,7 +203,7 @@ Changes under `.github/workflows/**` and `.github/actions/**` additionally trigg
 
 The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview-only repair path for the current RC beta Vercel wiring. It changes only branch-scoped Preview variables and redeploys the current RC frontend/backend pair; it does not touch Production, rotate `RESEND_API_KEY`, or establish email-delivery evidence.
 
-The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL`, resolves only a READY Preview backend deployment carrying `githubCommitRef=staging`, fails closed when that deployment cannot be resolved, redeploys the resolved staging backend, and requires `/ready` before the authenticated RC smoke can resume.
+The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL`, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It requires matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization on the replacement immutable hostname before the authenticated RC smoke can resume.
 
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 

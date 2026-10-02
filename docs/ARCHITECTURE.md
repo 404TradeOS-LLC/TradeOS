@@ -40,6 +40,10 @@ Do not move existing production code solely to make the repository resemble the 
 
 The governing decision is recorded in `docs/decisions/ADR-005-athena-monorepo-platform-boundary.md`.
 
+## Staging authentication fixture
+
+The staging browser flow enters the existing web proxy/session and backend `requireAuth` seams. A fixed public marker crosses the web-to-API boundary only when both layers prove the staging Supabase project; the API also proves the database target, resolves the fixed owner membership, then uses the normal tenant RLS transaction. This fixture flow is limited to Vercel Preview or an explicitly staged local runtime. Production denies it. The marker has no authority when the flag is disabled.
+
 ## Backend and frontend boundaries
 
 Backend responsibilities:

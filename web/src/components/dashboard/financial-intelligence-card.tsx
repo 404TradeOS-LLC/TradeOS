@@ -20,7 +20,7 @@ function Metric({ label, value, helper, attention = false }: { label: string; va
 
 export function FinancialIntelligenceCard({ summary }: { summary: FinancialIntelligenceSummary }) {
   const projectedMargin = summary.projectedMarginPct == null ? "Unavailable" : `${summary.projectedMarginPct.toFixed(1)}%`;
-  const generatedLabel = summary.generatedAt ? "Generated from live records" : "Live fallback sources";
+  const generatedLabel = summary.generatedAt ? "Generated from live records" : "Partial fallback";
 
   return (
     <Card className="overflow-hidden border-border/70">

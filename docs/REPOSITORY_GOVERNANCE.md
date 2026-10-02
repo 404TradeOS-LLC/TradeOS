@@ -29,6 +29,9 @@ related_code:
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
+  - .github/workflows/merge-queue.yml
+  - .github/merge-queue-ruleset.json
+  - scripts/merge-queue.mjs
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -134,7 +137,15 @@ without changing product authentication or authorization policy.
 The companion `Repair staging Supabase auth configuration` workflow is a
 manual, confirmation-gated operational control. Its repository contract fixes
 the Vercel project, `staging` branch, Preview environment, and public staging
-Supabase URL, then requires database-backed readiness. Changes that broaden it
+Supabase URL, then requires database-backed readiness. The repair resolves a
+READY Preview using structured Vercel data and the captured staging SHA,
+verifies team/project/repository ownership before redeploying by ID, and
+creates a fresh fixed-branch staging Preview if no matching READY deployment
+exists (requiring the same captured SHA), and checks the new immutable deployment URL for matching runtime SHA, database
+and schema readiness, and invalid Supabase token rejection after issuer initialization. The workflow
+retains only whitelisted deployment/readiness evidence, never environment
+values or response bodies. A passing repair is not authenticated browser
+certification or proof that staging equals current main. Changes that broaden it
 to Production, accept an operator-provided target/value, or expose the Vercel
 token require an explicit governance review and are prohibited by its contract
 test.
@@ -215,6 +226,37 @@ Re-run live read-only inspection before changing these statements or editing rep
 - only merged evidence may mark a sprint `DONE`.
 
 Dependabot patch auto-merge is a narrow convenience layer, not a branch-protection bypass. `.github/workflows/dependabot-patch-automerge.yml` may enable GitHub auto-merge only when the actor is `dependabot[bot]`, the PR originates from this repository, targets `main`, and Dependabot metadata classifies the update as `version-update:semver-patch`. Minor and major dependency updates remain manual. Enabling auto-merge does not merge immediately; all required status checks, branch-freshness requirements, review-thread resolution, and other live ruleset controls still apply. The workflow runs from the normal `pull_request` event and pins `dependabot/fetch-metadata` to the immutable v3.1.0 commit; its Node 24 action runtime is CI-only and does not change TradeOS application runtime policy.
+
+## Native merge queue controls
+
+`.github/workflows/merge-queue.yml` offers manual dry-run/apply and, after explicit
+activation, scheduled/completed-CI enqueue operations. Only same-repository,
+non-draft main PRs carrying `status:merge-queue` are candidates. A maintainer
+adds that label after reviewing the current head and applicable risk boundaries.
+Stop/human-review labels, unresolved conversations, unsatisfied reviews,
+conflicts, incomplete evidence, and non-green head checks block entry. The
+label authorizes one attempt and is consumed before enqueue; repair and explicit
+new consent are required after failure or ejection.
+
+The action loads only protected `main`, rechecks eligibility, and supplies
+`expectedHeadOid` to GitHub's native enqueue API. GitHub remains the authority for
+live protections and group merging. Both required-check providers run on
+`merge_group`, with the complete App/integration/Web verification surface and
+immutable group-base documentation validation. Their four check names stay
+unchanged; PR-description validation remains specific to PR events.
+
+Automatic entry is disabled unless `TRADEOS_MERGE_QUEUE_ENABLED=true`. Apply
+requires the dedicated repository-scoped `TRADEOS_MERGE_QUEUE_TOKEN`; the
+workflow's own token is read-only. Repository administrators configure this
+credential and the additive queue ruleset only after the CI support lands.
+The template adds an all-green serial squash queue with no bypass actors and
+must not replace existing ruleset `18958081`. No committed JSON file activates
+live protection. Removing an already queued entry requires GitHub's native UI;
+labels or disabling the scheduler do not cancel an existing entry.
+
+See [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md) for activation, the required
+live group-CI trial, cancellation, and rollback. No direct merge, rebase loop,
+ruleset mutation, or admin bypass is implemented by this action.
 
 ## Manual PR maintenance workflow
 
@@ -383,7 +425,7 @@ Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor
 
 `.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
-`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, resolves only a READY Preview backend deployment carrying `githubCommitRef=staging`, fails closed when no such deployment is available, redeploys that resolved staging backend, and verifies `/ready`. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It writes the public staging Supabase URL only to Preview scope for the `staging` branch, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It checks the replacement immutable hostname for matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It may not target Production, copy Production secrets, accept an operator-selected deployment target, or change auth policy.
 
 ## Production migration history reconciliation
 

@@ -9,6 +9,9 @@ const repositoryRoot = new URL("../../", import.meta.url);
 const vercelConfig = JSON.parse(
   readFileSync(new URL("app/vercel.json", repositoryRoot), "utf8"),
 );
+const webVercelConfig = JSON.parse(
+  readFileSync(new URL("web/vercel.json", repositoryRoot), "utf8"),
+);
 
 function git(cwd, ...args) {
   return execFileSync("git", args, {
@@ -95,4 +98,16 @@ test("missing previous deployment commit fails open to a build", () => {
     runIgnoredBuildStep(state, { VERCEL_GIT_PREVIOUS_SHA: "missing" }),
     1,
   );
+});
+
+
+test("automatic Vercel deployments are limited to main and staging", () => {
+  for (const [name, config] of [
+    ["backend", vercelConfig],
+    ["frontend", webVercelConfig],
+  ]) {
+    assert.equal(config.git.deploymentEnabled["**"], false, `${name} disables unspecified branches`);
+    assert.equal(config.git.deploymentEnabled.main, true, `${name} keeps production deployments`);
+    assert.equal(config.git.deploymentEnabled.staging, true, `${name} keeps the stable QA environment`);
+  }
 });

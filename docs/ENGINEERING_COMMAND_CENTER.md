@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -32,6 +32,9 @@ related_code:
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
+  - .github/workflows/merge-queue.yml
+  - .github/merge-queue-ruleset.json
+  - scripts/merge-queue.mjs
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -39,6 +42,21 @@ related_code:
 ---
 
 # TradeOS Engineering Command Center
+
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22, so the stale Assembly Catalog blocker is removed. S064 is `PLANNED` and remains dependent on S053 completion; this documentation change does not make S064 executable or claim S053 complete.
+
+
+Merge queue support (2026-10-01): `Native merge queue` consumes explicit
+`status:merge-queue` consent once and enqueues an eligible exact head through
+GitHub's protected native queue. The required Verify repository and Docs
+consistency providers now support synthetic merge-group checks; group builds
+run all product lanes. Live ruleset activation and a dedicated repository
+token remain administrator setup, with automatic entry off until
+`TRADEOS_MERGE_QUEUE_ENABLED=true`. Do not infer active queue enforcement from
+the checked-in template or local boundary tests. Follow
+[testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md) for the live trial and rollback.
+This is operational maintenance, Sprint ID: NONE; sprint eligibility and
+production/browser certification do not change.
 
 Successor backlog: the 2026-09-22 vertical audit at `main`
 `9a27682a575f6c8b13337a61e88cdd7b838dcfe2` confirms that the authenticated
@@ -178,7 +196,7 @@ The authenticated S027 browser workflow remains operator-triggered and uses the 
 
 RC smoke run #11 identified a staging deployment configuration failure before credential evaluation: the stable backend returned `SUPABASE_URL is not configured`. The guarded `Repair staging Supabase auth configuration` workflow owns that exact recovery by restoring the public TradeOS Staging URL only to Preview scope for the `staging` branch, redeploying the stable backend, and checking `/ready`. It does not copy Production configuration or change application auth policy.
 
-The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. A later dispatch restored the branch-scoped staging Supabase URL but exposed a stale pinned deployment URL. The workflow now uses `env update --value ... --yes`, resolves only a READY Preview deployment carrying `githubCommitRef=staging`, fails closed with an explicit diagnostic when none is found, and redeploys that resolved staging deployment before `/ready`; its contract test locks those boundaries before another staging repair dispatch.
+The first repair dispatch stopped before redeployment because Vercel CLI 59.11.2 required explicit confirmation for `env update` and no longer accepted `--yes` for `redeploy`. A later dispatch restored the branch-scoped staging Supabase URL but exposed a stale pinned deployment URL. The workflow uses `env update --value ... --yes` with pinned Vercel CLI 59.11.2. Its repair helper resolves structured deployment data for the captured staging branch SHA, verifies project/team/repository and Preview identity, redeploys by ID, and checks the replacement immutable URL for runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization. It retains deployment identity on failure instead of certifying a moving alias. Regression coverage rejects stale commits, foreign targets, redirects, and failed readiness. A fresh repair dispatch and authenticated evidence remain required; this repository change does not establish current-main release certification.
 
 The `Beta Evidence` workflow is the release-candidate evidence lane. It is operator-dispatched in `preflight` or `full` mode, generates authenticated storage state at runtime instead of consuming a pre-baked storage-state secret, drives the canonical customer → project → estimate → pricing → finalize → proposal → contract → invoice workflow at 1440/1024/768/390, proves tenant isolation with a negative probe, and validates every retained screenshot against its declared viewport width before publishing artifacts. It refuses to run against production hosts, the Production alias, or `-git-main-` previews, and refuses mutating runs unless the release-candidate data plane is proven non-production. Beta evidence is UNVERIFIED until a `full` run passes; see [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
 

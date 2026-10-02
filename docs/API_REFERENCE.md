@@ -36,6 +36,8 @@ Protected API routes require:
 
 Tenant impersonation through request-controlled organization headers is not supported.
 
+A staging-only exception accepts the fixed public fixture marker when `TRADEOS_AUTH_BYPASS=true`, Vercel Preview (or local `APP_ENVIRONMENT=staging`), and both backend Supabase URL and database connection resolve to the dedicated staging project. The API then performs the usual active membership lookup and RLS request transaction and checks the exact fixture owner identity. Production or a mismatched data plane returns 503 on protected routes. With the flag absent or false, the marker receives 401 and normal JWT/Supabase verification is unchanged. See `docs/modules/auth-and-tenancy.md`.
+
 Locally issued HS256 access tokens carry a finite expiration (one hour by default; configure the positive `AUTH_JWT_TTL_SECONDS` value when needed). The verifier requires `sub`, `iat`, and `exp`, validates optional registered claims when present, and enforces configured issuer and audience values when `AUTH_ISSUER` and `AUTH_AUDIENCE` are set. Expired, malformed, or invalid-signature bearer requests fail before membership resolution. Refresh and Supabase bootstrap also reject inactive application users. Immediate revocation of an already-issued bearer JWT is not represented by a new token store or provider-introspection call in the current architecture.
 
 `POST /api/v1/auth/logout` requires the normal bearer and active-membership checks, then revokes the caller's active local refresh sessions. Refresh rotation is conditional and single-use under concurrent requests; password-reset confirmation also revokes the user's active local refresh sessions. Supabase JWTs must carry finite `exp` and `iat` claims.
@@ -173,6 +175,14 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/athena/observability`
 
 Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+
+### CRM Customer search and service addresses
+
+`GET /api/v1/customers` requires `crm.read`. It accepts optional `query` and `limit` parameters; an explicit query is trimmed and validated and `limit` is restricted to 1–250 before the organization-scoped CRM service read. The service searches name, email, and phone substrings inside the authenticated organization and excludes soft-deleted Customers. This bounded search is used only as advisory duplicate evidence by the create-Customer workflow; a full 250-row result is treated as incomplete rather than evidence that no exact match exists.
+
+`POST /api/v1/customers` and Customer update/archive mutations require `crm.write`. The frontend re-runs the bounded advisory name/email search immediately before creation, blocks the write if any lookup fails or returns a full page, and requires explicit `create-separate` intent when exact normalized name/email matches exist. It never merges Customer records automatically.
+
+`GET /api/v1/customers/:id` requires `crm.read` and returns linked Projects plus active ServiceAddress rows. Service-address create/update/delete routes require `crm.write`; the existing CRM service verifies organization/customer parentage and soft-removes addresses rather than exposing cross-customer mutation.
 
 `GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero.
 

@@ -34,6 +34,7 @@ related_code:
   - web/src/components/dashboard
   - web/src/app/(app)/costbook
   - web/src/app/(app)/dispatch
+  - web/src/app/(app)/team-time
   - web/src/app/(app)/customers
   - web/src/app/(app)/projects
   - web/src/app/customer-portal
@@ -43,6 +44,13 @@ related_code:
   - web/src/proxy.ts
   - web/src/lib/billing-api.ts
   - web/src/lib/supabase/proxy.ts
+  - web/src/lib/team-time-api.ts
+  - web/src/lib/team-time-config.ts
+  - web/src/lib/team-time-route.ts
+  - web/src/lib/team-time-model.ts
+  - web/src/components/team-time/use-team-time-workspace.ts
+  - web/src/components/team-time
+  - web/src/app/api/team-time
   - web/src/lib/api.ts
   - web/src/lib/api-response.ts
   - web/src/lib/clientApi.ts
@@ -53,6 +61,20 @@ related_code:
 ---
 
 # Current State
+
+## Desktop estimate visibility repair — 2026-10-02
+
+The nightly gate reproduced a production draft estimate showing only its header
+and totals at a desktop viewport. The mobile workflow hides at `lg`, while the
+desktop editing container had no responsive display override. This repair makes
+the existing desktop workspace visible at `lg`, preserving the staged mobile
+flow below that breakpoint. A focused regression checks the matching visibility
+boundary. CI and post-merge/deployment browser verification remain required;
+this repair is not a release-certification or sprint-completion claim.
+
+## Staging auth bypass work in progress
+
+The `feature/staging-auth-bypass` branch implements a gated fixture owner for credential-free Preview Playwright checks and a visible banner. The dedicated Supabase staging project contains a synthetic organization, owner, project, and draft estimate. This is not yet deployed or browser-verified on Vercel Preview; the current Preview API readiness is blocked by a database authentication error. Vercel Production remains denied by the guard. Do not count these branch changes as current production behavior.
 
 Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
@@ -138,6 +160,19 @@ The authenticated `/settings` surface now follows the canonical contractor-contr
 
 No backend Settings route, permission, tenant, RLS, Brand Studio, supplier, billing, or Team & Time contract changes are included in this frontend reorganization.
 
+## Customer ↔ Project connection
+
+The current Customer workflow now exposes the existing CRM/Project relationship directly without adding a parallel lead or address model.
+
+- Customer list/detail reads use the canonical `crm.read` permission and Customer/address writes use `crm.write`; technician/read-only roles do not receive write controls.
+- Customer creation performs an advisory same-organization duplicate check using exact normalized name/email comparison over bounded authenticated Customer searches. Each term requests at most 250 rows. A failed search or a full 250-row result is treated as incomplete, and creation fails closed until the lookup can complete.
+- Possible matches are advisory: staff can open an existing Customer or explicitly create a separate record. TradeOS does not silently merge Customer records or use phone-only similarity as a definitive match.
+- Customer detail loads active CRM ServiceAddress rows and lets authorized staff add, edit, and soft-remove them through the existing organization/customer-scoped service boundary.
+- Project create/update coverage verifies that the selected `customerId`, `siteAddress`, and plain-language `simpleScope` remain organization-scoped and persist through the existing Project controller.
+- No schema, migration, RLS, Customer merge, Lead database, CRM-stage, or Project-parent model was added.
+
+Automated unit/controller coverage owns the bounded search, fail-closed duplicate workflow, service-address parent checks, permission denial, and Customer-linked Project persistence. Authenticated browser mutation/reload evidence and disposable PostgreSQL/RLS certification are still outstanding; this section does not claim those acceptance gates complete.
+
 ## Project-backed Lead and Site Visit workspace
 
 TradeOS now presents two canonical pre-estimate Lead states directly from existing Project/SiteVisit truth instead of introducing a parallel Lead database.
@@ -163,6 +198,7 @@ No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate
 - Proposals, contracts, invoices, recorded payments, and downstream lifecycle flows.
 - Invoice line-item storage uses canonical selling-price columns `unit_price` and `line_total`; production migration `20260902200000_contract_invoice_line_price_columns` applied successfully on 2026-09-08, removing the synchronized legacy `unit_cost`/`line_cost` aliases and their sync objects. The disposable PostgreSQL rehearsal verified canonical data, index/constraint preservation, and tenant-scoped forced RLS; live production schema verification confirmed the canonical columns, required indexes, and forced RLS. The `unitPrice`/`lineTotal` API contract stays unchanged.
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
+- Team & Time staging integration: `/team-time` uses the existing signed-in Supabase session through a same-origin server route to call the staging `team-time` Edge Function. It supports assigned-job punches, breaks, manager review/correction, employee vs. subcontractor classification, and approved-hours CSV handoff. The route requires an exact same-origin `Origin`; its server-only gate requires `TEAM_TIME_ENABLED=true`, pins `TEAM_TIME_SUPABASE_PROJECT_REF` to the verified staging project, and checks that it matches the project reference in the `NEXT_PUBLIC_SUPABASE_URL` hostname. It is always disabled on Vercel Production. Staging verification on 2026-09-25 confirmed the function is active at version 4 with JWT verification and the two Team & Time migrations applied. The corresponding Edge Function and migration source are not currently versioned in this repository; this is a release blocker for production enablement. Staging has no active job assignments or Team & Time profiles yet, so live phone-to-office testing is pending. Payroll submission and location verification are not implemented or claimed.
 - Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
 - Financial Intelligence draft lane (#507): the organization-wide `billing.read` financial summary reports current-week recorded cash, exact open/overdue balances, unsigned proposal opportunity, and projected committed margin from unique accepted-proposal Estimate snapshots. Every source reports complete/partial/unavailable coverage; failed reads remain unknown instead of zero. Projected margin excludes tax and includes persisted estimate overhead; it is not actual job margin. Actual job costs remain unavailable until TradeOS persists verified labor, material, and equipment usage against jobs. The current Dashboard integration remains intentionally deferred on this draft branch so the newer Today Command Board is not replaced by the stale pre-command-board layout.
 - Brand Studio and Settings/organization operations.
@@ -383,6 +419,7 @@ link scanners from spending the single-use invitation; that POST clears the
 pending cookie before redirecting to the portal or access-error flow.
 
 Customer-portal server API reads preserve structured backend errors, normalize non-JSON upstream failures into the portal failure path, and reject malformed successful responses explicitly instead of leaking raw parser exceptions.
+The portal redemption web route now fails closed when the backend exchange returns an absent, malformed, or expired session payload or fails before returning a response. It clears the pending invitation and creates no session cookie in these cases. Focused service and web tests cover more replay, expiry, malformed input, draft exclusion, and document-scoping denial paths; current-head authenticated browser and live RLS certification remain pending, so S059 is not complete.
 
 ## Athena implementation state
 
@@ -663,3 +700,15 @@ This is an interim production composition, not a claim that Schedule has an appr
 The mobile technician field workspace now presents today's assigned jobs through a current-job-first mobile layout with schedule/arrival context, service address directions, job briefing, bounded lifecycle actions, equipment disclosure, and a dedicated report-back notes area. This remains a frontend refinement over the existing authenticated technician and job APIs; no new backend endpoint or data model is introduced.
 
 Current-job selection is lifecycle-aware: On site, Traveling, Paused, and Dispatched work ranks ahead of Scheduled/Unscheduled and terminal Completed/Cancelled records while preserving the server's existing schedule ordering inside a lifecycle tier. The selected-job workspace uses a section landmark inside the app shell rather than nesting a second `main`, and the dominant mobile lifecycle action is viewport-fixed above the Control Dock so it remains reachable while the technician moves through briefing and report-back content.
+
+
+## UI branch reconciliation — 2026-10-02
+
+A current-`main` reconciliation pass recovered four contractor-facing UI slices from stale branches without merging obsolete branch history:
+
+- Estimate Workspace contextual Athena suggestions remain review-first and can now be explicitly added to the current estimate; a successful acceptance refreshes the estimate Items/totals on desktop and mobile.
+- Universal Create preserves current Project context for Job, Invoice, and Change Order creation, otherwise routes through an intent-aware Project chooser; Schedule opens real unscheduled work and Ask Athena carries current page/Project context only when Athena is enabled.
+- Athena Workspace uses the focused two-column hierarchy from the later UI polish pass without replacing the recovered canonical workspace.
+- Schedule/Dispatch presents the same real Jobs and conflict-aware actions with a flatter action-workspace hierarchy rather than nested card chrome.
+
+The older `feature/ui-review-mobile-field-workspace`, `feat/canonical-athena-workspace`, and `feat/canonical-crm-workspace` branches were not merged wholesale: current `main` already contains newer Field Workspace behavior and the recovered Athena/CRM implementations from PRs #588 and #587.

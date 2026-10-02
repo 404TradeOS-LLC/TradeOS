@@ -35,7 +35,7 @@ Own customer records, service addresses, customer equipment, service agreements,
 
 ## Customer listing and search
 
-`CrmService.listCustomers(orgId, options)` remains tenant-scoped and excludes soft-deleted customers. Callers may provide a trimmed `query` that is applied in PostgreSQL across customer name, email, and phone, plus a bounded `limit`; the service clamps the result count to prevent unbounded customer-directory reads. Ordinary callers that omit options continue to receive a bounded customer list.
+`CrmService.listCustomers(orgId, options)` remains tenant-scoped and excludes soft-deleted customers. Callers may provide a trimmed `query` that is applied in PostgreSQL across customer name, email, and phone, plus a bounded `limit`; the controller accepts at most 250 rows for an explicit search. Existing unfiltered callers that omit a limit retain the pre-existing list behavior and are not described as bounded by this change.
 
 ## Routes
 
@@ -65,6 +65,12 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 - notes and related operational actions may feed broader activity surfaces through the intelligence primitives
 
+## Customer creation and service-address workflow
+
+The staff Customer creation flow performs an advisory, same-organization exact normalized name/email check before POSTing a new Customer. Each search term is sent through the authenticated Customer list route with `limit=250`. A rejected search or a full 250-row result is treated as incomplete because an exact match may exist beyond the returned page; creation fails closed and asks staff to retry. Matching never silently merges records or hard-blocks an explicitly confirmed separate Customer. Phone-only matching is not claimed because the bounded substring route does not normalize stored phone formatting reliably.
+
+Customer detail returns active ServiceAddress rows already owned by the CRM service. Staff with `crm.write` can add, edit, and soft-remove those addresses through the existing organization/customer-scoped service methods. Read-only roles can view Customer/project/address information but do not receive Customer/address mutation controls.
+
 ## Implementation notes
 
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `addServiceAddress`/`updateServiceAddress` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. Both now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
@@ -74,7 +80,7 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 - `/crm` — first-class relationship/pre-job operating overview derived from Customers, Projects, Project Tasks, Site Visit activity, and Proposal queue state
 - `/customers`
 - `/customers/new`
-- `/customers/[id]` — canonical customer operating workspace composed from the Customer record, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth
+- `/customers/[id]` — canonical customer operating workspace composed from the Customer record, active service addresses, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth; mutations remain permission-aware
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
 The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded remain canonical Project statuses; Ready to Estimate is derived from a real Site Visit milestone; Proposal Sent is derived from Proposal status; and Follow-ups are existing incomplete Project Tasks.
@@ -88,12 +94,19 @@ Customer-scoped Athena remains deferred while the contractor workspace is not au
 ## Tests
 
 - `app/tests/crm.service.test.ts`
+- `app/tests/crm.controller.test.ts`
+- `web/src/app/actions/customers.test.ts`
+- `web/src/lib/customer-duplicate-matches.test.ts`
+- `web/src/lib/service-address-form.test.ts`
+- `app/tests/projects.controller.test.ts` covers customer/site-address/scope persistence on Project create/update
 - `app/tests/rls.integration.ts` covers payment reconciliation's PostgreSQL locking, tenant boundary, and event behavior
 - A12 Athena Office Manager contract coverage verifies bounded name/email/phone customer searches through the service boundary
 
 ## Known limitations
 
 - CRM remains intentionally project-centered rather than a separate pipeline subsystem
+- advisory duplicate matching is exact normalized name/email only; phone formatting is intentionally excluded
+- authenticated browser mutation/reload and disposable PostgreSQL/RLS evidence for the rebuilt Customer→Project journey remain certification work, not a completed claim
 
 ## Deferred work
 

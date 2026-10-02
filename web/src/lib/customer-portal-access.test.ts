@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isValidCustomerPortalAccessToken } from "./customer-portal-access.ts";
+import { isValidCustomerPortalAccessToken, parseCustomerPortalRedemption } from "./customer-portal-access.ts";
 
 const srcRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -13,6 +13,16 @@ test("customer portal pending-token validation matches the backend redemption co
   assert.equal(isValidCustomerPortalAccessToken("x".repeat(40)), true);
   assert.equal(isValidCustomerPortalAccessToken("x".repeat(128)), true);
   assert.equal(isValidCustomerPortalAccessToken("x".repeat(129)), false);
+});
+
+test("only a valid, unexpired session exchange can set a portal cookie", () => {
+  const now = Date.parse("2026-09-25T00:00:00Z");
+  const good = { sessionToken: "A".repeat(43), expiresAt: new Date(now + 60_000).toISOString() };
+  assert.deepEqual(parseCustomerPortalRedemption(good, now), { token: good.sessionToken, maxAge: 60 });
+  for (const bad of [null, {}, { ...good, sessionToken: "bad" }, { ...good, expiresAt: "invalid" },
+    { ...good, expiresAt: new Date(now).toISOString() }, { ...good, expiresAt: new Date(now - 1).toISOString() }]) {
+    assert.equal(parseCustomerPortalRedemption(bad, now), null);
+  }
 });
 
 test("email-link GET stores a short-lived pending token without redeeming it", () => {
