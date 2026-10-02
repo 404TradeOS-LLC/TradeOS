@@ -6,8 +6,8 @@ import { deploymentSupabaseProjectRef } from "./s027-evidence-contract.mjs";
 
 const TEAM_ID = "team_nY1VrcaEYEr4rcW7Gxweq7LP";
 const FRONTEND_PROJECT_ID = "prj_jDyORkIa7ug3ZtgtNujwEa65hQ36";
+const BACKEND_PROJECT_ID = "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD";
 const STAGING_SUPABASE_URL = "https://qfbgdkbamfaasmtjfyru.supabase.co";
-const STABLE_BACKEND_URL = "https://tradeos-costbook-git-staging-billykshowalters.vercel.app";
 const STATE_PATH = "/tmp/s053-preview-pair-state.json";
 const REPORT_PATH = "../artifacts/beta-evidence/s053-preview-pair.json";
 const MANAGED_COMMENT = "Temporary S053 current-main evidence; remove after run";
@@ -88,26 +88,48 @@ async function createEnv(key, value) {
   return row.id;
 }
 
-async function verifyBackend() {
-  const health = await fetch(new URL("/health", STABLE_BACKEND_URL), { signal: AbortSignal.timeout(30_000) });
-  assert.equal(health.status, 200, "Stable staging backend /health must return 200");
-  const healthBody = await health.json();
-  assert.equal(healthBody.commitSha, stagingSha, "Stable staging backend does not match current staging branch");
+async function findCurrentStagingBackend() {
+  const url = new URL("https://api.vercel.com/v6/deployments");
+  url.searchParams.set("teamId", TEAM_ID);
+  url.searchParams.set("projectId", BACKEND_PROJECT_ID);
+  url.searchParams.set("limit", "100");
+  const payload = await fetchJson(url);
+  const matches = (payload.deployments ?? []).filter((deployment) =>
+    deployment.meta?.githubCommitRef === "staging" &&
+    deployment.meta?.githubCommitSha === stagingSha &&
+    (deployment.state ?? deployment.readyState) === "READY"
+  );
+  assert.ok(matches.length > 0, "No READY backend Preview exists for the current staging SHA");
+  const deployment = [...matches].sort(
+    (a, b) => Number(b.created ?? b.createdAt ?? 0) - Number(a.created ?? a.createdAt ?? 0)
+  )[0];
+  assert.equal(deployment.projectId, BACKEND_PROJECT_ID, "Wrong backend Vercel project");
+  assert.ok(deployment.target === null || deployment.target === "preview", "Production backend deployment refused");
+  return "https://" + deployment.url;
+}
 
-  const ready = await fetch(new URL("/ready", STABLE_BACKEND_URL), { signal: AbortSignal.timeout(30_000) });
-  assert.equal(ready.status, 200, "Stable staging backend /ready must return 200");
+async function verifyBackend() {
+  const backendUrl = await findCurrentStagingBackend();
+  const health = await fetch(new URL("/health", backendUrl), { signal: AbortSignal.timeout(30_000) });
+  assert.equal(health.status, 200, "Current staging backend /health must return 200");
+  const healthBody = await health.json();
+  assert.equal(healthBody.commitSha, stagingSha, "Selected backend does not match current staging branch");
+
+  const ready = await fetch(new URL("/ready", backendUrl), { signal: AbortSignal.timeout(30_000) });
+  assert.equal(ready.status, 200, "Current staging backend /ready must return 200");
   const readyBody = await ready.json();
-  assert.equal(readyBody.status, "ready", "Stable staging backend must report ready");
+  assert.equal(readyBody.status, "ready", "Current staging backend must report ready");
   assert.equal(readyBody.checks?.database?.status, "ok", "Staging database readiness must be ok");
   assert.equal(readyBody.checks?.schema?.status, "ok", "Staging schema readiness must be ok");
 
-  const bootstrap = await fetch(new URL("/api/v1/auth/bootstrap", STABLE_BACKEND_URL), {
+  const bootstrap = await fetch(new URL("/api/v1/auth/bootstrap", backendUrl), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
     signal: AbortSignal.timeout(30_000),
   });
   assert.equal(bootstrap.status, 401, "Unauthenticated staging bootstrap must fail with 401");
+  return backendUrl;
 }
 
 async function deployments() {
@@ -172,13 +194,13 @@ async function attestDeployment(deployment) {
 async function setup() {
   await fs.mkdir("../artifacts/beta-evidence", { recursive: true });
   await clearManagedLeftovers();
-  await verifyBackend();
+  const backendUrl = await verifyBackend();
 
   const initial = await waitForDeployment();
   const state = { frontendEnvIds: [], initialDeploymentId: initial.id, createdAt: new Date().toISOString() };
   await fs.writeFile(STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
 
-  state.frontendEnvIds.push(await createEnv("BACKEND_API_URL", STABLE_BACKEND_URL));
+  state.frontendEnvIds.push(await createEnv("BACKEND_API_URL", backendUrl));
   state.frontendEnvIds.push(await createEnv("NEXT_PUBLIC_SUPABASE_URL", STAGING_SUPABASE_URL));
   await fs.writeFile(STATE_PATH, JSON.stringify(state, null, 2), { mode: 0o600 });
 
@@ -198,7 +220,7 @@ async function setup() {
     expectedFrontendSha: expectedSha,
     frontendBranch: targetBranch,
     frontend: { deploymentId: deployment.id, url: frontendUrl },
-    backend: { url: STABLE_BACKEND_URL, commitSha: stagingSha, readiness: "verified" },
+    backend: { url: backendUrl, commitSha: stagingSha, readiness: "verified" },
     dataPlaneRef,
   }, null, 2));
 
