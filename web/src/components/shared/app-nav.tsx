@@ -85,7 +85,7 @@ const CREATE_OPTIONS: Array<{
   { kind: "change-order", label: "Change Order", helper: "Choose the Project whose scope is changing.", icon: ClipboardPlus, featured: false },
   { kind: "schedule", label: "Schedule", helper: "Open real unscheduled work and place it on the schedule.", icon: CalendarPlus, featured: false },
   { kind: "athena", label: "Ask Athena", helper: "Open Athena with the current TradeOS page and Project context attached.", icon: Sparkles, featured: false },
-]
+];
 
 // The 404TradeOS Control Dock keeps five thumb-reachable slots on mobile:
 // Today, Dispatch, Create, Work, and More (everything else, unchanged routes).
