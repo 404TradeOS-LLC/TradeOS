@@ -44,7 +44,7 @@ The earlier two-page metadata result was an incomplete listing from that inspect
 ### P0 — next executable product slice
 
 - [ ] Finish S053 certification against the implementation already merged through PR #560; do not open a duplicate estimator feature branch.
-- [ ] Preserve the established loop: rough scope → Athena interpretation → at most one necessary clarification → reviewed Costbook/assembly choices → Estimate Items → Price → Review.
+- [ ] Preserve the established estimating loop from rough scope → Athena interpretation → reviewed Costbook/assembly choices → Estimate Items → Price → Review. Keep the one-question clarification interaction as separate TARGET work until its persisted answer/regenerate contract exists; do not make it an S053 certification requirement.
 - [ ] Prove explicit human review before persistence; no silent AI write.
 - [ ] Prove source/provenance and setup-required behavior.
 - [ ] Retain 1440 / 768 / 390 authenticated evidence and permission/tenant denial evidence.
