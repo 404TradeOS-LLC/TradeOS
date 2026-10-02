@@ -15,6 +15,8 @@ related_code:
 
 # TradeOS Bible
 
+Governance preparation (2026-10-02): S059's bounded certification contract is prepared after S051 completion, merged PR #564, and a clean overlap check, but S059 remains `PLANNED` while S053 is the single `READY` sprint. After S053 reaches `DONE`, a separate governance-only change may promote S059 without redesigning customer identity, RBAC/RLS, token/session policy, proposal acceptance, payments, or production infrastructure.
+
 Governance reconciliation (2026-10-02): PR #520 is merged, so S064 no longer carries that stale Assembly Catalog blocker. S064 remains `PLANNED` and depends on S053 completion. This does not alter the startup rule: only a `READY` sprint is directly executable. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
 
 
