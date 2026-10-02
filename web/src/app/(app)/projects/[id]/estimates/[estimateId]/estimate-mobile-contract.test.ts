@@ -80,4 +80,7 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.match(builder, /Finalize estimate/);
   assert.match(builder, /Create proposal/);
   assert.doesNotMatch(builder, />Send proposal</);
+  assert.equal((builder.match(/isDraft=\\{isDraft\\}/g) ?? []).length, 2);
+  assert.match(contextualAthena, /isDraft: boolean/);
+  assert.match(contextualAthena, /isDraft && suggestion\\.resolution\\.target/);
 });
