@@ -80,7 +80,9 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.match(builder, /Finalize estimate/);
   assert.match(builder, /Create proposal/);
   assert.doesNotMatch(builder, />Send proposal</);
-  assert.equal((builder.match(/<ContextualAthenaPanel[\\s\\S]{0,260}?isDraft=\\{isDraft\\}/g) ?? []).length, 2);
+  const contextualPanelBlocks = builder.split("<ContextualAthenaPanel").slice(1).map((block) => block.slice(0, 320));
+  assert.equal(contextualPanelBlocks.length, 2);
+  assert.ok(contextualPanelBlocks.every((block) => block.includes("isDraft={isDraft}")));
   assert.ok(contextualAthena.includes("isDraft: boolean"));
   assert.ok(contextualAthena.includes("isDraft && suggestion.resolution.target"));
 });
