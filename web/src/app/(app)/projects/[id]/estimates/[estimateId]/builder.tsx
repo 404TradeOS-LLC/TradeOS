@@ -39,7 +39,40 @@ interface PickerResult {
   name: string;
   code: string;
   unitOfMeasure: string;
-  kind: "costItem" | "assembly";
+  kind: "costItem" | "assembly" | "starterAssembly";
+  description?: string | null;
+  starterTemplate?: {
+    id: string;
+    trade: string;
+    measurementBasis: string;
+    wasteGuidance: string;
+    review: {
+      status: "reviewed";
+      source: string;
+      reviewedOn: string;
+      regionalBasis: string;
+    };
+    components: Array<{
+      key: string;
+      label: string;
+      quantityPerUnit: number;
+      compatibleUnits: string[];
+    }>;
+  };
+}
+
+interface AssemblyPreviewData {
+  unitCost: number;
+  componentCount: number;
+  items: Array<{
+    id: string;
+    componentName: string;
+    componentCode: string;
+    componentUnitOfMeasure: string;
+    quantityPerUnit: number;
+    componentType: "cost_item" | "assembly";
+  }>;
+  total: number;
 }
 
 export function EstimateBuilder({ projectId, projectName, estimateId, simpleScope }: { projectId: string; projectName: string; estimateId: string; simpleScope?: string | null }) {
@@ -495,21 +528,77 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
     queryKey: ["item-search", debouncedQuery],
     queryFn: async (): Promise<{ items: PickerResult[]; failedSources: string[] }> => {
       if (!debouncedQuery) return { items: [], failedSources: [] };
-      const [costItemsResult, assembliesResult] = await Promise.allSettled([
+      const [costItemsResult, assembliesResult, starterCatalogResult] = await Promise.allSettled([
         clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string }[]>(
           `/cost-database/cost-items/search?q=${encodeURIComponent(debouncedQuery)}`
         ),
-        clientFetch<{ id: string; name: string; code: string; unitOfMeasure: string }[]>(
+        clientFetch<Array<{ id: string; name: string; code: string; unitOfMeasure: string; description?: string | null }>>(
           `/assemblies/search?q=${encodeURIComponent(debouncedQuery)}`
         ),
+        clientFetch<{
+          items: Array<{
+            id: string;
+            code: string;
+            name: string;
+            description: string;
+            unitOfMeasure: string;
+            trade: string;
+            measurementBasis: string;
+            wasteGuidance: string;
+            review: {
+              status: "reviewed";
+              source: string;
+              reviewedOn: string;
+              regionalBasis: string;
+            };
+            components: Array<{
+              key: string;
+              label: string;
+              quantityPerUnit: number;
+              compatibleUnits: string[];
+            }>;
+          }>;
+        }>("/assemblies/starter-catalog"),
       ]);
       const costItems = costItemsResult.status === "fulfilled" ? costItemsResult.value : [];
       const assemblies = assembliesResult.status === "fulfilled" ? assembliesResult.value : [];
-      const items = [
-        ...costItems.map((c) => ({ ...c, kind: "costItem" as const })),
-        ...assemblies.map((a) => ({ ...a, kind: "assembly" as const })),
+      const normalizedQuery = debouncedQuery.trim().toLowerCase();
+      const installedCodes = new Set(assemblies.map((assembly) => assembly.code));
+      const starterAssemblies = starterCatalogResult.status === "fulfilled"
+        ? starterCatalogResult.value.items
+            .filter((template) => !installedCodes.has(template.code))
+            .filter((template) =>
+              [template.name, template.code, template.trade, template.description]
+                .some((value) => value.toLowerCase().includes(normalizedQuery))
+            )
+            .slice(0, 12)
+        : [];
+      const items: PickerResult[] = [
+        ...assemblies.map((assembly) => ({ ...assembly, kind: "assembly" as const })),
+        ...starterAssemblies.map((template) => ({
+          id: template.id,
+          name: template.name,
+          code: template.code,
+          unitOfMeasure: template.unitOfMeasure,
+          description: template.description,
+          kind: "starterAssembly" as const,
+          starterTemplate: {
+            id: template.id,
+            trade: template.trade,
+            measurementBasis: template.measurementBasis,
+            wasteGuidance: template.wasteGuidance,
+            review: template.review,
+            components: template.components,
+          },
+        })),
+        ...costItems.map((costItem) => ({ ...costItem, kind: "costItem" as const })),
       ];
-      if (items.length === 0 && costItemsResult.status === "rejected" && assembliesResult.status === "rejected") {
+      if (
+        items.length === 0 &&
+        costItemsResult.status === "rejected" &&
+        assembliesResult.status === "rejected" &&
+        starterCatalogResult.status === "rejected"
+      ) {
         throw new Error("Costbook search is unavailable. You can still add a custom line item.");
       }
       return {
@@ -517,6 +606,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
         failedSources: [
           costItemsResult.status === "rejected" ? "cost items" : "",
           assembliesResult.status === "rejected" ? "assemblies" : "",
+          starterCatalogResult.status === "rejected" ? "starter catalog" : "",
         ].filter(Boolean),
       };
     },
@@ -526,11 +616,44 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
   const orderedResults = useMemo(() => {
     const items = searchData?.items ?? [];
-    return [...items.filter((result) => result.kind === "assembly"), ...items.filter((result) => result.kind === "costItem")];
+    return [
+      ...items.filter((result) => result.kind === "assembly"),
+      ...items.filter((result) => result.kind === "starterAssembly"),
+      ...items.filter((result) => result.kind === "costItem"),
+    ];
   }, [searchData]);
 
   const activeResultIndex = orderedResults.length === 0 ? 0 : Math.min(activeIndex, orderedResults.length - 1);
   const activeResult = orderedResults[activeResultIndex] ?? null;
+  const selectedAssemblyId = selected?.kind === "assembly" ? selected.id : null;
+
+  const {
+    data: assemblyPreview,
+    isLoading: assemblyPreviewLoading,
+    isError: assemblyPreviewFailed,
+    error: assemblyPreviewError,
+  } = useQuery({
+    queryKey: ["assembly-preview", selectedAssemblyId],
+    queryFn: async (): Promise<AssemblyPreviewData> => {
+      if (!selectedAssemblyId) throw new Error("Select an installed assembly first.");
+      const [cost, components] = await Promise.all([
+        clientFetch<{ unitCost: number; componentCount: number }>(`/assemblies/${selectedAssemblyId}/unit-cost`),
+        clientFetch<{
+          items: AssemblyPreviewData["items"];
+          total: number;
+          nextCursor?: string | null;
+        }>(`/assemblies/${selectedAssemblyId}/items?limit=6&sort=sortOrder&order=asc`),
+      ]);
+      return {
+        unitCost: cost.unitCost,
+        componentCount: cost.componentCount,
+        items: components.items,
+        total: components.total,
+      };
+    },
+    enabled: Boolean(selectedAssemblyId),
+    staleTime: 60_000,
+  });
 
   // Real-time validity for inline feedback - errors show only once a field
   // has a value (never on the untouched "1" default), rather than only
@@ -559,6 +682,10 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       setError("Pick a result from the list first.");
       return;
     }
+    if (target.kind === "starterAssembly") {
+      setError("Setup required. Map this starter recipe to your active Costbook items before it can be priced or added.");
+      return;
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Quantity must be a positive number");
@@ -569,6 +696,7 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
 
   const addLineItem = useMutation({
     mutationFn: ({ item, quantity, section: itemSection, costType: itemCostType, taxable: itemTaxable, sourceKey }: { item: PickerResult; quantity: number; section: string; costType?: LineItem["costType"]; taxable: boolean; sourceKey: string }) => {
+      if (item.kind === "starterAssembly") throw new Error("Starter assemblies must be mapped before they can be added.");
       return clientFetch(`/estimates/${estimateId}/line-items`, {
         method: "POST",
         body: JSON.stringify({
@@ -712,8 +840,12 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
           ) : null}
         </div>
 
-        <Button type="button" onClick={() => commitLineItem(selected ?? activeResult)} disabled={addLineItem.isPending || (!selected && !activeResult)}>
-          {addLineItem.isPending ? "Adding…" : "Add"}
+        <Button
+          type="button"
+          onClick={() => commitLineItem(selected ?? activeResult)}
+          disabled={addLineItem.isPending || (!selected && !activeResult) || (selected ?? activeResult)?.kind === "starterAssembly"}
+        >
+          {addLineItem.isPending ? "Adding…" : (selected ?? activeResult)?.kind === "starterAssembly" ? "Setup required" : "Add"}
         </Button>
       </div>
 
@@ -809,10 +941,26 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
               }}
             />
             <ResultGroup
+              title="Starter assemblies"
+              description="TradeOS starter recipes · setup required before estimating"
+              results={orderedResults.filter((result) => result.kind === "starterAssembly")}
+              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+              activeIndex={activeResultIndex}
+              onSelect={(result, index) => {
+                setSelected(result);
+                setActiveIndex(index);
+                setQuery(result.name);
+                setError(null);
+              }}
+            />
+            <ResultGroup
               title="Cost items"
               description="Individual labor or material items"
               results={orderedResults.filter((result) => result.kind === "costItem")}
-              baseIndex={orderedResults.filter((result) => result.kind === "assembly").length}
+              baseIndex={
+                orderedResults.filter((result) => result.kind === "assembly").length +
+                orderedResults.filter((result) => result.kind === "starterAssembly").length
+              }
               activeIndex={activeResultIndex}
               onSelect={(result, index) => {
                 setSelected(result);
@@ -840,24 +988,101 @@ function LineItemPicker({ estimateId, onAdded }: { estimateId: string; onAdded: 
       ) : null}
 
       {selected && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
-          <Badge variant={selected.kind === "assembly" ? "default" : "secondary"}>{selected.kind === "assembly" ? "Assembly" : "Cost item"}</Badge>
-          <span className="font-medium">{selected.name}</span>
-          <span className="text-muted-foreground">
-            {selected.code} · {selected.unitOfMeasure}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelected(null);
-              setQuery("");
-              setError(null);
-              searchInputRef.current?.focus();
-            }}
-          >
-            Clear
-          </Button>
+        <div className="space-y-3 rounded-lg border border-border/70 bg-background px-3 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={selected.kind === "assembly" ? "default" : selected.kind === "starterAssembly" ? "outline" : "secondary"}>
+              {selected.kind === "assembly" ? "Installed assembly" : selected.kind === "starterAssembly" ? "Starter assembly" : "Cost item"}
+            </Badge>
+            <span className="font-medium">{selected.name}</span>
+            <span className="text-muted-foreground">
+              {selected.code} · {selected.unitOfMeasure}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelected(null);
+                setQuery("");
+                setError(null);
+                searchInputRef.current?.focus();
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+
+          {selected.kind === "assembly" ? (
+            <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Assembly preview</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Current Costbook recipe. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it.
+                  </p>
+                </div>
+                {assemblyPreviewLoading ? <p className="text-sm text-muted-foreground">Resolving current assembly cost…</p> : null}
+                {assemblyPreviewFailed ? (
+                  <p className="text-sm text-warning" role="alert">
+                    Current cost preview is unavailable. {assemblyPreviewError instanceof Error ? assemblyPreviewError.message : "Try again before relying on this price."}
+                  </p>
+                ) : null}
+                {assemblyPreview ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                      <span><strong className="font-medium">{formatCurrency(assemblyPreview.unitCost)}</strong> / {selected.unitOfMeasure} current cost</span>
+                      <span className="text-muted-foreground">{assemblyPreview.componentCount} resolved component{assemblyPreview.componentCount === 1 ? "" : "s"}</span>
+                    </div>
+                    <div className="text-sm">
+                      Estimated job cost for {Number(quantity) > 0 ? Number(quantity) : 0} {selected.unitOfMeasure}:{" "}
+                      <strong className="font-medium">
+                        {formatCurrency(assemblyPreview.unitCost * (Number(quantity) > 0 ? Number(quantity) : 0))}
+                      </strong>
+                    </div>
+                    {assemblyPreview.items.length > 0 ? (
+                      <div className="grid gap-1 text-xs text-muted-foreground">
+                        {assemblyPreview.items.map((item) => (
+                          <div key={item.id} className="flex items-start justify-between gap-3">
+                            <span>{item.componentName} · {item.componentCode}</span>
+                            <span className="shrink-0 font-mono">{item.quantityPerUnit} {item.componentUnitOfMeasure}</span>
+                          </div>
+                        ))}
+                        {assemblyPreview.total > assemblyPreview.items.length ? (
+                          <div>{assemblyPreview.total - assemblyPreview.items.length} more component{assemblyPreview.total - assemblyPreview.items.length === 1 ? "" : "s"} in the recipe</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Provenance: organization Costbook assembly + live component pricing. Supplier/date citations are shown only when the underlying Costbook data provides them; none are invented here.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Quantity</p>
+                <p className="mt-1 font-mono text-lg font-semibold tabular-nums">{quantity || "0"} {selected.unitOfMeasure}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {selected.kind === "starterAssembly" && selected.starterTemplate ? (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+              <p className="font-medium text-foreground">Setup required before this assembly can be priced or added.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Map each starter recipe slot to an active Costbook item. TradeOS will not invent those mappings or a price.
+              </p>
+              <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                {selected.starterTemplate.components.map((component) => (
+                  <div key={component.key}>
+                    {component.label} · {component.quantityPerUnit} per {selected.unitOfMeasure} · {component.compatibleUnits.join("/")}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Provenance: {selected.starterTemplate.review.source}, reviewed {selected.starterTemplate.review.reviewedOn}. {selected.starterTemplate.review.regionalBasis}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{selected.starterTemplate.wasteGuidance}</p>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1130,8 +1355,8 @@ function ResultGroup({
                   {result.code} · {result.unitOfMeasure}
                 </div>
               </div>
-              <Badge variant={result.kind === "assembly" ? "default" : "secondary"} className="shrink-0">
-                {result.kind === "assembly" ? "Assembly" : "Cost item"}
+              <Badge variant={result.kind === "assembly" ? "default" : result.kind === "starterAssembly" ? "outline" : "secondary"} className="shrink-0">
+                {result.kind === "assembly" ? "Assembly" : result.kind === "starterAssembly" ? "Setup required" : "Cost item"}
               </Badge>
             </button>
           );
