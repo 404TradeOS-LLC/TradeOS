@@ -10,6 +10,7 @@ import path from "node:path";
 import {
   VIEWPORTS,
   readPngDimensions,
+  screenshotFileName,
   selectViewports,
   validateEvidenceSet,
 } from "./lib/evidence-artifacts.mjs";
@@ -102,12 +103,36 @@ const artifactResult = validation.ok ? "PASS" : "FAIL";
 
 const scenarioFailures = [];
 if (scenario === "s053") {
-  const s053IsolationProbe = (isolation?.probes ?? []).find((probe) => probe.name === "foreign S053 Athena draft");
-  if (!s053IsolationProbe?.passed) {
-    scenarioFailures.push("tenant isolation: foreign S053 Athena draft denial was not proven");
+  if (target?.shaCorrelated !== true) {
+    scenarioFailures.push("deployment identity: S053 certification requires exact SHA correlation");
   }
+  for (const probeName of ["foreign S053 Athena draft", "foreign S053 Athena apply"]) {
+    const probe = (isolation?.probes ?? []).find((entry) => entry.name === probeName);
+    if (!probe?.passed) {
+      scenarioFailures.push(`tenant isolation: ${probeName} denial was not proven`);
+    }
+  }
+
+  const capturedByName = new Map(captured.map((entry) => [entry.file, entry]));
+  const scenarioScreenshots = [
+    ["03a", "s053-setup-required"],
+    ["03b", "s053-athena-review"],
+    ["03c", "s053-athena-applied"],
+  ];
+
   for (const viewport of viewports) {
     const report = viewportReports[viewport.name];
+    for (const [sequence, checkpointName] of scenarioScreenshots) {
+      const file = screenshotFileName(viewport.name, sequence, checkpointName);
+      const actual = capturedByName.get(file);
+      if (!actual) {
+        scenarioFailures.push(`${viewport.name}: missing scenario screenshot ${file}`);
+      } else if (!Number.isFinite(actual.bytes) || actual.bytes <= 0) {
+        scenarioFailures.push(`${viewport.name}: empty scenario screenshot ${file}`);
+      } else if (actual.width !== viewport.width) {
+        scenarioFailures.push(`${viewport.name}: scenario screenshot ${file} has width ${actual.width}, expected ${viewport.width}`);
+      }
+    }
     const checkpointNames = new Set((report?.checkpoints ?? []).map((checkpoint) => checkpoint.name));
     for (const requiredName of ["s053-setup-required", "s053-athena-review", "s053-athena-applied"]) {
       if (!checkpointNames.has(requiredName)) {
