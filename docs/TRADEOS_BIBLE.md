@@ -15,6 +15,8 @@ related_code:
 
 # TradeOS Bible
 
+Governance reconciliation (2026-10-02): S059 is promoted to `READY` for bounded certification of the already-implemented customer magic-link/session contract after S051 completion, merged PR #564, and a clean live overlap check. This is an evidence authorization, not authorization to redesign customer identity, RBAC/RLS, token/session policy, proposal acceptance, payments, or production infrastructure. S053 also remains `READY` pending its full authenticated browser run and, as the lower-numbered eligible sprint, retains execution priority under the Next Sprint Protocol.
+
 Governance reconciliation (2026-10-02): PR #520 is merged, so S064 no longer carries that stale Assembly Catalog blocker. S064 remains `PLANNED` and depends on S053 completion. This does not alter the startup rule: only a `READY` sprint is directly executable. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
 
 
