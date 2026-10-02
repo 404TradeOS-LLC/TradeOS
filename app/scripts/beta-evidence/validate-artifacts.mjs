@@ -10,12 +10,14 @@ import path from "node:path";
 import {
   VIEWPORTS,
   readPngDimensions,
+  screenshotFileName,
   selectViewports,
   validateEvidenceSet,
 } from "./lib/evidence-artifacts.mjs";
 
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+const scenario = process.env.BETA_SCENARIO || "canonical";
 
 // A targeted single-viewport run validates only what it captured. It is a
 // debugging aid, never a release gate, so its verdict is PARTIAL rather than
@@ -99,13 +101,69 @@ const authResult = auth?.result === "PASS" ? "PASS" : "FAIL";
 const isolationResult = isolation?.result === "PASS" ? "PASS" : "FAIL";
 const artifactResult = validation.ok ? "PASS" : "FAIL";
 
+const scenarioFailures = [];
+if (scenario === "s053") {
+  if (target?.shaCorrelated !== true) {
+    scenarioFailures.push("deployment identity: S053 certification requires exact SHA correlation");
+  }
+  for (const probeName of ["foreign S053 Athena draft", "foreign S053 Athena apply"]) {
+    const probe = (isolation?.probes ?? []).find((entry) => entry.name === probeName);
+    if (!probe?.passed) {
+      scenarioFailures.push(`tenant isolation: ${probeName} denial was not proven`);
+    }
+  }
+
+  const capturedByName = new Map(captured.map((entry) => [entry.file, entry]));
+  const scenarioScreenshots = [
+    ["03a", "s053-setup-required"],
+    ["03b", "s053-athena-review"],
+    ["03c", "s053-athena-applied"],
+  ];
+
+  for (const viewport of viewports) {
+    const report = viewportReports[viewport.name];
+    for (const [sequence, checkpointName] of scenarioScreenshots) {
+      const file = screenshotFileName(viewport.name, sequence, checkpointName);
+      const actual = capturedByName.get(file);
+      if (!actual) {
+        scenarioFailures.push(`${viewport.name}: missing scenario screenshot ${file}`);
+      } else if (!Number.isFinite(actual.bytes) || actual.bytes <= 0) {
+        scenarioFailures.push(`${viewport.name}: empty scenario screenshot ${file}`);
+      } else if (actual.width !== viewport.width) {
+        scenarioFailures.push(`${viewport.name}: scenario screenshot ${file} has width ${actual.width}, expected ${viewport.width}`);
+      }
+    }
+    const checkpointNames = new Set((report?.checkpoints ?? []).map((checkpoint) => checkpoint.name));
+    for (const requiredName of ["s053-setup-required", "s053-athena-review", "s053-athena-applied"]) {
+      if (!checkpointNames.has(requiredName)) {
+        scenarioFailures.push(`${viewport.name}: missing ${requiredName}`);
+      }
+    }
+    const assertionNames = new Set((report?.assertions ?? []).filter((entry) => entry.passed).map((entry) => entry.name));
+    for (const requiredAssertion of [
+      "unmapped Athena scope fails safe as setup required",
+      "setup-required Athena draft does not write estimate lines",
+      "setup-required Athena draft cannot be applied",
+      "Athena generation and local acceptance do not silently write estimate lines",
+      "explicit Athena apply persists at least one reviewed estimate line",
+      "pricing refreshes after the reviewed Athena apply",
+      "reviewed Athena lines survive builder reload",
+    ]) {
+      if (!assertionNames.has(requiredAssertion)) {
+        scenarioFailures.push(`${viewport.name}: missing passing assertion "${requiredAssertion}"`);
+      }
+    }
+  }
+}
+const scenarioResult = scenarioFailures.length === 0 ? "PASS" : "FAIL";
+
 const downstreamReported = viewports.some((viewport) =>
   (viewportReports[viewport.name]?.checkpoints ?? []).some((checkpoint) => checkpoint.name === "downstream-state"),
 );
 
 const allViewportsPass = viewports.every((viewport) => viewportResult(viewport.name) === "PASS");
 const everythingClean =
-  authResult === "PASS" && isolationResult === "PASS" && artifactResult === "PASS" && allViewportsPass;
+  authResult === "PASS" && isolationResult === "PASS" && artifactResult === "PASS" && scenarioResult === "PASS" && allViewportsPass;
 const overall = everythingClean ? (isFullMatrix ? "PASS" : "PARTIAL") : "FAIL";
 
 // Phase 21 — machine-readable metadata. Carries no passwords, tokens, cookies,
@@ -121,6 +179,7 @@ const metadata = {
   workflow: process.env.GITHUB_WORKFLOW ?? "Beta Evidence",
   runId: process.env.GITHUB_RUN_ID ?? null,
   smokeTenant: process.env.BETA_SMOKE_TENANT_LABEL ?? null,
+  scenario,
   viewports: viewports.map((viewport) => viewport.width),
   fullViewportMatrix: isFullMatrix,
   staleViewports,
@@ -130,6 +189,7 @@ const metadata = {
     authentication: authResult,
     tenantIsolation: isolationResult,
     artifacts: artifactResult,
+    scenario: scenarioResult,
     viewports: Object.fromEntries(viewports.map((viewport) => [viewport.width, viewportResult(viewport.name)])),
   },
   screenshotCount: captured.length,
@@ -148,6 +208,8 @@ const rows = [
   ["Environment", metadata.environment ?? "UNRESOLVED"],
   ["Deployment SHA correlated", metadata.shaCorrelated ? "YES" : "NO"],
   ["Smoke tenant", metadata.smokeTenant ?? "unset"],
+  ["Scenario", scenario],
+  ["Scenario evidence", scenarioResult],
   ["Authentication", authResult],
   ["Tenant isolation", isolationResult],
   ...VIEWPORTS.map((viewport) => [
@@ -167,6 +229,12 @@ const summary = [
   ...rows.map(([label, value]) => `| ${label} | ${value} |`),
   "",
 ];
+
+if (scenarioFailures.length > 0) {
+  summary.push("## Scenario validation failures", "");
+  for (const item of scenarioFailures) summary.push(`- ${item}`);
+  summary.push("");
+}
 
 if (!validation.ok) {
   summary.push("## Artifact validation failures", "");
