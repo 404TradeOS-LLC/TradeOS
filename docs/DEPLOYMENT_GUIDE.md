@@ -578,3 +578,10 @@ npm run build
 ```
 
 RC1 should not be considered deployment-ready until these commands pass in the release candidate environment.
+
+### Responsive authentication evidence
+
+The RC authentication runner uses the visible account control: below the 1536px
+desktop breakpoint it opens the Control Dock More menu before Sign out. It
+still requires redirect to login and denial of a subsequent protected request.
+Database readiness alone does not certify this lifecycle.

@@ -74,6 +74,10 @@ Focused regression coverage lives in `app/tests/estimate-costbook-snapshot.test.
 
 ## Frontend surfaces
 
+The staged mobile estimate workflow is visible below `lg`; the existing desktop
+line-item, Athena, pricing, and finalize controls become visible at `lg`.
+These complementary display rules must leave no viewport without editing controls.
+
 - `/projects/[id]/estimates/[estimateId]`
 - `/projects/[id]/estimates/compare`
 - `/projects/[id]/estimates/[estimateId]/assist`

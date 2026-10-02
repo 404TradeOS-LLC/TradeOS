@@ -377,3 +377,20 @@ documentation and configuration are never substitutes for a passing run.
 | `No tenant-isolation probe could be constructed` | only an estimate id was supplied | also supply `BETA_RC_FOREIGN_PROJECT_ID` |
 | viewport shows `STALE` | a capture report is left over from an earlier run | clear the evidence directory and re-run |
 | `Overall: PARTIAL` | a targeted `--viewport` run | run the full matrix for a release gate |
+
+
+## Preview configuration attestation
+
+The S027 identity check fetches the full Vercel project environment inventory
+before selecting the frontend's effective `NEXT_PUBLIC_SUPABASE_URL`. Vercel's
+`gitBranch` query filter can omit shared values, but a shared value cannot prove
+what an immutable deployment used after a branch override is deleted. The local
+contract therefore requires the selected deployment's exact branch override,
+ignores Production and other branches, and rejects configuration newer than the
+deployment until redeployment. No environment values or credentials are written
+to identity evidence; only the selected Supabase project ref is kept.
+
+The RC authentication lifecycle smoke scopes credential-error alerts to the login
+form. A page-wide alert can be Next.js's route announcement after successful
+navigation and must not be interpreted as a rejected login. Dashboard URL,
+refresh persistence, logout, and protected-route denial still remain required.

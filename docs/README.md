@@ -42,6 +42,9 @@ related_code:
   - .github/workflows/s027-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
+  - .github/workflows/merge-queue.yml
+  - .github/merge-queue-ruleset.json
+  - scripts/merge-queue.mjs
   - .github/workflows/nightly-full-regression.yml
   - .github/workflows/workflow-health-report.yml
   - .github/workflows/rc-smoke.yml
@@ -49,6 +52,14 @@ related_code:
 ---
 
 # TradeOS Documentation
+
+Merge queue operations are documented in [testing/MERGE_QUEUE.md](testing/MERGE_QUEUE.md).
+The opt-in action consumes `status:merge-queue` once, then GitHub validates the
+synthetic group with the four existing required checks. The ruleset template
+and repository variable are activation instructions, not evidence of live
+enforcement. Apply mode requires a dedicated repository token to allow group CI;
+its default workflow token remains read-only. Both required-check providers
+include `merge_group`, and Docs consistency uses the group's immutable base SHA.
 
 S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,

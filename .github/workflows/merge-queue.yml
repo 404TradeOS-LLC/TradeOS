@@ -1,0 +1,67 @@
+name: Native merge queue
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number, or 0 to inspect all open main PRs
+        required: false
+        default: 0
+        type: number
+      apply:
+        description: Consume queue labels and enqueue eligible PRs
+        required: true
+        default: false
+        type: boolean
+  workflow_run:
+    workflows: [Verify repository, Docs consistency, Workflow security]
+    types: [completed]
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tradeos-native-merge-queue
+  cancel-in-progress: false
+
+jobs:
+  enqueue:
+    name: Inspect and enqueue eligible PRs
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || vars.TRADEOS_MERGE_QUEUE_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+    steps:
+      # Never execute a pull-request head or consume its artifacts with write credentials.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Enqueue through GitHub's protected native queue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          QUEUE_APPLY: ${{ github.event_name != 'workflow_dispatch' || inputs.apply }}
+          QUEUE_PR_NUMBER: ${{ inputs.pr_number || 0 }}
+          QUEUE_TOKEN_CONFIGURED: ${{ secrets.TRADEOS_MERGE_QUEUE_TOKEN != '' }}
+        with:
+          # A dedicated token allows native merge_group CI events to run.
+          github-token: ${{ (github.event_name != 'workflow_dispatch' || inputs.apply) && secrets.TRADEOS_MERGE_QUEUE_TOKEN || github.token }}
+          script: |
+            const apply = process.env.QUEUE_APPLY === 'true';
+            if (apply && process.env.QUEUE_TOKEN_CONFIGURED !== 'true') {
+              throw new Error('Configure TRADEOS_MERGE_QUEUE_TOKEN before applying; GITHUB_TOKEN cannot drive group CI.');
+            }
+            const { runMergeQueue } = await import(process.env.GITHUB_WORKSPACE + "/scripts/merge-queue.mjs");
+            await runMergeQueue({
+              github, context, core,
+              apply,
+              prNumber: Number(process.env.QUEUE_PR_NUMBER),
+            });
