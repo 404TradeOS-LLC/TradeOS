@@ -89,7 +89,7 @@ jobs:
       BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
-      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.require_sha_correlation }}
+      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's053' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
       BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
