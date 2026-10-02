@@ -34,32 +34,32 @@ Any product change that widens those boundaries requires separate review.
 
 ## State matrix
 
-| Area | State | Customer UI behavior | Truth requirement |
-| --- | --- | --- | --- |
-| Access | Link issued | Open portal action only after real issuance | Do not imply email delivery from issuance alone |
-| Access | Valid link | Redeem and establish supported customer session | Customer + tenant checks must pass |
-| Access | Invalid | Explain that the link cannot be used | No resource detail leakage |
-| Access | Expired | Explain expiry and provide only supported recovery path | No silent session creation |
-| Access | Revoked | Explain access is no longer valid | No replay |
-| Access | Already used / replay | Deny safely | Preserve single-use semantics |
-| Session | Active | Load only customer-scoped resources | Forced RLS + resource checks |
-| Session | Expired | Return to access/recovery state | No stale privileged view |
-| Project | Available | Show supported project summary | No invented progress percentage |
-| Proposal | Available | Show customer-facing proposal truth | Totals/scope from persisted proposal |
-| Proposal | Decision pending | Present supported decision actions | Do not pre-apply a choice |
-| Proposal | Accept acknowledged | Show accepted only after backend acknowledgement | Attribution/audit preserved |
-| Proposal | Decline acknowledged | Show declined only after backend acknowledgement | Attribution/audit preserved |
-| Proposal | Request change | TARGET unless current capability contract proves it | Never fake a submitted request |
-| Contract | Pending signature | Show contract and supported signing action | Narrow signer/resource policy |
-| Contract | Signed | Show signed only after acknowledgement | Preserve signature/audit truth |
-| Contract | Invalid/unavailable | Explain without leaking unrelated resources | No fallback to staff route |
-| Invoice | Available | Show supported invoice data | Exact persisted money state |
-| Payment | Handoff available | Present only the implemented handoff/action | Do not claim TradeOS processed payment unless the payment contract proves it |
-| Payment | Success | Only after real processor/record acknowledgement | Exact amount/status |
-| Payment | Failure | Keep invoice visible and provide safe retry/recovery | Never convert failure to paid |
-| Global | Loading | Skeleton/progress without fabricated data | No stale customer data cross-session |
-| Global | Empty | Explain that there is nothing available in this section | Empty ≠ error |
-| Global | Error | Preserve session safety and retry where appropriate | No sensitive diagnostics |
+| Area | State | Current classification | Customer UI behavior | Truth requirement |
+| --- | --- | --- | --- | --- |
+| Access | Link issued | IMPLEMENTED | Open portal action only after real issuance | Issuance and server-side delivery are distinct facts; do not infer provider delivery success from token creation |
+| Access | Valid link | IMPLEMENTED | Non-consuming GET → token-free confirmation → exact-origin POST redemption | Customer + tenant checks must pass |
+| Access | Invalid | PARTIAL | Deny without resource detail | Backend denial is covered; S059 still owes retained browser UX evidence |
+| Access | Expired | PARTIAL | Explain expiry and provide only supported recovery path | Backend expiry denial exists; dedicated customer recovery presentation still needs certification |
+| Access | Revoked | PARTIAL | Explain access is no longer valid | Revocation invalidates redeemed sessions; dedicated UX still needs certification |
+| Access | Already used / replay | IMPLEMENTED | Deny safely | Preserve single-use semantics |
+| Session | Active | IMPLEMENTED | Load only customer-scoped resources | Forced RLS + organization/customer resource checks |
+| Session | Expired | PARTIAL | Return to access/recovery state | Session expiry is enforced; final browser behavior remains S059 evidence |
+| Project | Available | IMPLEMENTED | Show supported project summary | No invented progress percentage |
+| Proposal | Available | IMPLEMENTED | Show customer-facing proposal truth read-only | Totals/scope from persisted proposal |
+| Proposal | Decision pending | TARGET | Present customer decision actions only when the governed mutation slice exists | Public proposal surface is currently read-only |
+| Proposal | Accept acknowledged | TARGET | Show accepted only after backend acknowledgement | Customer-originated proposal accept is deferred |
+| Proposal | Decline acknowledged | TARGET | Show declined only after backend acknowledgement | Customer-originated proposal decline is deferred |
+| Proposal | Request change | TARGET | Do not show a submitted state until a governed request-change contract exists | Never fake a submitted request |
+| Contract | Pending signature | IMPLEMENTED | Show contract and supported signing action | Dedicated portal policy restricts exact pending contract/customer |
+| Contract | Signed | IMPLEMENTED | Show signed only after acknowledgement | Event records customer-portal actor context; replay/cross-customer/cross-tenant requests fail closed |
+| Contract | Invalid/unavailable | PARTIAL | Explain without leaking unrelated resources | Service denial exists; dedicated presentation still needs certification |
+| Invoice | Available | IMPLEMENTED | Show supported invoice data and recorded payment history | Exact server-derived amount/paid/balance state; draft invoices excluded |
+| Payment | Handoff available | TARGET / DEFERRED | Do not expose a pay-now or record-payment action yet | Public payment recording/processing is not implemented |
+| Payment | Success | TARGET / DEFERRED | Only after a future real processor/record acknowledgement | No public payment-processing contract exists today |
+| Payment | Failure | TARGET / DEFERRED | Keep invoice visible and provide safe recovery only when a payment action exists | Never invent processor failure semantics |
+| Global | Loading | PARTIAL | Skeleton/progress without fabricated data | Invoice loading is covered; whole-portal retained browser evidence remains S059 work |
+| Global | Empty | PARTIAL | Explain that there is nothing available in this section | Empty ≠ error; certify per route |
+| Global | Error | PARTIAL | Preserve session safety and retry where appropriate | No sensitive diagnostics; certify per route |
 
 ## Responsive behavior
 
@@ -97,6 +97,20 @@ After a customer action:
 5. expose the next valid action only
 
 A success animation or toast is never the source of truth.
+
+## Classification evidence
+
+The classifications above are grounded in the current portal/module documentation inspected on 2026-10-01:
+
+- scanner-safe access delivery and confirmation are implemented;
+- invalid/revoked/expired token denial and replay protection are covered by portal service/security tests;
+- public project/proposal/contract/invoice reads are implemented under the customer principal;
+- public proposal documents are currently read-only and customer accept/decline is deferred;
+- customer-portal contract signing is implemented under a dedicated narrow policy;
+- public invoice reads are implemented, while public payment recording/processing is not exposed;
+- S059 still owes retained authenticated browser and real PostgreSQL/RLS evidence.
+
+These are implementation-state classifications, not release certification.
 
 ## Backlog handoff
 
@@ -138,7 +152,7 @@ Do not fold contract/payment policy changes into S054.
 ## Next five TODO items
 
 1. Reconcile the live portal routes/services and ADR-010 against this matrix.
-2. Mark each matrix row IMPLEMENTED, PARTIAL, TARGET, or BLOCKED from current code/tests.
+2. Reconcile the classifications above against current code/tests during S059; do not downgrade a security denial merely because the dedicated UX is still PARTIAL.
 3. Prepare S059 exact happy-path + denial/replay/expiry evidence.
 4. Prepare S054 proposal decision states only after its dependencies are satisfied.
 5. Capture mobile/desktop customer-facing evidence without weakening the portal principal, RLS, signature, or payment boundaries.
