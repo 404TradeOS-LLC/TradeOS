@@ -20,7 +20,9 @@ jobs:
     timeout-minutes: 15
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+      VERCEL_SCOPE: billykshowalters
+      BACKEND_DEPLOYMENT: https://tradeos-costbook-mong8jtyi-billykshowalters.vercel.app
+      WEB_DEPLOYMENT: https://tradeos-costbook-5io494luj-billykshowalters.vercel.app
     steps:
       - name: Require Vercel token
         shell: bash
@@ -28,26 +30,15 @@ jobs:
           set -euo pipefail
           test -n "${VERCEL_TOKEN:-}" || { echo "::error::GitHub secret VERCEL_TOKEN is missing."; exit 1; }
 
-      - name: Deploy current staging branch to both Vercel projects
-        shell: bash
-        run: |
-          set -euo pipefail
-          deploy_project() {
-            local project="$1"
-            local response
-            response="$(curl -fsS --request POST               --url "https://api.vercel.com/v13/deployments?teamId=${VERCEL_TEAM_ID}"               --header "Authorization: Bearer ${VERCEL_TOKEN}"               --header "Content-Type: application/json"               --data "$(jq -cn --arg project "$project" '{
-                name: $project,
-                project: $project,
-                gitSource: {
-                  type: "github",
-                  org: "404TradeOS-LLC",
-                  repo: "TradeOS",
-                  ref: "staging"
-                }
-              }')")"
-            echo "$response" | jq -e '.id and .url' >/dev/null
-            echo "$project deployment: $(echo "$response" | jq -r '.id') https://$(echo "$response" | jq -r '.url')"
-          }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
 
-          deploy_project "tradeos-costbook"
-          deploy_project "tradeos-costbook-web"
+      - name: Install Vercel CLI
+        run: npm install --global vercel@59.11.2
+
+      - name: Redeploy staging backend
+        run: vercel redeploy "$BACKEND_DEPLOYMENT" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+      - name: Redeploy staging frontend
+        run: vercel redeploy "$WEB_DEPLOYMENT" --yes --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
