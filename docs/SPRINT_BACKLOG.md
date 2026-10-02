@@ -677,9 +677,9 @@ Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and
 
 ### S064 — Embedded assembly picker in estimate Items
 
-Status: BLOCKED
+Status: PLANNED
 Dependencies: S053
-Blocked by: resolve open PR #520 and reconcile its Assembly Catalog mapping changes before implementation.
+Readiness note: PR #520 merged on 2026-09-22 and its Assembly Catalog mapping changes are now part of main. The remaining execution gate is completion of S053; do not start S064 before that dependency is satisfied.
 Objective: Embed installed and starter assembly selection inside the estimate Items stage.
 Acceptance: search, setup-required mapping, cost preview, quantity, explicit add, provenance, and line refresh work without leaving the estimate.
 

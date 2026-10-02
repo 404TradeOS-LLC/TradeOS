@@ -2,7 +2,7 @@
 
 **Status:** Canonical written design contract for TradeOS product UI.  
 **Canonical Figma:** file key `xImUa9CYUjx3Cb3zTrkfnY` — `[CANONICAL] TradeOS — Product + Design System Source of Truth`.  
-**Last reconciled:** 2026-09-27.
+**Last reconciled:** 2026-10-02.
 
 This file is the written companion to the canonical Figma master. It is intentionally not a screen-by-screen replacement for Figma. It defines the permanent visual system, interaction grammar, product language, responsive rules, reusable patterns, and implementation boundaries that frontend work must preserve.
 
@@ -72,6 +72,10 @@ The canonical Figma file uses one working master:
 - `90 — Mobile`
 - `91 — States`
 - `99 — Archive`
+
+Enumeration was re-verified on 2026-10-02 through the Figma Plugin API: all 21 pages above exist in the canonical file. The cover also contains `[CANONICAL] File Contents / Linked 21-Page Directory` at frame `348:2`.
+
+A no-`nodeId` `get_metadata` call may under-report the page list (it returned only `00 — Product Design Cover` and `03 — Components` during this audit). That is a connector listing limitation, not a file-structure defect. For agent discovery, enumerate `figma.root.children` through the Figma write/read execution tool or use the canonical directory frame; explicit page IDs remain addressable with metadata reads. Do not recreate, delete, or merge pages merely because the top-level metadata listing is incomplete.
 
 Do not create a second design-system file, a second product-screen authority, or an alternate component library for TradeOS.
 

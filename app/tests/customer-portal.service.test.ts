@@ -104,6 +104,26 @@ describe("CustomerPortalService", () => {
     expect(mockTransaction.customerPortalSession.create).not.toHaveBeenCalled();
   });
 
+  it("denies revoked and expired links before attempting a session write", async () => {
+    mockTransaction.customerPortalAccessToken.findFirst.mockResolvedValue(null);
+    for (const token of ["D".repeat(43), "E".repeat(43)]) {
+      await expect(new CustomerPortalService().redeemAccessToken(token)).rejects.toThrow("invalid, expired, or already used");
+    }
+    expect(mockTransaction.customerPortalAccessToken.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ redeemedAt: null, revokedAt: null, expiresAt: { gt: expect.any(Date) } }),
+    }));
+    expect(mockTransaction.customerPortalSession.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed access and session values before querying for their hashes", async () => {
+    const service = new CustomerPortalService();
+    for (const secret of ["short", "?".repeat(43), "x".repeat(129)]) {
+      await expect(service.redeemAccessToken(secret)).rejects.toThrow("Invalid access token");
+      await expect(service.resolveSession(secret)).rejects.toThrow("Invalid portal session");
+    }
+    expect(mockBasePrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("revokes an access token and all sessions redeemed from it", async () => {
     mockPrisma.customerPortalAccessToken.findFirst.mockResolvedValue({ id: "access-1" });
     mockPrisma.customerPortalAccessToken.updateMany.mockResolvedValue({ count: 1 });
@@ -124,6 +144,52 @@ describe("CustomerPortalService", () => {
     expect(mockPrisma.project.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "project-b", orgId: "org-a", customerId: "customer-a" },
     }));
+  });
+
+  it("checks both organization and customer for every document and PDF before reading", async () => {
+    const service = new CustomerPortalService() as any;
+    service.proposals = { getById: jest.fn(), getPdf: jest.fn() };
+    service.invoices = { getById: jest.fn(), getPdf: jest.fn() };
+    service.contracts = { getById: jest.fn(), getPdf: jest.fn(), signAsPortalCustomer: jest.fn() };
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    mockPrisma.proposal.findFirst.mockResolvedValue(null);
+    mockPrisma.invoice.findFirst.mockResolvedValue(null);
+    mockPrisma.contract.findFirst.mockResolvedValue(null);
+
+    for (const [resource, method] of [
+      ["proposal", "getProposal"], ["proposal", "getProposalPdf"],
+      ["invoice", "getInvoice"], ["invoice", "getInvoicePdf"],
+      ["contract", "getContract"], ["contract", "getContractPdf"], ["contract", "signContract"],
+    ] as const) {
+      await expect(service[method](context, `${resource}-b`, { signerName: "Customer" })).rejects.toThrow("not found");
+      expect(mockPrisma[resource].findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: `${resource}-b`, project: { orgId: "org-a", customerId: "customer-a" } }),
+      }));
+    }
+    expect(service.proposals.getPdf).not.toHaveBeenCalled();
+    expect(service.invoices.getPdf).not.toHaveBeenCalled();
+    expect(service.contracts.getPdf).not.toHaveBeenCalled();
+    expect(service.contracts.signAsPortalCustomer).not.toHaveBeenCalled();
+  });
+
+  it("denies draft proposal and invoice detail as well as PDF", async () => {
+    const service = new CustomerPortalService() as any;
+    service.proposals = { getById: jest.fn().mockResolvedValue({ status: "draft" }) };
+    service.invoices = { getById: jest.fn().mockResolvedValue({ status: "draft" }) };
+    mockPrisma.proposal.findFirst.mockResolvedValue({ id: "proposal-a", status: "draft" });
+    mockPrisma.invoice.findFirst.mockResolvedValue({ id: "invoice-a", status: "draft" });
+    const context = { sessionId: "s", accessTokenId: "a", orgId: "org-a", customerId: "customer-a" };
+    await expect(service.getProposal(context, "proposal-a")).rejects.toThrow("not found");
+    await expect(service.getInvoice(context, "invoice-a")).rejects.toThrow("not found");
+  });
+
+  it("denies expired and revoked sessions before loading customer records", async () => {
+    mockTransaction.customerPortalSession.findFirst.mockResolvedValue(null);
+    await expect(new CustomerPortalService().resolveSession("F".repeat(43))).rejects.toThrow("invalid or expired");
+    expect(mockTransaction.customerPortalSession.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ revokedAt: null, expiresAt: { gt: expect.any(Date) } }),
+    }));
+    expect(mockTransaction.customer.findFirst).not.toHaveBeenCalled();
   });
 
   it("does not expose draft proposal or invoice PDFs", async () => {

@@ -73,9 +73,8 @@ function hasPreviewTarget(target) {
 export function deploymentSupabaseProjectRef(envs, branch, deploymentCreatedAt) {
   const applicable = envs.filter(env => env?.key === "NEXT_PUBLIC_SUPABASE_URL" && hasPreviewTarget(env.target));
   const branchScoped = applicable.filter(env => env.gitBranch === branch);
-  const sharedPreview = applicable.filter(env => !env.gitBranch);
-  const candidates = branchScoped.length > 0 ? branchScoped : sharedPreview;
-  const candidate = [...candidates]
+  assert.ok(branchScoped.length > 0, "Branch-scoped Vercel Preview NEXT_PUBLIC_SUPABASE_URL is required; redeploy before mutating evidence");
+  const candidate = [...branchScoped]
     .sort((a, b) => Number(b.updatedAt ?? b.createdAt ?? 0) - Number(a.updatedAt ?? a.createdAt ?? 0))[0];
   assert.ok(candidate?.value, "Vercel Preview NEXT_PUBLIC_SUPABASE_URL is required for deployment data-plane attestation");
   const configuredAt = Number(candidate.updatedAt ?? candidate.createdAt ?? 0);
