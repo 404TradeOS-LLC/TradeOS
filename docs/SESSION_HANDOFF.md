@@ -154,7 +154,7 @@ certification from readiness or a repository merge alone.
 ## Next Eligible Sprint
 
 Sprint ID: S064
-Eligibility: READY in the canonical backlog under the implementation-vs-certification dependency policy.
-Dependencies: S051 is DONE; PR #520 Assembly Catalog mapping and PR #560 reviewed estimate-assist contracts are already on main.
-Parallel certification: S053 remains IN_REVIEW and must still pass its full authenticated browser evidence before any release-certification claim that depends on it.
-Startup prompt: Reconcile current main, continue any non-overlapping S053 evidence/repair lane separately, and implement the bounded embedded Assembly Picker in Estimate Items without weakening review-first writes, provenance, setup-required handling, tenant isolation, or Estimate Engine ownership.
+Eligibility: READY in the canonical backlog; S053 remains IN_REVIEW and still blocks release certification, not S064 implementation.
+Dependencies: S051 is DONE; PR #520 and PR #560 are merged implementation prerequisites.
+Overlap check: Continue S053 evidence/repair work only in its existing lanes; do not duplicate it inside S064.
+Startup prompt: Reconcile current main and implement the bounded embedded Assembly Picker in Estimate Items without weakening review-first writes, provenance, setup-required handling, tenant isolation, pricing truth, or Estimate Engine ownership.
