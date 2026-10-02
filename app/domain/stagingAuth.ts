@@ -14,7 +14,6 @@ export interface StagingAuthEnvironment {
   TRADEOS_AUTH_BYPASS?: string;
   NODE_ENV?: string;
   VERCEL_ENV?: string;
-  VERCEL_GIT_COMMIT_REF?: string;
   APP_ENVIRONMENT?: string;
   NEXT_PUBLIC_SUPABASE_URL?: string;
   SUPABASE_URL?: string;
@@ -48,11 +47,11 @@ function supabaseProjectRef(raw?: string): string | null {
 export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | "api"): StagingAuthDecision {
   const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase();
   const appEnv = env.APP_ENVIRONMENT?.trim().toLowerCase();
-  const gitRef = env.VERCEL_GIT_COMMIT_REF?.trim();
+  const supabaseRef = supabaseProjectRef(layer === "web" ? env.NEXT_PUBLIC_SUPABASE_URL : env.SUPABASE_URL);
   const explicitlyEnabled = env.TRADEOS_AUTH_BYPASS === "true";
-  const dedicatedStagingBranch = vercelEnv === "preview" && gitRef === "staging";
+  const isolatedStagingPreview = vercelEnv === "preview" && supabaseRef === STAGING_AUTH.supabaseRef;
 
-  if (!explicitlyEnabled && !dedicatedStagingBranch) return { enabled: false, blocked: false };
+  if (!explicitlyEnabled && !isolatedStagingPreview) return { enabled: false, blocked: false };
 
   const deny = (reason: string): StagingAuthDecision => ({ enabled: false, blocked: true, reason });
   if (vercelEnv === "production") return deny("Vercel Production cannot enable auth bypass");
@@ -60,7 +59,6 @@ export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | 
   if (env.NODE_ENV === "production" && vercelEnv !== "preview") return deny("Production runtime cannot enable auth bypass");
   if (vercelEnv && vercelEnv !== "preview") return deny("Only Vercel Preview can enable auth bypass");
   if (!vercelEnv && appEnv !== "staging") return deny("Local bypass requires APP_ENVIRONMENT=staging");
-  const supabaseRef = supabaseProjectRef(layer === "web" ? env.NEXT_PUBLIC_SUPABASE_URL : env.SUPABASE_URL);
   if (supabaseRef !== STAGING_AUTH.supabaseRef) return deny("Supabase URL is not the dedicated staging project");
   if (layer === "api" && databaseProjectRef(env.DATABASE_URL) !== STAGING_AUTH.supabaseRef) {
     return deny("Database URL is not the dedicated staging project");
