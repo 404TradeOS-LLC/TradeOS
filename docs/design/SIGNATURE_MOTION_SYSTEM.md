@@ -136,7 +136,7 @@ Rules:
 - blocked/changed state remains explicit
 - advance only after backend acknowledgement
 
-Use the Figma state token (240 ms) for ordinary state transition where implementation data is available. Reduced motion uses the Figma reduced token (100 ms).
+Use the Figma state token (240 ms) for ordinary state transition where implementation data is available. For reduced motion, use the Figma reduced token (100 ms) for stateful JavaScript motion only when the component specifies it and the reduced-motion requirements below permit it. CSS transitions and animations follow the global reduced-motion override.
 
 ### Price Delta
 
