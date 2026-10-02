@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-30
+last_verified: 2026-10-02
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -11,6 +11,13 @@ related_docs:
 ---
 
 # Session Handoff
+
+## Design/backlog reconciliation — 2026-10-02
+
+- Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
+- PR #520 is merged. S064's stale Assembly Catalog blocker is removed; S064 is `PLANNED` and remains gated by S053 completion.
+- S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
+
 
 ## Nightly release repair — desktop estimate visibility, 2026-10-02
 
