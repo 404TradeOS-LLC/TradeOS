@@ -6,6 +6,16 @@ async function readSource(path: string): Promise<string> {
   return readFile(new URL(path, import.meta.url), "utf8");
 }
 
+test("estimate editing stays visible when the mobile workflow hides at lg", async () => {
+  const builder = await readSource("./builder.tsx");
+  const desktopClass = builder.match(/<div className="([^"]+)"[^>]*>\s*<div className="space-y-5">/)?.[1];
+
+  assert.ok(desktopClass, "desktop editing workspace must exist");
+  assert.match(builder, /<section className="space-y-4 lg:hidden" aria-label="Mobile estimate workflow"/);
+  assert.ok(desktopClass.split(/\s+/).includes("lg:grid"), "desktop editing must become visible at the same lg breakpoint");
+  assert.ok(!desktopClass.split(/\s+/).includes("grid"), "desktop editing must remain hidden below lg");
+});
+
 test("mobile estimate keeps the canonical four-stage workflow", async () => {
   const builder = await readSource("./builder.tsx");
 

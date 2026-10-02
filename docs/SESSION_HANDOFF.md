@@ -12,6 +12,28 @@ related_docs:
 
 # Session Handoff
 
+## Nightly release repair — desktop estimate visibility, 2026-10-02
+
+- Classification: `NEW_WORK_REQUIRED`; base main
+  `9e53cde9c35396bf5d5b2bd22b154c9b37e3d9de`, Sprint ID: NONE.
+- Production Dashboard and draft estimate access were verified read-only in an
+  existing signed-in browser session. Desktop estimate editing was absent after
+  reload: the mobile section hides at `lg`, and the desktop section never shows.
+- Branch `fix/desktop-estimate-visibility` restores the existing desktop display
+  at `lg` and adds a failing-before/passing-after visibility regression. No auth,
+  data, pricing, lifecycle, schema, or design-system change is included.
+- Production API is READY at current main; frontend is READY at parent `1c107830`.
+  Their intervening commit changes CI/docs only. `/health` and `/ready` pass,
+  including database/schema readiness. No runtime error clusters were returned.
+- Exact-main repository verification passed, but authenticated full-flow evidence
+  remains outstanding. Historical Sign out failure was repaired by merged #561;
+  no new current-head smoke run was available. Do not reassert database-auth
+  failure from old PR descriptions.
+- This gate must not merge the repair. Next: independent exact-head CI/review,
+  merge through PR Autopilot, verify desktop estimate controls after deployment,
+  run sanitized Preview estimating/portal/payment certification, retain mobile
+  viewport evidence.
+
 ## Active maintenance: native merge queue — 2026-10-01
 
 - Classification: `NEW_WORK_REQUIRED`; current main verified as

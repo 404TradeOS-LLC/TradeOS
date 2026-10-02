@@ -177,7 +177,7 @@ export function EstimateBuilder({ projectId, projectName, estimateId, simpleScop
         finalizePending={finalize.isPending}
       />
 
-      <div className="hidden grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
+      <div className="hidden gap-5 lg:grid xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.8fr)]">
         <div className="space-y-5">
           <Card className="rounded-none border-x-0 border-border/70 bg-transparent shadow-none">
             <CardHeader className="space-y-2">

@@ -62,6 +62,16 @@ related_code:
 
 # Current State
 
+## Desktop estimate visibility repair — 2026-10-02
+
+The nightly gate reproduced a production draft estimate showing only its header
+and totals at a desktop viewport. The mobile workflow hides at `lg`, while the
+desktop editing container had no responsive display override. This repair makes
+the existing desktop workspace visible at `lg`, preserving the staged mobile
+flow below that breakpoint. A focused regression checks the matching visibility
+boundary. CI and post-merge/deployment browser verification remain required;
+this repair is not a release-certification or sprint-completion claim.
+
 ## Staging auth bypass work in progress
 
 The `feature/staging-auth-bypass` branch implements a gated fixture owner for credential-free Preview Playwright checks and a visible banner. The dedicated Supabase staging project contains a synthetic organization, owner, project, and draft estimate. This is not yet deployed or browser-verified on Vercel Preview; the current Preview API readiness is blocked by a database authentication error. Vercel Production remains denied by the guard. Do not count these branch changes as current production behavior.
