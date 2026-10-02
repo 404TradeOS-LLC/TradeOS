@@ -187,6 +187,8 @@ Change-order reads require `billing.read`; all change-order mutations, including
 
 `runWithBackgroundDatabaseSession` passes its resolved, membership-derived `AuthContext` to the operation it runs rather than only using it to establish the Postgres RLS session. Existing zero-argument callbacks remain compatible. `app/scripts/ingest-jones-and-sons-candidates.ts` uses that verified context to submit Jones & Sons Terre Haute research candidates without trusting a caller-supplied role.
 
+`GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero.
+
 Background scheduler jobs are not REST endpoints. The existing one-shot supplier
 price-sync and Athena observability scripts run each configured organization
 and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
