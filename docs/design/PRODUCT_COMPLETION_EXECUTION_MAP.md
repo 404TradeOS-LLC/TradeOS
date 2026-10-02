@@ -1,7 +1,7 @@
 ---
 status: current
 owner: product-design
-last_verified: 2026-10-01
+last_verified: 2026-10-02
 source_of_truth: false
 related_code:
   - web/src/app/globals.css
