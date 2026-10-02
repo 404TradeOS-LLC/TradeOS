@@ -178,7 +178,7 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; optional otherwise; browser estimate probe also requires `_PROJECT_ID` |
 | `BETA_RC_BASE_URL` (repository variable) | `BETA_RC_BASE_URL_VARIABLE` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_URL` | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_SHA` | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
@@ -264,7 +264,9 @@ not yet implement.
 For every viewport it must prove:
 
 - a real authenticated estimate exists in the synthetic tenant;
-- Athena produces at least one resolved suggestion from one of the bounded
+- an intentionally unmapped scope renders a blocked **Setup required** state,
+  cannot enable Apply, and creates no estimate line;
+- Athena then produces at least one resolved suggestion from one of the bounded
   certification scopes;
 - confidence and governed provenance language are visible;
 - generating and locally accepting a suggestion leaves authoritative estimate
@@ -274,7 +276,10 @@ For every viewport it must prove:
 - authoritative estimate pricing changes after the applied priced item;
 - the added line survives a builder reload;
 - the S053-created line is removed before the canonical fixed-price beta flow
-  continues, so existing tax/markup assertions remain independent.
+  continues, so existing tax/markup assertions remain independent;
+- tenant isolation includes a POST to the foreign estimate's Athena draft route
+  and requires a 403/404 denial. The `s053` scenario therefore requires
+  `BETA_RC_FOREIGN_ESTIMATE_ID` in addition to the ordinary foreign resource fixture.
 
 If a deployment cannot produce a resolved priced suggestion, the scenario fails.
 That is an evidence failure to investigate; the runner must not silently replace
