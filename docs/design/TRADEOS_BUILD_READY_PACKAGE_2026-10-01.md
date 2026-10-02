@@ -39,7 +39,7 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 - [ ] Reconcile live Figma page enumeration before any destructive or structural Figma write.
 - [x] Reconcile `PRODUCT_COMPLETION_EXECUTION_MAP.md` to the one canonical Figma master and current merged PR state.
 - [ ] Run documentation validation on this branch.
-- [ ] Open a governed PR and let required CI verify the final head.
+- [x] Open governed PR #607; required CI must verify the final head before readiness.
 
 ### P0 — next executable product slice
 
