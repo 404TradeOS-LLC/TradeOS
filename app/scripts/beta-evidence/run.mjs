@@ -83,6 +83,7 @@ const baseEnv = {
   BETA_EVIDENCE_DIR: evidenceDir,
   BETA_ALLOW_MUTATIONS: String(allowMutations),
   BETA_SCENARIO: scenario,
+  BETA_REQUIRE_SHA_CORRELATION: scenario === "s053" ? "true" : (process.env.BETA_REQUIRE_SHA_CORRELATION ?? "false"),
   BETA_STARTED_AT: process.env.BETA_STARTED_AT ?? new Date().toISOString(),
   ...(hasFlag("headed") ? { PWDEBUG: "0", BETA_HEADED: "true" } : {}),
 };
