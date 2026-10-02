@@ -142,6 +142,7 @@ jobs:
           HAS_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD != '' }}
           HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
           HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
+          HAS_FOREIGN_ESTIMATE: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
         run: |
           set -euo pipefail
           missing=0
@@ -157,10 +158,14 @@ jobs:
             echo "| BETA_RC_SMOKE_PASSWORD | ${HAS_PASSWORD} |"
             echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
             echo "| BETA_RC_FOREIGN_PROJECT_ID or _CUSTOMER_ID | ${HAS_FOREIGN_PROJECT} |"
+            echo "| BETA_RC_FOREIGN_ESTIMATE_ID (required for s053) | ${HAS_FOREIGN_ESTIMATE} |"
           } >> "$GITHUB_STEP_SUMMARY"
           for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_PROJECT"; do
             [ "$flag" = "true" ] || missing=1
           done
+          if [ "$BETA_SCENARIO" = "s053" ] && [ "$HAS_FOREIGN_ESTIMATE" != "true" ]; then
+            missing=1
+          fi
           {
             echo
             if [ "$missing" -eq 0 ]; then
@@ -190,6 +195,10 @@ jobs:
           # under a project, so a customer or project id must be present.
           if [ -z "${BETA_FOREIGN_PROJECT_ID}" ] && [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ]; then
             echo "::error::BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required so tenant isolation can be proven."
+            fail=1
+          fi
+          if [ "$BETA_SCENARIO" = "s053" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
+            echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
             fail=1
           fi
           exit "$fail"
