@@ -30,6 +30,7 @@ related_code:
   - app/scripts/s036-index-evidence.sh
   - .github/workflows/stale-pr-check.yml
   - .github/workflows/s027-browser-evidence.yml
+  - .github/workflows/s053-browser-evidence.yml
   - .github/workflows/docs-reconciliation.yml
   - .github/workflows/merge-readiness.yml
   - .github/workflows/merge-queue.yml
@@ -42,6 +43,8 @@ related_code:
 ---
 
 # TradeOS Engineering Command Center
+
+S053 evidence continuation (2026-10-02): the dedicated branch wrapper runs the canonical Beta Evidence `s053` scenario against an exact-head frontend Preview and the current `staging` backend/data plane. It first uses the existing guarded staging-repair contract when the current staging SHA has no READY backend Preview, proves the fixed synthetic staging estimate exists under the dedicated fixture identity, and then verifies that the separate Beta smoke tenant is denied. This is certification tooling only; S053 remains `READY` until a full retained run passes.
 
 S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22, so the stale Assembly Catalog blocker is removed. S064 is `PLANNED` and remains dependent on S053 completion; this documentation change does not make S064 executable or claim S053 complete.
 
