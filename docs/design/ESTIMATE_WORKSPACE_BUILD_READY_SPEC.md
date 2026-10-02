@@ -223,11 +223,13 @@ Athena must not:
 - Permission failures and cross-tenant attempts do not leak data or imply success.
 - No customer-facing proposal is created until the existing proposal contract acknowledges success.
 
-## Implementation branch and verification
+## Certification and repair branch
 
-Target branch when S053 is started:
+PR #560 is merged and owns the landed S053 estimator implementation. PR #559 is closed as superseded. The next action is certification against current `main`, not a duplicate feature branch.
 
-`feat/s053-scope-athena-estimate-certification`
+If certification exposes a concrete defect, use one bounded repair branch such as:
+
+`fix/s053-estimate-certification-findings`
 
 Required safety constraints:
 
@@ -241,8 +243,8 @@ Verification commands must include the repository-required gates plus focused ap
 
 ## Next five TODO items
 
-1. Reconcile current S053 overlap against live PRs/branches immediately before implementation.
-2. Map each Figma Scope/Items/Price/Review frame to existing production components and routes.
-3. Add/repair only the smallest state transitions needed for one continuous estimating act.
-4. Add focused regressions for no-silent-write, setup-required, refresh-failure, and tenant denial.
-5. Capture final rendered desktop/mobile evidence and update current-state docs only after merge.
+1. Run S053 certification against the PR #560 implementation already on current `main`.
+2. Map each Figma Scope/Items/Price/Review frame to the landed production components/routes and record mismatches instead of assuming them.
+3. If a concrete mismatch is reproduced, repair only the smallest root cause on one bounded branch.
+4. Add focused regressions only for validated defects, preserving no-silent-write, setup-required, refresh-failure, and tenant-denial contracts.
+5. Capture final authenticated 1440/768/390 evidence and update sprint/current-state evidence only after the governing completion gates are satisfied.
