@@ -59,7 +59,7 @@ invoice, or estimate status treatment into a second one-off component.
 | Order | Contractor outcome | Backlog gate | Design and production handoff |
 | --- | --- | --- | --- |
 | 0 | Consistent foundation | This map plus merged PR #558 | Audit existing tokens and components; map the canonical Figma source and release contract; verify 390/768/1024/1440, light/dark, focus, loading, error, and empty states. |
-| 1 | Rough scope becomes reviewed priced estimate | S053 certification, then S064 | PR #560 landed the contractor-first estimator flow; certify one clarification at a time, explicit reviewed add, provenance, persisted refresh, and responsive behavior before unblocking S064. |
+| 1 | Rough scope becomes reviewed priced estimate | S053 certification, then S064 | PR #560 landed the contractor-first estimator flow; certify explicit reviewed add, provenance, persisted refresh, and responsive behavior. The one-question clarification flow remains separate TARGET work until its persisted answer/regenerate contract exists. |
 | 2 | Customer can review and approve work | S059 then S054 | Portal access and scope first; proposal acceptance, signature, and deposit behavior follow their separate governed contracts. |
 | 3 | Customer work becomes dispatched field work | S052, S056, S057, then S061–S067 | CRM → project/job → schedule → field; preserve existing identity, conflict, and job transition rules. |
 | 4 | Work changes can be priced and billed | S068, S058 | Change order review, invoice, payment state; protect historical snapshots and exact money values. |
