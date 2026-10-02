@@ -65,6 +65,23 @@ test("mobile Items reuse the authoritative edit and delete path while exposing o
   assert.match(builder, /Custom item/);
 });
 
+test("embedded assembly picker previews installed assemblies and gates unmapped starters", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  assert.match(builder, /\/assemblies\/starter-catalog/);
+  assert.match(builder, /kind: "costItem" \| "assembly" \| "starterAssembly"/);
+  assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/unit-cost/);
+  assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/items\?limit=6&sort=sortOrder&order=asc/);
+  assert.match(builder, /Current Costbook recipe\. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it\./);
+  assert.match(builder, /Estimated job cost for/);
+  assert.match(builder, /Provenance: organization Costbook assembly \+ live component pricing/);
+  assert.match(builder, /Setup required before this assembly can be priced or added\./);
+  assert.match(builder, /Map each starter recipe slot to an active Costbook item/);
+  assert.match(builder, /TradeOS will not invent those mappings or a price/);
+  assert.match(builder, /\[item\.kind === "costItem" \? "costItemId" : "assemblyId"\]/);
+  assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
+});
+
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");
