@@ -20,11 +20,11 @@ It is a working handoff, not a competing source of truth. Current `main`, canoni
 - Classification: `NEW_WORK_REQUIRED` for this documentation/specification package.
 - Chosen action: create one docs-only branch and hand off the next implementation slices without changing runtime behavior.
 
-## Important Figma reconciliation note
+## Figma page enumeration — resolved
 
-The written design contract lists the full canonical page structure, while the live Figma metadata call used for this pass enumerated only `00 — Product Design Cover` and `03 — Components`. The same live file does expose Estimate Workspace frames and motion components under those returned pages.
+Direct inspection of the Figma document on 2026-10-02 confirmed all 21 canonical pages defined by `.stitch/DESIGN.md`. The existing cover frame `348:2` already provides the linked 21-page directory.
 
-Treat this as a connector/enumeration discrepancy, not evidence that the other canonical pages are gone. Do not delete, recreate, or broadly restructure Figma until the page enumeration discrepancy is reconciled.
+The earlier two-page metadata result was an incomplete listing from that inspection path, not a problem with the canonical file. Explicit reads of omitted pages also succeed.
 
 ## Master TODO list
 
