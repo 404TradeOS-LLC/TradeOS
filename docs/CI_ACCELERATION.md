@@ -146,3 +146,5 @@ These workflows do not:
 - attempt to repair the known Vercel Git control-plane issue.
 
 Automation validates evidence and shortens feedback loops; repository governance remains authoritative.
+
+The full run also accepts a scenario selector. `canonical` preserves the existing end-to-end beta path; opt-in `s053` adds authenticated Athena review/no-silent-write/apply/pricing/persistence checkpoints without changing runtime product behavior. A passing workflow run is still required before S053 can cite current-head browser evidence.

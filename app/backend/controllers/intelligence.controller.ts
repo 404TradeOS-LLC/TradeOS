@@ -20,6 +20,7 @@ import {
   notificationPriorities,
   notificationStatuses,
 } from "../../modules/intelligence/types";
+import { FinancialSummaryService } from "../../modules/intelligence/financialSummary";
 
 const searchService = new GlobalSearchService();
 const activityService = new ActivityTimelineService();
@@ -30,6 +31,7 @@ const tagsService = new TagsService();
 const savedViewsService = new SavedViewsService();
 const recentItemsService = new RecentlyViewedService();
 const featureFlagsService = new FeatureFlagsService();
+const financialSummaryService = new FinancialSummaryService();
 
 const entityTypeSchema = z.enum(intelligenceEntityTypes);
 
@@ -175,6 +177,11 @@ const evaluateFeatureFlagSchema = z.object({
 });
 
 export const intelligenceController = {
+  async financialSummary(req: Request, res: Response) {
+    requirePermissions(req, ["billing.read"]);
+    res.json(await financialSummaryService.getOrganizationSummary(requireOrgId(req)));
+  },
+
   async search(req: Request, res: Response) {
     const query = searchQuerySchema.parse(req.query);
     res.json(

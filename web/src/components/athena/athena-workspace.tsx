@@ -224,7 +224,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
   };
 
   return (
-    <div className="grid gap-5">
+    <div className="mx-auto grid w-full max-w-5xl gap-5">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 pb-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Athena</p>
@@ -235,7 +235,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
         </div>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_280px]">
+      <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="grid content-start gap-4">
           <section className="rounded-2xl border border-border/70 bg-card p-4">
             <div className="flex items-center justify-between gap-2">
@@ -374,7 +374,7 @@ export function AthenaWorkspace({ selectedScope }: AthenaWorkspaceProps) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+          <section className="border-t border-border/70 pt-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Not exposed by this response</p>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               The chat result does not yet return a provider-by-provider “context used” list. This workspace does not invent one. Degraded context appears only when the kernel reports it.
