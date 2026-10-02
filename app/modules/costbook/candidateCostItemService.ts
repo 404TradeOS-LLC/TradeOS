@@ -142,6 +142,8 @@ export function resetKnowledgeCorpusReportCache(): void {
 }
 
 export class CostbookCandidateService {
+  constructor(private readonly db: Prisma.TransactionClient | typeof prisma = prisma) {}
+
   private readonly costDatabase = new CostDatabaseService();
   private readonly costbook = new CostbookService();
 
@@ -175,7 +177,7 @@ export class CostbookCandidateService {
       // at creation time; every candidate starts as "candidate".
     });
 
-    const row = await prisma.costbookResearchCandidate.create({
+    const row = await this.db.costbookResearchCandidate.create({
       data: {
         orgId: auth.orgId,
         trade: parsed.trade,

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-30
+last_verified: 2026-10-02
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -11,6 +11,22 @@ related_docs:
 ---
 
 # Session Handoff
+
+## Active S053 browser certification tooling — 2026-10-02
+
+- Classification: `NEW_WORK_REQUIRED`; no open S053 PR/branch overlapped this certification-tooling gap when current main `8d6c8a838e8fcafe0de7049aaaed75b655d1e25f` was reconciled.
+- Branch: `test/s053-browser-certification`.
+- The existing Beta Evidence workflow gains an opt-in `s053` scenario. It keeps the canonical full workflow and adds Athena review checkpoints asserting visible confidence/provenance, no estimate-line write before explicit Apply, reviewed Estimate Engine persistence, pricing refresh, and reload persistence.
+- The scenario uses only the approved non-production synthetic tenant and existing Beta smoke authentication/data-plane guards. It does not weaken auth/RLS, introduce product writes outside the existing Estimate Engine path, or claim the one-question clarification target exists.
+- S053 remains incomplete until the branch is verified/merged and a full authenticated `s053` evidence run passes at the required viewports with retained artifacts.
+
+
+## Design/backlog reconciliation — 2026-10-02
+
+- Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
+- PR #520 is merged. S064's stale Assembly Catalog blocker is removed; S064 is `PLANNED` and remains gated by S053 completion.
+- S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
+
 
 ## Nightly release repair — desktop estimate visibility, 2026-10-02
 

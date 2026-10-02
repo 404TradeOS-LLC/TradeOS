@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -14,6 +14,9 @@ related_code:
 ---
 
 # TradeOS Bible
+
+Governance reconciliation (2026-10-02): PR #520 is merged, so S064 no longer carries that stale Assembly Catalog blocker. S064 remains `PLANNED` and depends on S053 completion. This does not alter the startup rule: only a `READY` sprint is directly executable. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
+
 
 The TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
 

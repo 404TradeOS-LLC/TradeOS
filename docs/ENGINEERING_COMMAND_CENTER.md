@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -42,6 +42,9 @@ related_code:
 ---
 
 # TradeOS Engineering Command Center
+
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22, so the stale Assembly Catalog blocker is removed. S064 is `PLANNED` and remains dependent on S053 completion; this documentation change does not make S064 executable or claim S053 complete.
+
 
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit
 `status:merge-queue` consent once and enqueues an eligible exact head through
@@ -294,6 +297,6 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
 
 
-## S053 implementation update — 2026-09-22
+## S053 certification update — 2026-10-02
 
-PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.
+The structured scope-to-estimate implementation is already on `main`; S053 remains `READY` because authenticated browser certification is still required. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.

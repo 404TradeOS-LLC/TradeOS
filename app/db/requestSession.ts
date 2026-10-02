@@ -79,7 +79,7 @@ export interface BackgroundDatabaseSessionInput {
 export async function runWithBackgroundDatabaseSession<T>(
   client: PrismaClient,
   input: BackgroundDatabaseSessionInput,
-  operation: () => Promise<T>
+  operation: (auth: AuthContext) => Promise<T>
 ): Promise<T> {
   if (!/^[a-z0-9][a-z0-9:_-]{1,63}$/i.test(input.jobName)) {
     throw new Error("Background job name must be 2-64 letters, numbers, colons, underscores, or hyphens");
@@ -113,7 +113,7 @@ export async function runWithBackgroundDatabaseSession<T>(
     };
   });
 
-  return runWithDatabaseSession(client, auth, operation, `job:${input.jobName}`);
+  return runWithDatabaseSession(client, auth, () => operation(auth), `job:${input.jobName}`);
 }
 
 export function getDatabaseTransactionMaxWait(): number {

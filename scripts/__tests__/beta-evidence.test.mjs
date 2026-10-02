@@ -348,10 +348,55 @@ test("a storage state path whose parent does not exist yet is still checked", as
 
 const workflow = read(".github/workflows/beta-evidence.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
+const runner = read("app/scripts/beta-evidence/run.mjs");
+const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
 const authSetup = read("app/scripts/beta-evidence/auth-setup.mjs");
 const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
 const seedGuard = read("app/db/seed/productionGuard.ts");
 const seed = read("app/db/seed/seed.ts");
+
+test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
+  assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s053/);
+  assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
+  assert.match(workflow, /BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario/);
+  assert.match(workflow, /BETA_REQUIRE_SHA_CORRELATION: \$\{\{ inputs\.scenario == \'s053\' \|\| inputs\.require_sha_correlation \}\}/);
+  assert.match(runner, /--scenario=<canonical\|s053>/);
+  assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(runner, /BETA_REQUIRE_SHA_CORRELATION: scenario === "s053" \? "true"/);
+  assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(capture, /if \(scenario === "s053"\)/);
+});
+
+test("S053 browser evidence proves review-first behavior before an explicit apply", () => {
+  assert.match(capture, /s053-setup-required/);
+  assert.match(capture, /s053-athena-review/);
+  assert.match(capture, /s053-athena-applied/);
+  assert.match(capture, /unmapped Athena scope fails safe as setup required/);
+  assert.match(capture, /setup-required Athena draft does not write estimate lines/);
+  assert.match(capture, /setup-required Athena draft cannot be applied/);
+  assert.match(isolation, /foreign S053 Athena draft/);
+  assert.match(isolation, /foreign S053 Athena apply/);
+  assert.match(isolation, /ai-estimator\/draft/);
+  assert.match(isolation, /ai-estimator\/apply/);
+  assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
+  assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
+  assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
+  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
+});
+
+test("S053 scenario validation requires its Athena checkpoints and passing assertions", () => {
+  assert.match(validator, /scenario === "s053"/);
+  assert.match(validator, /s053-setup-required/);
+  assert.match(validator, /s053-athena-review/);
+  assert.match(validator, /s053-athena-applied/);
+  assert.match(validator, /scenarioFailures/);
+  assert.match(validator, /S053 certification requires exact SHA correlation/);
+  assert.match(validator, /foreign S053 Athena draft/);
+  assert.match(validator, /foreign S053 Athena apply/);
+  assert.match(validator, /scenario screenshot/);
+  assert.match(validator, /Scenario evidence/);
+});
 
 test("the workflow runs every evidence stage at all four viewports", () => {
   for (const viewport of ["1440", "1024", "768", "390"]) {
