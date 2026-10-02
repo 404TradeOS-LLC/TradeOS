@@ -50,7 +50,7 @@ related_code:
 
 S064 extends the existing Estimate Items picker without creating a parallel estimator. Installed tenant assemblies are searched through the existing assembly search contract, previewed with the existing current-unit-cost and recipe-item endpoints, and added only through the canonical Estimate Engine line-item mutation. The preview is advisory: it shows current cost/component evidence and selected-quantity job cost, while the Estimate Engine owns the persisted pricing snapshot/source identity.
 
-The picker also searches the reviewed TradeOS starter catalog. A starter recipe that is not installed is shown as **Setup required** with its mapping slots and catalog review metadata; it is not assigned an invented price and cannot be added as an Estimate line. Inline Cost Item mapping/install remains S064 follow-up work.
+The picker also searches the reviewed TradeOS starter catalog. A starter recipe that is not installed is shown as **Setup required** with its mapping slots and catalog review metadata; it is not assigned an invented price and cannot be added as an Estimate line. The contractor can map every recipe slot inline to an active compatible Costbook item, with duplicate and incompatible mappings rejected before install. Once mapping is complete, the picker resolves the same read-only Cost Item unit-cost preview used by the Costbook catalog, installs through the existing tenant-scoped starter-catalog contract, converts the selection to the installed organization assembly, and still requires a separate explicit Estimate **Add**.
 
 ## Purpose
 
