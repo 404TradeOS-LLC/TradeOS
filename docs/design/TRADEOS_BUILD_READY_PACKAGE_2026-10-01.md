@@ -64,7 +64,7 @@ Treat this as a connector/enumeration discrepancy, not evidence that the other c
 - [ ] Confirm reduced-motion behavior for every signature motion before implementation.
 - [ ] Confirm that no routine hover, tab, row, or dashboard motion is being added only for decoration.
 - [ ] Reconcile Costbook trust copy so factual provenance is never converted into an invented universal score.
-- [ ] Keep Customer Portal customer actions separate from staff capabilities and from unsupported payment/legal claims.
+- [x] Classify current Customer Portal access/document/signature/payment states from current module docs; keep customer actions separate from staff capabilities and unsupported payment/legal claims.
 
 ### P2 — evidence and release follow-through
 
