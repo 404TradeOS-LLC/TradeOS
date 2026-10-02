@@ -210,7 +210,7 @@ Athena must not:
 - use width for provenance, explanation, and review context
 - do not turn the estimator into a dashboard card wall
 
-## Acceptance criteria for S053 implementation
+## Acceptance criteria for S053 certification
 
 - Rough scope can be submitted and restored on failure.
 - Athena interpretation distinguishes suggestion from persisted truth.
