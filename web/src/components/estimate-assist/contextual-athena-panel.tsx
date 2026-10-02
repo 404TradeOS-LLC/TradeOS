@@ -32,12 +32,14 @@ export function ContextualAthenaPanel({
   estimateId,
   scopeOfWork,
   projectId,
+  isDraft,
   headingId = "contextual-athena-heading",
   onAdded,
 }: {
   estimateId: string;
   scopeOfWork: string;
   projectId: string;
+  isDraft: boolean;
   headingId?: string;
   onAdded?: () => void;
 }) {
@@ -130,7 +132,7 @@ export function ContextualAthenaPanel({
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <p className="text-xs text-muted-foreground">{suggestion.quantity} {suggestion.unit} suggested · review before adding</p>
-                  {suggestion.resolution.target ? (
+                  {isDraft && suggestion.resolution.target ? (
                     <Button
                       type="button"
                       size="sm"
