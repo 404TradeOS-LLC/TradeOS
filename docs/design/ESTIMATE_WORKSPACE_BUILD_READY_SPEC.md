@@ -216,11 +216,12 @@ Inspected `builder.tsx`, `estimate-mobile-contract.test.ts` and `ai-estimate-ass
 
 Therefore Figma may specify richer trust detail, but current production must not require or fabricate supplier/freshness/confidence badges after apply unless the persisted/API contract is separately extended.
 
+The canonical one-question clarification interaction remains a separate TARGET product behavior. Current production does not expose the persisted answer/regenerate contract needed to certify that interaction, so S053 certification must not fail on its absence or simulate it.
+
 ## Acceptance criteria for S053 certification
 
 - Rough scope can be submitted and restored on failure.
 - Athena interpretation distinguishes suggestion from persisted truth.
-- At most one necessary clarification is presented at a time.
 - Reviewed Costbook/Assembly choices can be explicitly applied.
 - Setup-required/missing-price states fail safely.
 - Persisted Estimate Items retain source/provenance information required by the current contract.
