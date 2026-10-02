@@ -61,6 +61,12 @@ Any product change that widens those boundaries requires separate review.
 | Global | Empty | PARTIAL | Explain that there is nothing available in this section | Empty ≠ error; certify per route |
 | Global | Error | PARTIAL | Preserve session safety and retry where appropriate | No sensitive diagnostics; certify per route |
 
+## Figma reconciliation — 2026-10-01
+
+The Copperline mobile frames visually include proposal acceptance, change approval, invoice payment, work authorization and selection approval. Current public capability is narrower: Proposal and Invoice are read-only; pending Contract signing is the implemented customer-originated mutation. The other actions remain target-only until governed public mutations exist.
+
+Engineering may reuse the customer-document grammar without wiring target-only buttons merely because they exist in Figma.
+
 ## Responsive behavior
 
 ### Mobile
