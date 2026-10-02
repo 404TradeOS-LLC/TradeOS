@@ -45,20 +45,16 @@ function supabaseProjectRef(raw?: string): string | null {
 
 /** A Preview is explicitly allowed although Next.js sets NODE_ENV=production there. */
 export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | "api"): StagingAuthDecision {
+  if (env.TRADEOS_AUTH_BYPASS !== "true") return { enabled: false, blocked: false };
+  const deny = (reason: string): StagingAuthDecision => ({ enabled: false, blocked: true, reason });
   const vercelEnv = env.VERCEL_ENV?.trim().toLowerCase();
   const appEnv = env.APP_ENVIRONMENT?.trim().toLowerCase();
-  const supabaseRef = supabaseProjectRef(layer === "web" ? env.NEXT_PUBLIC_SUPABASE_URL : env.SUPABASE_URL);
-  const explicitlyEnabled = env.TRADEOS_AUTH_BYPASS === "true";
-  const isolatedStagingPreview = vercelEnv === "preview" && supabaseRef === STAGING_AUTH.supabaseRef;
-
-  if (!explicitlyEnabled && !isolatedStagingPreview) return { enabled: false, blocked: false };
-
-  const deny = (reason: string): StagingAuthDecision => ({ enabled: false, blocked: true, reason });
   if (vercelEnv === "production") return deny("Vercel Production cannot enable auth bypass");
   if (appEnv === "production" || appEnv === "prod") return deny("Production application environment cannot enable auth bypass");
   if (env.NODE_ENV === "production" && vercelEnv !== "preview") return deny("Production runtime cannot enable auth bypass");
   if (vercelEnv && vercelEnv !== "preview") return deny("Only Vercel Preview can enable auth bypass");
   if (!vercelEnv && appEnv !== "staging") return deny("Local bypass requires APP_ENVIRONMENT=staging");
+  const supabaseRef = supabaseProjectRef(layer === "web" ? env.NEXT_PUBLIC_SUPABASE_URL : env.SUPABASE_URL);
   if (supabaseRef !== STAGING_AUTH.supabaseRef) return deny("Supabase URL is not the dedicated staging project");
   if (layer === "api" && databaseProjectRef(env.DATABASE_URL) !== STAGING_AUTH.supabaseRef) {
     return deny("Database URL is not the dedicated staging project");
