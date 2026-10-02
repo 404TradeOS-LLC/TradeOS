@@ -3,7 +3,9 @@
   "framework": "nextjs",
   "git": {
     "deploymentEnabled": {
-      "main": true
+      "*": false,
+      "main": true,
+      "staging": true
     }
   },
   "ignoreCommand": "sh vercel-ignore-build.sh"
