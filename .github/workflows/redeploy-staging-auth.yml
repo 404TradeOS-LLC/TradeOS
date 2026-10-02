@@ -1,0 +1,53 @@
+name: Redeploy staging after auth environment repair
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - ".github/workflows/redeploy-staging-auth.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: redeploy-staging-auth
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: team_nY1VrcaEYEr4rcW7Gxweq7LP
+    steps:
+      - name: Require Vercel token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}" || { echo "::error::GitHub secret VERCEL_TOKEN is missing."; exit 1; }
+
+      - name: Deploy current staging branch to both Vercel projects
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_project() {
+            local project="$1"
+            local response
+            response="$(curl -fsS --request POST               --url "https://api.vercel.com/v13/deployments?teamId=${VERCEL_TEAM_ID}"               --header "Authorization: Bearer ${VERCEL_TOKEN}"               --header "Content-Type: application/json"               --data "$(jq -cn --arg project "$project" '{
+                name: $project,
+                project: $project,
+                gitSource: {
+                  type: "github",
+                  org: "404TradeOS-LLC",
+                  repo: "TradeOS",
+                  ref: "staging"
+                }
+              }')")"
+            echo "$response" | jq -e '.id and .url' >/dev/null
+            echo "$project deployment: $(echo "$response" | jq -r '.id') https://$(echo "$response" | jq -r '.url')"
+          }
+
+          deploy_project "tradeos-costbook"
+          deploy_project "tradeos-costbook-web"
