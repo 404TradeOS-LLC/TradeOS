@@ -102,6 +102,10 @@ const artifactResult = validation.ok ? "PASS" : "FAIL";
 
 const scenarioFailures = [];
 if (scenario === "s053") {
+  const s053IsolationProbe = (isolation?.probes ?? []).find((probe) => probe.name === "foreign S053 Athena draft");
+  if (!s053IsolationProbe?.passed) {
+    scenarioFailures.push("tenant isolation: foreign S053 Athena draft denial was not proven");
+  }
   for (const viewport of viewports) {
     const report = viewportReports[viewport.name];
     const checkpointNames = new Set((report?.checkpoints ?? []).map((checkpoint) => checkpoint.name));
