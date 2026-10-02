@@ -365,8 +365,12 @@ test("S053 evidence is opt-in and defaults do not change the canonical beta flow
 });
 
 test("S053 browser evidence proves review-first behavior before an explicit apply", () => {
+  assert.match(capture, /s053-setup-required/);
   assert.match(capture, /s053-athena-review/);
   assert.match(capture, /s053-athena-applied/);
+  assert.match(capture, /unmapped Athena scope fails safe as setup required/);
+  assert.match(capture, /setup-required Athena draft does not write estimate lines/);
+  assert.match(capture, /setup-required Athena draft cannot be applied/);
   assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
   assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
@@ -376,6 +380,7 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
 
 test("S053 scenario validation requires its Athena checkpoints and passing assertions", () => {
   assert.match(validator, /scenario === "s053"/);
+  assert.match(validator, /s053-setup-required/);
   assert.match(validator, /s053-athena-review/);
   assert.match(validator, /s053-athena-applied/);
   assert.match(validator, /scenarioFailures/);
