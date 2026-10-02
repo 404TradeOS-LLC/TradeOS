@@ -200,8 +200,27 @@ async function runS053Certification(projectId, estimateId) {
 
   const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
   const scopeInput = page.locator("textarea").first();
-  await scopeInput.fill(setupScope);
-  await page.getByRole("button", { name: "Run Athena review" }).click();
+
+  async function generateAthenaDraft(scopeValue) {
+    await scopeInput.fill(scopeValue);
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (candidate) =>
+          candidate.request().method() === "POST" &&
+          new URL(candidate.url()).pathname === `/api/proxy/estimates/${estimateId}/ai-estimator/draft`,
+        { timeout: 60_000 },
+      ),
+      page.getByRole("button", { name: "Run Athena review" }).click(),
+    ]);
+    assertBusiness(
+      "Athena draft request succeeds before its result is inspected",
+      response.ok(),
+      `Athena draft returned HTTP ${response.status()}`,
+    );
+    await page.getByRole("button", { name: "Run Athena review" }).waitFor({ timeout: 60_000 });
+  }
+
+  await generateAthenaDraft(setupScope);
   await page.getByText("Setup required", { exact: true }).waitFor({ timeout: 60_000 });
   const setupText = await page.locator("body").innerText();
   assertBusiness(
@@ -234,9 +253,7 @@ async function runS053Certification(projectId, estimateId) {
   let resolvedScope = null;
 
   for (const candidateScope of candidateScopes) {
-    await scopeInput.fill(candidateScope);
-    await page.getByRole("button", { name: "Run Athena review" }).click();
-    await page.getByRole("heading", { name: "Human review" }).waitFor({ timeout: 60_000 });
+    await generateAthenaDraft(candidateScope);
 
     const acceptButtons = page.getByRole("button", { name: "Accept", exact: true });
     const acceptCount = await acceptButtons.count();
