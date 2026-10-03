@@ -43,7 +43,7 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-S062 implementation (2026-10-02): readiness/governance is merged and PR #629 is `IN_REVIEW` for only the two reconciled Universal Create continuity gaps. The branch carries the persisted Customer id into the created Customer workspace and preserves validated context-free Job intent through Project creation. Release-certification prerequisites S052/S056/S058 remain separate.
+S062 implementation merge (2026-10-03): PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks. The created Customer opens its record and context-free Job intent continues through Project creation. S052/S056/S058 release certification remains separate. S063 is next for bounded continuity on the existing Project-backed Lead and derived CRM surfaces; no duplicate CRM persistence model.
 
 S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
 
@@ -305,7 +305,7 @@ The structured scope-to-estimate implementation is already on `main`; S053 is `I
 
 ## S062 Universal Create reconciliation — 2026-10-02
 
-PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. PR #629 now implements the two bounded remaining gaps and S062 is `IN_REVIEW`: a newly created Customer opens its Customer record, and context-free Create → Job preserves `intent=job` through Project creation and continues into that Project's Job workflow. Do not duplicate PR #615 or broaden this sprint into unrelated navigation work.
+PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. PR #629 merged the two bounded remaining gaps and S062 remains `IN_REVIEW` pending browser/permission/refresh evidence: a newly created Customer opens its Customer record, and context-free Create → Job preserves `intent=job` through Project creation and continues into that Project's Job workflow. Do not duplicate PR #615 or broaden this sprint into unrelated navigation work.
 
 
 ## S061 Today implementation reconciliation — 2026-10-02
