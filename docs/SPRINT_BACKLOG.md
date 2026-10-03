@@ -683,12 +683,12 @@ Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today c
 
 ### S062 — Universal Create continuity
 
-Status: PLANNED
+Status: READY
 Dependencies: none
 Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
 Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
-Reconciliation note (2026-10-02): PR #615 landed the shared Universal Create route contract and restored context-aware entry routing for Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena. S062 is not complete. Two current-main gaps remain: (1) Customer creation still redirects to the Customers list rather than the newly created Customer record, and (2) the no-existing-Project Job path sends the user to Project creation but does not preserve `intent=job` through Project creation and continue into the new Project's Job workflow. Do not reopen the already-landed navigation work; the future S062 implementation should be bounded to these continuity gaps plus focused regression coverage.
+Readiness evidence (2026-10-02): current `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` already contains PR #615's shared Universal Create routing contract and PR #625's bounded reconciliation. Live open-PR review found no S062 implementation branch or PR. The implementation scope is limited to two reproduced continuity gaps: (1) Customer creation must redirect to the newly created Customer record instead of `/customers`, and (2) context-free Create → Job must preserve `intent=job` through Project creation and continue into `/projects/{projectId}/jobs/new`. S062 has no implementation dependency; S052/S056/S058 remain release-certification prerequisites only. Do not recreate or broaden the already-landed Estimate/Invoice/Change Order/Schedule/Athena routing.
 
 ### S063 — CRM lead and proposal-pipeline workspace
 
