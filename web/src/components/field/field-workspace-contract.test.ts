@@ -16,7 +16,7 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(page, /prioritizeFieldJobs\(await listFieldJobs\(token, summary\.todayRangeUtc\)\)/);
   assert.match(page, /on_site: 0,[\s\S]*traveling: 1,[\s\S]*paused: 2,[\s\S]*dispatched: 3,[\s\S]*completed: 6,[\s\S]*cancelled: 7/);
   assert.match(page, /getFieldJob\(token, selectedId\)/);
-  assert.match(page, /aria-label="Today's jobs"/);
+  assert.match(page, /aria-label="Field jobs"/);
   assert.match(page, /id="current-job-heading"/);
   assert.match(page, /<section aria-labelledby="current-job-heading"/);
   assert.doesNotMatch(page, /<main aria-labelledby="current-job-heading"/);
@@ -31,6 +31,19 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(actions, /\/api\/v1\/jobs/);
   assert.match(actions, /notes/);
   assert.match(proxy, /"\/field\/:path\*"/);
+});
+
+test("direct field job links preserve the requested assigned job without silently switching to today's first job", async () => {
+  const page = await readSource("../../app/(app)/field/page.tsx");
+
+  assert.match(page, /const requestedJobId = query\.job\?\.trim\(\) \|\| null/);
+  assert.match(page, /const selectedId = requestedJobId \?\? jobs\[0\]\?\.id/);
+  assert.doesNotMatch(page, /query\.job && jobs\.some\(\(job\) => job\.id === query\.job\) \? query\.job : jobs\[0\]\?\.id/);
+  assert.match(page, /getFieldJob\(token, selectedId\)/);
+  assert.match(page, /selectedOutsideToday/);
+  assert.match(page, /This assigned job is outside today’s list/);
+  assert.match(page, /Today’s assigned job list couldn’t load/);
+  assert.match(page, /visibleJobs\.map/);
 });
 
 test("field action controls remain bounded to the existing lifecycle transitions", async () => {
