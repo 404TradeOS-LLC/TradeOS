@@ -725,8 +725,8 @@ Acceptance: contractor-entered dimensions/quantities remain reviewable, calculat
 Status: READY
 Dependencies: none
 Release certification prerequisites: S057
-Objective: Turn project/job mobile pages into one field action workspace for instructions, contacts, schedule, files, notes, status, and blockers.
-Acceptance: the next action is obvious, critical context remains reachable offline only when explicitly supported, and role restrictions remain intact.
+Objective: Turn project/job mobile pages into one field action workspace for schedule, address, instructions, notes, status, and the next authorized Job action.
+Acceptance: the next authorized action is obvious, persisted field context stays compact and readable, truthful loading/empty/error states are preserved, and role/assignment restrictions remain intact.
 Readiness reconciliation (2026-10-03): current main `7c9a694d1ced0c07904fbe5132cae81d5f077cf9`; no open S066 implementation PR or branch was found. S064 is `IN_REVIEW` and S065 depends on S064, making S066 the lowest-numbered implementation candidate with satisfied `Dependencies:`. Existing PR #554/S032 already supplies authenticated, assignment-scoped `/field` with today's jobs, directions, briefing, notes and bounded Job transitions; `/projects/[id]` still presents a broad tabbed desktop-oriented workspace and read-only scheduled Job cards. Preserve the existing `/field` route and Job/Project APIs. The bounded S066 slice is mobile continuity from the canonical Project/Job context to the appropriate authorized field action, with compact schedule/address/instructions/notes/status context and a single state-aware next action. Use only persisted data and existing permissions; preserve desktop operation and truthful load/empty/error states. Do not introduce an offline cache/sync claim, photo/issue/change-order/inventory/messaging/timekeeping persistence, new lifecycle transition, backend route, schema/migration, auth/RBAC/RLS change, or financial handoff. The richer Figma frames remain TARGET where unsupported. Founder decision: NO for this bounded reuse of established contracts; stop if a new field action, offline policy, or permission is necessary. Autonomy category: bounded frontend and PR workflow. Required validation: focused field/project navigation and state tests, full Web test/lint/build, docs ownership and governance checks, exact-head hosted checks and review/branch currency. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure and refresh evidence is required before `DONE`; S057 remains a separate release-certification prerequisite.
 
 ### S067 — Scheduling calendar and visit continuity
@@ -1006,8 +1006,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is `READY`; S063 implementation merged but remains IN_REVIEW pending certification, and S064 is separately IN_REVIEW.
-Dependencies: S063 has none; S052/S054 are release-certification prerequisites.
-Overlap check: PR #631 is merged; do not duplicate PRs #582/#586/#587/#631. Continue S063 only for evidence or reproduced defects.
-Startup prompt: Capture S063 authenticated CRM mobile/desktop journey and permission/tenant-negative/refresh evidence against a current non-production deployment; repair only reproduced defects, then reconcile completion.
+Sprint ID: S066
+Eligibility: `READY` after the 2026-10-03 readiness reconciliation; `Dependencies: none`. S064 remains `IN_REVIEW`, so S065 is not yet eligible.
+Dependencies: none. S057 is a release-certification prerequisite, not an implementation dependency.
+Overlap check: no open S066 implementation PR or branch was found at readiness inspection. Reuse the existing authenticated `/field` route and canonical Project/Job contracts.
+Startup prompt: Implement the bounded mobile Project/Job-to-Field continuity for schedule, address, instructions, notes, status, and the next authorized Job action. Preserve assignment/tenant boundaries and truthful refresh/error behavior; do not add unsupported offline/photo/issue/change/inventory/messaging/timekeeping behavior.
