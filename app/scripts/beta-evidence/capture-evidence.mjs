@@ -378,6 +378,18 @@ try {
   );
   await checkpoint("01", "authenticated-shell");
 
+  if (scenario === "s052") {
+    const ownerSettings = await page.evaluate(async () => {
+      const response = await fetch("/api/proxy/settings", { headers: { Accept: "application/json" } });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    });
+    assertBusiness(
+      "S052 smoke identity is the owner role",
+      ownerSettings.status === 200 && ownerSettings.body?.currentRole === "owner",
+      `HTTP ${ownerSettings.status}, role=${ownerSettings.body?.currentRole ?? "missing"}`,
+    );
+  }
+
   // ---- 02 customer + project --------------------------------------------
   const customerEmail = `rc-evidence-${scopeSuffix}@example.invalid`;
   await page.goto(new URL("/customers/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
@@ -431,15 +443,36 @@ try {
       `duplicate link was ${await existingCustomerLink.getAttribute("href")}`,
     );
 
+    const readCustomerMatches = async () => page.evaluate(async (query) => {
+      const response = await fetch(`/api/proxy/customers?query=${encodeURIComponent(query)}&limit=250`, {
+        headers: { Accept: "application/json" },
+      });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    }, customerEmail);
+    const beforeInvalidSubmit = await readCustomerMatches();
+    assertBusiness(
+      "customer validation baseline is readable",
+      beforeInvalidSubmit.status === 200 && Array.isArray(beforeInvalidSubmit.body),
+      `HTTP ${beforeInvalidSubmit.status}`,
+    );
+
     await page.locator('[name="name"]').fill("");
     const missingNameValidity = await page.locator('[name="name"]').evaluate((element) => ({
       valueMissing: element.validity.valueMissing,
       valid: element.checkValidity(),
     }));
+    await page.getByRole("button", { name: "Create customer" }).click();
+    await page.waitForTimeout(150);
+    const afterInvalidSubmit = await readCustomerMatches();
+    const beforeIds = (beforeInvalidSubmit.body ?? []).map((customer) => customer.id).sort();
+    const afterIds = (afterInvalidSubmit.body ?? []).map((customer) => customer.id).sort();
     assertBusiness(
       "required customer validation blocks blank name before mutation",
-      missingNameValidity.valueMissing && !missingNameValidity.valid,
-      JSON.stringify(missingNameValidity),
+      missingNameValidity.valueMissing &&
+        !missingNameValidity.valid &&
+        afterInvalidSubmit.status === 200 &&
+        JSON.stringify(afterIds) === JSON.stringify(beforeIds),
+      `validity=${JSON.stringify(missingNameValidity)}, before=${beforeIds.length}, after=${afterIds.length}`,
     );
   }
 
