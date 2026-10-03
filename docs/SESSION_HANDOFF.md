@@ -175,8 +175,8 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 
 - Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; draft PR #637 on `test/s052-customer-project-certification` is the sole active S052 certification lane.
 - Classification: `NEW_WORK_REQUIRED` for certification tooling only; Customer/ServiceAddress/Project product implementation remains the merged PR #586/#629 contract.
-- The initial #637 slice adds the opt-in `s052` Beta Evidence selector, dedicated synthetic admin/inactive fixture guards, exact-SHA correlation, and fail-closed validator requirements. It intentionally cannot report S052 PASS yet.
-- Continue on #637 with owner/admin Customer→ServiceAddress→Project persistence/reload, duplicate/validation, inactive-membership denial, cross-tenant proof, and responsive evidence. Missing fixtures stay NOT READY; do not substitute founder credentials.
+- PR #637 now implements the bounded `s052` evidence harness: owner Customer create/update, ServiceAddress persistence, duplicate/required validation, Customer-linked Project persistence/reload; synthetic admin Customer→Project proof at 1440/768/390; inactive-membership denial; existing foreign Customer/Project tenant probes; exact-SHA correlation; and scenario-specific artifact validation.
+- Continue on #637 with exact-head CI/review, then run S052 preflight and one full retained non-production evidence matrix when the required synthetic fixtures and matching deployment are available. Missing fixtures stay NOT READY; do not substitute founder credentials.
 - Stop for founder review if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
 
 ## Next Eligible Sprint
