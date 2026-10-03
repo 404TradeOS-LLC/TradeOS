@@ -683,21 +683,22 @@ Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today c
 
 ### S062 — Universal Create continuity
 
-Status: IN_REVIEW
+Status: DONE
 Dependencies: none
 Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
 Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
 Readiness evidence (2026-10-02): current `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` already contains PR #615's shared Universal Create routing contract and PR #625's bounded reconciliation. Live open-PR review found no S062 implementation branch or PR. The implementation scope is limited to two reproduced continuity gaps: (1) Customer creation must redirect to the newly created Customer record instead of `/customers`, and (2) context-free Create → Job must preserve `intent=job` through Project creation and continue into `/projects/{projectId}/jobs/new`. S062 has no implementation dependency; S052/S056/S058 remain release-certification prerequisites only. Do not recreate or broaden the already-landed Estimate/Invoice/Change Order/Schedule/Athena routing.
-Implementation status (2026-10-02): PR #629 implements only the two authorized continuity repairs. Customer creation carries the server-returned Customer id into the canonical Customer workspace; context-free Create → Job preserves a validated `job` intent through Project creation and continues into that Project's Job workflow. Focused regression coverage pins both contracts. S062 remains `IN_REVIEW` until exact-head CI/review/merge evidence is complete, and S052/S056/S058 remain release-certification prerequisites.
+Implementation status (2026-10-02): PR #629 implements only the two authorized continuity repairs. Customer creation carries the server-returned Customer id into the canonical Customer workspace; context-free Create → Job preserves a validated `job` intent through Project creation and continues into that Project's Job workflow. Focused regression coverage pins both contracts. S062 implementation completed in merged PR #629 (`6f6a0a6567c1413c837afc86b943c1c45f5f03e0`): exact-head Web lint/build/tests, docs consistency, sprint governance, branch currency, dependency review, and repository verification passed; review threads were empty. S052/S056/S058 remain separate release-certification prerequisites; this merge is not browser certification.
 
 ### S063 — CRM lead and proposal-pipeline workspace
 
-Status: PLANNED
+Status: READY
 Dependencies: none
 Release certification prerequisites: S052, S054
 Objective: Complete the pre-job lifecycle as Leads + Customers + Follow-ups + Proposal Pipeline without creating a parallel customer source of truth.
 Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and accepted-proposal handoff are connected and mobile usable.
+Readiness reconciliation (2026-10-03): PR #582 landed Project-backed New Lead and Site Visit → Estimate handoff; PR #587 landed the authenticated /crm overview composed from Customers, Projects, incomplete Project Tasks, Site Visit events, and Proposal queue state; PR #586 landed Customer/address connectivity. Reuse these records and routes. Current /crm shows at most five follow-ups; desktop pipeline renders at most five Projects per lane and mobile renders only the first Project per lane, leaving additional work unreachable from that view. The Task DTO includes assignedTo, but the overview does not surface ownership. Proposal Sent and Awarded are already derived from Proposal/Project truth; acceptance side effects remain owned by their existing services. S063 implementation is limited to complete, bounded access to existing pipeline and follow-up records on mobile/desktop, truthful task ownership through the existing assignment contract, and explicit navigation from accepted proposals into the canonical awarded Project. Preserve partial-source errors and existing lifecycle authority. No Lead/opportunity/follow-up table, CRM-stage persistence, schema/migration, RBAC/RLS change, proposal acceptance mutation, or new financial semantics. Focused behavioral tests and required frontend/docs checks must pass. S052/S054 remain release-certification prerequisites, not implementation dependencies.
 
 ### S064 — Embedded assembly picker in estimate Items
 
@@ -1001,8 +1002,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S062 is `IN_REVIEW` in PR #629.
-Dependencies: S063 has no implementation dependencies but remains `PLANNED` and requires a separate readiness promotion after S062 is resolved.
-Overlap check: Continue S062 only in PR #629; keep S053 and S059 evidence/readiness lanes separate.
-Startup prompt: Finish PR #629 exact-head verification, resolve deterministic review findings, merge when branch protection permits, then reconcile the next eligible sprint from current main.
+Sprint ID: S063
+Eligibility: `READY`; no implementation dependencies. S052/S054 remain release-certification prerequisites.
+Dependencies: none
+Overlap check: PRs #582/#586/#587 are merged; no open S063 implementation PR was found at readiness. Do not recreate Project-backed Lead, Customer, or derived CRM overview.
+Startup prompt: From current main, implement bounded complete access to CRM pipeline/follow-ups, existing Task ownership display, and canonical awarded-Project handoff with focused Web tests. Preserve existing domain and tenant boundaries.
