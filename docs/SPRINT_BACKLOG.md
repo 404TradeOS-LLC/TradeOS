@@ -1000,8 +1000,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; continue active S064 PR #624 until its bounded implementation and verification are complete.
-Dependencies: S064 remains `IN_REVIEW`; S065 depends on S064 and is not eligible.
-Overlap check: Continue S064 only in PR #624 and keep S053 evidence/repair work in its existing separate lanes.
-Startup prompt: Continue PR #624 on feature/s064-embedded-assembly-picker, finish inline setup-required mapping/install inside Estimate Items, run required verification, and do not start S065 until S064 is merged and reconciled.
+Sprint ID: S062
+Eligibility: `READY`; no implementation dependencies. Release-certification prerequisites do not block implementation under the merged #623 separation rule.
+Dependencies: none
+Overlap check: No open S062 implementation PR exists; keep S053 evidence/repair lanes separate and do not duplicate PR #615 routing work.
+Startup prompt: Execute S062 from a fresh implementation branch, repairing only Customer post-create navigation and context-free Job-through-Project intent continuity with focused regression coverage.
