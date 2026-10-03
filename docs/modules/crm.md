@@ -83,7 +83,7 @@ Customer detail returns active ServiceAddress rows already owned by the CRM serv
 - `/customers/[id]` — canonical customer operating workspace composed from the Customer record, active service addresses, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth; mutations remain permission-aware
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
 
-S063 PR #631 extends the existing /crm overview: loaded follow-ups are all displayed up to the existing 50-record API request cap with assignedTo or Unassigned truth; rows link to the Project Tasks tab. Desktop lanes disclose additional loaded Projects after the first five, and mobile lanes expand to list every loaded Project. Awarded Projects link to the canonical Project workspace. These are branch changes pending merge and browser certification.
+Merged S063 PR #631 extends the existing /crm overview: loaded follow-ups are all displayed up to the existing 50-record API request cap with assignedTo or Unassigned truth; rows link to the Project Tasks tab. Desktop lanes disclose additional loaded Projects after the first five, and mobile lanes expand to list every loaded Project. Awarded Projects link to the canonical Project workspace. The code is on main; browser and permission/refresh certification remains outstanding.
 
 The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded remain canonical Project statuses; Ready to Estimate is derived from a real Site Visit milestone; Proposal Sent is derived from Proposal status; and Follow-ups are existing incomplete Project Tasks.
 
