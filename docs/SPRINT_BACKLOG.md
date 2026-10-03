@@ -684,6 +684,7 @@ Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today c
 ### S062 — Universal Create continuity
 
 Status: DONE
+Evidence: PR #629 merged 2026-10-03 as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; exact-head Web lint/build/tests, Docs consistency, Sprint governance, branch currency, dependency review, and Verify repository passed. Browser release certification remains separate.
 Dependencies: none
 Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
