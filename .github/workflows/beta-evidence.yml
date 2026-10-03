@@ -152,10 +152,8 @@ jobs:
           HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
           HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
           HAS_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD != '' }}
-          HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
-          HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
-          HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
-          HAS_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD != '' }}
+          HAS_FOREIGN_CUSTOMER: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
+          HAS_FOREIGN_PROJECT_S052: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' }}
         run: |
           set -euo pipefail
           missing=0
@@ -178,24 +176,19 @@ jobs:
             echo "| BETA_RC_S052_INACTIVE_PASSWORD | ${HAS_S052_INACTIVE_PASSWORD} |"
             echo "| S052 admin identity | $([ "${HAS_S052_ADMIN_EMAIL}" = "true" ] && [ "${HAS_S052_ADMIN_PASSWORD}" = "true" ] && echo true || echo false) |"
             echo "| S052 inactive identity | $([ "${HAS_S052_INACTIVE_EMAIL}" = "true" ] && [ "${HAS_S052_INACTIVE_PASSWORD}" = "true" ] && echo true || echo false) |"
+            echo "| S052 foreign Customer | ${HAS_FOREIGN_CUSTOMER} |"
+            echo "| S052 foreign Project | ${HAS_FOREIGN_PROJECT_S052} |"
           } >> "$GITHUB_STEP_SUMMARY"
           for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_PROJECT"; do
             [ "$flag" = "true" ] || missing=1
           done
           if [ "$BETA_SCENARIO" = "s052" ]; then
-            for flag in "$HAS_S052_ADMIN_EMAIL" "$HAS_S052_ADMIN_PASSWORD" "$HAS_S052_INACTIVE_EMAIL" "$HAS_S052_INACTIVE_PASSWORD"; do
+            for flag in "$HAS_S052_ADMIN_EMAIL" "$HAS_S052_ADMIN_PASSWORD" "$HAS_S052_INACTIVE_EMAIL" "$HAS_S052_INACTIVE_PASSWORD" "$HAS_FOREIGN_CUSTOMER" "$HAS_FOREIGN_PROJECT_S052"; do
               [ "$flag" = "true" ] || missing=1
             done
           fi
           if [ "$BETA_SCENARIO" = "s053" ] && [ "$HAS_FOREIGN_ESTIMATE" != "true" ]; then
             missing=1
-          fi
-          if [ "$BETA_SCENARIO" = "s052" ]; then
-            for flag in "$HAS_S052_ADMIN_EMAIL" "$HAS_S052_ADMIN_PASSWORD" "$HAS_S052_INACTIVE_EMAIL" "$HAS_S052_INACTIVE_PASSWORD"; do
-              [ "$flag" = "true" ] || missing=1
-            done
-            [ "${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}" = "true" ] || missing=1
-            [ "${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' }}" = "true" ] || missing=1
           fi
           {
             echo
@@ -230,20 +223,6 @@ jobs:
           fi
           if [ "$BETA_SCENARIO" = "s052" ]; then
             if [ -z "${BETA_S052_ADMIN_EMAIL}" ] || [ -z "${BETA_S052_ADMIN_PASSWORD}" ]; then
-              echo "::error::BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 scenario."
-              fail=1
-            fi
-            if [ -z "${BETA_S052_INACTIVE_EMAIL}" ] || [ -z "${BETA_S052_INACTIVE_PASSWORD}" ]; then
-              echo "::error::BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial."
-              fail=1
-            fi
-          fi
-          if [ "$BETA_SCENARIO" = "s053" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
-            echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
-            fail=1
-          fi
-          if [ "$BETA_SCENARIO" = "s052" ]; then
-            if [ -z "${BETA_S052_ADMIN_EMAIL}" ] || [ -z "${BETA_S052_ADMIN_PASSWORD}" ]; then
               echo "::error::BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 admin happy-path evidence."
               fail=1
             fi
@@ -255,6 +234,10 @@ jobs:
               echo "::error::BETA_RC_FOREIGN_CUSTOMER_ID and BETA_RC_FOREIGN_PROJECT_ID are both required for the s052 cross-tenant evidence."
               fail=1
             fi
+          fi
+          if [ "$BETA_SCENARIO" = "s053" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
+            echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
+            fail=1
           fi
           exit "$fail"
 
