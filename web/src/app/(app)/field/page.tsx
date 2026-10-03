@@ -33,6 +33,10 @@ function errorMessage(error: unknown) {
   return error instanceof ApiClientError ? error.message : "Unable to load the field workspace.";
 }
 
+function firstSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 const FIELD_STATUS_PRIORITY: Record<FieldJobDetail["status"], number> = {
   on_site: 0,
   traveling: 1,
@@ -48,7 +52,11 @@ function prioritizeFieldJobs(jobs: Awaited<ReturnType<typeof listFieldJobs>>) {
   return [...jobs].sort((left, right) => FIELD_STATUS_PRIORITY[left.status] - FIELD_STATUS_PRIORITY[right.status]);
 }
 
-export default async function FieldPage({ searchParams }: { searchParams: Promise<{ job?: string; updated?: string }> }) {
+export default async function FieldPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ job?: string | string[]; updated?: string | string[] }>;
+}) {
   const token = await getSessionToken();
   if (!token) return <EmptyState title="Sign in to view your field day" description="Your assigned jobs appear here after authentication." />;
 
@@ -67,7 +75,8 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
     loadError = errorMessage(error);
   }
 
-  const requestedJobId = query.job?.trim() || null;
+  const requestedJobId = firstSearchParam(query.job)?.trim() || null;
+  const updated = firstSearchParam(query.updated);
   if (loadError && !requestedJobId) {
     return <EmptyState title="Couldn't load your field day" description={loadError} />;
   }
@@ -78,7 +87,12 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
 
   if (selectedId) {
     try {
-      selectedJob = await getFieldJob(token, selectedId);
+      const job = await getFieldJob(token, selectedId);
+      if (job.archivedAt) {
+        selectedError = "This job is archived. Open an active assigned job instead.";
+      } else {
+        selectedJob = job;
+      }
     } catch (error) {
       selectedError = errorMessage(error);
     }
@@ -115,7 +129,7 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
 
-      {query.updated ? (
+      {updated ? (
         <p className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success" role="status">
           Job updated successfully.
         </p>
