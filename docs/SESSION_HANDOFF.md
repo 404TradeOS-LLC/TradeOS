@@ -171,10 +171,18 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
 - Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
 
+## S052 certification readiness — 2026-10-03
+
+- Classification: `EXISTING_WORK_FOUND`; product implementation is already merged through PR #586, with created-Customer continuity repaired by PR #629.
+- The stale `feature/s052-customer-project-vertical-certification` branch must not be revived; it is far behind current `main`.
+- S052 is now `READY` for certification tooling only: an opt-in `s052` Beta Evidence scenario proving owner/admin happy paths, validation/duplicate behavior, ServiceAddress and Project persistence/reload, inactive-membership denial, cross-tenant denial, and 1440/768/390 responsive evidence.
+- Dedicated synthetic fixtures are required. Missing owner/admin/inactive/foreign fixtures must produce NOT READY, never a weakened check or founder-account substitution.
+- Stop if passing evidence requires product redesign, Customer merge policy, auth/RBAC/RLS, schema/migration, role/permission, domain-model, or production-data changes.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: S066 implementation PR #634 is merged; do not create a competing implementation branch. Only retained certification evidence or a defect reproduced by that evidence justifies further S066 code work. S053/S059/Costbook lanes remain separate.
-Startup prompt: Resume S066 only for retained authenticated 390/768 responsive, assignment/tenant-negative, failure, and refresh evidence when a suitable non-production deployment is available. Repair only a reproduced current-main defect; otherwise leave S066 `IN_REVIEW`. Do not begin another numbered sprint from this branch.
+Sprint ID: S052
+Eligibility: READY; S051 is DONE and no active S052 implementation/certification PR overlaps this bounded evidence lane.
+Dependencies: S051 is DONE through merged PR #538.
+Overlap check: Reuse current-main Customer/Project implementation from PR #586 and continuity from PR #629; do not revive stale PR #565 or its branch. Existing S053/S059/Costbook lanes remain separate.
+Startup prompt: Start S052 on a fresh certification branch. Add only the bounded `s052` Beta Evidence scenario and focused harness tests/fixture requirements from docs/architecture/S052_CUSTOMER_PROJECT_CERTIFICATION_PLAN.md. Publish one draft PR, then move S052 to IN_REVIEW. Do not change product behavior unless the evidence reproduces a current-main defect inside the authorized S052 contract.
