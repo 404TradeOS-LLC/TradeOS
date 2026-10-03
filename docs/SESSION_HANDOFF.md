@@ -168,5 +168,6 @@ certification from readiness or a repository merge alone.
 
 Sprint ID: S066
 Eligibility: `READY` after 2026-10-03 readiness reconciliation; `Dependencies: none`. S064 is `IN_REVIEW`, so S065 is not yet eligible.
+Dependencies: none. S057 remains a release-certification prerequisite, not an implementation dependency.
 Overlap check: no open S066 implementation PR or branch at readiness inspection. Existing `/field` and Project/Job surfaces must be reused; S063 is merged but awaiting browser certification.
 Startup prompt: Implement the bounded mobile Project/Job-to-Field action continuity in S066 using existing authenticated Job/Project contracts. Preserve assignment and tenant boundaries, supported lifecycle and truthful refresh/error behavior. Do not advertise offline/photo/issue/change/inventory/messaging/timekeeping capabilities without their contracts.
