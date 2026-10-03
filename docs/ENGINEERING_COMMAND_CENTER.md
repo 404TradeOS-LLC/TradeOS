@@ -299,3 +299,8 @@ The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable com
 ## S053 certification update — 2026-10-02
 
 The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 can continue independently and is now `IN_REVIEW` in PR #624. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
+
+
+## S062 Universal Create reconciliation — 2026-10-02
+
+PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. S062 remains `PLANNED`: current main still returns a newly created Customer to the Customers list instead of the created Customer record, and the context-free Create → Job path loses `intent=job` after creating a new Project instead of continuing into that Project's Job workflow. Future S062 implementation must repair only those remaining continuity gaps and focused regressions; do not duplicate PR #615.

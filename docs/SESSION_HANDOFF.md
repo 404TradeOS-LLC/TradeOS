@@ -151,10 +151,18 @@ staging SHA and the canonical sanitized Beta Smoke organization. Retain artifact
 and deployment identity before/after capture. Do not claim full release
 certification from readiness or a repository merge alone.
 
+## S062 Universal Create reconciliation — 2026-10-02
+
+- Classification: `EXISTING_WORK_FOUND`; PR #615 already implements the shared Universal Create routing contract on current main.
+- S062 remains `PLANNED`, not complete.
+- Remaining current-main gaps are bounded to Customer post-create navigation to the created Customer record and preservation of `intent=job` through no-existing-Project Project creation into the new Project's Job workflow.
+- Do not recreate the already-landed Estimate/Invoice/Change Order/Schedule/Athena entry routing.
+- Next numbered-sprint action must still follow `NEXT_SPRINT_PROTOCOL.md`; no S062 implementation branch is authorized by this reconciliation alone.
+
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is READY; S064 is the active IN_REVIEW sprint in draft PR #624.
-Dependencies: S064 depends on DONE S051; S065 remains blocked on S064 completion.
-Overlap check: Continue S064 only in PR #624; keep S053 browser-evidence and repair work in their existing lanes.
-Startup prompt: Continue PR #624 on feature/s064-embedded-assembly-picker and finish the embedded starter-assembly mapping/install workflow before advancing another numbered sprint.
+Eligibility: No numbered sprint is READY; S053 and S064 are IN_REVIEW, while S061 and S062 remain PLANNED.
+Dependencies: S061 and S062 have no code dependencies; their release-certification prerequisites remain separate Phase 11 evidence gates.
+Overlap check: No open S061/S062 implementation PR overlaps the next reconciliation/readiness work; keep S053 evidence work in its existing PR lane.
+Startup prompt: Reconcile S061 against merged PR #585 and current main before creating any new numbered-sprint implementation branch.

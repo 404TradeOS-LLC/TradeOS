@@ -687,6 +687,7 @@ Dependencies: none
 Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
 Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
+Reconciliation note (2026-10-02): PR #615 landed the shared Universal Create route contract and restored context-aware entry routing for Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena. S062 is not complete. Two current-main gaps remain: (1) Customer creation still redirects to the Customers list rather than the newly created Customer record, and (2) the no-existing-Project Job path sends the user to Project creation but does not preserve `intent=job` through Project creation and continue into the new Project's Job workflow. Do not reopen the already-landed navigation work; the future S062 implementation should be bounded to these continuity gaps plus focused regression coverage.
 
 ### S063 — CRM lead and proposal-pipeline workspace
 

@@ -728,3 +728,14 @@ A current-`main` reconciliation pass recovered four contractor-facing UI slices 
 - Schedule/Dispatch presents the same real Jobs and conflict-aware actions with a flatter action-workspace hierarchy rather than nested card chrome.
 
 The older `feature/ui-review-mobile-field-workspace`, `feat/canonical-athena-workspace`, and `feat/canonical-crm-workspace` branches were not merged wholesale: current `main` already contains newer Field Workspace behavior and the recovered Athena/CRM implementations from PRs #588 and #587.
+
+
+## S062 Universal Create reconciliation — 2026-10-02
+
+PR #615 merged the shared Universal Create route contract and context-aware entry routing. Current `main` now keeps existing Project context for Job, Invoice, and Change Order entry, routes context-free versions through the Project chooser, opens Schedule on the real unscheduled queue, and carries current page/Project context into Athena when enabled.
+
+S062 remains `PLANNED`, not `DONE`. Two acceptance gaps remain on current `main`:
+- Customer creation persists the new Customer but redirects to `/customers` instead of the newly created Customer record.
+- The context-free Create → Job path can create a Project with `intent=job`, but the Project form/action does not preserve that intent through creation and therefore returns to `/projects` instead of continuing into `/projects/{projectId}/jobs/new`.
+
+Future S062 work should repair only those continuity gaps and add focused behavioral coverage. Do not recreate the routing contract already merged in PR #615.
