@@ -295,3 +295,7 @@ PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` for S063 implementa
 ## 2026-10-02 S061 reconciliation note
 
 S061 Today page structural completion is already implemented on current `main` through PR #585. The canonical four-part operating rhythm is Now / Needs you / Coming up / Money, and removed dashboard duplication must not be reintroduced. S061 remains `IN_REVIEW` until S060 release certification is complete.
+
+## 2026-10-03 S066 readiness boundary
+
+See [S066 in the Sprint Backlog](SPRINT_BACKLOG.md) for the canonical readiness status, scope, prerequisites, and completion evidence.
