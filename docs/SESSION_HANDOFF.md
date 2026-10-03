@@ -162,12 +162,12 @@ certification from readiness or a repository merge alone.
 
 - S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S062 remains `IN_REVIEW` pending retained browser/permission/refresh evidence; S052/S056/S058 certification remains separate.
 - S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
-- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. A new implementation branch may be created after this readiness PR merges and live overlap is rechecked.
+- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. PR #630 merged as `28c939e405966ded5b3049f1fc64f3c3ae58ba98`; draft PR #631 is the sole S063 implementation lane after live overlap recheck.
 
 ## Next Eligible Sprint
 
-Sprint ID: S063
-Eligibility: `READY` after this governance PR merges; no implementation dependencies. S052/S054 are release-certification prerequisites.
-Dependencies: none
-Overlap check: Continue the existing CRM/Project/Proposal surfaces; do not duplicate PRs #582/#586/#587.
-Startup prompt: Implement full bounded CRM pipeline/follow-up access on mobile/desktop, truthful existing Task ownership, and the awarded-Project destination after accepted Proposal, with focused tests and current-main review.
+Sprint ID: NONE
+Eligibility: S063 is IN_REVIEW in draft PR #631; No numbered sprint is `READY`.
+Dependencies: S063 has no implementation dependencies; S052/S054 remain release-certification prerequisites.
+Overlap check: Continue PR #631 only for CRM continuity; do not recreate the already-merged Lead, Customer, or derived CRM surfaces.
+Startup prompt: Finish exact-head verification/review for PR #631, retain responsive and tenant-negative evidence, and reconcile the sprint only after governed completion.
