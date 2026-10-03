@@ -43,7 +43,7 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-S063 implementation (2026-10-03): draft PR #631 extends the existing /crm operating view so every loaded pipeline Project is reachable at mobile/desktop widths and loaded follow-ups show existing assignment and open the Project Tasks tab. No new CRM lifecycle, persistence, backend, or proposal mutation is introduced. Hosted CI, review, and release certification remain pending.
+S063 implementation merge (2026-10-03): PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` and extends the existing /crm operating view so every loaded pipeline Project is reachable at mobile/desktop widths and loaded follow-ups show existing assignment and open the Project Tasks tab. No new CRM lifecycle, persistence, backend, or proposal mutation is introduced. Exact-head Web/docs/governance checks passed; responsive browser, permission/tenant-negative, and refresh certification remain pending.
 
 S062 implementation merge (2026-10-03): PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks. The created Customer opens its record and context-free Job intent continues through Project creation. S052/S056/S058 release certification remains separate. S063 is next for bounded continuity on the existing Project-backed Lead and derived CRM surfaces; no duplicate CRM persistence model.
 
