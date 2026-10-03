@@ -313,3 +313,7 @@ PR #615 already landed the shared Universal Create route contract and most conte
 ## S061 Today implementation reconciliation — 2026-10-02
 
 Current `main` already contains S061's structural implementation through merged PR #585 (`7abfabcdc38d09d4dbed08286835c95b6c6a1b52`). Do not create another Today redesign branch. The only outstanding S061 gate is its listed S060 release-certification prerequisite; a repair branch is warranted only if that evidence reproduces a concrete current-main defect.
+
+## S066 mobile field readiness — 2026-10-03
+
+Current main `7c9a694d1ced0c07904fbe5132cae81d5f077cf9` has S063 implementation merged and no `READY` sprint before reconciliation. S064 remains `IN_REVIEW`; S065 depends on it. S066 has no implementation dependency or overlapping open PR and is promoted to `READY` for a bounded Project/Job-to-existing-`/field` mobile continuity slice. Reuse S032/PR #554's technician assignment, Job transitions, directions, briefing and notes. The release-certification prerequisite S057 and S063 browser evidence remain separate. The backlog owns exact allowed/forbidden paths and the completion gate; do not invent offline or unsupported field mutations.
