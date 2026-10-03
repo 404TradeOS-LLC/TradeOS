@@ -167,7 +167,7 @@ certification from readiness or a repository merge alone.
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: S063 is IN_REVIEW in draft PR #631; no numbered sprint is READY.
+Eligibility: S063 is IN_REVIEW in draft PR #631; No numbered sprint is `READY`.
 Dependencies: S063 has no implementation dependencies; S052/S054 remain release-certification prerequisites.
 Overlap check: Continue PR #631 only for CRM continuity; do not recreate the already-merged Lead, Customer, or derived CRM surfaces.
 Startup prompt: Finish exact-head verification/review for PR #631, retain responsive and tenant-negative evidence, and reconcile the sprint only after governed completion.
