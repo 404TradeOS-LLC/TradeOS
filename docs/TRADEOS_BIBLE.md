@@ -286,3 +286,8 @@ S053 implementation is in PR #542. The current slice wires the existing structur
 ## 2026-10-02 sprint reconciliation note
 
 S062 Universal Create continuity has partial implementation on current `main` through PR #615. The canonical sprint queue remains authoritative: S062 stays `PLANNED` until the remaining Customer post-create destination and context-free Job-through-Project continuity gaps are implemented and verified. Existing Universal Create routing must be extended, not replaced.
+
+
+## 2026-10-02 S061 reconciliation note
+
+S061 Today page structural completion is already implemented on current `main` through PR #585. The canonical four-part operating rhythm is Now / Needs you / Coming up / Money, and removed dashboard duplication must not be reintroduced. S061 remains `IN_REVIEW` until S060 release certification is complete.

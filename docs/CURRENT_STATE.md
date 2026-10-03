@@ -739,3 +739,8 @@ S062 remains `PLANNED`, not `DONE`. Two acceptance gaps remain on current `main`
 - The context-free Create → Job path can create a Project with `intent=job`, but the Project form/action does not preserve that intent through creation and therefore returns to `/projects` instead of continuing into `/projects/{projectId}/jobs/new`.
 
 Future S062 work should repair only those continuity gaps and add focused behavioral coverage. Do not recreate the routing contract already merged in PR #615.
+
+
+## S061 Today structural completion reconciliation — 2026-10-02
+
+PR #585 already shipped the canonical Today page structure now present on current `main`: `OwnerDashboardHeader` plus one `TodayCommandBoard` with **Now / Needs you / Coming up / Money**. The old repeated task/activity/Knowledge/KPI/widget regions are absent, compact action rows remain the dominant interaction, and unavailable/partial data stays explicit. S061 is implementation-complete but remains `IN_REVIEW` until S060 supplies its separate live-data/multi-viewport release certification.

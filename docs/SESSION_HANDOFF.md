@@ -159,10 +159,17 @@ certification from readiness or a repository merge alone.
 - Do not recreate the already-landed Estimate/Invoice/Change Order/Schedule/Athena entry routing.
 - Next numbered-sprint action must still follow `NEXT_SPRINT_PROTOCOL.md`; no S062 implementation branch is authorized by this reconciliation alone.
 
+## S061 Today implementation reconciliation — 2026-10-02
+
+- Classification: `EXISTING_WORK_FOUND`; merged PR #585 already satisfies the S061 structural acceptance contract on current main.
+- Current implementation remains the single Today landing surface: `OwnerDashboardHeader` + `TodayCommandBoard`, with Now / Needs you / Coming up / Money and no lower duplicate dashboard modules.
+- S061 advances to `IN_REVIEW`, not release-certified; S060 remains its separate certification prerequisite.
+- Do not create another S061 implementation branch unless S060 evidence reproduces a current-main defect.
+
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is READY; S053 and S064 are IN_REVIEW, while S061 and S062 remain PLANNED.
-Dependencies: S061 and S062 have no code dependencies; their release-certification prerequisites remain separate Phase 11 evidence gates.
-Overlap check: No open S061/S062 implementation PR overlaps the next reconciliation/readiness work; keep S053 evidence work in its existing PR lane.
-Startup prompt: Reconcile S061 against merged PR #585 and current main before creating any new numbered-sprint implementation branch.
+Eligibility: No numbered sprint is READY; S053, S061, and S064 are IN_REVIEW, while S062 is the lowest-numbered remaining PLANNED Phase 12 sprint with no code dependencies.
+Dependencies: S062 has no code dependencies; S052, S056, and S058 are release-certification prerequisites rather than implementation mutexes.
+Overlap check: PR #625 already narrowed S062 to two remaining continuity gaps; no open S062 implementation PR overlaps them.
+Startup prompt: Prepare S062 readiness for only the remaining Customer post-create destination and context-free Job-through-Project continuity gaps, then implement from a fresh sprint branch after readiness merges.
