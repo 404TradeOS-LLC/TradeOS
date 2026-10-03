@@ -141,7 +141,7 @@ export async function ProjectWorkspace({
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={job.status} />
-                      {currentRole === "technician" ? (
+                      {currentRole === "technician" && !job.archivedAt ? (
                         <Link
                           href={`/field?job=${encodeURIComponent(job.id)}`}
                           className={buttonVariants({ variant: "outline", size: "sm" })}
