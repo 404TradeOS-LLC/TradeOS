@@ -25,6 +25,7 @@ import {
   getProposalDisplayStatus,
 } from "@/lib/document-workflow";
 import { projectStatuses, getStatusLabel } from "@/domain";
+import { getProjectFieldJobHref } from "@/lib/field-workspace";
 import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
 
 type DetailedChangeOrder = ChangeOrder & { lineItems: ChangeOrderLineItem[] };
@@ -128,30 +129,30 @@ export async function ProjectWorkspace({
                 <p className="text-sm text-muted-foreground">Read-only summary of jobs scheduled against this project.</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {jobs.map((job) => (
-                  <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                    <div>
-                      <div className="font-medium text-foreground">
-                        {job.title} <span className="font-mono text-xs tabular-nums text-muted-foreground">#{job.jobNumber}</span>
+                {jobs.map((job) => {
+                  const fieldHref = getProjectFieldJobHref(currentRole, job);
+                  return (
+                    <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                      <div>
+                        <div className="font-medium text-foreground">
+                          {job.title} <span className="font-mono text-xs tabular-nums text-muted-foreground">#{job.jobNumber}</span>
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {job.scheduledStart ? formatDateTime(job.scheduledStart) : "Not yet scheduled"}
+                          {job.scheduledEnd ? ` – ${formatDateTime(job.scheduledEnd)}` : ""}
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {job.scheduledStart ? formatDateTime(job.scheduledStart) : "Not yet scheduled"}
-                        {job.scheduledEnd ? ` – ${formatDateTime(job.scheduledEnd)}` : ""}
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={job.status} />
+                        {fieldHref ? (
+                          <Link href={fieldHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                            Open field job
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={job.status} />
-                      {currentRole === "technician" && !job.archivedAt ? (
-                        <Link
-                          href={`/field?job=${encodeURIComponent(job.id)}`}
-                          className={buttonVariants({ variant: "outline", size: "sm" })}
-                        >
-                          Open field job
-                        </Link>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           ) : null}
