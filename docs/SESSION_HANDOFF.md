@@ -151,14 +151,6 @@ staging SHA and the canonical sanitized Beta Smoke organization. Retain artifact
 and deployment identity before/after capture. Do not claim full release
 certification from readiness or a repository merge alone.
 
-## S062 Universal Create reconciliation — 2026-10-02
-
-- Classification: `EXISTING_WORK_FOUND`; PR #615 already implements the shared Universal Create routing contract on current main.
-- That earlier reconciliation is superseded by the S062 readiness promotion below: S062 is now `READY`, not complete.
-- Remaining current-main gaps are bounded to Customer post-create navigation to the created Customer record and preservation of `intent=job` through no-existing-Project Project creation into the new Project's Job workflow.
-- Do not recreate the already-landed Estimate/Invoice/Change Order/Schedule/Athena entry routing.
-- PR #629 is the sole implementation lane for the two bounded S062 continuity repairs; do not open a duplicate implementation branch.
-
 ## S061 Today implementation reconciliation — 2026-10-02
 
 - Classification: `EXISTING_WORK_FOUND`; merged PR #585 already satisfies the S061 structural acceptance contract on current main.
@@ -166,19 +158,11 @@ certification from readiness or a repository merge alone.
 - S061 advances to `IN_REVIEW`, not release-certified; S060 remains its separate certification prerequisite.
 - Do not create another S061 implementation branch unless S060 evidence reproduces a current-main defect.
 
-## S062 readiness promotion — 2026-10-02
+## S062 implementation merge and S063 readiness — 2026-10-03
 
-- Classification: `NEW_WORK_REQUIRED` for the readiness promotion; current `main` contains the route contract and gap reconciliation but no S062 implementation PR.
-- S062 readiness is merged; implementation PR #629 is now `IN_REVIEW` for exactly two continuity repairs: Customer post-create destination and preservation of `intent=job` through Project creation into the new Project's Job workflow.
-- Allowed implementation paths are the existing Customer/Project creation actions, their directly related form/query plumbing, focused web behavioral tests, and documentation required by ownership rules.
-- Forbidden scope includes Universal Create redesign, new backend routes, schema/migration changes, auth/RBAC/RLS changes, billing/payment behavior, or unrelated navigation cleanup.
-- Release-certification prerequisites S052/S056/S058 remain separate and do not block implementation.
-
-## S062 completion and S063 readiness — 2026-10-03
-
-- S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S052/S056/S058 browser certification remains separate.
+- S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S062 remains `IN_REVIEW` pending retained browser/permission/refresh evidence; S052/S056/S058 certification remains separate.
 - S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
-- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. A new implementation branch may be created after this readiness PR merges and live overlap is rechecked.
+- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. A new implementation branch may be created after this readiness PR merges and live overlap is rechecked.
 
 ## Next Eligible Sprint
 
