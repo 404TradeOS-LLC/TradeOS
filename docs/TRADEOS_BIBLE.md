@@ -285,7 +285,7 @@ S053 implementation is in PR #542. The current slice wires the existing structur
 
 ## 2026-10-02 sprint reconciliation note
 
-S062 Universal Create continuity has partial implementation through PR #615. The canonical sprint queue is authoritative: S062 is now `READY` for the two remaining Customer post-create destination and context-free Job-through-Project continuity repairs. This readiness does not mark S062 `DONE` or release-certified; existing Universal Create routing must be extended, not replaced.
+S062 Universal Create continuity is now `IN_REVIEW` in PR #629. The implementation extends PR #615 only for the two authorized continuity repairs: open the server-created Customer record after creation and preserve context-free Job intent through Project creation into the new Project's Job workflow. S062 is not `DONE` or release-certified; S052/S056/S058 remain release-certification prerequisites.
 
 
 ## 2026-10-02 S061 reconciliation note
