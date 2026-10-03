@@ -174,10 +174,16 @@ certification from readiness or a repository merge alone.
 - Forbidden scope includes Universal Create redesign, new backend routes, schema/migration changes, auth/RBAC/RLS changes, billing/payment behavior, or unrelated navigation cleanup.
 - Release-certification prerequisites S052/S056/S058 remain separate and do not block implementation.
 
+## S062 completion and S063 readiness — 2026-10-03
+
+- S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S052/S056/S058 browser certification remains separate.
+- S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
+- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. A new implementation branch may be created after this readiness PR merges and live overlap is rechecked.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S062 is `IN_REVIEW` in PR #629.
-Dependencies: S063 has no implementation dependencies but remains `PLANNED` until a separate readiness promotion after S062 is resolved.
-Overlap check: Continue only PR #629 for S062; do not duplicate its Customer or Job-through-Project continuity changes.
-Startup prompt: Finish PR #629 exact-head verification and review, merge when branch protection permits, verify main, then select/promote the next eligible sprint from current repository evidence.
+Sprint ID: S063
+Eligibility: `READY` after this governance PR merges; no implementation dependencies. S052/S054 are release-certification prerequisites.
+Dependencies: none
+Overlap check: Continue the existing CRM/Project/Proposal surfaces; do not duplicate PRs #582/#586/#587.
+Startup prompt: Implement full bounded CRM pipeline/follow-up access on mobile/desktop, truthful existing Task ownership, and the awarded-Project destination after accepted Proposal, with focused tests and current-main review.
