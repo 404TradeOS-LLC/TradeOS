@@ -295,3 +295,7 @@ PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` for S063 implementa
 ## 2026-10-02 S061 reconciliation note
 
 S061 Today page structural completion is already implemented on current `main` through PR #585. The canonical four-part operating rhythm is Now / Needs you / Coming up / Money, and removed dashboard duplication must not be reintroduced. S061 remains `IN_REVIEW` until S060 release certification is complete.
+
+## 2026-10-03 S066 readiness boundary
+
+S066 is `READY` for a bounded mobile Project/Job-to-Field continuity slice after S063 implementation merged. Reuse the existing authenticated, assignment-scoped `/field` route and canonical Job/Project records. Keep lifecycle transitions, notes, schedule, address, role/tenant boundaries and office invoice handoff under their existing owners. Unsupported offline, photo, issue, change-order, inventory, messaging and timekeeping states remain target-only. S057 is a release-certification prerequisite, and S066 cannot be called `DONE` without retained responsive, permission/tenant-negative, failure and refresh evidence. No new field policy or backend contract is authorized by readiness.
