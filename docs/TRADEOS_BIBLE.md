@@ -299,3 +299,8 @@ S061 Today page structural completion is already implemented on current `main` t
 ## 2026-10-03 S066 readiness boundary
 
 Readiness is merged through PR #633 and implementation PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. See [S066 in the Sprint Backlog](SPRINT_BACKLOG.md) for the canonical status, scope, prerequisites, implementation evidence, and completion gate.
+
+
+## 2026-10-03 S052 certification boundary
+
+S052 Customer and Project vertical certification is a certification-only lane over implementation already merged through PR #586 and continuity repair #629. The sprint may extend the existing Beta Evidence harness to prove owner/admin Customer→ServiceAddress→Project behavior, duplicate/validation handling, inactive-membership denial, cross-tenant denial, responsive rendering, persistence/reload, and exact deployed-SHA correlation. It must not introduce a second Customer/Project model, automatic Customer merge, new roles/permissions, auth/RLS changes, schema/migrations, or production mutations.
