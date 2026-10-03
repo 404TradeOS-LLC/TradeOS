@@ -372,6 +372,7 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(runner, /\["s052", "s053"\]\.includes\(scenario\) \? "true"/);
   assert.match(runner, /S052 admin and inactive-membership evidence/);
   assert.match(capture, /\["canonical", "s052", "s053"\]\.includes\(scenario\)/);
+  assert.match(capture, /S052 smoke identity is the owner role/);
   assert.match(capture, /s052-customer-created/);
   assert.match(capture, /s052-customer-service-address/);
   assert.match(capture, /s052-project-reloaded/);
@@ -379,13 +380,16 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(capture, /customer project fields survive workspace reload/);
   assert.match(s052Role, /settings\?\.currentRole !== "admin"/);
   assert.match(s052Role, /s052-admin/);
-  assert.match(s052Role, /inactive membership was not denied/);
+  assert.match(s052Role, /Authenticated user is not provisioned in this organization/);
+  assert.match(s052Role, /bootstrapDenied: true/);
   assert.match(validator, /scenario === "s052"/);
   assert.match(validator, /s052-role-report\.json/);
   assert.match(validator, /S052 role report is stale or belongs to another run/);
   assert.match(validator, /S052 certification requires exact SHA correlation/);
   assert.match(validator, /foreign customer/);
   assert.match(validator, /foreign project/);
+  assert.match(validator, /S052 smoke identity is the owner role/);
+  assert.match(validator, /inactive-membership bootstrap denial was not proven/);
   assert.match(validator, /s052-customer-created/);
   assert.match(validator, /s052-customer-service-address/);
   assert.match(validator, /s052-project-reloaded/);
