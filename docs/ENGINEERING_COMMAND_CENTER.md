@@ -304,3 +304,8 @@ The structured scope-to-estimate implementation is already on `main`; S053 is `I
 ## S062 Universal Create reconciliation — 2026-10-02
 
 PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. S062 remains `PLANNED`: current main still returns a newly created Customer to the Customers list instead of the created Customer record, and the context-free Create → Job path loses `intent=job` after creating a new Project instead of continuing into that Project's Job workflow. Future S062 implementation must repair only those remaining continuity gaps and focused regressions; do not duplicate PR #615.
+
+
+## S061 Today implementation reconciliation — 2026-10-02
+
+Current `main` already contains S061's structural implementation through merged PR #585 (`7abfabcdc38d09d4dbed08286835c95b6c6a1b52`). Do not create another Today redesign branch. The only outstanding S061 gate is its listed S060 release-certification prerequisite; a repair branch is warranted only if that evidence reproduces a concrete current-main defect.
