@@ -43,7 +43,9 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-S062 readiness validator repair (2026-10-02): CI exposed a stale pre-#623 governance rule that still required every `READY` sprint's release-certification prerequisites to be `IN_REVIEW` or `DONE`. That contradicted the merged implementation/certification split. Sprint-state validation now gates `READY` on mechanical `Dependencies:` only; release-certification prerequisites remain release gates, not implementation mutexes. S062 readiness remains bounded to its two reconciled continuity gaps.\n\nS064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
+S062 readiness validator repair (2026-10-02): CI exposed a stale pre-#623 governance rule that still required every `READY` sprint's release-certification prerequisites to be `IN_REVIEW` or `DONE`. That contradicted the merged implementation/certification split. Sprint-state validation now gates `READY` on mechanical `Dependencies:` only; release-certification prerequisites remain release gates, not implementation mutexes. S062 is `READY` for only its two reconciled continuity gaps.
+
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
 
 
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit
@@ -303,7 +305,7 @@ The structured scope-to-estimate implementation is already on `main`; S053 is `I
 
 ## S062 Universal Create reconciliation — 2026-10-02
 
-PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. S062 remains `PLANNED`: current main still returns a newly created Customer to the Customers list instead of the created Customer record, and the context-free Create → Job path loses `intent=job` after creating a new Project instead of continuing into that Project's Job workflow. Future S062 implementation must repair only those remaining continuity gaps and focused regressions; do not duplicate PR #615.
+PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. S062 is `READY` for a bounded implementation that fixes only two remaining gaps: a newly created Customer must open its Customer record, and context-free Create → Job must preserve `intent=job` through Project creation and continue into that Project's Job workflow. Do not duplicate PR #615 or broaden this sprint into unrelated navigation work.
 
 
 ## S061 Today implementation reconciliation — 2026-10-02
