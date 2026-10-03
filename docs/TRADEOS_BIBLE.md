@@ -290,7 +290,7 @@ S062 Universal Create continuity is implemented on main through merged PR #629 (
 
 ## 2026-10-03 S063 implementation boundary
 
-Draft PR #631 is the single S063 lane. It extends the merged Project-backed Lead, Customer, and derived CRM surfaces with bounded access to loaded pipeline/follow-up records and truthful existing Task assignment. Proposal acceptance remains owned by its existing lifecycle; Awarded links open the canonical Project. No second CRM model or release-certification claim is introduced. S063 remains `IN_REVIEW` pending exact-head checks, review, merge, and successor browser/permission/refresh evidence.
+PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` for S063 implementation. It extends the merged Project-backed Lead, Customer, and derived CRM surfaces with bounded access to loaded pipeline/follow-up records and truthful existing Task assignment. Proposal acceptance remains owned by its existing lifecycle; Awarded links open the canonical Project. No second CRM model or release-certification claim is introduced. S063 remains `IN_REVIEW` pending successor browser/permission/refresh evidence; exact-head Web/docs/governance checks and merge are complete.
 
 ## 2026-10-02 S061 reconciliation note
 
