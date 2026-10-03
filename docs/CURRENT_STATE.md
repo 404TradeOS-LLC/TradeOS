@@ -778,3 +778,10 @@ The existing Project-backed Lead and Site Visit flow (PR #582), Customer connect
 ## S061 Today structural completion reconciliation — 2026-10-02
 
 PR #585 already shipped the canonical Today page structure now present on current `main`: `OwnerDashboardHeader` plus one `TodayCommandBoard` with **Now / Needs you / Coming up / Money**. The old repeated task/activity/Knowledge/KPI/widget regions are absent, compact action rows remain the dominant interaction, and unavailable/partial data stays explicit. S061 is implementation-complete but remains `IN_REVIEW` until S060 supplies its separate live-data/multi-viewport release certification.
+
+
+## S052 Customer → Project certification readiness — 2026-10-03
+
+The Customer/ServiceAddress/Project implementation needed for S052 is already on current `main`. PR #586 rebuilt the valid Customer ↔ Project work from stale draft #565 onto current main, and PR #629 later preserved the server-created Customer id so successful creation continues into the canonical Customer record. Current behavior includes bounded same-organization duplicate advice, fail-closed incomplete lookup handling, permission-aware ServiceAddress mutations, and organization-scoped Project persistence for `customerId`, `siteAddress`, and `simpleScope`.
+
+S052 is now readiness-scoped to certification only. The existing Beta Evidence harness must gain an opt-in `s052` scenario that proves owner/admin happy paths, validation and duplicate behavior, ServiceAddress persistence, Customer→Project save/reload, inactive-membership denial, cross-tenant denial, responsive 1440/768/390 evidence, and exact deployed-SHA correlation. No release-certification claim follows until one retained full non-production run passes.
