@@ -694,12 +694,14 @@ Implementation status (2026-10-02): PR #629 implements only the two authorized c
 
 ### S063 — CRM lead and proposal-pipeline workspace
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: none
 Release certification prerequisites: S052, S054
 Objective: Complete the pre-job lifecycle as Leads + Customers + Follow-ups + Proposal Pipeline without creating a parallel customer source of truth.
 Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and accepted-proposal handoff are connected and mobile usable.
 Readiness reconciliation (2026-10-03): repository `404TradeOS-LLC/TradeOS`; current main `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native session has no local checkout/worktree or dirty files, so fresh live GitHub comparison and hosted CI are required before implementation. No open S063 PR or remote branch found. Implementation dependencies: none. Existing CRM/Project APIs and hosted Web checks are available; no new infrastructure or migration is needed for this bounded frontend slice. Founder decision: NO; retain existing domain semantics and stop if a new assignment, conversion, or proposal policy becomes necessary. Autonomy category: bounded frontend/PR workflow, not a high-risk policy change. Required validation: focused CRM tests, full Web test/lint/build, docs ownership checks, PR preflight, exact-head hosted checks, review threads, and branch currency. PR #582 landed Project-backed New Lead and Site Visit → Estimate handoff; PR #587 landed the authenticated /crm overview composed from Customers, Projects, incomplete Project Tasks, Site Visit events, and Proposal queue state; PR #586 landed Customer/address connectivity. Reuse these records and routes. Current /crm shows at most five follow-ups; desktop pipeline renders at most five Projects per lane and mobile renders only the first Project per lane, leaving additional work unreachable from that view. The Task DTO includes assignedTo, but the overview does not surface ownership. Proposal Sent and Awarded are already derived from Proposal/Project truth; acceptance side effects remain owned by their existing services. S063 implementation is limited to complete, bounded access to existing pipeline and follow-up records on mobile/desktop, truthful task ownership through the existing assignment contract, and explicit navigation from accepted proposals into the canonical awarded Project. Preserve partial-source errors and existing lifecycle authority. No Lead/opportunity/follow-up table, CRM-stage persistence, schema/migration, RBAC/RLS change, proposal acceptance mutation, or new financial semantics. Focused behavioral tests and required frontend/docs checks must pass. S052/S054 remain release-certification prerequisites, not implementation dependencies.
+
+Implementation status (2026-10-03): draft PR #631 is the sole S063 implementation lane for existing /crm pipeline and follow-up visibility. It keeps the established 50-task API cap and Project/Proposal lifecycle authority, makes loaded records reachable on mobile and desktop, discloses assignedTo/Unassigned, and links awarded records to canonical Projects. Hosted exact-head checks, review, and responsive/tenant-negative certification are pending. Do not mark DONE from code merge alone.
 
 ### S064 — Embedded assembly picker in estimate Items
 
@@ -1003,8 +1005,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S063
-Eligibility: `READY`; no implementation dependencies. S052/S054 remain release-certification prerequisites.
-Dependencies: none
-Overlap check: PRs #582/#586/#587 are merged; no open S063 implementation PR was found at readiness. Do not recreate Project-backed Lead, Customer, or derived CRM overview.
-Startup prompt: From current main, implement bounded complete access to CRM pipeline/follow-ups, existing Task ownership display, and canonical awarded-Project handoff with focused Web tests. Preserve existing domain and tenant boundaries.
+Sprint ID: NONE
+Eligibility: No numbered sprint is READY; S063 is IN_REVIEW in draft PR #631 and S064 is separately IN_REVIEW.
+Dependencies: S063 has none; S052/S054 are release-certification prerequisites.
+Overlap check: Continue only PR #631 for S063; do not duplicate PRs #582/#586/#587 or its CRM continuity edits.
+Startup prompt: Repair PR #631 exact-head checks and review, capture required certification evidence, then reconcile completion and select the next eligible sprint from current main.
