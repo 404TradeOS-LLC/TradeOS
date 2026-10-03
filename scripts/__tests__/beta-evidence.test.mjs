@@ -366,6 +366,8 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(workflow, /BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial/);
   assert.match(workflow, /BETA_RC_FOREIGN_CUSTOMER_ID and BETA_RC_FOREIGN_PROJECT_ID are both required for the s052 cross-tenant evidence/);
   assert.match(workflow, /node scripts\/beta-evidence\/s052-role-evidence\.mjs/);
+  assert.equal((workflow.match(/HAS_S052_ADMIN_EMAIL:/g) ?? []).length, 1);
+  assert.equal((workflow.match(/BETA_SCENARIO" = "s052"/g) ?? []).length, 2);
   assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
   assert.match(runner, /\["s052", "s053"\]\.includes\(scenario\) \? "true"/);
   assert.match(runner, /S052 admin and inactive-membership evidence/);
@@ -380,6 +382,7 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(s052Role, /inactive membership was not denied/);
   assert.match(validator, /scenario === "s052"/);
   assert.match(validator, /s052-role-report\.json/);
+  assert.match(validator, /S052 role report is stale or belongs to another run/);
   assert.match(validator, /S052 certification requires exact SHA correlation/);
   assert.match(validator, /foreign customer/);
   assert.match(validator, /foreign project/);
