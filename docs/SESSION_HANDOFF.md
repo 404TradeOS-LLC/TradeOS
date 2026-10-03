@@ -185,4 +185,4 @@ Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S052 is `IN_REVIEW` in PR #637, S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
 Dependencies: N/A while no sprint is eligible.
 Overlap check: continue S052 only through PR #637; do not create another S052 certification branch or revive stale PR #565 / `feature/s052-customer-project-vertical-certification`. Existing S053/S059/Costbook lanes remain separate.
-Startup prompt: Continue S052 through PR #637 by implementing the remaining bounded role/persistence/denial evidence and focused harness tests. Keep validation fail-closed and repair product code only if the evidence reproduces a current-main defect inside the authorized contract.
+Startup prompt: Continue S052 only through PR #637: repair exact-head CI/review findings, run the `s052` Beta Evidence preflight, and capture one full retained non-production matrix when dedicated synthetic fixtures and a matching exact-SHA deployment are available. Keep validation fail-closed and repair product code only if evidence reproduces a current-main defect inside the authorized contract.
