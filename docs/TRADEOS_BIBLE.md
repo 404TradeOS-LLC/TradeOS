@@ -285,7 +285,7 @@ S053 implementation is in PR #542. The current slice wires the existing structur
 
 ## 2026-10-02 sprint reconciliation note
 
-S062 Universal Create continuity is now `IN_REVIEW` in PR #629. The implementation extends PR #615 only for the two authorized continuity repairs: open the server-created Customer record after creation and preserve context-free Job intent through Project creation into the new Project's Job workflow. S062 is not `DONE` or release-certified; S052/S056/S058 remain release-certification prerequisites.
+S062 Universal Create continuity is implemented on main through merged PR #629 (`6f6a0a6567c1413c837afc86b943c1c45f5f03e0`). It extends PR #615 only for the two authorized repairs: open the server-created Customer record and preserve context-free Job intent through Project creation into its Job workflow. S062 implementation is `DONE`; S052/S056/S058 remain release-certification prerequisites. S063 readiness is bounded to continuity on existing Project-backed Lead, Customer, Task, Proposal, and derived CRM surfaces, without another CRM persistence model.
 
 
 ## 2026-10-02 S061 reconciliation note
