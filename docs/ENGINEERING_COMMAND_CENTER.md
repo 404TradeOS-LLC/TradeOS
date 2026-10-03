@@ -43,7 +43,7 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
+S062 readiness validator repair (2026-10-02): CI exposed a stale pre-#623 governance rule that still required every `READY` sprint's release-certification prerequisites to be `IN_REVIEW` or `DONE`. That contradicted the merged implementation/certification split. Sprint-state validation now gates `READY` on mechanical `Dependencies:` only; release-certification prerequisites remain release gates, not implementation mutexes. S062 readiness remains bounded to its two reconciled continuity gaps.\n\nS064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
 
 
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit
