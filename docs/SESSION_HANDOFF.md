@@ -177,9 +177,7 @@ certification from readiness or a repository merge alone.
 ## Next Eligible Sprint
 
 Sprint ID: S062
-Title: Universal Create continuity
-Eligibility: `READY`; no implementation dependencies and no overlapping open S062 PR.
+Eligibility: `READY`; no implementation dependencies. S052/S056/S058 remain release-certification prerequisites only.
 Dependencies: none
-Release certification prerequisites: S052, S056, S058
-Implementation target: repair only Customer post-create navigation and context-free Job-through-Project intent continuity, with focused regression coverage.
-Startup prompt: Execute S062 from a fresh implementation branch after this readiness promotion merges, following `NEXT_SPRINT_PROTOCOL.md`.
+Overlap check: No open S062 implementation PR overlaps the two reconciled continuity gaps; do not recreate PR #615 routing work.
+Startup prompt: Execute S062 from a fresh implementation branch, repairing only Customer post-create navigation and context-free Job-through-Project intent continuity with focused regression coverage.
