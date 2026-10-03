@@ -62,9 +62,9 @@ related_code:
 
 # Current State
 
-## S066 mobile field continuity — implementation slice
+## S066 mobile field continuity — merged implementation
 
-The bounded S066 frontend slice connects the existing Project workspace to
+PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a` after exact-head Web unit tests, lint, build/dependency audit, Docs consistency, Sprint governance, PR branch currency, Dependency review, Live documentation reconciliation, and Verify repository passed. The bounded S066 frontend slice connects the existing Project workspace to
 the existing assignment-scoped Field workspace without creating another Job
 surface. Technician Project views expose an **Open field job** action on the
 Job rows already returned through the forced-RLS Project read, handing the
@@ -87,9 +87,9 @@ than discarding the usable Job context.
 This changes no Job lifecycle transition, backend route, schema, permission,
 RBAC/RLS policy, invoice handoff, or field persistence capability. Existing
 photo/issue/change-order/offline/inventory/messaging/timekeeping exclusions
-remain in force. Repository CI and retained authenticated responsive,
-assignment/tenant-negative, failure, and refresh evidence remain required
-before S066 can be called complete or release-certified.
+remain in force. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure,
+and refresh evidence remains required before S066 can be called complete or
+release-certified.
 
 
 ## Desktop estimate visibility repair — 2026-10-02

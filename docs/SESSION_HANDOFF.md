@@ -176,5 +176,5 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 Sprint ID: NONE
 Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
 Dependencies: N/A while no sprint is eligible.
-Overlap check: continue PR #634 for S066 implementation/review; do not create a competing S066 branch. S053/S059/Costbook lanes remain separate.
-Startup prompt: Continue S066 only through PR #634: run hosted verification, classify and repair exact-head review findings, and retain browser/security evidence when deployment capacity is available. Do not begin another numbered sprint from this branch.
+Overlap check: S066 implementation PR #634 is merged; do not create a competing implementation branch. Only retained certification evidence or a defect reproduced by that evidence justifies further S066 code work. S053/S059/Costbook lanes remain separate.
+Startup prompt: Resume S066 only for retained authenticated 390/768 responsive, assignment/tenant-negative, failure, and refresh evidence when a suitable non-production deployment is available. Repair only a reproduced current-main defect; otherwise leave S066 `IN_REVIEW`. Do not begin another numbered sprint from this branch.
