@@ -683,12 +683,13 @@ Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today c
 
 ### S062 — Universal Create continuity
 
-Status: READY
+Status: IN_REVIEW
 Dependencies: none
 Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
 Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
 Readiness evidence (2026-10-02): current `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` already contains PR #615's shared Universal Create routing contract and PR #625's bounded reconciliation. Live open-PR review found no S062 implementation branch or PR. The implementation scope is limited to two reproduced continuity gaps: (1) Customer creation must redirect to the newly created Customer record instead of `/customers`, and (2) context-free Create → Job must preserve `intent=job` through Project creation and continue into `/projects/{projectId}/jobs/new`. S062 has no implementation dependency; S052/S056/S058 remain release-certification prerequisites only. Do not recreate or broaden the already-landed Estimate/Invoice/Change Order/Schedule/Athena routing.
+Implementation status (2026-10-02): PR #629 implements only the two authorized continuity repairs. Customer creation carries the server-returned Customer id into the canonical Customer workspace; context-free Create → Job preserves a validated `job` intent through Project creation and continues into that Project's Job workflow. Focused regression coverage pins both contracts. S062 remains `IN_REVIEW` until exact-head CI/review/merge evidence is complete, and S052/S056/S058 remain release-certification prerequisites.
 
 ### S063 — CRM lead and proposal-pipeline workspace
 
@@ -1000,8 +1001,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S062
-Eligibility: `READY`; no implementation dependencies. Release-certification prerequisites do not block implementation under the merged #623 separation rule.
-Dependencies: none
-Overlap check: No open S062 implementation PR exists; keep S053 evidence/repair lanes separate and do not duplicate PR #615 routing work.
-Startup prompt: Execute S062 from a fresh implementation branch, repairing only Customer post-create navigation and context-free Job-through-Project intent continuity with focused regression coverage.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S062 is `IN_REVIEW` in PR #629.
+Dependencies: S063 has no implementation dependencies but remains `PLANNED` and requires a separate readiness promotion after S062 is resolved.
+Overlap check: Continue S062 only in PR #629; keep S053 and S059 evidence/readiness lanes separate.
+Startup prompt: Finish PR #629 exact-head verification, resolve deterministic review findings, merge when branch protection permits, then reconcile the next eligible sprint from current main.

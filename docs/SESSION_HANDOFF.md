@@ -157,7 +157,7 @@ certification from readiness or a repository merge alone.
 - That earlier reconciliation is superseded by the S062 readiness promotion below: S062 is now `READY`, not complete.
 - Remaining current-main gaps are bounded to Customer post-create navigation to the created Customer record and preservation of `intent=job` through no-existing-Project Project creation into the new Project's Job workflow.
 - Do not recreate the already-landed Estimate/Invoice/Change Order/Schedule/Athena entry routing.
-- The readiness promotion below authorizes only the two bounded S062 continuity repairs after this governance PR lands; the implementation must still follow `NEXT_SPRINT_PROTOCOL.md`.
+- PR #629 is the sole implementation lane for the two bounded S062 continuity repairs; do not open a duplicate implementation branch.
 
 ## S061 Today implementation reconciliation — 2026-10-02
 
@@ -169,15 +169,15 @@ certification from readiness or a repository merge alone.
 ## S062 readiness promotion — 2026-10-02
 
 - Classification: `NEW_WORK_REQUIRED` for the readiness promotion; current `main` contains the route contract and gap reconciliation but no S062 implementation PR.
-- S062 is promoted to `READY` for exactly two continuity repairs: Customer post-create destination and preservation of `intent=job` through Project creation into the new Project's Job workflow.
+- S062 readiness is merged; implementation PR #629 is now `IN_REVIEW` for exactly two continuity repairs: Customer post-create destination and preservation of `intent=job` through Project creation into the new Project's Job workflow.
 - Allowed implementation paths are the existing Customer/Project creation actions, their directly related form/query plumbing, focused web behavioral tests, and documentation required by ownership rules.
 - Forbidden scope includes Universal Create redesign, new backend routes, schema/migration changes, auth/RBAC/RLS changes, billing/payment behavior, or unrelated navigation cleanup.
 - Release-certification prerequisites S052/S056/S058 remain separate and do not block implementation.
 
 ## Next Eligible Sprint
 
-Sprint ID: S062
-Eligibility: `READY`; no implementation dependencies. S052/S056/S058 remain release-certification prerequisites only.
-Dependencies: none
-Overlap check: No open S062 implementation PR overlaps the two reconciled continuity gaps; do not recreate PR #615 routing work.
-Startup prompt: Execute S062 from a fresh implementation branch, repairing only Customer post-create navigation and context-free Job-through-Project intent continuity with focused regression coverage.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S062 is `IN_REVIEW` in PR #629.
+Dependencies: S063 has no implementation dependencies but remains `PLANNED` until a separate readiness promotion after S062 is resolved.
+Overlap check: Continue only PR #629 for S062; do not duplicate its Customer or Job-through-Project continuity changes.
+Startup prompt: Finish PR #629 exact-head verification and review, merge when branch protection permits, verify main, then select/promote the next eligible sprint from current repository evidence.

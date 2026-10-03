@@ -4,6 +4,7 @@ import {
   buildProjectIntentDestination,
   buildUniversalCreateHref,
   extractProjectIdFromPath,
+  resolveNewProjectCreateIntent,
   resolveProjectCreateIntent,
 } from "./universal-create.ts";
 
@@ -32,6 +33,14 @@ test("Athena create preserves current page and project context", () => {
   assert.match(href, /^\/athena\?/);
   assert.match(href, /projectId=11111111-1111-4111-8111-111111111111/);
   assert.match(href, /page=%2Fprojects%2F11111111-1111-4111-8111-111111111111/);
+});
+
+test("new-project continuation preserves estimate and job intent only", () => {
+  assert.equal(resolveNewProjectCreateIntent("estimate"), "estimate");
+  assert.equal(resolveNewProjectCreateIntent("job"), "job");
+  assert.equal(resolveNewProjectCreateIntent("invoice"), null);
+  assert.equal(resolveNewProjectCreateIntent("change-order"), null);
+  assert.equal(resolveNewProjectCreateIntent("unknown"), null);
 });
 
 test("unknown project intent is rejected", () => {
