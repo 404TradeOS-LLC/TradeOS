@@ -12,6 +12,14 @@ import {
   type FieldJobDetail,
 } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
+import {
+  firstSearchParam,
+  getFieldWorkspaceLabels,
+  resolveFieldJobLoad,
+  resolveFieldJobMembership,
+  resolveRequestedFieldJobId,
+  resolveSelectedFieldJobId,
+} from "@/lib/field-workspace";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -31,10 +39,6 @@ function mapsHref(address: FieldJobDetail["serviceAddress"]) {
 
 function errorMessage(error: unknown) {
   return error instanceof ApiClientError ? error.message : "Unable to load the field workspace.";
-}
-
-function firstSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 const FIELD_STATUS_PRIORITY: Record<FieldJobDetail["status"], number> = {
@@ -75,35 +79,36 @@ export default async function FieldPage({
     loadError = errorMessage(error);
   }
 
-  const requestedJobId = firstSearchParam(query.job)?.trim() || null;
+  const requestedJobId = resolveRequestedFieldJobId(query.job);
   const updated = firstSearchParam(query.updated);
   if (loadError && !requestedJobId) {
     return <EmptyState title="Couldn't load your field day" description={loadError} />;
   }
 
-  const selectedId = requestedJobId ?? jobs[0]?.id;
+  const selectedId = resolveSelectedFieldJobId(query.job, jobs);
   let selectedJob: FieldJobDetail | null = null;
   let selectedError: string | null = null;
 
   if (selectedId) {
     try {
-      const job = await getFieldJob(token, selectedId);
-      if (job.archivedAt) {
-        selectedError = "This job is archived. Open an active assigned job instead.";
-      } else {
-        selectedJob = job;
-      }
+      const resolved = resolveFieldJobLoad({ job: await getFieldJob(token, selectedId) });
+      selectedJob = resolved.job;
+      selectedError = resolved.error;
     } catch (error) {
-      selectedError = errorMessage(error);
+      const resolved = resolveFieldJobLoad<FieldJobDetail>({ error: errorMessage(error) });
+      selectedJob = resolved.job;
+      selectedError = resolved.error;
     }
   }
 
-  const selectedOutsideToday = Boolean(
-    selectedJob &&
-      requestedJobId &&
-      !loadError &&
-      !jobs.some((job) => job.id === selectedJob.id)
-  );
+  const membership = resolveFieldJobMembership({
+    requestedJobId,
+    selectedJobId: selectedJob?.id ?? null,
+    todayJobIds: jobs.map((job) => job.id),
+    listFailed: Boolean(loadError),
+  });
+  const labels = getFieldWorkspaceLabels(membership);
+  const selectedOutsideToday = membership === "outside_today";
   const visibleJobs = selectedJob
     ? [selectedJob, ...jobs.filter((job) => job.id !== selectedJob.id)]
     : jobs;
@@ -117,7 +122,7 @@ export default async function FieldPage({
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-              {selectedOutsideToday ? "Field job" : "Today"}
+              {labels.heading}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {loadError
@@ -191,7 +196,7 @@ export default async function FieldPage({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-label="Job schedule">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      {selectedOutsideToday ? "Schedule" : "Today on site"}
+                      {labels.schedule}
                     </p>
                     <p className="mt-1 text-sm font-medium">
                       {selectedJob.scheduledStart ? formatScheduleInZone(selectedJob.scheduledStart, timezone) : "Unscheduled"}
