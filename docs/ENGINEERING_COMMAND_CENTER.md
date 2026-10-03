@@ -316,7 +316,7 @@ Current `main` already contains S061's structural implementation through merged 
 
 ## S052 certification implementation — 2026-10-03
 
-Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; S052 is now `IN_REVIEW` in draft PR #637. The bounded lane extends only the existing Beta Evidence harness. Its first slice adds the `s052` selector, dedicated synthetic admin/inactive fixture guards, exact-SHA correlation, and fail-closed validation so missing role proof can never be reported as certification PASS. Product runtime behavior is unchanged. Continue #637 for owner/admin Customer→ServiceAddress→Project persistence/reload, duplicate/validation, inactive-membership, and cross-tenant proof; stop if evidence would require auth/RBAC/RLS/schema/domain changes.
+Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; S052 is `IN_REVIEW` in draft PR #637. The bounded lane extends only the existing Beta Evidence harness. The current head implements the `s052` selector, exact-SHA requirement, owner Customer→update→ServiceAddress→duplicate/validation→Project persistence/reload assertions, dedicated synthetic admin Customer→Project proof at 1440/768/390, prepared inactive-membership denial, existing foreign Customer/Project tenant probes, and fail-closed scenario validation. Product runtime behavior is unchanged. Next: finish exact-head CI, run S052 preflight, then capture a full retained non-production run when fixtures/deployment are ready; stop if evidence would require auth/RBAC/RLS/schema/domain changes.
 
 ## S066 mobile field implementation — 2026-10-03
 
