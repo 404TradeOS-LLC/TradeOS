@@ -143,13 +143,13 @@ for the final head; no pending check is represented as passing.
 - The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
 - The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
 
-## Next action
+## Historical RC smoke follow-up
 
-Verify RC smoke attempt 2, publish the bounded attestation repair through normal
-CI/review, and rerun S027 against the immutable replacement frontend with expected
-staging SHA and the canonical sanitized Beta Smoke organization. Retain artifacts
-and deployment identity before/after capture. Do not claim full release
-certification from readiness or a repository merge alone.
+Earlier release-certification work called for verifying RC smoke attempt 2 and
+rerunning S027 against an immutable replacement frontend with the expected
+staging SHA and canonical sanitized Beta Smoke organization. That remains
+historical release-evidence context, not the active session instruction. The
+active resume contract is the S066 / PR #634 block at the end of this handoff.
 
 ## S061 Today implementation reconciliation — 2026-10-02
 
@@ -166,10 +166,10 @@ certification from readiness or a repository merge alone.
 
 ## S066 active implementation — 2026-10-03
 
-- Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; draft implementation PR #634 is the sole S066 implementation lane.
+- Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; non-draft implementation PR #634 is the sole S066 implementation lane.
 - The current slice links technician-visible Project Job rows into `/field`, preserves explicit assigned-Job deep links, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
 - No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
-- Hosted Web/docs/governance checks, review, and retained authenticated responsive/negative/failure/refresh evidence remain open. Do not mark S066 DONE from repository implementation alone.
+- Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
 
 ## Next Eligible Sprint
 
