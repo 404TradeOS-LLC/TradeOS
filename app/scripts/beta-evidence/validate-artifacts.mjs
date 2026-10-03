@@ -174,8 +174,11 @@ if (scenario === "s052") {
   if (expectedRunId && s052RoleEvidence?.runId !== expectedRunId) {
     scenarioFailures.push("role evidence: S052 role report is stale or belongs to another run");
   }
-  if (s052RoleEvidence?.inactiveMembership?.passed !== true) {
-    scenarioFailures.push("role evidence: inactive-membership denial was not proven");
+  if (
+    s052RoleEvidence?.inactiveMembership?.passed !== true ||
+    s052RoleEvidence?.inactiveMembership?.bootstrapDenied !== true
+  ) {
+    scenarioFailures.push("role evidence: inactive-membership bootstrap denial was not proven");
   }
   for (const requiredAdminViewport of ["1440", "768", "390"]) {
     if (!(s052RoleEvidence?.admin ?? []).some((entry) => entry.viewport === requiredAdminViewport && entry.passed === true && entry.role === "admin")) {
@@ -191,6 +194,7 @@ if (scenario === "s052") {
     ["02c", "s052-project-reloaded"],
   ];
   const ownerAssertions = [
+    "S052 smoke identity is the owner role",
     "customer creation opens the server-created customer workspace",
     "customer update persists through reload",
     "service address persists through customer reload",
