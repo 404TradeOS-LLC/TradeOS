@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -43,6 +43,13 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+S063 implementation merge (2026-10-03): PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` and extends the existing /crm operating view so every loaded pipeline Project is reachable at mobile/desktop widths and loaded follow-ups show existing assignment and open the Project Tasks tab. No new CRM lifecycle, persistence, backend, or proposal mutation is introduced. Exact-head Web/docs/governance checks passed; responsive browser, permission/tenant-negative, and refresh certification remain pending.
+
+S062 implementation merge (2026-10-03): PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks. The created Customer opens its record and context-free Job intent continues through Project creation. S052/S056/S058 release certification remains separate. S063 is next for bounded continuity on the existing Project-backed Lead and derived CRM surfaces; no duplicate CRM persistence model.
+
+S064 backlog reconciliation (2026-10-02): PR #520 merged on 2026-09-22 and PR #560's reviewed estimate-assist contract is on main. S064 is now `IN_REVIEW` in draft PR #624 after implementation started. S053 remains `IN_REVIEW` and is still mandatory for release certification, but an external browser-evidence availability blocker no longer freezes the Phase 12 implementation lane.
+
+
 Merge queue support (2026-10-01): `Native merge queue` consumes explicit
 `status:merge-queue` consent once and enqueues an eligible exact head through
 GitHub's protected native queue. The required Verify repository and Docs
@@ -61,8 +68,7 @@ frontend/backend seam is substantial and historically exercised, but the
 current head is not beta-certified across every contractor/customer journey.
 The audit and limitations are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`. The Sprint Backlog
-now owns S051-S100; S051 is `DONE` through merged PR #538, and S053 is the
-successor sprint promoted to `READY` in a separate governance PR. S051 added an
+now owns S051-S100; S051 is `DONE` through merged PR #538, and S053's implementation is landed while its final browser certification remains `IN_REVIEW`. S064 is the active `IN_REVIEW` implementation sprint in PR #624 under the evidence-decoupling rule. S051 added an
 executable action-to-route/permission/RLS/refresh/evidence matrix plus drift
 validation. It does not certify rendered browser behavior or current-head
 browser evidence, and must not repair application behavior or absorb later
@@ -135,7 +141,7 @@ These changes improve evidence for low-risk automated repair. They do not grant 
 
 ## Active engineering queue
 
-S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 is the next `READY` successor for scope-to-estimate certification; S039/S044/S045 and their dependent production operations remain blocked.
+S047 is DONE through implementation PR #397 and the completion evidence in `docs/architecture/S047_COMPLETION_EVIDENCE.md`; its bounded smoke-suite implementation requires no founder decision or product-runtime dependency. S043 is DONE through implementation PR #395 and `docs/architecture/S043_COMPLETION_EVIDENCE.md`. ADR-010 customer magic-link portal implementation PR #402 merged on 2026-08-28 as `9adb89e59e259adda037c9851657d0ea9f337a74`; completion evidence is recorded in `docs/architecture/ADR-010_COMPLETION_EVIDENCE.md`. Its public customer identity, scoped portal routes, replay/revocation controls, forced-RLS policy coverage, and customer contract attribution are complete; rendered-browser/deployment verification remains external and no beta-readiness claim is made. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW` for scope-to-estimate browser certification, while S064 is active `IN_REVIEW` in PR #624; S039/S044/S045 and their dependent production operations remain blocked.
 
 Prioritize existing authorized work before inventing new scope. S025, S026, S027, S028, S030, S031, S032, S033, S034, S035, S036, S037, S038, S040, S041, S042, S043, and S047 are DONE with merged evidence. S034 completion evidence is recorded in `docs/architecture/S034_COMPLETION_EVIDENCE.md`; S035 completion evidence and final status reconciliation are recorded in `docs/architecture/S035_COMPLETION_EVIDENCE.md` and PR #384; S037 completion evidence is recorded in `docs/architecture/S037_COMPLETION_EVIDENCE.md`; S038 completion evidence is recorded in `docs/architecture/S038_COMPLETION_EVIDENCE.md`; S043 completion evidence is recorded in `docs/architecture/S043_COMPLETION_EVIDENCE.md`; S047 completion evidence is recorded in `docs/architecture/S047_COMPLETION_EVIDENCE.md`. S036 is now DONE after PR #476 merged; S044/S045 remain blocked on production access.
 
@@ -274,7 +280,7 @@ S007 is complete through PR #261, S008 through PR #264, S009 through PR #267, an
 
 ## S026 completion
 
-S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is in review; no successor sprint is eligible until merge and a separate readiness assessment.
+S026 implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded Estimate Engine change serializes persisted line-item sort-order allocation on the parent Estimate row while preserving existing RLS, draft-only, pricing, idempotency, and API boundaries. S027 is now DONE after authenticated rendered Costbook browser evidence run `#22`; S036 is DONE after PR #476. S051 is `DONE` through merged PR #538. S053 remains `IN_REVIEW`, while S064 is active `IN_REVIEW` in PR #624 under the evidence-decoupling rule.
 
 ## S028 completion
 
@@ -294,6 +300,20 @@ TradeOS includes two governed maintenance workflows: CodeQL remediation runs on 
 The CodeQL autofix lane now pins `actions/github-script` v9.0.0 by immutable commit SHA. The embedded script uses only the injected `github`, `context`, and `core` objects, does not call CommonJS `require('@actions/github')`, and does not redeclare the v9-injected `getOctokit` parameter. This is GitHub Actions runtime maintenance only; workflow permissions, triggers, TradeOS workload runtimes, auth/RLS, schema, billing, and product behavior are unchanged.
 
 
-## S053 implementation update — 2026-09-22
+## S053 certification update — 2026-10-02
 
-PR #542 is the active S053 implementation lane. It wires structured scope-to-estimate review into the existing estimate-assist surface; backend safeguards remain authoritative and authenticated browser certification is still required.
+The structured scope-to-estimate implementation is already on `main`; S053 is `IN_REVIEW` because authenticated browser certification is still required. That unresolved certification remains a release gate but no longer blocks independent Phase 12 implementation, so S064 can continue independently and is now `IN_REVIEW` in PR #624. The active evidence lane is `test/s053-browser-certification`: it adds an opt-in `s053` mode to the existing Beta Evidence workflow so a full non-production run can prove no silent write before Apply, visible confidence/provenance, explicit reviewed apply through Estimate Engine, pricing refresh, persistence after reload, and the required viewport behavior. This tooling does not mark S053 complete until a passing full run is retained.
+
+
+## S062 Universal Create reconciliation — 2026-10-02
+
+PR #615 already landed the shared Universal Create route contract and most context-aware entry routing. PR #629 merged the two bounded remaining gaps and S062 remains `IN_REVIEW` pending browser/permission/refresh evidence: a newly created Customer opens its Customer record, and context-free Create → Job preserves `intent=job` through Project creation and continues into that Project's Job workflow. Do not duplicate PR #615 or broaden this sprint into unrelated navigation work.
+
+
+## S061 Today implementation reconciliation — 2026-10-02
+
+Current `main` already contains S061's structural implementation through merged PR #585 (`7abfabcdc38d09d4dbed08286835c95b6c6a1b52`). Do not create another Today redesign branch. The only outstanding S061 gate is its listed S060 release-certification prerequisite; a repair branch is warranted only if that evidence reproduces a concrete current-main defect.
+
+## S066 mobile field implementation — 2026-10-03
+
+Readiness PR #633 merged as `2022b1c0f266f1a7afff5b2d38121b6ee49f3`; implementation PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. S066 remains `IN_REVIEW` because retained authenticated responsive, assignment/tenant-negative, failure, and refresh evidence is still outstanding. The merged bounded slice links technician-visible Project Job rows into `/field?job=<id>`, preserves explicit assigned-Job selection, uses neutral labels when today's list cannot establish membership, rejects archived Jobs as actionable field work, and safely normalizes repeated `job` query parameters while preserving the existing assignment-scoped `getFieldJob` authorization boundary. No backend route, lifecycle, schema, permission, RLS, financial handoff, offline mode, or unsupported field mutation was added. Exact-head Web/docs/governance verification passed before merge; S057 remains a separate release-certification prerequisite.

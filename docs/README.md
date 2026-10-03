@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -65,6 +65,8 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
+
+The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow now retains the existing `canonical` scenario and adds an opt-in `s053` scenario for authenticated Scope → Athena → reviewed Estimate Engine certification. The S053 scenario is evidence tooling only: it does not change product behavior and does not complete S053 until a full non-production run passes.
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 

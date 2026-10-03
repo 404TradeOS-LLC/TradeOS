@@ -43,7 +43,7 @@ function supabaseProjectRef(raw?: string): string | null {
   catch { return null; }
 }
 
-/** A Preview is explicitly allowed although Next.js sets NODE_ENV=production there.\n * The staging branch enables this through a branch-scoped Vercel Preview variable. */
+/** A Preview is explicitly allowed although Next.js sets NODE_ENV=production there. */
 export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | "api"): StagingAuthDecision {
   if (env.TRADEOS_AUTH_BYPASS !== "true") return { enabled: false, blocked: false };
   const deny = (reason: string): StagingAuthDecision => ({ enabled: false, blocked: true, reason });

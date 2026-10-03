@@ -65,6 +65,41 @@ test("mobile Items reuse the authoritative edit and delete path while exposing o
   assert.match(builder, /Custom item/);
 });
 
+test("embedded assembly picker previews installed assemblies and gates unmapped starters", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  assert.match(builder, /\/assemblies\/starter-catalog/);
+  assert.match(builder, /kind: "costItem" \| "assembly" \| "starterAssembly"/);
+  assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/unit-cost/);
+  assert.match(builder, /\/assemblies\/\$\{selectedAssemblyId\}\/items\?limit=6&sort=sortOrder&order=asc/);
+  assert.match(builder, /Current Costbook recipe\. Estimate Engine captures the pricing snapshot and assembly source when you explicitly add it\./);
+  assert.match(builder, /Estimated job cost for/);
+  assert.match(builder, /Provenance: organization Costbook assembly \+ live component pricing/);
+  assert.match(builder, /Setup required before this assembly can be priced or added\./);
+  assert.match(builder, /Map each starter recipe slot to an active, compatible Costbook item/);
+  assert.match(builder, /TradeOS will not invent those mappings or a price/);
+  assert.match(builder, /\[item\.kind === "costItem" \? "costItemId" : "assemblyId"\]/);
+  assert.match(builder, /onSuccess: \(\) => \{[\s\S]*onAdded\(\)/);
+});
+
+test("starter assembly setup stays inline and requires install before estimate add", async () => {
+  const builder = await readSource("./builder.tsx");
+
+  assert.match(builder, /assessCostItemMapping/);
+  assert.match(builder, /StarterAssemblySetup/);
+  assert.match(builder, /StarterComponentMappingPicker/);
+  assert.match(builder, /\/costbook\/cost-items\/search\?q=/);
+  assert.match(builder, /\/costbook\/cost-items\/\$\{item\.id\}\/unit-cost/);
+  assert.match(builder, /\/assemblies\/starter-catalog\/install/);
+  assert.match(builder, /componentMappings: template\.components\.map/);
+  assert.match(builder, /Use a different Costbook item for each recipe slot/);
+  assert.match(builder, /Installation creates the tenant assembly only\. Review its resolved cost, then use the separate Add action to write the estimate line\./);
+  assert.match(builder, /onInstalled=\{\(assembly\) => \{[\s\S]*setSelected\(\{ \.\.\.assembly, kind: "assembly" \}\)/);
+  assert.match(builder, /disabled=\{addLineItem\.isPending \|\| \(!selected && !activeResult\) \|\| \(selected \?\? activeResult\)\?\.kind === "starterAssembly"\}/);
+  assert.match(builder, /const resultsId = useId\(\)/);
+  assert.doesNotMatch(builder, /Math\.random\(\)/);
+});
+
 test("Athena stays review-first and Review preserves finalize-before-proposal lifecycle", async () => {
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");

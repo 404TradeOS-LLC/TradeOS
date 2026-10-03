@@ -127,6 +127,9 @@ The email links target the implemented `/reset-password?token=...` and `/invite/
   authentication seam has a verified membership, preserving `app.user_id`,
   `app.org_id`, and `app.role` without widening lookup scope.
 
+
+- `runWithBackgroundDatabaseSession` re-verifies that the supplied user has an active membership in the supplied organization and derives the role from that membership. The operation callback can receive that resolved `AuthContext`; existing zero-argument callbacks remain compatible. Background Costbook ingestion uses this verified context and remains inside the same request-local/RLS transaction boundary.
+
 ## Frontend surfaces
 
 - `/login`

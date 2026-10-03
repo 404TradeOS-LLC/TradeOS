@@ -12,6 +12,14 @@ import {
   type FieldJobDetail,
 } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
+import {
+  firstSearchParam,
+  getFieldWorkspaceLabels,
+  resolveFieldJobLoad,
+  resolveFieldJobMembership,
+  resolveRequestedFieldJobId,
+  resolveSelectedFieldJobId,
+} from "@/lib/field-workspace";
 import { getSessionToken } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -48,7 +56,11 @@ function prioritizeFieldJobs(jobs: Awaited<ReturnType<typeof listFieldJobs>>) {
   return [...jobs].sort((left, right) => FIELD_STATUS_PRIORITY[left.status] - FIELD_STATUS_PRIORITY[right.status]);
 }
 
-export default async function FieldPage({ searchParams }: { searchParams: Promise<{ job?: string; updated?: string }> }) {
+export default async function FieldPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ job?: string | string[]; updated?: string | string[] }>;
+}) {
   const token = await getSessionToken();
   if (!token) return <EmptyState title="Sign in to view your field day" description="Your assigned jobs appear here after authentication." />;
 
@@ -67,20 +79,39 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
     loadError = errorMessage(error);
   }
 
-  if (loadError) return <EmptyState title="Couldn't load your field day" description={loadError} />;
+  const requestedJobId = resolveRequestedFieldJobId(query.job);
+  const updated = firstSearchParam(query.updated);
+  if (loadError && !requestedJobId) {
+    return <EmptyState title="Couldn't load your field day" description={loadError} />;
+  }
 
-  const selectedId = query.job && jobs.some((job) => job.id === query.job) ? query.job : jobs[0]?.id;
+  const selectedId = resolveSelectedFieldJobId(query.job, jobs);
   let selectedJob: FieldJobDetail | null = null;
   let selectedError: string | null = null;
 
   if (selectedId) {
     try {
-      selectedJob = await getFieldJob(token, selectedId);
+      const resolved = resolveFieldJobLoad({ job: await getFieldJob(token, selectedId) });
+      selectedJob = resolved.job;
+      selectedError = resolved.error;
     } catch (error) {
-      selectedError = errorMessage(error);
+      const resolved = resolveFieldJobLoad<FieldJobDetail>({ error: errorMessage(error) });
+      selectedJob = resolved.job;
+      selectedError = resolved.error;
     }
   }
 
+  const membership = resolveFieldJobMembership({
+    requestedJobId,
+    selectedJobId: selectedJob?.id ?? null,
+    todayJobIds: jobs.map((job) => job.id),
+    listFailed: Boolean(loadError),
+  });
+  const labels = getFieldWorkspaceLabels(membership);
+  const selectedOutsideToday = membership === "outside_today";
+  const visibleJobs = selectedJob
+    ? [selectedJob, ...jobs.filter((job) => job.id !== selectedJob.id)]
+    : jobs;
   const timezone = settings.settings.timezone || "UTC";
   const addressLink = mapsHref(selectedJob?.serviceAddress ?? null);
 
@@ -90,29 +121,45 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-copper">Field day</p>
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">Today</h1>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+              {labels.heading}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {jobs.length} assigned job{jobs.length === 1 ? "" : "s"} · current job first
+              {loadError
+                ? "Today’s assigned job list is unavailable."
+                : `${jobs.length} assigned job${jobs.length === 1 ? "" : "s"} today · current job first`}
             </p>
           </div>
           <a href="/dispatch" className="hidden shrink-0 text-sm font-medium text-copper hover:underline sm:block">Open Dispatch</a>
         </div>
       </header>
 
-      {query.updated ? (
+      {updated ? (
         <p className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-success" role="status">
           Job updated successfully.
         </p>
       ) : null}
 
-      {jobs.length === 0 ? (
+      {loadError && selectedJob ? (
+        <p className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground" role="status">
+          Today’s assigned job list couldn’t load. You’re viewing the assigned job you opened directly.
+        </p>
+      ) : null}
+
+      {selectedOutsideToday ? (
+        <p className="rounded-xl border border-info/30 bg-info/10 px-4 py-3 text-sm text-info-foreground" role="status">
+          This assigned job is outside today’s list. You’re viewing it because it was opened directly.
+        </p>
+      ) : null}
+
+      {!selectedId ? (
         <EmptyState title="No assigned jobs today" description="Your dispatcher has not assigned work for today. This view only shows jobs assigned to your authenticated technician account." />
       ) : selectedError ? (
         <EmptyState title="Couldn't load this job" description={selectedError} />
       ) : selectedJob ? (
         <>
-          <nav aria-label="Today's jobs" className="flex gap-2 overflow-x-auto pb-1">
-            {jobs.map((job) => (
+          <nav aria-label="Field jobs" className="flex gap-2 overflow-x-auto pb-1">
+            {visibleJobs.map((job) => (
               <a
                 key={job.id}
                 href={`/field?job=${encodeURIComponent(job.id)}`}
@@ -148,7 +195,9 @@ export default async function FieldPage({ searchParams }: { searchParams: Promis
               <div className="grid gap-4 p-4 sm:p-5">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <section className="rounded-xl border border-border/70 bg-background/70 p-3" aria-label="Job schedule">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Today on site</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {labels.schedule}
+                    </p>
                     <p className="mt-1 text-sm font-medium">
                       {selectedJob.scheduledStart ? formatScheduleInZone(selectedJob.scheduledStart, timezone) : "Unscheduled"}
                     </p>

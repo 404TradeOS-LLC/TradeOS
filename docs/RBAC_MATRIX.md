@@ -86,6 +86,9 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
   remain enforced upstream, and the transaction-local `app.*` RLS settings
   are still established inside the acquired transaction
 
+
+- Background/operator jobs identify their actor by user and organization, not by a supplied role. `runWithBackgroundDatabaseSession` re-verifies active membership, derives the role, and now passes that resolved `AuthContext` to the operation callback. Jones & Sons candidate ingestion still requires `costbook.write`, while the existing Costbook candidate RLS write policy remains an independent database enforcement layer.
+
 ## Assigned-technician restrictions
 
 Jobs have extra scope restrictions beyond the shared permission map:

@@ -30,6 +30,7 @@ import { WhatsNewPopover } from "@/components/shared/whats-new-popover";
 import { Button } from "@/components/ui/button";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { clientFetch } from "@/lib/clientApi";
+import { buildUniversalCreateHref, type UniversalCreateKind } from "@/lib/universal-create";
 import { cn } from "@/lib/utils";
 
 interface NavLink {
@@ -70,14 +71,21 @@ const ATHENA_NAV_LINK: NavLink = {
 
 const CREATE_LINK = { label: "Create" };
 
-const CREATE_OPTIONS = [
-  { href: "/projects/new?intent=estimate#simpleScope", label: "Estimate from scope", helper: "Start with a plain-language scope and turn it into priced work.", icon: FileText, featured: true },
-  { href: "/projects/new", label: "Job", helper: "Create the project container for field work.", icon: ClipboardPlus, featured: false },
-  { href: "/customers/new", label: "Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
-  { href: "/projects", label: "Invoice", helper: "Choose the project that is ready to bill.", icon: Receipt, featured: false },
-  { href: "/projects", label: "Change Order", helper: "Open the project workspace to record a change.", icon: ClipboardPlus, featured: false },
-  { href: "/dispatch", label: "Schedule", helper: "Place work on the dispatch calendar.", icon: CalendarPlus, featured: false },
-] as const;
+const CREATE_OPTIONS: Array<{
+  kind: UniversalCreateKind;
+  label: string;
+  helper: string;
+  icon: typeof FileText;
+  featured: boolean;
+}> = [
+  { kind: "estimate", label: "Estimate from scope", helper: "Start with a plain-language scope and turn it into priced work.", icon: FileText, featured: true },
+  { kind: "job", label: "Job", helper: "Choose the Project this field Job belongs to.", icon: ClipboardPlus, featured: false },
+  { kind: "customer", label: "Customer", helper: "Add a customer and keep the relationship in one place.", icon: UserPlus, featured: false },
+  { kind: "invoice", label: "Invoice", helper: "Choose the Project that is ready to bill.", icon: Receipt, featured: false },
+  { kind: "change-order", label: "Change Order", helper: "Choose the Project whose scope is changing.", icon: ClipboardPlus, featured: false },
+  { kind: "schedule", label: "Schedule", helper: "Open real unscheduled work and place it on the schedule.", icon: CalendarPlus, featured: false },
+  { kind: "athena", label: "Ask Athena", helper: "Open Athena with the current TradeOS page and Project context attached.", icon: Sparkles, featured: false },
+];
 
 // The 404TradeOS Control Dock keeps five thumb-reachable slots on mobile:
 // Today, Dispatch, Create, Work, and More (everything else, unchanged routes).
@@ -181,6 +189,9 @@ export function AppNav({
     ? clientAthenaCapability?.key === athenaCapabilityRetryKey && clientAthenaCapability.enabled
     : athenaEnabled;
   const primaryLinks = effectiveAthenaEnabled ? [...PRIMARY_NAV_LINKS, ATHENA_NAV_LINK] : PRIMARY_NAV_LINKS;
+  const createOptions = CREATE_OPTIONS
+    .filter((option) => option.kind !== "athena" || effectiveAthenaEnabled)
+    .map((option) => ({ ...option, href: buildUniversalCreateHref(option.kind, pathname) }));
 
   useBodyScrollLock(mobileOpen || createOpen);
 
@@ -411,7 +422,7 @@ export function AppNav({
             </button>
           </div>
           <nav aria-label="Create options" className="grid gap-2">
-            {CREATE_OPTIONS.map((option) => {
+            {createOptions.map((option) => {
               const Icon = option.icon;
               return (
                 <Link
