@@ -34,7 +34,7 @@ function startupFailure(message) {
 if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
 if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
 if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
-if (!["canonical", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical or s053; received "${scenario}".`);
+if (!["canonical", "s052", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, or s053; received "${scenario}".`);
 if (!allowMutations) {
   startupFailure(
     "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
