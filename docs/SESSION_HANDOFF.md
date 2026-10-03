@@ -164,10 +164,17 @@ certification from readiness or a repository merge alone.
 - S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
 - Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. PR #630 merged as `28c939e405966ded5b3049f1fc64f3c3ae58ba98`; PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` after exact-head Web/docs/governance checks. S063 remains `IN_REVIEW` for retained authenticated responsive, permission/tenant-negative, and refresh evidence; no duplicate implementation branch.
 
+## S066 active implementation — 2026-10-03
+
+- Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; draft implementation PR #634 is the sole S066 implementation lane.
+- The current slice preserves explicit assigned-Job deep links into `/field`, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
+- No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
+- Hosted Web/docs/governance checks, review, and retained authenticated responsive/negative/failure/refresh evidence remain open. Do not mark S066 DONE from repository implementation alone.
+
 ## Next Eligible Sprint
 
-Sprint ID: S066
-Eligibility: `READY` after 2026-10-03 readiness reconciliation; `Dependencies: none`. S064 is `IN_REVIEW`, so S065 is not yet eligible.
-Dependencies: none. S057 remains a release-certification prerequisite, not an implementation dependency.
-Overlap check: no open S066 implementation PR or branch at readiness inspection. Existing `/field` and Project/Job surfaces must be reused; S063 is merged but awaiting browser certification.
-Startup prompt: Implement the bounded mobile Project/Job-to-Field action continuity in S066 using existing authenticated Job/Project contracts. Preserve assignment and tenant boundaries, supported lifecycle and truthful refresh/error behavior. Do not advertise offline/photo/issue/change/inventory/messaging/timekeeping capabilities without their contracts.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue PR #634 for S066 implementation/review; do not create a competing S066 branch. S053/S059/Costbook lanes remain separate.
+Startup prompt: Continue S066 only through PR #634: run hosted verification, classify and repair exact-head review findings, and retain browser/security evidence when deployment capacity is available. Do not begin another numbered sprint from this branch.
