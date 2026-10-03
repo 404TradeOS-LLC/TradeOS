@@ -1006,7 +1006,7 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is READY; S063 is IN_REVIEW in draft PR #631 and S064 is separately IN_REVIEW.
+Eligibility: No numbered sprint is `READY`; S063 is IN_REVIEW in draft PR #631 and S064 is separately IN_REVIEW.
 Dependencies: S063 has none; S052/S054 are release-certification prerequisites.
 Overlap check: Continue only PR #631 for S063; do not duplicate PRs #582/#586/#587 or its CRM continuity edits.
 Startup prompt: Repair PR #631 exact-head checks and review, capture required certification evidence, then reconcile completion and select the next eligible sprint from current main.
