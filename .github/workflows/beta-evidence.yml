@@ -152,6 +152,10 @@ jobs:
           HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
           HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
           HAS_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD != '' }}
+          HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
+          HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
+          HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
+          HAS_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD != '' }}
         run: |
           set -euo pipefail
           missing=0
@@ -168,6 +172,10 @@ jobs:
             echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
             echo "| BETA_RC_FOREIGN_PROJECT_ID or _CUSTOMER_ID | ${HAS_FOREIGN_PROJECT} |"
             echo "| BETA_RC_FOREIGN_ESTIMATE_ID (required for s053) | ${HAS_FOREIGN_ESTIMATE} |"
+            echo "| BETA_RC_S052_ADMIN_EMAIL | ${HAS_S052_ADMIN_EMAIL} |"
+            echo "| BETA_RC_S052_ADMIN_PASSWORD | ${HAS_S052_ADMIN_PASSWORD} |"
+            echo "| BETA_RC_S052_INACTIVE_EMAIL | ${HAS_S052_INACTIVE_EMAIL} |"
+            echo "| BETA_RC_S052_INACTIVE_PASSWORD | ${HAS_S052_INACTIVE_PASSWORD} |"
             echo "| S052 admin identity | $([ "${HAS_S052_ADMIN_EMAIL}" = "true" ] && [ "${HAS_S052_ADMIN_PASSWORD}" = "true" ] && echo true || echo false) |"
             echo "| S052 inactive identity | $([ "${HAS_S052_INACTIVE_EMAIL}" = "true" ] && [ "${HAS_S052_INACTIVE_PASSWORD}" = "true" ] && echo true || echo false) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -181,6 +189,13 @@ jobs:
           fi
           if [ "$BETA_SCENARIO" = "s053" ] && [ "$HAS_FOREIGN_ESTIMATE" != "true" ]; then
             missing=1
+          fi
+          if [ "$BETA_SCENARIO" = "s052" ]; then
+            for flag in "$HAS_S052_ADMIN_EMAIL" "$HAS_S052_ADMIN_PASSWORD" "$HAS_S052_INACTIVE_EMAIL" "$HAS_S052_INACTIVE_PASSWORD"; do
+              [ "$flag" = "true" ] || missing=1
+            done
+            [ "${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}" = "true" ] || missing=1
+            [ "${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' }}" = "true" ] || missing=1
           fi
           {
             echo
@@ -227,6 +242,20 @@ jobs:
             echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
             fail=1
           fi
+          if [ "$BETA_SCENARIO" = "s052" ]; then
+            if [ -z "${BETA_S052_ADMIN_EMAIL}" ] || [ -z "${BETA_S052_ADMIN_PASSWORD}" ]; then
+              echo "::error::BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 admin happy-path evidence."
+              fail=1
+            fi
+            if [ -z "${BETA_S052_INACTIVE_EMAIL}" ] || [ -z "${BETA_S052_INACTIVE_PASSWORD}" ]; then
+              echo "::error::BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial."
+              fail=1
+            fi
+            if [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ] || [ -z "${BETA_FOREIGN_PROJECT_ID}" ]; then
+              echo "::error::BETA_RC_FOREIGN_CUSTOMER_ID and BETA_RC_FOREIGN_PROJECT_ID are both required for the s052 cross-tenant evidence."
+              fail=1
+            fi
+          fi
           exit "$fail"
 
       - name: Install Chromium
@@ -264,6 +293,10 @@ jobs:
       - name: Prove tenant isolation
         if: inputs.mode == 'full'
         run: node scripts/beta-evidence/tenant-isolation.mjs
+
+      - name: Capture S052 admin and inactive-membership evidence
+        if: ${{ inputs.mode == 'full' && inputs.scenario == 's052' }}
+        run: node scripts/beta-evidence/s052-role-evidence.mjs
 
       - name: Validate artifacts and write metadata
         if: ${{ always() && inputs.mode == 'full' }}
