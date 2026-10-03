@@ -72,7 +72,11 @@ selected Job to `/field?job=<id>`. The Field route preserves that explicitly
 requested Job instead of silently replacing it with the first Job in today's
 assigned queue. The existing `getFieldJob` contract remains the authorization
 boundary, so an unassigned, wrong-organization, or otherwise inaccessible Job
-still fails closed.
+still fails closed. The web DTO now reflects the already-returned `archivedAt`
+field: archived Project rows do not offer the Field handoff, and an old direct
+link to an archived assigned Job renders a non-actionable error instead of
+field transition controls. Repeated `job` query parameters are normalized
+before trimming so malformed links do not crash server rendering.
 
 An authorized assigned Job outside the current organization-day list can render
 with truthful schedule context and an explicit outside-today notice. If the
