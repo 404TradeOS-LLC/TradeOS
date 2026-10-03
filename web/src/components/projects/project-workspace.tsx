@@ -42,6 +42,7 @@ interface ProjectWorkspaceProps {
   changeOrders: DetailedChangeOrder[];
   tasks: ProjectTask[];
   jobs?: JobSummary[];
+  currentRole: string;
 }
 
 export async function ProjectWorkspace({
@@ -57,6 +58,7 @@ export async function ProjectWorkspace({
   changeOrders,
   tasks,
   jobs = [],
+  currentRole,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -137,7 +139,17 @@ export async function ProjectWorkspace({
                         {job.scheduledEnd ? ` – ${formatDateTime(job.scheduledEnd)}` : ""}
                       </div>
                     </div>
-                    <StatusBadge status={job.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={job.status} />
+                      {currentRole === "technician" ? (
+                        <Link
+                          href={`/field?job=${encodeURIComponent(job.id)}`}
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                        >
+                          Open field job
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </CardContent>
