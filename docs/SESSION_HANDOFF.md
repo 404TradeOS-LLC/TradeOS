@@ -154,10 +154,10 @@ certification from readiness or a repository merge alone.
 ## S062 Universal Create reconciliation — 2026-10-02
 
 - Classification: `EXISTING_WORK_FOUND`; PR #615 already implements the shared Universal Create routing contract on current main.
-- S062 remains `PLANNED`, not complete.
+- That earlier reconciliation is superseded by the S062 readiness promotion below: S062 is now `READY`, not complete.
 - Remaining current-main gaps are bounded to Customer post-create navigation to the created Customer record and preservation of `intent=job` through no-existing-Project Project creation into the new Project's Job workflow.
 - Do not recreate the already-landed Estimate/Invoice/Change Order/Schedule/Athena entry routing.
-- Next numbered-sprint action must still follow `NEXT_SPRINT_PROTOCOL.md`; no S062 implementation branch is authorized by this reconciliation alone.
+- The readiness promotion below authorizes only the two bounded S062 continuity repairs after this governance PR lands; the implementation must still follow `NEXT_SPRINT_PROTOCOL.md`.
 
 ## S061 Today implementation reconciliation — 2026-10-02
 
