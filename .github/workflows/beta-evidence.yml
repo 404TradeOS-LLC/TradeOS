@@ -33,6 +33,7 @@ on:
         type: choice
         options:
           - canonical
+          - s052
           - s053
       rc_base_url:
         description: Approved non-production RC base URL (tradeos-costbook-web-*.vercel.app)
@@ -89,12 +90,16 @@ jobs:
       BETA_SMOKE_TENANT_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
       BETA_EXPECTED_SHA: ${{ inputs.expected_sha }}
-      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's053' || inputs.require_sha_correlation }}
+      BETA_REQUIRE_SHA_CORRELATION: ${{ inputs.scenario == 's052' || inputs.scenario == 's053' || inputs.require_sha_correlation }}
       BETA_RC_DEPLOYMENT_URL: ${{ vars.BETA_RC_DEPLOYMENT_URL }}
       BETA_RC_DEPLOYMENT_SHA: ${{ vars.BETA_RC_DEPLOYMENT_SHA }}
       BETA_RC_SUPABASE_PROJECT_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF }}
       BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
       BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL }}
+      BETA_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD }}
+      BETA_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL }}
+      BETA_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD }}
       BETA_FOREIGN_CUSTOMER_ID: ${{ secrets.BETA_RC_FOREIGN_CUSTOMER_ID }}
       BETA_FOREIGN_PROJECT_ID: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID }}
       BETA_FOREIGN_ESTIMATE_ID: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID }}
@@ -143,6 +148,10 @@ jobs:
           HAS_DATA_PLANE_REF: ${{ secrets.BETA_RC_SUPABASE_PROJECT_REF != '' }}
           HAS_FOREIGN_PROJECT: ${{ secrets.BETA_RC_FOREIGN_PROJECT_ID != '' || secrets.BETA_RC_FOREIGN_CUSTOMER_ID != '' }}
           HAS_FOREIGN_ESTIMATE: ${{ secrets.BETA_RC_FOREIGN_ESTIMATE_ID != '' }}
+          HAS_S052_ADMIN_EMAIL: ${{ secrets.BETA_RC_S052_ADMIN_EMAIL != '' }}
+          HAS_S052_ADMIN_PASSWORD: ${{ secrets.BETA_RC_S052_ADMIN_PASSWORD != '' }}
+          HAS_S052_INACTIVE_EMAIL: ${{ secrets.BETA_RC_S052_INACTIVE_EMAIL != '' }}
+          HAS_S052_INACTIVE_PASSWORD: ${{ secrets.BETA_RC_S052_INACTIVE_PASSWORD != '' }}
         run: |
           set -euo pipefail
           missing=0
@@ -159,10 +168,17 @@ jobs:
             echo "| BETA_RC_SUPABASE_PROJECT_REF | ${HAS_DATA_PLANE_REF} |"
             echo "| BETA_RC_FOREIGN_PROJECT_ID or _CUSTOMER_ID | ${HAS_FOREIGN_PROJECT} |"
             echo "| BETA_RC_FOREIGN_ESTIMATE_ID (required for s053) | ${HAS_FOREIGN_ESTIMATE} |"
+            echo "| S052 admin identity | $([ "${HAS_S052_ADMIN_EMAIL}" = "true" ] && [ "${HAS_S052_ADMIN_PASSWORD}" = "true" ] && echo true || echo false) |"
+            echo "| S052 inactive identity | $([ "${HAS_S052_INACTIVE_EMAIL}" = "true" ] && [ "${HAS_S052_INACTIVE_PASSWORD}" = "true" ] && echo true || echo false) |"
           } >> "$GITHUB_STEP_SUMMARY"
           for flag in "$HAS_EMAIL" "$HAS_PASSWORD" "$HAS_DATA_PLANE_REF" "$HAS_FOREIGN_PROJECT"; do
             [ "$flag" = "true" ] || missing=1
           done
+          if [ "$BETA_SCENARIO" = "s052" ]; then
+            for flag in "$HAS_S052_ADMIN_EMAIL" "$HAS_S052_ADMIN_PASSWORD" "$HAS_S052_INACTIVE_EMAIL" "$HAS_S052_INACTIVE_PASSWORD"; do
+              [ "$flag" = "true" ] || missing=1
+            done
+          fi
           if [ "$BETA_SCENARIO" = "s053" ] && [ "$HAS_FOREIGN_ESTIMATE" != "true" ]; then
             missing=1
           fi
@@ -196,6 +212,16 @@ jobs:
           if [ -z "${BETA_FOREIGN_PROJECT_ID}" ] && [ -z "${BETA_FOREIGN_CUSTOMER_ID}" ]; then
             echo "::error::BETA_RC_FOREIGN_PROJECT_ID or BETA_RC_FOREIGN_CUSTOMER_ID is required so tenant isolation can be proven."
             fail=1
+          fi
+          if [ "$BETA_SCENARIO" = "s052" ]; then
+            if [ -z "${BETA_S052_ADMIN_EMAIL}" ] || [ -z "${BETA_S052_ADMIN_PASSWORD}" ]; then
+              echo "::error::BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 scenario."
+              fail=1
+            fi
+            if [ -z "${BETA_S052_INACTIVE_EMAIL}" ] || [ -z "${BETA_S052_INACTIVE_PASSWORD}" ]; then
+              echo "::error::BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial."
+              fail=1
+            fi
           fi
           if [ "$BETA_SCENARIO" = "s053" ] && [ -z "${BETA_FOREIGN_ESTIMATE_ID}" ]; then
             echo "::error::BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario so a foreign Athena draft request can be denied explicitly."
