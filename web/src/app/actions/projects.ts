@@ -7,6 +7,7 @@ import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
 import { buildProjectFilePath, isSafeProjectId } from "@/lib/projectFileStorage";
+import { buildProjectIntentDestination, resolveNewProjectCreateIntent } from "@/lib/universal-create";
 import {
   cleanupUploadedProjectFileAfterMetadataFailure,
   deleteAuthorizedProjectFileStorage,
@@ -24,6 +25,7 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
   const jobType = String(formData.get("jobType") ?? "").trim();
   const siteAddress = String(formData.get("siteAddress") ?? "").trim();
   const simpleScope = String(formData.get("simpleScope") ?? "").trim();
+  const createIntent = resolveNewProjectCreateIntent(String(formData.get("intent") ?? ""));
 
   if (!name) return { error: "Project name is required." };
 
@@ -48,7 +50,7 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
 
   revalidatePath("/projects");
 
-  if (formData.get("intent") === "estimate") {
+  if (createIntent === "estimate") {
     const estimate = await apiFetch<Estimate>("/api/v1/estimates", {
       method: "POST",
       token: token ?? undefined,
@@ -56,6 +58,11 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
     });
     revalidatePath(`/projects/${projectId}`);
     redirect(`/projects/${projectId}/estimates/${estimate.id}`);
+  }
+
+  if (createIntent === "job") {
+    revalidatePath(`/projects/${projectId}`);
+    redirect(buildProjectIntentDestination(projectId, "job"));
   }
 
   redirect("/projects");

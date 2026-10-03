@@ -1270,6 +1270,7 @@ export interface DispatchJob {
   priority: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
+  archivedAt: string | null;
   project: { id: string; name: string; siteAddress: string | null } | null;
   customer: { id: string; name: string } | null;
   assignedTechnicians: DispatchJobTechnician[];

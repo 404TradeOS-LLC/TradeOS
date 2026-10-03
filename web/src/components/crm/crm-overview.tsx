@@ -11,7 +11,6 @@ import type {
   Project,
   ProposalQueueItem,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 type PipelineStage = "lead" | "ready" | "estimating" | "proposal" | "awarded";
 
@@ -97,7 +96,9 @@ function PipelineCard({
         </div>
         <StatusBadge status={proposal && (proposal.status === "sent" || proposal.status === "viewed") ? proposal.status : project.status} />
       </div>
-      {proposal ? (
+      {project.status === "awarded" ? (
+        <p className="mt-2 text-xs font-medium text-primary">Open awarded Project</p>
+      ) : proposal ? (
         <p className="mt-2 text-xs text-muted-foreground">
           Proposal {proposal.status}{proposal.amount != null ? ` · ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(proposal.amount)}` : ""}
         </p>
@@ -128,8 +129,7 @@ export function CrmOverview({
 
   const visibleFollowUps = [...followUps]
     .filter((task) => task.status !== "completed" && !task.completedAt)
-    .sort(followUpSort)
-    .slice(0, 5);
+    .sort(followUpSort);
 
   const recentCustomers = [...customers]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -164,7 +164,7 @@ export function CrmOverview({
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Follow-ups</p>
               <h2 className="mt-1 font-heading text-xl font-semibold">What needs a relationship touch?</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Existing incomplete Project Tasks due next.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Existing incomplete Project Tasks due next. Up to 50 are loaded.</p>
             </div>
             <Badge variant="outline">{visibleFollowUps.length}</Badge>
           </div>
@@ -176,13 +176,13 @@ export function CrmOverview({
               visibleFollowUps.map((task) => (
                 <Link
                   key={task.id}
-                  href={`/projects/${task.projectId}`}
+                  href={`/projects/${task.projectId}?tab=tasks`}
                   className="grid gap-1 rounded-xl border border-border/70 bg-background/70 px-3 py-3 outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{task.title}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {task.projectName}{task.customerName ? ` · ${task.customerName}` : ""}
+                      {task.projectName}{task.customerName ? ` · ${task.customerName}` : ""} · {task.assignedTo ? `Assigned to ${task.assignedTo}` : "Unassigned"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
@@ -256,7 +256,21 @@ export function CrmOverview({
                     />
                   ))}
                   {stageProjects.length === 0 ? <p className="rounded-lg border border-dashed border-border/70 px-2 py-4 text-center text-xs text-muted-foreground">Nothing here</p> : null}
-                  {stageProjects.length > 5 ? <p className="text-xs text-muted-foreground">+ {stageProjects.length - 5} more</p> : null}
+                  {stageProjects.length > 5 ? (
+                    <details className="rounded-lg border border-border/70 bg-background/70 p-2">
+                      <summary className="cursor-pointer text-xs font-medium text-primary">Show {stageProjects.length - 5} more</summary>
+                      <div className="mt-2 grid gap-2">
+                        {stageProjects.slice(5).map((project) => (
+                          <PipelineCard
+                            key={project.id}
+                            project={project}
+                            customer={project.customerId ? customersById.get(project.customerId) : undefined}
+                            proposal={proposalsByProject.get(project.id)}
+                          />
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
                 </div>
               </section>
             );
@@ -266,18 +280,27 @@ export function CrmOverview({
         <div className="mt-4 grid gap-2 xl:hidden">
           {PIPELINE.map((stage) => {
             const stageProjects = lanes.get(stage.id) ?? [];
-            const first = stageProjects[0];
             return (
-              <div key={stage.id} className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{stage.label}</p>
-                    <Badge variant="outline">{stageProjects.length}</Badge>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">{first?.name ?? stage.helper}</p>
+              <details key={stage.id} className="rounded-xl border border-border/70 bg-background/70 px-3 py-2">
+                <summary className="flex min-h-10 cursor-pointer items-center justify-between gap-3">
+                  <span className="text-sm font-medium">{stage.label}</span>
+                  <Badge variant="outline">{stageProjects.length}</Badge>
+                </summary>
+                <div className="mt-2 grid gap-2">
+                  {stageProjects.length === 0 ? (
+                    <p className="py-2 text-xs text-muted-foreground">Nothing here</p>
+                  ) : (
+                    stageProjects.map((project) => (
+                      <PipelineCard
+                        key={project.id}
+                        project={project}
+                        customer={project.customerId ? customersById.get(project.customerId) : undefined}
+                        proposal={proposalsByProject.get(project.id)}
+                      />
+                    ))
+                  )}
                 </div>
-                {first ? <Link href={`/projects/${first.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0")}>Open</Link> : null}
-              </div>
+              </details>
             );
           })}
         </div>

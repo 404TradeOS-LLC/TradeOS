@@ -14,7 +14,11 @@ while ((match = sprintPattern.exec(text)) !== null) {
   const dependencies = depsRaw === "none"
     ? []
     : depsRaw.split(",").map((value) => value.trim()).filter(Boolean);
-  sprints.set(id, { id, title: title.trim(), status, dependencies, body });
+  const certificationRaw = body.match(/^Release certification prerequisites:\s+(.+)\s*$/m)?.[1] ?? "none";
+  const certificationPrerequisites = certificationRaw === "none"
+    ? []
+    : certificationRaw.split(",").map((value) => value.trim()).filter(Boolean);
+  sprints.set(id, { id, title: title.trim(), status, dependencies, certificationPrerequisites, body });
 }
 
 const errors = [];
@@ -29,6 +33,11 @@ for (const sprint of sprints.values()) {
   for (const dep of sprint.dependencies) {
     if (!sprints.has(dep)) {
       errors.push(`${sprint.id} depends on unknown sprint ${dep}.`);
+    }
+  }
+  for (const prerequisite of sprint.certificationPrerequisites) {
+    if (!sprints.has(prerequisite)) {
+      errors.push(`${sprint.id} has unknown release certification prerequisite ${prerequisite}.`);
     }
   }
 }

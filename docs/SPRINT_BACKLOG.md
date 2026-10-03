@@ -574,6 +574,16 @@ to pass, resulting state to refresh correctly, and retained browser evidence for
 the role and viewport set named by the sprint. Historical evidence may establish
 a baseline but cannot certify a changed current head.
 
+Certification-availability rule (2026-10-02): when implementation is already merged
+and repository-verified but final browser/deployment evidence is blocked exclusively
+by external environment availability, the sprint may remain `IN_REVIEW` while
+independent implementation work continues. It is still **not DONE**, does not satisfy
+a release-certification prerequisite, and cannot support a beta/production readiness
+claim until its required browser/security evidence passes. This exception applies only
+to evidence infrastructure/availability blockers; reproduced product defects, auth/RBAC/RLS
+failures, schema/migration failures, tenant-isolation failures, financial correctness
+failures, or unresolved product decisions remain hard blockers.
+
 ### S051 — Executable frontend/backend connection matrix
 
 Status: DONE
@@ -597,11 +607,12 @@ Acceptance: owner/admin happy path plus validation, duplicate, inactive-membersh
 
 ### S053 — Scope-to-Athena-to-estimate certification
 
-Status: READY
+Status: IN_REVIEW
 Readiness evidence: S051 is DONE through merged PR #538; S052 remains unstarted; no competing S053 implementation PR or branch was found during the 2026-09-22 reconciliation; the scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract is explicit below; this readiness promotion changes documentation only.
 Dependencies: S051
 Objective: Connect and certify plain-language scope → Athena matches → reviewed Costbook/assembly choices → persisted estimate lines.
 Acceptance: provenance, confidence, setup-required behavior, explicit review, line persistence, pricing refresh, denial paths, and no-silent-write behavior pass at 1440/768/390.
+Certification status (2026-10-02): the core implementation is landed through PR #560 and the governed S053 evidence scenario is on main through PR #618. Browser certification remains open in the evidence/repair lanes (#621/#622) and S053 must not be called DONE until the full authenticated non-production run passes. Its remaining evidence-only environment dependency no longer blocks unrelated Phase 12 implementation.
 
 ### S054 — Proposal and customer acceptance certification
 
@@ -654,67 +665,93 @@ Acceptance: counts and destinations agree with source records, independent failu
 
 ## Phase 12 — Contractor UX Completion
 
+Phase 12 is an implementation track. Its `Dependencies:` fields name code/governance
+prerequisites needed to build safely; Phase 11 browser-certification dependencies are
+tracked separately as `Release certification prerequisites:`. A Phase 12 sprint may be
+implemented and merged while an upstream certification sprint is `IN_REVIEW` for an
+external evidence-only blocker, but it may not be represented as release-certified when
+its listed certification prerequisites remain incomplete.
+
 ### S061 — Today page structural completion
 
-Status: PLANNED
-Dependencies: S060
+Status: IN_REVIEW
+Dependencies: none
+Release certification prerequisites: S060
 Objective: Remove remaining competing dashboard regions and finish the Now / Needs you / Coming up / Money operating rhythm.
 Acceptance: the page is action-led rather than a repeated-card wall, preserves compact density, and does not hide required secondary diagnostics.
+Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today command center as `7abfabcdc38d09d4dbed08286835c95b6c6a1b52`. Current `main` still renders only `OwnerDashboardHeader` + `TodayCommandBoard` on the landing page, preserves the Now / Needs you / Coming up / Money hierarchy, removes the former duplicate task/activity/Knowledge/KPI/widget regions, and keeps truthful partial/unavailable states. PR #585 exact-head checks passed (21 success, no failures). S061 is therefore implemented and remains `IN_REVIEW` only because release-certification prerequisite S060 is still incomplete; do not reopen the structural dashboard implementation unless certification reproduces a current-main defect.
 
 ### S062 — Universal Create continuity
 
-Status: PLANNED
-Dependencies: S052, S056, S058
+Status: IN_REVIEW
+Implementation evidence: PR #629 merged 2026-10-03 as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; exact-head Web lint/build/tests, Docs consistency, Sprint governance, branch currency, dependency review, and Verify repository passed. S062 remains `IN_REVIEW` pending retained authenticated browser, permission/tenant-negative, and refresh evidence for its owned journey.
+Dependencies: none
+Release certification prerequisites: S052, S056, S058
 Objective: Make every Universal Create choice land in a valid, context-preserving workflow with Estimate from scope unmistakably first.
 Acceptance: Estimate, Job, Customer, Invoice, Change Order, Schedule, and Athena entries preserve origin/context and return users to the created record or correct queue.
+Readiness evidence (2026-10-02): current `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` already contains PR #615's shared Universal Create routing contract and PR #625's bounded reconciliation. Live open-PR review found no S062 implementation branch or PR. The implementation scope is limited to two reproduced continuity gaps: (1) Customer creation must redirect to the newly created Customer record instead of `/customers`, and (2) context-free Create → Job must preserve `intent=job` through Project creation and continue into `/projects/{projectId}/jobs/new`. S062 has no implementation dependency; S052/S056/S058 remain release-certification prerequisites only. Do not recreate or broaden the already-landed Estimate/Invoice/Change Order/Schedule/Athena routing.
+Implementation status (2026-10-02): PR #629 implements only the two authorized continuity repairs. Customer creation carries the server-returned Customer id into the canonical Customer workspace; context-free Create → Job preserves a validated `job` intent through Project creation and continues into that Project's Job workflow. Focused regression coverage pins both contracts. The two code repairs landed in merged PR #629 (`6f6a0a6567c1413c837afc86b943c1c45f5f03e0`); review threads were empty. S062 remains `IN_REVIEW` until the successor contractor-facing completion evidence is retained. S052/S056/S058 remain separate release-certification prerequisites.
 
 ### S063 — CRM lead and proposal-pipeline workspace
 
-Status: PLANNED
-Dependencies: S052, S054
+Status: IN_REVIEW
+Dependencies: none
+Release certification prerequisites: S052, S054
 Objective: Complete the pre-job lifecycle as Leads + Customers + Follow-ups + Proposal Pipeline without creating a parallel customer source of truth.
 Acceptance: lead conversion, follow-up ownership, proposal stage visibility, and accepted-proposal handoff are connected and mobile usable.
+Readiness reconciliation (2026-10-03): repository `404TradeOS-LLC/TradeOS`; current main `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native session has no local checkout/worktree or dirty files, so fresh live GitHub comparison and hosted CI are required before implementation. No open S063 PR or remote branch found. Implementation dependencies: none. Existing CRM/Project APIs and hosted Web checks are available; no new infrastructure or migration is needed for this bounded frontend slice. Founder decision: NO; retain existing domain semantics and stop if a new assignment, conversion, or proposal policy becomes necessary. Autonomy category: bounded frontend/PR workflow, not a high-risk policy change. Required validation: focused CRM tests, full Web test/lint/build, docs ownership checks, PR preflight, exact-head hosted checks, review threads, and branch currency. PR #582 landed Project-backed New Lead and Site Visit → Estimate handoff; PR #587 landed the authenticated /crm overview composed from Customers, Projects, incomplete Project Tasks, Site Visit events, and Proposal queue state; PR #586 landed Customer/address connectivity. Reuse these records and routes. Current /crm shows at most five follow-ups; desktop pipeline renders at most five Projects per lane and mobile renders only the first Project per lane, leaving additional work unreachable from that view. The Task DTO includes assignedTo, but the overview does not surface ownership. Proposal Sent and Awarded are already derived from Proposal/Project truth; acceptance side effects remain owned by their existing services. S063 implementation is limited to complete, bounded access to existing pipeline and follow-up records on mobile/desktop, truthful task ownership through the existing assignment contract, and explicit navigation from accepted proposals into the canonical awarded Project. Preserve partial-source errors and existing lifecycle authority. No Lead/opportunity/follow-up table, CRM-stage persistence, schema/migration, RBAC/RLS change, proposal acceptance mutation, or new financial semantics. Focused behavioral tests and required frontend/docs checks must pass. S052/S054 remain release-certification prerequisites, not implementation dependencies.
+
+Implementation evidence (2026-10-03): PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` with exact-head Web unit/lint/build, docs consistency, sprint governance, branch currency, dependency review, and CodeRabbit green; no review threads. The /crm continuity slice keeps the 50-task API cap and Project/Proposal lifecycle authority, makes loaded records reachable on mobile and desktop, discloses assignedTo/Unassigned, and links awarded records to canonical Projects. S063 remains `IN_REVIEW` until retained responsive browser, permission/tenant-negative, and refresh evidence satisfies the successor DONE definition.
 
 ### S064 — Embedded assembly picker in estimate Items
 
-Status: PLANNED
-Dependencies: S053
-Readiness note: PR #520 merged on 2026-09-22 and its Assembly Catalog mapping changes are now part of main. The remaining execution gate is completion of S053; do not start S064 before that dependency is satisfied.
+Status: IN_REVIEW
+Dependencies: S051
+Release certification prerequisites: S053
+Readiness note: PR #520 merged on 2026-09-22 and its Assembly Catalog mapping changes are part of main; PR #560 landed the scope-to-reviewed-estimate contract and PR #618 landed its governed evidence scenario. S053 remains IN_REVIEW for final authenticated browser certification, but that external evidence-only gate no longer blocks S064 implementation. S064 must preserve review-first writes, provenance, setup-required handling, tenant boundaries, and Estimate Engine ownership, and no release-certification claim may rely on S053 until S053 reaches DONE.
 Objective: Embed installed and starter assembly selection inside the estimate Items stage.
 Acceptance: search, setup-required mapping, cost preview, quantity, explicit add, provenance, and line refresh work without leaving the estimate.
 
 ### S065 — Project planning and quantity-takeoff MVP
 
 Status: PLANNED
-Dependencies: S053, S064
+Dependencies: S064
+Release certification prerequisites: S053
 Objective: Add the smallest production-worthy plan → measured quantities → assemblies → estimate workflow.
 Acceptance: contractor-entered dimensions/quantities remain reviewable, calculations are reproducible, takeoff revisions are versioned, and estimate application is explicit.
 
 ### S066 — Mobile job action workspace
 
-Status: PLANNED
-Dependencies: S057
-Objective: Turn project/job mobile pages into one field action workspace for instructions, contacts, schedule, files, notes, status, and blockers.
-Acceptance: the next action is obvious, critical context remains reachable offline only when explicitly supported, and role restrictions remain intact.
+Status: IN_REVIEW
+Implementation PR: #634
+Dependencies: none
+Release certification prerequisites: S057
+Objective: Turn project/job mobile pages into one field action workspace for schedule, address, instructions, notes, status, and the next authorized Job action.
+Acceptance: the next authorized action is obvious, persisted field context stays compact and readable, truthful loading/empty/error states are preserved, and role/assignment restrictions remain intact.
+Readiness reconciliation (2026-10-03): readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`. S064 is `IN_REVIEW` and S065 depends on S064, so S066 was the lowest-numbered implementation candidate with satisfied `Dependencies:`. Existing PR #554/S032 already supplies authenticated, assignment-scoped `/field` with today's jobs, directions, briefing, notes and bounded Job transitions; `/projects/[id]` still presents a broad tabbed desktop-oriented workspace and read-only scheduled Job cards. Preserve the existing `/field` route and Job/Project APIs. The bounded S066 slice is mobile continuity from the canonical Project/Job context to the appropriate authorized field action, with compact schedule/address/instructions/notes/status context and a single state-aware next action. Use only persisted data and existing permissions; preserve desktop operation and truthful load/empty/error states. Do not introduce an offline cache/sync claim, photo/issue/change-order/inventory/messaging/timekeeping persistence, new lifecycle transition, backend route, schema/migration, auth/RBAC/RLS change, or financial handoff. The richer Figma frames remain TARGET where unsupported. Founder decision: NO for this bounded reuse of established contracts; stop if a new field action, offline policy, or permission is necessary. Autonomy category: bounded frontend and PR workflow. Required validation: focused field/project navigation and state tests, full Web test/lint/build, docs ownership and governance checks, exact-head hosted checks and review/branch currency. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure and refresh evidence is required before `DONE`; S057 remains a separate release-certification prerequisite.
+Implementation status (2026-10-03): PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. Technician-visible Project Job rows now link into the existing `/field?job=<id>` workspace, explicit assigned-Job selection is preserved through the existing assignment-scoped `getFieldJob` contract, degraded daily-list context uses neutral Field job/Schedule labels, archived Jobs remain non-actionable, and repeated `job` query parameters are normalized safely. Exact-head Web unit tests, lint, build/dependency audit, Docs consistency, Sprint governance, PR branch currency, Dependency review, Live documentation reconciliation, and Verify repository passed before merge. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure, and refresh evidence remains open; S066 stays `IN_REVIEW` and is not release-certified.
 
 ### S067 — Scheduling calendar and visit continuity
 
 Status: PLANNED
-Dependencies: S056
+Dependencies: none
+Release certification prerequisites: S056
 Objective: Connect schedule visits, Jobs, technician assignments, conflicts, and rescheduling into one consistent calendar experience.
 Acceptance: create/edit/move actions share canonical time/conflict rules and refresh Today, Dispatch, project, and field surfaces consistently.
 
 ### S068 — Change-order customer workflow
 
 Status: PLANNED
-Dependencies: S054, S059
+Dependencies: none
+Release certification prerequisites: S054, S059
 Objective: Complete change-order draft, pricing, customer review/approval/rejection, audit, and downstream financial visibility.
 Acceptance: original contract/invoice truth is preserved, customer decisions are attributable, and approved changes do not silently mutate historical snapshots.
 
 ### S069 — Closeout and warranty workspace
 
 Status: PLANNED
-Dependencies: S057, S058
+Dependencies: none
+Release certification prerequisites: S057, S058
 Objective: Complete field completion → punch/closeout documents → customer handoff → warranty record organization.
 Acceptance: required artifacts and unresolved items are explicit, tenant-scoped, auditable, and reachable from the project without inventing unsupported warranty promises.
 
@@ -964,15 +1001,15 @@ S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) 
 
 Selection is determined by docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md after checking live dependencies, open PRs, worktrees, infrastructure, and founder decisions.
 
-Active Sprint: NONE (S051 complete; S053 readiness promotion in review)
-Completion status: S051 is merged and reconciled. S053 is promoted to `READY` by this governance-only change; implementation remains gated on readiness-PR merge. S039/S044/S045 and their dependent production gates remain blocked.
-Dependencies: S053 depends on S051 and has no competing implementation lane.
-Protected boundary: S053 is limited to the existing scope → Athena → reviewed Costbook/assembly → persisted estimate-line contract. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
+Active Sprint: S064 — Embedded assembly picker in estimate Items
+Completion status: S064 is `IN_REVIEW` in draft PR #624. The first slice adds installed-assembly cost/component preview and starter-recipe setup-required gating; inline mapping/install remains active work on the same branch. S053 remains `IN_REVIEW` as a separate release-certification prerequisite.
+Dependencies: S064 depends on S051 for sprint governance; PR #520 and PR #560 are merged implementation prerequisites.
+Protected boundary: S064 must preserve explicit reviewed writes through Estimate Engine, provenance, setup-required behavior, pricing truth, and tenant isolation. No pricing-policy, schema, auth/RLS, or unreviewed AI-write expansion is authorized.
 
 ## Next Eligible Sprint
 
-Sprint ID: S053
-Eligibility: S053 is `READY` after S051 merged; this readiness promotion must merge before implementation begins.
-Dependencies: S051 is `DONE`; S052 is not required for the S053 contract.
-Overlap check: 17 open PRs were reconciled on 2026-09-22; no competing S053 implementation PR or branch was found.
-Startup prompt: After this readiness PR merges, create the S053 implementation branch and certify scope → Athena → reviewed Costbook/assembly → persisted estimate lines without silent writes.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue PR #634 for S066 implementation/review; do not create a competing S066 branch. S053/S059/Costbook lanes remain separate.
+Startup prompt: Continue S066 only through PR #634: run hosted verification, classify and repair exact-head review findings, and retain browser/security evidence when deployment capacity is available. Do not begin another numbered sprint from this branch.

@@ -31,6 +31,13 @@ export function resolveProjectCreateIntent(value?: string | null): ProjectCreate
   return projectCreateIntents.includes(value as ProjectCreateIntent) ? (value as ProjectCreateIntent) : null;
 }
 
+export type NewProjectCreateIntent = "estimate" | "job";
+
+export function resolveNewProjectCreateIntent(value?: string | null): NewProjectCreateIntent | null {
+  if (value === "estimate") return "estimate";
+  return resolveProjectCreateIntent(value) === "job" ? "job" : null;
+}
+
 export function extractProjectIdFromPath(pathname: string): string | null {
   const match = /^\/projects\/([^/?#]+)(?:\/|$)/.exec(pathname);
   return match && UUID_PATTERN.test(match[1]) ? match[1] : null;

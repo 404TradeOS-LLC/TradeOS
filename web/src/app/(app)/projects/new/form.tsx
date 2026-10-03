@@ -9,17 +9,18 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/api";
+import type { NewProjectCreateIntent } from "@/lib/universal-create";
 
 export function NewProjectForm({
   customers,
   defaultCustomerId,
   focusScope = false,
-  estimateIntent = false,
+  createIntent,
 }: {
   customers: Customer[];
   defaultCustomerId?: string;
   focusScope?: boolean;
-  estimateIntent?: boolean;
+  createIntent?: NewProjectCreateIntent;
 }) {
   const [state, formAction, isPending] = useActionState(createProjectAction, undefined);
   const validDefaultCustomerId = customers.some((customer) => customer.id === defaultCustomerId) ? defaultCustomerId : "";
@@ -30,7 +31,7 @@ export function NewProjectForm({
         <CardTitle>Project details</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="flex flex-col gap-5">\n          {estimateIntent ? <input type="hidden" name="intent" value="estimate" /> : null}
+        <form action={formAction} className="flex flex-col gap-5">\n          {createIntent ? <input type="hidden" name="intent" value={createIntent} /> : null}
           <div className="grid gap-5 md:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">Job name</Label>
