@@ -55,3 +55,15 @@ test("CRM overview degrades individual data sources without hiding healthy sourc
   assert.match(page, /Proposal pipeline status is temporarily unavailable/);
   assert.match(page, /Site-visit milestones are temporarily unavailable/);
 });
+
+test("CRM keeps every loaded pipeline record reachable and identifies follow-up ownership", async () => {
+  const overview = await readSource("./crm-overview.tsx");
+
+  assert.match(overview, /stageProjects\.slice\(5\)\.map/);
+  assert.match(overview, /stageProjects\.map\(\(project\) =>/);
+  assert.match(overview, /Show \{stageProjects\.length - 5\} more/);
+  assert.match(overview, /task\.assignedTo \? `Assigned to/);
+  assert.match(overview, /\?tab=tasks/);
+  assert.match(overview, /Open awarded Project/);
+  assert.doesNotMatch(overview, /followUps[^;]*\.slice\(0, 5\)/s);
+});
