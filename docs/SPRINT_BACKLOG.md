@@ -674,11 +674,12 @@ its listed certification prerequisites remain incomplete.
 
 ### S061 — Today page structural completion
 
-Status: PLANNED
+Status: IN_REVIEW
 Dependencies: none
 Release certification prerequisites: S060
 Objective: Remove remaining competing dashboard regions and finish the Now / Needs you / Coming up / Money operating rhythm.
 Acceptance: the page is action-led rather than a repeated-card wall, preserves compact density, and does not hide required secondary diagnostics.
+Implementation reconciliation (2026-10-02): PR #585 merged the canonical Today command center as `7abfabcdc38d09d4dbed08286835c95b6c6a1b52`. Current `main` still renders only `OwnerDashboardHeader` + `TodayCommandBoard` on the landing page, preserves the Now / Needs you / Coming up / Money hierarchy, removes the former duplicate task/activity/Knowledge/KPI/widget regions, and keeps truthful partial/unavailable states. PR #585 exact-head checks passed (21 success, no failures). S061 is therefore implemented and remains `IN_REVIEW` only because release-certification prerequisite S060 is still incomplete; do not reopen the structural dashboard implementation unless certification reproduces a current-main defect.
 
 ### S062 — Universal Create continuity
 
