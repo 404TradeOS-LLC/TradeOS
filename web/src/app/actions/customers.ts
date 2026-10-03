@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { apiFetch, ApiClientError, listCustomers } from "@/lib/api";
+import { apiFetch, ApiClientError, listCustomers, type Customer } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { parseServiceAddressForm } from "@/lib/service-address-form";
 import { runCreateCustomerWorkflow, type CreateCustomerResult } from "./create-customer-workflow";
@@ -50,7 +50,7 @@ export async function createCustomerAction(_prev: FormActionState, formData: For
     getSessionToken,
     listCustomers,
     createCustomer: async (token, input) => {
-      await apiFetch("/api/v1/customers", {
+      return apiFetch<Customer>("/api/v1/customers", {
         method: "POST",
         token,
         body: JSON.stringify({
@@ -63,9 +63,10 @@ export async function createCustomerAction(_prev: FormActionState, formData: For
         }),
       });
     },
-    onCreated: () => {
+    onCreated: (customer) => {
       revalidatePath("/customers");
-      redirect("/customers");
+      revalidatePath(`/customers/${customer.id}`);
+      redirect(`/customers/${customer.id}`);
     },
     onError: (err) => err instanceof ApiClientError ? err.message : "Something went wrong.",
   });
