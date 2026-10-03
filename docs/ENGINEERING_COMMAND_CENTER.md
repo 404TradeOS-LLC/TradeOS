@@ -317,3 +317,8 @@ Current `main` already contains S061's structural implementation through merged 
 ## S066 mobile field implementation — 2026-10-03
 
 Readiness PR #633 merged as `2022b1c0f266f1a7afff5b2d38121b6ee49f3`; implementation PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. S066 remains `IN_REVIEW` because retained authenticated responsive, assignment/tenant-negative, failure, and refresh evidence is still outstanding. The merged bounded slice links technician-visible Project Job rows into `/field?job=<id>`, preserves explicit assigned-Job selection, uses neutral labels when today's list cannot establish membership, rejects archived Jobs as actionable field work, and safely normalizes repeated `job` query parameters while preserving the existing assignment-scoped `getFieldJob` authorization boundary. No backend route, lifecycle, schema, permission, RLS, financial handoff, offline mode, or unsupported field mutation was added. Exact-head Web/docs/governance verification passed before merge; S057 remains a separate release-certification prerequisite.
+
+
+## S052 Customer/Project certification readiness — 2026-10-03
+
+S052 is ready as a certification-only sprint. Do not revive stale PR #565 or rebuild Customer/Project product code: PR #586 is the current implementation authority and PR #629 supplies created-Customer destination continuity. The authorized work is a bounded `s052` Beta Evidence scenario using dedicated synthetic owner/admin/inactive identities and existing foreign-resource fixtures. It may add harness/fixture configuration and focused tests, but must not change Customer merge policy, auth/RBAC/RLS, schema, permissions, domain models, or production data. If required fixtures are absent, preflight must fail closed as NOT READY.
