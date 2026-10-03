@@ -1,11 +1,13 @@
 import { listCustomers } from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { getSessionToken } from "@/lib/session";
+import { resolveNewProjectCreateIntent } from "@/lib/universal-create";
 import { NewProjectForm } from "./form";
 
 export default async function NewProjectPage({ searchParams }: { searchParams: Promise<{ customerId?: string; intent?: string }> }) {
   const [token, { customerId, intent }] = await Promise.all([getSessionToken(), searchParams]);
-  const focusScope = intent === "estimate";
+  const createIntent = resolveNewProjectCreateIntent(intent);
+  const focusScope = createIntent === "estimate";
   const customers = token ? await listCustomers(token) : [];
 
   return (
@@ -16,7 +18,7 @@ export default async function NewProjectPage({ searchParams }: { searchParams: P
         backHref="/projects"
         backLabel="Back to projects"
       />
-      <NewProjectForm customers={customers} defaultCustomerId={customerId} focusScope={focusScope} estimateIntent={focusScope} />
+      <NewProjectForm customers={customers} defaultCustomerId={customerId} focusScope={focusScope} createIntent={createIntent ?? undefined} />
     </div>
   );
 }
