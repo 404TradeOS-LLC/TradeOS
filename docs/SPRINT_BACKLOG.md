@@ -1008,8 +1008,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S066
-Eligibility: `READY` after the 2026-10-03 readiness reconciliation; `Dependencies: none`. S064 remains `IN_REVIEW`, so S065 is not yet eligible.
-Dependencies: none. S057 is a release-certification prerequisite, not an implementation dependency.
-Overlap check: no open S066 implementation PR or branch was found at readiness inspection. Reuse the existing authenticated `/field` route and canonical Project/Job contracts.
-Startup prompt: Implement the bounded mobile Project/Job-to-Field continuity for schedule, address, instructions, notes, status, and the next authorized Job action. Preserve assignment/tenant boundaries and truthful refresh/error behavior; do not add unsupported offline/photo/issue/change/inventory/messaging/timekeeping behavior.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue PR #634 for S066 implementation/review; do not create a competing S066 branch. S053/S059/Costbook lanes remain separate.
+Startup prompt: Continue S066 only through PR #634: run hosted verification, classify and repair exact-head review findings, and retain browser/security evidence when deployment capacity is available. Do not begin another numbered sprint from this branch.
