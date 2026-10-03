@@ -103,21 +103,6 @@ const isolationResult = isolation?.result === "PASS" ? "PASS" : "FAIL";
 const artifactResult = validation.ok ? "PASS" : "FAIL";
 
 const scenarioFailures = [];
-if (scenario === "s052") {
-  if (target?.shaCorrelated !== true) {
-    scenarioFailures.push("deployment identity: S052 certification requires exact SHA correlation");
-  }
-  for (const requiredName of [
-    "s052-owner-customer-project",
-    "s052-admin-customer-project",
-    "s052-inactive-membership-denial",
-  ]) {
-    const evidence = await readJsonIfPresent(path.join(outDir, `${requiredName}.json`));
-    if (evidence?.result !== "PASS") {
-      scenarioFailures.push(`S052 certification: missing passing ${requiredName} evidence`);
-    }
-  }
-}
 if (scenario === "s053") {
   if (target?.shaCorrelated !== true) {
     scenarioFailures.push("deployment identity: S053 certification requires exact SHA correlation");
@@ -186,6 +171,9 @@ if (scenario === "s052") {
   if (s052RoleEvidence?.result !== "PASS") {
     scenarioFailures.push("role evidence: S052 admin/inactive-membership report did not pass");
   }
+  if (expectedRunId && s052RoleEvidence?.runId !== expectedRunId) {
+    scenarioFailures.push("role evidence: S052 role report is stale or belongs to another run");
+  }
   if (s052RoleEvidence?.inactiveMembership?.passed !== true) {
     scenarioFailures.push("role evidence: inactive-membership denial was not proven");
   }
@@ -250,6 +238,8 @@ if (scenario === "s052") {
       const actual = capturedByName.get(file);
       if (!actual) {
         scenarioFailures.push(`${requiredAdminViewport}: missing S052 admin screenshot ${file}`);
+      } else if (!Number.isFinite(actual.bytes) || actual.bytes <= 0) {
+        scenarioFailures.push(`${requiredAdminViewport}: empty S052 admin screenshot ${file}`);
       } else if (actual.width !== viewport?.width) {
         scenarioFailures.push(`${requiredAdminViewport}: S052 admin screenshot ${file} has width ${actual.width}, expected ${viewport?.width}`);
       }
