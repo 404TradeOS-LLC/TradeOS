@@ -167,7 +167,7 @@ certification from readiness or a repository merge alone.
 ## S066 active implementation — 2026-10-03
 
 - Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; draft implementation PR #634 is the sole S066 implementation lane.
-- The current slice preserves explicit assigned-Job deep links into `/field`, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
+- The current slice links technician-visible Project Job rows into `/field`, preserves explicit assigned-Job deep links, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
 - No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
 - Hosted Web/docs/governance checks, review, and retained authenticated responsive/negative/failure/refresh evidence remain open. Do not mark S066 DONE from repository implementation alone.
 
