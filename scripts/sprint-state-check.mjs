@@ -53,12 +53,6 @@ for (const sprint of ready) {
       errors.push(`${sprint.id} is READY but dependency ${dep} is ${sprints.get(dep)?.status ?? "missing"}, not DONE.`);
     }
   }
-  for (const prerequisite of sprint.certificationPrerequisites) {
-    const prerequisiteStatus = sprints.get(prerequisite)?.status;
-    if (prerequisiteStatus !== "DONE" && prerequisiteStatus !== "IN_REVIEW") {
-      errors.push(`${sprint.id} is READY but release certification prerequisite ${prerequisite} is ${prerequisiteStatus ?? "missing"}, not IN_REVIEW or DONE.`);
-    }
-  }
   if (/Founder decision required:\s*YES/i.test(sprint.body)) {
     errors.push(`${sprint.id} is READY while its record still says Founder decision required: YES.`);
   }

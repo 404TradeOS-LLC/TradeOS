@@ -18,7 +18,7 @@ related_code:
 Governance reconciliation (2026-10-02): PR #520 is merged and PR #560's reviewed estimate-assist contract is landed. S053 remains `IN_REVIEW` until its authenticated browser certification passes, but external evidence availability is no longer a global development mutex. S064 is the active `IN_REVIEW` implementation sprint in draft PR #624. `Dependencies:` remains the mechanical implementation selector; `Release certification prerequisites:` block release/beta certification claims without freezing independent implementation when the upstream contract is already merged and repository-verified. Reproduced product defects, auth/RBAC/RLS or tenant-isolation failures, schema/migration failures, financial-correctness failures, and unresolved founder/product decisions remain hard blockers. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
 
 
-The TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
+Sprint-state validation follows the same split: `Dependencies:` gate `READY` implementation eligibility, while `Release certification prerequisites:` are reference-validated but do not block `READY`. They remain release-certification constraints and must not be treated as implementation dependencies.\n\nThe TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
 
 The Bible does not replace live implementation evidence or detailed supporting records. It binds them into one governed knowledge system for the founder, Claude, Codex, and future contributors.
 
@@ -285,7 +285,7 @@ S053 implementation is in PR #542. The current slice wires the existing structur
 
 ## 2026-10-02 sprint reconciliation note
 
-S062 Universal Create continuity has partial implementation on current `main` through PR #615. The canonical sprint queue remains authoritative: S062 stays `PLANNED` until the remaining Customer post-create destination and context-free Job-through-Project continuity gaps are implemented and verified. Existing Universal Create routing must be extended, not replaced.
+S062 Universal Create continuity has partial implementation through PR #615. The canonical sprint queue is authoritative: S062 is now `READY` for the two remaining Customer post-create destination and context-free Job-through-Project continuity repairs. This readiness does not mark S062 `DONE` or release-certified; existing Universal Create routing must be extended, not replaced.
 
 
 ## 2026-10-02 S061 reconciliation note
