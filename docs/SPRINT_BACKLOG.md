@@ -1013,8 +1013,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: continue PR #634 for S066 implementation/review; do not create a competing S066 branch. S053/S059/Costbook lanes remain separate.
-Startup prompt: Continue S066 only through PR #634: run hosted verification, classify and repair exact-head review findings, and retain browser/security evidence when deployment capacity is available. Do not begin another numbered sprint from this branch.
+Sprint ID: S052
+Eligibility: S052 is the lowest-numbered `READY` sprint with all implementation dependencies DONE; this readiness PR authorizes certification tooling only.
+Dependencies: S051 is DONE through merged PR #538.
+Overlap check: no active S052 implementation/certification PR overlaps this lane; reuse PR #586/#629 implementation and do not revive stale PR #565. S053/S059/Costbook lanes remain separate.
+Startup prompt: Start S052 on a fresh certification branch and add only the bounded `s052` Beta Evidence scenario plus focused harness tests and synthetic fixture requirements from docs/architecture/S052_CUSTOMER_PROJECT_CERTIFICATION_PLAN.md. Publish one draft PR and move S052 to IN_REVIEW; repair product code only if the evidence reproduces a current-main defect inside the authorized contract.
