@@ -133,6 +133,10 @@ try {
     await runStep("tenant isolation probe", "tenant-isolation.mjs");
   }
 
+  if (scenario === "s052") {
+    await runStep("S052 admin and inactive-membership evidence", "s052-role-evidence.mjs");
+  }
+
   await runStep("validate artifacts and write metadata", "validate-artifacts.mjs", {
     // A targeted run validates only what it captured; the validator reports
     // PARTIAL rather than PASS in that case.
