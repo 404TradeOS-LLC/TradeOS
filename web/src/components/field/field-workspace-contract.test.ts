@@ -46,6 +46,17 @@ test("direct field job links preserve the requested assigned job without silentl
   assert.match(page, /visibleJobs\.map/);
 });
 
+test("project Job rows hand technicians into the assignment-scoped Field workspace", async () => {
+  const projectPage = await readSource("../../app/(app)/projects/[id]/page.tsx");
+  const workspace = await readSource("../projects/project-workspace.tsx");
+
+  assert.match(projectPage, /currentRole=\{settings\.currentRole\}/);
+  assert.match(workspace, /currentRole: string/);
+  assert.match(workspace, /currentRole === "technician"/);
+  assert.match(workspace, /href=\{\`\/field\?job=\$\{encodeURIComponent\(job\.id\)\}\`\}/);
+  assert.match(workspace, /Open field job/);
+});
+
 test("field action controls remain bounded to the existing lifecycle transitions", async () => {
   const actions = await readSource("./field-job-actions.tsx");
 
