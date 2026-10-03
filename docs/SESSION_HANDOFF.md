@@ -166,10 +166,20 @@ certification from readiness or a repository merge alone.
 - S061 advances to `IN_REVIEW`, not release-certified; S060 remains its separate certification prerequisite.
 - Do not create another S061 implementation branch unless S060 evidence reproduces a current-main defect.
 
+## S062 readiness promotion — 2026-10-02
+
+- Classification: `NEW_WORK_REQUIRED` for the readiness promotion; current `main` contains the route contract and gap reconciliation but no S062 implementation PR.
+- S062 is promoted to `READY` for exactly two continuity repairs: Customer post-create destination and preservation of `intent=job` through Project creation into the new Project's Job workflow.
+- Allowed implementation paths are the existing Customer/Project creation actions, their directly related form/query plumbing, focused web behavioral tests, and documentation required by ownership rules.
+- Forbidden scope includes Universal Create redesign, new backend routes, schema/migration changes, auth/RBAC/RLS changes, billing/payment behavior, or unrelated navigation cleanup.
+- Release-certification prerequisites S052/S056/S058 remain separate and do not block implementation.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is READY; S053, S061, and S064 are IN_REVIEW, while S062 is the lowest-numbered remaining PLANNED Phase 12 sprint with no code dependencies.
-Dependencies: S062 has no code dependencies; S052, S056, and S058 are release-certification prerequisites rather than implementation mutexes.
-Overlap check: PR #625 already narrowed S062 to two remaining continuity gaps; no open S062 implementation PR overlaps them.
-Startup prompt: Prepare S062 readiness for only the remaining Customer post-create destination and context-free Job-through-Project continuity gaps, then implement from a fresh sprint branch after readiness merges.
+Sprint ID: S062
+Title: Universal Create continuity
+Eligibility: `READY`; no implementation dependencies and no overlapping open S062 PR.
+Dependencies: none
+Release certification prerequisites: S052, S056, S058
+Implementation target: repair only Customer post-create navigation and context-free Job-through-Project intent continuity, with focused regression coverage.
+Startup prompt: Execute S062 from a fresh implementation branch after this readiness promotion merges, following `NEXT_SPRINT_PROTOCOL.md`.
