@@ -355,6 +355,22 @@ const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
 const seedGuard = read("app/db/seed/productionGuard.ts");
 const seed = read("app/db/seed/seed.ts");
 
+test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit role proof", () => {
+  assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
+  assert.match(workflow, /BETA_S052_ADMIN_EMAIL: \$\{\{ secrets\.BETA_RC_S052_ADMIN_EMAIL \}\}/);
+  assert.match(workflow, /BETA_S052_INACTIVE_EMAIL: \$\{\{ secrets\.BETA_RC_S052_INACTIVE_EMAIL \}\}/);
+  assert.match(workflow, /BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 scenario/);
+  assert.match(workflow, /BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial/);
+  assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
+  assert.match(runner, /\["s052", "s053"\]\.includes\(scenario\) \? "true"/);
+  assert.match(capture, /\["canonical", "s052", "s053"\]\.includes\(scenario\)/);
+  assert.match(validator, /scenario === "s052"/);
+  assert.match(validator, /s052-owner-customer-project/);
+  assert.match(validator, /s052-admin-customer-project/);
+  assert.match(validator, /s052-inactive-membership-denial/);
+  assert.match(validator, /S052 certification requires exact SHA correlation/);
+});
+
 test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
   assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s053/);
   assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
