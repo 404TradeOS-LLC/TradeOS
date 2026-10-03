@@ -102,6 +102,21 @@ const isolationResult = isolation?.result === "PASS" ? "PASS" : "FAIL";
 const artifactResult = validation.ok ? "PASS" : "FAIL";
 
 const scenarioFailures = [];
+if (scenario === "s052") {
+  if (target?.shaCorrelated !== true) {
+    scenarioFailures.push("deployment identity: S052 certification requires exact SHA correlation");
+  }
+  for (const requiredName of [
+    "s052-owner-customer-project",
+    "s052-admin-customer-project",
+    "s052-inactive-membership-denial",
+  ]) {
+    const evidence = await readJsonIfPresent(path.join(outDir, `${requiredName}.json`));
+    if (evidence?.result !== "PASS") {
+      scenarioFailures.push(`S052 certification: missing passing ${requiredName} evidence`);
+    }
+  }
+}
 if (scenario === "s053") {
   if (target?.shaCorrelated !== true) {
     scenarioFailures.push("deployment identity: S053 certification requires exact SHA correlation");
