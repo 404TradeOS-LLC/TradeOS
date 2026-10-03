@@ -379,11 +379,69 @@ try {
   await checkpoint("01", "authenticated-shell");
 
   // ---- 02 customer + project --------------------------------------------
+  const customerEmail = `rc-evidence-${scopeSuffix}@example.invalid`;
   await page.goto(new URL("/customers/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   await page.locator('[name="name"]').fill(customerName);
-  await page.locator('[name="email"]').fill(`rc-evidence-${scopeSuffix}@example.invalid`);
+  await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers(?:\?|$)/, { timeout: 60_000 });
+  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
+  const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+  assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
+
+  if (scenario === "s052") {
+    assertBusiness(
+      "customer creation opens the server-created customer workspace",
+      new URL(page.url()).pathname === `/customers/${customerId}`,
+      `url was ${page.url()}`,
+    );
+    await checkpoint("02a", "s052-customer-created", { optional: true });
+
+    const editCustomer = page.locator("details").filter({ hasText: "Edit customer" }).first();
+    await editCustomer.locator("summary").click();
+    await editCustomer.locator('[name="phone"]').fill("(812) 555-0102");
+    await editCustomer.getByRole("button", { name: "Save changes" }).click();
+    await page.waitForURL(/\/customers(?:\?|$)/, { timeout: 60_000 });
+    await page.goto(new URL(`/customers/${customerId}`, parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await page.getByText("(812) 555-0102", { exact: true }).waitFor({ timeout: 60_000 });
+    assertBusiness("customer update persists through reload", true);
+
+    const addAddress = page.locator("details").filter({ hasText: "Add service address" }).first();
+    await addAddress.locator("summary").click();
+    await addAddress.locator("#new-label").fill("Primary jobsite");
+    await addAddress.locator("#new-addressLine1").fill("200 Service Lane");
+    await addAddress.locator("#new-city").fill("Terre Haute");
+    await addAddress.locator("#new-state").fill("IN");
+    await addAddress.locator("#new-postalCode").fill("47802");
+    await addAddress.getByRole("button", { name: "Save address" }).click();
+    await page.getByText("200 Service Lane", { exact: false }).waitFor({ timeout: 60_000 });
+    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+    await page.getByText("200 Service Lane", { exact: false }).waitFor({ timeout: 60_000 });
+    assertBusiness("service address persists through customer reload", true);
+    await checkpoint("02b", "s052-customer-service-address", { optional: true });
+
+    await page.goto(new URL("/customers/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await page.locator('[name="name"]').fill(customerName);
+    await page.locator('[name="email"]').fill(customerEmail);
+    await page.getByRole("button", { name: "Check for existing customers" }).click();
+    await page.getByRole("heading", { name: "Possible existing customers" }).waitFor({ timeout: 60_000 });
+    const existingCustomerLink = page.getByRole("link", { name: "Use existing customer" }).first();
+    assertBusiness(
+      "duplicate advice points to the existing customer without silently merging",
+      (await existingCustomerLink.getAttribute("href")) === `/customers/${customerId}`,
+      `duplicate link was ${await existingCustomerLink.getAttribute("href")}`,
+    );
+
+    await page.locator('[name="name"]').fill("");
+    const missingNameValidity = await page.locator('[name="name"]').evaluate((element) => ({
+      valueMissing: element.validity.valueMissing,
+      valid: element.checkValidity(),
+    }));
+    assertBusiness(
+      "required customer validation blocks blank name before mutation",
+      missingNameValidity.valueMissing && !missingNameValidity.valid,
+      JSON.stringify(missingNameValidity),
+    );
+  }
 
   await page.goto(new URL("/projects/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   // The customer only appears in this select when it belongs to the signed-in
@@ -404,6 +462,30 @@ try {
   await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
+
+  if (scenario === "s052") {
+    const readProject = async () => page.evaluate(async (id) => {
+      const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    }, projectId);
+    const beforeReload = await readProject();
+    assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
+    assertBusiness("project persists the selected customer", beforeReload.body?.customerId === customerId, `customerId=${beforeReload.body?.customerId}`);
+    assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === "100 Evidence Way", `siteAddress=${beforeReload.body?.siteAddress}`);
+    assertBusiness("project persists plain-language scope", beforeReload.body?.simpleScope === scope, "simpleScope did not match the submitted scope");
+    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+    const afterReload = await readProject();
+    assertBusiness(
+      "customer project fields survive workspace reload",
+      afterReload.status === 200 &&
+        afterReload.body?.customerId === customerId &&
+        afterReload.body?.siteAddress === "100 Evidence Way" &&
+        afterReload.body?.simpleScope === scope,
+      `HTTP ${afterReload.status}`,
+    );
+    await checkpoint("02c", "s052-project-reloaded", { optional: true });
+  }
+
   await checkpoint("02", "project-or-customer");
 
   // ---- 03 estimate line items -------------------------------------------
@@ -545,7 +627,7 @@ try {
 
   await fs.writeFile(
     path.join(outDir, viewport.name, "workflow-records.json"),
-    `${JSON.stringify({ runId, viewport: viewport.name, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
+    `${JSON.stringify({ runId, viewport: viewport.name, customerId, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
   );
 } catch (error) {
   failure = error;
