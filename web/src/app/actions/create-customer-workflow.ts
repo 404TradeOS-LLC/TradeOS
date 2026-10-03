@@ -23,8 +23,8 @@ type CustomerCreateInput = CustomerDuplicateInput & {
 export type CreateCustomerDependencies = {
   getSessionToken: () => Promise<string | null>;
   listCustomers: (token: string, options: { query: string; limit: number }) => Promise<Customer[]>;
-  createCustomer: (token: string, input: CustomerCreateInput) => Promise<void>;
-  onCreated: () => void;
+  createCustomer: (token: string, input: CustomerCreateInput) => Promise<Customer>;
+  onCreated: (customer: Customer) => void;
   onError: (error: unknown) => string;
 };
 
@@ -69,12 +69,13 @@ export async function runCreateCustomerWorkflow(
     return { customerInput, customerMatches, customerMatchLookupFailed };
   }
 
+  let createdCustomer: Customer;
   try {
-    await dependencies.createCustomer(token, { ...customerInput, address, billingAddress, notes });
+    createdCustomer = await dependencies.createCustomer(token, { ...customerInput, address, billingAddress, notes });
   } catch (error) {
     return { error: dependencies.onError(error), customerInput };
   }
 
-  dependencies.onCreated();
+  dependencies.onCreated(createdCustomer);
   return undefined;
 }
