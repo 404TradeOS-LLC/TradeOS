@@ -11,7 +11,6 @@ import type {
   Project,
   ProposalQueueItem,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 type PipelineStage = "lead" | "ready" | "estimating" | "proposal" | "awarded";
 
