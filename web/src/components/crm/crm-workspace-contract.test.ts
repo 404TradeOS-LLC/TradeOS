@@ -41,7 +41,7 @@ test("CRM follow-ups remain Project Tasks and navigation exposes the first-class
 
   assert.match(page, /includeCompleted: false/);
   assert.match(overview, /Existing incomplete Project Tasks due next/);
-  assert.match(overview, /href=\{\`\/projects\/\$\{task\.projectId\}\`\}/);
+  assert.match(overview, /href=\{\`\/projects\/\$\{task\.projectId\}\?tab=tasks\`\}/);
   assert.match(nav, /href: "\/crm", label: "CRM"/);
   assert.match(proxy, /"\/crm\/:path\*"/);
 });
