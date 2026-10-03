@@ -187,20 +187,23 @@ try {
     const page = await context.newPage();
     try {
       await signIn(page, inactiveEmail, inactivePassword);
-      await Promise.race([
-        page.waitForURL(/\/(dashboard|finish-setup|login)(?:\?|$)/, { timeout: 10_000 }).catch(() => null),
-        page.waitForTimeout(10_000),
-      ]);
+      const inactiveAlert = page.getByRole("alert");
+      await inactiveAlert.waitFor({ timeout: 60_000 });
+      const inactiveMessage = (await inactiveAlert.innerText()).trim();
       const finalPath = new URL(page.url()).pathname;
       const settingsResponse = await context.request.get(new URL("/api/proxy/settings", parsedBaseUrl).toString());
       const denied = settingsResponse.status() === 401 || settingsResponse.status() === 403;
-      if (!denied || finalPath === "/dashboard") {
-        throw new Error(`inactive membership was not denied: path=${finalPath}, settings HTTP ${settingsResponse.status()}`);
+      const bootstrapDenied = inactiveMessage === "Authenticated user is not provisioned in this organization";
+      if (!bootstrapDenied || !denied || finalPath === "/dashboard") {
+        throw new Error(
+          `inactive membership was not proven: bootstrapDenied=${bootstrapDenied}, path=${finalPath}, settings HTTP ${settingsResponse.status()}`,
+        );
       }
       report.inactiveMembership = {
         identity: masked(inactiveEmail),
         finalPath,
         settingsStatus: settingsResponse.status(),
+        bootstrapDenied: true,
         passed: true,
       };
     } finally {
