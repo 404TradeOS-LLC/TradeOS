@@ -734,11 +734,11 @@ The older `feature/ui-review-mobile-field-workspace`, `feat/canonical-athena-wor
 
 PR #615 merged the shared Universal Create route contract and context-aware entry routing. Current `main` now keeps existing Project context for Job, Invoice, and Change Order entry, routes context-free versions through the Project chooser, opens Schedule on the real unscheduled queue, and carries current page/Project context into Athena when enabled.
 
-S062 remains `PLANNED`, not `DONE`. Two acceptance gaps remain on current `main`:
+S062 is `READY`, not `DONE`. Two acceptance gaps remain in the implemented Universal Create flow:
 - Customer creation persists the new Customer but redirects to `/customers` instead of the newly created Customer record.
 - The context-free Create → Job path can create a Project with `intent=job`, but the Project form/action does not preserve that intent through creation and therefore returns to `/projects` instead of continuing into `/projects/{projectId}/jobs/new`.
 
-Future S062 work should repair only those continuity gaps and add focused behavioral coverage. Do not recreate the routing contract already merged in PR #615.
+S062 implementation is authorized only for those continuity gaps plus focused behavioral coverage. Do not recreate the routing contract already merged in PR #615. Release-certification prerequisites S052/S056/S058 remain separate and incomplete.
 
 
 ## S061 Today structural completion reconciliation — 2026-10-02
