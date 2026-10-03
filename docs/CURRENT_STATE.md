@@ -62,6 +62,36 @@ related_code:
 
 # Current State
 
+## S066 mobile field continuity — implementation slice
+
+The bounded S066 frontend slice connects the existing Project workspace to
+the existing assignment-scoped Field workspace without creating another Job
+surface. Technician Project views expose an **Open field job** action on the
+Job rows already returned through the forced-RLS Project read, handing the
+selected Job to `/field?job=<id>`. The Field route preserves that explicitly
+requested Job instead of silently replacing it with the first Job in today's
+assigned queue. The existing `getFieldJob` contract remains the authorization
+boundary, so an unassigned, wrong-organization, or otherwise inaccessible Job
+still fails closed. The web DTO now reflects the already-returned `archivedAt`
+field: archived Project rows do not offer the Field handoff, and an old direct
+link to an archived assigned Job renders a non-actionable error instead of
+field transition controls. Repeated `job` query parameters are normalized
+before trimming so malformed links do not crash server rendering.
+
+An authorized assigned Job outside the current organization-day list can render
+with truthful schedule context and an explicit outside-today notice. If the
+daily list fails but the explicitly opened assigned Job still loads, the
+workspace degrades locally and discloses that the list is unavailable rather
+than discarding the usable Job context.
+
+This changes no Job lifecycle transition, backend route, schema, permission,
+RBAC/RLS policy, invoice handoff, or field persistence capability. Existing
+photo/issue/change-order/offline/inventory/messaging/timekeeping exclusions
+remain in force. Repository CI and retained authenticated responsive,
+assignment/tenant-negative, failure, and refresh evidence remain required
+before S066 can be called complete or release-certified.
+
+
 ## Desktop estimate visibility repair — 2026-10-02
 
 The nightly gate reproduced a production draft estimate showing only its header

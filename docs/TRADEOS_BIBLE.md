@@ -298,4 +298,4 @@ S061 Today page structural completion is already implemented on current `main` t
 
 ## 2026-10-03 S066 readiness boundary
 
-See [S066 in the Sprint Backlog](SPRINT_BACKLOG.md) for the canonical readiness status, scope, prerequisites, and completion evidence.
+Readiness is merged through PR #633 and implementation work is carried by PR #634. See [S066 in the Sprint Backlog](SPRINT_BACKLOG.md) for the canonical status, scope, prerequisites, implementation evidence, and completion gate.

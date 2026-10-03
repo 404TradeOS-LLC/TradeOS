@@ -74,6 +74,7 @@ export default async function ProjectDetailPage({
           changeOrders={project.changeOrders}
           tasks={project.tasks}
           jobs={project.jobs}
+          currentRole={settings.currentRole}
         />
 
         <ProjectSidebar
