@@ -722,11 +722,12 @@ Acceptance: contractor-entered dimensions/quantities remain reviewable, calculat
 
 ### S066 — Mobile job action workspace
 
-Status: PLANNED
+Status: READY
 Dependencies: none
 Release certification prerequisites: S057
 Objective: Turn project/job mobile pages into one field action workspace for instructions, contacts, schedule, files, notes, status, and blockers.
 Acceptance: the next action is obvious, critical context remains reachable offline only when explicitly supported, and role restrictions remain intact.
+Readiness reconciliation (2026-10-03): current main `7c9a694d1ced0c07904fbe5132cae81d5f077cf9`; no open S066 implementation PR or branch was found. S064 is `IN_REVIEW` and S065 depends on S064, making S066 the lowest-numbered implementation candidate with satisfied `Dependencies:`. Existing PR #554/S032 already supplies authenticated, assignment-scoped `/field` with today's jobs, directions, briefing, notes and bounded Job transitions; `/projects/[id]` still presents a broad tabbed desktop-oriented workspace and read-only scheduled Job cards. Preserve the existing `/field` route and Job/Project APIs. The bounded S066 slice is mobile continuity from the canonical Project/Job context to the appropriate authorized field action, with compact schedule/address/instructions/notes/status context and a single state-aware next action. Use only persisted data and existing permissions; preserve desktop operation and truthful load/empty/error states. Do not introduce an offline cache/sync claim, photo/issue/change-order/inventory/messaging/timekeeping persistence, new lifecycle transition, backend route, schema/migration, auth/RBAC/RLS change, or financial handoff. The richer Figma frames remain TARGET where unsupported. Founder decision: NO for this bounded reuse of established contracts; stop if a new field action, offline policy, or permission is necessary. Autonomy category: bounded frontend and PR workflow. Required validation: focused field/project navigation and state tests, full Web test/lint/build, docs ownership and governance checks, exact-head hosted checks and review/branch currency. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure and refresh evidence is required before `DONE`; S057 remains a separate release-certification prerequisite.
 
 ### S067 — Scheduling calendar and visit continuity
 
