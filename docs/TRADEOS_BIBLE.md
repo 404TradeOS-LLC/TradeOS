@@ -288,6 +288,10 @@ S053 implementation is in PR #542. The current slice wires the existing structur
 S062 Universal Create continuity is implemented on main through merged PR #629 (`6f6a0a6567c1413c837afc86b943c1c45f5f03e0`). It extends PR #615 only for the two authorized repairs: open the server-created Customer record and preserve context-free Job intent through Project creation into its Job workflow. S062 remains `IN_REVIEW` until retained browser, permission/tenant-negative, and refresh evidence satisfies the successor completion definition; S052/S056/S058 remain release-certification prerequisites. S063 readiness is bounded to continuity on existing Project-backed Lead, Customer, Task, Proposal, and derived CRM surfaces, without another CRM persistence model.
 
 
+## 2026-10-03 S063 implementation boundary
+
+Draft PR #631 is the single S063 lane. It extends the merged Project-backed Lead, Customer, and derived CRM surfaces with bounded access to loaded pipeline/follow-up records and truthful existing Task assignment. Proposal acceptance remains owned by its existing lifecycle; Awarded links open the canonical Project. No second CRM model or release-certification claim is introduced. S063 remains `IN_REVIEW` pending exact-head checks, review, merge, and successor browser/permission/refresh evidence.
+
 ## 2026-10-02 S061 reconciliation note
 
 S061 Today page structural completion is already implemented on current `main` through PR #585. The canonical four-part operating rhythm is Now / Needs you / Coming up / Money, and removed dashboard duplication must not be reintroduced. S061 remains `IN_REVIEW` until S060 release certification is complete.
