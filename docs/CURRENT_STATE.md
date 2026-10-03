@@ -64,15 +64,21 @@ related_code:
 
 ## S066 mobile field continuity — implementation slice
 
-The bounded S066 frontend slice preserves an explicitly requested
-`/field?job=<id>` Job instead of silently replacing it with the first Job in
-today's assigned queue. The existing `getFieldJob` contract remains the
-authorization boundary, so an unassigned, wrong-organization, or otherwise
-inaccessible Job still fails closed. An authorized assigned Job outside the
-current organization-day list can render with truthful schedule context and an
-explicit outside-today notice. If the daily list fails but the explicitly
-opened assigned Job still loads, the workspace degrades locally and discloses
-that the list is unavailable rather than discarding the usable Job context.
+The bounded S066 frontend slice connects the existing Project workspace to
+the existing assignment-scoped Field workspace without creating another Job
+surface. Technician Project views expose an **Open field job** action on the
+Job rows already returned through the forced-RLS Project read, handing the
+selected Job to `/field?job=<id>`. The Field route preserves that explicitly
+requested Job instead of silently replacing it with the first Job in today's
+assigned queue. The existing `getFieldJob` contract remains the authorization
+boundary, so an unassigned, wrong-organization, or otherwise inaccessible Job
+still fails closed.
+
+An authorized assigned Job outside the current organization-day list can render
+with truthful schedule context and an explicit outside-today notice. If the
+daily list fails but the explicitly opened assigned Job still loads, the
+workspace degrades locally and discloses that the list is unavailable rather
+than discarding the usable Job context.
 
 This changes no Job lifecycle transition, backend route, schema, permission,
 RBAC/RLS policy, invoice handoff, or field persistence capability. Existing
