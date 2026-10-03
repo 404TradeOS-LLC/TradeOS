@@ -33,31 +33,26 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(proxy, /"\/field\/:path\*"/);
 });
 
-test("direct field job links preserve the requested assigned job without silently switching to today's first job", async () => {
+test("field page delegates direct-link and degraded-list decisions to tested helpers", async () => {
   const page = await readSource("../../app/(app)/field/page.tsx");
 
-  assert.match(page, /searchParams: Promise<\{ job\?: string \| string\[\]; updated\?: string \| string\[\] \}>/);
-  assert.match(page, /function firstSearchParam\(value: string \| string\[\] \| undefined\)/);
-  assert.match(page, /const requestedJobId = firstSearchParam\(query\.job\)\?\.trim\(\) \|\| null/);
-  assert.match(page, /const selectedId = requestedJobId \?\? jobs\[0\]\?\.id/);
-  assert.doesNotMatch(page, /query\.job && jobs\.some\(\(job\) => job\.id === query\.job\) \? query\.job : jobs\[0\]\?\.id/);
-  assert.match(page, /getFieldJob\(token, selectedId\)/);
-  assert.match(page, /if \(job\.archivedAt\)/);
-  assert.match(page, /This job is archived\. Open an active assigned job instead\./);
-  assert.match(page, /selectedOutsideToday/);
+  assert.match(page, /resolveRequestedFieldJobId\(query\.job\)/);
+  assert.match(page, /resolveSelectedFieldJobId\(query\.job, jobs\)/);
+  assert.match(page, /resolveFieldJobLoad/);
+  assert.match(page, /resolveFieldJobMembership/);
+  assert.match(page, /getFieldWorkspaceLabels/);
   assert.match(page, /This assigned job is outside today’s list/);
   assert.match(page, /Today’s assigned job list couldn’t load/);
   assert.match(page, /visibleJobs\.map/);
 });
 
-test("project Job rows hand technicians into the assignment-scoped Field workspace", async () => {
+test("project Job rows use the tested Field-link eligibility helper", async () => {
   const projectPage = await readSource("../../app/(app)/projects/[id]/page.tsx");
   const workspace = await readSource("../projects/project-workspace.tsx");
 
   assert.match(projectPage, /currentRole=\{settings\.currentRole\}/);
   assert.match(workspace, /currentRole: string/);
-  assert.match(workspace, /currentRole === "technician" && !job\.archivedAt/);
-  assert.match(workspace, /href=\{\`\/field\?job=\$\{encodeURIComponent\(job\.id\)\}\`\}/);
+  assert.match(workspace, /getProjectFieldJobHref\(currentRole, job\)/);
   assert.match(workspace, /Open field job/);
 });
 
