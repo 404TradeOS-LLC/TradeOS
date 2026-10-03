@@ -281,3 +281,8 @@ The numbered queue now separates implementation dependencies from release-certif
 ## S053 implementation update — 2026-09-22
 
 S053 implementation is in PR #542. The current slice wires the existing structured estimate-assist draft/review/apply contract into the frontend while preserving the review-first Estimate Engine boundary. Browser certification remains pending.
+
+
+## 2026-10-02 sprint reconciliation note
+
+S062 Universal Create continuity has partial implementation on current `main` through PR #615. The canonical sprint queue remains authoritative: S062 stays `PLANNED` until the remaining Customer post-create destination and context-free Job-through-Project continuity gaps are implemented and verified. Existing Universal Create routing must be extended, not replaced.
