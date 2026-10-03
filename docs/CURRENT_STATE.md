@@ -734,7 +734,7 @@ The older `feature/ui-review-mobile-field-workspace`, `feat/canonical-athena-wor
 
 PR #615 merged the shared Universal Create route contract and context-aware entry routing. Current `main` now keeps existing Project context for Job, Invoice, and Change Order entry, routes context-free versions through the Project chooser, opens Schedule on the real unscheduled queue, and carries current page/Project context into Athena when enabled.
 
-S062 is under bounded implementation for the two authorized continuity gaps:
+S062 is `IN_REVIEW` in PR #629 for the two authorized continuity gaps:
 - Customer creation now keeps the exact persisted Customer returned by the existing CRM create route and uses that server-owned id to continue into `/customers/{customerId}`; duplicate-review and tenant/auth behavior are unchanged.
 - Context-free Create → Job now preserves only the validated `job` continuation through Project creation and redirects the newly created Project into `/projects/{projectId}/jobs/new`. Estimate continuation remains unchanged, and invoice/change-order creation behavior is not broadened.
 
