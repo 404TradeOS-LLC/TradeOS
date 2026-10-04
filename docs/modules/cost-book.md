@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-28
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - app/modules/cost-database
@@ -10,6 +10,7 @@ related_code:
   - app/modules/equipment-database
   - app/modules/assemblies-database
   - app/modules/costbook
+  - app/modules/regional-supplier-evidence
   - app/modules/athena-tools/costbook
   - app/backend/controllers/costDatabase.controller.ts
   - app/backend/routes/costbook.routes.ts
@@ -123,6 +124,8 @@ Unified Costbook routes include:
 - `/api/v1/costbook/assemblies/:id/unit-cost`
 - `/api/v1/costbook/assemblies/:id/items`
 - `/api/v1/costbook/pricing/preview`
+- `/api/v1/costbook/pricing/resolve`
+- `/api/v1/costbook/supplier-evidence/products/:id/canonical-match`
 - `/api/v1/costbook/price-history`
 - `/api/v1/costbook/candidates`
 - `/api/v1/costbook/candidates/:id`
@@ -197,7 +200,22 @@ The unified Assembly surface reuses `AssembliesDatabaseService` and the existing
 
 The residential starter catalog adds a versioned, read-only TradeOS recipe library organized by NAHB work groups and CSI section codes. It stores no tenant prices. Each component publishes compatible units and Cost Item kinds. Installation requires `costbook.write`, a complete one-to-one mapping from every recipe slot to a distinct active same-organization compatible Cost Item, and an unused organization assembly code. A successful install atomically writes the recipe into the existing tenant-scoped `Assembly`/`AssemblyItem` tables as a reusable template; the existing unit-cost resolver and Estimate snapshot behavior remain authoritative. The catalog endpoint also returns a derived NAHB/CSI coverage matrix, and the web mapper searches the full organization Costbook instead of relying on a preloaded dropdown. See `docs/architecture/ASSEMBLY_CATALOG_IMPLEMENTATION.md`.
 
-`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
+`POST /api/v1/costbook/pricing/preview` requires `costbook.read` and is calculation-only. It reuses shared Estimate overhead/markup/target-margin formulas and persists no pricing policy. `GET /api/v1/costbook/pricing/resolve` also requires `costbook.read`; it resolves tenant-scoped `SupplierPriceObservation` evidence for a requested `canonicalMaterialKey` and returns price, unit, supplier/location, observed time, confidence, freshness, observed-vs-inferred state, alternatives, one-line provenance, and `reasonSelected`. The current regional-supplier adapter is deliberately mapped to the conservative `RECENT_RETAIL_VALIDATION` evidence tier; the presence of a supplier row does not upgrade it to negotiated/account/authorized pricing. `GET /api/v1/costbook/price-history` requires `costbook.manage` and returns independent paginated `materialChanges` and `estimateSnapshots` streams, each with its own total and cursor. Supplier feed transport accepts only trusted server-side HTTPS endpoint configuration, validates feed payloads, and enqueues pending proposals into the existing review flow; Material prices are changed only through approval, which remains transactional with `MaterialPriceAudit`. The supplier review queue uses the same page contract with status/supplier/material filters.
+
+
+### Costbook Data Foundation — 2026-10-02
+
+The October 2 data-foundation slice extends the existing Costbook rather than adding a second catalog or pricing engine:
+
+- `SupplierProduct.canonicalMaterialKey` remains the supplier-to-canonical identity bridge. A pure deterministic matcher now carries the 12-item Terre Haute pilot registry and favors precision over recall: exact governed identity or complete required-attribute matches auto-link, ambiguous listings stay unlinked for review/new-candidate handling, and hard dimension conflicts fail closed. Supplier evidence import auto-links only the unambiguous `AUTO_LINK` case. `GET /supplier-evidence/products/:id/canonical-match` previews the pure result; `POST` on the same route requires `costbook.manage` and explicitly records a reviewer-selected key from the governed pilot registry.
+- `SupplierPriceObservation` remains the dated supplier/store evidence table under the existing forced RLS policies. Imports are now append-oriented at the service boundary: an exact observation-key replay is idempotent, but changed evidence under the same key returns 409 instead of rewriting history.
+- `PriceResolver` is a pure selection layer. It evaluates evidence tier, recency, confidence, location and contractor preference; it never chooses a price merely because it is cheapest. Stale/rejected evidence, wrong units and cross-tenant candidates are excluded before scoring.
+- The initial endpoint reads only existing tenant-scoped regional supplier observations. Future QBO/ABC/other connectors can feed higher-trust tiers through the same resolver contract without creating parallel pricing stores.
+- BLS OEWS remains research/benchmark evidence and never writes a customer bill rate. The governed ingestion command is `npm run costbook:ingest-bls-oews -- --org-id <uuid> --user-id <uuid>`; it submits source-backed rows to the existing research-review queue only. Benchmark resolution prefers Terre Haute MSA `0045460`, then Indiana `18`, then national `US`, retaining the true source geography on fallback.
+- The June 2026 ECEC construction benefit value ($15.84/hour on $36.13/hour wages) may be added to an OEWS wage only as an explicitly `inferred`, MEDIUM-confidence national-benefit estimate. Legally required benefits are already included in that ECEC benefit total; payroll taxes are not added again.
+- Existing Assembly/AssemblyItem and EstimateLineItem snapshot behavior remains authoritative. This slice does not live-reprice sent estimates or introduce an Assembly version table.
+
+See `docs/architecture/COSTBOOK_IMPLEMENTATION_RECONCILIATION.md` for the requirement-to-existing-system reconciliation that justified each reuse/modify decision.
 
 ### Research candidate review queue (Stage 6)
 
