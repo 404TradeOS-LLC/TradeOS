@@ -16,6 +16,7 @@ jest.mock("../modules/costbook/candidateCostItemService", () => ({
 }));
 
 import { ingestTerreHauteBlsOewsCandidates } from "../modules/costbook/blsOewsIngestion";
+import { buildTerreHauteBlsOewsLaborCandidates } from "../modules/costbook/blsOewsTerreHaute";
 
 const ownerAuth = {
   userId: "user-a",
@@ -49,13 +50,49 @@ describe("Terre Haute BLS OEWS governed ingestion", () => {
     }
   });
 
-  it("is idempotent by organization plus source identifier", async () => {
-    mockFindExisting.mockImplementation(async ({ where }) => ({ id: `existing-${where.sourceIdentifier}` }));
+  it("is idempotent only when the stored source evidence matches", async () => {
+    const candidates = buildTerreHauteBlsOewsLaborCandidates("2026-10-02T12:00:00.000Z");
+    mockFindExisting.mockImplementation(async ({ where }) => {
+      const candidate = candidates.find((row) => row.sourceIdentifier === where.sourceIdentifier);
+      if (!candidate) return null;
+      return {
+        id: `existing-${where.sourceIdentifier}`,
+        ...candidate,
+        description: candidate.description ?? null,
+        materialCostLow: candidate.materialCostLow ?? null,
+        materialCostHigh: candidate.materialCostHigh ?? null,
+        laborHours: candidate.laborHours ?? null,
+        laborRateAssumption: candidate.laborRateAssumption ?? null,
+        sourceUrl: candidate.sourceUrl ?? null,
+        researchNotes: candidate.researchNotes ?? null,
+      };
+    });
 
-    const result = await ingestTerreHauteBlsOewsCandidates(ownerAuth, "2026-10-02T12:00:00.000Z");
+    const result = await ingestTerreHauteBlsOewsCandidates(ownerAuth, "2026-10-03T12:00:00.000Z");
 
     expect(result.created).toHaveLength(0);
     expect(result.skipped).toHaveLength(10);
+    expect(mockCandidateCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reused source identifier when the stored BLS evidence differs", async () => {
+    const candidate = buildTerreHauteBlsOewsLaborCandidates("2026-10-02T12:00:00.000Z")[0];
+    mockFindExisting.mockResolvedValue({
+      id: "existing-conflict",
+      ...candidate,
+      description: candidate.description ?? null,
+      materialCostLow: candidate.materialCostLow ?? null,
+      materialCostHigh: candidate.materialCostHigh ?? null,
+      laborHours: candidate.laborHours ?? null,
+      laborRateAssumption: candidate.laborRateAssumption ?? null,
+      sourceUrl: candidate.sourceUrl ?? null,
+      researchNotes: "different published wage evidence",
+    });
+
+    await expect(
+      ingestTerreHauteBlsOewsCandidates(ownerAuth, "2026-10-03T12:00:00.000Z")
+    ).rejects.toMatchObject({ statusCode: 409 });
+
     expect(mockCandidateCreate).not.toHaveBeenCalled();
   });
 
