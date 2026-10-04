@@ -13,7 +13,10 @@ costbookRouter.get("/workspace", asyncHandler(ctrl.workspace));
 costbookRouter.get("/supplier-evidence/summary", asyncHandler(ctrl.regionalSupplierEvidenceSummary));
 costbookRouter.get("/supplier-evidence", asyncHandler(ctrl.listRegionalSupplierEvidence));
 costbookRouter.post("/supplier-evidence/import", asyncHandler(ctrl.importRegionalSupplierEvidence));
+costbookRouter.get("/supplier-evidence/products/:id/canonical-match", asyncHandler(ctrl.previewRegionalSupplierCanonicalMatch));
+costbookRouter.post("/supplier-evidence/products/:id/canonical-match", asyncHandler(ctrl.reviewRegionalSupplierCanonicalMatch));
 costbookRouter.post("/pricing/preview", asyncHandler(pricingCtrl.preview));
+costbookRouter.get("/pricing/resolve", asyncHandler(pricingCtrl.resolve));
 costbookRouter.get("/price-history", asyncHandler(pricingCtrl.history));
 
 costbookRouter.get("/cost-items", asyncHandler(costItemCtrl.list));
