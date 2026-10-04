@@ -161,6 +161,10 @@ The `feature/staging-auth-bypass` branch implements a gated fixture owner for cr
 
 Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
 
+## Contractor beta lint-only cleanup — 2026-10-04
+
+The contractor beta walkthrough exposed one unused parameter in the Customer action test fixture. The test callback now omits that unused parameter so web lint remains clean; this is test-only maintenance and does not change Customer behavior, runtime code, auth, tenancy, API contracts, or product state.
+
 ## Current milestone
 
 TradeOS is in RC1 hardening. The active posture is production readiness, lifecycle consistency, contractor-facing usability, tenant-boundary verification, and retained release evidence rather than MVP planning.
