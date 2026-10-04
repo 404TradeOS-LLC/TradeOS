@@ -158,6 +158,7 @@ Mounted route groups from `app/backend/server.ts`:
 - `/api/v1/customers`
 - `/api/v1/projects`
 - `/api/v1/jobs` (including `GET /api/v1/jobs/dispatch-summary`, a read-only org-wide dispatch-attention aggregate). Job mutations use named lifecycle routes backed by the centralized transition contract in `app/modules/jobs/lifecycle.ts`: schedule/reschedule, dispatch, travel, arrival, pause/resume, completion, cancellation, reopen, and ready-for-invoice. Completion remains `on_site -> completed`; the route surface does not expose generic arbitrary status mutation.
+  Job-number allocation and technician schedule serialization retain their existing transaction-scoped PostgreSQL advisory-lock behavior; the lock statements execute through Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`. This is an execution-mode correction only and does not change any route, payload, lifecycle transition, or permission.
 - `/api/v1/schedule`
 - `/api/v1/notes`
 - `/api/v1/change-orders`
