@@ -5,18 +5,20 @@ export interface BlsOewsWageRecord {
   occupation: string;
   trade: string;
   category: string;
-  hourlyP10: number;
-  hourlyP25: number;
+  employment?: number;
+  hourlyMean?: number;
+  hourlyP10?: number;
+  hourlyP25?: number;
   hourlyMedian: number;
-  hourlyP75: number;
-  hourlyP90: number;
+  hourlyP75?: number;
+  hourlyP90?: number;
 }
 
 export const BLS_OEWS_TERRE_HAUTE_2025_SOURCE_URL =
   "https://www.bls.gov/regions/midwest/news-release/2026/occupationalemploymentandwages_terrehaute_20260710.htm";
 
 export const BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS =
-  "Terre Haute, IN Metropolitan Statistical Area (Clay, Sullivan, Vermillion, and Vigo counties)";
+  "Terre Haute, IN Metropolitan Statistical Area (Vigo, Sullivan, and Vermillion counties)";
 
 /**
  * May 2025 OEWS wage estimates for contractor-trade ingestion slices.
@@ -32,6 +34,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS =
 export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   {
     socCode: "47-2111",
+    employment: 380,
+    hourlyMean: 34.64,
     occupation: "Electricians",
     trade: "Electrician",
     category: "Electrical",
@@ -43,6 +47,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   },
   {
     socCode: "47-2152",
+    employment: 420,
+    hourlyMean: 38.85,
     occupation: "Plumbers, Pipefitters, and Steamfitters",
     trade: "Plumber",
     category: "Plumbing",
@@ -54,6 +60,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   },
   {
     socCode: "47-2031",
+    employment: 280,
+    hourlyMean: 29.75,
     occupation: "Carpenters",
     trade: "Carpenter",
     category: "Carpentry",
@@ -65,6 +73,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   },
   {
     socCode: "49-9021",
+    employment: 140,
+    hourlyMean: 27.86,
     occupation: "Heating, Air Conditioning, and Refrigeration Mechanics and Installers",
     trade: "HVAC Technician",
     category: "HVAC",
@@ -76,6 +86,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   },
   {
     socCode: "47-2141",
+    employment: 60,
+    hourlyMean: 22.76,
     occupation: "Painters, Construction and Maintenance",
     trade: "Painter",
     category: "Painting",
@@ -87,6 +99,8 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
   },
   {
     socCode: "47-2073",
+    employment: 230,
+    hourlyMean: 31.85,
     occupation: "Operating Engineers and Other Construction Equipment Operators",
     trade: "Heavy Equipment Operator",
     category: "Sitework",
@@ -95,6 +109,33 @@ export const BLS_OEWS_TERRE_HAUTE_2025_WAGES: readonly BlsOewsWageRecord[] = [
     hourlyMedian: 29.63,
     hourlyP75: 40.4,
     hourlyP90: 44.46,
+  },
+  {
+    socCode: "47-2181",
+    employment: 80,
+    hourlyMean: 25.08,
+    occupation: "Roofers",
+    trade: "Roofer",
+    category: "Roofing",
+    hourlyMedian: 23.89,
+  },
+  {
+    socCode: "47-2051",
+    employment: 50,
+    hourlyMean: 27.70,
+    occupation: "Cement Masons and Concrete Finishers",
+    trade: "Concrete Finisher",
+    category: "Concrete",
+    hourlyMedian: 28.84,
+  },
+  {
+    socCode: "47-2061",
+    employment: 500,
+    hourlyMean: 23.32,
+    occupation: "Construction Laborers",
+    trade: "Construction Laborer",
+    category: "General Construction",
+    hourlyMedian: 21.85,
   },
   {
     socCode: "47-2211",
@@ -140,8 +181,7 @@ export function toBlsOewsLaborCandidate(
     provenanceStatus: "documented",
     researchNotes:
       `Official BLS OEWS wage observation for SOC ${wage.socCode}. ` +
-      `Hourly percentiles: P10 $${wage.hourlyP10.toFixed(2)}, P25 $${wage.hourlyP25.toFixed(2)}, ` +
-      `P50 $${wage.hourlyMedian.toFixed(2)}, P75 $${wage.hourlyP75.toFixed(2)}, P90 $${wage.hourlyP90.toFixed(2)}. ` +
+      formatWageEvidence(wage) +
       "The values are BLS 2025 employee wage data for the Terre Haute MSA; the official BLS area release is retained as the canonical government source URL. " +
       "Benchmark only: this candidate intentionally omits laborRateAssumption and laborHours so the current promotion path cannot convert the raw wage into an organization LaborRate bill rate. " +
       "TradeOS must not infer payroll burden, benefits, overhead, markup, margin, or customer bill rate from BLS data without organization-specific inputs.",
@@ -152,4 +192,17 @@ export function buildTerreHauteBlsOewsLaborCandidates(
   retrievedAt: string = new Date().toISOString()
 ): CreateCandidateInput[] {
   return BLS_OEWS_TERRE_HAUTE_2025_WAGES.map((wage) => toBlsOewsLaborCandidate(wage, retrievedAt));
+}
+
+function formatWageEvidence(wage: BlsOewsWageRecord): string {
+  const values = [
+    wage.employment == null ? null : `Employment ${wage.employment}`,
+    wage.hourlyMean == null ? null : `mean $${wage.hourlyMean.toFixed(2)}`,
+    wage.hourlyP10 == null ? null : `P10 $${wage.hourlyP10.toFixed(2)}`,
+    wage.hourlyP25 == null ? null : `P25 $${wage.hourlyP25.toFixed(2)}`,
+    `P50 $${wage.hourlyMedian.toFixed(2)}`,
+    wage.hourlyP75 == null ? null : `P75 $${wage.hourlyP75.toFixed(2)}`,
+    wage.hourlyP90 == null ? null : `P90 $${wage.hourlyP90.toFixed(2)}`,
+  ].filter((value): value is string => value !== null);
+  return `Published wage evidence: ${values.join(", ")}. `;
 }
