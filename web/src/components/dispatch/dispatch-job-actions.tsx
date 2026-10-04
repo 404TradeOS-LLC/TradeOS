@@ -38,6 +38,10 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<string | null>(null);
+  const canCaptureVisit =
+    Boolean(job.project) &&
+    job.archivedAt === null &&
+    !["completed", "cancelled"].includes(job.status);
 
   async function run(label: string, operation: () => Promise<unknown>) {
     setBusy(label);
@@ -168,6 +172,14 @@ export function DispatchJobActions({ job, canManageInvoiceReadiness }: { job: Di
             >
               {busy === "Rescheduling" ? "Rescheduling…" : busy === "Scheduling" ? "Scheduling…" : job.scheduledStart ? "Reschedule" : "Schedule"}
             </button>
+            {canCaptureVisit && job.project ? (
+              <Link
+                href={`/projects/${job.project.id}/intake?jobId=${encodeURIComponent(job.id)}`}
+                className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                Capture site visit
+              </Link>
+            ) : null}
             {job.status === "scheduled" ? (
               <button
                 type="button"
