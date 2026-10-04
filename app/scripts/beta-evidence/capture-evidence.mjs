@@ -443,18 +443,13 @@ try {
       `duplicate link was ${await existingCustomerLink.getAttribute("href")}`,
     );
 
-    const readCustomerMatches = async () => page.evaluate(async (query) => {
-      const response = await fetch(`/api/proxy/customers?query=${encodeURIComponent(query)}&limit=250`, {
-        headers: { Accept: "application/json" },
+    const customerCreateForm = page.locator("form").filter({ has: page.locator('[name="name"]') }).first();
+    await customerCreateForm.evaluate((form) => {
+      form.dataset.s052SubmitCount = "0";
+      form.addEventListener("submit", () => {
+        form.dataset.s052SubmitCount = String(Number(form.dataset.s052SubmitCount ?? "0") + 1);
       });
-      return { status: response.status, body: response.ok ? await response.json() : null };
-    }, customerEmail);
-    const beforeInvalidSubmit = await readCustomerMatches();
-    assertBusiness(
-      "customer validation baseline is readable",
-      beforeInvalidSubmit.status === 200 && Array.isArray(beforeInvalidSubmit.body),
-      `HTTP ${beforeInvalidSubmit.status}`,
-    );
+    });
 
     await page.locator('[name="name"]').fill("");
     const missingNameValidity = await page.locator('[name="name"]').evaluate((element) => ({
@@ -462,17 +457,13 @@ try {
       valid: element.checkValidity(),
     }));
     await page.getByRole("button", { name: "Create customer" }).click();
-    await page.waitForTimeout(150);
-    const afterInvalidSubmit = await readCustomerMatches();
-    const beforeIds = (beforeInvalidSubmit.body ?? []).map((customer) => customer.id).sort();
-    const afterIds = (afterInvalidSubmit.body ?? []).map((customer) => customer.id).sort();
+    const invalidSubmitCount = Number(await customerCreateForm.getAttribute("data-s052-submit-count") ?? "-1");
     assertBusiness(
       "required customer validation blocks blank name before mutation",
       missingNameValidity.valueMissing &&
         !missingNameValidity.valid &&
-        afterInvalidSubmit.status === 200 &&
-        JSON.stringify(afterIds) === JSON.stringify(beforeIds),
-      `validity=${JSON.stringify(missingNameValidity)}, before=${beforeIds.length}, after=${afterIds.length}`,
+        invalidSubmitCount === 0,
+      `validity=${JSON.stringify(missingNameValidity)}, submitCount=${invalidSubmitCount}`,
     );
   }
 
