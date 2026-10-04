@@ -25,7 +25,7 @@ function dependencies(overrides: Partial<Parameters<typeof runCreateCustomerWork
       creates.push(input);
       return { ...matchingCustomer, id: "created-customer" };
     },
-    onCreated: (_customer: Customer) => undefined,
+    onCreated: () => undefined,
     onError: () => "Could not create customer.",
     ...overrides,
   };

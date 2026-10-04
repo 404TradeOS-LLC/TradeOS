@@ -18,6 +18,11 @@ function readAuthActionsSource(): string {
   return fs.readFileSync(path.join(here, "auth.ts"), "utf8");
 }
 
+function readSessionSource(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, "..", "..", "lib", "session.ts"), "utf8");
+}
+
 function readFinishSetupPageSource(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return fs.readFileSync(path.join(here, "..", "finish-setup", "page.tsx"), "utf8");
@@ -27,6 +32,22 @@ function readFinishSetupFormSource(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return fs.readFileSync(path.join(here, "..", "finish-setup", "finish-setup-form.tsx"), "utf8");
 }
+
+test("local-only logout clears backend cookies without requiring Supabase configuration", () => {
+  const source = readSessionSource();
+  const fnIndex = source.indexOf("export async function clearSessionCookie");
+  assert.notEqual(fnIndex, -1);
+  const fnSource = source.slice(fnIndex);
+
+  const clearIndex = fnSource.indexOf("await clearLocalSessionCookies()");
+  const configGuardIndex = fnSource.indexOf("!process.env.NEXT_PUBLIC_SUPABASE_URL");
+  const createClientIndex = fnSource.indexOf("const supabase = await createClient()");
+
+  assert.notEqual(clearIndex, -1);
+  assert.notEqual(configGuardIndex, -1);
+  assert.notEqual(createClientIndex, -1);
+  assert.ok(clearIndex < configGuardIndex && configGuardIndex < createClientIndex);
+});
 
 test("loginAction redirects to /finish-setup specifically when bootstrap reports organization_name_required", () => {
   const source = readAuthActionsSource();
