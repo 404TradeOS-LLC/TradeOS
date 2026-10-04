@@ -108,11 +108,29 @@ export class CostbookPricingService {
    * validation rather than being upgraded to account/negotiated pricing.
    */
   async resolveCanonicalPrice(orgId: string, input: ResolveCanonicalPriceInput): Promise<ResolvedPrice | null> {
+    const now = input.now ?? new Date();
+    const freshnessFloor = new Date(now.getTime() - 90 * 86_400_000);
+    const unitValues = input.unit ? costbookUnitDatabaseValues(input.unit) : [];
+
     const rows = await prisma.supplierPriceObservation.findMany({
       where: {
         orgId,
         priceStatus: "priced",
+        observedAt: { gte: freshnessFloor, lte: now },
         supplierProduct: { canonicalMaterialKey: input.canonicalMaterialKey },
+        ...(unitValues.length > 0
+          ? {
+              OR: [
+                { normalizedUnitPrice: { not: null }, normalizedUnit: { in: unitValues } },
+                { normalizedUnitPrice: null, purchaseUnit: { in: unitValues } },
+                {
+                  normalizedUnitPrice: null,
+                  purchaseUnit: null,
+                  supplierProduct: { purchaseUnit: { in: unitValues } },
+                },
+              ],
+            }
+          : {}),
       },
       include: {
         supplierProduct: {
@@ -120,7 +138,6 @@ export class CostbookPricingService {
         },
       },
       orderBy: [{ observedAt: "desc" }, { id: "desc" }],
-      take: 100,
     });
 
     return resolvePrice({
@@ -128,7 +145,7 @@ export class CostbookPricingService {
       canonicalMaterialKey: input.canonicalMaterialKey,
       unit: input.unit,
       postalCode: input.postalCode,
-      now: input.now,
+      now,
       candidates: rows.flatMap((row) => {
         const normalizedPairAvailable = row.normalizedUnitPrice !== null && Boolean(row.normalizedUnit?.trim());
         const price = normalizedPairAvailable
@@ -315,4 +332,17 @@ function observationConfidence(value: string | null): PriceConfidence {
   if (value === "medium") return "MEDIUM";
   if (value === "low") return "LOW";
   return "LOW";
+}
+
+
+function costbookUnitDatabaseValues(value: string): string[] {
+  const normalized = normalizeCostbookUnit(value);
+  const aliases: Record<string, string[]> = {
+    EACH: ["EACH", "EA"],
+    GALLON: ["GALLON", "GAL"],
+    LINEAR_FT: ["LINEAR_FT", "LF"],
+    SQ_FT: ["SQ_FT", "SF"],
+    BOARD_FT: ["BOARD_FT", "BF"],
+  };
+  return [...new Set([normalized, value.trim(), value.trim().toUpperCase(), ...(aliases[normalized] ?? [])])];
 }
