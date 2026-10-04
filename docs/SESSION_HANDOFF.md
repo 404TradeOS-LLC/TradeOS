@@ -10,6 +10,19 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Founder-authorized Customer → Project parity lane — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED`; runtime Customer→Project parity does not overlap the already-merged S052 certification harness or current evidence/staging lanes.
+- Branch: `feat/customer-project-canonical-continuity`; draft PR #645.
+- Customer-context Project creation now keeps the existing CRM Customer selected, reuses active ServiceAddress rows by copying the selected formatted address into `Project.siteAddress`, and explicitly preserves the boundary that no Project→ServiceAddress relationship exists.
+- **Create project** now opens the created Project workspace immediately; **Create & start estimate** reuses the existing Estimate intent/create path. Context-free Project creation and the existing Job intent remain supported.
+- No backend route, schema/migration, auth/RBAC/RLS, Customer merge, Lead persistence, or ServiceAddress ownership change is included.
+- S052 release certification remains separate and must not be marked DONE from this runtime/UI PR.
+
+# Session Handoff
+
+# Session Handoff
+
 # Session Handoff
 
 ## Founder-authorized Entry parity lane — 2026-10-04
