@@ -145,6 +145,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
   const token = await getSessionToken();
   if (!token) return { error: "Authentication is required." };
   const projectId = String(formData.get("projectId") ?? "");
+  const jobId = String(formData.get("jobId") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const transcript = String(formData.get("transcript") ?? "").trim();
   const squareFeet = String(formData.get("squareFeet") ?? "").trim();
@@ -190,6 +191,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
       method: "POST",
       token: token ?? undefined,
       body: JSON.stringify({
+        jobId: jobId || undefined,
         notes: notes || undefined,
         transcript: transcript || undefined,
         detailsJson: {
@@ -266,7 +268,10 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
   }
 
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/intake`);
+  revalidatePath("/dashboard");
+  revalidatePath("/dispatch");
+  revalidatePath("/field");
+  redirect(jobId ? `/projects/${projectId}/intake?job=${encodeURIComponent(jobId)}` : `/projects/${projectId}/intake`);
 }
 
 export async function uploadProjectDocumentAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

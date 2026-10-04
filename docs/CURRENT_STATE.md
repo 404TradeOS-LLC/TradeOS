@@ -60,6 +60,31 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## S067 scheduling and Site Visit continuity — implementation slice
+
+The bounded S067 frontend slice reuses the existing conflict-aware Job schedule
+and the existing optional `SiteVisit.jobId` persistence contract. Managers can
+open **Capture site visit** from scheduled Job context in Dispatch or the
+Project workspace. The intake route validates the requested Job against the
+Project's loaded, unarchived Jobs before rendering linked context; missing,
+archived, wrong-Project, or otherwise unavailable Job ids fall back truthfully
+to Project-only Site Visit capture. Finishing a linked visit forwards `jobId`
+through the existing Project Site Visit endpoint, preserves the Job context
+after redirect, and revalidates Project, Today, Dispatch, and Field surfaces.
+
+The Site Visit workspace continues to work without any Job query parameter.
+Technicians remain read-only for CRM/Site Visit writes; the new capture links
+use the existing owner/admin/dispatcher write-role boundary. Project Site Visit
+history now distinguishes linked Jobs from Project-only visits without creating
+another calendar or visit model.
+
+This slice changes no Job schedule/reschedule/conflict implementation, backend
+route, lifecycle state, schema/migration, role/permission, auth/RBAC/RLS policy,
+GPS/route behavior, notification system, or external-calendar integration.
+Repository verification and retained responsive/permission/tenant-negative/
+refresh evidence remain required before S067 can be called complete, and S056
+remains its separate release-certification prerequisite.
+
 ## Customer → Project canonical continuity — 2026-10-04
 
 The Customer-originated Project creation path now matches the canonical S052 interaction without changing the underlying data model. `/projects/new?customerId=...` resolves the existing organization-scoped Customer record, presents its active saved ServiceAddress rows, and copies the selected formatted address into the existing `Project.siteAddress` string only. The form explicitly states that no Project→ServiceAddress relationship is created. Customer identity is preserved through a hidden server-owned form value after the scoped read rather than asking the contractor to reselect the same CRM record.

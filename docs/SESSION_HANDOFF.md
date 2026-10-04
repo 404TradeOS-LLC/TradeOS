@@ -10,6 +10,14 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## S067 active implementation — 2026-10-04
+
+- Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; draft PR #644 on `feature/s067-schedule-visit-continuity` is the sole S067 implementation lane.
+- The first slice reuses the canonical Job schedule/conflict/assignment contract and existing optional `SiteVisit.jobId`: scheduled Job context can open Site Visit capture from Dispatch/Project, invalid or archived/wrong-Project Job context falls back to Project-only capture, and saved linked visits preserve that Job context.
+- Owner/admin/dispatcher receive the new capture affordance; technician CRM write behavior is unchanged. The backend same-org/same-Project/unarchived-Job controller check remains authoritative.
+- No new scheduler, persistence model, lifecycle state, schema/migration, auth/RBAC/RLS policy, GPS/route tracking, notifications, or external-calendar integration is included.
+- Continue #644 through hosted Web/docs/governance checks and review. Retained responsive, permission/tenant-negative, refresh evidence and S056 remain completion/release gates.
+
 ## Founder-authorized Customer → Project parity lane — 2026-10-04
 
 - Classification: `NEW_WORK_REQUIRED`; runtime Customer→Project parity does not overlap the already-merged S052 certification harness or current evidence/staging lanes.
@@ -219,8 +227,8 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 
 ## Next Eligible Sprint
 
-Sprint ID: S067
-Eligibility: `READY`; `Dependencies: none`; it is the lowest-numbered READY implementation sprint after the 2026-10-04 reconciliation.
-Dependencies: none. S056 remains a separate release-certification prerequisite.
-Overlap check: no active S067 branch/PR. Existing S052/S053 evidence lanes, S064/S066 review lanes, the Costbook foundation merged through #628, and customer/project #641 are separate.
-Startup prompt: Create one S067 implementation branch from verified current main. Reuse canonical Job scheduling/conflict/assignment APIs and the existing `SiteVisit.jobId` link to make scheduled visit → Dispatch/Project → Site Visit capture → refreshed schedule/project/field context continuous. Keep project-only intake working and stop if a new scheduling persistence model, lifecycle state, permission/auth/RLS change, schema/migration, or provider integration is required.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains blocked by S064.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue S067 only through PR #644; do not create another S067 implementation branch. Existing evidence, Costbook, Today, and customer/project lanes remain separate.
+Startup prompt: Continue S067 through PR #644 by running exact-head verification and repairing scoped findings. Then add only the smallest contractor-facing Schedule Visit creation affordance that reuses existing Job creation and conflict-aware Dispatch scheduling; stop if it requires a second persistence model, new status/policy, permission/auth/RLS, schema/migration, or provider integration.

@@ -9,14 +9,30 @@ import { AIProgressIndicator } from "@/components/intake/ai-progress-indicator";
 import { MeasurementsCard } from "@/components/intake/measurements-card";
 import { SiteVisitSummaryCard } from "@/components/intake/site-visit-summary-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProject } from "@/lib/api";
+import { getOrganizationSettings, getProject } from "@/lib/api";
+import { formatScheduleInZone } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
+import { firstSiteVisitSearchParam, resolveSiteVisitJob } from "@/lib/site-visit-continuity";
 
-export default async function ProjectIntakePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ProjectIntakePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ job?: string | string[] }>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const token = await getSessionToken();
-  const project = await getProject(token ?? "", id);
-  const latestVisit = project.siteVisits[0] ?? null;
+  const [project, settings] = await Promise.all([
+    getProject(token ?? "", id),
+    getOrganizationSettings(token ?? ""),
+  ]);
+  const requestedJobId = firstSiteVisitSearchParam(query.job);
+  const linkedJob = resolveSiteVisitJob(project.jobs, query.job);
+  const latestProjectVisit = project.siteVisits[0] ?? null;
+  const latestVisit = linkedJob
+    ? project.siteVisits.find((visit) => visit.jobId === linkedJob.id) ?? null
+    : latestProjectVisit;
   const latestEstimate = project.estimates[0] ?? null;
   const aiQuestions = Array.isArray(latestVisit?.aiQuestionsJson) ? latestVisit.aiQuestionsJson : [];
   const missingInfo = Array.isArray(latestVisit?.missingInfoJson) ? latestVisit.missingInfoJson : [];
@@ -45,6 +61,33 @@ export default async function ProjectIntakePage({ params }: { params: Promise<{ 
         </div>
       </header>
 
+      {linkedJob ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3" aria-label="Linked scheduled job">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Scheduled Job</p>
+            <p className="mt-1 truncate text-sm font-medium text-foreground">
+              {linkedJob.title} <span className="font-mono text-xs text-muted-foreground">#{linkedJob.jobNumber}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {linkedJob.scheduledStart
+                ? formatScheduleInZone(linkedJob.scheduledStart, settings.settings.timezone || "UTC")
+                : "This Job is not scheduled yet."}
+              {" · "}Finish Visit will keep this capture linked to the Job.
+            </p>
+          </div>
+          <Link
+            href={`/dispatch?view=all&q=${encodeURIComponent(linkedJob.jobNumber)}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Open in Schedule
+          </Link>
+        </section>
+      ) : requestedJobId ? (
+        <section className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning-foreground" role="status">
+          Scheduled Job context is unavailable for this Project. This Site Visit will remain Project-only.
+        </section>
+      ) : null}
+
       <section className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Site Visit capture summary">
         <div className="rounded-xl border border-border/70 bg-card p-3 sm:p-4">
           <Camera className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -64,7 +107,7 @@ export default async function ProjectIntakePage({ params }: { params: Promise<{ 
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
-        <SiteVisitForm projectId={project.id} />
+        <SiteVisitForm projectId={project.id} jobId={linkedJob?.id ?? null} />
 
         <aside className="grid content-start gap-4">
           <Card className="border-primary/20 bg-primary/5">
@@ -132,11 +175,7 @@ export default async function ProjectIntakePage({ params }: { params: Promise<{ 
               <CardTitle className="text-base">Estimate handoff</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {!latestVisit ? (
-                <p className="text-sm text-muted-foreground">
-                  Finish a Site Visit first so the estimator has the captured field context available on this Project.
-                </p>
-              ) : latestEstimate ? (
+              {latestEstimate ? (
                 <>
                   <p className="text-sm text-muted-foreground">
                     An Estimate already exists for this Project. Open it to review scope, items, pricing, and any remaining assumptions.
@@ -148,6 +187,10 @@ export default async function ProjectIntakePage({ params }: { params: Promise<{ 
                     Open Estimate
                   </Link>
                 </>
+              ) : !latestProjectVisit ? (
+                <p className="text-sm text-muted-foreground">
+                  Finish a Site Visit first so the estimator has the captured field context available on this Project.
+                </p>
               ) : (
                 <>
                   <p className="text-sm text-muted-foreground">
