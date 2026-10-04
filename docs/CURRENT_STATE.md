@@ -72,6 +72,10 @@ These sources degrade independently. If stale Proposal, overdue Invoice, blocked
 
 No pricing-verification or material-unavailable row is synthesized by this slice. Current persisted Estimate lines retain source IDs and price snapshots but do not expose a company-wide persisted freshness/provenance exception contract sufficient to support those rows truthfully. That remains a separate domain/API requirement rather than a UI guess.
 
+## Contractor lifecycle advisory-lock repair — 2026-10-04
+
+The full synthetic contractor walkthrough exposed a real job-creation failure: PostgreSQL `pg_advisory_xact_lock()` returns `void`, and the affected Prisma `$queryRaw` calls attempted to deserialize that result. Job-number generation, technician schedule serialization, and structured AI Estimate Assist apply now execute those existing transaction-scoped locks with `$executeRaw`, matching the repository's established advisory-lock pattern. The repair changes no lifecycle, route, schema, RLS, permission, pricing, or AI review boundary.
+
 ## S067 scheduling and Site Visit continuity — implementation slice
 
 The bounded S067 frontend slice reuses the existing conflict-aware Job schedule
