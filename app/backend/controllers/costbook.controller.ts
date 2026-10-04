@@ -155,6 +155,10 @@ const regionalSupplierEvidenceImportSchema = z.object({
   observations: z.array(regionalSupplierObservationSchema).min(1).max(2500),
 }).strict();
 
+const regionalSupplierCanonicalMatchReviewSchema = z.object({
+  canonicalMaterialKey: z.string().trim().min(1).max(240),
+}).strict();
+
 const regionalSupplierEvidenceListQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   priceStatus: z.enum(["priced", "unavailable", "not-listed", "needs-review"]).optional(),
@@ -213,6 +217,17 @@ export const costbookController = {
   async regionalSupplierEvidenceSummary(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.read"]);
     res.json(await regionalSupplierEvidenceService.summary(auth.orgId));
+  },
+  async previewRegionalSupplierCanonicalMatch(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.read"]);
+    const { id } = idParamSchema.parse(req.params);
+    res.json(await regionalSupplierEvidenceService.previewCanonicalMatch(auth.orgId, id));
+  },
+  async reviewRegionalSupplierCanonicalMatch(req: Request, res: Response) {
+    const auth = requirePermissions(req, ["costbook.manage"]);
+    const { id } = idParamSchema.parse(req.params);
+    const input = regionalSupplierCanonicalMatchReviewSchema.parse(req.body);
+    res.json(await regionalSupplierEvidenceService.reviewCanonicalMatch(auth.orgId, auth.userId, id, input.canonicalMaterialKey));
   },
   async importRegionalSupplierEvidence(req: Request, res: Response) {
     const auth = requirePermissions(req, ["costbook.manage"]);
