@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-28
+last_verified: 2026-10-03
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -785,3 +785,14 @@ PR #585 already shipped the canonical Today page structure now present on curren
 The Customer/ServiceAddress/Project implementation needed for S052 remains the merged PR #586/#629 contract. Certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` after exact-head required CI, branch currency, security/governance checks, and all review conversations passed or were resolved. The bounded harness on `main` now provides the opt-in `s052` selector, exact deployed-SHA correlation, owner Customer create/update + ServiceAddress + duplicate/validation + Customer-linked Project persistence/reload assertions, synthetic admin Customer→Project evidence at 1440/768/390, inactive-membership denial, foreign Customer/Project tenant probes, and fail-closed artifact validation.
 
 S052 remains `IN_REVIEW`. No retained full non-production `s052` run has passed yet. At post-merge reconciliation the frontend deployment created for exact merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` was canceled, while the available staging frontend remained on an older SHA; dedicated synthetic admin/inactive and foreign-tenant fixture availability also cannot be established through the available secret-safe integrations. This is an external certification-evidence gap, not evidence of a product failure.
+
+
+## Costbook Data Foundation — 2026-10-02
+
+Founder-requested Costbook data-foundation work extends the existing Costbook and does not change numbered sprint status. Reconnaissance confirmed that the current Supplier, SupplierProduct, SupplierPriceObservation, LaborRate, Assembly/AssemblyItem, MaterialPriceAudit, research-candidate, and EstimateLineItem snapshot systems are the implementation base rather than targets for replacement.
+
+PR #628 adds the 12-item canonical pilot registry around `SupplierProduct.canonicalMaterialKey`, a precision-first deterministic supplier matcher/review flow, append-oriented supplier observation imports, a pure trust-first PriceResolver, and read-only `GET /api/v1/costbook/pricing/resolve`. The resolver returns provenance, confidence, freshness, alternatives, and a reason for selection. Current regional supplier observations are conservatively classified as retail validation rather than being upgraded to account or negotiated pricing. Explicit organization filtering remains in the service query and existing forced RLS remains the database boundary.
+
+The BLS slice reuses the existing Costbook research-candidate review system. It records Terre Haute OEWS area `0045460` with Vigo, Sullivan, and Vermillion counties, expands the validated core-trade mean/median evidence without inventing missing percentiles, implements Terre Haute → Indiana → national benchmark fallback, and models June 2026 ECEC construction benefits only as an explicitly inferred national burden input. BLS evidence still cannot become a customer bill rate automatically.
+
+This slice does not add QBO, ABC, 1build, retail scraping, automatic price application, a second Costbook catalog, a second assembly model, or a second Estimate snapshot system. Existing consumed Estimate pricing remains historical through persisted EstimateLineItem values.

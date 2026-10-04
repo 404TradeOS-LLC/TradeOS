@@ -32,6 +32,65 @@ export interface CostbookAssemblyUnitCost {
   componentCount: number;
 }
 
+export type CostbookPriceConfidence = "VERIFIED" | "HIGH" | "MEDIUM" | "LOW" | "ASSUMED" | "STALE";
+export type CostbookPriceFreshness = "current" | "warn" | "refresh" | "reject";
+export type CostbookPriceEvidenceTier =
+  | "ACTUAL_CONTRACTOR_PURCHASE"
+  | "NEGOTIATED_SUPPLIER_PRICE"
+  | "AUTHORIZED_LOCAL_SUPPLIER_PRICE"
+  | "COMMERCIAL_COUNTY_PRICE"
+  | "RECENT_RETAIL_VALIDATION"
+  | "REGIONAL_MODEL"
+  | "NATIONAL_MODEL";
+
+export interface CostbookResolvedPriceAlternative {
+  id: string;
+  price: number;
+  currency: string;
+  unit: string;
+  evidenceTier: CostbookPriceEvidenceTier;
+  confidence: CostbookPriceConfidence;
+  freshness: CostbookPriceFreshness;
+  observedAt: string;
+  supplierName: string | null;
+  storeName: string | null;
+  postalCode: string | null;
+  source: string;
+  sourceUrl: string | null;
+  verifiedVsInferred: "observed" | "inferred";
+  score: number;
+}
+
+export interface CostbookResolvedPrice {
+  canonicalMaterialKey: string;
+  selectedPrice: number;
+  currency: string;
+  unit: string;
+  source: string;
+  supplierName: string | null;
+  storeName: string | null;
+  postalCode: string | null;
+  observedAt: string;
+  confidence: CostbookPriceConfidence;
+  evidenceTier: CostbookPriceEvidenceTier;
+  verifiedVsInferred: "observed" | "inferred";
+  freshness: CostbookPriceFreshness;
+  sourceUrl: string | null;
+  alternatives: CostbookResolvedPriceAlternative[];
+  oneLineProvenance: string;
+  reasonSelected: string;
+  warnings: string[];
+}
+
+export function resolveCostbookPrice(
+  token: string,
+  input: { canonicalMaterialKey: string; postalCode?: string; unit?: string }
+) {
+  const query = new URLSearchParams({ canonicalMaterialKey: input.canonicalMaterialKey });
+  if (input.postalCode) query.set("postalCode", input.postalCode);
+  if (input.unit) query.set("unit", input.unit);
+  return apiFetch<CostbookResolvedPrice | null>(`/api/v1/costbook/pricing/resolve?${query.toString()}`, { token });
+}
 export interface CostbookPriceHistory {
   materialChanges: Array<{
     id: string;

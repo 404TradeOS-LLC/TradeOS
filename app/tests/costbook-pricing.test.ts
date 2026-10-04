@@ -1,6 +1,7 @@
 const mockPrisma = {
   materialPriceAudit: { findMany: jest.fn() },
   estimateLineItem: { findMany: jest.fn() },
+  supplierPriceObservation: { findMany: jest.fn() },
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
@@ -64,6 +65,97 @@ describe("CostbookPricingService", () => {
     expect(mockPrisma.estimateLineItem.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ estimate: { orgId: "org-1" } }), take: 20 }));
     expect(history.materialChanges[0]).toMatchObject({ oldUnitCost: 10, newUnitCost: 12 });
     expect(history.estimateSnapshots[0]).toMatchObject({ sourceType: "cost_item", sourceId: "cost-item-1", unitCost: 15, lineCost: 30 });
+  });
+  it("resolves only tenant-scoped canonical supplier evidence and returns provenance", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-1",
+      normalizedUnitPrice: 4.18,
+      effectivePrice: 4.18,
+      salePrice: null,
+      regularPrice: 4.49,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute #0215",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/2x4",
+      supplierProduct: {
+        purchaseUnit: "EA",
+        supplier: { id: "supplier-1", name: "Example Supplier" },
+      },
+    }]);
+
+    const resolved = await new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD",
+      postalCode: "47802",
+      unit: "EACH",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    });
+
+    expect(mockPrisma.supplierPriceObservation.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        orgId: "org-1",
+        priceStatus: "priced",
+        supplierProduct: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
+      },
+    }));
+    expect(resolved).toMatchObject({
+      selectedPrice: 4.18,
+      unit: "EACH",
+      supplierName: "Example Supplier",
+      storeName: "Terre Haute #0215",
+      confidence: "HIGH",
+      evidenceTier: "RECENT_RETAIL_VALIDATION",
+      verifiedVsInferred: "observed",
+      freshness: "current",
+    });
+  });
+
+  it("never pairs a raw package price with a normalized unit", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-case",
+      normalizedUnitPrice: null,
+      effectivePrice: 100,
+      salePrice: null,
+      regularPrice: 110,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "CASE",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/case",
+      supplierProduct: {
+        purchaseUnit: "CASE",
+        supplier: { id: "supplier-1", name: "Example Supplier" },
+      },
+    }]);
+
+    const service = new CostbookPricingService();
+    await expect(service.resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "ADHESIVE.CONSTRUCTION.TUBE",
+      unit: "CASE",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toMatchObject({
+      selectedPrice: 100,
+      unit: "CASE",
+    });
+
+    await expect(service.resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "ADHESIVE.CONSTRUCTION.TUBE",
+      unit: "EACH",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
+  });
+
+  it("returns no resolved price when the tenant has no eligible evidence", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([]);
+    await expect(new CostbookPricingService().resolveCanonicalPrice("org-a", {
+      canonicalMaterialKey: "CONCRETE.MIX.80LB.BAG",
+    })).resolves.toBeNull();
   });
 
   it("applies tenant-scoped material, estimate, source, and date filters", async () => {

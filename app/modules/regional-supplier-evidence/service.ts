@@ -1,6 +1,7 @@
 import { basePrisma, prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { runInDatabaseTransaction } from "../../db/requestSession";
+import { COSTBOOK_PILOT_CANONICAL_ITEMS, matchPilotCanonicalProduct } from "../costbook/canonicalProductMatcher";
 import type {
   IngestRegionalSupplierEvidenceInput,
   IngestRegionalSupplierEvidenceResult,
@@ -99,6 +100,99 @@ export class RegionalSupplierEvidenceService {
     };
   }
 
+  async previewCanonicalMatch(orgId: string, productId: string) {
+    const product = await prisma.supplierProduct.findFirst({
+      where: { id: productId, orgId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        packageDescription: true,
+        purchaseUnit: true,
+        canonicalMaterialKey: true,
+        sku: true,
+        manufacturerPartNumber: true,
+      },
+    });
+    if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
+
+    return {
+      supplierProductId: product.id,
+      currentCanonicalMaterialKey: product.canonicalMaterialKey,
+      match: matchPilotCanonicalProduct({
+        name: product.name,
+        description: product.description,
+        packageDescription: product.packageDescription,
+        purchaseUnit: product.purchaseUnit,
+        canonicalMaterialKey: product.canonicalMaterialKey,
+        sku: product.sku,
+        manufacturerPartNumber: product.manufacturerPartNumber,
+      }),
+    };
+  }
+
+  async reviewCanonicalMatch(
+    orgId: string,
+    actorUserId: string,
+    productId: string,
+    canonicalMaterialKey: string
+  ) {
+    const canonical = COSTBOOK_PILOT_CANONICAL_ITEMS.find(
+      (item) => item.canonicalMaterialKey === canonicalMaterialKey
+    );
+    if (!canonical) {
+      throw new ApiError(422, `Canonical material key ${canonicalMaterialKey} is not in the governed pilot registry`);
+    }
+
+    return runInDatabaseTransaction(basePrisma, async (transaction) => {
+      const product = await transaction.supplierProduct.findFirst({
+        where: { id: productId, orgId },
+        select: { id: true, name: true, canonicalMaterialKey: true },
+      });
+      if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
+
+      const updated = await transaction.supplierProduct.updateMany({
+        where: {
+          id: productId,
+          orgId,
+          canonicalMaterialKey: product.canonicalMaterialKey,
+        },
+        data: { canonicalMaterialKey },
+      });
+      if (updated.count !== 1) {
+        throw new ApiError(409, `Supplier product ${productId} could not be linked because it changed during review`);
+      }
+
+      if (transaction.activityEvent && typeof transaction.activityEvent.create === "function") {
+        await transaction.activityEvent.create({
+          data: {
+            orgId,
+            entityType: "supplier_product",
+            entityId: productId,
+            eventType: "costbook.supplier_product.canonical_match_reviewed",
+            title: `Canonical match reviewed: ${product.name}`,
+            actorUserId,
+            metadataJson: {
+              previousCanonicalMaterialKey: product.canonicalMaterialKey,
+              canonicalMaterialKey,
+              canonicalDisplayName: canonical.displayName,
+            },
+            occurredAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        supplierProductId: productId,
+        previousCanonicalMaterialKey: product.canonicalMaterialKey,
+        canonicalMaterialKey,
+        displayName: canonical.displayName,
+        reviewedByUserId: actorUserId,
+        reviewed: true as const,
+      };
+    });
+  }
+
   async ingest(input: IngestRegionalSupplierEvidenceInput): Promise<IngestRegionalSupplierEvidenceResult> {
     const { products, observations } = prepareRegionalSupplierEvidence(input);
 
@@ -146,17 +240,23 @@ export class RegionalSupplierEvidenceService {
         }
 
         if (observation.priceStatus === "unavailable") unavailableObservations += 1;
-        await transaction.supplierPriceObservation.upsert({
-          where: {
-            orgId_supplierProductId_observationKey: {
-              orgId: input.orgId,
-              supplierProductId,
-              observationKey: observation.observationKey,
-            },
+        const data = toObservationCreate(input, supplierProductId, observation);
+        const uniqueWhere = {
+          orgId_supplierProductId_observationKey: {
+            orgId: input.orgId,
+            supplierProductId,
+            observationKey: observation.observationKey,
           },
-          create: toObservationCreate(input, supplierProductId, observation),
-          update: toObservationUpdate(input, supplierProductId, observation),
-        });
+        };
+        const existing = await transaction.supplierPriceObservation.findUnique({ where: uniqueWhere });
+        if (!existing) {
+          await transaction.supplierPriceObservation.create({ data });
+        } else if (!supplierPriceObservationReplayMatches(existing, data)) {
+          throw new ApiError(
+            409,
+            `Supplier price observation ${observation.observationKey} already exists with different evidence; use a new observation key so history remains immutable`
+          );
+        }
       }
 
       return {
@@ -201,6 +301,17 @@ function dedupeObservations(rows: RegionalSupplierPriceObservationInput[]): Regi
 }
 
 function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: RegionalSupplierProductInput) {
+  const match = row.canonicalMaterialKey
+    ? null
+    : matchPilotCanonicalProduct({
+        name: row.name,
+        description: row.description,
+        packageDescription: row.packageDescription,
+        purchaseUnit: row.purchaseUnit,
+        sku: row.sku,
+        manufacturerPartNumber: row.manufacturerPartNumber,
+      });
+
   return {
     orgId: input.orgId,
     supplierId: input.supplierId,
@@ -214,7 +325,7 @@ function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: Region
     purchaseUnit: row.purchaseUnit ?? null,
     packageQuantity: row.packageQuantity ?? null,
     productUrl: row.productUrl ?? null,
-    canonicalMaterialKey: row.canonicalMaterialKey ?? null,
+    canonicalMaterialKey: row.canonicalMaterialKey ?? (match?.action === "AUTO_LINK" ? match.canonicalMaterialKey : null),
     availabilityStatus: row.availabilityStatus ?? "unknown",
     isActive: row.isActive ?? true,
     sourceFile: row.sourceFile ?? input.sourceFile ?? null,
@@ -222,8 +333,20 @@ function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: Region
 }
 
 function toProductUpdate(input: IngestRegionalSupplierEvidenceInput, row: RegionalSupplierProductInput) {
-  const { orgId: _orgId, supplierId: _supplierId, ...data } = toProductCreate(input, row);
-  return data;
+  const {
+    orgId: _orgId,
+    supplierId: _supplierId,
+    canonicalMaterialKey: _autoMatchedCanonicalKey,
+    ...data
+  } = toProductCreate(input, row);
+
+  // Import-time matching may auto-link a brand-new unambiguous listing, but a
+  // later import without an explicit canonical key must never erase or replace
+  // a human-reviewed link already stored on the supplier product.
+  return {
+    ...data,
+    ...(row.canonicalMaterialKey !== undefined ? { canonicalMaterialKey: row.canonicalMaterialKey } : {}),
+  };
 }
 
 function toObservationCreate(input: IngestRegionalSupplierEvidenceInput, supplierProductId: string, row: RegionalSupplierPriceObservationInput) {
@@ -255,9 +378,47 @@ function toObservationCreate(input: IngestRegionalSupplierEvidenceInput, supplie
   };
 }
 
-function toObservationUpdate(input: IngestRegionalSupplierEvidenceInput, supplierProductId: string, row: RegionalSupplierPriceObservationInput) {
-  const { orgId: _orgId, observationKey: _observationKey, ...data } = toObservationCreate(input, supplierProductId, row);
-  return data;
+export function supplierPriceObservationReplayMatches(existing: object, incoming: object): boolean {
+  const left = existing as Record<string, unknown>;
+  const right = incoming as Record<string, unknown>;
+  const fields = [
+    "orgId",
+    "supplierProductId",
+    "observationKey",
+    "marketCode",
+    "storeName",
+    "city",
+    "state",
+    "postalCode",
+    "observedAt",
+    "sourceUrl",
+    "sourceFile",
+    "sourceRow",
+    "currency",
+    "priceStatus",
+    "regularPrice",
+    "salePrice",
+    "rebatePrice",
+    "effectivePrice",
+    "purchaseUnit",
+    "packageQuantity",
+    "normalizedUnitPrice",
+    "normalizedUnit",
+    "eligibilityReason",
+    "sourceConfidence",
+  ] as const;
+
+  return fields.every((field) => comparableObservationValue(left[field]) === comparableObservationValue(right[field]));
+}
+
+function comparableObservationValue(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "number") return Number(value).toString();
+  if (typeof value === "object" && "toNumber" in value && typeof (value as { toNumber?: unknown }).toNumber === "function") {
+    return Number((value as { toNumber: () => number }).toNumber()).toString();
+  }
+  return String(value);
 }
 
 function required(value: string, field: string): string {
