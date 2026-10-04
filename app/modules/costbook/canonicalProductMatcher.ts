@@ -68,7 +68,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     displayName: "5/8 in Type X Drywall 4×8 Sheet",
     normalizedUnit: "SHEET",
     materialFamily: "DRYWALL",
-    requiredPatterns: [/\b(drywall|gypsum)\b/, /\b(5\/8|0\.625)\b/, /\btypex\b/],
+    requiredPatterns: [/\b(drywall|gypsum)\b/, /\b(5\/8|0\.625)\b/, /\btypex\b/, /\b4x8\b/],
   },
   {
     canonicalMaterialKey: "CONCRETE.MIX.80LB.BAG",
@@ -179,6 +179,7 @@ export function normalizeSupplierProductText(input: SupplierProductForMatching):
     .replace(/nm\s*[- ]?b/g, "nmb")
     .replace(/r\s*[- ]?13/g, "r13")
     .replace(/(\d+)\s*(?:feet|foot|ft\.?|')\b/g, (_match, feet: string) => `${Number(feet)}ft`)
+    .replace(/\b(\d+\/\d+)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, fraction: string) => `${fraction} `)
     .replace(/(\d+(?:\.\d+)?)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, inches: string) => `${Number(inches)}in`)
     .replace(/\b2\s*[x×]\s*4\b/g, "2x4")
     .replace(/\b2\s*[x×]\s*6\b/g, "2x6")
