@@ -141,6 +141,13 @@ export async function clearSessionCookie(): Promise<void> {
 
   await clearLocalSessionCookies();
 
+  // Local-only development intentionally runs without Supabase. Once the
+  // backend session is cleared there is nothing else to revoke, and calling
+  // createClient() here would throw because the Supabase URL/key are absent.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return;
+  }
+
   const supabase = await createClient();
   await supabase.auth.signOut();
 }
