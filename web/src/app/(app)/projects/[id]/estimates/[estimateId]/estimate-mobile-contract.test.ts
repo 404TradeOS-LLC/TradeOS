@@ -104,6 +104,7 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   const builder = await readSource("./builder.tsx");
   const assistPage = await readSource("./assist/page.tsx");
   const assist = await readSource("../../../../../../components/estimate-assist/ai-estimate-assist.tsx");
+  const contextualAthena = await readSource("../../../../../../components/estimate-assist/contextual-athena-panel.tsx");
 
   assert.match(builder, /Athena review/);
   assert.match(assistPage, /Athena Estimate Review/);
@@ -114,4 +115,9 @@ test("Athena stays review-first and Review preserves finalize-before-proposal li
   assert.match(builder, /Finalize estimate/);
   assert.match(builder, /Create proposal/);
   assert.doesNotMatch(builder, />Send proposal</);
+  const contextualPanelBlocks = builder.split("<ContextualAthenaPanel").slice(1).map((block) => block.slice(0, 420));
+  assert.equal(contextualPanelBlocks.length, 2);
+  assert.ok(contextualPanelBlocks.every((block) => block.includes("isDraft={isDraft}")));
+  assert.ok(contextualAthena.includes("isDraft: boolean"));
+  assert.ok(contextualAthena.includes("isDraft && suggestion.resolution.target"));
 });
