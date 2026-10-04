@@ -348,10 +348,108 @@ test("a storage state path whose parent does not exist yet is still checked", as
 
 const workflow = read(".github/workflows/beta-evidence.yml");
 const capture = read("app/scripts/beta-evidence/capture-evidence.mjs");
+const runner = read("app/scripts/beta-evidence/run.mjs");
+const validator = read("app/scripts/beta-evidence/validate-artifacts.mjs");
 const authSetup = read("app/scripts/beta-evidence/auth-setup.mjs");
 const isolation = read("app/scripts/beta-evidence/tenant-isolation.mjs");
+const s052Role = read("app/scripts/beta-evidence/s052-role-evidence.mjs");
 const seedGuard = read("app/db/seed/productionGuard.ts");
 const seed = read("app/db/seed/seed.ts");
+
+test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit role proof", () => {
+  assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
+  assert.match(workflow, /BETA_S052_ADMIN_EMAIL: \$\{\{ secrets\.BETA_RC_S052_ADMIN_EMAIL \}\}/);
+  assert.match(workflow, /BETA_S052_ADMIN_PASSWORD: \$\{\{ secrets\.BETA_RC_S052_ADMIN_PASSWORD \}\}/);
+  assert.match(workflow, /BETA_S052_INACTIVE_EMAIL: \$\{\{ secrets\.BETA_RC_S052_INACTIVE_EMAIL \}\}/);
+  assert.match(workflow, /BETA_S052_INACTIVE_PASSWORD: \$\{\{ secrets\.BETA_RC_S052_INACTIVE_PASSWORD \}\}/);
+  assert.match(workflow, /BETA_RC_S052_ADMIN_EMAIL and BETA_RC_S052_ADMIN_PASSWORD are required for the s052 admin happy-path evidence/);
+  assert.match(workflow, /BETA_RC_S052_INACTIVE_EMAIL and BETA_RC_S052_INACTIVE_PASSWORD are required for the s052 inactive-membership denial/);
+  assert.match(workflow, /BETA_RC_FOREIGN_CUSTOMER_ID and BETA_RC_FOREIGN_PROJECT_ID are both required for the s052 cross-tenant evidence/);
+  assert.match(workflow, /node scripts\/beta-evidence\/s052-role-evidence\.mjs/);
+  assert.equal((workflow.match(/HAS_S052_ADMIN_EMAIL:/g) ?? []).length, 1);
+  assert.equal((workflow.match(/BETA_SCENARIO" = "s052"/g) ?? []).length, 2);
+  assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
+  assert.match(runner, /\["s052", "s053"\]\.includes\(scenario\) \? "true"/);
+  assert.match(runner, /S052 admin and inactive-membership evidence/);
+  assert.match(capture, /\["canonical", "s052", "s053"\]\.includes\(scenario\)/);
+  assert.match(capture, /S052 smoke identity is the owner role/);
+  assert.match(capture, /s052-customer-created/);
+  assert.match(capture, /s052-customer-service-address/);
+  assert.match(capture, /s052-project-reloaded/);
+  assert.match(capture, /duplicate advice points to the existing customer without silently merging/);
+  assert.match(capture, /customer project fields survive workspace reload/);
+  assert.match(capture, /data-s052-submit-count/);
+  assert.match(capture, /invalidSubmitCount === 0/);
+  assert.doesNotMatch(capture, /waitForTimeout\(150\)/);
+  assert.match(s052Role, /requiredRoleViewportNames = \["1440", "768", "390"\]/);
+  assert.doesNotMatch(s052Role, /BETA_S052_ROLE_VIEWPORTS/);
+  assert.match(s052Role, /browser\.close\(\)\.catch\(\(\) => \{\}\)/);
+  assert.match(s052Role, /settings\?\.currentRole !== "admin"/);
+  assert.match(s052Role, /s052-admin/);
+  assert.match(s052Role, /Authenticated user is not provisioned in this organization/);
+  assert.match(s052Role, /bootstrapDenied: true/);
+  assert.match(validator, /scenario === "s052"/);
+  assert.match(validator, /s052-role-report\.json/);
+  assert.match(validator, /S052 role report is stale or belongs to another run/);
+  assert.match(validator, /S052 certification requires exact SHA correlation/);
+  assert.match(validator, /foreign customer/);
+  assert.match(validator, /foreign project/);
+  assert.match(validator, /S052 smoke identity is the owner role/);
+  assert.match(validator, /inactive-membership bootstrap denial was not proven/);
+  assert.match(validator, /s052-customer-created/);
+  assert.match(validator, /s052-customer-service-address/);
+  assert.match(validator, /s052-project-reloaded/);
+  assert.match(validator, /s052-admin/);
+});
+
+test("S053 evidence is opt-in and defaults do not change the canonical beta flow", () => {
+  assert.match(workflow, /scenario:\s*[\s\S]*default: canonical[\s\S]*- canonical[\s\S]*- s052[\s\S]*- s053/);
+  assert.match(workflow, /BETA_SCENARIO: \$\{\{ inputs\.scenario \}\}/);
+  assert.match(workflow, /BETA_RC_FOREIGN_ESTIMATE_ID is required for the s053 scenario/);
+  assert.match(workflow, /BETA_REQUIRE_SHA_CORRELATION: \$\{\{ inputs\.scenario == 's052' \|\| inputs\.scenario == 's053' \|\| inputs\.require_sha_correlation \}\}/);
+  assert.match(runner, /--scenario=<canonical\|s052\|s053>/);
+  assert.match(runner, /const scenario = flagValue\("scenario"\) \|\| process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(runner, /BETA_REQUIRE_SHA_CORRELATION: \["s052", "s053"\]\.includes\(scenario\) \? "true"/);
+  assert.match(capture, /const scenario = process\.env\.BETA_SCENARIO \|\| "canonical"/);
+  assert.match(capture, /if \(scenario === "s053"\)/);
+});
+
+test("S053 browser evidence cleans run-created lines even when post-apply assertions fail", () => {
+  assert.match(capture, /try \{[\s\S]*await applyButton\.click\(\)[\s\S]*\} finally \{/);
+  assert.match(capture, /filter\(\(item\) => !baselineIds\.has\(item\.id\)\)/);
+  assert.match(capture, /deleteEvidenceLineItems\(estimateId, leftoverIds\)\.catch\(\(\) => \{\}\)/);
+});
+
+test("S053 browser evidence proves review-first behavior before an explicit apply", () => {
+  assert.match(capture, /s053-setup-required/);
+  assert.match(capture, /s053-athena-review/);
+  assert.match(capture, /s053-athena-applied/);
+  assert.match(capture, /unmapped Athena scope fails safe as setup required/);
+  assert.match(capture, /setup-required Athena draft does not write estimate lines/);
+  assert.match(capture, /setup-required Athena draft cannot be applied/);
+  assert.match(isolation, /foreign S053 Athena draft/);
+  assert.match(isolation, /foreign S053 Athena apply/);
+  assert.match(isolation, /ai-estimator\/draft/);
+  assert.match(isolation, /ai-estimator\/apply/);
+  assert.match(capture, /Athena generation and local acceptance do not silently write estimate lines/);
+  assert.match(capture, /explicit Athena apply persists at least one reviewed estimate line/);
+  assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
+  assert.match(capture, /reviewed Athena lines survive builder reload/);
+  assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
+});
+
+test("S053 scenario validation requires its Athena checkpoints and passing assertions", () => {
+  assert.match(validator, /scenario === "s053"/);
+  assert.match(validator, /s053-setup-required/);
+  assert.match(validator, /s053-athena-review/);
+  assert.match(validator, /s053-athena-applied/);
+  assert.match(validator, /scenarioFailures/);
+  assert.match(validator, /S053 certification requires exact SHA correlation/);
+  assert.match(validator, /foreign S053 Athena draft/);
+  assert.match(validator, /foreign S053 Athena apply/);
+  assert.match(validator, /scenario screenshot/);
+  assert.match(validator, /Scenario evidence/);
+});
 
 test("the workflow runs every evidence stage at all four viewports", () => {
   for (const viewport of ["1440", "1024", "768", "390"]) {

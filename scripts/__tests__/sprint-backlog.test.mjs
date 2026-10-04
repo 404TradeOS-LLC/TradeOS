@@ -94,6 +94,20 @@ test("dependencies reference only valid sprint ids, merged PRs, or none", () => 
   }
 });
 
+test("READY release certification prerequisites do not block implementation eligibility", () => {
+  const ids = new Set(sprintBlocks().map((block) => block.id));
+
+  for (const block of sprintBlocks()) {
+    if (field(block, "Status") !== "READY") continue;
+    const match = block.body.match(/^Release certification prerequisites:\s*(.*)$/m);
+    if (!match || match[1].trim() === "none") continue;
+
+    for (const sprintId of match[1].match(/S\d{3}/g) ?? []) {
+      assert.ok(ids.has(sprintId), `${block.id} references unknown release certification prerequisite ${sprintId}`);
+    }
+  }
+});
+
 test("first eligible READY sprint is mechanically selected", () => {
   const blocks = sprintBlocks();
   const statuses = new Map(blocks.map((block) => [block.id, field(block, "Status")]));

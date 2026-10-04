@@ -23,6 +23,7 @@ const viewportName = process.env.BETA_VIEWPORT;
 const runId = process.env.BETA_RUN_ID;
 const tenantLabel = process.env.BETA_SMOKE_TENANT_LABEL || "TradeOS Beta Smoke";
 const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
+const scenario = process.env.BETA_SCENARIO || "canonical";
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 
 function startupFailure(message) {
@@ -33,6 +34,7 @@ function startupFailure(message) {
 if (!baseUrlInput) startupFailure("BETA_RC_BASE_URL_RESOLVED is required. Run resolve-rc-target.mjs first.");
 if (!storageState) startupFailure("BETA_STORAGE_STATE_PATH is required. Run auth-setup.mjs first.");
 if (!runId) startupFailure("BETA_RUN_ID is required so synthetic records can be correlated with this run.");
+if (!["canonical", "s052", "s053"].includes(scenario)) startupFailure(`BETA_SCENARIO must be canonical, s052, or s053; received "${scenario}".`);
 if (!allowMutations) {
   startupFailure(
     "BETA_ALLOW_MUTATIONS=true is required. The canonical workflow creates records and must never run unintentionally.",
@@ -136,6 +138,218 @@ async function checkpoint(sequence, name, { optional = false } = {}) {
   }
 }
 
+async function readEstimateDetail(estimateId) {
+  const result = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/proxy/estimates/${id}`, {
+      headers: { Accept: "application/json" },
+    });
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = null;
+    }
+    return { ok: response.ok, status: response.status, body };
+  }, estimateId);
+
+  assertBusiness(
+    "estimate detail API is readable during evidence capture",
+    result.ok,
+    `GET estimate returned HTTP ${result.status}`,
+  );
+  assertBusiness(
+    "estimate detail includes lineItems",
+    Array.isArray(result.body?.lineItems),
+    "expected the authoritative estimate response to include lineItems",
+  );
+  return result.body;
+}
+
+async function deleteEvidenceLineItems(estimateId, lineItemIds) {
+  for (const lineItemId of lineItemIds) {
+    const result = await page.evaluate(
+      async ({ id, itemId }) => {
+        const response = await fetch(`/api/proxy/estimates/${id}/line-items/${itemId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        });
+        return { ok: response.ok, status: response.status };
+      },
+      { id: estimateId, itemId: lineItemId },
+    );
+    assertBusiness(
+      "S053 evidence cleanup removes only the run-created Athena line",
+      result.ok,
+      `DELETE line item returned HTTP ${result.status}`,
+    );
+  }
+}
+
+async function runS053Certification(projectId, estimateId) {
+  const baseline = await readEstimateDetail(estimateId);
+  const baselineIds = new Set(baseline.lineItems.map((item) => item.id));
+  const baselineCost = Number(baseline.subtotalCost ?? 0);
+  const baselinePrice = Number(baseline.totalPrice ?? 0);
+
+  await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}/assist`, parsedBaseUrl).toString(), {
+    waitUntil: "networkidle",
+    timeout: 60_000,
+  });
+  await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
+
+  const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
+  const scopeInput = page.locator("textarea").first();
+
+  async function generateAthenaDraft(scopeValue) {
+    await scopeInput.fill(scopeValue);
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (candidate) =>
+          candidate.request().method() === "POST" &&
+          new URL(candidate.url()).pathname === `/api/proxy/estimates/${estimateId}/ai-estimator/draft`,
+        { timeout: 60_000 },
+      ),
+      page.getByRole("button", { name: "Run Athena review" }).click(),
+    ]);
+    assertBusiness(
+      "Athena draft request succeeds before its result is inspected",
+      response.ok(),
+      `Athena draft returned HTTP ${response.status()}`,
+    );
+    await page.getByRole("button", { name: "Run Athena review" }).waitFor({ timeout: 60_000 });
+  }
+
+  await generateAthenaDraft(setupScope);
+  await page.getByText("Setup required", { exact: true }).waitFor({ timeout: 60_000 });
+  const setupText = await page.locator("body").innerText();
+  assertBusiness(
+    "unmapped Athena scope fails safe as setup required",
+    /Setup required/i.test(setupText) && /No generated line item is currently tied to an existing estimate target/i.test(setupText),
+    "expected a blocked setup-required draft for the unmapped certification scope",
+  );
+  const afterSetupDraft = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "setup-required Athena draft does not write estimate lines",
+    afterSetupDraft.lineItems.length === baseline.lineItems.length,
+    `baseline lines=${baseline.lineItems.length}; after setup-required draft=${afterSetupDraft.lineItems.length}`,
+  );
+  const setupApplyButton = page.getByRole("button", { name: /^Add \d+ accepted suggestion/ });
+  assertBusiness(
+    "setup-required Athena draft cannot be applied",
+    !(await setupApplyButton.isEnabled()),
+    "apply control was enabled for an unresolved setup-required draft",
+  );
+  await checkpoint("03a", "s053-setup-required", { optional: true });
+
+  const candidateScopes = [
+    "Replace 250 sq ft concrete driveway with a 4 inch slab and haul-off.",
+    "Build a 12x16 pressure-treated deck with stairs, guard rails, and concrete footings.",
+    "Replace a 50-gallon gas water heater and remove the old unit.",
+    "Replace a standard electrical panel.",
+  ];
+
+  let applyButton = page.getByRole("button", { name: /^Add \d+ accepted suggestion/ });
+  let resolvedScope = null;
+
+  for (const candidateScope of candidateScopes) {
+    await generateAthenaDraft(candidateScope);
+
+    const acceptButtons = page.getByRole("button", { name: "Accept", exact: true });
+    const acceptCount = await acceptButtons.count();
+    if (acceptCount === 0) continue;
+
+    for (let index = 0; index < acceptCount; index += 1) {
+      await acceptButtons.nth(index).click();
+      if (await applyButton.isEnabled()) {
+        resolvedScope = candidateScope;
+        break;
+      }
+    }
+    if (resolvedScope) break;
+  }
+
+  assertBusiness(
+    "Athena returns at least one explicitly reviewable resolved suggestion",
+    Boolean(resolvedScope) && (await applyButton.isEnabled()),
+    "none of the deterministic certification scopes produced a resolved suggestion",
+  );
+
+  const reviewText = await page.locator("body").innerText();
+  assertBusiness(
+    "Athena review exposes confidence",
+    /\d+% confidence/i.test(reviewText),
+    "expected a visible confidence value in the review",
+  );
+  assertBusiness(
+    "Athena review exposes provenance state",
+    /Documented source|Unverified pricing|Placeholder pricing/i.test(reviewText),
+    "expected a governed provenance label",
+  );
+  assertBusiness(
+    "Athena review states that generated output is review-only",
+    /Nothing is committed until you explicitly apply accepted items/i.test(reviewText),
+    "review-first language was not visible",
+  );
+
+  const afterGenerate = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "Athena generation and local acceptance do not silently write estimate lines",
+    afterGenerate.lineItems.length === baseline.lineItems.length,
+    `baseline lines=${baseline.lineItems.length}; after review=${afterGenerate.lineItems.length}`,
+  );
+  await checkpoint("03b", "s053-athena-review", { optional: true });
+
+  try {
+    await applyButton.click();
+    await page.getByText("Latest apply result", { exact: true }).waitFor({ timeout: 60_000 });
+
+    const afterApply = await readEstimateDetail(estimateId);
+    const added = afterApply.lineItems.filter((item) => !baselineIds.has(item.id));
+    assertBusiness(
+      "explicit Athena apply persists at least one reviewed estimate line",
+      added.length > 0,
+      `baseline lines=${baseline.lineItems.length}; after apply=${afterApply.lineItems.length}`,
+    );
+    assertBusiness(
+      "pricing refreshes after the reviewed Athena apply",
+      Number(afterApply.subtotalCost ?? 0) !== baselineCost || Number(afterApply.totalPrice ?? 0) !== baselinePrice,
+      `before cost/price=${baselineCost}/${baselinePrice}; after=${afterApply.subtotalCost}/${afterApply.totalPrice}`,
+    );
+    await checkpoint("03c", "s053-athena-applied", { optional: true });
+
+    await page.goto(new URL(`/projects/${projectId}/estimates/${estimateId}`, parsedBaseUrl).toString(), {
+      waitUntil: "networkidle",
+      timeout: 60_000,
+    });
+    const afterReload = await readEstimateDetail(estimateId);
+    const persistedAdded = afterReload.lineItems.filter((item) => !baselineIds.has(item.id));
+    assertBusiness(
+      "reviewed Athena lines survive builder reload",
+      persistedAdded.length === added.length && persistedAdded.length > 0,
+      `expected ${added.length} run-created lines after reload; found ${persistedAdded.length}`,
+    );
+  } finally {
+    // Preserve the original S053 failure if cleanup also has trouble. Any line
+    // not present in the baseline belongs to this evidence pass and must not
+    // contaminate the next viewport or the canonical fixed-price assertions.
+    const current = await readEstimateDetail(estimateId).catch(() => null);
+    const leftoverIds = (current?.lineItems ?? [])
+      .filter((item) => !baselineIds.has(item.id))
+      .map((item) => item.id);
+    if (leftoverIds.length > 0) {
+      await deleteEvidenceLineItems(estimateId, leftoverIds).catch(() => {});
+    }
+  }
+
+  const afterCleanup = await readEstimateDetail(estimateId);
+  assertBusiness(
+    "S053 evidence cleanup restores the baseline estimate before canonical pricing checks",
+    afterCleanup.lineItems.length === baseline.lineItems.length,
+    `expected ${baseline.lineItems.length} baseline lines; found ${afterCleanup.lineItems.length}`,
+  );
+}
+
 try {
   context = await browser.newContext({
     storageState,
@@ -170,12 +384,94 @@ try {
   );
   await checkpoint("01", "authenticated-shell");
 
+  if (scenario === "s052") {
+    const ownerSettings = await page.evaluate(async () => {
+      const response = await fetch("/api/proxy/settings", { headers: { Accept: "application/json" } });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    });
+    assertBusiness(
+      "S052 smoke identity is the owner role",
+      ownerSettings.status === 200 && ownerSettings.body?.currentRole === "owner",
+      `HTTP ${ownerSettings.status}, role=${ownerSettings.body?.currentRole ?? "missing"}`,
+    );
+  }
+
   // ---- 02 customer + project --------------------------------------------
+  const customerEmail = `rc-evidence-${scopeSuffix}@example.invalid`;
   await page.goto(new URL("/customers/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   await page.locator('[name="name"]').fill(customerName);
-  await page.locator('[name="email"]').fill(`rc-evidence-${scopeSuffix}@example.invalid`);
+  await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers(?:\?|$)/, { timeout: 60_000 });
+  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
+  const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
+  assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
+
+  if (scenario === "s052") {
+    assertBusiness(
+      "customer creation opens the server-created customer workspace",
+      new URL(page.url()).pathname === `/customers/${customerId}`,
+      `url was ${page.url()}`,
+    );
+    await checkpoint("02a", "s052-customer-created", { optional: true });
+
+    const editCustomer = page.locator("details").filter({ hasText: "Edit customer" }).first();
+    await editCustomer.locator("summary").click();
+    await editCustomer.locator('[name="phone"]').fill("(812) 555-0102");
+    await editCustomer.getByRole("button", { name: "Save changes" }).click();
+    await page.waitForURL(/\/customers(?:\?|$)/, { timeout: 60_000 });
+    await page.goto(new URL(`/customers/${customerId}`, parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await page.getByText("(812) 555-0102", { exact: true }).waitFor({ timeout: 60_000 });
+    assertBusiness("customer update persists through reload", true);
+
+    const addAddress = page.locator("details").filter({ hasText: "Add service address" }).first();
+    await addAddress.locator("summary").click();
+    await addAddress.locator("#new-label").fill("Primary jobsite");
+    await addAddress.locator("#new-addressLine1").fill("200 Service Lane");
+    await addAddress.locator("#new-city").fill("Terre Haute");
+    await addAddress.locator("#new-state").fill("IN");
+    await addAddress.locator("#new-postalCode").fill("47802");
+    await addAddress.getByRole("button", { name: "Save address" }).click();
+    await page.getByText("200 Service Lane", { exact: false }).waitFor({ timeout: 60_000 });
+    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+    await page.getByText("200 Service Lane", { exact: false }).waitFor({ timeout: 60_000 });
+    assertBusiness("service address persists through customer reload", true);
+    await checkpoint("02b", "s052-customer-service-address", { optional: true });
+
+    await page.goto(new URL("/customers/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
+    await page.locator('[name="name"]').fill(customerName);
+    await page.locator('[name="email"]').fill(customerEmail);
+    await page.getByRole("button", { name: "Check for existing customers" }).click();
+    await page.getByRole("heading", { name: "Possible existing customers" }).waitFor({ timeout: 60_000 });
+    const existingCustomerLink = page.getByRole("link", { name: "Use existing customer" }).first();
+    assertBusiness(
+      "duplicate advice points to the existing customer without silently merging",
+      (await existingCustomerLink.getAttribute("href")) === `/customers/${customerId}`,
+      `duplicate link was ${await existingCustomerLink.getAttribute("href")}`,
+    );
+
+    const customerCreateForm = page.locator("form").filter({ has: page.locator('[name="name"]') }).first();
+    await customerCreateForm.evaluate((form) => {
+      form.dataset.s052SubmitCount = "0";
+      form.addEventListener("submit", () => {
+        form.dataset.s052SubmitCount = String(Number(form.dataset.s052SubmitCount ?? "0") + 1);
+      });
+    });
+
+    await page.locator('[name="name"]').fill("");
+    const missingNameValidity = await page.locator('[name="name"]').evaluate((element) => ({
+      valueMissing: element.validity.valueMissing,
+      valid: element.checkValidity(),
+    }));
+    await page.getByRole("button", { name: "Create customer" }).click();
+    const invalidSubmitCount = Number(await customerCreateForm.getAttribute("data-s052-submit-count") ?? "-1");
+    assertBusiness(
+      "required customer validation blocks blank name before mutation",
+      missingNameValidity.valueMissing &&
+        !missingNameValidity.valid &&
+        invalidSubmitCount === 0,
+      `validity=${JSON.stringify(missingNameValidity)}, submitCount=${invalidSubmitCount}`,
+    );
+  }
 
   await page.goto(new URL("/projects/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
   // The customer only appears in this select when it belongs to the signed-in
@@ -196,6 +492,30 @@ try {
   await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
   await page.waitForLoadState("networkidle");
   assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
+
+  if (scenario === "s052") {
+    const readProject = async () => page.evaluate(async (id) => {
+      const response = await fetch(`/api/proxy/projects/${id}`, { headers: { Accept: "application/json" } });
+      return { status: response.status, body: response.ok ? await response.json() : null };
+    }, projectId);
+    const beforeReload = await readProject();
+    assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
+    assertBusiness("project persists the selected customer", beforeReload.body?.customerId === customerId, `customerId=${beforeReload.body?.customerId}`);
+    assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === "100 Evidence Way", `siteAddress=${beforeReload.body?.siteAddress}`);
+    assertBusiness("project persists plain-language scope", beforeReload.body?.simpleScope === scope, "simpleScope did not match the submitted scope");
+    await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
+    const afterReload = await readProject();
+    assertBusiness(
+      "customer project fields survive workspace reload",
+      afterReload.status === 200 &&
+        afterReload.body?.customerId === customerId &&
+        afterReload.body?.siteAddress === "100 Evidence Way" &&
+        afterReload.body?.simpleScope === scope,
+      `HTTP ${afterReload.status}`,
+    );
+    await checkpoint("02c", "s052-project-reloaded", { optional: true });
+  }
+
   await checkpoint("02", "project-or-customer");
 
   // ---- 03 estimate line items -------------------------------------------
@@ -207,6 +527,10 @@ try {
   await page.waitForURL(new RegExp(`/projects/${projectId}/estimates/[^/]+$`), { timeout: 60_000 });
   const estimateId = /\/estimates\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("estimate resolves an id", Boolean(estimateId), `url was ${page.url()}`);
+
+  if (scenario === "s053") {
+    await runS053Certification(projectId, estimateId);
+  }
 
   const custom = page.getByLabel("Custom line item");
   await custom.fill("Remove glued-down linoleum");
@@ -333,7 +657,7 @@ try {
 
   await fs.writeFile(
     path.join(outDir, viewport.name, "workflow-records.json"),
-    `${JSON.stringify({ runId, viewport: viewport.name, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
+    `${JSON.stringify({ runId, viewport: viewport.name, customerId, projectId, estimateId, proposalId, contractId, invoiceId }, null, 2)}\n`,
   );
 } catch (error) {
   failure = error;
@@ -348,6 +672,7 @@ try {
         baseUrl: parsedBaseUrl.origin,
         runId,
         tenantLabel,
+        scenario,
         viewport,
         checkpoints,
         assertions,

@@ -71,6 +71,8 @@ The staff Customer creation flow performs an advisory, same-organization exact n
 
 Customer detail returns active ServiceAddress rows already owned by the CRM service. Staff with `crm.write` can add, edit, and soft-remove those addresses through the existing organization/customer-scoped service methods. Read-only roles can view Customer/project/address information but do not receive Customer/address mutation controls.
 
+The Customer workspace's **New project** handoff preserves the selected Customer identity into the existing Project create form. That form may reuse one of the Customer's active saved ServiceAddress rows only by formatting and copying its address text into `Project.siteAddress`; ServiceAddress stays CRM-owned and no new foreign key or hidden Project relationship is implied.
+
 ## Implementation notes
 
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `addServiceAddress`/`updateServiceAddress` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. Both now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.
@@ -82,6 +84,8 @@ Customer detail returns active ServiceAddress rows already owned by the CRM serv
 - `/customers/new`
 - `/customers/[id]` — canonical customer operating workspace composed from the Customer record, active service addresses, bounded linked-Project detail, dispatcher Jobs, and existing document/payment truth; mutations remain permission-aware
 - `/projects/[id]/invoices/[invoiceId]` — staff payment-entry form for eligible sent/overdue invoices
+
+Merged S063 PR #631 extends the existing /crm overview: loaded follow-ups are all displayed up to the existing 50-record API request cap with assignedTo or Unassigned truth; rows link to the Project Tasks tab. Desktop lanes disclose additional loaded Projects after the first five, and mobile lanes expand to list every loaded Project. Awarded Projects link to the canonical Project workspace. The code is on main; browser and permission/refresh certification remains outstanding.
 
 The `/crm` overview does not add a CRM opportunity lifecycle. Lead and Awarded remain canonical Project statuses; Ready to Estimate is derived from a real Site Visit milestone; Proposal Sent is derived from Proposal status; and Follow-ups are existing incomplete Project Tasks.
 

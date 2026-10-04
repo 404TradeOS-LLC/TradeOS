@@ -21,8 +21,11 @@ function dependencies(overrides: Partial<Parameters<typeof runCreateCustomerWork
   const deps = {
     getSessionToken: async () => "session-token",
     listCustomers: async () => [] as Customer[],
-    createCustomer: async (_token: string, input: unknown) => { creates.push(input); },
-    onCreated: () => undefined,
+    createCustomer: async (_token: string, input: unknown) => {
+      creates.push(input);
+      return { ...matchingCustomer, id: "created-customer" };
+    },
+    onCreated: (_customer: Customer) => undefined,
     onError: () => "Could not create customer.",
     ...overrides,
   };
@@ -50,6 +53,26 @@ test("a capped lookup is treated as incomplete because an exact match may be bey
 
   assert.equal(result?.customerMatchLookupFailed, true);
   assert.deepEqual(creates, []);
+});
+
+test("successful creation passes the persisted customer to the continuation", async () => {
+  const createdCustomer = { ...matchingCustomer, id: "created-customer" };
+  let continuedCustomer: Customer | undefined;
+  const { deps, creates } = dependencies({
+    createCustomer: async (_token, input) => {
+      creates.push(input);
+      return createdCustomer;
+    },
+    onCreated: (customer) => {
+      continuedCustomer = customer;
+    },
+  });
+
+  const result = await runCreateCustomerWorkflow(form("create"), deps);
+
+  assert.equal(result, undefined);
+  assert.equal(creates.length, 1);
+  assert.equal(continuedCustomer?.id, "created-customer");
 });
 
 test("possible matches require explicit create-separate intent", async () => {

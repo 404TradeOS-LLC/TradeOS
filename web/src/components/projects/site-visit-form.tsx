@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function SiteVisitForm({ projectId }: { projectId: string }) {
+export function SiteVisitForm({ projectId, jobId = null }: { projectId: string; jobId?: string | null }) {
   const [state, formAction, isPending] = useActionState(createSiteVisitAction, undefined);
 
   return (
@@ -31,6 +31,7 @@ export function SiteVisitForm({ projectId }: { projectId: string }) {
       <CardContent className="pt-5">
         <form action={formAction} className="flex flex-col gap-5">
           <input type="hidden" name="projectId" value={projectId} />
+          {jobId ? <input type="hidden" name="jobId" value={jobId} /> : null}
 
           <section className="grid gap-4" aria-labelledby="site-visit-quick-capture">
             <div>
@@ -145,7 +146,7 @@ export function SiteVisitForm({ projectId }: { projectId: string }) {
               {isPending ? "Saving visit…" : "Finish Visit"}
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
-              Finish Visit creates the Site Visit record, saves valid photo uploads, and refreshes the current AI follow-up/missing-information analysis.
+              Finish Visit creates the Site Visit record{jobId ? ", keeps it linked to this scheduled Job," : ","} saves valid photo uploads, and refreshes the current AI follow-up/missing-information analysis.
             </p>
           </div>
         </form>

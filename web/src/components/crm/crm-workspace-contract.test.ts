@@ -41,7 +41,7 @@ test("CRM follow-ups remain Project Tasks and navigation exposes the first-class
 
   assert.match(page, /includeCompleted: false/);
   assert.match(overview, /Existing incomplete Project Tasks due next/);
-  assert.match(overview, /href=\{\`\/projects\/\$\{task\.projectId\}\`\}/);
+  assert.match(overview, /href=\{\`\/projects\/\$\{task\.projectId\}\?tab=tasks\`\}/);
   assert.match(nav, /href: "\/crm", label: "CRM"/);
   assert.match(proxy, /"\/crm\/:path\*"/);
 });
@@ -54,4 +54,16 @@ test("CRM overview degrades individual data sources without hiding healthy sourc
   assert.match(page, /Follow-ups are temporarily unavailable/);
   assert.match(page, /Proposal pipeline status is temporarily unavailable/);
   assert.match(page, /Site-visit milestones are temporarily unavailable/);
+});
+
+test("CRM keeps every loaded pipeline record reachable and identifies follow-up ownership", async () => {
+  const overview = await readSource("./crm-overview.tsx");
+
+  assert.match(overview, /stageProjects\.slice\(5\)\.map/);
+  assert.match(overview, /stageProjects\.map\(\(project\) =>/);
+  assert.match(overview, /Show \{stageProjects\.length - 5\} more/);
+  assert.match(overview, /task\.assignedTo \? `Assigned to/);
+  assert.match(overview, /\?tab=tasks/);
+  assert.match(overview, /Open awarded Project/);
+  assert.doesNotMatch(overview, /followUps[^;]*\.slice\(0, 5\)/s);
 });

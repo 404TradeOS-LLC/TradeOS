@@ -7,6 +7,7 @@ import { getSessionToken } from "@/lib/session";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { buildStorageObjectUrl, isPublicStorageBucket } from "@/lib/storage";
 import { buildProjectFilePath, isSafeProjectId } from "@/lib/projectFileStorage";
+import { buildProjectIntentDestination, resolveNewProjectCreateIntent } from "@/lib/universal-create";
 import {
   cleanupUploadedProjectFileAfterMetadataFailure,
   deleteAuthorizedProjectFileStorage,
@@ -24,6 +25,7 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
   const jobType = String(formData.get("jobType") ?? "").trim();
   const siteAddress = String(formData.get("siteAddress") ?? "").trim();
   const simpleScope = String(formData.get("simpleScope") ?? "").trim();
+  const createIntent = resolveNewProjectCreateIntent(String(formData.get("intent") ?? ""));
 
   if (!name) return { error: "Project name is required." };
 
@@ -48,7 +50,7 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
 
   revalidatePath("/projects");
 
-  if (formData.get("intent") === "estimate") {
+  if (createIntent === "estimate") {
     const estimate = await apiFetch<Estimate>("/api/v1/estimates", {
       method: "POST",
       token: token ?? undefined,
@@ -58,7 +60,13 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
     redirect(`/projects/${projectId}/estimates/${estimate.id}`);
   }
 
-  redirect("/projects");
+  if (createIntent === "job") {
+    revalidatePath(`/projects/${projectId}`);
+    redirect(buildProjectIntentDestination(projectId, "job"));
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}`);
 }
 
 export async function updateProjectAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
@@ -137,6 +145,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
   const token = await getSessionToken();
   if (!token) return { error: "Authentication is required." };
   const projectId = String(formData.get("projectId") ?? "");
+  const jobId = String(formData.get("jobId") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const transcript = String(formData.get("transcript") ?? "").trim();
   const squareFeet = String(formData.get("squareFeet") ?? "").trim();
@@ -182,6 +191,7 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
       method: "POST",
       token: token ?? undefined,
       body: JSON.stringify({
+        jobId: jobId || undefined,
         notes: notes || undefined,
         transcript: transcript || undefined,
         detailsJson: {
@@ -258,7 +268,10 @@ export async function createSiteVisitAction(_prev: FormActionState, formData: Fo
   }
 
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}/intake`);
+  revalidatePath("/dashboard");
+  revalidatePath("/dispatch");
+  revalidatePath("/field");
+  redirect(jobId ? `/projects/${projectId}/intake?job=${encodeURIComponent(jobId)}` : `/projects/${projectId}/intake`);
 }
 
 export async function uploadProjectDocumentAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {

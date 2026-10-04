@@ -52,7 +52,7 @@ For numbered-sprint work, apply these rules after the Canonical Startup Flow:
 
 1. Ignore sprints marked `DONE`, `IN_REVIEW`, `BLOCKED`, `DEFERRED`, or
    `CANCELLED`.
-2. Select the lowest-numbered `READY` sprint whose dependencies are `DONE` and
+2. Select the lowest-numbered `READY` sprint whose `Dependencies:` are `DONE` and
    whose scope remains unoccupied.
 3. If a `READY` record is stale or incomplete, stop implementation and repair
    readiness in a governance-only PR before proceeding.
@@ -89,6 +89,15 @@ Stop without publishing implementation when:
 
 Environment failures may be diagnosed and repaired only when that does not
 change product scope. Otherwise report the blocked check explicitly.
+
+A `Release certification prerequisites:` field is not part of numbered-sprint
+selection. It blocks release/beta certification claims, not implementation,
+provided the referenced upstream implementation contract is already merged and
+repository-verified and the only unresolved condition is external
+browser/deployment evidence availability. Do not use this exception for reproduced
+product defects, auth/RBAC/RLS or tenant-isolation failures, schema/migration
+failures, financial-correctness failures, or unresolved founder/product decisions;
+those remain hard blockers.
 
 ## Canonical Completion Flow
 
