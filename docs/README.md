@@ -325,3 +325,8 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 ### GitHub Actions runtime maintenance
 
 `.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.
+
+### Sprint governance base scope
+
+The Sprint governance workflow treats `main` as authoritative for READY/PLANNED and DONE transition-diff checks. Pull requests targeting non-main branches still run sprint-state, documentation, PR-preflight, and ownership validation; transition-specific diff classification is skipped so branch synchronization is not mistaken for a new readiness/completion promotion.
+

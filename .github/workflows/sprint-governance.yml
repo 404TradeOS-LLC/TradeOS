@@ -47,7 +47,9 @@ jobs:
 
   readiness-scope:
     name: Sprint readiness/completion scope
-    if: github.event_name == 'pull_request'
+    # READY/PLANNED transition policing is a main-backlog rule. A staging-sync
+    # PR can legitimately inherit historical main transitions from a stale base.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,7 +78,9 @@ jobs:
 
   merged-evidence:
     name: DONE sprint merge evidence
-    if: github.event_name == 'pull_request'
+    # DONE evidence owns transitions into main; non-main syncs still run the
+    # full sprint-state/docs validation job above.
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
