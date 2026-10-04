@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { basePrisma, prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { runInDatabaseTransaction } from "../../db/requestSession";
@@ -218,18 +219,63 @@ export class RegionalSupplierEvidenceService {
 
       const productIds = new Map<string, string>();
       for (const product of products) {
-        const row = await transaction.supplierProduct.upsert({
-          where: {
-            orgId_supplierId_supplierProductKey: {
-              orgId: input.orgId,
-              supplierId: input.supplierId,
-              supplierProductKey: product.supplierProductKey,
-            },
+        const automaticMatch = automaticPilotMatch(product);
+        const productWhere = {
+          orgId_supplierId_supplierProductKey: {
+            orgId: input.orgId,
+            supplierId: input.supplierId,
+            supplierProductKey: product.supplierProductKey,
           },
+        };
+
+        if (automaticMatch && typeof transaction.$executeRaw === "function") {
+          await transaction.$executeRaw(
+            Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`costbook-supplier-product-auto-link:${input.orgId}:${input.supplierId}:${product.supplierProductKey}`}, 0))`
+          );
+        }
+
+        const existingProduct =
+          automaticMatch && typeof transaction.supplierProduct.findUnique === "function"
+            ? await transaction.supplierProduct.findUnique({
+                where: productWhere,
+                select: { id: true, canonicalMaterialKey: true },
+              })
+            : null;
+
+        const row = await transaction.supplierProduct.upsert({
+          where: productWhere,
           create: toProductCreate(input, product),
           update: toProductUpdate(input, product),
         });
         productIds.set(product.supplierProductKey, row.id);
+
+        if (
+          automaticMatch &&
+          !existingProduct &&
+          transaction.activityEvent &&
+          typeof transaction.activityEvent.create === "function"
+        ) {
+          await transaction.activityEvent.create({
+            data: {
+              orgId: input.orgId,
+              entityType: "supplier_product",
+              entityId: row.id,
+              eventType: "costbook.supplier_product.canonical_match_auto_linked",
+              title: `Canonical match auto-linked: ${product.name}`,
+              actorUserId: null,
+              metadataJson: {
+                actorType: "system",
+                canonicalMaterialKey: automaticMatch.canonicalMaterialKey,
+                canonicalDisplayName: automaticMatch.displayName,
+                matchScore: automaticMatch.score,
+                matchRationale: automaticMatch.rationale,
+                normalizedText: automaticMatch.normalizedText,
+                sourceFile: product.sourceFile ?? input.sourceFile ?? null,
+              },
+              occurredAt: new Date(),
+            },
+          });
+        }
       }
 
       let unavailableObservations = 0;
@@ -248,10 +294,23 @@ export class RegionalSupplierEvidenceService {
             observationKey: observation.observationKey,
           },
         };
-        const existing = await transaction.supplierPriceObservation.findUnique({ where: uniqueWhere });
-        if (!existing) {
-          await transaction.supplierPriceObservation.create({ data });
-        } else if (!supplierPriceObservationReplayMatches(existing, data)) {
+        let current = await transaction.supplierPriceObservation.findUnique({ where: uniqueWhere });
+        if (!current) {
+          const inserted = await transaction.supplierPriceObservation.createMany({
+            data,
+            skipDuplicates: true,
+          });
+          if (inserted.count === 0) {
+            current = await transaction.supplierPriceObservation.findUnique({ where: uniqueWhere });
+            if (!current) {
+              throw new ApiError(
+                409,
+                `Supplier price observation ${observation.observationKey} could not be inserted because the unique key changed concurrently`
+              );
+            }
+          }
+        }
+        if (current && !supplierPriceObservationReplayMatches(current, data)) {
           throw new ApiError(
             409,
             `Supplier price observation ${observation.observationKey} already exists with different evidence; use a new observation key so history remains immutable`
@@ -300,17 +359,21 @@ function dedupeObservations(rows: RegionalSupplierPriceObservationInput[]): Regi
   return [...byKey.values()];
 }
 
+function automaticPilotMatch(row: RegionalSupplierProductInput) {
+  if (row.canonicalMaterialKey) return null;
+  const match = matchPilotCanonicalProduct({
+    name: row.name,
+    description: row.description,
+    packageDescription: row.packageDescription,
+    purchaseUnit: row.purchaseUnit,
+    sku: row.sku,
+    manufacturerPartNumber: row.manufacturerPartNumber,
+  });
+  return match.action === "AUTO_LINK" ? match : null;
+}
+
 function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: RegionalSupplierProductInput) {
-  const match = row.canonicalMaterialKey
-    ? null
-    : matchPilotCanonicalProduct({
-        name: row.name,
-        description: row.description,
-        packageDescription: row.packageDescription,
-        purchaseUnit: row.purchaseUnit,
-        sku: row.sku,
-        manufacturerPartNumber: row.manufacturerPartNumber,
-      });
+  const match = automaticPilotMatch(row);
 
   return {
     orgId: input.orgId,
