@@ -1007,6 +1007,8 @@ The earlier 2026-08-18 cleanup resolved PR #240, #242, #243, #245, #246, #247, #
 
 Out-of-band work does not silently change numbered sprint status. It must still follow `AGENTS.md`, Repository Governance, CODEOWNERS routing, required CI, and protected human-decision boundaries.
 
+Costbook Data Foundation PR #628 is now landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`. This was founder-authorized non-numbered work and therefore does not promote, complete, block, or otherwise change any numbered sprint. The landed foundation establishes the governed canonical pilot matcher, supplier-price evidence/resolution, and BLS benchmark boundaries described in the Costbook docs. QBO, ABC, 1build, broad retail ingestion/scraping, and any automatic repricing remain separate follow-up work and require their own governed implementation lane.
+
 S036 is complete through PR #476. PR #470 (the Costbook/Knowledge Engine audit) closed unmerged on 2026-09-12 without landing its findings. The 2026-09-22 successor-backlog reconciliation found 17 open PRs. Explicit gates are recorded where they overlap successor work: #520 gates S064; #532 gates S075; #531 gates S082; #507 gates S088; and #491 gates S090. Routine Dependabot and post-merge documentation PRs do not authorize or complete a numbered sprint. No open PR implements S051's repository-wide action-to-route matrix and drift validator.
 
 ## Active Sprint and Next Eligibility
