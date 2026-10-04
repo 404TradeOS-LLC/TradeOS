@@ -12,7 +12,7 @@ related_docs:
 
 ## Founder-authorized Today exception lane — 2026-10-04
 
-- Branch `feat/today-real-exception-queue`; PR #643 is being rebuilt directly on current `main` after Customer→Project #645 and S067 #644 merged. It is no longer stacked on the closed Customer→Project branch.
+- Branch `feat/today-real-exception-queue`; PR #643 is ready for review directly on current `main` after Customer→Project #645 and S067 #644 merged. It is no longer stacked on the closed Customer→Project branch.
 - Scope: add only persisted blocked Project Tasks and existing organization-week schedule conflicts to canonical **Needs You**.
 - Reuses `GET /api/v1/projects/tasks` and `GET /api/v1/schedule/conflicts`; no backend route/schema/RBAC/RLS change.
 - A 50-row incomplete-Task cap is treated as unavailable rather than silently undercounting blocked work. Failure of any required exception source makes the aggregate Needs You count unavailable instead of synthetic zero.
