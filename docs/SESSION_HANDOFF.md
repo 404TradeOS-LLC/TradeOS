@@ -21,12 +21,12 @@ related_docs:
 - Local shell validation is unavailable in this connector path; exact-head hosted Web/docs/governance checks are the validation authority before merge.
 - This direct founder task does not change numbered-sprint status or authorize reopening S052/S053/S059 certification lanes.
 
-## Parallel Costbook Data Foundation — 2026-10-02
+## Costbook Data Foundation — merged 2026-10-04
 
-- Founder-authorized non-numbered implementation is isolated in PR #628.
-- The slice reuses existing Costbook supplier-product/price-observation, research-candidate, RLS, Assembly, and EstimateLineItem snapshot boundaries; it adds the 12-item canonical pilot matcher/review flow, BLS OEWS fallback + transparent ECEC inference, append-oriented supplier evidence, and PriceResolver/trust API contract.
-- It does not alter the numbered-sprint queue or the `Next Eligible Sprint` computation.
-- QBO, ABC, 1build, retail scraping, schema duplication, and live repricing of sent estimates remain outside PR #628.
+- Founder-authorized non-numbered implementation PR #628 merged to `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`.
+- The landed slice reuses existing Costbook supplier-product/price-observation, research-candidate, RLS, Assembly, and EstimateLineItem snapshot boundaries; it adds the 12-item canonical pilot matcher/review flow, BLS OEWS fallback + transparent ECEC inference, append-oriented supplier evidence, and PriceResolver/trust API contract.
+- Exact-head PR verification and post-merge main verification passed; the merge did not alter the numbered-sprint queue or the `Next Eligible Sprint` computation.
+- QBO, ABC, 1build, retail scraping, schema duplication, and live repricing of sent estimates remain outside the landed foundation.
 
 ## Active S053 browser certification tooling — 2026-10-02
 
@@ -209,5 +209,5 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 Sprint ID: S067
 Eligibility: `READY`; `Dependencies: none`; it is the lowest-numbered READY implementation sprint after the 2026-10-04 reconciliation.
 Dependencies: none. S056 remains a separate release-certification prerequisite.
-Overlap check: no active S067 branch/PR. Existing S052/S053 evidence lanes, S064/S066 review lanes, Costbook #628, and customer/project #641 are separate.
+Overlap check: no active S067 branch/PR. Existing S052/S053 evidence lanes, S064/S066 review lanes, the Costbook foundation merged through #628, and customer/project #641 are separate.
 Startup prompt: Create one S067 implementation branch from verified current main. Reuse canonical Job scheduling/conflict/assignment APIs and the existing `SiteVisit.jobId` link to make scheduled visit → Dispatch/Project → Site Visit capture → refreshed schedule/project/field context continuous. Keep project-only intake working and stop if a new scheduling persistence model, lifecycle state, permission/auth/RLS change, schema/migration, or provider integration is required.
