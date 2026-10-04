@@ -60,6 +60,14 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Today real exception queue expansion — 2026-10-04
+
+The canonical **Needs You** section now consumes two additional existing, persisted exception sources without turning normal progression into attention work. Organization-scoped incomplete Project Tasks are loaded through the existing `GET /api/v1/projects/tasks` contract and only persisted `status=blocked` rows enter Needs You. Manager-capable dashboard sessions also use the existing `GET /api/v1/schedule/conflicts` preview over the current organization week; each returned technician overlap links to the canonical Schedule workspace for resolution. Technician/non-manager sessions do not call the manager-only conflict preview.
+
+These sources degrade independently. If stale Proposal, overdue Invoice, blocked-task, or schedule-conflict truth is unavailable, the Today header reports the Needs You count as unavailable rather than substituting zero. The queue still excludes ordinary draft estimates, normal sent proposals, not-yet-due invoices, and other passive workflow events.
+
+No pricing-verification or material-unavailable row is synthesized by this slice. Current persisted Estimate lines retain source IDs and price snapshots but do not expose a company-wide persisted freshness/provenance exception contract sufficient to support those rows truthfully. That remains a separate domain/API requirement rather than a UI guess.
+
 ## S067 scheduling and Site Visit continuity — implementation slice
 
 The bounded S067 frontend slice reuses the existing conflict-aware Job schedule
@@ -714,7 +722,7 @@ The authenticated contractor customer detail workflow now exposes the existing s
 The owner dashboard is now the canonical Today command surface rather than a dashboard-plus-widget-stack. The page-level header identifies Today first, keeps company/freshness context secondary, and the landing route renders one four-part operational rhythm: **Now / Needs you / Coming up / Money**.
 
 - **Now** owns work already moving and normal resumable progression: today's scheduled Jobs, draft/ready Estimates, Continue Working stages, and Project-backed work that is ready to begin estimating.
-- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up and overdue Invoice action; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
+- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up, overdue Invoice action, persisted blocked Project Tasks, and schedule conflicts for manager-capable sessions; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
 - **Coming up** is sourced from real scheduled Jobs after today's organization-timezone boundary through the end of the backend-provided current-week window. It is not an unscheduled-work or Continue Working bucket.
 - **Money** is a receivables summary over canonical Invoice/payment truth. It does not create a parallel Money ledger or link to a nonexistent organization-wide Money route; overdue action stays in Needs you, with direct Invoice detail available when one is loaded.
 

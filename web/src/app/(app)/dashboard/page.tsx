@@ -2,17 +2,21 @@ import type { Metadata } from "next";
 import {
   getDispatchSummary,
   getOrganizationSettings,
+  getScheduleConflicts,
   getProject,
   listEstimateQueue,
   listInvoiceQueue,
   listJobsForDispatch,
+  listOrganizationProjectTasks,
   listProjects,
   listProposalQueue,
   toInclusiveEndBoundary,
   type DispatchJob,
   type EstimateQueueItem,
   type InvoiceQueueItem,
+  type OrganizationProjectTask,
   type ProposalQueueItem,
+  type ScheduleConflict,
 } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
 import { getSessionToken } from "@/lib/session";
@@ -51,6 +55,7 @@ function emptyQueue<T>(): { items: T[]; total: number; nextCursor: string | null
 interface TodayScheduleWindow {
   today: { items: DispatchJob[]; total: number; error: string | null };
   upcoming: { items: DispatchJob[]; total: number; error: string | null };
+  conflicts: { items: ScheduleConflict[]; error: string | null };
   timezone: string;
 }
 
@@ -99,6 +104,7 @@ async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWind
     return {
       today: { items: [], total: 0, error },
       upcoming: { items: [], total: 0, error },
+      conflicts: { items: [], error: "Schedule conflicts are temporarily unavailable" },
       timezone: "UTC",
     };
   }
@@ -118,7 +124,18 @@ async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWind
       })
     : Promise.resolve([] as DispatchJob[]);
 
-  const [todayResult, upcomingResult] = await Promise.allSettled([todayRequest, upcomingRequest]);
+  const conflictRequest = ["owner", "admin", "dispatcher"].includes(summary.scope.role)
+    ? getScheduleConflicts(token, {
+        scheduledFrom: summary.todayRangeUtc.start,
+        scheduledTo: summary.weekRangeUtc.end,
+      })
+    : Promise.resolve({ conflicts: [] as ScheduleConflict[], overrideAllowed: false });
+
+  const [todayResult, upcomingResult, conflictResult] = await Promise.allSettled([
+    todayRequest,
+    upcomingRequest,
+    conflictRequest,
+  ]);
 
   return {
     today:
@@ -129,8 +146,27 @@ async function loadTodayScheduleWindow(token: string): Promise<TodayScheduleWind
       upcomingResult.status === "fulfilled"
         ? { items: upcomingResult.value, total: upcomingResult.value.length, error: null }
         : { items: [], total: 0, error: "Upcoming schedule is temporarily unavailable" },
+    conflicts:
+      conflictResult.status === "fulfilled"
+        ? { items: conflictResult.value.conflicts, error: null }
+        : { items: [], error: "Schedule conflicts are temporarily unavailable" },
     timezone: summary.timezone.value,
   };
+}
+
+async function loadBlockedProjectTasks(token: string) {
+  try {
+    const tasks = await listOrganizationProjectTasks(token, { limit: 50, includeCompleted: false });
+    return {
+      items: tasks.filter((task) => task.status === "blocked"),
+      error: tasks.length === 50 ? "Blocked project tasks may be incomplete" : null,
+    };
+  } catch (error) {
+    return {
+      items: [] as OrganizationProjectTask[],
+      error: error instanceof Error ? error.message : "Blocked project tasks are temporarily unavailable",
+    };
+  }
 }
 
 async function loadInvoiceAttentionQueues(token: string) {
@@ -222,19 +258,21 @@ export default async function DashboardPage() {
     ? await loadDashboardStartup(token, { listProjects, getOrganizationSettings })
     : { projects: [], settingsResponse: null };
 
-  const [projectDetailsResult, scheduleWindow, invoiceQueues, staleProposalQueue, estimateProgressQueue] = token
+  const [projectDetailsResult, scheduleWindow, invoiceQueues, staleProposalQueue, estimateProgressQueue, blockedTaskQueue] = token
     ? await Promise.all([
         loadDashboardProjectDetails(token, projects, DASHBOARD_PROJECT_DETAIL_LIMIT, getProject),
         loadTodayScheduleWindow(token),
         loadInvoiceAttentionQueues(token),
         loadStaleProposalAttentionQueue(token, staleProposalCutoffIso),
         loadEstimateProgressQueue(token),
+        loadBlockedProjectTasks(token),
       ])
     : [
         { items: [] as Awaited<ReturnType<typeof getProject>>[], failedCount: 0 },
         {
           today: { items: [] as DispatchJob[], total: 0, error: null as string | null },
           upcoming: { items: [] as DispatchJob[], total: 0, error: null as string | null },
+          conflicts: { items: [] as ScheduleConflict[], error: null as string | null },
           timezone: "UTC",
         },
         {
@@ -246,6 +284,7 @@ export default async function DashboardPage() {
         },
         { queue: emptyQueue<ProposalQueueItem>(), error: null as string | null },
         { queue: emptyQueue<EstimateQueueItem>(), error: null as string | null },
+        { items: [] as OrganizationProjectTask[], error: null as string | null },
       ];
 
   const projectDetails = projectDetailsResult.items;
@@ -282,8 +321,17 @@ export default async function DashboardPage() {
 
   const currentSchedule = scheduleWindow.today.items.map((job) => toScheduleItem(job, scheduleWindow.timezone));
   const upcomingSchedule = scheduleWindow.upcoming.items.map((job) => toScheduleItem(job, scheduleWindow.timezone));
-  const attentionUnavailable = Boolean(staleProposalQueue.error) || invoiceQueues.overdueUnavailable;
-  const notificationCount = attentionUnavailable ? null : staleProposalQueue.queue.total + invoiceQueues.overdue.total;
+  const attentionUnavailable =
+    Boolean(staleProposalQueue.error) ||
+    invoiceQueues.overdueUnavailable ||
+    Boolean(blockedTaskQueue.error) ||
+    Boolean(scheduleWindow.conflicts.error);
+  const notificationCount = attentionUnavailable
+    ? null
+    : staleProposalQueue.queue.total +
+      invoiceQueues.overdue.total +
+      blockedTaskQueue.items.length +
+      scheduleWindow.conflicts.items.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -301,15 +349,21 @@ export default async function DashboardPage() {
         estimates={progressEstimates}
         proposals={staleProposals}
         invoices={invoiceRows}
+        blockedTasks={blockedTaskQueue.items}
+        scheduleConflicts={scheduleWindow.conflicts.items}
+        scheduleTimezone={scheduleWindow.timezone}
         readyToStart={readyToStart}
         continueWorking={continueWorking}
         receivables={receivables}
+        needsYouUnavailable={attentionUnavailable}
         errors={{
           currentSchedule: scheduleWindow.today.error,
           upcomingSchedule: scheduleWindow.upcoming.error,
           estimates: estimateProgressQueue.error,
           proposals: staleProposalQueue.error,
           invoices: invoiceQueues.error,
+          blockedTasks: blockedTaskQueue.error,
+          scheduleConflicts: scheduleWindow.conflicts.error,
           openInvoicesUnavailable: invoiceQueues.openUnavailable,
           overdueInvoicesUnavailable: invoiceQueues.overdueUnavailable,
         }}
