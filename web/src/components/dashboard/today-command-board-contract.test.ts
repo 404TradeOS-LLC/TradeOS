@@ -15,7 +15,7 @@ test("Today command board preserves the canonical four-section hierarchy", async
   assert.match(board, /label="Money" helper="Receivables summary, not a second ledger"/);
 });
 
-test("Now owns normal progression while Needs you is restricted to stale proposals and overdue invoices", async () => {
+test("Now owns normal progression while Needs you is restricted to real unresolved exception sources", async () => {
   const board = await readSource("./today-command-board.tsx");
 
   assert.match(board, /currentSchedule\.map/);
@@ -24,9 +24,13 @@ test("Now owns normal progression while Needs you is restricted to stale proposa
   assert.match(board, /readyToStart\.map/);
   assert.match(board, /const staleProposals = proposals\.filter\(\(row\) => row\.stale\)/);
   assert.match(board, /const overdueInvoices = invoices\.filter\(\(row\) => row\.overdue\)/);
+  assert.match(board, /blockedTasks\.length/);
+  assert.match(board, /scheduleConflicts\.length/);
   assert.match(board, /Continue estimate/);
   assert.match(board, /proposal needs follow-up/);
   assert.match(board, /invoice #\$\{row\.documentNumber\} overdue/);
+  assert.match(board, /Resolve conflict/);
+  assert.match(board, /Resolve blocker/);
 });
 
 test("Coming up is sourced from the real near-term schedule instead of normal-progress or unscheduled buckets", async () => {
@@ -58,7 +62,9 @@ test("Today landing page no longer loads or renders duplicate dashboard modules"
   assert.match(page, /<OwnerDashboardHeader/);
   assert.match(page, /<TodayCommandBoard/);
   assert.doesNotMatch(page, /OwnerTaskBoard|OwnerActivityFeed|CollapsibleCard/);
-  assert.doesNotMatch(page, /getKnowledgeStats|listActivityEvents|listOrganizationProjectTasks|getCurrentWeekPaymentLedger/);
+  assert.doesNotMatch(page, /getKnowledgeStats|listActivityEvents|getCurrentWeekPaymentLedger/);
+  assert.match(page, /listOrganizationProjectTasks/);
+  assert.match(page, /getScheduleConflicts/);
   assert.doesNotMatch(page, /Recent project lifecycle|Knowledge Runtime Coverage|Recent activity/);
 });
 
@@ -66,8 +72,10 @@ test("Today attention count uses unresolved human-action queues without inventin
   const page = await readSource("../../app/(app)/dashboard/page.tsx");
   const header = await readSource("./owner-dashboard-header.tsx");
 
-  assert.match(page, /const attentionUnavailable = Boolean\(staleProposalQueue\.error\) \|\| invoiceQueues\.overdueUnavailable/);
-  assert.match(page, /const notificationCount = attentionUnavailable \? null : staleProposalQueue\.queue\.total \+ invoiceQueues\.overdue\.total/);
+  assert.match(page, /Boolean\(blockedTaskQueue\.error\)/);
+  assert.match(page, /Boolean\(scheduleWindow\.conflicts\.error\)/);
+  assert.match(page, /blockedTaskQueue\.items\.length/);
+  assert.match(page, /scheduleWindow\.conflicts\.items\.length/);
   assert.match(page, /listProposalQueue\(token, \{/);
   assert.match(page, /const staleProposalCutoffIso = getStaleProposalCutoffIso\(now\)/);
   assert.match(page, /loadStaleProposalAttentionQueue\(token, staleProposalCutoffIso\)/);
@@ -105,4 +113,26 @@ test("Coming Up backfills active scheduled Jobs instead of filtering only a boun
   assert.match(page, /if \(TERMINAL_JOB_STATUSES\.has\(job\.status\)\) continue/);
   assert.match(page, /limit: DASHBOARD_UPCOMING_JOB_LIMIT/);
   assert.match(page, /total: summary\.scheduledToday/);
+});
+
+test("Needs You uses the existing conflict preview and blocked Project Task contracts", async () => {
+  const page = await readSource("../../app/(app)/dashboard/page.tsx");
+  const board = await readSource("./today-command-board.tsx");
+  const api = await readSource("../../lib/api.ts");
+
+  assert.match(api, /\/api\/v1\/schedule\/conflicts/);
+  assert.match(page, /scheduledFrom: summary\.todayRangeUtc\.start/);
+  assert.match(page, /scheduledTo: summary\.weekRangeUtc\.end/);
+  const blockedTaskLoader = page.match(
+    /async function loadBlockedProjectTasks\(token: string\) \{([\s\S]*?)\n\}/,
+  )?.[1];
+  assert.ok(blockedTaskLoader);
+  assert.match(
+    blockedTaskLoader,
+    /items:\s*tasks\.filter\(\(task\) => task\.status === "blocked"\)/,
+  );
+  assert.match(blockedTaskLoader, /tasks\.length === 50 \? "Blocked project tasks may be incomplete" : null/);
+  assert.match(board, /href="\/dispatch\?mode=week"/);
+  assert.match(board, /href=\{\`\/projects\/\$\{task\.projectId\}\?tab=tasks\`\}/);
+  assert.doesNotMatch(board, /material unavailable|stale supplier|verify price/i);
 });

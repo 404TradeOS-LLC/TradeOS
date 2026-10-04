@@ -9,7 +9,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatCurrency, formatDate } from "@/lib/document-workflow";
+import { formatCurrency, formatDate, formatScheduleInZone } from "@/lib/document-workflow";
+import type { OrganizationProjectTask, ScheduleConflict } from "@/lib/api";
 import type {
   AttentionEstimateRow,
   AttentionInvoiceRow,
@@ -26,6 +27,9 @@ interface TodayCommandBoardProps {
   estimates: AttentionEstimateRow[];
   proposals: AttentionProposalRow[];
   invoices: AttentionInvoiceRow[];
+  blockedTasks: OrganizationProjectTask[];
+  scheduleConflicts: ScheduleConflict[];
+  scheduleTimezone: string;
   readyToStart: AttentionStartRow[];
   continueWorking: ContinueWorkingRow[];
   receivables: ReceivablesSummary;
@@ -35,6 +39,8 @@ interface TodayCommandBoardProps {
     estimates: string | null;
     proposals: string | null;
     invoices: string | null;
+    blockedTasks: string | null;
+    scheduleConflicts: string | null;
     openInvoicesUnavailable: boolean;
     overdueInvoicesUnavailable: boolean;
   };
@@ -190,6 +196,9 @@ export function TodayCommandBoard({
   estimates,
   proposals,
   invoices,
+  blockedTasks,
+  scheduleConflicts,
+  scheduleTimezone,
   readyToStart,
   continueWorking,
   receivables,
@@ -198,7 +207,11 @@ export function TodayCommandBoard({
   const staleProposals = proposals.filter((row) => row.stale);
   const overdueInvoices = invoices.filter((row) => row.overdue);
   const nowCount = currentSchedule.length + estimates.length + readyToStart.length + continueWorking.length;
-  const needsYouCount = staleProposals.length + overdueInvoices.length;
+  const needsYouCount =
+    staleProposals.length +
+    overdueInvoices.length +
+    blockedTasks.length +
+    scheduleConflicts.length;
   const comingUpCount = upcomingSchedule.length;
 
   return (
@@ -293,7 +306,45 @@ export function TodayCommandBoard({
           />
         ))}
 
-        {needsYouCount === 0 && !errors.proposals && !errors.invoices ? (
+        {errors.scheduleConflicts ? <ErrorRow message={errors.scheduleConflicts} /> : null}
+        {scheduleConflicts.map((conflict) => (
+          <CommandRow
+            key={`conflict-${conflict.technicianId}-${conflict.conflictingJobId}-${conflict.conflictingScheduledStart}`}
+            icon={<CalendarClock className="size-4" />}
+            title={`Schedule conflict · ${conflict.conflictingJobNumber}`}
+            metadata={[
+              conflict.technicianName ?? "Assigned technician",
+              formatScheduleInZone(conflict.conflictingScheduledStart, scheduleTimezone),
+              conflict.conflictingJobTitle,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            status={<StatusBadge status="needs_attention" />}
+            action="Resolve conflict"
+            href="/dispatch?mode=week"
+            tone="attention"
+          />
+        ))}
+
+        {errors.blockedTasks ? <ErrorRow message={errors.blockedTasks} /> : null}
+        {blockedTasks.map((task) => (
+          <CommandRow
+            key={`blocked-task-${task.id}`}
+            icon={<AlertCircle className="size-4" />}
+            title={`${task.projectName} · ${task.title}`}
+            metadata={[task.customerName, task.jobTitle, "blocked project task"].filter(Boolean).join(" · ")}
+            status={<StatusBadge status="blocked" />}
+            action="Resolve blocker"
+            href={`/projects/${task.projectId}?tab=tasks`}
+            tone="attention"
+          />
+        ))}
+
+        {needsYouCount === 0 &&
+        !errors.proposals &&
+        !errors.invoices &&
+        !errors.blockedTasks &&
+        !errors.scheduleConflicts ? (
           <EmptyRow>Nothing is waiting on you right now.</EmptyRow>
         ) : null}
       </BoardSection>

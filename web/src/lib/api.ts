@@ -503,6 +503,18 @@ export interface ScheduleConflictResult {
   overrideAllowed: boolean;
 }
 
+export function getScheduleConflicts(
+  token: string,
+  input: { scheduledFrom: string; scheduledTo: string; technicianId?: string }
+) {
+  const query = new URLSearchParams({
+    scheduledFrom: input.scheduledFrom,
+    scheduledTo: input.scheduledTo,
+  });
+  if (input.technicianId) query.set("technicianId", input.technicianId);
+  return apiFetch<ScheduleConflictResult>(`/api/v1/schedule/conflicts?${query.toString()}`, { token });
+}
+
 export interface Estimate {
   id: string;
   projectId: string;
