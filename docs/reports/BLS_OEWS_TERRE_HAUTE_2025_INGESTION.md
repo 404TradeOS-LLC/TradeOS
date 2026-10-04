@@ -33,7 +33,7 @@ The validated MVP source specification also supplies mean/median and employment 
 | 47-2051 | Cement Masons and Concrete Finishers | 50 | $27.70 | $28.84 |
 | 47-2061 | Construction Laborers | 500 | $23.32 | $21.85 |
 
-Those rows are retained without invented percentiles. The complete observed distribution is retained in candidate research notes. The median (P50) is preserved as benchmark evidence only; this adapter deliberately does **not** populate `laborRateAssumption` or `laborHours`.
+Those three rows are retained without invented percentiles; their candidate research notes retain only the validated employment, mean, and median values. The seven rows with validated percentile evidence retain P10/P25/P50/P75/P90 in their candidate research notes. The median (P50) is preserved as benchmark evidence only; this adapter deliberately does **not** populate `laborRateAssumption` or `laborHours`.
 
 That distinction is required because the existing generic research-candidate promotion path maps `laborRateAssumption` into both `hourlyCost` and `billRate`. A raw BLS employee wage is not a safe customer bill rate and therefore must not be placed in that promotable field until TradeOS has organization-specific loaded-cost and bill-rate inputs.
 
@@ -68,7 +68,8 @@ The current Costbook research-candidate controls remain authoritative:
 `app/tests/costbook-bls-oews.test.ts` verifies:
 
 - all ten source-backed records parse through the canonical research-candidate schema;
-- the published P10/P25/P50/P75/P90 values remain fixed for every record;
+- the published P10/P25/P50/P75/P90 values remain fixed for the seven percentile-backed records;
+- employment/mean/median remain fixed for the three additional core-trade records without inventing percentiles;
 - exact source URL and May 2025 source date remain fixed;
 - provenance is documented and region-specific;
 - every candidate starts in the normal `candidate` review state;
