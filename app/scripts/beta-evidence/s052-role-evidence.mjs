@@ -22,11 +22,8 @@ const expectedOrg = process.env.BETA_SMOKE_ORG_LABEL;
 const runId = process.env.BETA_RUN_ID;
 const allowMutations = process.env.BETA_ALLOW_MUTATIONS === "true";
 const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
-const requestedViewportNames = (process.env.BETA_S052_ROLE_VIEWPORTS || "1440,768,390")
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
-const roleViewports = VIEWPORTS.filter((viewport) => requestedViewportNames.includes(viewport.name));
+const requiredRoleViewportNames = ["1440", "768", "390"];
+const roleViewports = VIEWPORTS.filter((viewport) => requiredRoleViewportNames.includes(viewport.name));
 
 function fail(message) {
   console.error(`::error::[s052-role-evidence] ${message}`);
@@ -45,7 +42,9 @@ for (const [name, value] of Object.entries({
   if (!value) fail(`${name} is required for S052 role evidence.`);
 }
 if (!allowMutations) fail("BETA_ALLOW_MUTATIONS=true is required for S052 admin evidence.");
-if (roleViewports.length === 0) fail("BETA_S052_ROLE_VIEWPORTS did not select a known viewport.");
+if (roleViewports.length !== requiredRoleViewportNames.length) {
+  fail("Required S052 role-evidence viewports 1440/768/390 are not available in the canonical viewport set.");
+}
 
 let parsedBaseUrl;
 try {
@@ -223,7 +222,7 @@ try {
   failure = error;
   report.error = error instanceof Error ? error.message : String(error);
 } finally {
-  await browser.close();
+  await browser.close().catch(() => {});
   await fs.writeFile(path.join(outDir, "s052-role-report.json"), `${JSON.stringify(report, null, 2)}\n`);
 }
 
