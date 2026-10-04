@@ -65,7 +65,8 @@ export async function createProjectAction(_prev: FormActionState, formData: Form
     redirect(buildProjectIntentDestination(projectId, "job"));
   }
 
-  redirect("/projects");
+  revalidatePath(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}`);
 }
 
 export async function updateProjectAction(_prev: FormActionState, formData: FormData): Promise<FormActionState> {
