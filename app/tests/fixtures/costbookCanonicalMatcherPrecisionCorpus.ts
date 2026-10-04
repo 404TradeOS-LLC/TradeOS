@@ -1,4 +1,4 @@
-import type { SupplierProductForMatching } from "../modules/costbook/canonicalProductMatcher";
+import type { SupplierProductForMatching } from "../../modules/costbook/canonicalProductMatcher";
 
 export interface LabeledCanonicalMatchCase {
   label: string;
