@@ -1278,7 +1278,7 @@ export class JobsService {
   ): Promise<void> {
     for (const technicianId of [...new Set(technicianIds)].sort()) {
       const lockKey = `job-schedule:${orgId}:${technicianId}`;
-      await tx.$queryRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+      await tx.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
     }
   }
 
@@ -1306,7 +1306,7 @@ export class JobsService {
   private async generateJobNumber(tx: Prisma.TransactionClient, orgId: string): Promise<string> {
     const year = new Date().getUTCFullYear();
     const lockKey = `job-number:${orgId}:${year}`;
-    await tx.$queryRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+    await tx.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
     const prefix = `JOB-${year}-`;
     const count = await tx.job.count({
       where: {

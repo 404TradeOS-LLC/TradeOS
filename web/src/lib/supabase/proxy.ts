@@ -14,25 +14,6 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        },
-      },
-    }
-  );
-
   const localToken = request.cookies.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(LOCAL_REFRESH_TOKEN_COOKIE)?.value;
 
@@ -89,6 +70,37 @@ export async function updateSession(request: NextRequest) {
     }
     return response;
   }
+
+  // Local development may run without Supabase configured: the local-session
+  // checks above are authoritative there. With no Supabase to verify against
+  // and no local session, fail closed to /login.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !supabasePublishableKey) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabasePublishableKey,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        },
+      },
+    }
+  );
 
   const { data } = await supabase.auth.getClaims();
 

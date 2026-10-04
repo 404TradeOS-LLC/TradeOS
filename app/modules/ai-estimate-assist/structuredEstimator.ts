@@ -833,7 +833,7 @@ function safeEqual(left: string, right: string) {
 
 async function lockEstimateApply(orgId: string, estimateId: string) {
   const lockKey = `ai-estimator-apply:${orgId}:${estimateId}`;
-  await prisma.$queryRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+  await prisma.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
 }
 
 function normalizeQuantity(quantity: number) {

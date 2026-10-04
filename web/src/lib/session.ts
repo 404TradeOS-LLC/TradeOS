@@ -23,11 +23,17 @@ export async function getSessionToken(): Promise<string | null> {
   const localToken = cookieStore.get(LOCAL_ACCESS_TOKEN_COOKIE)?.value;
   if (localToken && isUsableLocalAccessToken(localToken)) return localToken;
 
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    // Supabase is not configured (local development) and no local session
+    // exists: there is no session to report.
+    return null;
+  }
 }
 
 export async function getSession(): Promise<SessionClaims | null> {
@@ -44,16 +50,22 @@ export async function getSession(): Promise<SessionClaims | null> {
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) return null;
-  return {
-    sub: user.id,
-    email: user.email,
-  };
+    if (!user) return null;
+    return {
+      sub: user.id,
+      email: user.email,
+    };
+  } catch {
+    // Supabase is not configured (local development) and no local session
+    // exists: callers fail closed to /login.
+    return null;
+  }
 }
 
 export async function setLocalSession(accessToken: string, refreshToken: string): Promise<void> {
@@ -128,6 +140,13 @@ export async function clearSessionCookie(): Promise<void> {
   }
 
   await clearLocalSessionCookies();
+
+  // Local-only development intentionally runs without Supabase. Once the
+  // backend session is cleared there is nothing else to revoke, and calling
+  // createClient() here would throw because the Supabase URL/key are absent.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return;
+  }
 
   const supabase = await createClient();
   await supabase.auth.signOut();
