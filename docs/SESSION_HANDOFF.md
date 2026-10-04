@@ -12,6 +12,15 @@ related_docs:
 
 # Session Handoff
 
+## Founder-authorized Entry parity lane — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
+- Branch: `feat/entry-copper-identity-parity`.
+- Scope is presentation-only: canonical responsive graphite/copper Entry composition, exported official TradeOS identity artwork, accessible password reveal, focused Web source-contract coverage, and `CURRENT_STATE` reconciliation.
+- Existing `loginAction`, Supabase/session behavior, recovery/account routes, auth/RBAC/RLS, onboarding, and post-login routing are unchanged.
+- Local shell validation is unavailable in this connector path; exact-head hosted Web/docs/governance checks are the validation authority before merge.
+- This direct founder task does not change numbered-sprint status or authorize reopening S052/S053/S059 certification lanes.
+
 ## Active S053 browser certification tooling — 2026-10-02
 
 - Classification: `NEW_WORK_REQUIRED`; no open S053 PR/branch overlapped this certification-tooling gap when current main `8d6c8a838e8fcafe0de7049aaaed75b655d1e25f` was reconciled.
