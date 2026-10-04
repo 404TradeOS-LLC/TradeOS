@@ -355,6 +355,7 @@ export default async function DashboardPage() {
         readyToStart={readyToStart}
         continueWorking={continueWorking}
         receivables={receivables}
+        needsYouUnavailable={attentionUnavailable}
         errors={{
           currentSchedule: scheduleWindow.today.error,
           upcomingSchedule: scheduleWindow.upcoming.error,
