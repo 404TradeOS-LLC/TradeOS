@@ -123,6 +123,16 @@ describe("Costbook canonical pilot matcher", () => {
     expect(precision).toBeGreaterThanOrEqual(0.99);
   });
 
+  it("normalizes apostrophe-delimited feet before matching", () => {
+    const normalized = normalizeSupplierProductText({ name: "2 x 4 x 8' SPF lumber stud" });
+    expect(normalized).toContain("8ft");
+    expect(matchPilotCanonicalProduct({ name: "2 x 4 x 8' SPF lumber stud", purchaseUnit: "EA" }))
+      .toMatchObject({
+        action: "AUTO_LINK",
+        canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD",
+      });
+  });
+
   it("normalizes units and common product text deterministically", () => {
     expect(normalizeCostbookUnit("sq ft")).toBe("SQ_FT");
     expect(normalizeCostbookUnit("gal.")).toBe("GALLON");
