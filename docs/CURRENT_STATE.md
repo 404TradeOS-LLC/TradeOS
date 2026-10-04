@@ -72,6 +72,10 @@ These sources degrade independently. If stale Proposal, overdue Invoice, blocked
 
 No pricing-verification or material-unavailable row is synthesized by this slice. Current persisted Estimate lines retain source IDs and price snapshots but do not expose a company-wide persisted freshness/provenance exception contract sufficient to support those rows truthfully. That remains a separate domain/API requirement rather than a UI guess.
 
+## Contractor lifecycle advisory-lock repair — 2026-10-04
+
+The full synthetic contractor walkthrough exposed a real job-creation failure: PostgreSQL `pg_advisory_xact_lock()` returns `void`, and the affected Prisma `$queryRaw` calls attempted to deserialize that result. Job-number generation, technician schedule serialization, and structured AI Estimate Assist apply now execute those existing transaction-scoped locks with `$executeRaw`, matching the repository's established advisory-lock pattern. The repair changes no lifecycle, route, schema, RLS, permission, pricing, or AI review boundary.
+
 ## S067 scheduling and Site Visit continuity — implementation slice
 
 The bounded S067 frontend slice reuses the existing conflict-aware Job schedule
@@ -168,6 +172,10 @@ The contractor beta walkthrough exposed one unused parameter in the Customer act
 ## Current milestone
 
 TradeOS is in RC1 hardening. The active posture is production readiness, lifecycle consistency, contractor-facing usability, tenant-boundary verification, and retained release evidence rather than MVP planning.
+
+## Local-development authentication fallback — 2026-10-04
+
+Local development can run the existing backend local-auth session contract without a configured Supabase project. Login goes directly to the backend local-auth endpoint when the public Supabase URL/key are absent; session reads and the protected-route proxy fail closed when neither a usable local session nor Supabase configuration exists; logout clears/revokes the local session and skips Supabase sign-out when Supabase is not configured. When Supabase is configured, the normal Supabase authentication path is unchanged. This is a local-development compatibility repair, not a production auth bypass or RBAC/RLS change.
 
 ## Authenticated shell and navigation
 
