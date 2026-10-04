@@ -103,6 +103,7 @@ Jobs have extra scope restrictions beyond the shared permission map:
   attempt to override
 - only owners and admins can reopen completed jobs
 - the centralized Job lifecycle contract in `app/modules/jobs/lifecycle.ts` preserves the existing action graph: completion is `on_site -> completed`, cancellation is limited to `scheduled|dispatched|paused`, and owner/admin reopen is `completed -> unscheduled|scheduled`; no role receives generic status-write access
+- Job scheduling/job-number and AI Estimate Assist advisory locks now use Prisma `$executeRaw` for the existing PostgreSQL lock statements; this concurrency implementation repair does not change authentication, organization membership, forced-RLS enforcement, lifecycle authority, or any role permission.
 - `GET /api/v1/jobs/dispatch-summary` (the Dispatcher Workspace's org-wide attention aggregate) requires authentication but no elevated role — it introduces no new privilege check. The existing `jobs_select_policy` RLS narrowing above still applies to its underlying `count()` queries, so a non-owner/admin/dispatcher caller receives real, correctly-scoped-to-them counts rather than an org-wide total; the response labels this via a `scope` field so the UI never presents a narrowed count as if it were org-wide
 - S033 invoice-readiness acknowledgement uses the existing manager boundary (`owner`/`admin`/`dispatcher`); technicians cannot invoke it. The route remains organization-scoped under forced RLS and does not create invoice or payment records.
 
