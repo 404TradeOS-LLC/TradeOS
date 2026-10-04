@@ -81,6 +81,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     normalizedUnit: "COIL",
     materialFamily: "PLUMBING",
     requiredPatterns: [/\bpex\b/, /\b(1\/2|0\.5)\b/],
+    hardConflictPatterns: [/\b(coupling|elbow|tee|fitting|valve)\b/],
   },
   {
     canonicalMaterialKey: "PLUMBING.PVC.DWV.3IN.STICK",
@@ -88,6 +89,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     normalizedUnit: "STICK",
     materialFamily: "PLUMBING",
     requiredPatterns: [/\bpvc\b/, /\bdwv\b/, /\b3in\b/],
+    hardConflictPatterns: [/\b(coupling|elbow|tee|fitting|wye|cap)\b/],
   },
   {
     canonicalMaterialKey: "INSULATION.FIBERGLASS.R13.BATT",
@@ -193,17 +195,26 @@ export function matchPilotCanonicalProduct(input: SupplierProductForMatching): C
     }
   }
 
+  const suppliedUnit = input.purchaseUnit?.trim()
+    ? normalizeCostbookUnit(input.purchaseUnit)
+    : null;
+
   const scored = COSTBOOK_PILOT_CANONICAL_ITEMS.map((item) => {
     if (item.hardConflictPatterns?.some((pattern) => pattern.test(normalizedText))) {
-      return { item, score: 0, matched: 0 };
+      return { item, score: 0, matched: 0, unitConflict: false };
     }
     const matched = item.requiredPatterns.filter((pattern) => pattern.test(normalizedText)).length;
-    const score = matched === item.requiredPatterns.length
+    const unitConflict =
+      suppliedUnit !== null &&
+      suppliedUnit !== "UNKNOWN" &&
+      suppliedUnit !== item.normalizedUnit;
+    const baseScore = matched === item.requiredPatterns.length
       ? 1
       : matched >= 2 && matched === item.requiredPatterns.length - 1
         ? 0.90
         : matched / item.requiredPatterns.length * 0.80;
-    return { item, score, matched };
+    const score = unitConflict ? Math.min(baseScore, 0.90) : baseScore;
+    return { item, score, matched, unitConflict };
   }).sort((a, b) => b.score - a.score);
 
   const best = scored[0];
@@ -234,7 +245,9 @@ export function matchPilotCanonicalProduct(input: SupplierProductForMatching): C
     score: best.score,
     canonicalMaterialKey: best.item.canonicalMaterialKey,
     displayName: best.item.displayName,
-    rationale: "The listing is similar to a canonical pilot item but does not meet the auto-link precision gate.",
+    rationale: best.unitConflict
+      ? `The listing matches identity text, but purchase unit ${suppliedUnit} conflicts with canonical unit ${best.item.normalizedUnit}; human review is required.`
+      : "The listing is similar to a canonical pilot item but does not meet the auto-link precision gate.",
     normalizedText,
   };
 }
