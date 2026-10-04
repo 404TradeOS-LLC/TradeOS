@@ -1,6 +1,8 @@
 import { prisma } from "../../db/client";
 import { applyOverhead, marginFromMarkup, markupFromMargin, round2, sellPrice } from "../estimate-engine/formulas";
 import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
+import { resolvePrice, type PriceConfidence, type ResolvedPrice } from "./priceResolver";
+import { normalizeCostbookUnit } from "./canonicalProductMatcher";
 
 export interface CostbookPricingPreviewInput {
   jobCost: number;
@@ -62,6 +64,13 @@ export interface CostbookPriceHistory {
   }>;
 }
 
+export interface ResolveCanonicalPriceInput {
+  canonicalMaterialKey: string;
+  postalCode?: string;
+  unit?: string;
+  now?: Date;
+}
+
 export interface CostbookPriceHistoryPage {
   materialChanges: CatalogPage<CostbookPriceHistory["materialChanges"][number]>;
   estimateSnapshots: CatalogPage<CostbookPriceHistory["estimateSnapshots"][number]>;
@@ -93,6 +102,82 @@ export class CostbookPricingService {
     };
   }
 
+  /**
+   * Resolve current supplier observation evidence for one canonical material.
+   * Existing regional supplier evidence is conservatively treated as retail
+   * validation rather than being upgraded to account/negotiated pricing.
+   */
+  async resolveCanonicalPrice(orgId: string, input: ResolveCanonicalPriceInput): Promise<ResolvedPrice | null> {
+    const now = input.now ?? new Date();
+    const freshnessFloor = new Date(now.getTime() - 90 * 86_400_000);
+    const unitValues = input.unit ? costbookUnitDatabaseValues(input.unit) : [];
+
+    const rows = await prisma.supplierPriceObservation.findMany({
+      where: {
+        orgId,
+        priceStatus: "priced",
+        observedAt: { gte: freshnessFloor, lte: now },
+        supplierProduct: { canonicalMaterialKey: input.canonicalMaterialKey },
+        ...(unitValues.length > 0
+          ? {
+              OR: [
+                { normalizedUnitPrice: { not: null }, normalizedUnit: { in: unitValues } },
+                { normalizedUnitPrice: null, purchaseUnit: { in: unitValues } },
+                {
+                  normalizedUnitPrice: null,
+                  purchaseUnit: null,
+                  supplierProduct: { purchaseUnit: { in: unitValues } },
+                },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        supplierProduct: {
+          include: { supplier: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: [{ observedAt: "desc" }, { id: "desc" }],
+    });
+
+    return resolvePrice({
+      tenantId: orgId,
+      canonicalMaterialKey: input.canonicalMaterialKey,
+      unit: input.unit,
+      postalCode: input.postalCode,
+      now,
+      candidates: rows.flatMap((row) => {
+        const normalizedPairAvailable = row.normalizedUnitPrice !== null && Boolean(row.normalizedUnit?.trim());
+        const price = normalizedPairAvailable
+          ? row.normalizedUnitPrice
+          : row.effectivePrice ?? row.salePrice ?? row.regularPrice;
+        if (price === null) return [];
+        const unit = normalizeCostbookUnit(
+          normalizedPairAvailable
+            ? row.normalizedUnit
+            : row.purchaseUnit ?? row.supplierProduct.purchaseUnit
+        );
+        return [{
+          id: row.id,
+          canonicalMaterialKey: input.canonicalMaterialKey,
+          price: Number(price),
+          currency: row.currency,
+          unit,
+          evidenceTier: "RECENT_RETAIL_VALIDATION" as const,
+          confidence: observationConfidence(row.sourceConfidence),
+          observedAt: row.observedAt,
+          tenantId: orgId,
+          supplierId: row.supplierProduct.supplier.id,
+          supplierName: row.supplierProduct.supplier.name,
+          storeName: row.storeName,
+          postalCode: row.postalCode,
+          source: "regional_supplier_evidence",
+          sourceUrl: row.sourceUrl,
+          verifiedVsInferred: "observed" as const,
+        }];
+      }),
+    });
+  }
   async listHistoryPage(orgId: string, filter: CostbookPriceHistoryPageFilter = {}): Promise<CostbookPriceHistoryPage> {
     const createdAt = filter.from || filter.to
       ? { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lte: filter.to } : {}) }
@@ -240,4 +325,24 @@ export class CostbookPricingService {
       }),
     };
   }
+}
+
+function observationConfidence(value: string | null): PriceConfidence {
+  if (value === "high") return "HIGH";
+  if (value === "medium") return "MEDIUM";
+  if (value === "low") return "LOW";
+  return "LOW";
+}
+
+
+function costbookUnitDatabaseValues(value: string): string[] {
+  const normalized = normalizeCostbookUnit(value);
+  const aliases: Record<string, string[]> = {
+    EACH: ["EACH", "EA"],
+    GALLON: ["GALLON", "GAL"],
+    LINEAR_FT: ["LINEAR_FT", "LF"],
+    SQ_FT: ["SQ_FT", "SF"],
+    BOARD_FT: ["BOARD_FT", "BF"],
+  };
+  return [...new Set([normalized, value.trim(), value.trim().toUpperCase(), ...(aliases[normalized] ?? [])])];
 }

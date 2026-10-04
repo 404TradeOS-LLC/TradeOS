@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-12
+last_verified: 2026-10-02
 source_of_truth: true
 related_docs:
   - docs/architecture/COSTBOOK_DOMAIN_ARCHITECTURE.md
@@ -24,6 +24,55 @@ related_code:
 ---
 
 # Costbook Implementation Reconciliation
+
+## 2026-10-03 — branch-currency reconciliation
+
+PR #628 was rebuilt onto current `main` after nine unrelated commits landed during verification. The overlapping governance documents were reconciled onto the newer S052/S066 state instead of restoring stale copies. The app-unit failure from the prior head was also repaired by (1) accepting quoted-inch product text such as `96"` in the canonical normalizer and (2) matching the existing lower-case, unquoted supplier-evidence RLS migration syntax in the tenancy contract test. No Costbook scope or persistence model changed during this currency repair.
+
+## 2026-10-02 — Costbook Data Foundation reconciliation
+
+This section supersedes the older repository snapshot below for current implementation decisions. Reconnaissance was performed against `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` before implementation started. The numbered sprint queue remained unchanged: S064 was recorded `IN_REVIEW`; the Costbook data-foundation work is an explicitly founder-requested out-of-band slice and does not claim to complete or advance a numbered sprint.
+
+No open Costbook implementation PR overlapped this mission at branch start. Related stale branches were inspected rather than merged: `feature/costbook-bls-oews-ingestion-batch2` was far behind current main and its useful OEWS slice was already present on main; `feature/costbook-bls-ppi-ingestion` is separate PPI work; `ui/costbook-pricing-workspace-20261002` had no unique commits over main; and the older Costbook audit branch was not a viable implementation base. The implementation therefore extends current main on `feature/costbook-data-foundation-20261002`.
+
+### Target specification → existing implementation → action
+
+| Spec requirement | Existing TradeOS implementation | Action |
+| --- | --- | --- |
+| Canonical items | Production identity already lives in the existing `Material`/`CostItem` catalog plus `SupplierProduct.canonicalMaterialKey`; no authoritative global `canonical_item` table exists. | **MODIFY, not CREATE** — add a governed 12-item pilot key registry and deterministic matching helpers around `canonicalMaterialKey`; do not create a second catalog table. |
+| Suppliers | Existing tenant-scoped `Supplier` model, CRUD, supplier-integration review flow, and forced RLS. | **REUSE**. |
+| Supplier products | Existing `SupplierProduct` stores supplier key/SKU, MPN, package/UOM, availability, optional Material link, source file, and `canonicalMaterialKey`. | **REUSE + MODIFY behavior** — keep the table; use the new deterministic matcher to establish/review canonical keys. |
+| Supplier offers | There is no separate `SupplierOffer` model. Current MVP evidence already records product + store/market + observed prices in `SupplierPriceObservation`. | **REUSE for this MVP** — do not create an offer abstraction until an account-pricing connector (ABC/QBO or equivalent) proves the extra tier/location lifecycle is necessary. |
+| Price observations | Existing `SupplierPriceObservation` is dated, tenant-scoped, source-backed and forced-RLS protected, but the service previously upserted changes into an existing observation key. | **MODIFY** — exact replays remain idempotent; changed evidence under the same key now fails closed so price history is append-oriented. PriceResolver reads this existing evidence. |
+| Labor rates | Existing `LaborRate` is organization-specific loaded cost + bill rate. Existing BLS OEWS adapter already creates research candidates and deliberately does not populate promotable bill-rate fields. | **REUSE + MODIFY** — keep BLS as benchmark evidence/review input, add the verified core-trade mean/median set, explicit MSA → Indiana → national fallback, and transparent ECEC burden derivation. Never turn a BLS wage directly into `LaborRate.billRate`. |
+| Pricing provenance | Existing layers include research-candidate provenance, `MaterialPriceAudit`, supplier observation source/location/date/confidence fields, and Estimate source IDs/snapshots. | **MODIFY** — expose a single resolver trust contract containing source, supplier/location, observation time, confidence, freshness, observed-vs-inferred state, alternatives, and a human-readable selection reason. |
+| Assemblies | Existing `Assembly`/`AssemblyItem`, starter catalog, recursive unit-cost resolver, and S064 embedded Estimate picker are authoritative. | **REUSE** — no second assembly/version system in this slice. |
+| Estimate snapshots | Existing `EstimateLineItem.costItemId`/`assemblyId` plus persisted `unitCost` and `lineCost` already freeze consumed pricing; price history reads those snapshots separately from catalog audits. | **REUSE** — no new estimate snapshot table. |
+| Matcher infrastructure | Existing `candidateMatch.ts` analyzes researched Costbook candidates against production CostItems; supplier-product canonical matching is not implemented. | **MODIFY** — add a pure precision-first supplier-product matcher with the 0.97 auto-link / 0.88 review boundary and hard dimension conflicts; keep the research-candidate matcher intact. |
+| Tenant pricing | `SupplierProduct` and `SupplierPriceObservation` already carry `orgId`, explicit service scoping, and forced PostgreSQL RLS; the integration suite already seeds two organizations and cross-org supplier evidence. | **REUSE** — resolver queries retain explicit `orgId` and the database remains the second boundary. No shared contractor-account price pool is introduced. |
+| Costbook UI/API trust contract | Existing web Costbook client and `PricingProvenance` component distinguish ordinary catalog facts from governed research evidence, but no canonical resolved-price DTO exists. | **MODIFY** — add `GET /api/v1/costbook/pricing/resolve` and a web DTO/helper; ordinary Material rows are not silently upgraded to verified/current pricing. |
+
+### Bounded implementation decision
+
+The first slice intentionally adds **no Prisma model and no migration**. That is a result of reconciliation, not missing work: the current schema already contains the tenant-scoped supplier-product/observation evidence, Costbook catalog, labor-rate, assembly, RLS, and Estimate snapshot primitives needed to prove the vertical slice. Creating `canonical_item`, `supplier_offer`, another assembly schema, or another price-history table now would duplicate live systems.
+
+The implemented boundary is:
+
+```text
+SupplierProduct.canonicalMaterialKey
+  + immutable SupplierPriceObservation evidence
+  -> trust-first PriceResolver
+  -> /api/v1/costbook/pricing/resolve
+  -> web Costbook resolved-price DTO
+
+BLS OEWS source evidence
+  -> existing Costbook research-candidate queue
+  + explicit benchmark fallback / ECEC derivation
+  -> future organization-specific labor-pricing decision
+```
+
+The resolver's higher-trust tiers for actual purchases, negotiated/account prices, authorized local supplier data, commercial county data, and modeled values are adapter contracts only in this slice. QBO, ABC, 1build, automated retail scraping, and automatic estimate repricing are deliberately not implemented.
+
 
 ## Why this document exists
 

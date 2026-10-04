@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -11,6 +11,13 @@ related_docs:
 ---
 
 # Session Handoff
+
+## Parallel Costbook Data Foundation — 2026-10-02
+
+- Founder-authorized non-numbered implementation is isolated in PR #628.
+- The slice reuses existing Costbook supplier-product/price-observation, research-candidate, RLS, Assembly, and EstimateLineItem snapshot boundaries; it adds the 12-item canonical pilot matcher/review flow, BLS OEWS fallback + transparent ECEC inference, append-oriented supplier evidence, and PriceResolver/trust API contract.
+- It does not alter the numbered-sprint queue or the `Next Eligible Sprint` computation.
+- QBO, ABC, 1build, retail scraping, schema duplication, and live repricing of sent estimates remain outside PR #628.
 
 ## Active S053 browser certification tooling — 2026-10-02
 

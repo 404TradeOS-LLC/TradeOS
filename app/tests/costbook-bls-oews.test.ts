@@ -12,7 +12,7 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
   it("maps the contractor-trade wage slice into valid governed candidates", () => {
     const candidates = buildTerreHauteBlsOewsLaborCandidates(retrievedAt);
 
-    expect(candidates).toHaveLength(7);
+    expect(candidates).toHaveLength(10);
     for (const candidate of candidates) {
       const parsed = costbookResearchCandidateSchema.parse(candidate);
       expect(parsed.reviewStatus).toBe("candidate");
@@ -32,7 +32,7 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
   });
 
   it("locks the published May 2025 Terre Haute wage distribution and provenance", () => {
-    const expected = [
+    const percentileExpected = [
       { soc: "47-2111", p10: 21.56, p25: 24.22, p50: 37.33, p75: 43.22, p90: 47.84 },
       { soc: "47-2152", p10: 22.17, p25: 29.53, p50: 43.39, p75: 48.07, p90: 48.07 },
       { soc: "47-2031", p10: 18.72, p25: 23.77, p50: 29.12, p75: 35.55, p90: 38.75 },
@@ -42,26 +42,54 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
       { soc: "47-2211", p10: 17.73, p25: 22.71, p50: 36.44, p75: 42.77, p90: 47.39 },
     ];
 
-    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.map((row) => ({
-      soc: row.socCode,
-      p10: row.hourlyP10,
-      p25: row.hourlyP25,
-      p50: row.hourlyMedian,
-      p75: row.hourlyP75,
-      p90: row.hourlyP90,
-    }))).toEqual(expected);
-
-    const candidates = buildTerreHauteBlsOewsLaborCandidates(retrievedAt);
-    for (const [index, candidate] of candidates.entries()) {
-      const values = expected[index];
-      expect(candidate.sourceUrl).toBe(BLS_OEWS_TERRE_HAUTE_2025_SOURCE_URL);
-      expect(candidate.sourceDate).toBe("2025-05-01");
-      expect(candidate.researchNotes).toContain(`P10 $${values.p10.toFixed(2)}`);
-      expect(candidate.researchNotes).toContain(`P25 $${values.p25.toFixed(2)}`);
-      expect(candidate.researchNotes).toContain(`P50 $${values.p50.toFixed(2)}`);
-      expect(candidate.researchNotes).toContain(`P75 $${values.p75.toFixed(2)}`);
-      expect(candidate.researchNotes).toContain(`P90 $${values.p90.toFixed(2)}`);
+    for (const values of percentileExpected) {
+      const row = BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((candidate) => candidate.socCode === values.soc);
+      expect(row).toMatchObject({
+        hourlyP10: values.p10,
+        hourlyP25: values.p25,
+        hourlyMedian: values.p50,
+        hourlyP75: values.p75,
+        hourlyP90: values.p90,
+      });
+      const candidate = buildTerreHauteBlsOewsLaborCandidates(retrievedAt).find(
+        (record) => record.sourceIdentifier === `OEWS-2025-45460-${values.soc}-P50`
+      );
+      expect(candidate?.sourceUrl).toBe(BLS_OEWS_TERRE_HAUTE_2025_SOURCE_URL);
+      expect(candidate?.sourceDate).toBe("2025-05-01");
+      expect(candidate?.researchNotes).toContain(`P10 $${values.p10.toFixed(2)}`);
+      expect(candidate?.researchNotes).toContain(`P25 $${values.p25.toFixed(2)}`);
+      expect(candidate?.researchNotes).toContain(`P50 $${values.p50.toFixed(2)}`);
+      expect(candidate?.researchNotes).toContain(`P75 $${values.p75.toFixed(2)}`);
+      expect(candidate?.researchNotes).toContain(`P90 $${values.p90.toFixed(2)}`);
     }
+  });
+
+  it("adds the validated roofer, concrete-finisher, and construction-laborer mean/median observations without inventing percentiles", () => {
+    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2181")).toMatchObject({
+      employment: 80,
+      hourlyMean: 25.08,
+      hourlyMedian: 23.89,
+    });
+    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2051")).toMatchObject({
+      employment: 50,
+      hourlyMean: 27.70,
+      hourlyMedian: 28.84,
+    });
+    expect(BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2061")).toMatchObject({
+      employment: 500,
+      hourlyMean: 23.32,
+      hourlyMedian: 21.85,
+    });
+
+    const roofer = BLS_OEWS_TERRE_HAUTE_2025_WAGES.find((row) => row.socCode === "47-2181");
+    expect(roofer?.hourlyP10).toBeUndefined();
+    expect(roofer?.hourlyP90).toBeUndefined();
+  });
+
+  it("keeps the official four-county Terre Haute MSA provenance", () => {
+    expect(BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS).toBe(
+      "Terre Haute, IN Metropolitan Statistical Area (Clay, Sullivan, Vermillion, and Vigo counties)"
+    );
   });
 
   it("keeps OEWS wages benchmark-only instead of inventing a bill rate", () => {
