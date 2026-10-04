@@ -62,6 +62,14 @@ related_code:
 
 # Current State
 
+## S067 schedule → Site Visit continuity — 2026-10-04
+
+The existing Job schedule remains the sole scheduling authority. Active Project Jobs now expose a **Capture site visit** handoff from Dispatch and the Project workspace. That handoff carries only the existing Job id into the canonical Project intake route. Intake validates the requested id against the authorized Project's returned, non-archived Jobs before showing linked context or submitting it; invalid or archived context degrades explicitly to Project-only capture rather than implying a relationship.
+
+The Site Visit frontend contract now includes persisted `jobId`. `createSiteVisitAction` forwards the optional Job id through the existing backend contract, which already rejects cross-organization, wrong-Project, or archived Jobs. Successful saves revalidate Project, Dispatch, and Field reads and return to the intake workspace with the validated Job context preserved. Historical Site Visit cards disclose the linked Job when that persisted relationship exists. Project-only Site Visits remain supported.
+
+This changes no schema, Job lifecycle, scheduling/conflict rule, assignment rule, role/permission, auth/RBAC/RLS policy, GPS/route behavior, notification behavior, external-calendar integration, or financial handoff.
+
 ## Canonical entry experience parity — 2026-10-04
 
 The authenticated-login entry surface now matches the canonical TradeOS Figma entry composition without changing authentication behavior. `web/src/app/login/page.tsx` preserves the existing `loginAction`, recovery link, account-creation link, browser autocomplete, and fail-closed error presentation while replacing the generic centered Card with the approved responsive graphite/copper identity surface and direct sign-in workspace. The canonical TradeOS identity and construction-line artwork are exported as static SVG assets under `web/public/`; mobile, tablet, and desktop use their matching Figma variants. Password visibility is an explicit accessible local control only and does not alter credential submission or persistence.
