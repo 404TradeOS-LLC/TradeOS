@@ -12,6 +12,16 @@ related_docs:
 
 # Session Handoff
 
+## S067 implementation lane — 2026-10-04
+
+- Branch: `feat/s067-schedule-visit-continuity`; status `IN_REVIEW`.
+- Existing Job scheduling, assignment, reschedule, and conflict contracts remain authoritative.
+- Active staff-visible Jobs can enter the existing Project intake with `jobId`; intake validates that id against the current authorized Project response before it is submitted.
+- The Web SiteVisit DTO and create action now preserve the already-existing optional backend `SiteVisit.jobId` relation. Backend same-org/same-Project/unarchived validation is unchanged.
+- Successful linked capture refreshes Project, Dispatch, and Field reads and keeps the Job context on return. Historical Project Site Visit cards identify the linked Job when one is persisted.
+- Project-only intake remains valid. No schema/migration, new status, permission/auth/RLS, external calendar, GPS/route, notification, or second schedule model is introduced.
+- Required before `DONE`: exact-head CI/review plus retained authenticated responsive, permission/tenant-negative, persistence/reload, and schedule-refresh evidence. S056 remains the release-certification prerequisite.
+
 ## Founder-authorized Entry parity lane — 2026-10-04
 
 - Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
