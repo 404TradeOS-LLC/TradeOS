@@ -12,6 +12,15 @@ related_docs:
 
 # Session Handoff
 
+## Founder-authorized Customer → Project parity lane — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED`; runtime Customer→Project parity does not overlap the already-merged S052 certification harness or current evidence/staging lanes.
+- Branch: `feat/customer-project-canonical-continuity`; draft PR #641.
+- Customer-context Project creation now keeps the existing CRM Customer selected, reuses active ServiceAddress rows by copying the selected formatted address into `Project.siteAddress`, and explicitly preserves the boundary that no Project→ServiceAddress relationship exists.
+- **Create project** now opens the created Project workspace immediately; **Create & start estimate** reuses the existing Estimate intent/create path. Context-free Project creation and the existing Job intent remain supported.
+- No backend route, schema/migration, auth/RBAC/RLS, Customer merge, Lead persistence, or ServiceAddress ownership change is included.
+- S052 release certification remains separate and must not be marked DONE from this runtime/UI PR.
+
 ## Founder-authorized Entry parity lane — 2026-10-04
 
 - Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
