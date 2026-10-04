@@ -120,6 +120,7 @@ export function priceFreshness(
   observedAt: Date,
   now: Date = new Date()
 ): PriceFreshnessState {
+  if (observedAt.getTime() > now.getTime()) return "reject";
   const ageDays = Math.max(0, (now.getTime() - observedAt.getTime()) / 86_400_000);
   const limits = freshnessLimitDays[tier];
   if (ageDays <= limits.current) return "current";
