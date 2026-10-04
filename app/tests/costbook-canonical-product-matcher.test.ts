@@ -1,3 +1,4 @@
+import { COSTBOOK_MATCHER_PRECISION_CORPUS } from "./fixtures/costbookCanonicalMatcherPrecisionCorpus";
 import {
   COSTBOOK_PILOT_CANONICAL_ITEMS,
   matchPilotCanonicalProduct,
@@ -97,6 +98,29 @@ describe("Costbook canonical pilot matcher", () => {
       canonicalMaterialKey: "CONCRETE.MIX.80LB.BAG",
       score: 1,
     });
+  });
+
+  it("holds >= 0.99 auto-link precision across at least 200 labeled supplier cases", () => {
+    expect(COSTBOOK_MATCHER_PRECISION_CORPUS.length).toBeGreaterThanOrEqual(200);
+
+    const evaluated = COSTBOOK_MATCHER_PRECISION_CORPUS.map((sample) => ({
+      sample,
+      result: matchPilotCanonicalProduct(sample.input),
+    }));
+
+    const autoLinked = evaluated.filter(({ result }) => result.action === "AUTO_LINK");
+    const truePositive = autoLinked.filter(
+      ({ sample, result }) =>
+        sample.expectedCanonicalMaterialKey !== null &&
+        result.canonicalMaterialKey === sample.expectedCanonicalMaterialKey
+    ).length;
+    const falsePositive = autoLinked.length - truePositive;
+    const precision = autoLinked.length === 0 ? 0 : truePositive / autoLinked.length;
+
+    // Avoid a vacuous precision pass caused by sending everything to review.
+    expect(autoLinked.length).toBeGreaterThanOrEqual(100);
+    expect(falsePositive).toBeLessThanOrEqual(1);
+    expect(precision).toBeGreaterThanOrEqual(0.99);
   });
 
   it("normalizes units and common product text deterministically", () => {
