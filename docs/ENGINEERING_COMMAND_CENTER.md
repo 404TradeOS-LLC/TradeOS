@@ -314,9 +314,10 @@ PR #615 already landed the shared Universal Create route contract and most conte
 
 Current `main` already contains S061's structural implementation through merged PR #585 (`7abfabcdc38d09d4dbed08286835c95b6c6a1b52`). Do not create another Today redesign branch. The only outstanding S061 gate is its listed S060 release-certification prerequisite; a repair branch is warranted only if that evidence reproduces a concrete current-main defect.
 
-## S052 certification implementation — 2026-10-03
+## S052 certification harness merged — 2026-10-03
 
-Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; S052 is `IN_REVIEW` in draft PR #637. The bounded lane extends only the existing Beta Evidence harness. The current head implements the `s052` selector, exact-SHA requirement, owner Customer→update→ServiceAddress→duplicate/validation→Project persistence/reload assertions, dedicated synthetic admin Customer→Project proof at 1440/768/390, prepared inactive-membership denial, existing foreign Customer/Project tenant probes, and fail-closed scenario validation. Product runtime behavior is unchanged. Next: finish exact-head CI, run S052 preflight, then capture a full retained non-production run when fixtures/deployment are ready; stop if evidence would require auth/RBAC/RLS/schema/domain changes.
+Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`. The `s052` Beta Evidence harness is now on `main` and preserves the existing Customer/ServiceAddress/Project, auth, membership, and tenant-isolation contracts. Exact-head required CI, branch currency, workflow security/governance, dependency review, live-document reconciliation, and review-thread resolution passed before merge. S052 remains `IN_REVIEW` because one retained full non-production evidence run is still required. The merge-SHA production deployment was canceled and staging remains on an older SHA, so no matching approved non-production frontend is currently available; dedicated synthetic role/foreign-tenant fixture availability is also unverified through the available secret-safe integrations. Treat this as a certification-environment blocker, not a reason to reopen product implementation.
+
 
 ## S066 mobile field implementation — 2026-10-03
 
