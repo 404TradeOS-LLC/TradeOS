@@ -1024,8 +1024,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S067
-Eligibility: S067 is the lowest-numbered `READY` sprint with satisfied implementation dependencies. S052/S053/S064/S066 remain `IN_REVIEW`, S065 remains blocked by S064, and S067 has `Dependencies: none`.
-Dependencies: none. S056 is a release-certification prerequisite, not an implementation dependency.
-Overlap check: no open S067 PR or remote S067 branch was found at readiness inspection. Reuse the existing Dispatch/Job scheduling contracts and `SiteVisit.jobId`; do not create a second scheduling model.
-Startup prompt: Start S067 on a fresh implementation branch from verified current main. Preserve Job scheduling/conflict/assignment authority, connect scheduled visit context into the existing Dispatch and Project/Site Visit surfaces, persist `SiteVisit.jobId` only through the existing same-tenant/same-Project controller contract, and keep project-only intake working. Do not add schema/auth/RLS/status/provider changes or unsupported GPS/route/external-calendar behavior.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in draft PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue S067 only through PR #644; do not create a competing scheduling/visit branch. S052/S053 evidence, S064/S066 review, Costbook, and customer/project lanes remain separate.
+Startup prompt: Continue S067 through PR #644: run exact-head Web/docs/governance verification, classify and repair deterministic review findings, then finish the smallest existing-Job-based Schedule Visit creation affordance only if it can reuse the current Job creation + Dispatch scheduling path without new persistence or policy. Keep browser/permission/tenant-negative/refresh evidence and S056 as completion/release gates.
