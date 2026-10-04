@@ -37,7 +37,16 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     normalizedUnit: "EACH",
     materialFamily: "LUMBER",
     requiredPatterns: [/\b2x4\b/, /\b(8ft|96in)\b/, /\b(stud|lumber)\b/],
-    hardConflictPatterns: [/\b2x6\b/, /\b10ft\b/, /\b12ft\b/],
+    hardConflictPatterns: [
+      /\b2x6\b/,
+      /\b10ft\b/,
+      /\b12ft\b/,
+      /\bpressure treated\b/,
+      /\bpt\b/,
+      /\bsyp\b/,
+      /\bcedar\b/,
+      /\bsteel\b/,
+    ],
   },
   {
     canonicalMaterialKey: "SHEATHING.OSB.7_16IN.4X8.SHEET",
@@ -105,6 +114,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     normalizedUnit: "BUNDLE",
     materialFamily: "ROOFING",
     requiredPatterns: [/\b(shingle|shingles)\b/, /\barchitectural\b/],
+    hardConflictPatterns: [/\b(ridge cap|ridgecap|starter|metal roofing|roofing panel)\b/],
   },
   {
     canonicalMaterialKey: "PAINT.INTERIOR.WALL.GALLON",
@@ -112,6 +122,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     normalizedUnit: "GALLON",
     materialFamily: "PAINT",
     requiredPatterns: [/\bpaint\b/, /\binterior\b/],
+    hardConflictPatterns: [/\b(ceiling|primer|stain|wallpaper)\b/],
   },
   {
     canonicalMaterialKey: "ADHESIVE.CONSTRUCTION.TUBE",
