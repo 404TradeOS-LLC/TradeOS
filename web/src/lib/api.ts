@@ -83,6 +83,51 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   return body as T;
 }
 
+export type FinancialSourceStatus = "complete" | "partial" | "unavailable";
+
+export interface FinancialSourceCoverage {
+  status: FinancialSourceStatus;
+  detail: string;
+}
+
+export interface FinancialSummary {
+  generatedAt: string;
+  cashCollected: {
+    period: "current_week";
+    amount: number | null;
+    paymentCount: number | null;
+    rangeUtc: { start: string; end: string } | null;
+    timezone: { timezone: string; isFallback: boolean } | null;
+    coverage: FinancialSourceCoverage;
+  };
+  receivables: {
+    openAmount: number | null;
+    overdueAmount: number | null;
+    openInvoiceCount: number | null;
+    overdueInvoiceCount: number | null;
+    coverage: FinancialSourceCoverage;
+  };
+  unsignedOpportunity: {
+    amount: number | null;
+    proposalCount: number | null;
+    pricedProposalCount: number | null;
+    coverage: FinancialSourceCoverage;
+  };
+  projectedCommittedMargin: {
+    sellAmount: number | null;
+    costAmount: number | null;
+    grossProfit: number | null;
+    marginPct: number | null;
+    estimateCount: number | null;
+    coverage: FinancialSourceCoverage;
+  };
+  actualJobCosts: { amount: null; coverage: FinancialSourceCoverage };
+}
+
+export function getFinancialSummary(token: string) {
+  return apiFetch<FinancialSummary>("/api/v1/intelligence/financial-summary", { token });
+}
+
 export function getOrganizationSettings(token: string) {
   return apiFetch<OrganizationSettingsResponse>("/api/v1/settings", { token });
 }
@@ -388,6 +433,7 @@ export interface Project {
 
 export interface SiteVisit {
   id: string;
+  jobId: string | null;
   transcript: string | null;
   notes: string | null;
   detailsJson: {
@@ -455,6 +501,18 @@ export interface ScheduleConflict {
 export interface ScheduleConflictResult {
   conflicts: ScheduleConflict[];
   overrideAllowed: boolean;
+}
+
+export function getScheduleConflicts(
+  token: string,
+  input: { scheduledFrom: string; scheduledTo: string; technicianId?: string }
+) {
+  const query = new URLSearchParams({
+    scheduledFrom: input.scheduledFrom,
+    scheduledTo: input.scheduledTo,
+  });
+  if (input.technicianId) query.set("technicianId", input.technicianId);
+  return apiFetch<ScheduleConflictResult>(`/api/v1/schedule/conflicts?${query.toString()}`, { token });
 }
 
 export interface Estimate {
@@ -1225,6 +1283,7 @@ export interface DispatchJob {
   priority: string | null;
   scheduledStart: string | null;
   scheduledEnd: string | null;
+  archivedAt: string | null;
   project: { id: string; name: string; siteAddress: string | null } | null;
   customer: { id: string; name: string } | null;
   assignedTechnicians: DispatchJobTechnician[];

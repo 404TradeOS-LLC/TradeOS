@@ -29,6 +29,7 @@ if (hasFlag("help")) {
       "",
       "Options:",
       "  --viewport=<1440|1024|768|390>  Capture a single viewport instead of all four",
+      "  --scenario=<canonical|s052|s053> Run the normal beta flow or a bounded sprint certification scenario",
       "  --allow-mutations               Consent to creating records in the RC tenant (required to capture)",
       "  --headed                        Run the browser headed (local debugging)",
       "  --skip-isolation                Skip the tenant-isolation probe",
@@ -42,6 +43,7 @@ if (hasFlag("help")) {
       "  BETA_SMOKE_ORG_LABEL          Organization the session must belong to",
       "  BETA_RC_SUPABASE_PROJECT_REF  Non-production Supabase project ref (mutating runs)",
       "  BETA_STORAGE_STATE_PATH       Path OUTSIDE the repository for session state",
+      "  S052 only: BETA_S052_ADMIN_EMAIL / _PASSWORD and BETA_S052_INACTIVE_EMAIL / _PASSWORD",
       "",
       "See docs/testing/BETA_EVIDENCE.md for the full contract.",
     ].join("\n"),
@@ -60,6 +62,12 @@ const viewports = requestedViewport
   ? VIEWPORTS.filter((viewport) => viewport.name === requestedViewport)
   : VIEWPORTS;
 
+const scenario = flagValue("scenario") || process.env.BETA_SCENARIO || "canonical";
+if (!["canonical", "s052", "s053"].includes(scenario)) {
+  console.error(`--scenario must be canonical, s052, or s053; received "${scenario}".`);
+  process.exit(2);
+}
+
 const runId = process.env.BETA_RUN_ID || `local-${Date.now()}`;
 const storageStatePath =
   process.env.BETA_STORAGE_STATE_PATH || path.join("/tmp", `tradeos-beta-storage-state-${runId}.json`);
@@ -75,6 +83,8 @@ const baseEnv = {
   BETA_STORAGE_STATE_PATH: storageStatePath,
   BETA_EVIDENCE_DIR: evidenceDir,
   BETA_ALLOW_MUTATIONS: String(allowMutations),
+  BETA_SCENARIO: scenario,
+  BETA_REQUIRE_SHA_CORRELATION: ["s052", "s053"].includes(scenario) ? "true" : (process.env.BETA_REQUIRE_SHA_CORRELATION ?? "false"),
   BETA_STARTED_AT: process.env.BETA_STARTED_AT ?? new Date().toISOString(),
   ...(hasFlag("headed") ? { PWDEBUG: "0", BETA_HEADED: "true" } : {}),
 };
@@ -121,6 +131,10 @@ try {
 
   if (!hasFlag("skip-isolation")) {
     await runStep("tenant isolation probe", "tenant-isolation.mjs");
+  }
+
+  if (scenario === "s052") {
+    await runStep("S052 admin and inactive-membership evidence", "s052-role-evidence.mjs");
   }
 
   await runStep("validate artifacts and write metadata", "validate-artifacts.mjs", {

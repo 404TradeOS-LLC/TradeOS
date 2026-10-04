@@ -79,6 +79,8 @@ These states do not create a separate Lead model or qualification field. Once an
 
 The supported handoff after a captured Site Visit is **Create Estimate** through the existing Project-linked Estimate action. The UI does not claim Site Visit context is automatically transformed into priced line items; the visit remains attached to the Project for estimator review.
 
+Customer-context Project creation reuses the existing Customer and ServiceAddress reads rather than introducing a Project→ServiceAddress relation. When `/projects/new?customerId=...` resolves an authorized Customer, the form shows that existing CRM identity, offers its active saved ServiceAddress rows, and copies the selected formatted address into the existing `Project.siteAddress` string on create. Normal creation opens the newly created Project workspace immediately; the explicit **Create & start estimate** action reuses the existing `intent=estimate` path and Estimate Engine create route. Context-free Project creation and the existing Job create intent remain supported.
+
 Project workspace surfaces also expose the current job and field-coordination workflow for the linked project.
 
 ## Tests

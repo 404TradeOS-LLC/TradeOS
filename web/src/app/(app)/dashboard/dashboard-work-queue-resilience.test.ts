@@ -47,8 +47,15 @@ test("partial source failures remain visible to their Today sections", async () 
   assert.match(source, /proposals: staleProposalQueue\.error/);
   assert.match(source, /openInvoicesUnavailable: invoiceQueues\.openUnavailable/);
   assert.match(source, /overdueInvoicesUnavailable: invoiceQueues\.overdueUnavailable/);
-  assert.match(source, /const attentionUnavailable = Boolean\(staleProposalQueue\.error\) \|\| invoiceQueues\.overdueUnavailable/);
-  assert.match(source, /const notificationCount = attentionUnavailable \? null : staleProposalQueue\.queue\.total \+ invoiceQueues\.overdue\.total/);
+  assert.match(source, /Boolean\(staleProposalQueue\.error\)/);
+  assert.match(source, /invoiceQueues\.overdueUnavailable/);
+  assert.match(source, /Boolean\(blockedTaskQueue\.error\)/);
+  assert.match(source, /Boolean\(scheduleWindow\.conflicts\.error\)/);
+  assert.match(source, /const notificationCount = attentionUnavailable/);
+  assert.match(source, /staleProposalQueue\.queue\.total/);
+  assert.match(source, /invoiceQueues\.overdue\.total/);
+  assert.match(source, /blockedTaskQueue\.items\.length/);
+  assert.match(source, /scheduleWindow\.conflicts\.items\.length/);
 });
 
 test("organization settings failure preserves successfully loaded project data", async () => {

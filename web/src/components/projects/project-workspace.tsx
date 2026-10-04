@@ -25,7 +25,9 @@ import {
   getProposalDisplayStatus,
 } from "@/lib/document-workflow";
 import { projectStatuses, getStatusLabel } from "@/domain";
+import { getProjectFieldJobHref } from "@/lib/field-workspace";
 import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
+import { buildSiteVisitCaptureHref, canCaptureSiteVisit } from "@/lib/site-visit-continuity";
 
 type DetailedChangeOrder = ChangeOrder & { lineItems: ChangeOrderLineItem[] };
 
@@ -42,6 +44,7 @@ interface ProjectWorkspaceProps {
   changeOrders: DetailedChangeOrder[];
   tasks: ProjectTask[];
   jobs?: JobSummary[];
+  currentRole: string;
 }
 
 export async function ProjectWorkspace({
@@ -57,6 +60,7 @@ export async function ProjectWorkspace({
   changeOrders,
   tasks,
   jobs = [],
+  currentRole,
 }: ProjectWorkspaceProps) {
   const activity = buildProjectActivity({ ...project, customer, estimates, siteVisits, projectFiles, proposals, invoices, contracts, changeOrders, tasks });
   const notifications = buildProjectNotifications({ ...project, proposals, contracts, invoices });
@@ -126,20 +130,39 @@ export async function ProjectWorkspace({
                 <p className="text-sm text-muted-foreground">Read-only summary of jobs scheduled against this project.</p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {jobs.map((job) => (
-                  <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                    <div>
-                      <div className="font-medium text-foreground">
-                        {job.title} <span className="font-mono text-xs tabular-nums text-muted-foreground">#{job.jobNumber}</span>
+                {jobs.map((job) => {
+                  const fieldHref = getProjectFieldJobHref(currentRole, job);
+                  const siteVisitHref =
+                    canCaptureSiteVisit(currentRole) && job.scheduledStart && !job.archivedAt
+                      ? buildSiteVisitCaptureHref(project.id, job.id)
+                      : null;
+                  return (
+                    <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                      <div>
+                        <div className="font-medium text-foreground">
+                          {job.title} <span className="font-mono text-xs tabular-nums text-muted-foreground">#{job.jobNumber}</span>
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {job.scheduledStart ? formatDateTime(job.scheduledStart) : "Not yet scheduled"}
+                          {job.scheduledEnd ? ` – ${formatDateTime(job.scheduledEnd)}` : ""}
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {job.scheduledStart ? formatDateTime(job.scheduledStart) : "Not yet scheduled"}
-                        {job.scheduledEnd ? ` – ${formatDateTime(job.scheduledEnd)}` : ""}
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={job.status} />
+                        {siteVisitHref ? (
+                          <Link href={siteVisitHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                            Capture site visit
+                          </Link>
+                        ) : null}
+                        {fieldHref ? (
+                          <Link href={fieldHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                            Open field job
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
-                    <StatusBadge status={job.status} />
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           ) : null}
@@ -347,34 +370,44 @@ export async function ProjectWorkspace({
               }
             />
           ) : (
-            siteVisits.map((visit) => (
-              <Card key={visit.id} className="border-border/70">
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center justify-between gap-3">
-                    <span>Visit recorded {formatDateTime(visit.createdAt)}</span>
-                    <StatusBadge status={project.status} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 lg:grid-cols-2">
-                  <InfoPairs
-                    pairs={[
-                      { label: "Arrival", value: formatDateTime(visit.detailsJson?.arrivalAt ?? null) },
-                      { label: "Departure", value: formatDateTime(visit.detailsJson?.departureAt ?? null) },
-                      { label: "GPS", value: visit.detailsJson?.gps ?? "Not captured" },
-                      { label: "Confidence", value: visit.confidenceScore != null ? `${visit.confidenceScore}%` : "Not scored" },
-                    ]}
-                  />
-                  <InfoPairs
-                    pairs={[
-                      { label: "Customer notes", value: visit.detailsJson?.customerNotes ?? "No customer notes" },
-                      { label: "Materials needed", value: joinList(visit.detailsJson?.materialsNeeded) },
-                      { label: "Safety notes", value: joinList(visit.detailsJson?.safetyNotes) },
-                      { label: "Punch list", value: joinList(visit.detailsJson?.punchList) },
-                    ]}
-                  />
-                </CardContent>
-              </Card>
-            ))
+            siteVisits.map((visit) => {
+              const linkedJob = visit.jobId ? jobs.find((job) => job.id === visit.jobId) ?? null : null;
+              return (
+                <Card key={visit.id} className="border-border/70">
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                      <span>Visit recorded {formatDateTime(visit.createdAt)}</span>
+                      <StatusBadge status={project.status} />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 lg:grid-cols-2">
+                    <InfoPairs
+                      pairs={[
+                        {
+                          label: "Linked Job",
+                          value: linkedJob
+                            ? `${linkedJob.title} #${linkedJob.jobNumber}`
+                            : visit.jobId
+                              ? "Linked Job unavailable"
+                              : "Project-only visit",
+                        },
+                        { label: "Arrival", value: formatDateTime(visit.detailsJson?.arrivalAt ?? null) },
+                        { label: "Departure", value: formatDateTime(visit.detailsJson?.departureAt ?? null) },
+                        { label: "Confidence", value: visit.confidenceScore != null ? `${visit.confidenceScore}%` : "Not scored" },
+                      ]}
+                    />
+                    <InfoPairs
+                      pairs={[
+                        { label: "Customer notes", value: visit.detailsJson?.customerNotes ?? "No customer notes" },
+                        { label: "Materials needed", value: joinList(visit.detailsJson?.materialsNeeded) },
+                        { label: "Safety notes", value: joinList(visit.detailsJson?.safetyNotes) },
+                        { label: "Punch list", value: joinList(visit.detailsJson?.punchList) },
+                      ]}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
       );

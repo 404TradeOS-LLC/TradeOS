@@ -11,6 +11,17 @@ authenticated contractor workflow — customer → project → estimate → line
 pricing → save/reload → finalize → proposal → contract → invoice — safely,
 reproducibly, and legibly across desktop, small desktop, tablet, and mobile.
 
+The workflow also supports an opt-in `s052` scenario for Customer → ServiceAddress → Project certification. It is certification-only: it reuses the shipped Customer/Project contracts and requires dedicated synthetic owner, admin, inactive-membership, and foreign-tenant fixtures. Missing fixtures are **NOT READY**, never a reason to substitute a founder account or weaken tenant checks. A full S052 result must carry exact deployment-SHA correlation and explicit passing evidence for owner/admin Customer→Project persistence plus inactive-membership denial before the validator can report scenario PASS.
+
+The workflow also supports an opt-in `s053` scenario. That scenario keeps the
+canonical workflow intact but adds Scope → Athena → explicit human review →
+Estimate Engine apply evidence before the normal fixed-price line-item path. It
+asserts that draft generation and local acceptance do not create estimate lines,
+that confidence/provenance are visible, that an explicitly accepted resolved
+suggestion persists only after Apply, that authoritative pricing refreshes, and
+that the applied line survives a builder reload. The run removes only the
+S053-created synthetic line before continuing the canonical fixed-total checks.
+
 It is deliberately narrow about what counts. None of the following is beta
 evidence on its own: a Preview deployment existing, Vercel reporting READY, CI
 being green, Playwright starting, a workflow file existing, screenshots being
@@ -48,6 +59,7 @@ resolve RC target  ->  authenticate  ->  capture per viewport  ->  validate  -> 
 | Resolve | `resolve-rc-target.mjs` | Decide the RC URL once, prove it is non-production, correlate the deployment SHA |
 | Authenticate | `auth-setup.mjs` | Real login through the shipped form; validate the session; write storage state outside the repo |
 | Capture | `capture-evidence.mjs` | Drive the canonical workflow at one viewport, asserting business meaning and capturing checkpoints |
+| S052 roles | `s052-role-evidence.mjs` | For `s052` only, prove dedicated admin Customer→Project behavior at 1440/768/390 and inactive-membership denial without persisting role storage state |
 | Isolate | `tenant-isolation.mjs` | Prove the smoke identity cannot read another tenant's resources |
 | Validate | `validate-artifacts.mjs` | Verify the artifact bundle, emit `metadata.json` and the Actions summary |
 | Orchestrate | `run.mjs` | Local entrypoint (`npm run beta:evidence`) |
@@ -166,10 +178,14 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | --- | --- | --- | --- | --- |
 | `BETA_RC_SMOKE_EMAIL` | `BETA_SMOKE_EMAIL` | secret | `auth-setup.mjs` | full runs |
 | `BETA_RC_SMOKE_PASSWORD` | `BETA_SMOKE_PASSWORD` | secret | `auth-setup.mjs` | full runs |
+| `BETA_RC_S052_ADMIN_EMAIL` | `BETA_S052_ADMIN_EMAIL` | secret | `s052-role-evidence.mjs` | `s052` full runs |
+| `BETA_RC_S052_ADMIN_PASSWORD` | `BETA_S052_ADMIN_PASSWORD` | secret | `s052-role-evidence.mjs` | `s052` full runs |
+| `BETA_RC_S052_INACTIVE_EMAIL` | `BETA_S052_INACTIVE_EMAIL` | secret | `s052-role-evidence.mjs` | `s052` full runs |
+| `BETA_RC_S052_INACTIVE_PASSWORD` | `BETA_S052_INACTIVE_PASSWORD` | secret | `s052-role-evidence.mjs` | `s052` full runs |
 | `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
-| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | optional; requires `_PROJECT_ID` |
+| `BETA_RC_FOREIGN_ESTIMATE_ID` | `BETA_FOREIGN_ESTIMATE_ID` | secret | `tenant-isolation.mjs` | required for `s053`; optional otherwise; browser estimate probe also requires `_PROJECT_ID` |
 | `BETA_RC_BASE_URL` (repository variable) | `BETA_RC_BASE_URL_VARIABLE` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_URL` | `BETA_RC_DEPLOYMENT_URL` | variable | `resolve-rc-target.mjs` | optional |
 | `BETA_RC_DEPLOYMENT_SHA` | `BETA_RC_DEPLOYMENT_SHA` | variable | `resolve-rc-target.mjs` | optional |
@@ -217,6 +233,9 @@ Targeted options:
 
 ```bash
 npm run beta:evidence -- --viewport=390
+export BETA_EXPECTED_SHA="<exact deployed commit SHA>"
+npm run beta:evidence -- --scenario=s052 --allow-mutations
+npm run beta:evidence -- --scenario=s053 --allow-mutations
 npm run beta:evidence -- --headed
 npm run beta:evidence -- --skip-isolation
 npm run beta:evidence -- --help
@@ -237,9 +256,72 @@ Actions → **Beta Evidence** → Run workflow.
   and reports readiness. It never claims evidence PASS and is safe to run before
   an RC identity exists.
 - `mode: full` captures the real evidence and creates records in the RC tenant.
+- `scenario: canonical` runs the established release workflow unchanged.
+- `scenario: s052` requires dedicated synthetic owner/admin/inactive fixtures, exact SHA correlation, and explicit Customer → ServiceAddress → Project persistence/denial proof. Until those scenario artifacts pass, validation fails closed.
+- `scenario: s053` adds the review-first Athena certification checks and three extra
+  truth/viewport-validated checkpoints (`s053-setup-required`, `s053-athena-review`,
+  and `s053-athena-applied`) at every captured viewport. It forces deployment SHA
+  correlation and requires the foreign estimate fixture for draft/apply denial.
 
 Runs are serialized (`concurrency: tradeos-beta-evidence`,
 `cancel-in-progress: false`) so two evidence runs cannot corrupt each other.
+
+## S052 certification scenario
+
+The `s052` scenario certifies the already-shipped Customer / ServiceAddress / Project vertical. It does not create a new Customer model, permission policy, or merge policy.
+
+The ordinary smoke identity is the **owner** path. At the required 1440, 768, and 390 viewports it must prove:
+
+- Customer creation lands on the exact server-created Customer record;
+- Customer edits persist through navigation/reload;
+- a ServiceAddress created through the shipped Customer UI persists through reload;
+- exact normalized duplicate advice points back to the existing Customer and does not silently merge or write another record;
+- required Customer validation blocks an empty name before mutation;
+- Project creation persists the selected `customerId`, jobsite `siteAddress`, and plain-language `simpleScope`;
+- those Customer/Project values survive Project workspace reload.
+
+The scenario also runs `s052-role-evidence.mjs` with **dedicated synthetic identities**:
+
+- `BETA_RC_S052_ADMIN_EMAIL` / `BETA_RC_S052_ADMIN_PASSWORD` must resolve through `/api/proxy/settings` to the `admin` role in the same smoke organization. That identity creates its own Customer and Customer-linked Project at 1440, 768, and 390 and must pass the same responsive truth gate.
+- `BETA_RC_S052_INACTIVE_EMAIL` / `BETA_RC_S052_INACTIVE_PASSWORD` must identify a prepared account whose organization membership is inactive. The evidence is valid only when protected settings access is denied and the identity never reaches the authenticated dashboard.
+
+The generic tenant-isolation probe remains authoritative for cross-tenant resources. S052 requires **both** `BETA_RC_FOREIGN_CUSTOMER_ID` and `BETA_RC_FOREIGN_PROJECT_ID`, each belonging to a separate synthetic tenant, and both API probes must return 403/404.
+
+Missing role identities, foreign fixtures, exact SHA correlation, responsive screenshots, or any required assertion makes the scenario fail. Preflight reports missing fixtures as **NOT READY**. Do not substitute a founder/developer personal account or weaken the tenant/auth guards to make the run pass.
+
+The role script writes only masked identity metadata and synthetic record IDs to `s052-role-report.json`. It never persists admin/inactive storage state and never records credentials. Missing role fixtures, stale role reports, missing foreign Customer/Project fixtures, missing screenshots, or any failed assertion keep S052 **NOT READY**.
+
+## S053 certification scenario
+
+The `s053` scenario is intended for S053 browser certification, not for
+simulating the separate one-question clarification target that production does
+not yet implement.
+
+For every viewport it must prove:
+
+- a real authenticated estimate exists in the synthetic tenant;
+- an intentionally unmapped scope renders a blocked **Setup required** state,
+  cannot enable Apply, and creates no estimate line;
+- Athena then produces at least one resolved suggestion from one of the bounded
+  certification scopes;
+- confidence and governed provenance language are visible;
+- generating and locally accepting a suggestion leaves authoritative estimate
+  line count unchanged;
+- only an explicit Apply creates the reviewed line through the existing
+  Estimate Engine path;
+- authoritative estimate pricing changes after the applied priced item;
+- the added line survives a builder reload;
+- the S053-created line is removed before the canonical fixed-price beta flow
+  continues, so existing tax/markup assertions remain independent;
+- tenant isolation includes a POST to the foreign estimate's Athena draft route
+  and requires a 403/404 denial. The `s053` scenario therefore requires
+  `BETA_RC_FOREIGN_ESTIMATE_ID` in addition to the ordinary foreign resource fixture.
+
+If a deployment cannot produce a resolved priced suggestion, cannot prove the
+setup-required state, lacks exact deployed-SHA correlation, or cannot deny both
+foreign-estimate Athena draft and apply requests, the scenario fails. Those are
+evidence failures to investigate; the runner must not silently substitute a
+custom line or mark S053 certified.
 
 ## Viewports
 
@@ -287,6 +369,7 @@ beta-evidence/
   rc-target.json
   auth-setup-report.json
   tenant-isolation-report.json
+  s052-role-report.json          # present for s052 scenario
   1440/ screenshots/ capture-report.json workflow-records.json
   1024/ ...
   768/  ...

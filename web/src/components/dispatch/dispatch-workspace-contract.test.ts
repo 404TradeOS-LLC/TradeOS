@@ -97,6 +97,17 @@ test("Schedule views remain derived from real Jobs and conflict-aware actions", 
 });
 
 
+test("scheduled work exposes manager-gated Site Visit capture through the existing Project and Job ids", async () => {
+  const page = await readSource("../../app/(app)/dispatch/page.tsx");
+  const board = await readSource("./schedule-board.tsx");
+
+  assert.match(page, /canCaptureSiteVisit\(settings\.currentRole\)/);
+  assert.match(board, /canCaptureSiteVisits && job\.project && !job\.archivedAt/);
+  assert.match(board, /buildSiteVisitCaptureHref\(job\.project\.id, job\.id\)/);
+  assert.match(board, /Capture site visit/);
+  assert.doesNotMatch(board, /create.*site.*visit|POST.*site-visits/i);
+});
+
 test("attention queue pagination keeps an explicit queue discriminator at page one", async () => {
   const page = await readSource("../../app/(app)/dispatch/page.tsx");
 

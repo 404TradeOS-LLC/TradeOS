@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-30
+last_verified: 2026-10-03
 source_of_truth: false
 related_docs:
   - docs/SPRINT_BACKLOG.md
@@ -10,7 +10,69 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Founder-authorized Today exception lane — 2026-10-04
+
+- Branch `feat/today-real-exception-queue`; PR #643 is ready for review directly on current `main` after Customer→Project #645 and S067 #644 merged. It is no longer stacked on the closed Customer→Project branch.
+- Scope: add only persisted blocked Project Tasks and existing organization-week schedule conflicts to canonical **Needs You**.
+- Reuses `GET /api/v1/projects/tasks` and `GET /api/v1/schedule/conflicts`; no backend route/schema/RBAC/RLS change.
+- A 50-row incomplete-Task cap is treated as unavailable rather than silently undercounting blocked work. Failure of any required exception source makes the aggregate Needs You count unavailable instead of synthetic zero.
+- Pricing-verification and material-unavailable entries are deliberately not fabricated because current persisted Estimate/Project state does not expose a truthful company-wide exception source for them.
+- S061/S060 release certification status is unchanged; this is a bounded runtime continuity improvement, not a sprint-DONE claim.
+
+## S067 active implementation — 2026-10-04
+
+- Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; draft PR #644 on `feature/s067-schedule-visit-continuity` is the sole S067 implementation lane.
+- The first slice reuses the canonical Job schedule/conflict/assignment contract and existing optional `SiteVisit.jobId`: scheduled Job context can open Site Visit capture from Dispatch/Project, invalid or archived/wrong-Project Job context falls back to Project-only capture, and saved linked visits preserve that Job context.
+- Owner/admin/dispatcher receive the new capture affordance; technician CRM write behavior is unchanged. The backend same-org/same-Project/unarchived-Job controller check remains authoritative.
+- No new scheduler, persistence model, lifecycle state, schema/migration, auth/RBAC/RLS policy, GPS/route tracking, notifications, or external-calendar integration is included.
+- Continue #644 through hosted Web/docs/governance checks and review. Retained responsive, permission/tenant-negative, refresh evidence and S056 remain completion/release gates.
+
+## Founder-authorized Customer → Project parity lane — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED`; runtime Customer→Project parity does not overlap the already-merged S052 certification harness or current evidence/staging lanes.
+- Branch: `feat/customer-project-canonical-continuity`; draft PR #645.
+- Customer-context Project creation now keeps the existing CRM Customer selected, reuses active ServiceAddress rows by copying the selected formatted address into `Project.siteAddress`, and explicitly preserves the boundary that no Project→ServiceAddress relationship exists.
+- **Create project** now opens the created Project workspace immediately; **Create & start estimate** reuses the existing Estimate intent/create path. Context-free Project creation and the existing Job intent remain supported.
+- No backend route, schema/migration, auth/RBAC/RLS, Customer merge, Lead persistence, or ServiceAddress ownership change is included.
+- S052 release certification remains separate and must not be marked DONE from this runtime/UI PR.
+
 # Session Handoff
+
+# Session Handoff
+
+# Session Handoff
+
+## Founder-authorized Entry parity lane — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
+- Branch: `feat/entry-copper-identity-parity`; draft implementation PR #640.
+- Scope is presentation-only: canonical responsive graphite/copper Entry composition, exported official TradeOS identity artwork, accessible password reveal, focused Web source-contract coverage, and `CURRENT_STATE` reconciliation.
+- Existing `loginAction`, Supabase/session behavior, recovery/account routes, auth/RBAC/RLS, onboarding, and post-login routing are unchanged.
+- Local shell validation is unavailable in this connector path; exact-head hosted Web/docs/governance checks are the validation authority before merge.
+- This direct founder task does not change numbered-sprint status or authorize reopening S052/S053/S059 certification lanes.
+
+## Costbook Data Foundation — merged 2026-10-04
+
+- Founder-authorized non-numbered implementation PR #628 merged to `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`.
+- The landed slice reuses existing Costbook supplier-product/price-observation, research-candidate, RLS, Assembly, and EstimateLineItem snapshot boundaries; it adds the 12-item canonical pilot matcher/review flow, BLS OEWS fallback + transparent ECEC inference, append-oriented supplier evidence, and PriceResolver/trust API contract.
+- Exact-head PR verification and post-merge main verification passed; the merge did not alter the numbered-sprint queue or the `Next Eligible Sprint` computation.
+- QBO, ABC, 1build, retail scraping, schema duplication, and live repricing of sent estimates remain outside the landed foundation.
+
+## Active S053 browser certification tooling — 2026-10-02
+
+- Classification: `NEW_WORK_REQUIRED`; no open S053 PR/branch overlapped this certification-tooling gap when current main `8d6c8a838e8fcafe0de7049aaaed75b655d1e25f` was reconciled.
+- Branch: `test/s053-browser-certification`.
+- The existing Beta Evidence workflow gains an opt-in `s053` scenario. It keeps the canonical full workflow and adds Athena review checkpoints asserting visible confidence/provenance, no estimate-line write before explicit Apply, reviewed Estimate Engine persistence, pricing refresh, and reload persistence.
+- The scenario uses only the approved non-production synthetic tenant and existing Beta smoke authentication/data-plane guards. It does not weaken auth/RLS, introduce product writes outside the existing Estimate Engine path, or claim the one-question clarification target exists.
+- S053 remains incomplete until a full authenticated `s053` evidence run passes at the required viewports with retained artifacts. Its status is now `IN_REVIEW`; this evidence requirement remains a release gate, not a mutex on unrelated implementation.
+
+
+## Design/backlog reconciliation — 2026-10-02
+
+- Canonical Figma page enumeration is verified: all 21 documented pages exist in file `xImUa9CYUjx3Cb3zTrkfnY`; the earlier two-page metadata result was an incomplete listing path, not a file-structure defect.
+- PR #520 is merged and PR #560's estimate-assist contract is landed. S064 is now `IN_REVIEW` in draft PR #624; S053 remains a separate release-certification prerequisite and does not block continued S064 implementation.
+- S053 certification must follow its canonical backlog acceptance criteria. The one-question clarification interaction remains separate TARGET work because production lacks the persisted answer/regenerate contract needed to certify it.
+
 
 ## Nightly release repair — desktop estimate visibility, 2026-10-02
 
@@ -127,18 +189,55 @@ for the final head; no pending check is represented as passing.
 - The real phone-to-office test still requires dedicated staging worker/supervisor accounts, an assigned staging job, a protected feature-enabled Preview deployment, and a matching staging API/database path. Do not touch shared beta fixtures, enable Production, or claim live clock verification until that isolated path exists.
 - The deployed Edge Function and migration source remain outside this repository; version them before claiming complete live Team & Time certification.
 
-## Next action
+## Historical RC smoke follow-up
 
-Verify RC smoke attempt 2, publish the bounded attestation repair through normal
-CI/review, and rerun S027 against the immutable replacement frontend with expected
-staging SHA and the canonical sanitized Beta Smoke organization. Retain artifacts
-and deployment identity before/after capture. Do not claim full release
-certification from readiness or a repository merge alone.
+Earlier release-certification work called for verifying RC smoke attempt 2 and
+rerunning S027 against an immutable replacement frontend with the expected
+staging SHA and canonical sanitized Beta Smoke organization. That remains
+historical release-evidence context, not the active session instruction. The
+active resume contract is the S066 / PR #634 block at the end of this handoff.
+
+## S061 Today implementation reconciliation — 2026-10-02
+
+- Classification: `EXISTING_WORK_FOUND`; merged PR #585 already satisfies the S061 structural acceptance contract on current main.
+- Current implementation remains the single Today landing surface: `OwnerDashboardHeader` + `TodayCommandBoard`, with Now / Needs you / Coming up / Money and no lower duplicate dashboard modules.
+- S061 advances to `IN_REVIEW`, not release-certified; S060 remains its separate certification prerequisite.
+- Do not create another S061 implementation branch unless S060 evidence reproduces a current-main defect.
+
+## S062 implementation merge and S063 readiness — 2026-10-03
+
+- S062 PR #629 merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. Customer creation opens its server-created record; context-free Job intent continues through Project creation. S062 remains `IN_REVIEW` pending retained browser/permission/refresh evidence; S052/S056/S058 certification remains separate.
+- S063 reuses merged PRs #582 (Lead/Site Visit), #586 (Customer/Project), and #587 (derived CRM). Current CRM limits the visible pipeline and follow-ups, particularly mobile lanes with only their first Project, and omits existing Task ownership. Accepted Proposal handoff must link to canonical Project state; do not add another CRM persistence model.
+- Classification: `NEW_WORK_REQUIRED` only for the bounded S063 continuity gaps. No open S063 implementation PR or branch was found during this reconciliation. Repository main was `6f6a0a6567c1413c837afc86b943c1c45f5f03e0`; connector-native execution has no local worktree/dirty state. Existing CRM APIs and hosted Web CI suffice for this frontend slice; no migration or new infrastructure is required. Founder decision: NO for the bounded continuity scope. Stop if implementation requires a new assignment, conversion, proposal, or authorization policy. PR #630 merged as `28c939e405966ded5b3049f1fc64f3c3ae58ba98`; PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` after exact-head Web/docs/governance checks. S063 remains `IN_REVIEW` for retained authenticated responsive, permission/tenant-negative, and refresh evidence; no duplicate implementation branch.
+
+## S066 active implementation — 2026-10-03
+
+- Readiness PR #633 merged as `2022b1c0f266f1ef1a7afff5b2d38121b6ee49f3`; non-draft implementation PR #634 is the sole S066 implementation lane.
+- The current slice links technician-visible Project Job rows into `/field`, preserves explicit assigned-Job deep links, labels outside-today context, and keeps a directly opened authorized Job usable when the daily queue is degraded.
+- No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
+- Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
+
+## S052 certification harness merged — 2026-10-03
+
+- Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`.
+- The merged `s052` harness proves the bounded owner/admin Customer → ServiceAddress → Project contract, duplicate/validation behavior, inactive-membership and foreign-tenant denials, responsive 1440/768/390 evidence requirements, exact-SHA correlation, and fail-closed artifact validation without changing product auth/RBAC/RLS/schema/domain behavior.
+- Exact-head required CI, branch currency, Workflow security, Sprint governance, Dependency review, live documentation reconciliation, and review-thread resolution passed before merge.
+- S052 remains `IN_REVIEW`: no full retained non-production `s052` evidence run has passed. The exact-main frontend deployment for merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` is canceled and staging is older; dedicated synthetic admin/inactive and foreign-tenant fixture availability is not established by the available secret-safe integrations.
+- Do not create another S052 implementation branch. Resume only the operator-triggered evidence lane when a matching approved non-production deployment and the required dedicated synthetic fixtures are available. Stop for founder review only if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
+
+## S067 readiness — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED` for bounded scheduling/visit continuity; no open S067 PR or remote S067 branch exists.
+- Current main at readiness inspection: `a74519f68100c04f5c0c42134c21e6fb64a05e42`.
+- Existing authority: Job schedule/reschedule/conflict/assignment contracts and `/dispatch` Day/Week/Crew views. Existing `SiteVisit.jobId` already supports same-org/same-Project Job linkage in the backend.
+- Known continuity gap: current web Site Visit DTO/capture does not carry the Job link, so scheduled visit work and captured visit evidence are not yet one continuous workflow.
+- Preserve project-only intake. Do not create another scheduling table/model, new status, auth/RBAC/RLS policy, route/GPS tracking, notifications, external calendar sync, or unsupported drag-and-drop mutation.
+- S056 is a release-certification prerequisite and does not block S067 implementation.
 
 ## Next Eligible Sprint
 
-Sprint ID: S053
-Eligibility: READY in the canonical backlog; operational recovery does not start or complete this sprint.
-Dependencies: S051 is DONE.
-Overlap check: Live open PRs reviewed on 2026-09-30; no competing S053 implementation found.
-Startup prompt: Reconcile current main and complete S053 startup before implementing its bounded review, denial, and provenance evidence.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains blocked by S064.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue S067 only through PR #644; do not create another S067 implementation branch. Existing evidence, Costbook, Today, and customer/project lanes remain separate.
+Startup prompt: Continue S067 through PR #644 by running exact-head verification and repairing scoped findings. Then add only the smallest contractor-facing Schedule Visit creation affordance that reuses existing Job creation and conflict-aware Dispatch scheduling; stop if it requires a second persistence model, new status/policy, permission/auth/RLS, schema/migration, or provider integration.

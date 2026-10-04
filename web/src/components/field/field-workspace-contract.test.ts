@@ -16,7 +16,7 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(page, /prioritizeFieldJobs\(await listFieldJobs\(token, summary\.todayRangeUtc\)\)/);
   assert.match(page, /on_site: 0,[\s\S]*traveling: 1,[\s\S]*paused: 2,[\s\S]*dispatched: 3,[\s\S]*completed: 6,[\s\S]*cancelled: 7/);
   assert.match(page, /getFieldJob\(token, selectedId\)/);
-  assert.match(page, /aria-label="Today's jobs"/);
+  assert.match(page, /aria-label="Field jobs"/);
   assert.match(page, /id="current-job-heading"/);
   assert.match(page, /<section aria-labelledby="current-job-heading"/);
   assert.doesNotMatch(page, /<main aria-labelledby="current-job-heading"/);
@@ -31,6 +31,29 @@ test("field workspace is a server-authenticated technician surface over named jo
   assert.match(actions, /\/api\/v1\/jobs/);
   assert.match(actions, /notes/);
   assert.match(proxy, /"\/field\/:path\*"/);
+});
+
+test("field page delegates direct-link and degraded-list decisions to tested helpers", async () => {
+  const page = await readSource("../../app/(app)/field/page.tsx");
+
+  assert.match(page, /resolveRequestedFieldJobId\(query\.job\)/);
+  assert.match(page, /resolveSelectedFieldJobId\(query\.job, jobs\)/);
+  assert.match(page, /resolveFieldJobLoad/);
+  assert.match(page, /resolveFieldJobMembership/);
+  assert.match(page, /getFieldWorkspaceLabels/);
+  assert.match(page, /This assigned job is outside today’s list/);
+  assert.match(page, /Today’s assigned job list couldn’t load/);
+  assert.match(page, /visibleJobs\.map/);
+});
+
+test("project Job rows use the tested Field-link eligibility helper", async () => {
+  const projectPage = await readSource("../../app/(app)/projects/[id]/page.tsx");
+  const workspace = await readSource("../projects/project-workspace.tsx");
+
+  assert.match(projectPage, /currentRole=\{settings\.currentRole\}/);
+  assert.match(workspace, /currentRole: string/);
+  assert.match(workspace, /getProjectFieldJobHref\(currentRole, job\)/);
+  assert.match(workspace, /Open field job/);
 });
 
 test("field action controls remain bounded to the existing lifecycle transitions", async () => {

@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-28
+last_verified: 2026-10-03
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -60,7 +60,90 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## S053 certification hardening — 2026-10-04
+
+Finalized estimates keep contextual Athena review readable but no longer render the **Add to estimate** mutation control; the authoritative Estimate Engine already rejects line-item writes once an estimate leaves draft. S053 browser evidence also removes any run-created Athena lines in a best-effort `finally` cleanup when post-apply assertions or reload checks fail, preventing a failed viewport from contaminating later evidence or canonical pricing assertions. These are bounded certification repairs; they do not change estimate lifecycle, pricing, auth, tenant/RLS, or the separate TARGET clarification contract.
+
+## Today real exception queue expansion — 2026-10-04
+
+The canonical **Needs You** section now consumes two additional existing, persisted exception sources without turning normal progression into attention work. Organization-scoped incomplete Project Tasks are loaded through the existing `GET /api/v1/projects/tasks` contract and only persisted `status=blocked` rows enter Needs You. Manager-capable dashboard sessions also use the existing `GET /api/v1/schedule/conflicts` preview over the current organization week; each returned technician overlap links to the canonical Schedule workspace for resolution. Technician/non-manager sessions do not call the manager-only conflict preview.
+
+These sources degrade independently. If stale Proposal, overdue Invoice, blocked-task, or schedule-conflict truth is unavailable, the Today header reports the Needs You count as unavailable rather than substituting zero. The queue still excludes ordinary draft estimates, normal sent proposals, not-yet-due invoices, and other passive workflow events.
+
+No pricing-verification or material-unavailable row is synthesized by this slice. Current persisted Estimate lines retain source IDs and price snapshots but do not expose a company-wide persisted freshness/provenance exception contract sufficient to support those rows truthfully. That remains a separate domain/API requirement rather than a UI guess.
+
+## S067 scheduling and Site Visit continuity — implementation slice
+
+The bounded S067 frontend slice reuses the existing conflict-aware Job schedule
+and the existing optional `SiteVisit.jobId` persistence contract. Managers can
+open **Capture site visit** from scheduled Job context in Dispatch or the
+Project workspace. The intake route validates the requested Job against the
+Project's loaded, unarchived Jobs before rendering linked context; missing,
+archived, wrong-Project, or otherwise unavailable Job ids fall back truthfully
+to Project-only Site Visit capture. Finishing a linked visit forwards `jobId`
+through the existing Project Site Visit endpoint, preserves the Job context
+after redirect, and revalidates Project, Today, Dispatch, and Field surfaces.
+
+The Site Visit workspace continues to work without any Job query parameter.
+Technicians remain read-only for CRM/Site Visit writes; the new capture links
+use the existing owner/admin/dispatcher write-role boundary. Project Site Visit
+history now distinguishes linked Jobs from Project-only visits without creating
+another calendar or visit model.
+
+This slice changes no Job schedule/reschedule/conflict implementation, backend
+route, lifecycle state, schema/migration, role/permission, auth/RBAC/RLS policy,
+GPS/route behavior, notification system, or external-calendar integration.
+Repository verification and retained responsive/permission/tenant-negative/
+refresh evidence remain required before S067 can be called complete, and S056
+remains its separate release-certification prerequisite.
+
+## Customer → Project canonical continuity — 2026-10-04
+
+The Customer-originated Project creation path now matches the canonical S052 interaction without changing the underlying data model. `/projects/new?customerId=...` resolves the existing organization-scoped Customer record, presents its active saved ServiceAddress rows, and copies the selected formatted address into the existing `Project.siteAddress` string only. The form explicitly states that no Project→ServiceAddress relationship is created. Customer identity is preserved through a hidden server-owned form value after the scoped read rather than asking the contractor to reselect the same CRM record.
+
+Customer-context creation offers **Create project** and **Create & start estimate**. Normal creation now opens the newly created `/projects/:id` workspace immediately so persisted Customer/address/scope continuity is visible after refresh; the estimate action reuses the existing `intent=estimate` path and existing Estimate create API. Context-free Project creation and the existing Job intent remain intact. No backend route, schema, migration, auth/RBAC/RLS, Customer merge, Lead model, or ServiceAddress ownership behavior changes in this slice.
+
 # Current State
+
+# Current State
+
+# Current State
+
+## Canonical entry experience parity — 2026-10-04
+
+The authenticated-login entry surface now matches the canonical TradeOS Figma entry composition without changing authentication behavior. `web/src/app/login/page.tsx` preserves the existing `loginAction`, recovery link, account-creation link, browser autocomplete, and fail-closed error presentation while replacing the generic centered Card with the approved responsive graphite/copper identity surface and direct sign-in workspace. The canonical TradeOS identity and construction-line artwork are exported as static SVG assets under `web/public/`; mobile, tablet, and desktop use their matching Figma variants. Password visibility is an explicit accessible local control only and does not alter credential submission or persistence.
+
+This is a presentation-only frontend slice. It adds no auth/session/Supabase/RBAC/RLS/onboarding behavior, no alternate redirect path, and no new product capability. Focused source-contract coverage pins the canonical copy, responsive artwork variants, existing auth action, recovery/account links, and the absence of a parallel client authentication path.
+
+## S066 mobile field continuity — merged implementation
+
+PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a` after exact-head Web unit tests, lint, build/dependency audit, Docs consistency, Sprint governance, PR branch currency, Dependency review, Live documentation reconciliation, and Verify repository passed. The bounded S066 frontend slice connects the existing Project workspace to
+the existing assignment-scoped Field workspace without creating another Job
+surface. Technician Project views expose an **Open field job** action on the
+Job rows already returned through the forced-RLS Project read, handing the
+selected Job to `/field?job=<id>`. The Field route preserves that explicitly
+requested Job instead of silently replacing it with the first Job in today's
+assigned queue. The existing `getFieldJob` contract remains the authorization
+boundary, so an unassigned, wrong-organization, or otherwise inaccessible Job
+still fails closed. The web DTO now reflects the already-returned `archivedAt`
+field: archived Project rows do not offer the Field handoff, and an old direct
+link to an archived assigned Job renders a non-actionable error instead of
+field transition controls. Repeated `job` query parameters are normalized
+before trimming so malformed links do not crash server rendering.
+
+An authorized assigned Job outside the current organization-day list can render
+with truthful schedule context and an explicit outside-today notice. If the
+daily list fails but the explicitly opened assigned Job still loads, the
+workspace degrades locally and discloses that the list is unavailable rather
+than discarding the usable Job context.
+
+This changes no Job lifecycle transition, backend route, schema, permission,
+RBAC/RLS policy, invoice handoff, or field persistence capability. Existing
+photo/issue/change-order/offline/inventory/messaging/timekeeping exclusions
+remain in force. Retained authenticated 390/768 responsive, assignment/tenant-negative, failure,
+and refresh evidence remains required before S066 can be called complete or
+release-certified.
+
 
 ## Desktop estimate visibility repair — 2026-10-02
 
@@ -200,6 +283,7 @@ No new Lead, opportunity, qualification, Site Visit session, CRM-stage, Estimate
 - Jobs and Dispatch: job creation from the project workspace, scheduling, assignment, rescheduling, conflict handling, field-status transitions, and dispatcher work queues.
 - Team & Time staging integration: `/team-time` uses the existing signed-in Supabase session through a same-origin server route to call the staging `team-time` Edge Function. It supports assigned-job punches, breaks, manager review/correction, employee vs. subcontractor classification, and approved-hours CSV handoff. The route requires an exact same-origin `Origin`; its server-only gate requires `TEAM_TIME_ENABLED=true`, pins `TEAM_TIME_SUPABASE_PROJECT_REF` to the verified staging project, and checks that it matches the project reference in the `NEXT_PUBLIC_SUPABASE_URL` hostname. It is always disabled on Vercel Production. Staging verification on 2026-09-25 confirmed the function is active at version 4 with JWT verification and the two Team & Time migrations applied. The corresponding Edge Function and migration source are not currently versioned in this repository; this is a release blocker for production enablement. Staging has no active job assignments or Team & Time profiles yet, so live phone-to-office testing is pending. Payroll submission and location verification are not implemented or claimed.
 - Owner dashboard (contractor command center): a synthesized header status sentence (greeting + attention count + today's job count), organization work queues ("Needs attention"), a Continue Working panel surfacing each in-progress project's next non-blocking step (proposal not sent, contract needed after an accepted proposal, scheduling needed after a signed contract, invoice needed after completed field work — deliberately distinct from Needs Attention's stuck/overdue states, all derived from already-loaded project detail with no added queries), an Outstanding Money card aggregating canonical invoice `balanceDue` into total/overdue receivables with honest partial-total disclosure when the loaded invoice page doesn't cover every open invoice, KPI drill-downs, payment-backed revenue, dispatch-backed schedule, task pressure, a merged activity feed spanning task movement plus proposal/contract/invoice/site-visit milestones (`entityType: "project"` activity events), quick actions, truthful degraded states, and bounded project-detail fan-out that preserves healthy recent-project data when one detail request fails.
+- Financial Intelligence draft lane (#507): the organization-wide `billing.read` financial summary reports current-week recorded cash, exact open/overdue balances, unsigned proposal opportunity, and projected committed margin from unique accepted-proposal Estimate snapshots. Every source reports complete/partial/unavailable coverage; failed reads remain unknown instead of zero. Projected margin excludes tax and includes persisted estimate overhead; it is not actual job margin. Actual job costs remain unavailable until TradeOS persists verified labor, material, and equipment usage against jobs. The current Dashboard integration remains intentionally deferred on this draft branch so the newer Today Command Board is not replaced by the stale pre-command-board layout.
 - Brand Studio and Settings/organization operations.
 - Stripe Billing SaaS subscription foundation is implemented on PR #491: hosted Checkout for Starter/Pro/Business/Scale, 14-day trials, signed webhook synchronization, tenant-scoped billing/event persistence, a TradeOS-native entitlement resolver, Stripe billing-portal session creation, and `/settings/billing`. The server-owned catalog drives both displayed prices and checkout validation. Persisted organization-scoped attempts plus stable Stripe idempotency keys prevent duplicate Checkout sessions, while authoritative subscription hydration protects against out-of-order webhook delivery. Stripe—not the browser return URL—is authoritative for subscription state, and only `active` or `trialing` grants entitlements. The sandbox product/price catalog exists, but this is not yet a live-mode or production-deployment claim: runtime API key, webhook-signing secret, webhook endpoint registration, and a sandbox Customer Portal configuration still require environment setup and end-to-end evidence.
 - Customer portal document views and the public customer magic-link portal approved by ADR-010.
@@ -386,6 +470,10 @@ cited source, the corpus report returns 1,795 total / 0 documented / 0
 candidate-ready, and `POST .../candidates/from-knowledge` correctly rejects
 every item in the canonical corpus today. The end-to-end ready path is proven
 by deterministic fixtures, not by a claim that the research corpus is usable.
+
+### First real-source trade proven end to end: Jones & Sons Terre Haute aggregate (2026-09-14)
+
+The Costbook research pipeline now has one real cited material slice wired through the canonical candidate path: the two branch-verified Jones & Sons Terre Haute aggregate records. `app/modules/costbook/jonesAndSonsIngestion.ts` serializes ingestion per `(orgId, sourceIdentifier)` with a transaction-scoped advisory lock, checks for an existing candidate inside the same RLS-bound transaction, and creates only candidate-state rows. The operator script derives the actor from active organization membership; it never reviews or promotes records. PostgreSQL integration coverage includes same-organization concurrent ingestion, tenant isolation, review, promotion, and source/audit provenance. No live tenant population is claimed; a real operator run and human review/promotion remain separate actions. See `docs/reports/JONES_AND_SONS_TERRE_HAUTE_INGESTION_2026-09-12.md`.
 
 ## Lifecycle normalization status
 
@@ -638,7 +726,7 @@ The authenticated contractor customer detail workflow now exposes the existing s
 The owner dashboard is now the canonical Today command surface rather than a dashboard-plus-widget-stack. The page-level header identifies Today first, keeps company/freshness context secondary, and the landing route renders one four-part operational rhythm: **Now / Needs you / Coming up / Money**.
 
 - **Now** owns work already moving and normal resumable progression: today's scheduled Jobs, draft/ready Estimates, Continue Working stages, and Project-backed work that is ready to begin estimating.
-- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up and overdue Invoice action; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
+- **Needs you** is exceptions-only. It currently contains stale Proposal follow-up, overdue Invoice action, persisted blocked Project Tasks, and schedule conflicts for manager-capable sessions; ordinary draft Estimates, non-stale sent Proposals, not-yet-overdue Invoices, and normal next workflow steps do not appear there.
 - **Coming up** is sourced from real scheduled Jobs after today's organization-timezone boundary through the end of the backend-provided current-week window. It is not an unscheduled-work or Continue Working bucket.
 - **Money** is a receivables summary over canonical Invoice/payment truth. It does not create a parallel Money ledger or link to a nonexistent organization-wide Money route; overdue action stays in Needs you, with direct Invoice detail available when one is loaded.
 
@@ -681,6 +769,18 @@ Contextual Athena now labels legacy Costbook matches as “Unverified pricing”
 The starter assembly mapper now provides a read-only pre-install cost preview after every required slot is mapped. It resolves each selected same-organization Cost Item through the existing unit-cost endpoint, shows cost per assembly unit, accepts an output quantity for a job-cost estimate, and exposes loading/unavailable states. The preview does not create, mutate, or apply pricing; installation remains an explicit review-first action.
 
 
+## S064 embedded Assembly Picker — active implementation
+
+The Estimate Items picker now treats assemblies as a first-class embedded estimating choice rather than a bare search result. Installed organization assemblies can resolve their current unit cost and a bounded component preview through the existing Costbook assembly APIs; the picker shows the selected quantity's estimated job cost, persisted assembly identity, and an explicit provenance/trust note before the contractor chooses **Add**. The authoritative write remains the existing Estimate Engine line-item endpoint, and a successful add invalidates the current estimate query so Items and totals refresh in place.
+
+The same search now includes TradeOS starter assembly recipes that are not already installed. These results are explicitly labeled **Setup required** and expose the recipe slots/quantities and reviewed starter-catalog provenance. Each slot can be mapped inline to an active compatible Costbook item; duplicate or unit/type-incompatible mappings fail closed, mapped Cost Items resolve a read-only pre-install cost preview, and installation uses the existing tenant-scoped starter-catalog install contract. Installation does not write the estimate line: after install the picker converts to the real organization assembly, resolves its current assembly cost, and still requires the contractor to use the separate explicit **Add** action. TradeOS does not invent Cost Item mappings or a price. Core S064 search → setup → preview → install → explicit add → refresh behavior is now implemented on PR #624; final verification, responsive evidence, and any reproduced defects remain before completion.
+
+## Sprint execution / certification separation — 2026-10-02
+
+External browser/deployment availability is no longer a global development mutex. When a sprint's implementation is merged and repository-verified but its final authenticated evidence is blocked only by the non-production evidence environment, that sprint remains incomplete (`IN_REVIEW`) and release certification stays blocked, while independent downstream implementation may continue against the landed contract. Reproduced product defects and auth/RBAC/RLS, tenant-isolation, schema/migration, financial-correctness, or unresolved product-policy failures remain hard blockers and are not covered by this exception.
+
+Under this rule S053 remains `IN_REVIEW` until its full authenticated browser run passes; S064 is the current `READY` implementation sprint. No S053 release-certification claim is implied.
+
 ## S053 structured estimate-assist
 
 The estimate-assist frontend now stages structured scope-to-estimate drafts through the existing `/ai-estimator/draft` and `/ai-estimator/apply` contracts. Draft generation remains review-only; accepted lines retain backend review-token, draft-status, organization-target, idempotency, and Estimate Engine safeguards. Authenticated browser certification at 1440/768/390 remains pending.
@@ -699,3 +799,53 @@ This is an interim production composition, not a claim that Schedule has an appr
 The mobile technician field workspace now presents today's assigned jobs through a current-job-first mobile layout with schedule/arrival context, service address directions, job briefing, bounded lifecycle actions, equipment disclosure, and a dedicated report-back notes area. This remains a frontend refinement over the existing authenticated technician and job APIs; no new backend endpoint or data model is introduced.
 
 Current-job selection is lifecycle-aware: On site, Traveling, Paused, and Dispatched work ranks ahead of Scheduled/Unscheduled and terminal Completed/Cancelled records while preserving the server's existing schedule ordering inside a lifecycle tier. The selected-job workspace uses a section landmark inside the app shell rather than nesting a second `main`, and the dominant mobile lifecycle action is viewport-fixed above the Control Dock so it remains reachable while the technician moves through briefing and report-back content.
+
+
+## UI branch reconciliation — 2026-10-02
+
+A current-`main` reconciliation pass recovered four contractor-facing UI slices from stale branches without merging obsolete branch history:
+
+- Estimate Workspace contextual Athena suggestions remain review-first and can now be explicitly added to the current estimate; a successful acceptance refreshes the estimate Items/totals on desktop and mobile.
+- Universal Create preserves current Project context for Job, Invoice, and Change Order creation, otherwise routes through an intent-aware Project chooser; Schedule opens real unscheduled work and Ask Athena carries current page/Project context only when Athena is enabled.
+- Athena Workspace uses the focused two-column hierarchy from the later UI polish pass without replacing the recovered canonical workspace.
+- Schedule/Dispatch presents the same real Jobs and conflict-aware actions with a flatter action-workspace hierarchy rather than nested card chrome.
+
+The older `feature/ui-review-mobile-field-workspace`, `feat/canonical-athena-workspace`, and `feat/canonical-crm-workspace` branches were not merged wholesale: current `main` already contains newer Field Workspace behavior and the recovered Athena/CRM implementations from PRs #588 and #587.
+
+
+## S062 Universal Create reconciliation — 2026-10-02
+
+PR #615 merged the shared Universal Create route contract and context-aware entry routing. Current `main` now keeps existing Project context for Job, Invoice, and Change Order entry, routes context-free versions through the Project chooser, opens Schedule on the real unscheduled queue, and carries current page/Project context into Athena when enabled.
+
+S062 is implemented on `main` through merged PR #629 for the two authorized continuity gaps:
+- Customer creation now keeps the exact persisted Customer returned by the existing CRM create route and uses that server-owned id to continue into `/customers/{customerId}`; duplicate-review and tenant/auth behavior are unchanged.
+- Context-free Create → Job now preserves only the validated `job` continuation through Project creation and redirects the newly created Project into `/projects/{projectId}/jobs/new`. Estimate continuation remains unchanged, and invoice/change-order creation behavior is not broadened.
+
+The implementation reuses the existing CRM/Project APIs and Universal Create destination helper; it adds no backend route, schema, migration, auth/RBAC/RLS, billing, or payment change. Focused unit coverage pins created-Customer identity handoff and allowed new-Project continuation intents. The implementation PR merged as `6f6a0a6567c1413c837afc86b943c1c45f5f03e0` after exact-head Web/docs/governance checks passed. S062 remains `IN_REVIEW` until authenticated browser, permission/tenant-negative, and state-refresh evidence for its owned journey is retained. S052/S056/S058 remain separate release-certification prerequisites; no browser-certified release claim follows from this merge.
+
+
+## S063 CRM continuity readiness — 2026-10-03
+
+The existing Project-backed Lead and Site Visit flow (PR #582), Customer connection (PR #586), and /crm operating overview (PR #587) are already on main. S063 must extend those sources. Today /crm shows the first Project per mobile pipeline lane, up to five per desktop lane, and the first five incomplete Project Tasks. Its task DTO carries assignedTo but the overview does not show ownership. Proposal Sent and Awarded are already derived from Proposal/Project truth; CRM does not own acceptance mutations. Merged PR #631 (`b25988a11a3a4b62551f5bc3091f5fd298da6684`) implements complete bounded access/navigation, truthful existing Task ownership, and awarded-Project handoff. The branch displays all loaded follow-ups (the API read remains capped at 50), makes every loaded pipeline Project reachable on desktop/mobile, links Task rows to the Project Tasks tab, and labels Awarded links as canonical Project destinations. No new CRM persistence or lifecycle is authorized. The code is merged; authenticated browser/permission/refresh certification remains outstanding.
+
+## S061 Today structural completion reconciliation — 2026-10-02
+
+PR #585 already shipped the canonical Today page structure now present on current `main`: `OwnerDashboardHeader` plus one `TodayCommandBoard` with **Now / Needs you / Coming up / Money**. The old repeated task/activity/Knowledge/KPI/widget regions are absent, compact action rows remain the dominant interaction, and unavailable/partial data stays explicit. S061 is implementation-complete but remains `IN_REVIEW` until S060 supplies its separate live-data/multi-viewport release certification.
+
+
+## S052 Customer → Project certification harness merged — 2026-10-03
+
+The Customer/ServiceAddress/Project implementation needed for S052 remains the merged PR #586/#629 contract. Certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` after exact-head required CI, branch currency, security/governance checks, and all review conversations passed or were resolved. The bounded harness on `main` now provides the opt-in `s052` selector, exact deployed-SHA correlation, owner Customer create/update + ServiceAddress + duplicate/validation + Customer-linked Project persistence/reload assertions, synthetic admin Customer→Project evidence at 1440/768/390, inactive-membership denial, foreign Customer/Project tenant probes, and fail-closed artifact validation.
+
+S052 remains `IN_REVIEW`. No retained full non-production `s052` run has passed yet. At post-merge reconciliation the frontend deployment created for exact merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` was canceled, while the available staging frontend remained on an older SHA; dedicated synthetic admin/inactive and foreign-tenant fixture availability also cannot be established through the available secret-safe integrations. This is an external certification-evidence gap, not evidence of a product failure.
+
+
+## Costbook Data Foundation — 2026-10-02
+
+Founder-requested Costbook data-foundation work extends the existing Costbook and does not change numbered sprint status. Reconnaissance confirmed that the current Supplier, SupplierProduct, SupplierPriceObservation, LaborRate, Assembly/AssemblyItem, MaterialPriceAudit, research-candidate, and EstimateLineItem snapshot systems are the implementation base rather than targets for replacement.
+
+Merged PR #628 (`8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`) adds the 12-item canonical pilot registry around `SupplierProduct.canonicalMaterialKey`, a precision-first deterministic supplier matcher/review flow, append-oriented supplier observation imports, a pure trust-first PriceResolver, and read-only `GET /api/v1/costbook/pricing/resolve`. The resolver returns provenance, confidence, freshness, alternatives, and a reason for selection. Current regional supplier observations are conservatively classified as retail validation rather than being upgraded to account or negotiated pricing. Explicit organization filtering remains in the service query and existing forced RLS remains the database boundary.
+
+The BLS slice reuses the existing Costbook research-candidate review system. It records Terre Haute OEWS area `0045460` with Clay, Sullivan, Vermillion, and Vigo counties, expands the validated core-trade mean/median evidence without inventing missing percentiles, implements Terre Haute → Indiana → national benchmark fallback, and models June 2026 ECEC construction benefits only as an explicitly inferred national burden input. BLS evidence still cannot become a customer bill rate automatically.
+
+This slice does not add QBO, ABC, 1build, retail scraping, automatic price application, a second Costbook catalog, a second assembly model, or a second Estimate snapshot system. Existing consumed Estimate pricing remains historical through persisted EstimateLineItem values.

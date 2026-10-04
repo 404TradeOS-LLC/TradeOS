@@ -63,6 +63,20 @@ test("Site Visit form is capture-first with advanced details progressively discl
   assert.match(source, /Finish Visit/);
 });
 
+test("scheduled Job context stays attached through Site Visit capture without replacing project-only intake", async () => {
+  const intake = await readSource("../../app/(app)/projects/[id]/intake/page.tsx");
+  const form = await readSource("./site-visit-form.tsx");
+  const workspace = await readSource("./project-workspace.tsx");
+
+  assert.match(intake, /resolveSiteVisitJob\(project\.jobs, query\.job\)/);
+  assert.match(intake, /project\.siteVisits\.find\(\(visit\) => visit\.jobId === linkedJob\.id\)/);
+  assert.match(intake, /Scheduled Job context is unavailable for this Project\. This Site Visit will remain Project-only\./);
+  assert.match(intake, /<SiteVisitForm projectId=\{project\.id\} jobId=\{linkedJob\?\.id \?\? null\} \/>/);
+  assert.match(form, /jobId \? <input type="hidden" name="jobId" value=\{jobId\} \/> : null/);
+  assert.match(workspace, /buildSiteVisitCaptureHref\(project\.id, job\.id\)/);
+  assert.match(workspace, /Capture site visit/);
+});
+
 test("Site Visit intake hands off to Estimate instead of skipping to Proposal", async () => {
   const source = await readSource("../../app/(app)/projects/[id]/intake/page.tsx");
 
@@ -70,6 +84,9 @@ test("Site Visit intake hands off to Estimate instead of skipping to Proposal", 
   assert.match(source, /createEstimateAction/);
   assert.match(source, /Create Estimate/);
   assert.match(source, /Open Estimate/);
+  assert.match(source, /const latestProjectVisit = project\.siteVisits\[0\] \?\? null/);
+  assert.match(source, /\{latestEstimate \? \(/);
+  assert.match(source, /: !latestProjectVisit \? \(/);
   assert.match(source, /they are not silently converted into priced line items/);
   assert.doesNotMatch(source, /Continue to proposal draft|\/proposals\/new/);
 });

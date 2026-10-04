@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-22
+last_verified: 2026-10-03
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -15,7 +15,12 @@ related_code:
 
 # TradeOS Bible
 
-The TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
+Costbook Data Foundation reconciliation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook rather than creating a parallel pricing domain. Existing Supplier/SupplierProduct/SupplierPriceObservation, research-candidate, forced-RLS, Assembly/AssemblyItem, MaterialPriceAudit, and EstimateLineItem snapshot boundaries remain authoritative. The slice adds the 12-item canonical pilot identity/review contract, BLS OEWS benchmark fallback with explicitly inferred national ECEC benefit load, append-oriented supplier price evidence, and the trust-first PriceResolver/API contract. It does not change numbered sprint status.
+
+Governance reconciliation (2026-10-02): PR #520 is merged and PR #560's reviewed estimate-assist contract is landed. S053 remains `IN_REVIEW` until its authenticated browser certification passes, but external evidence availability is no longer a global development mutex. S064 is the active `IN_REVIEW` implementation sprint in draft PR #624. `Dependencies:` remains the mechanical implementation selector; `Release certification prerequisites:` block release/beta certification claims without freezing independent implementation when the upstream contract is already merged and repository-verified. Reproduced product defects, auth/RBAC/RLS or tenant-isolation failures, schema/migration failures, financial-correctness failures, and unresolved founder/product decisions remain hard blockers. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
+
+
+Sprint-state validation follows the same split: `Dependencies:` gate `READY` implementation eligibility, while `Release certification prerequisites:` are reference-validated but do not block `READY`. They remain release-certification constraints and must not be treated as implementation dependencies.\n\nThe TradeOS Bible is the canonical doctrine and operating index for TradeOS. It preserves why the company exists, what the product must become, how it is engineered, how work is executed, how the business grows, how founder decisions are made, and how all knowledge remains connected.
 
 The Bible does not replace live implementation evidence or detailed supporting records. It binds them into one governed knowledge system for the founder, Claude, Codex, and future contributors.
 
@@ -202,7 +207,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - One sprint runs per branch and pull request.
 - Only merged evidence may mark a sprint `DONE`.
 - Completing a sprint does not implicitly promote a `PLANNED` sprint to
-  `READY`; readiness must be explicit in the backlog after dependency and
+  `READY`; readiness must be explicit in the backlog after implementation-dependency and
   overlap checks.
 - A readiness promotion records scope, forbidden paths, named validation,
   dependency, pull-request, worktree, infrastructure, and founder-decision
@@ -210,7 +215,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 - Readiness promotion is a governance-only change that lands before the
   implementation branch; an implementation branch may not authorize its own
   sprint.
-- Open PR overlap blocks a sprint from `READY` status.
+- Open PR overlap blocks a sprint from `READY` status when it owns the same implementation scope. Parallel evidence/certification lanes do not block a separate implementation sprint unless they expose a reproduced hard product/security/data defect.
 - Every completed sprint updates its evidence and the session handoff.
 - The session handoff ends with one mechanical resume contract containing
   `Sprint ID`, `Eligibility`, `Dependencies`, `Overlap check`, and `Startup
@@ -231,7 +236,7 @@ When two documents conflict, the agent must stop and identify which truth layer 
 
 ## S026 completion reconciliation
 
-S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 is `DONE` through merged PR #538 (merge commit `49cf31ce8badf8a3440792e0f9aa7a8a01026db`). S053 is the next successor sprint and is promoted `READY` by the governance PR that reconciles the current handoff.
+S026 — Estimate line-item ordering concurrency is DONE after implementation PR #334 merged on 2026-08-25 as b53510eff86899261134f957377e1ba65b60dbe2. The bounded implementation serializes persisted EstimateLineItem.sortOrder allocation on the parent Estimate row inside the existing request-aware transaction, preserving RLS, draft-only writes, pricing snapshots, source-key idempotency, and public API shapes. S027 is DONE after authenticated rendered Costbook evidence run `#22`; S036 is DONE after implementation PR #476 merged. S051 is `DONE` through merged PR #538 (merge commit `49cf31ce8badf8a3440792e0f9aa7a8a01026db`). S053 implementation is landed and its browser certification remains `IN_REVIEW`; S064 is the active `IN_REVIEW` implementation sprint in PR #624 under the certification-decoupling rule.
 
 
 ## S028 completion reconciliation
@@ -259,7 +264,7 @@ but no current-head certification for every contractor/customer journey. The
 canonical findings are recorded in
 `docs/reports/FRONTEND_BACKEND_VERTICAL_AUDIT_2026-09-22.md`.
 
-`docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is `IN_REVIEW` in draft PR
+`docs/SPRINT_BACKLOG.md` now owns S051-S100. S051 is complete; later certification and implementation tracks may advance independently only where the backlog explicitly separates `Dependencies:` from `Release certification prerequisites:`. Historical text below records the earlier S051 review state in draft PR
 `#538`, which adds the executable connection matrix and drift checks. Static
 validation does not certify rendered browser behavior or current-head browser
 evidence. The successor definition of `DONE`
@@ -271,6 +276,38 @@ permission to bypass readiness promotion, open-PR overlap, protected decisions,
 or production-access gates.
 
 
+## S064 execution update — 2026-10-02
+
+The numbered queue now separates implementation dependencies from release-certification prerequisites where explicitly declared. S053 remains `IN_REVIEW` until its authenticated browser evidence passes; this does not claim S053 complete. S064 is `IN_REVIEW` in PR #624 because implementation has started against the Assembly Catalog mapping and review-first estimate-assist contracts already provided by PR #520 and PR #560. S064 must not weaken Estimate Engine ownership, explicit review, provenance, setup-required handling, pricing truth, or tenant isolation, and any release claim depending on S053 remains blocked until S053 reaches `DONE`.
+
 ## S053 implementation update — 2026-09-22
 
 S053 implementation is in PR #542. The current slice wires the existing structured estimate-assist draft/review/apply contract into the frontend while preserving the review-first Estimate Engine boundary. Browser certification remains pending.
+
+
+## 2026-10-02 sprint reconciliation note
+
+S062 Universal Create continuity is implemented on main through merged PR #629 (`6f6a0a6567c1413c837afc86b943c1c45f5f03e0`). It extends PR #615 only for the two authorized repairs: open the server-created Customer record and preserve context-free Job intent through Project creation into its Job workflow. S062 remains `IN_REVIEW` until retained browser, permission/tenant-negative, and refresh evidence satisfies the successor completion definition; S052/S056/S058 remain release-certification prerequisites. S063 readiness is bounded to continuity on existing Project-backed Lead, Customer, Task, Proposal, and derived CRM surfaces, without another CRM persistence model.
+
+
+## 2026-10-03 S063 implementation boundary
+
+PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` for S063 implementation. It extends the merged Project-backed Lead, Customer, and derived CRM surfaces with bounded access to loaded pipeline/follow-up records and truthful existing Task assignment. Proposal acceptance remains owned by its existing lifecycle; Awarded links open the canonical Project. No second CRM model or release-certification claim is introduced. S063 remains `IN_REVIEW` pending successor browser/permission/refresh evidence; exact-head Web/docs/governance checks and merge are complete.
+
+## 2026-10-02 S061 reconciliation note
+
+S061 Today page structural completion is already implemented on current `main` through PR #585. The canonical four-part operating rhythm is Now / Needs you / Coming up / Money, and removed dashboard duplication must not be reintroduced. S061 remains `IN_REVIEW` until S060 release certification is complete.
+
+## 2026-10-03 S066 readiness boundary
+
+Readiness is merged through PR #633 and implementation PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. See [S066 in the Sprint Backlog](SPRINT_BACKLOG.md) for the canonical status, scope, prerequisites, implementation evidence, and completion gate.
+
+
+## 2026-10-03 S052 certification boundary
+
+S052 Customer and Project vertical certification remains a certification-only lane over implementation already merged through PR #586 and continuity repair #629. Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`. The bounded `s052` Beta Evidence harness is therefore on `main`, but S052 remains `IN_REVIEW` until one retained full non-production run passes its owner/admin, Customer→ServiceAddress→Project, duplicate/validation, inactive-membership, cross-tenant, responsive, persistence/reload, and exact deployed-SHA contract. Missing matching deployment or dedicated synthetic fixtures must remain fail-closed evidence blockers and must not be converted into auth/RLS/schema/domain changes or production mutations.
+
+## 2026-10-04 S067 scheduling continuity boundary
+
+Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; draft PR #644 is the sole active S067 implementation lane. S067 remains bounded to continuity across the existing Job scheduling and Site Visit contracts. Job `scheduledStart`/`scheduledEnd`, active assignments, and the existing conflict-preview/schedule/reschedule backend remain the sole scheduling authority. A future site visit must be represented through scheduled Job work rather than a second calendar persistence model; captured Site Visit data may attach to that Job through the existing optional `SiteVisit.jobId` contract, which already enforces same-organization/same-Project unarchived-Job linkage. Project-only Site Visit capture remains valid when no Job context exists. S067 may refine existing Dispatch, Project, Field, Universal Create, and Site Visit frontend continuity, but it must not add schema/migrations, new lifecycle states, roles/permissions, auth/RBAC/RLS policy, GPS/route tracking, notifications, external-calendar sync, or a separate visit schedule model. See the Sprint Backlog for canonical status, implementation evidence, and completion gates.
+

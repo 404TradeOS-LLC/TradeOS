@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-10
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -65,6 +65,8 @@ S027's authenticated evidence workflow captures all nine Costbook routes at
 1440/1024/768/390px using the existing Beta smoke identity. Required Preview,
 deployment identity, test-tenant, mutation, and artifact controls are described
 in [COSTBOOK_S027_READINESS.md](architecture/COSTBOOK_S027_READINESS.md).
+
+The general [Beta Evidence](testing/BETA_EVIDENCE.md) workflow now retains the existing `canonical` scenario and adds an opt-in `s053` scenario for authenticated Scope → Athena → reviewed Estimate Engine certification. The S053 scenario is evidence tooling only: it does not change product behavior and does not complete S053 until a full non-production run passes.
 
 This directory is the documentation entry point for implementation truth in TradeOS.
 
@@ -205,6 +207,10 @@ The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview
 
 The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL`, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It requires matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization on the replacement immutable hostname before the authenticated RC smoke can resume.
 
+
+
+The `beta-evidence.yml` workflow is the operator-triggered non-production release-evidence lane. Its default `canonical` scenario remains unchanged; opt-in `s052` certifies the existing Customer → ServiceAddress → Project vertical with exact-SHA correlation, dedicated synthetic admin/inactive identities, responsive owner/admin artifacts, and foreign Customer/Project denial, while opt-in `s053` certifies review-first Athena estimate behavior. Scenario-specific credentials remain GitHub secrets, missing fixtures fail closed during preflight/full execution, and no scenario authorizes Production mutations or weakened tenant/auth controls. See `docs/testing/BETA_EVIDENCE.md`.
+
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
 The `s036-index-evidence.yml` workflow is the disposable PostgreSQL evidence
@@ -319,3 +325,8 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 ### GitHub Actions runtime maintenance
 
 `.github/workflows/codeql-autofix.yml` pins `actions/github-script` v9.0.0 by immutable commit SHA. Its script uses only the injected `github`, `context`, and `core` objects; it does not use CommonJS `require('@actions/github')` or redeclare the v9-injected `getOctokit` parameter. This is CI-runtime maintenance only and does not change TradeOS workload runtimes, workflow permissions, product behavior, auth/RLS, schema, or billing semantics.
+
+### Sprint governance base scope
+
+The Sprint governance workflow treats `main` as authoritative for READY/PLANNED and DONE transition-diff checks. Pull requests targeting non-main branches still run sprint-state, documentation, PR-preflight, and ownership validation; transition-specific diff classification is skipped so branch synchronization is not mistaken for a new readiness/completion promotion.
+
