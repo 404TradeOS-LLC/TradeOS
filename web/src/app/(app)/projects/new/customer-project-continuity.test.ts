@@ -18,47 +18,49 @@ async function sources() {
 test("customer-context project creation loads the existing Customer and ServiceAddress records", async () => {
   const { page, form } = await sources();
 
-  assert.match(page, /getCustomer(token, customerId)/);
-  assert.match(page, /selectedCustomer={customerContext}/);
-  assert.match(form, /selectedCustomer?: CustomerProjectContext/);
-  assert.match(form, /selectedCustomer?.serviceAddresses/);
-  assert.match(form, /find((address) => address.isPrimary)/);
-  assert.match(form, /name="customerId" value={selectedCustomer.id}/);
+  assert.ok(page.includes("getCustomer(token, customerId)"));
+  assert.ok(page.includes("selectedCustomer={customerContext}"));
+  assert.ok(form.includes("selectedCustomer?: CustomerProjectContext"));
+  assert.ok(form.includes("selectedCustomer?.serviceAddresses"));
+  assert.ok(form.includes("find((address) => address.isPrimary)"));
+  assert.ok(form.includes('name="customerId" value={selectedCustomer.id}'));
 });
 
 test("saved ServiceAddress is copied into Project.siteAddress without inventing a relationship", async () => {
   const { form, actions } = await sources();
 
-  assert.match(form, /name="siteAddress"/);
-  assert.match(form, /formatServiceAddress(preferredAddress)/);
-  assert.match(form, /copied into Project.siteAddress/);
-  assert.match(form, /no hidden Project→ServiceAddress relationship is created/);
-  assert.doesNotMatch(form, /name="serviceAddressId"/);
-  assert.doesNotMatch(actions, /serviceAddressId/);
+  assert.ok(form.includes('name="siteAddress"'));
+  assert.ok(form.includes("formatServiceAddress(preferredAddress)"));
+  assert.ok(form.includes("copied into Project.siteAddress"));
+  assert.ok(form.includes("no hidden Project→ServiceAddress relationship is created"));
+  assert.equal(form.includes('name="serviceAddressId"'), false);
+  assert.equal(actions.includes("serviceAddressId"), false);
 });
 
 test("customer-context form exposes explicit create-project and create-and-start-estimate paths", async () => {
   const { form, actions } = await sources();
 
-  assert.match(form, />Create project</);
-  assert.match(form, /name="intent"/);
-  assert.match(form, /value="estimate"/);
-  assert.match(form, /Create & start estimate/);
-  assert.match(actions, /if (createIntent === "estimate")/);
-  assert.match(actions, /redirect(`\/projects\/${projectId}\/estimates\/${estimate.id}`)/);
+  assert.ok(form.includes("Create project"));
+  assert.ok(form.includes('name="intent"'));
+  assert.ok(form.includes('value="estimate"'));
+  assert.ok(form.includes("Create & start estimate"));
+  assert.ok(actions.includes('if (createIntent === "estimate")'));
+  assert.ok(actions.includes('redirect(`/projects/${projectId}/estimates/${estimate.id}`)'));
 });
 
 test("ordinary Project creation opens the newly created workspace instead of the generic list", async () => {
   const { actions } = await sources();
 
-  assert.match(actions, /revalidatePath(`\/projects\/${projectId}`);\s*redirect(`\/projects\/${projectId}`);/);
-  assert.doesNotMatch(actions, /redirect("\/projects");\s*\n}/);
+  const projectRefresh = 'revalidatePath(`/projects/${projectId}`);';
+  const projectRedirect = 'redirect(`/projects/${projectId}`);';
+  assert.ok(actions.lastIndexOf(projectRefresh) < actions.lastIndexOf(projectRedirect));
+  assert.equal(actions.includes('redirect("/projects");'), false);
 });
 
 test("forced Universal Create intents remain preserved", async () => {
   const { form, actions } = await sources();
 
-  assert.match(form, /createIntent \? <input type="hidden" name="intent" value={createIntent}/);
-  assert.match(actions, /if (createIntent === "job")/);
-  assert.match(actions, /buildProjectIntentDestination(projectId, "job")/);
+  assert.ok(form.includes('createIntent ? <input type="hidden" name="intent" value={createIntent}'));
+  assert.ok(actions.includes('if (createIntent === "job")'));
+  assert.ok(actions.includes('buildProjectIntentDestination(projectId, "job")'));
 });
