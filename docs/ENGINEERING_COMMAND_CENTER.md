@@ -43,7 +43,7 @@ related_code:
 
 # TradeOS Engineering Command Center
 
-Costbook Data Foundation parallel lane (2026-10-02): founder-authorized non-numbered PR #628 extends the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries; it does not create a second Costbook or change the numbered-sprint selector.
+Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.
 
 S063 implementation merge (2026-10-03): PR #631 merged as `b25988a11a3a4b62551f5bc3091f5fd298da6684` and extends the existing /crm operating view so every loaded pipeline Project is reachable at mobile/desktop widths and loaded follow-ups show existing assignment and open the Project Tasks tab. No new CRM lifecycle, persistence, backend, or proposal mutation is introduced. Exact-head Web/docs/governance checks passed; responsive browser, permission/tenant-negative, and refresh certification remain pending.
 
