@@ -60,6 +60,10 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## S053 certification hardening — 2026-10-04
+
+Finalized estimates keep contextual Athena review readable but no longer render the **Add to estimate** mutation control; the authoritative Estimate Engine already rejects line-item writes once an estimate leaves draft. S053 browser evidence also removes any run-created Athena lines in a best-effort `finally` cleanup when post-apply assertions or reload checks fail, preventing a failed viewport from contaminating later evidence or canonical pricing assertions. These are bounded certification repairs; they do not change estimate lifecycle, pricing, auth, tenant/RLS, or the separate TARGET clarification contract.
+
 ## Today real exception queue expansion — 2026-10-04
 
 The canonical **Needs You** section now consumes two additional existing, persisted exception sources without turning normal progression into attention work. Organization-scoped incomplete Project Tasks are loaded through the existing `GET /api/v1/projects/tasks` contract and only persisted `status=blocked` rows enter Needs You. Manager-capable dashboard sessions also use the existing `GET /api/v1/schedule/conflicts` preview over the current organization week; each returned technician overlap links to the canonical Schedule workspace for resolution. Technician/non-manager sessions do not call the manager-only conflict preview.
