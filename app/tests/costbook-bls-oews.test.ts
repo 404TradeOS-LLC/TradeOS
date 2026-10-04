@@ -86,6 +86,12 @@ describe("BLS OEWS Terre Haute labor candidate ingestion", () => {
     expect(roofer?.hourlyP90).toBeUndefined();
   });
 
+  it("keeps the official four-county Terre Haute MSA provenance", () => {
+    expect(BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS).toBe(
+      "Terre Haute, IN Metropolitan Statistical Area (Clay, Sullivan, Vermillion, and Vigo counties)"
+    );
+  });
+
   it("keeps OEWS wages benchmark-only instead of inventing a bill rate", () => {
     const candidate = buildTerreHauteBlsOewsLaborCandidates(retrievedAt)[0];
 
