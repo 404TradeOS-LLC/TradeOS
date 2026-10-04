@@ -71,6 +71,8 @@ The staff Customer creation flow performs an advisory, same-organization exact n
 
 Customer detail returns active ServiceAddress rows already owned by the CRM service. Staff with `crm.write` can add, edit, and soft-remove those addresses through the existing organization/customer-scoped service methods. Read-only roles can view Customer/project/address information but do not receive Customer/address mutation controls.
 
+The Customer workspace's **New project** handoff preserves the selected Customer identity into the existing Project create form. That form may reuse one of the Customer's active saved ServiceAddress rows only by formatting and copying its address text into `Project.siteAddress`; ServiceAddress stays CRM-owned and no new foreign key or hidden Project relationship is implied.
+
 ## Implementation notes
 
 - Fixed a production defect (found via static audit after a matching bug crashed `PATCH /api/v1/settings` in production, see [settings-and-operations.md](settings-and-operations.md)): `addServiceAddress`/`updateServiceAddress` called `prisma.$transaction(...)` directly on the request-scoped `prisma` proxy, which throws inside any real authenticated request because `databaseSession` middleware already runs the request inside a `Prisma.TransactionClient` that has no `$transaction` method. Both now use the existing `runInDatabaseTransaction()` helper, matching the convention already used elsewhere (`jobs`, `athena-events`, `athena-memory`, `costbook`). No route contract, permission, or schema change.

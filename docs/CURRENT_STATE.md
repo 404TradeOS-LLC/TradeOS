@@ -60,6 +60,16 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Customer → Project canonical continuity — 2026-10-04
+
+The Customer-originated Project creation path now matches the canonical S052 interaction without changing the underlying data model. `/projects/new?customerId=...` resolves the existing organization-scoped Customer record, presents its active saved ServiceAddress rows, and copies the selected formatted address into the existing `Project.siteAddress` string only. The form explicitly states that no Project→ServiceAddress relationship is created. Customer identity is preserved through a hidden server-owned form value after the scoped read rather than asking the contractor to reselect the same CRM record.
+
+Customer-context creation offers **Create project** and **Create & start estimate**. Normal creation now opens the newly created `/projects/:id` workspace immediately so persisted Customer/address/scope continuity is visible after refresh; the estimate action reuses the existing `intent=estimate` path and existing Estimate create API. Context-free Project creation and the existing Job intent remain intact. No backend route, schema, migration, auth/RBAC/RLS, Customer merge, Lead model, or ServiceAddress ownership behavior changes in this slice.
+
+# Current State
+
+# Current State
+
 # Current State
 
 ## Canonical entry experience parity — 2026-10-04
