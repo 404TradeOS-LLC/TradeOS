@@ -509,12 +509,17 @@ export class AuthService {
   }
 
   private buildSessionResult(context: SessionContext, refreshToken: string): AuthSessionResult {
+    // verifyAuthToken() rejects locally minted tokens when AUTH_ISSUER /
+    // AUTH_AUDIENCE are configured but the claims are absent, so the token
+    // must carry the same values the verifier expects.
     const token = signAuthToken(
       {
         sub: context.authSubject,
         email: context.email,
         orgId: context.orgId,
         role: normalizeRole(context.role),
+        iss: process.env.AUTH_ISSUER,
+        aud: process.env.AUTH_AUDIENCE,
       },
       requireSecret()
     );
