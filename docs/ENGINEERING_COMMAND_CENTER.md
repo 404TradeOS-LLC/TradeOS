@@ -314,6 +314,12 @@ PR #615 already landed the shared Universal Create route contract and most conte
 
 Current `main` already contains S061's structural implementation through merged PR #585 (`7abfabcdc38d09d4dbed08286835c95b6c6a1b52`). Do not create another Today redesign branch. The only outstanding S061 gate is its listed S060 release-certification prerequisite; a repair branch is warranted only if that evidence reproduces a concrete current-main defect.
 
+## S052 certification harness merged — 2026-10-03
+
+Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`. The `s052` Beta Evidence harness is now on `main` and preserves the existing Customer/ServiceAddress/Project, auth, membership, and tenant-isolation contracts. Exact-head required CI, branch currency, workflow security/governance, dependency review, live-document reconciliation, and review-thread resolution passed before merge. S052 remains `IN_REVIEW` because one retained full non-production evidence run is still required. The merge-SHA production deployment was canceled and staging remains on an older SHA, so no matching approved non-production frontend is currently available; dedicated synthetic role/foreign-tenant fixture availability is also unverified through the available secret-safe integrations. Treat this as a certification-environment blocker, not a reason to reopen product implementation.
+
+
 ## S066 mobile field implementation — 2026-10-03
 
 Readiness PR #633 merged as `2022b1c0f266f1a7afff5b2d38121b6ee49f3`; implementation PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a`. S066 remains `IN_REVIEW` because retained authenticated responsive, assignment/tenant-negative, failure, and refresh evidence is still outstanding. The merged bounded slice links technician-visible Project Job rows into `/field?job=<id>`, preserves explicit assigned-Job selection, uses neutral labels when today's list cannot establish membership, rejects archived Jobs as actionable field work, and safely normalizes repeated `job` query parameters while preserving the existing assignment-scoped `getFieldJob` authorization boundary. No backend route, lifecycle, schema, permission, RLS, financial handoff, offline mode, or unsupported field mutation was added. Exact-head Web/docs/governance verification passed before merge; S057 remains a separate release-certification prerequisite.
+

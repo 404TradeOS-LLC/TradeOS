@@ -171,10 +171,18 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
 - Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
 
+## S052 certification harness merged — 2026-10-03
+
+- Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`.
+- The merged `s052` harness proves the bounded owner/admin Customer → ServiceAddress → Project contract, duplicate/validation behavior, inactive-membership and foreign-tenant denials, responsive 1440/768/390 evidence requirements, exact-SHA correlation, and fail-closed artifact validation without changing product auth/RBAC/RLS/schema/domain behavior.
+- Exact-head required CI, branch currency, Workflow security, Sprint governance, Dependency review, live documentation reconciliation, and review-thread resolution passed before merge.
+- S052 remains `IN_REVIEW`: no full retained non-production `s052` evidence run has passed. The exact-main frontend deployment for merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` is canceled and staging is older; dedicated synthetic admin/inactive and foreign-tenant fixture availability is not established by the available secret-safe integrations.
+- Do not create another S052 implementation branch. Resume only the operator-triggered evidence lane when a matching approved non-production deployment and the required dedicated synthetic fixtures are available. Stop for founder review only if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
+
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S064 and S066 are `IN_REVIEW`, while S065 remains blocked by its S064 dependency.
+Eligibility: No numbered sprint is currently `READY`; S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
 Dependencies: N/A while no sprint is eligible.
-Overlap check: S066 implementation PR #634 is merged; do not create a competing implementation branch. Only retained certification evidence or a defect reproduced by that evidence justifies further S066 code work. S053/S059/Costbook lanes remain separate.
-Startup prompt: Resume S066 only for retained authenticated 390/768 responsive, assignment/tenant-negative, failure, and refresh evidence when a suitable non-production deployment is available. Repair only a reproduced current-main defect; otherwise leave S066 `IN_REVIEW`. Do not begin another numbered sprint from this branch.
+Overlap check: S052 implementation/certification tooling is merged through #637; do not create a replacement S052 branch. Existing S053/S059/Costbook lanes remain separate.
+Startup prompt: When external S052 evidence prerequisites are available, run the merged `s052` Beta Evidence preflight against a matching approved non-production deployment, then capture one full retained matrix. Otherwise reconcile the backlog again and promote a dependency-safe PLANNED sprint only through a separate governance-only readiness mission; do not bypass the READY gate.
