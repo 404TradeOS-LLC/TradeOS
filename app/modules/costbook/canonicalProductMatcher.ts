@@ -178,7 +178,7 @@ export function normalizeSupplierProductText(input: SupplierProductForMatching):
     .replace(/type\s*[- ]?x/g, "typex")
     .replace(/nm\s*[- ]?b/g, "nmb")
     .replace(/r\s*[- ]?13/g, "r13")
-    .replace(/(\d+)\s*(?:feet|foot|ft\.?|')\b/g, (_match, feet: string) => `${Number(feet)}ft`)
+    .replace(/(\d+)\s*(?:feet|foot|ft\.?|')(?=\s|$|[^a-z0-9])/g, (_match, feet: string) => `${Number(feet)}ft`)
     .replace(/\b(\d+\/\d+)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, fraction: string) => `${fraction} `)
     .replace(/(\d+(?:\.\d+)?)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, inches: string) => `${Number(inches)}in`)
     .replace(/\b2\s*[x×]\s*4\b/g, "2x4")
