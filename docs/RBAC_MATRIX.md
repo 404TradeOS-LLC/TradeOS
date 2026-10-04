@@ -81,6 +81,7 @@ S008 changes estimate lifecycle normalization only. It does not change estimate 
 - issuing and emailing a customer portal access link remains a staff-only `documents.manage` action; delivery is a server-side side effect and grants no additional staff or portal permission
 - request headers cannot select or impersonate a tenant
 - S018 authentication hardening preserves these role boundaries. ADR-010 adds a separate non-staff customer portal principal; it is not a canonical staff role, cannot reach staff routes, and does not expand the staff permission matrix.
+- Locally issued access JWTs now carry configured `AUTH_ISSUER`/`AUTH_AUDIENCE` values so signer and verifier agree on `iss`/`aud`; this restores authentication validity only and does not add, remove, or broaden any role or permission.
 - waiting longer to acquire the request-scoped transaction changes only
   contention handling; verified JWT and organization-membership authorization
   remain enforced upstream, and the transaction-local `app.*` RLS settings
