@@ -51,10 +51,13 @@ test("customer-context form exposes explicit create-project and create-and-start
 test("ordinary Project creation opens the newly created workspace instead of the generic list", async () => {
   const { actions } = await sources();
 
-  const projectRefresh = 'revalidatePath(`/projects/${projectId}`);';
-  const projectRedirect = 'redirect(`/projects/${projectId}`);';
-  assert.ok(actions.lastIndexOf(projectRefresh) < actions.lastIndexOf(projectRedirect));
-  assert.equal(actions.includes('redirect("/projects");'), false);
+  const createProjectAction = actions.slice(
+    actions.indexOf("export async function createProjectAction"),
+    actions.indexOf("export async function updateProjectAction")
+  );
+  assert.ok(createProjectAction.includes('revalidatePath(`/projects/${projectId}`);'));
+  assert.ok(createProjectAction.includes('redirect(`/projects/${projectId}`);'));
+  assert.equal(createProjectAction.includes('redirect("/projects");'), false);
 });
 
 test("forced Universal Create intents remain preserved", async () => {
