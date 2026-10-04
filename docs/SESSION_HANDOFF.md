@@ -188,10 +188,19 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - S052 remains `IN_REVIEW`: no full retained non-production `s052` evidence run has passed. The exact-main frontend deployment for merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` is canceled and staging is older; dedicated synthetic admin/inactive and foreign-tenant fixture availability is not established by the available secret-safe integrations.
 - Do not create another S052 implementation branch. Resume only the operator-triggered evidence lane when a matching approved non-production deployment and the required dedicated synthetic fixtures are available. Stop for founder review only if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
 
+## S067 readiness — 2026-10-04
+
+- Classification: `NEW_WORK_REQUIRED` for bounded scheduling/visit continuity; no open S067 PR or remote S067 branch exists.
+- Current main at readiness inspection: `a74519f68100c04f5c0c42134c21e6fb64a05e42`.
+- Existing authority: Job schedule/reschedule/conflict/assignment contracts and `/dispatch` Day/Week/Crew views. Existing `SiteVisit.jobId` already supports same-org/same-Project Job linkage in the backend.
+- Known continuity gap: current web Site Visit DTO/capture does not carry the Job link, so scheduled visit work and captured visit evidence are not yet one continuous workflow.
+- Preserve project-only intake. Do not create another scheduling table/model, new status, auth/RBAC/RLS policy, route/GPS tracking, notifications, external calendar sync, or unsupported drag-and-drop mutation.
+- S056 is a release-certification prerequisite and does not block S067 implementation.
+
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: S052 implementation/certification tooling is merged through #637; do not create a replacement S052 branch. Existing S053/S059/Costbook lanes remain separate.
-Startup prompt: When external S052 evidence prerequisites are available, run the merged `s052` Beta Evidence preflight against a matching approved non-production deployment, then capture one full retained matrix. Otherwise reconcile the backlog again and promote a dependency-safe PLANNED sprint only through a separate governance-only readiness mission; do not bypass the READY gate.
+Sprint ID: S067
+Eligibility: `READY`; `Dependencies: none`; it is the lowest-numbered READY implementation sprint after the 2026-10-04 reconciliation.
+Dependencies: none. S056 remains a separate release-certification prerequisite.
+Overlap check: no active S067 branch/PR. Existing S052/S053 evidence lanes, S064/S066 review lanes, Costbook #628, and customer/project #641 are separate.
+Startup prompt: Create one S067 implementation branch from verified current main. Reuse canonical Job scheduling/conflict/assignment APIs and the existing `SiteVisit.jobId` link to make scheduled visit → Dispatch/Project → Site Visit capture → refreshed schedule/project/field context continuous. Keep project-only intake working and stop if a new scheduling persistence model, lifecycle state, permission/auth/RLS change, schema/migration, or provider integration is required.
