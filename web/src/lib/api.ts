@@ -433,6 +433,7 @@ export interface Project {
 
 export interface SiteVisit {
   id: string;
+  jobId: string | null;
   transcript: string | null;
   notes: string | null;
   detailsJson: {
