@@ -104,3 +104,17 @@ test("Material editor cannot switch or close while a mutation is pending", async
   const deactivateLocks = source.match(/onClick=\{\(\) => handleDeactivate\(material\.id\)\} disabled=\{saving\}/g) ?? [];
   assert.equal(deactivateLocks.length, 2, "desktop and mobile Deactivate actions must remain locked while saving");
 });
+
+
+test("resolved-price client contract carries source confidence freshness and explanation", async () => {
+  const source = await readSource("../../../lib/costbook-api.ts");
+
+  assert.match(source, /export interface CostbookResolvedPrice/);
+  assert.match(source, /selectedPrice: number/);
+  assert.match(source, /confidence: CostbookPriceConfidence/);
+  assert.match(source, /freshness: CostbookPriceFreshness/);
+  assert.match(source, /verifiedVsInferred: "observed" \| "inferred"/);
+  assert.match(source, /oneLineProvenance: string/);
+  assert.match(source, /reasonSelected: string/);
+  assert.match(source, /\/api\/v1\/costbook\/pricing\/resolve/);
+});

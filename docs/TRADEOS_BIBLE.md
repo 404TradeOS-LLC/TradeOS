@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-02
+last_verified: 2026-10-03
 source_of_truth: true
 related_code:
   - AGENTS.md
@@ -14,6 +14,8 @@ related_code:
 ---
 
 # TradeOS Bible
+
+Costbook Data Foundation reconciliation (2026-10-02): founder-authorized non-numbered PR #628 extends the existing Costbook rather than creating a parallel pricing domain. Existing Supplier/SupplierProduct/SupplierPriceObservation, research-candidate, forced-RLS, Assembly/AssemblyItem, MaterialPriceAudit, and EstimateLineItem snapshot boundaries remain authoritative. The slice adds the 12-item canonical pilot identity/review contract, BLS OEWS benchmark fallback with explicitly inferred national ECEC benefit load, append-oriented supplier price evidence, and the trust-first PriceResolver/API contract. It does not change numbered sprint status.
 
 Governance reconciliation (2026-10-02): PR #520 is merged and PR #560's reviewed estimate-assist contract is landed. S053 remains `IN_REVIEW` until its authenticated browser certification passes, but external evidence availability is no longer a global development mutex. S064 is the active `IN_REVIEW` implementation sprint in draft PR #624. `Dependencies:` remains the mechanical implementation selector; `Release certification prerequisites:` block release/beta certification claims without freezing independent implementation when the upstream contract is already merged and repository-verified. Reproduced product defects, auth/RBAC/RLS or tenant-isolation failures, schema/migration failures, financial-correctness failures, and unresolved founder/product decisions remain hard blockers. The one-question estimate clarification interaction remains a product-design target until its persisted answer/regenerate contract is implemented and governed separately.
 
@@ -308,4 +310,3 @@ S052 Customer and Project vertical certification remains a certification-only la
 ## 2026-10-04 S067 scheduling continuity boundary
 
 S067 is readiness-scoped to continuity across the existing Job scheduling and Site Visit contracts. Job `scheduledStart`/`scheduledEnd`, active assignments, and the existing conflict-preview/schedule/reschedule backend remain the sole scheduling authority. A future site visit must be represented through scheduled Job work rather than a second calendar persistence model; captured Site Visit data may attach to that Job through the existing optional `SiteVisit.jobId` contract, which already enforces same-organization/same-Project unarchived-Job linkage. Project-only Site Visit capture remains valid when no Job context exists. S067 may refine existing Dispatch, Project, Field, Universal Create, and Site Visit frontend continuity, but it must not add schema/migrations, new lifecycle states, roles/permissions, auth/RBAC/RLS policy, GPS/route tracking, notifications, external-calendar sync, or a separate visit schedule model. See the Sprint Backlog for canonical status and execution details.
-
