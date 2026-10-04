@@ -70,6 +70,7 @@ test("Today landing page no longer loads or renders duplicate dashboard modules"
 
 test("Today attention count uses unresolved human-action queues without inventing zero during outages", async () => {
   const page = await readSource("../../app/(app)/dashboard/page.tsx");
+  const board = await readSource("./today-command-board.tsx");
   const header = await readSource("./owner-dashboard-header.tsx");
 
   assert.match(page, /Boolean\(blockedTaskQueue\.error\)/);
@@ -82,6 +83,9 @@ test("Today attention count uses unresolved human-action queues without inventin
   assert.match(page, /staleBefore: staleBeforeIso/);
   assert.match(header, /Needs you · unavailable/);
   assert.match(header, /Some Needs you sources are unavailable/);
+  assert.match(page, /needsYouUnavailable=\{attentionUnavailable\}/);
+  assert.match(board, /const needsYouCount = needsYouUnavailable/);
+  assert.match(board, /count=\{needsYouCount\}/);
   assert.doesNotMatch(page, /ATTENTION_UNSIGNED_PROPOSAL_LIMIT/);
 });
 
