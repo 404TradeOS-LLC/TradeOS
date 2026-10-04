@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { DispatchJob } from "@/lib/api";
 import { formatScheduleInZone } from "@/lib/document-workflow";
+import { buildSiteVisitCaptureHref } from "@/lib/site-visit-continuity";
 import { cn } from "@/lib/utils";
 
 export type ScheduleMode = "day" | "week" | "crew";
@@ -19,6 +20,7 @@ interface ScheduleBoardProps {
   unscheduledTotal: number;
   timezone: string;
   canManageInvoiceReadiness: boolean;
+  canCaptureSiteVisits: boolean;
 }
 
 function crewGroup(job: DispatchJob): { key: string; label: string } {
@@ -80,10 +82,12 @@ function ScheduleJobCard({
   job,
   timezone,
   canManageInvoiceReadiness,
+  canCaptureSiteVisits,
 }: {
   job: DispatchJob;
   timezone: string;
   canManageInvoiceReadiness: boolean;
+  canCaptureSiteVisits: boolean;
 }) {
   return (
     <article className="border-b border-border/60 py-3 last:border-b-0">
@@ -119,7 +123,17 @@ function ScheduleJobCard({
         {job.needsAttention ? <StatusBadge status="needs_attention" /> : null}
       </div>
 
-      <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <DispatchJobActions job={job} canManageInvoiceReadiness={canManageInvoiceReadiness} />
+        {canCaptureSiteVisits && job.project && !job.archivedAt ? (
+          <Link
+            href={buildSiteVisitCaptureHref(job.project.id, job.id)}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Capture site visit
+          </Link>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -161,6 +175,7 @@ export function ScheduleBoard({
   unscheduledTotal,
   timezone,
   canManageInvoiceReadiness,
+  canCaptureSiteVisits,
 }: ScheduleBoardProps) {
   const groups = groupJobs(scheduledJobs, mode, timezone);
   const visibleUnscheduledJobs = unscheduledJobs.slice(0, 6);
@@ -242,6 +257,7 @@ export function ScheduleBoard({
                       job={job}
                       timezone={timezone}
                       canManageInvoiceReadiness={canManageInvoiceReadiness}
+                      canCaptureSiteVisits={canCaptureSiteVisits}
                     />
                   ))}
                 </div>

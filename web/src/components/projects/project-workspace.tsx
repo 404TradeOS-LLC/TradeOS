@@ -27,6 +27,7 @@ import {
 import { projectStatuses, getStatusLabel } from "@/domain";
 import { getProjectFieldJobHref } from "@/lib/field-workspace";
 import { buildProjectFileAccessUrl } from "@/lib/project-file-access";
+import { buildSiteVisitCaptureHref, canCaptureSiteVisit } from "@/lib/site-visit-continuity";
 
 type DetailedChangeOrder = ChangeOrder & { lineItems: ChangeOrderLineItem[] };
 
@@ -131,6 +132,10 @@ export async function ProjectWorkspace({
               <CardContent className="space-y-3">
                 {jobs.map((job) => {
                   const fieldHref = getProjectFieldJobHref(currentRole, job);
+                  const siteVisitHref =
+                    canCaptureSiteVisit(currentRole) && job.scheduledStart && !job.archivedAt
+                      ? buildSiteVisitCaptureHref(project.id, job.id)
+                      : null;
                   return (
                     <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
                       <div>
@@ -144,6 +149,11 @@ export async function ProjectWorkspace({
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusBadge status={job.status} />
+                        {siteVisitHref ? (
+                          <Link href={siteVisitHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                            Capture site visit
+                          </Link>
+                        ) : null}
                         {fieldHref ? (
                           <Link href={fieldHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
                             Open field job
@@ -360,34 +370,44 @@ export async function ProjectWorkspace({
               }
             />
           ) : (
-            siteVisits.map((visit) => (
-              <Card key={visit.id} className="border-border/70">
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center justify-between gap-3">
-                    <span>Visit recorded {formatDateTime(visit.createdAt)}</span>
-                    <StatusBadge status={project.status} />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 lg:grid-cols-2">
-                  <InfoPairs
-                    pairs={[
-                      { label: "Arrival", value: formatDateTime(visit.detailsJson?.arrivalAt ?? null) },
-                      { label: "Departure", value: formatDateTime(visit.detailsJson?.departureAt ?? null) },
-                      { label: "GPS", value: visit.detailsJson?.gps ?? "Not captured" },
-                      { label: "Confidence", value: visit.confidenceScore != null ? `${visit.confidenceScore}%` : "Not scored" },
-                    ]}
-                  />
-                  <InfoPairs
-                    pairs={[
-                      { label: "Customer notes", value: visit.detailsJson?.customerNotes ?? "No customer notes" },
-                      { label: "Materials needed", value: joinList(visit.detailsJson?.materialsNeeded) },
-                      { label: "Safety notes", value: joinList(visit.detailsJson?.safetyNotes) },
-                      { label: "Punch list", value: joinList(visit.detailsJson?.punchList) },
-                    ]}
-                  />
-                </CardContent>
-              </Card>
-            ))
+            siteVisits.map((visit) => {
+              const linkedJob = visit.jobId ? jobs.find((job) => job.id === visit.jobId) ?? null : null;
+              return (
+                <Card key={visit.id} className="border-border/70">
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+                      <span>Visit recorded {formatDateTime(visit.createdAt)}</span>
+                      <StatusBadge status={project.status} />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 lg:grid-cols-2">
+                    <InfoPairs
+                      pairs={[
+                        {
+                          label: "Linked Job",
+                          value: linkedJob
+                            ? `${linkedJob.title} #${linkedJob.jobNumber}`
+                            : visit.jobId
+                              ? "Linked Job unavailable"
+                              : "Project-only visit",
+                        },
+                        { label: "Arrival", value: formatDateTime(visit.detailsJson?.arrivalAt ?? null) },
+                        { label: "Departure", value: formatDateTime(visit.detailsJson?.departureAt ?? null) },
+                        { label: "Confidence", value: visit.confidenceScore != null ? `${visit.confidenceScore}%` : "Not scored" },
+                      ]}
+                    />
+                    <InfoPairs
+                      pairs={[
+                        { label: "Customer notes", value: visit.detailsJson?.customerNotes ?? "No customer notes" },
+                        { label: "Materials needed", value: joinList(visit.detailsJson?.materialsNeeded) },
+                        { label: "Safety notes", value: joinList(visit.detailsJson?.safetyNotes) },
+                        { label: "Punch list", value: joinList(visit.detailsJson?.punchList) },
+                      ]}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
       );

@@ -30,6 +30,17 @@ test("storage-mutating project actions require a server-side session before side
   }
 });
 
+test("Site Visit action forwards optional Job context and preserves it after save", () => {
+  const source = readCreateSiteVisitActionSource();
+
+  assert.match(source, /const jobId = String\(formData\.get\("jobId"\) \?\? ""\)\.trim\(\)/);
+  assert.match(source, /jobId: jobId \|\| undefined/);
+  assert.match(source, /revalidatePath\("\/dashboard"\)/);
+  assert.match(source, /revalidatePath\("\/dispatch"\)/);
+  assert.match(source, /revalidatePath\("\/field"\)/);
+  assert.match(source, /redirect\(jobId \? \`\/projects\/\$\{projectId\}\/intake\?job=\$\{encodeURIComponent\(jobId\)\}\`/);
+});
+
 test("site-photo intake tracks persisted metadata ids so partial writes can be compensated", () => {
   const source = readCreateSiteVisitActionSource();
 

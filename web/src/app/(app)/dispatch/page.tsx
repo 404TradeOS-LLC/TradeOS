@@ -19,6 +19,7 @@ import {
   type DispatchSummary,
 } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { canCaptureSiteVisit } from "@/lib/site-visit-continuity";
 
 export const metadata: Metadata = {
   title: "Schedule | TradeOS",
@@ -72,6 +73,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   let summary: DispatchSummary | null = null;
   let loadError: string | null = null;
   let canManageInvoiceReadiness = false;
+  let canCaptureSiteVisits = false;
   let activity: Awaited<ReturnType<typeof listActivityEvents>> = [];
   let activityError: string | null = null;
 
@@ -87,6 +89,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
       const [dispatchSummary, settings] = await Promise.all([getDispatchSummary(token), getOrganizationSettings(token)]);
       summary = dispatchSummary;
       canManageInvoiceReadiness = ["owner", "admin", "dispatcher"].includes(settings.currentRole);
+      canCaptureSiteVisits = canCaptureSiteVisit(settings.currentRole);
 
       if (scheduleMode) {
         const range = scheduleMode === "day" ? dispatchSummary.todayRangeUtc : dispatchSummary.weekRangeUtc;
@@ -188,6 +191,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
           unscheduledTotal={unscheduledTotal}
           timezone={summary.timezone.value}
           canManageInvoiceReadiness={canManageInvoiceReadiness}
+          canCaptureSiteVisits={canCaptureSiteVisits}
         />
       ) : (
         <>
