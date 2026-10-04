@@ -62,6 +62,12 @@ related_code:
 
 # Current State
 
+## Customer → Project canonical continuity — 2026-10-04
+
+The Customer-originated Project creation path now matches the canonical S052 interaction without changing the underlying data model. `/projects/new?customerId=...` resolves the existing organization-scoped Customer record, presents its active saved ServiceAddress rows, and copies the selected formatted address into the existing `Project.siteAddress` string only. The form explicitly states that no Project→ServiceAddress relationship is created. Customer identity is preserved through a hidden server-owned form value after the scoped read rather than asking the contractor to reselect the same CRM record.
+
+Customer-context creation offers **Create project** and **Create & start estimate**. Normal creation now opens the newly created `/projects/:id` workspace immediately so persisted Customer/address/scope continuity is visible after refresh; the estimate action reuses the existing `intent=estimate` path and existing Estimate create API. Context-free Project creation and the existing Job intent remain intact. No backend route, schema, migration, auth/RBAC/RLS, Customer merge, Lead model, or ServiceAddress ownership behavior changes in this slice.
+
 ## Canonical entry experience parity — 2026-10-04
 
 The authenticated-login entry surface now matches the canonical TradeOS Figma entry composition without changing authentication behavior. `web/src/app/login/page.tsx` preserves the existing `loginAction`, recovery link, account-creation link, browser autocomplete, and fail-closed error presentation while replacing the generic centered Card with the approved responsive graphite/copper identity surface and direct sign-in workspace. The canonical TradeOS identity and construction-line artwork are exported as static SVG assets under `web/public/`; mobile, tablet, and desktop use their matching Figma variants. Password visibility is an explicit accessible local control only and does not alter credential submission or persistence.
