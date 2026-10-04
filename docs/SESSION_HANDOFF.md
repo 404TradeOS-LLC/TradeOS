@@ -15,7 +15,7 @@ related_docs:
 ## Founder-authorized Entry parity lane — 2026-10-04
 
 - Classification: `NEW_WORK_REQUIRED`; current `main` was reconciled at `de2376c727054e08e4702355e67a0cb836c4e33e` and no open PR/branch overlapped login/entry presentation.
-- Branch: `feat/entry-copper-identity-parity`.
+- Branch: `feat/entry-copper-identity-parity`; draft implementation PR #640.
 - Scope is presentation-only: canonical responsive graphite/copper Entry composition, exported official TradeOS identity artwork, accessible password reveal, focused Web source-contract coverage, and `CURRENT_STATE` reconciliation.
 - Existing `loginAction`, Supabase/session behavior, recovery/account routes, auth/RBAC/RLS, onboarding, and post-login routing are unchanged.
 - Local shell validation is unavailable in this connector path; exact-head hosted Web/docs/governance checks are the validation authority before merge.
