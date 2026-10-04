@@ -72,6 +72,24 @@ describe("Costbook PriceResolver", () => {
     expect(priceFreshness("AUTHORIZED_LOCAL_SUPPLIER_PRICE", new Date("2026-09-22T12:00:00.000Z"), now)).toBe("warn");
   });
 
+  it("rejects future-dated evidence instead of treating it as current", () => {
+    const future = new Date("2126-10-02T12:00:00.000Z");
+    expect(priceFreshness("RECENT_RETAIL_VALIDATION", future, now)).toBe("reject");
+
+    const resolved = resolvePrice({
+      tenantId: "org-a",
+      canonicalMaterialKey: base.canonicalMaterialKey,
+      now,
+      candidates: [
+        { ...base, id: "future", price: 1, observedAt: future },
+        { ...base, id: "valid", price: 4.25 },
+      ],
+    });
+
+    expect(resolved?.selectedPrice).toBe(4.25);
+    expect(resolved?.alternatives).toHaveLength(0);
+  });
+
   it("marks inferred selections in the trust response", () => {
     const resolved = resolvePrice({
       tenantId: "org-a",
