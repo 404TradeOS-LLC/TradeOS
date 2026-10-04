@@ -113,6 +113,44 @@ describe("CostbookPricingService", () => {
     });
   });
 
+  it("never pairs a raw package price with a normalized unit", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-case",
+      normalizedUnitPrice: null,
+      effectivePrice: 100,
+      salePrice: null,
+      regularPrice: 110,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "CASE",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/case",
+      supplierProduct: {
+        purchaseUnit: "CASE",
+        supplier: { id: "supplier-1", name: "Example Supplier" },
+      },
+    }]);
+
+    const service = new CostbookPricingService();
+    await expect(service.resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "ADHESIVE.CONSTRUCTION.TUBE",
+      unit: "CASE",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toMatchObject({
+      selectedPrice: 100,
+      unit: "CASE",
+    });
+
+    await expect(service.resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "ADHESIVE.CONSTRUCTION.TUBE",
+      unit: "EACH",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
+  });
+
   it("returns no resolved price when the tenant has no eligible evidence", async () => {
     mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([]);
     await expect(new CostbookPricingService().resolveCanonicalPrice("org-a", {
