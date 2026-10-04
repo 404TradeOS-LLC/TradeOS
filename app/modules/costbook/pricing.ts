@@ -130,9 +130,16 @@ export class CostbookPricingService {
       postalCode: input.postalCode,
       now: input.now,
       candidates: rows.flatMap((row) => {
-        const price = row.normalizedUnitPrice ?? row.effectivePrice ?? row.salePrice ?? row.regularPrice;
+        const normalizedPairAvailable = row.normalizedUnitPrice !== null && Boolean(row.normalizedUnit?.trim());
+        const price = normalizedPairAvailable
+          ? row.normalizedUnitPrice
+          : row.effectivePrice ?? row.salePrice ?? row.regularPrice;
         if (price === null) return [];
-        const unit = normalizeCostbookUnit(row.normalizedUnit ?? row.purchaseUnit ?? row.supplierProduct.purchaseUnit);
+        const unit = normalizeCostbookUnit(
+          normalizedPairAvailable
+            ? row.normalizedUnit
+            : row.purchaseUnit ?? row.supplierProduct.purchaseUnit
+        );
         return [{
           id: row.id,
           canonicalMaterialKey: input.canonicalMaterialKey,
