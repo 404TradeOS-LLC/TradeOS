@@ -7,7 +7,7 @@
 - Reference period: May 2025
 - Geography: Terre Haute, IN Metropolitan Statistical Area
 - Area code: `0045460` (CBSA 45460)
-- Counties: Vigo, Sullivan, and Vermillion
+- Counties: Clay, Sullivan, Vermillion, and Vigo
 - BLS release: `https://www.bls.gov/regions/midwest/news-release/2026/occupationalemploymentandwages_terrehaute_20260710.htm`
 - BLS release date: 2026-07-10
 
