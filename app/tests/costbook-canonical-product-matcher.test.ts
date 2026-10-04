@@ -62,6 +62,25 @@ describe("Costbook canonical pilot matcher", () => {
     expect(result.rationale).toContain("purchase unit BOX conflicts with canonical unit COIL");
   });
 
+  it("does not auto-link board insulation as R-13 fiberglass insulation", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "R-13 board insulation",
+    });
+    expect(result.action).toBe("CREATE_NEW_CANDIDATE");
+    expect(result.canonicalMaterialKey).toBeNull();
+  });
+
+  it("routes incomplete R-13 insulation subtype evidence to review", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "R-13 insulation",
+    });
+    expect(result).toMatchObject({
+      action: "HUMAN_REVIEW",
+      canonicalMaterialKey: "INSULATION.FIBERGLASS.R13.BATT",
+      score: 0.9,
+    });
+  });
+
   it("fails closed on a dimension conflict instead of fuzzy-linking 2x6 as 2x4", () => {
     const result = matchPilotCanonicalProduct({ name: "2x6 x 8 ft SPF stud" });
     expect(result.action).toBe("CREATE_NEW_CANDIDATE");
