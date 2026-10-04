@@ -169,6 +169,10 @@ Last reconciled on 2026-09-22 for the merged private-storage hardening and the r
 
 TradeOS is in RC1 hardening. The active posture is production readiness, lifecycle consistency, contractor-facing usability, tenant-boundary verification, and retained release evidence rather than MVP planning.
 
+## Local-development authentication fallback — 2026-10-04
+
+Local development can run the existing backend local-auth session contract without a configured Supabase project. Login goes directly to the backend local-auth endpoint when the public Supabase URL/key are absent; session reads and the protected-route proxy fail closed when neither a usable local session nor Supabase configuration exists; logout clears/revokes the local session and skips Supabase sign-out when Supabase is not configured. When Supabase is configured, the normal Supabase authentication path is unchanged. This is a local-development compatibility repair, not a production auth bypass or RBAC/RLS change.
+
 ## Authenticated shell and navigation
 
 - The authenticated web shell uses a shared 404TradeOS copper token system and

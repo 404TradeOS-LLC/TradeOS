@@ -197,12 +197,39 @@ export async function acceptInviteAction(_prev: AuthActionState, formData: FormD
   redirect("/dashboard");
 }
 
+// The Supabase client factory throws when the project URL or publishable key
+// are missing. Probe the configuration directly so local development (which
+// has no Supabase project) can use the backend's local auth contract instead.
+function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  );
+}
+
 export async function loginAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
     return { error: "Email and password are required." };
+  }
+
+  // Supabase is the primary sign-in path when it is configured. Local
+  // development may run without a Supabase project, where `createClient()`
+  // throws: skip straight to the backend's local auth contract instead of
+  // crashing the action.
+  if (!isSupabaseConfigured()) {
+    let localOnlySession: LocalAuthSession;
+    try {
+      localOnlySession = await apiFetch<LocalAuthSession>("/api/v1/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      return { error: "Email or password is incorrect." };
+    }
+    await setLocalSession(localOnlySession.token, localOnlySession.refreshToken);
+    redirect("/dashboard");
   }
 
   const supabase = await createClient();
