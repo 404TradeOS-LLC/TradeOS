@@ -14,7 +14,7 @@ related_docs:
 
 ## S067 implementation lane — 2026-10-04
 
-- Branch: `feat/s067-schedule-visit-continuity`; status `IN_REVIEW`.
+- Branch: `feat/s067-schedule-visit-continuity`; draft implementation PR #646; status `IN_REVIEW`.
 - Existing Job scheduling, assignment, reschedule, and conflict contracts remain authoritative.
 - Active staff-visible Jobs can enter the existing Project intake with `jobId`; intake validates that id against the current authorized Project response before it is submitted.
 - The Web SiteVisit DTO and create action now preserve the already-existing optional backend `SiteVisit.jobId` relation. Backend same-org/same-Project/unarchived validation is unchanged.
