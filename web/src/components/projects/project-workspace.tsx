@@ -131,6 +131,10 @@ export async function ProjectWorkspace({
               <CardContent className="space-y-3">
                 {jobs.map((job) => {
                   const fieldHref = getProjectFieldJobHref(currentRole, job);
+                  const canCaptureVisit =
+                    currentRole !== "technician" &&
+                    !job.archivedAt &&
+                    !["completed", "cancelled"].includes(job.status);
                   return (
                     <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
                       <div>
@@ -144,6 +148,14 @@ export async function ProjectWorkspace({
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusBadge status={job.status} />
+                        {canCaptureVisit ? (
+                          <Link
+                            href={`/projects/${project.id}/intake?jobId=${encodeURIComponent(job.id)}`}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            Capture site visit
+                          </Link>
+                        ) : null}
                         {fieldHref ? (
                           <Link href={fieldHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
                             Open field job
@@ -360,13 +372,22 @@ export async function ProjectWorkspace({
               }
             />
           ) : (
-            siteVisits.map((visit) => (
+            siteVisits.map((visit) => {
+              const linkedJob = visit.jobId ? jobs.find((job) => job.id === visit.jobId) ?? null : null;
+              return (
               <Card key={visit.id} className="border-border/70">
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center justify-between gap-3">
                     <span>Visit recorded {formatDateTime(visit.createdAt)}</span>
                     <StatusBadge status={project.status} />
                   </CardTitle>
+                  {linkedJob ? (
+                    <p className="text-sm text-muted-foreground">
+                      Linked Job #{linkedJob.jobNumber} · {linkedJob.title}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Project-only Site Visit</p>
+                  )}
                 </CardHeader>
                 <CardContent className="grid gap-4 lg:grid-cols-2">
                   <InfoPairs
@@ -387,7 +408,8 @@ export async function ProjectWorkspace({
                   />
                 </CardContent>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
       );
