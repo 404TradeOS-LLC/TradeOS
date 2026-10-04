@@ -82,8 +82,10 @@ their existing field-scoped access. Dates must be valid and supplied durations
 must be positive integers before any write occurs.
 
 Conflict reads and their subsequent writes use transaction-scoped PostgreSQL
-advisory locks keyed by organization and technician. This closes the race where
-two concurrent requests could both observe a free interval, while preserving
+advisory locks keyed by organization and technician. The lock statements use
+Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`; treating
+that function as a row-producing `$queryRaw` call can fail deserialization.
+This closes the race where two concurrent requests could both observe a free interval, while preserving
 request authentication, forced RLS, activity attribution, and the existing
 schema. No scheduling table, status, role, provider integration, or route
 optimization behavior is added.

@@ -69,6 +69,8 @@ Canonical states:
 - `expired`
 - `superseded`
 
+Job scheduling conflict serialization and job-number allocation continue to use transaction-scoped PostgreSQL advisory locks. These lock statements are executed through Prisma `$executeRaw` because `pg_advisory_xact_lock()` returns `void`; the change does not alter the Job lifecycle graph or scheduling rules.
+
 Current enforced transitions:
 
 - `draft -> ready` is enforced by `EstimateEngineService.finalize`
