@@ -740,11 +740,12 @@ Implementation status (2026-10-03): PR #634 merged as `50fe143a31e245718cb97d31f
 
 ### S067 — Scheduling calendar and visit continuity
 
-Status: PLANNED
+Status: READY
 Dependencies: none
 Release certification prerequisites: S056
 Objective: Connect schedule visits, Jobs, technician assignments, conflicts, and rescheduling into one consistent calendar experience.
 Acceptance: create/edit/move actions share canonical time/conflict rules and refresh Today, Dispatch, project, and field surfaces consistently.
+Readiness reconciliation (2026-10-04): current main `a74519f68100c04f5c0c42134c21e6fb64a05e42`; no open S067 PR or remote S067 branch exists. The existing `/dispatch` workspace already owns Day/Week/Crew schedule views, an unscheduled Job planning tray, technician assignment actions, conflict preview, and schedule/reschedule mutations against the canonical Job scheduling contract. `SiteVisit` already has an optional `jobId`; the backend accepts only an active Job in the authenticated organization and same Project, but the current web Site Visit DTO/capture flow does not link a visit to that Job. Universal Create's existing `schedule` destination opens Dispatch rather than inventing another calendar model. S067 implementation must therefore keep Job `scheduledStart`/`scheduledEnd`, assignment state, and the existing conflict engine as the sole scheduling authority; treat a future site visit as scheduled Job work and use the existing `SiteVisit.jobId` link when capture is performed from that Job. Preserve project-only intake when no Job context exists. Do not add a second visit-calendar table, schema/migration, new Job status, new role/permission, auth/RBAC/RLS policy, route optimization, GPS tracking, notification system, external-calendar sync, or drag-and-drop-only write path. A "move" is a normal conflict-aware reschedule through the established Job mutation, regardless of UI affordance. Founder decision: NO for this bounded continuity work; stop if implementation requires new scheduling policy, a new persistence model, or broader authorization. Required validation: focused schedule/visit continuity tests, existing Job conflict and controller/service tests when touched, full Web unit/lint/build coverage, docs ownership/governance, exact-head review/checks, and retained responsive/permission/tenant-negative/refresh evidence before DONE.
 
 ### S068 — Change-order customer workflow
 
@@ -1015,8 +1016,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S052 is `IN_REVIEW` in draft PR #637, S064/S066 remain `IN_REVIEW`, and S065 still depends on S064.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: continue S052 only through PR #637; do not create a competing certification branch or revive stale PR #565 / `feature/s052-customer-project-vertical-certification`. Existing S053/S059/Costbook lanes remain separate.
-Startup prompt: Continue S052 only through PR #637: repair exact-head CI/review findings, run the `s052` Beta Evidence preflight, and capture one full retained non-production matrix when dedicated synthetic fixtures and a matching exact-SHA deployment are available. Keep validation fail-closed and repair product code only if evidence reproduces a current-main defect inside the authorized contract.
+Sprint ID: S067
+Eligibility: S067 is the lowest-numbered `READY` sprint with satisfied implementation dependencies. S052/S053/S064/S066 remain `IN_REVIEW`, S065 remains blocked by S064, and S067 has `Dependencies: none`.
+Dependencies: none. S056 is a release-certification prerequisite, not an implementation dependency.
+Overlap check: no open S067 PR or remote S067 branch was found at readiness inspection. Reuse the existing Dispatch/Job scheduling contracts and `SiteVisit.jobId`; do not create a second scheduling model.
+Startup prompt: Start S067 on a fresh implementation branch from verified current main. Preserve Job scheduling/conflict/assignment authority, connect scheduled visit context into the existing Dispatch and Project/Site Visit surfaces, persist `SiteVisit.jobId` only through the existing same-tenant/same-Project controller contract, and keep project-only intake working. Do not add schema/auth/RLS/status/provider changes or unsupported GPS/route/external-calendar behavior.
