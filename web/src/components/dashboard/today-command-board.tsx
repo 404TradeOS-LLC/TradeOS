@@ -33,6 +33,7 @@ interface TodayCommandBoardProps {
   readyToStart: AttentionStartRow[];
   continueWorking: ContinueWorkingRow[];
   receivables: ReceivablesSummary;
+  needsYouUnavailable: boolean;
   errors: {
     currentSchedule: string | null;
     upcomingSchedule: string | null;
@@ -56,7 +57,7 @@ function BoardSection({
   id?: string;
   label: string;
   helper: string;
-  count?: number;
+  count?: number | null;
   children: React.ReactNode;
 }) {
   return (
@@ -202,16 +203,18 @@ export function TodayCommandBoard({
   readyToStart,
   continueWorking,
   receivables,
+  needsYouUnavailable,
   errors,
 }: TodayCommandBoardProps) {
   const staleProposals = proposals.filter((row) => row.stale);
   const overdueInvoices = invoices.filter((row) => row.overdue);
   const nowCount = currentSchedule.length + estimates.length + readyToStart.length + continueWorking.length;
-  const needsYouCount =
-    staleProposals.length +
-    overdueInvoices.length +
-    blockedTasks.length +
-    scheduleConflicts.length;
+  const needsYouCount = needsYouUnavailable
+    ? null
+    : staleProposals.length +
+      overdueInvoices.length +
+      blockedTasks.length +
+      scheduleConflicts.length;
   const comingUpCount = upcomingSchedule.length;
 
   return (
