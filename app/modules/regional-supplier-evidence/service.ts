@@ -152,7 +152,11 @@ export class RegionalSupplierEvidenceService {
       if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
 
       const updated = await transaction.supplierProduct.updateMany({
-        where: { id: productId, orgId },
+        where: {
+          id: productId,
+          orgId,
+          canonicalMaterialKey: product.canonicalMaterialKey,
+        },
         data: { canonicalMaterialKey },
       });
       if (updated.count !== 1) {
