@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-12
+last_verified: 2026-10-02
 source_of_truth: true
 related_code:
   - app/prisma/schema.prisma
@@ -350,7 +350,7 @@ Draft PR #531 adds a separate, tenant-scoped evidence boundary for regional supp
 
 - `SupplierProduct` stores a supplier catalog row, canonical material key, optional organization-scoped Material link, availability state, and source-file/row provenance.
 - `SupplierPriceObservation` stores dated supplier/store observations, priced or unavailable status, raw price components, normalized unit-price fields, eligibility reason, and source provenance. Unavailable observations are retained rather than converted into invented prices.
-- Product and observation keys are unique within organization and supplier so re-importing a batch is idempotent; writes occur through `RegionalSupplierEvidenceService` only.
+- Product and observation keys are unique within organization and supplier. Product imports remain updateable catalog listings, while price observations are append-oriented evidence: an exact observation-key replay is idempotent, but changed evidence under the same key is rejected so historical observations are not rewritten. Writes occur through `RegionalSupplierEvidenceService` only.
 - `POST /api/v1/costbook/supplier-evidence/import` derives organization scope from the authenticated request, resolves an explicitly supplied tenant-local Supplier, validates optional Material links in that same organization, and requires `costbook.manage`.
 - `GET /api/v1/costbook/supplier-evidence` and `GET /api/v1/costbook/supplier-evidence/summary` are tenant-scoped review reads requiring `costbook.read`.
 - Both tables use forced RLS with tenant-scoped reads and manager-only writes. No production import or migration deployment is included in the draft PR.
@@ -396,3 +396,10 @@ S030 uses the existing Job and JobAssignment entities as the dispatcher work que
 - Dispatcher mutations continue to use the established manager authorization and owner/admin conflict-override rules. The browser surface calls the authenticated same-origin proxy; it does not hold backend bearer credentials.
 - The S030 RLS hardening migration aligns the forced jobs and job_equipment policies with the active-assignment invariant. It changes existing policy predicates only and does not add entities or alter tenant ownership.
 - S030 does not introduce persisted derived lifecycle states, route optimization, GPS, notifications, billing behavior, or concurrency semantics.
+
+
+### Costbook canonical supplier identity and resolved-price evidence (2026-10-02)
+
+The data-foundation slice does not add replacement catalog models. `SupplierProduct.canonicalMaterialKey` remains the supplier-listing → canonical-material bridge. A governed 12-item Terre Haute pilot registry and deterministic matcher can auto-link only unambiguous identities; unresolved products remain unlinked until a `costbook.manage` reviewer explicitly selects a governed pilot key through the supplier-evidence canonical-match route.
+
+`SupplierPriceObservation` remains tenant-scoped under forced RLS. `PriceResolver` is a read model over eligible evidence, not a table: it rejects cross-tenant, incompatible-unit and expired candidates, ranks trust before price, and returns provenance/confidence/freshness with the selected value. Existing `EstimateLineItem.unitCost`/`lineCost` values remain the historical consumption snapshot; the resolver does not rewrite them.
