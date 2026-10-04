@@ -182,10 +182,6 @@ the foreign-resource ids surfaces as the tenant-isolation probe refusing to run.
 | `BETA_RC_S052_ADMIN_PASSWORD` | `BETA_S052_ADMIN_PASSWORD` | secret | `s052-role-evidence.mjs` | `s052` full runs |
 | `BETA_RC_S052_INACTIVE_EMAIL` | `BETA_S052_INACTIVE_EMAIL` | secret | `s052-role-evidence.mjs` | `s052` full runs |
 | `BETA_RC_S052_INACTIVE_PASSWORD` | `BETA_S052_INACTIVE_PASSWORD` | secret | `s052-role-evidence.mjs` | `s052` full runs |
-| `BETA_RC_S052_ADMIN_EMAIL` | `BETA_S052_ADMIN_EMAIL` | secret | S052 role evidence | s052 full runs |
-| `BETA_RC_S052_ADMIN_PASSWORD` | `BETA_S052_ADMIN_PASSWORD` | secret | S052 role evidence | s052 full runs |
-| `BETA_RC_S052_INACTIVE_EMAIL` | `BETA_S052_INACTIVE_EMAIL` | secret | S052 role evidence | s052 full runs |
-| `BETA_RC_S052_INACTIVE_PASSWORD` | `BETA_S052_INACTIVE_PASSWORD` | secret | S052 role evidence | s052 full runs |
 | `BETA_RC_SUPABASE_PROJECT_REF` | `BETA_RC_SUPABASE_PROJECT_REF` | secret | `resolve-rc-target.mjs` | full runs |
 | `BETA_RC_FOREIGN_PROJECT_ID` | `BETA_FOREIGN_PROJECT_ID` | secret | `tenant-isolation.mjs` | full runs (or `_CUSTOMER_ID`) |
 | `BETA_RC_FOREIGN_CUSTOMER_ID` | `BETA_FOREIGN_CUSTOMER_ID` | secret | `tenant-isolation.mjs` | full runs (or `_PROJECT_ID`) |
@@ -292,23 +288,6 @@ The scenario also runs `s052-role-evidence.mjs` with **dedicated synthetic ident
 The generic tenant-isolation probe remains authoritative for cross-tenant resources. S052 requires **both** `BETA_RC_FOREIGN_CUSTOMER_ID` and `BETA_RC_FOREIGN_PROJECT_ID`, each belonging to a separate synthetic tenant, and both API probes must return 403/404.
 
 Missing role identities, foreign fixtures, exact SHA correlation, responsive screenshots, or any required assertion makes the scenario fail. Preflight reports missing fixtures as **NOT READY**. Do not substitute a founder/developer personal account or weaken the tenant/auth guards to make the run pass.
-
-## S052 certification scenario
-
-The `s052` scenario certifies the already-shipped Customer → ServiceAddress → Project contract. It does not introduce a new Customer or Project model.
-
-A full S052 run must prove all of the following in the same retained run:
-
-- the owner smoke identity creates a Customer and lands on that server-created record;
-- Customer update persists after reload;
-- ServiceAddress creation persists after reload;
-- duplicate lookup points back to the existing Customer without silently merging records;
-- required-field validation blocks a blank Customer name before mutation;
-- the created Project persists the selected Customer, jobsite address, and plain-language scope after reload;
-- a dedicated **admin** identity independently creates Customer/Project records at 1440, 768, and 390 px;
-- a dedicated inactive-membership identity is denied and cannot reach the authenticated dashboard/settings contract;
-- known foreign Customer **and** Project resources return tenant denial through the authenticated API boundary;
-- deployment SHA correlation is exact.
 
 The role script writes only masked identity metadata and synthetic record IDs to `s052-role-report.json`. It never persists admin/inactive storage state and never records credentials. Missing role fixtures, stale role reports, missing foreign Customer/Project fixtures, missing screenshots, or any failed assertion keep S052 **NOT READY**.
 
