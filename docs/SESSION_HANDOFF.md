@@ -171,18 +171,18 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - No backend route, lifecycle, auth/RBAC/RLS, schema, financial handoff, offline/photo/issue/change/inventory/messaging/timekeeping capability is added.
 - Exact-head Web/docs/governance checks passed after the latest code/test repair. Retained authenticated responsive/negative/failure/refresh evidence remains open. Do not mark S066 DONE from repository implementation alone.
 
-## S052 certification implementation — 2026-10-03
+## S052 certification harness merged — 2026-10-03
 
-- Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; draft PR #637 on `test/s052-customer-project-certification` is the sole active S052 certification lane.
-- Classification: `NEW_WORK_REQUIRED` for certification tooling only; Customer/ServiceAddress/Project product implementation remains the merged PR #586/#629 contract.
-- PR #637 now implements the bounded `s052` evidence harness: owner Customer create/update, ServiceAddress persistence, duplicate/required validation, Customer-linked Project persistence/reload; synthetic admin Customer→Project proof at 1440/768/390; inactive-membership denial; existing foreign Customer/Project tenant probes; exact-SHA correlation; and scenario-specific artifact validation.
-- Continue on #637 with exact-head CI/review, then run S052 preflight and one full retained non-production evidence matrix when the required synthetic fixtures and matching deployment are available. Missing fixtures stay NOT READY; do not substitute founder credentials.
-- Stop for founder review if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
+- Readiness PR #636 merged as `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`; certification PR #637 merged as `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60`.
+- The merged `s052` harness proves the bounded owner/admin Customer → ServiceAddress → Project contract, duplicate/validation behavior, inactive-membership and foreign-tenant denials, responsive 1440/768/390 evidence requirements, exact-SHA correlation, and fail-closed artifact validation without changing product auth/RBAC/RLS/schema/domain behavior.
+- Exact-head required CI, branch currency, Workflow security, Sprint governance, Dependency review, live documentation reconciliation, and review-thread resolution passed before merge.
+- S052 remains `IN_REVIEW`: no full retained non-production `s052` evidence run has passed. The exact-main frontend deployment for merge SHA `16d297f70e8bd0d2e89b3506e06cd04cbfbd3a60` is canceled and staging is older; dedicated synthetic admin/inactive and foreign-tenant fixture availability is not established by the available secret-safe integrations.
+- Do not create another S052 implementation branch. Resume only the operator-triggered evidence lane when a matching approved non-production deployment and the required dedicated synthetic fixtures are available. Stop for founder review only if passing evidence would require a new Customer merge policy, role/permission, auth/RBAC/RLS, schema/migration, domain model, production mutation, or real customer data.
 
 ## Next Eligible Sprint
 
 Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S052 is `IN_REVIEW` in PR #637, S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
+Eligibility: No numbered sprint is currently `READY`; S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
 Dependencies: N/A while no sprint is eligible.
-Overlap check: continue S052 only through PR #637; do not create another S052 certification branch or revive stale PR #565 / `feature/s052-customer-project-vertical-certification`. Existing S053/S059/Costbook lanes remain separate.
-Startup prompt: Continue S052 only through PR #637: repair exact-head CI/review findings, run the `s052` Beta Evidence preflight, and capture one full retained non-production matrix when dedicated synthetic fixtures and a matching exact-SHA deployment are available. Keep validation fail-closed and repair product code only if evidence reproduces a current-main defect inside the authorized contract.
+Overlap check: S052 implementation/certification tooling is merged through #637; do not create a replacement S052 branch. Existing S053/S059/Costbook lanes remain separate.
+Startup prompt: When external S052 evidence prerequisites are available, run the merged `s052` Beta Evidence preflight against a matching approved non-production deployment, then capture one full retained matrix. Otherwise reconcile the backlog again and promote a dependency-safe PLANNED sprint only through a separate governance-only readiness mission; do not bypass the READY gate.
