@@ -29,6 +29,8 @@ related_code:
 
 PR #628 was rebuilt onto current `main` after nine unrelated commits landed during verification. The overlapping governance documents were reconciled onto the newer S052/S066 state instead of restoring stale copies. The app-unit failure from the prior head was also repaired by (1) accepting quoted-inch product text such as `96"` in the canonical normalizer and (2) matching the existing lower-case, unquoted supplier-evidence RLS migration syntax in the tenancy contract test. No Costbook scope or persistence model changed during this currency repair.
 
+PR #628 merged to `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf` on 2026-10-04 after exact-head branch verification, CodeRabbit reconciliation, branch-currency reconciliation, and clean post-merge main verification. This document now describes landed architecture rather than an open implementation lane.
+
 ## 2026-10-02 — Costbook Data Foundation reconciliation
 
 This section supersedes the older repository snapshot below for current implementation decisions. Reconnaissance was performed against `main` at `6e129b0aefccc37dd3549ad31b2b836104737c34` before implementation started. The numbered sprint queue remained unchanged: S064 was recorded `IN_REVIEW`; the Costbook data-foundation work is an explicitly founder-requested out-of-band slice and does not claim to complete or advance a numbered sprint.
