@@ -40,6 +40,28 @@ describe("Costbook canonical pilot matcher", () => {
     });
   });
 
+  it("does not auto-link a fitting that only shares PEX size text", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "1/2 PEX coupling",
+      purchaseUnit: "BOX",
+    });
+    expect(result.action).toBe("CREATE_NEW_CANDIDATE");
+    expect(result.canonicalMaterialKey).toBeNull();
+  });
+
+  it("routes a complete text match with a conflicting purchase unit to human review", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "1/2 PEX coil",
+      purchaseUnit: "BOX",
+    });
+    expect(result).toMatchObject({
+      action: "HUMAN_REVIEW",
+      canonicalMaterialKey: "PLUMBING.PEX.0_5IN.COIL",
+      score: 0.9,
+    });
+    expect(result.rationale).toContain("purchase unit BOX conflicts with canonical unit COIL");
+  });
+
   it("fails closed on a dimension conflict instead of fuzzy-linking 2x6 as 2x4", () => {
     const result = matchPilotCanonicalProduct({ name: "2x6 x 8 ft SPF stud" });
     expect(result.action).toBe("CREATE_NEW_CANDIDATE");
