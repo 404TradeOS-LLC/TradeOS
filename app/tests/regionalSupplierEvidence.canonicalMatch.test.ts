@@ -75,7 +75,11 @@ describe("Regional supplier canonical match review", () => {
     );
 
     expect(productUpdateMany).toHaveBeenCalledWith({
-      where: { id: "11111111-1111-4111-8111-111111111111", orgId: "org-a" },
+      where: {
+        id: "11111111-1111-4111-8111-111111111111",
+        orgId: "org-a",
+        canonicalMaterialKey: null,
+      },
       data: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
     });
     expect(result).toMatchObject({
@@ -92,6 +96,32 @@ describe("Regional supplier canonical match review", () => {
         actorUserId: "user-a",
       }),
     });
+  });
+
+  it("fails closed when another reviewer changes the canonical key first", async () => {
+    productFindFirst.mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "2x4 x 8 ft SPF stud",
+      canonicalMaterialKey: null,
+    });
+    productUpdateMany.mockResolvedValue({ count: 0 });
+
+    await expect(new RegionalSupplierEvidenceService().reviewCanonicalMatch(
+      "org-a",
+      "user-a",
+      "11111111-1111-4111-8111-111111111111",
+      "LUMBER.SPF.2X4.8FT.STUD"
+    )).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(productUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "11111111-1111-4111-8111-111111111111",
+        orgId: "org-a",
+        canonicalMaterialKey: null,
+      },
+      data: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
+    });
+    expect(activityCreate).not.toHaveBeenCalled();
   });
 
   it("rejects arbitrary caller-supplied canonical keys", async () => {
