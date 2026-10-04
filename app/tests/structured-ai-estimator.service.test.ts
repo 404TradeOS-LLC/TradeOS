@@ -14,6 +14,7 @@ const mockGenerationReviewCreate = jest.fn(async ({ data }: { data: Record<strin
 
 const mockPrisma = {
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
   estimate: {
     findFirst: jest.fn(),
   },
@@ -94,7 +95,7 @@ describe("StructuredAIEstimatorService", () => {
       project: { simpleScope: null },
     });
     mockPrisma.estimateLineItem.findFirst.mockResolvedValue(null);
-    mockPrisma.$queryRaw.mockResolvedValue([{ pg_advisory_xact_lock: "" }]);
+    mockPrisma.$executeRaw.mockResolvedValue(1);
     mockActivityService.record.mockResolvedValue({ id: "activity-1" });
     mockKnowledgeRuntime.matchScope.mockReturnValue({
       detectedTrade: "Concrete",
@@ -1011,7 +1012,7 @@ describe("StructuredAIEstimatorService", () => {
     });
 
     expect(mockEstimateEngine.addLineItem).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    expect(mockPrisma.$executeRaw).toHaveBeenCalled();
     expect(result.applied).toHaveLength(1);
     expect(result.skipped).toEqual(
       expect.arrayContaining([

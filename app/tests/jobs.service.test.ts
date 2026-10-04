@@ -53,6 +53,7 @@ const mockDb = {
     findUnique: jest.fn(),
   },
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
 };
 
 import { JobsService } from "../modules/jobs/service";
