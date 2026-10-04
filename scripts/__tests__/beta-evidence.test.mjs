@@ -378,6 +378,12 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(capture, /s052-project-reloaded/);
   assert.match(capture, /duplicate advice points to the existing customer without silently merging/);
   assert.match(capture, /customer project fields survive workspace reload/);
+  assert.match(capture, /data-s052-submit-count/);
+  assert.match(capture, /invalidSubmitCount === 0/);
+  assert.doesNotMatch(capture, /waitForTimeout\(150\)/);
+  assert.match(s052Role, /requiredRoleViewportNames = \["1440", "768", "390"\]/);
+  assert.doesNotMatch(s052Role, /BETA_S052_ROLE_VIEWPORTS/);
+  assert.match(s052Role, /browser\.close\(\)\.catch\(\(\) => \{\}\)/);
   assert.match(s052Role, /settings\?\.currentRole !== "admin"/);
   assert.match(s052Role, /s052-admin/);
   assert.match(s052Role, /Authenticated user is not provisioned in this organization/);
