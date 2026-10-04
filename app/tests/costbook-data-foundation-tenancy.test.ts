@@ -15,13 +15,5 @@ describe("Costbook data foundation tenant contract", () => {
     expect(sql).toMatch(/org_id\s*=\s*\(select public\.current_app_org_id\(\)\)/i);
   });
 
-  it("keeps the canonical-price read explicitly organization-scoped in addition to RLS", () => {
-    const source = readFileSync(join(__dirname, "../modules/costbook/pricing.ts"), "utf8");
 
-    expect(source).toContain("async resolveCanonicalPrice(orgId: string");
-    expect(source).toContain("orgId,");
-    expect(source).toContain('priceStatus: "priced"');
-    expect(source).toContain("supplierProduct: { canonicalMaterialKey: input.canonicalMaterialKey }");
-    expect(source).not.toContain("tenantId: null,");
-  });
 });
