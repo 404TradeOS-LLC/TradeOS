@@ -94,13 +94,25 @@ describe("CostbookPricingService", () => {
       now: new Date("2026-10-02T12:00:00.000Z"),
     });
 
-    expect(mockPrisma.supplierPriceObservation.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
+    const query = mockPrisma.supplierPriceObservation.findMany.mock.calls.at(-1)?.[0];
+    expect(query).toEqual(expect.objectContaining({
+      where: expect.objectContaining({
         orgId: "org-1",
         priceStatus: "priced",
+        observedAt: {
+          gte: new Date("2026-07-04T12:00:00.000Z"),
+          lte: new Date("2026-10-02T12:00:00.000Z"),
+        },
         supplierProduct: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
-      },
+        OR: expect.arrayContaining([
+          expect.objectContaining({
+            normalizedUnitPrice: { not: null },
+            normalizedUnit: { in: expect.arrayContaining(["EACH", "EA"]) },
+          }),
+        ]),
+      }),
     }));
+    expect(query.take).toBeUndefined();
     expect(resolved).toMatchObject({
       selectedPrice: 4.18,
       unit: "EACH",
@@ -111,6 +123,28 @@ describe("CostbookPricingService", () => {
       verifiedVsInferred: "observed",
       freshness: "current",
     });
+  });
+
+  it("filters future and expired retail evidence before resolution", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([]);
+
+    const now = new Date("2026-10-02T12:00:00.000Z");
+    await new CostbookPricingService().resolveCanonicalPrice("org-a", {
+      canonicalMaterialKey: "CONCRETE.MIX.80LB.BAG",
+      now,
+    });
+
+    expect(mockPrisma.supplierPriceObservation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: "org-a",
+          observedAt: {
+            gte: new Date("2026-07-04T12:00:00.000Z"),
+            lte: now,
+          },
+        }),
+      })
+    );
   });
 
   it("never pairs a raw package price with a normalized unit", async () => {
