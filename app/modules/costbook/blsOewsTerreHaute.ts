@@ -18,7 +18,7 @@ export const BLS_OEWS_TERRE_HAUTE_2025_SOURCE_URL =
   "https://www.bls.gov/regions/midwest/news-release/2026/occupationalemploymentandwages_terrehaute_20260710.htm";
 
 export const BLS_OEWS_TERRE_HAUTE_2025_REGIONAL_BASIS =
-  "Terre Haute, IN Metropolitan Statistical Area (Vigo, Sullivan, and Vermillion counties)";
+  "Terre Haute, IN Metropolitan Statistical Area (Clay, Sullivan, Vermillion, and Vigo counties)";
 
 /**
  * May 2025 OEWS wage estimates for contractor-trade ingestion slices.
