@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-09-28
+last_verified: 2026-10-03
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -785,3 +785,14 @@ PR #585 already shipped the canonical Today page structure now present on curren
 The Customer/ServiceAddress/Project implementation needed for S052 is already on current `main`. PR #586 rebuilt the valid Customer ↔ Project work from stale draft #565 onto current main, and PR #629 later preserved the server-created Customer id so successful creation continues into the canonical Customer record. Current behavior includes bounded same-organization duplicate advice, fail-closed incomplete lookup handling, permission-aware ServiceAddress mutations, and organization-scoped Project persistence for `customerId`, `siteAddress`, and `simpleScope`.
 
 S052 is now `IN_REVIEW` in draft PR #637. The bounded certification harness is implemented on that lane: the owner flow proves created-Customer destination, Customer update, ServiceAddress persistence, duplicate/required-validation behavior, and Customer-linked Project persistence/reload; a separate synthetic admin runner proves Customer→Project creation at 1440/768/390; a prepared inactive membership must be denied; existing foreign Customer/Project probes remain the tenant-isolation verdict; exact deployed-SHA correlation and scenario-specific artifact validation are mandatory. No release-certification claim follows until exact-head CI is green, the required synthetic fixtures exist, and one retained full non-production `s052` run passes.
+
+
+## Costbook Data Foundation — 2026-10-02
+
+Founder-requested Costbook data-foundation work extends the existing Costbook and does not change numbered sprint status. Reconnaissance against main `6e129b0aefccc37dd3549ad31b2b836104737c34` confirmed that the current Supplier, SupplierProduct, SupplierPriceObservation, LaborRate, Assembly/AssemblyItem, MaterialPriceAudit, research-candidate, and EstimateLineItem snapshot systems are the implementation base rather than targets for replacement.
+
+The bounded branch `feature/costbook-data-foundation-20261002` adds the 12-item canonical pilot registry around `SupplierProduct.canonicalMaterialKey`, a precision-first deterministic supplier matcher, append-oriented supplier observation imports, a pure trust-first PriceResolver, and read-only `GET /api/v1/costbook/pricing/resolve`. The resolver returns provenance, confidence, freshness, alternatives, and a reason for selection. Current regional supplier observations are conservatively classified as retail validation rather than being upgraded to account or negotiated pricing. Explicit organization filtering remains in the service query and existing forced RLS remains the database boundary.
+
+The BLS slice reuses the existing Costbook research-candidate review system. It records Terre Haute OEWS area `0045460` with Vigo, Sullivan, and Vermillion counties, expands the validated core-trade mean/median evidence without inventing missing percentiles, implements Terre Haute → Indiana → national benchmark fallback, and models June 2026 ECEC construction benefits only as an explicitly inferred national burden input. BLS evidence still cannot become a customer bill rate automatically.
+
+This slice does not add external accounting/supplier/commercial connectors, retail scraping, automatic price application, a second Costbook catalog, a second assembly model, or a second Estimate snapshot system. Existing consumed Estimate pricing remains historical through persisted EstimateLineItem values.
