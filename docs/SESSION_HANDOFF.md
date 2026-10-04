@@ -227,8 +227,8 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 
 ## Next Eligible Sprint
 
-Sprint ID: S067
-Eligibility: `READY`; `Dependencies: none`; it is the lowest-numbered READY implementation sprint after the 2026-10-04 reconciliation.
-Dependencies: none. S056 remains a separate release-certification prerequisite.
-Overlap check: no active S067 branch/PR. Existing S052/S053 evidence lanes, S064/S066 review lanes, the Costbook foundation merged through #628, and customer/project #641 are separate.
-Startup prompt: Create one S067 implementation branch from verified current main. Reuse canonical Job scheduling/conflict/assignment APIs and the existing `SiteVisit.jobId` link to make scheduled visit → Dispatch/Project → Site Visit capture → refreshed schedule/project/field context continuous. Keep project-only intake working and stop if a new scheduling persistence model, lifecycle state, permission/auth/RLS change, schema/migration, or provider integration is required.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains blocked by S064.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue S067 only through PR #644; do not create another S067 implementation branch. Existing evidence, Costbook, Today, and customer/project lanes remain separate.
+Startup prompt: Continue S067 through PR #644 by running exact-head verification and repairing scoped findings. Then add only the smallest contractor-facing Schedule Visit creation affordance that reuses existing Job creation and conflict-aware Dispatch scheduling; stop if it requires a second persistence model, new status/policy, permission/auth/RLS, schema/migration, or provider integration.
