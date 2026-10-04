@@ -600,7 +600,8 @@ Required validation: focused validator tests; `npm run pr:test`; `npm run docs:t
 
 ### S052 — Customer and project vertical certification
 
-Status: READY
+Status: IN_REVIEW
+Implementation PR: #637
 Readiness evidence (2026-10-03): S051 is DONE through merged PR #538. The valid Customer ↔ Project implementation from closed draft PR #565 was rebuilt onto current main by merged PR #586 (`893c65fda8e3c06db9e193a4071eb2e05331a94d`), and PR #629 later repaired created-Customer destination continuity without changing CRM/RLS behavior. Current main retains bounded same-organization duplicate advice, fail-closed incomplete lookup handling, permission-aware ServiceAddress mutations, Customer-linked Project persistence for `customerId` / `siteAddress` / `simpleScope`, and focused controller/unit coverage. Live PR/branch review found no active S052 implementation lane; the stale `feature/s052-customer-project-vertical-certification` branch is 55+ commits behind current main and must not be revived. Existing canonical Beta Evidence already provides authenticated non-production mutation, responsive screenshots, and tenant-isolation primitives, but it does not yet certify the S052-specific owner/admin, duplicate/validation, inactive-membership, ServiceAddress, and Customer→Project reload contract.
 Dependencies: S051
 Objective: Certify customer creation/update, service address, project creation, scope persistence, and project workspace refresh as one tenant-safe workflow.
@@ -609,6 +610,7 @@ Readiness contract: add a bounded `s052` evidence scenario to the existing Beta 
 Founder-decision boundary: NO for certification-only tooling, fixture requirements, and repair of a reproduced current-main defect within the existing Customer/Project/auth contracts. Stop for founder review if passing evidence requires a new Customer merge policy, role/permission change, auth-provider behavior, membership policy, tenant/RLS policy, schema/migration, or a new Customer/Project domain model.
 Forbidden in S052: redesigning Customer/Project UX; reviving stale PR #565 history; new Lead/CRM persistence; automatic Customer merge; new role or permission; auth/RBAC/RLS/schema/migration changes; production mutations; real-customer data; unrelated S053+ implementation; or weakening evidence/tenant guards.
 Required validation: focused Beta Evidence contract tests; Customer duplicate/workflow tests; CRM/Project permission and parent-scope tests; tenant-isolation and inactive-membership negative evidence; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; applicable app/web lint, unit, build, integration lanes; exact-head branch/review checks; and one retained full non-production `s052` evidence run before DONE.
+Implementation status (2026-10-03): draft PR #637 is the bounded certification lane from readiness merge `ee714a38c52ef59ab97d1218d70bdab2af2ad35f`. Its current harness implements the opt-in `s052` workflow selector, exact-SHA correlation, owner Customer create/update + ServiceAddress + duplicate/validation + Customer-linked Project persistence/reload assertions, dedicated synthetic admin Customer→Project proof at 1440/768/390, prepared inactive-membership denial, existing foreign Customer/Project tenant probes, and fail-closed scenario artifact validation. No runtime Customer/Project, schema, auth/RBAC/RLS, role, permission, or production-data behavior changes are included. S052 remains IN_REVIEW until exact-head verification is green and one retained full non-production `s052` evidence run passes.
 
 ### S053 — Scope-to-Athena-to-estimate certification
 
@@ -1013,8 +1015,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: S052
-Eligibility: S052 is the lowest-numbered `READY` sprint with all implementation dependencies DONE; this readiness PR authorizes certification tooling only.
-Dependencies: S051 is DONE through merged PR #538.
-Overlap check: no active S052 implementation/certification PR overlaps this lane; reuse PR #586/#629 implementation and do not revive stale PR #565. S053/S059/Costbook lanes remain separate.
-Startup prompt: Start S052 on a fresh certification branch and add only the bounded `s052` Beta Evidence scenario plus focused harness tests and synthetic fixture requirements from docs/architecture/S052_CUSTOMER_PROJECT_CERTIFICATION_PLAN.md. Publish one draft PR and move S052 to IN_REVIEW; repair product code only if the evidence reproduces a current-main defect inside the authorized contract.
+Sprint ID: NONE
+Eligibility: No numbered sprint is currently `READY`; S052 is `IN_REVIEW` in draft PR #637, S064/S066 remain `IN_REVIEW`, and S065 still depends on S064.
+Dependencies: N/A while no sprint is eligible.
+Overlap check: continue S052 only through PR #637; do not create a competing certification branch or revive stale PR #565 / `feature/s052-customer-project-vertical-certification`. Existing S053/S059/Costbook lanes remain separate.
+Startup prompt: Continue S052 only through PR #637: repair exact-head CI/review findings, run the `s052` Beta Evidence preflight, and capture one full retained non-production matrix when dedicated synthetic fixtures and a matching exact-SHA deployment are available. Keep validation fail-closed and repair product code only if evidence reproduces a current-main defect inside the authorized contract.

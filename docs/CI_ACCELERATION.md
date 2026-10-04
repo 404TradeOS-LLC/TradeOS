@@ -126,10 +126,12 @@ requires a Supabase project ref proving the release-candidate deployment does
 not share the production database. Runs are serialized through the
 `tradeos-beta-evidence` concurrency group.
 
-Required secrets are `BETA_RC_SMOKE_EMAIL`, `BETA_RC_SMOKE_PASSWORD`,
+Required baseline secrets are `BETA_RC_SMOKE_EMAIL`, `BETA_RC_SMOKE_PASSWORD`,
 `BETA_RC_SUPABASE_PROJECT_REF`, and at least one foreign resource id
 (`BETA_RC_FOREIGN_PROJECT_ID`, `BETA_RC_FOREIGN_CUSTOMER_ID`, or
-`BETA_RC_FOREIGN_ESTIMATE_ID`). Beta evidence is UNVERIFIED until a `full` run
+`BETA_RC_FOREIGN_ESTIMATE_ID`). The `s052` scenario additionally requires dedicated
+synthetic admin/inactive credentials plus both foreign Customer and Project ids.
+Beta evidence is UNVERIFIED until a `full` run
 passes. See [testing/BETA_EVIDENCE.md](testing/BETA_EVIDENCE.md).
 
 Do not place credentials or raw cookies in workflow YAML, repository files, PR comments, or uploaded artifacts.
@@ -147,4 +149,4 @@ These workflows do not:
 
 Automation validates evidence and shortens feedback loops; repository governance remains authoritative.
 
-The full run also accepts a scenario selector. `canonical` preserves the existing end-to-end beta path; opt-in `s053` adds authenticated Athena review/no-silent-write/apply/pricing/persistence checkpoints without changing runtime product behavior. A passing workflow run is still required before S053 can cite current-head browser evidence.
+The full run also accepts a scenario selector. `canonical` preserves the existing end-to-end beta path; opt-in `s052` adds Customer/ServiceAddress/Project owner+admin persistence, validation/duplicate, inactive-membership, responsive, and cross-tenant certification; opt-in `s053` adds authenticated Athena review/no-silent-write/apply/pricing/persistence checkpoints. Neither scenario changes runtime product authorization. A passing full workflow run is required before the corresponding sprint can cite current-head browser evidence.

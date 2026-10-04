@@ -207,6 +207,10 @@ The `repair-rc-beta-vercel.yml` workflow is a manual, confirmation-gated Preview
 
 The `repair-staging-supabase-auth.yml` workflow is the narrower staging issuer repair. It requires `REPAIR_STAGING_AUTH`, updates only the `staging` branch's Preview-scoped public `SUPABASE_URL`, captures the staging SHA and redeploys a matching READY Preview by verified ID, or creates a fresh fixed-branch Preview when none exists. It requires matching runtime SHA, database/schema readiness, and invalid Supabase token rejection after issuer initialization on the replacement immutable hostname before the authenticated RC smoke can resume.
 
+
+
+The `beta-evidence.yml` workflow is the operator-triggered non-production release-evidence lane. Its default `canonical` scenario remains unchanged; opt-in `s052` certifies the existing Customer → ServiceAddress → Project vertical with exact-SHA correlation, dedicated synthetic admin/inactive identities, responsive owner/admin artifacts, and foreign Customer/Project denial, while opt-in `s053` certifies review-first Athena estimate behavior. Scenario-specific credentials remain GitHub secrets, missing fixtures fail closed during preflight/full execution, and no scenario authorizes Production mutations or weakened tenant/auth controls. See `docs/testing/BETA_EVIDENCE.md`.
+
 The `preview-smoke-check.yml` workflow is a diagnostic, non-required gate — see `docs/REPOSITORY_GOVERNANCE.md`'s "Preview smoke check workflow" section for its two triggers and known limitation.
 
 The `s036-index-evidence.yml` workflow is the disposable PostgreSQL evidence
