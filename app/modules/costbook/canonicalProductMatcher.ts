@@ -96,7 +96,8 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     displayName: "R-13 Fiberglass Insulation",
     normalizedUnit: "SQ_FT",
     materialFamily: "INSULATION",
-    requiredPatterns: [/\binsulation\b/, /\br13\b/],
+    requiredPatterns: [/\binsulation\b/, /\br13\b/, /\b(fiberglass|batt)\b/],
+    hardConflictPatterns: [/\b(rigid|foam|board)\b/],
   },
   {
     canonicalMaterialKey: "ROOFING.SHINGLE.ARCHITECTURAL.BUNDLE",
