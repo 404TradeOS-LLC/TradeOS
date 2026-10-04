@@ -62,6 +62,12 @@ related_code:
 
 # Current State
 
+## Canonical entry experience parity — 2026-10-04
+
+The authenticated-login entry surface now matches the canonical TradeOS Figma entry composition without changing authentication behavior. `web/src/app/login/page.tsx` preserves the existing `loginAction`, recovery link, account-creation link, browser autocomplete, and fail-closed error presentation while replacing the generic centered Card with the approved responsive graphite/copper identity surface and direct sign-in workspace. The canonical TradeOS identity and construction-line artwork are exported as static SVG assets under `web/public/`; mobile, tablet, and desktop use their matching Figma variants. Password visibility is an explicit accessible local control only and does not alter credential submission or persistence.
+
+This is a presentation-only frontend slice. It adds no auth/session/Supabase/RBAC/RLS/onboarding behavior, no alternate redirect path, and no new product capability. Focused source-contract coverage pins the canonical copy, responsive artwork variants, existing auth action, recovery/account links, and the absence of a parallel client authentication path.
+
 ## S066 mobile field continuity — merged implementation
 
 PR #634 merged as `50fe143a31e245718cb97d31f4595883a156d84a` after exact-head Web unit tests, lint, build/dependency audit, Docs consistency, Sprint governance, PR branch currency, Dependency review, Live documentation reconciliation, and Verify repository passed. The bounded S066 frontend slice connects the existing Project workspace to
