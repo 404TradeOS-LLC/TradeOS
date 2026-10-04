@@ -66,6 +66,7 @@ jest.mock("../modules/organization-provisioning/service", () => ({
 }));
 
 import { hashPassword } from "../backend/auth/password";
+import { verifyAuthToken } from "../backend/auth/jwt";
 import { AuthService } from "../modules/auth/service";
 
 describe("AuthService", () => {
@@ -118,6 +119,52 @@ describe("AuthService", () => {
     expect(result.organization).toEqual({ id: "org-1", name: "Acme Co" });
     expect(result.role).toBe("owner");
     expect(result.refreshToken).toBeTruthy();
+  });
+
+  it("mints login tokens with the configured issuer and audience", async () => {
+    const previousIssuer = process.env.AUTH_ISSUER;
+    const previousAudience = process.env.AUTH_AUDIENCE;
+    process.env.AUTH_ISSUER = "tradeos-test";
+    process.env.AUTH_AUDIENCE = "tradeos-test-api";
+
+    try {
+      const passwordHash = await hashPassword("correct-password");
+      mockTransactionClient.appUser.findUnique.mockResolvedValue({
+        id: "user-1",
+        authSubject: "local:abc",
+        email: "owner@example.com",
+        fullName: "Owner Person",
+        isActive: true,
+        passwordHash,
+      });
+      mockTransactionClient.organizationMembership.findFirst.mockResolvedValue({
+        id: "membership-1",
+        orgId: "org-1",
+        role: "owner",
+      });
+      mockTransactionClient.organization.findUnique.mockResolvedValue({ id: "org-1", name: "Acme Co" });
+
+      const result = await new AuthService().login({
+        email: "owner@example.com",
+        password: "correct-password",
+      });
+      const claims = verifyAuthToken(result.token, process.env.AUTH_JWT_SECRET ?? "");
+
+      expect(claims).toEqual(
+        expect.objectContaining({
+          sub: "local:abc",
+          orgId: "org-1",
+          role: "owner",
+          iss: "tradeos-test",
+          aud: "tradeos-test-api",
+        })
+      );
+    } finally {
+      if (previousIssuer === undefined) delete process.env.AUTH_ISSUER;
+      else process.env.AUTH_ISSUER = previousIssuer;
+      if (previousAudience === undefined) delete process.env.AUTH_AUDIENCE;
+      else process.env.AUTH_AUDIENCE = previousAudience;
+    }
   });
 
   it("rejects login with an incorrect password", async () => {
