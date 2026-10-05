@@ -9,7 +9,9 @@ related_docs:
 related_code:
   - playwright.config.ts
   - tests/playwright/seed.spec.ts
+  - tests/playwright/authenticated.spec.ts
   - tests/playwright/target.mjs
+  - .github/workflows/playwright-agent-evidence.yml
   - .codex/agents/playwright_test_planner.toml
   - .codex/agents/playwright_test_generator.toml
   - .codex/agents/playwright_test_healer.toml
@@ -25,7 +27,7 @@ and healer definitions use the root Playwright configuration and installed
 
 ```bash
 npm ci
-npx playwright install chromium
+npx playwright install --with-deps chromium
 npm run test:e2e:guards
 npm run test:e2e:list
 ```
@@ -55,8 +57,15 @@ Invoke the Codex agents by name:
   locator/environment errors and rerun it. Preserve product failures.
 
 The seed checks Email, Password and Sign in on the logged-out `/login` page.
-It does not log in, seed a tenant or prove any contractor lifecycle behavior.
-Before authenticated or mutating exploration, reuse the governed
+The hosted evidence workflow can also reuse the existing governed Beta smoke
+identity to generate fresh runtime storage state outside the repository and run
+read-only authenticated checks against **Today** and **Estimates**. Those checks
+verify the canonical Today command board sections and that the Estimates
+workspace renders either its real queue or its truthful empty state without the
+known load-error fallback. They do not create, edit, send, accept, invoice, pay,
+schedule, or otherwise mutate contractor records.
+
+Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
 credential handling, cleanup, SHA correlation and artifact scanning contracts.
 Do not substitute an auth bypass or weaken RLS. Missing prerequisites remain
@@ -97,6 +106,13 @@ Chromium plus Linux dependencies with
 `npx playwright install --with-deps chromium`, runs the root Chromium suite,
 and uploads the HTML report, test results, screenshots, failure traces/videos,
 Playwright version and discovered-test list for 30 days.
+
+By default the workflow also runs the bounded authenticated smoke. It consumes
+only the existing `BETA_RC_SMOKE_EMAIL` and `BETA_RC_SMOKE_PASSWORD` GitHub
+secrets, verifies the configured smoke organization through the existing
+`auth-setup.mjs` contract, writes storage state only under the runner temp
+directory, and removes it before artifact upload. The uploaded evidence may
+contain the redacted auth bootstrap report, but never the session file.
 
 The workflow does not run an LLM inside GitHub Actions; Codex remains the host
 for planner/generator/healer work. GitHub Actions executes the deterministic
