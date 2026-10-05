@@ -67,7 +67,9 @@ real hrefs with direct GET navigation to exercise Customer detail, Project
 detail, and the focused Estimate workspace; when a list is empty, the test
 requires the product's truthful empty state instead of inventing a fixture.
 These checks do not create, edit, send, accept, invoice, pay, schedule, or
-otherwise mutate contractor records.
+otherwise mutate contractor records. With the current checked-in suite,
+authenticated mode contributes five tests; together with the logged-out login
+seed, the hosted Chromium run discovers six tests.
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
