@@ -544,3 +544,15 @@ The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable 
 
 `docs/SPRINT_BACKLOG.md` state transitions are authoritative on `main`. Sprint governance therefore runs READY/PLANNED promotion-scope and DONE-evidence diff checks only for pull requests whose base is `main`. Pull requests targeting staging or another non-main synchronization branch still run the repository-wide sprint-state validator, documentation tests, PR preflight, and documentation-ownership checks. This prevents a stale non-main base from reclassifying historical main transitions as new promotions while preserving main-branch governance.
 
+
+## Codex Playwright agent definitions
+
+The founder-authorized Playwright setup versions only the three reviewed
+`.codex/agents/playwright_test_{planner,generator,healer}.toml` definitions.
+This is a narrow exception to the local Codex artifact exclusion; config,
+sessions, caches and other local state remain ignored. The root pinned runner
+and login-shell seed complement the existing Beta/RC evidence workflows.
+Agents must preserve real failures and must not skip/fixme tests to pass a gate.
+See [the runbook](testing/PLAYWRIGHT_AGENTS.md) for commands, regeneration and
+authenticated evidence prerequisites. No production auth, tenant or release
+certification boundary is changed.

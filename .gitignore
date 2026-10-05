@@ -12,7 +12,13 @@ app/vendor/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .idea/
-.codex/
+# Keep local Codex state private; only reviewed Playwright agent definitions ship.
+.codex/*
+!.codex/agents/
+.codex/agents/*
+!.codex/agents/playwright_test_planner.toml
+!.codex/agents/playwright_test_generator.toml
+!.codex/agents/playwright_test_healer.toml
 
 # Local Playwright authentication state and captured evidence.
 # Authenticated session material must never be committed, and evidence

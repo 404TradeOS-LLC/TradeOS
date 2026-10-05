@@ -16,13 +16,20 @@
     "pr:body-check": "node scripts/pr-body-check.mjs",
     "pr:preflight": "node scripts/pr-preflight.mjs",
     "pr:preflight:run": "node scripts/pr-preflight.mjs --run",
-    "pr:test": "node --test scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/connection-matrix.test.mjs scripts/__tests__/staging-repair.test.mjs scripts/__tests__/merge-queue.test.mjs",
+    "pr:test": "node --test scripts/__tests__/pr-body-check.test.mjs scripts/__tests__/pr-preflight.test.mjs scripts/__tests__/governance-policy.test.mjs scripts/__tests__/vercel-ignore-command.test.mjs scripts/__tests__/rc-smoke-contract.test.mjs scripts/__tests__/beta-evidence.test.mjs scripts/__tests__/connection-matrix.test.mjs scripts/__tests__/staging-repair.test.mjs scripts/__tests__/merge-queue.test.mjs tests/playwright/target.test.mjs",
     "prompt": "node scripts/prompt-manager.mjs",
     "prompts": "node scripts/prompt-manager.mjs",
-    "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs"
+    "prompt:test": "node --test scripts/__tests__/prompt-manager.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:list": "playwright test --list",
+    "test:e2e:guards": "node --test tests/playwright/target.test.mjs",
+    "playwright:agents": "playwright init-agents --loop=codex --config=playwright.config.ts --project=chromium"
   },
   "dependencies": {
     "js-yaml": "^4.3.2",
     "minimatch": "^10.2.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
