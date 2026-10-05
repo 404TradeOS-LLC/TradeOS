@@ -159,11 +159,11 @@ flow below that breakpoint. A focused regression checks the matching visibility
 boundary. CI and post-merge/deployment browser verification remain required;
 this repair is not a release-certification or sprint-completion claim.
 
-## Staging auth bypass work in progress
+## Staging fixture authentication hardening — 2026-10-04
 
-The `feature/staging-auth-bypass` branch implements a gated fixture owner for credential-free Preview Playwright checks and a visible banner. The dedicated Supabase staging project contains a synthetic organization, owner, project, and draft estimate. This is not yet deployed or browser-verified on Vercel Preview; the current Preview API readiness is blocked by a database authentication error. Vercel Production remains denied by the guard. Do not count these branch changes as current production behavior.
+The former credential-free web/API staging bypass is being replaced by a backend-only synthetic fixture identity protected by a strong encrypted `TRADEOS_STAGING_FIXTURE_SECRET`. Web Preview authentication returns to the real local/Supabase session path; the public fixture marker no longer authenticates the API. The backend still requires the dedicated staging Supabase/data-plane checks, exact synthetic owner membership, and normal request-scoped RLS. The guarded staging-repair control provisions or reuses only its managed staging-branch secret, masks/exports it to the evidence job, rebuilds the exact staging SHA from Git, and verifies the secret-gated fixture against the synthetic estimate before readiness is accepted. Production remains denied.
 
-Last reconciled on 2026-09-22 for the merged private-storage hardening and the rebased Stripe Billing subscription slice on PR #491. This document records repository truth, not a guarantee that every merged capability is deployed or exercised in every environment. Production/deployment claims remain tied to the specific evidence noted below.
+This is a staging/evidence security repair, not a production auth bypass, tenant-model change, or S053 completion claim. S053 still requires a current-head authenticated browser matrix and tenant-isolation evidence after the repair lands and staging is re-synchronized.
 
 ## Contractor beta lint-only cleanup — 2026-10-04
 
