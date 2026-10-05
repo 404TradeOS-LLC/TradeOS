@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { STAGING_AUTH, evaluateStagingAuth } from "../../domain";
 import { NextFunction, Request, Response } from "express";
 import { verifyAnyAuthToken } from "../auth/jwt";
@@ -13,6 +14,14 @@ export interface AuthedRequest extends Request {
   auth?: AuthContext;
 }
 
+function matchesStagingFixtureSecret(token?: string): boolean {
+  const secret = process.env.TRADEOS_STAGING_FIXTURE_SECRET?.trim();
+  if (!token || !secret || secret.length < 32) return false;
+  const candidate = Buffer.from(token);
+  const expected = Buffer.from(secret);
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
+
 export function requireAuth(req: AuthedRequest, _res: Response, next: NextFunction): void {
   const bearer = req.header("authorization");
   const token = bearer?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -22,7 +31,7 @@ export function requireAuth(req: AuthedRequest, _res: Response, next: NextFuncti
     logError("auth.bypass_blocked", { reasonCode: bypass.reason });
     return next(new ApiError(503, "Staging authentication bypass is blocked"));
   }
-  if (token === STAGING_AUTH.marker) {
+  if (matchesStagingFixtureSecret(token)) {
     if (!bypass.enabled) return next(new ApiError(401, "Invalid bearer token"));
     void resolveAuthContext({ sub: STAGING_AUTH.subject, orgId: STAGING_AUTH.orgId })
       .then((auth) => {
