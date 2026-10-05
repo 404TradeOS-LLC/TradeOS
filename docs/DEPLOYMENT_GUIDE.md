@@ -127,7 +127,7 @@ All environment variables live in Vercel project settings, scoped per
 environment (Production / Preview / Development) and, for the backend,
 additionally scoped to the `staging` git branch specifically for the
 staging-only secrets (`DATABASE_URL`, `SUPABASE_URL`, `AUTH_JWT_SECRET`,
-`PLATFORM_PROVISIONING_SECRET`) so an arbitrary backend PR branch doesn't
+`PLATFORM_PROVISIONING_SECRET`, `TRADEOS_STAGING_FIXTURE_SECRET`) so an arbitrary backend PR branch doesn't
 inherit them. `app/.env.example` and `web/.env.example` document every
 variable's purpose but hold no real values — they are templates, not a
 source of truth for any environment's actual configuration.
@@ -140,26 +140,33 @@ to keep the two environments' credentials from ever being the same value,
 not to judge each variable's individual risk.
 
 The manual `Repair staging Supabase auth configuration` workflow is the
-bounded recovery path when the stable `staging` backend loses its
-branch-scoped `SUPABASE_URL`. It requires the exact `REPAIR_STAGING_AUTH`
-confirmation, writes only the public TradeOS Staging project URL to Preview
-scope for the `staging` branch, and captures that branch's current full SHA.
-`scripts/staging-repair.mjs` selects a READY Preview for that SHA from structured
-Vercel data, verifies the team/project/repository boundary, and redeploys by
-verified ID using the deployment API. It polls only the returned replacement
-ID and probes that immutable hostname, never a mutable branch alias. Success
-requires matching `/health` SHA, database and schema `/ready` checks, and a 401
-from `/api/v1/auth/bootstrap` with a public, deliberately invalid ES256 JWT
-that reaches Supabase issuer initialization before rejection. This rejection check does not
-prove authenticated login. A sanitized `staging-repair-*` artifact retains
-identity/readiness evidence, including available identity on failure. If no
-READY deployment exists for the captured staging SHA, it creates a fresh
-Preview from the fixed `staging` branch with the build-skip optimization
-disabled through the fresh deployment project settings. It rejects any branch movement by checking
-the returned deployment against the captured SHA before runtime probes; it
-never substitutes an older commit. Vercel CLI 59.11.2 is pinned for the branch
-environment update, which supplies its value and confirmation non-interactively. It cannot target Production or
-the Production Supabase project and does not rotate database or JWT secrets.
+bounded recovery path for the dedicated non-production `staging` backend.
+It requires the exact `REPAIR_STAGING_AUTH` confirmation, fixes the Vercel
+backend project and `staging` branch, writes the public TradeOS Staging
+Supabase URL only to that branch's Preview scope when required, and captures
+the branch's current full SHA. Before deployment, `scripts/staging-repair.mjs`
+provisions or reuses exactly one managed encrypted
+`TRADEOS_STAGING_FIXTURE_SECRET` scoped to the staging Preview branch. It
+refuses operator-owned conflicting values, masks the secret in Actions, and
+never writes the secret to retained evidence.
+
+The repair then always creates a fresh Preview from the captured `staging`
+Git SHA with the build-skip optimization disabled for that deployment. It
+verifies team/project/repository ownership, polls only the returned immutable
+deployment ID, and probes that immutable hostname rather than a moving alias.
+Success requires matching `/health` SHA, database and schema `/ready` checks,
+a 401 from `/api/v1/auth/bootstrap` for a public deliberately invalid ES256
+JWT, and successful access to the dedicated synthetic staging fixture using
+the secret-gated staging identity. That fixture bearer is backend-only;
+browser certification still uses the real login/session path.
+
+A sanitized `staging-repair-*` artifact retains deployment/readiness identity
+only; credential values are not retained. The repair rejects branch movement,
+never substitutes an older commit, cannot target Production or the Production
+Supabase project, and does not rotate database or JWT secrets. It may create
+the managed staging fixture secret when absent, but it does not replace an
+operator-owned value or expose the generated value outside the masked runtime
+environment.
 
 ### Vercel Authentication (Preview protection)
 
