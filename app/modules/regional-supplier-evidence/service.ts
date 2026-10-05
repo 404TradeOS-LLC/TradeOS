@@ -205,7 +205,13 @@ export class RegionalSupplierEvidenceService {
         where: {
           id: productId,
           orgId,
+          name: product.name,
+          description: product.description,
+          packageDescription: product.packageDescription,
+          purchaseUnit: product.purchaseUnit,
           canonicalMaterialKey: product.canonicalMaterialKey,
+          sku: product.sku,
+          manufacturerPartNumber: product.manufacturerPartNumber,
         },
         data: { canonicalMaterialKey },
       });
