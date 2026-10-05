@@ -1,13 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-const storageState = process.env.TRADEOS_AGENT_STORAGE_STATE;
+const authenticatedSmoke = process.env.TRADEOS_AGENT_AUTHENTICATED === 'true';
+const storageState = authenticatedSmoke ? process.env.TRADEOS_AGENT_STORAGE_STATE : undefined;
 
 if (storageState) {
   test.use({ storageState });
 }
 
 test.describe('TradeOS authenticated workspace', () => {
-  test.skip(!storageState, 'Authenticated evidence requires TRADEOS_AGENT_STORAGE_STATE.');
+  test.skip(!authenticatedSmoke || !storageState, 'Authenticated evidence requires an enabled authenticated smoke and storage state.');
 
   test('Today command board renders for the governed smoke tenant', async ({ page }) => {
     const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
