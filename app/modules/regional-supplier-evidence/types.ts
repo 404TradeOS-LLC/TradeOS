@@ -59,11 +59,13 @@ export interface RegionalSupplierEvidenceListFilters {
   supplierId?: string;
   priceStatus?: "priced" | "unavailable" | "not-listed" | "needs-review";
   q?: string;
+  cursor?: string;
   limit?: number;
 }
 
 export interface RegionalSupplierEvidenceListItem {
   id: string;
+  supplierProductId: string;
   observationKey: string;
   supplierProductKey: string;
   supplierProductName: string;
@@ -73,6 +75,7 @@ export interface RegionalSupplierEvidenceListItem {
   marketCode: string | null;
   storeName: string | null;
   observedAt: Date;
+  currency: string;
   priceStatus: string;
   regularPrice: number | null;
   effectivePrice: number | null;

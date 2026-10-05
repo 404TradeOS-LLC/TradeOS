@@ -865,9 +865,10 @@ Acceptance: precedence, effective dates, permissions, audit, historical estimate
 
 Status: BLOCKED
 Dependencies: S073
-Blocked by: open draft PR #531 owns this schema/RLS/import lane and must pass its database/security gates or be superseded explicitly.
+Blocked by: dependency S073 remains PLANNED. PR #531 is no longer an implementation blocker; it merged on 2026-09-22 as `bfbca7f4cfc01dbd1c80bcae1c5e3b3ecdb249ed` and landed the tenant-scoped schema/RLS/import foundation.
 Objective: Land tenant-scoped regional supplier observations without silently changing current Material costs.
 Acceptance: migration/RLS rehearsal, idempotent import, unavailable observations, Carter catalog-only handling, review UI, and provenance pass before price promotion is considered.
+Reconciled continuation: PR #531 and the non-numbered Costbook Data Foundation PR #628 provide the persisted evidence, canonical-match, append-only observation, and provenance-aware resolver foundations. The bounded supplier-evidence review UI may advance independently as non-numbered Costbook product work, but S082 must remain BLOCKED until S073 is complete and the full S082 acceptance/evidence set is reconciled.
 
 ### S083 — Supplier identity and SKU matching
 

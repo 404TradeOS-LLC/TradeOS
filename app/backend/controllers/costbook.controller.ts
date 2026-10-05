@@ -163,6 +163,7 @@ const regionalSupplierEvidenceListQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   priceStatus: z.enum(["priced", "unavailable", "not-listed", "needs-review"]).optional(),
   q: z.string().trim().max(200).optional(),
+  cursor: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
 }).strict();
 

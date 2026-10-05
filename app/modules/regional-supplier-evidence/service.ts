@@ -26,25 +26,43 @@ export class RegionalSupplierEvidenceService {
     filters: RegionalSupplierEvidenceListFilters = {}
   ): Promise<RegionalSupplierEvidenceListItem[]> {
     const limit = Math.min(Math.max(filters.limit ?? 100, 1), 200);
-    const where = {
+    const where: Prisma.SupplierPriceObservationWhereInput = {
       orgId,
       priceStatus: filters.priceStatus,
       supplierProduct: filters.supplierId ? { supplierId: filters.supplierId } : undefined,
-      ...(filters.q
-        ? {
-            OR: [
-              { observationKey: { contains: filters.q, mode: "insensitive" as const } },
-              { supplierProduct: { name: { contains: filters.q, mode: "insensitive" as const } } },
-              { supplierProduct: { canonicalMaterialKey: { contains: filters.q, mode: "insensitive" as const } } },
-            ],
-          }
-        : {}),
     };
+
+    if (filters.q) {
+      where.OR = [
+        { observationKey: { contains: filters.q, mode: "insensitive" } },
+        { supplierProduct: { name: { contains: filters.q, mode: "insensitive" } } },
+        { supplierProduct: { canonicalMaterialKey: { contains: filters.q, mode: "insensitive" } } },
+      ];
+    }
+
+    if (filters.cursor) {
+      const cursor = await prisma.supplierPriceObservation.findFirst({
+        where: { id: filters.cursor, orgId },
+        select: { id: true, observedAt: true },
+      });
+      if (!cursor) throw new ApiError(400, "Invalid supplier evidence cursor");
+
+      where.AND = [
+        {
+          OR: [
+            { observedAt: { lt: cursor.observedAt } },
+            { observedAt: cursor.observedAt, id: { lt: cursor.id } },
+          ],
+        },
+      ];
+    }
+
     const rows = await prisma.supplierPriceObservation.findMany({
       where,
       include: {
         supplierProduct: {
           select: {
+            id: true,
             supplierProductKey: true,
             name: true,
             canonicalMaterialKey: true,
@@ -58,6 +76,7 @@ export class RegionalSupplierEvidenceService {
     });
     return rows.map((row) => ({
       id: row.id,
+      supplierProductId: row.supplierProduct.id,
       observationKey: row.observationKey,
       supplierProductKey: row.supplierProduct.supplierProductKey,
       supplierProductName: row.supplierProduct.name,
@@ -67,6 +86,7 @@ export class RegionalSupplierEvidenceService {
       marketCode: row.marketCode,
       storeName: row.storeName,
       observedAt: row.observedAt,
+      currency: row.currency,
       priceStatus: row.priceStatus,
       regularPrice: row.regularPrice === null ? null : Number(row.regularPrice),
       effectivePrice: row.effectivePrice === null ? null : Number(row.effectivePrice),
@@ -148,15 +168,50 @@ export class RegionalSupplierEvidenceService {
     return runInDatabaseTransaction(basePrisma, async (transaction) => {
       const product = await transaction.supplierProduct.findFirst({
         where: { id: productId, orgId },
-        select: { id: true, name: true, canonicalMaterialKey: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          packageDescription: true,
+          purchaseUnit: true,
+          canonicalMaterialKey: true,
+          sku: true,
+          manufacturerPartNumber: true,
+        },
       });
       if (!product) throw new ApiError(404, `Supplier product ${productId} not found`);
+
+      if (product.canonicalMaterialKey && product.canonicalMaterialKey !== canonicalMaterialKey) {
+        throw new ApiError(409, `Supplier product ${productId} is already linked to a different canonical material`);
+      }
+
+      const match = matchPilotCanonicalProduct({
+        name: product.name,
+        description: product.description,
+        packageDescription: product.packageDescription,
+        purchaseUnit: product.purchaseUnit,
+        canonicalMaterialKey: product.canonicalMaterialKey,
+        sku: product.sku,
+        manufacturerPartNumber: product.manufacturerPartNumber,
+      });
+      if (
+        match.action === "CREATE_NEW_CANDIDATE" ||
+        match.canonicalMaterialKey !== canonicalMaterialKey
+      ) {
+        throw new ApiError(422, `Canonical material key ${canonicalMaterialKey} is not the governed matcher suggestion for this supplier product`);
+      }
 
       const updated = await transaction.supplierProduct.updateMany({
         where: {
           id: productId,
           orgId,
+          name: product.name,
+          description: product.description,
+          packageDescription: product.packageDescription,
+          purchaseUnit: product.purchaseUnit,
           canonicalMaterialKey: product.canonicalMaterialKey,
+          sku: product.sku,
+          manufacturerPartNumber: product.manufacturerPartNumber,
         },
         data: { canonicalMaterialKey },
       });
