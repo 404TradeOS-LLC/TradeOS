@@ -15,6 +15,14 @@ async function hrefs(page: Page, selector: string) {
   );
 }
 
+function firstDetailHref(candidates: string[], prefix: string) {
+  return candidates.find((href) => {
+    if (!href.startsWith(prefix)) return false;
+    const detailId = href.slice(prefix.length);
+    return Boolean(detailId) && detailId !== 'new' && !detailId.includes('/');
+  });
+}
+
 test.describe('TradeOS authenticated workspace', () => {
   test.skip(!authenticatedSmoke || !storageState, 'Authenticated evidence requires an enabled authenticated smoke and storage state.');
 
@@ -142,9 +150,7 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByText('Customer-facing scope and pricing history.', { exact: true })).toBeVisible();
 
     const proposalPrefix = `${projectHref}/proposals/`;
-    const proposalHref = (await hrefs(page, `a[href^="${proposalPrefix}"]`)).find(
-      (href) => href.startsWith(proposalPrefix) && !href.slice(proposalPrefix.length).includes('/'),
-    );
+    const proposalHref = firstDetailHref(await hrefs(page, `a[href^="${proposalPrefix}"]`), proposalPrefix);
 
     if (!proposalHref) {
       await expect(
@@ -179,9 +185,7 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByText('Signed and pending project agreements.', { exact: true })).toBeVisible();
 
     const contractPrefix = `${projectHref}/contracts/`;
-    const contractHref = (await hrefs(page, `a[href^="${contractPrefix}"]`)).find(
-      (href) => href.startsWith(contractPrefix) && !href.slice(contractPrefix.length).includes('/'),
-    );
+    const contractHref = firstDetailHref(await hrefs(page, `a[href^="${contractPrefix}"]`), contractPrefix);
 
     if (!contractHref) {
       await expect(
@@ -216,9 +220,7 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByText('Billing history and outstanding balances.', { exact: true })).toBeVisible();
 
     const invoicePrefix = `${projectHref}/invoices/`;
-    const invoiceHref = (await hrefs(page, `a[href^="${invoicePrefix}"]`)).find(
-      (href) => href.startsWith(invoicePrefix) && !href.slice(invoicePrefix.length).includes('/'),
-    );
+    const invoiceHref = firstDetailHref(await hrefs(page, `a[href^="${invoicePrefix}"]`), invoicePrefix);
 
     if (!invoiceHref) {
       await expect(
