@@ -280,6 +280,7 @@ Current behavior:
 - `/costbook/pricing` provides a calculation-only pricing preview
 - `/costbook/price-history` separates audited Material price changes from Estimate pricing snapshots
 - `/costbook/research-review` remains the human review surface for researched pricing candidates and now renders its stronger source evidence through the shared `PricingProvenance` primitive. Real queue/corpus counts, match analysis, approve/reject, and explicit promotion behavior are unchanged; approval/promotion remain `costbook.manage` actions and research never becomes production pricing merely by appearing in the queue.
+- `/costbook/supplier-evidence` is the review surface for persisted regional supplier observations. It supports product/observation/canonical-key search plus price-status filtering, shows truthful priced/unavailable/not-listed/needs-review evidence, and previews the existing deterministic pilot canonical matcher. Managers may confirm the matcher\'s governed suggested canonical key through the existing reviewed-match route; the UI does not expose an arbitrary cross-catalog relink and never writes `Material.unitCost`, `SupplierPriceUpdate`, Estimate pricing, or a customer sell price.
 
 No organization-wide “price health” score or stale-age threshold is derived by this frontend. Supplier proposals, research candidates, and Athena recommendations remain review/recommendation inputs and do not auto-write production Costbook pricing.
 
