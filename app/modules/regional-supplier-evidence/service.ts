@@ -45,6 +45,7 @@ export class RegionalSupplierEvidenceService {
       include: {
         supplierProduct: {
           select: {
+            id: true,
             supplierProductKey: true,
             name: true,
             canonicalMaterialKey: true,
@@ -58,6 +59,7 @@ export class RegionalSupplierEvidenceService {
     });
     return rows.map((row) => ({
       id: row.id,
+      supplierProductId: row.supplierProduct.id,
       observationKey: row.observationKey,
       supplierProductKey: row.supplierProduct.supplierProductKey,
       supplierProductName: row.supplierProduct.name,
