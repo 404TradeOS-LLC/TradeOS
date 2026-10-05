@@ -563,10 +563,17 @@ certification boundary is changed.
 `.github/workflows/playwright-agent-evidence.yml` is manual-only and holds
 `contents: read`. It may execute the checked-in root Playwright suite only
 against a validated non-production TradeOS Preview/Staging origin with explicit
-sanitized-tenant confirmation. It installs only Chromium for the run and
-publishes diagnostic artifacts; it must not receive production credentials,
-mutate Production, weaken Beta Evidence guards, or be treated as exact-head
-release certification.
+sanitized-tenant confirmation. The default authenticated mode reuses only the
+existing Beta smoke identity, verifies the expected smoke organization through
+the established runtime-auth bootstrap, stores browser session state under the
+runner temp directory, and removes that state before artifact upload.
+
+Authenticated checks in this lane are intentionally read-only: they verify the
+canonical **Today** command board and **Estimates** workspace without creating
+or changing contractor records. The lane must not receive production
+credentials, mutate Production, weaken Beta Evidence guards, or be treated as
+exact-head release certification. Broader or mutating contractor lifecycle
+proof remains owned by Beta Evidence / governed RC smoke.
 
 The checked-in Playwright agent MCP definitions launch through
 `tests/playwright/mcp-server.mjs`, which validates the same target contract and
