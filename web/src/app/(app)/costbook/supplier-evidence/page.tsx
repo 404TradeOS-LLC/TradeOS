@@ -23,10 +23,14 @@ export const metadata: Metadata = {
   description: "Review tenant-scoped regional supplier observations and governed canonical matches.",
 };
 
+type QueryValue = string | string[] | undefined;
+
 type SupplierEvidenceQuery = {
-  q?: string;
-  priceStatus?: string;
-  productId?: string;
+  q?: QueryValue;
+  priceStatus?: QueryValue;
+  cursor?: QueryValue;
+  observationId?: QueryValue;
+  productId?: QueryValue;
 };
 
 type SupplierEvidenceData = {
@@ -35,6 +39,7 @@ type SupplierEvidenceData = {
   summary: RegionalSupplierEvidenceSummary;
   selected: RegionalSupplierEvidenceItem | null;
   match: RegionalSupplierCanonicalMatch | null;
+  nextCursor: string | null;
 };
 
 const statuses: Array<{ value: RegionalSupplierPriceStatus; label: string }> = [
@@ -43,6 +48,12 @@ const statuses: Array<{ value: RegionalSupplierPriceStatus; label: string }> = [
   { value: "unavailable", label: "Unavailable" },
   { value: "not-listed", label: "Not listed" },
 ];
+
+const PAGE_SIZE = 100;
+
+function singleQueryValue(value: QueryValue): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function normalizeStatus(value: string | undefined): RegionalSupplierPriceStatus | undefined {
   return statuses.some((status) => status.value === value)
@@ -65,20 +76,29 @@ export default async function SupplierEvidencePage({
   let data: SupplierEvidenceData | null = null;
   let loadError: string | null = null;
 
+  const q = singleQueryValue(query.q)?.trim() || undefined;
+  const priceStatus = normalizeStatus(singleQueryValue(query.priceStatus));
+  const cursor = singleQueryValue(query.cursor);
+  const observationId = singleQueryValue(query.observationId);
+  const productId = singleQueryValue(query.productId);
+
   try {
-    const priceStatus = normalizeStatus(query.priceStatus);
-    const [workspace, rows, summary] = await Promise.all([
+    const [workspace, fetchedRows, summary] = await Promise.all([
       getCostbookWorkspace(token),
       listRegionalSupplierEvidence(token, {
-        q: query.q?.trim() || undefined,
+        q,
         priceStatus,
-        limit: 100,
+        cursor,
+        limit: PAGE_SIZE + 1,
       }),
       getRegionalSupplierEvidenceSummary(token),
     ]);
 
+    const hasNextPage = fetchedRows.length > PAGE_SIZE;
+    const rows = fetchedRows.slice(0, PAGE_SIZE);
     const selected =
-      rows.find((row) => row.supplierProductId === query.productId) ??
+      rows.find((row) => row.id === observationId) ??
+      rows.find((row) => row.supplierProductId === productId) ??
       rows[0] ??
       null;
 
@@ -97,6 +117,7 @@ export default async function SupplierEvidencePage({
       summary,
       selected,
       match,
+      nextCursor: hasNextPage && rows.length > 0 ? rows[rows.length - 1].id : null,
     };
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Supplier evidence is unavailable.";
@@ -116,8 +137,8 @@ export default async function SupplierEvidencePage({
     );
   }
 
-  const { rows, summary, selected, match } = data;
-  const activeStatus = normalizeStatus(query.priceStatus);
+  const { rows, summary, selected, match, nextCursor } = data;
+  const activeStatus = priceStatus;
 
   return (
     <div className="flex flex-col gap-6">
@@ -156,7 +177,7 @@ export default async function SupplierEvidencePage({
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             name="q"
-            defaultValue={query.q}
+            defaultValue={q}
             placeholder="Search product, observation, or canonical key…"
             className="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
@@ -187,15 +208,15 @@ export default async function SupplierEvidencePage({
           <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
             <div className="border-b border-border/70 px-4 py-3">
               <h2 className="font-semibold text-foreground">Regional observations</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Showing up to 100 newest matching observations.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Showing up to {PAGE_SIZE} matching observations per page, newest first.</p>
             </div>
             <div className="divide-y divide-border/70">
               {rows.map((row) => {
-                const selectedRow = selected?.supplierProductId === row.supplierProductId;
+                const selectedRow = selected?.id === row.id;
                 return (
                   <Link
                     key={row.id}
-                    href={evidenceHref(query, row.supplierProductId)}
+                    href={evidenceHref({ q, priceStatus, cursor }, row.id, row.supplierProductId)}
                     aria-current={selectedRow ? "true" : undefined}
                     className={cn(
                       "grid gap-3 p-4 outline-none transition hover:bg-muted/30 focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 md:grid-cols-[minmax(0,1fr)_140px_150px]",
@@ -217,7 +238,7 @@ export default async function SupplierEvidencePage({
                     <div>
                       <p className="text-xs text-muted-foreground">Normalized price</p>
                       <p className="mt-1 font-mono text-sm font-semibold tabular-nums text-foreground">
-                        {row.normalizedUnitPrice === null ? "—" : money(row.normalizedUnitPrice)}
+                        {row.normalizedUnitPrice === null ? "—" : money(row.normalizedUnitPrice, row.currency)}
                       </p>
                       <p className="text-xs text-muted-foreground">{row.normalizedUnit ? `/ ${row.normalizedUnit}` : "Unit unavailable"}</p>
                     </div>
@@ -231,6 +252,21 @@ export default async function SupplierEvidencePage({
                   </Link>
                 );
               })}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border/70 px-4 py-3">
+              {cursor ? (
+                <Link href={pageHref({ q, priceStatus })} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Newest
+                </Link>
+              ) : <span />}
+              {nextCursor ? (
+                <Link href={pageHref({ q, priceStatus, cursor: nextCursor })} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Next page
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              ) : (
+                <span className="text-xs text-muted-foreground">End of matching evidence</span>
+              )}
             </div>
           </div>
 
@@ -356,13 +392,28 @@ function Detail({ label, value, mono = false }: { label: string; value: string; 
   );
 }
 
-function evidenceHref(query: SupplierEvidenceQuery, productId: string) {
+function pageHref(input: {
+  q?: string;
+  priceStatus?: RegionalSupplierPriceStatus;
+  cursor?: string;
+}) {
   const params = new URLSearchParams();
-  if (query.q?.trim()) params.set("q", query.q.trim());
-  const status = normalizeStatus(query.priceStatus);
-  if (status) params.set("priceStatus", status);
-  params.set("productId", productId);
-  return `/costbook/supplier-evidence?${params.toString()}`;
+  if (input.q) params.set("q", input.q);
+  if (input.priceStatus) params.set("priceStatus", input.priceStatus);
+  if (input.cursor) params.set("cursor", input.cursor);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return `/costbook/supplier-evidence${suffix}`;
+}
+
+function evidenceHref(
+  input: { q?: string; priceStatus?: RegionalSupplierPriceStatus; cursor?: string },
+  observationId: string,
+  productId: string
+) {
+  const base = new URL(pageHref(input), "https://tradeos.local");
+  base.searchParams.set("observationId", observationId);
+  base.searchParams.set("productId", productId);
+  return `${base.pathname}?${base.searchParams.toString()}`;
 }
 
 function sourceLabel(sourceFile: string, sourceRow: number | null) {
@@ -376,6 +427,11 @@ function formatDate(value: string) {
     : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+function money(value: number, currency: string) {
+  const code = currency.toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(value);
+  } catch {
+    return `${code} ${new Intl.NumberFormat("en-US").format(value)}`;
+  }
 }
