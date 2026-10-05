@@ -544,3 +544,47 @@ The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable 
 
 `docs/SPRINT_BACKLOG.md` state transitions are authoritative on `main`. Sprint governance therefore runs READY/PLANNED promotion-scope and DONE-evidence diff checks only for pull requests whose base is `main`. Pull requests targeting staging or another non-main synchronization branch still run the repository-wide sprint-state validator, documentation tests, PR preflight, and documentation-ownership checks. This prevents a stale non-main base from reclassifying historical main transitions as new promotions while preserving main-branch governance.
 
+
+## Codex Playwright agent definitions
+
+The founder-authorized Playwright setup versions only the three reviewed
+`.codex/agents/playwright_test_{planner,generator,healer}.toml` definitions.
+This is a narrow exception to the local Codex artifact exclusion; config,
+sessions, caches and other local state remain ignored. The root pinned runner
+and login-shell seed complement the existing Beta/RC evidence workflows.
+Agents must preserve real failures and must not skip/fixme tests to pass a gate.
+See [the runbook](testing/PLAYWRIGHT_AGENTS.md) for commands, regeneration and
+authenticated evidence prerequisites. No production auth, tenant or release
+certification boundary is changed.
+
+
+## Playwright agent Chromium evidence workflow
+
+`.github/workflows/playwright-agent-evidence.yml` is manual-only and holds
+`contents: read`. It may execute the checked-in root Playwright suite only
+against a validated non-production TradeOS Preview/Staging origin with explicit
+sanitized-tenant confirmation. The default authenticated mode reuses only the
+existing Beta smoke identity, verifies the expected smoke organization through
+the established runtime-auth bootstrap, stores browser session state under the
+runner temp directory, and removes that state before artifact upload.
+
+Authenticated checks in this lane are intentionally read-only: they verify the
+canonical **Today**, **Customers**, **Projects**, **Estimates**, **Proposals**,
+**Contracts**, and **Invoices** workspaces without creating or changing
+contractor records or financial state. Customer, Project, Estimate, Proposal,
+Contract, and Invoice detail routes are exercised only from sanitized records
+already visible to the smoke tenant; absent records must render truthful empty
+states. The suite never submits proposal, signature, invoice, payment, or void
+controls. Authenticated Playwright trace capture stays disabled so session
+cookies are not published with failure artifacts. The lane must not receive
+production credentials, mutate Production, weaken Beta Evidence guards, or be
+treated as exact-head release certification. Broader or mutating contractor
+lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
+/ governed RC smoke.
+
+The checked-in Playwright agent MCP definitions launch through
+`tests/playwright/mcp-server.mjs`, which validates the same target contract and
+sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
+starts. This is a defense-in-depth guard against accidental cross-origin
+browser requests, not a replacement for environment isolation or the governed
+authenticated evidence path.

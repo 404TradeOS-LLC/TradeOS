@@ -330,3 +330,21 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 
 The Sprint governance workflow treats `main` as authoritative for READY/PLANNED and DONE transition-diff checks. Pull requests targeting non-main branches still run sprint-state, documentation, PR-preflight, and ownership validation; transition-specific diff classification is skipped so branch synchronization is not mistaken for a new readiness/completion promotion.
 
+
+
+### Playwright agent Chromium evidence
+
+The manual `.github/workflows/playwright-agent-evidence.yml` lane installs
+Chromium on a GitHub-hosted runner and executes the root Playwright suite
+against an approved sanitized non-production TradeOS target. It defaults to a
+bounded authenticated smoke using the existing Beta smoke identity: fresh
+runtime storage state is created outside the repository, the expected smoke
+organization is verified, and read-only checks cover **Today**, **Customers**,
+**Projects**, **Estimates**, **Proposals**, **Contracts**, and **Invoices**.
+When sanitized records exist, the suite follows their real hrefs to Customer,
+Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
+it requires truthful empty states. Authenticated trace capture is disabled and
+the runtime session file is removed before artifact publication. Browser
+reports remain diagnostic and do not replace Beta Evidence's exact-head,
+tenant-isolation, financial-integrity, or mutating lifecycle certification
+contract.

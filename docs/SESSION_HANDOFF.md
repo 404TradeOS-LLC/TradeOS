@@ -10,6 +10,20 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## Founder-authorized Codex Playwright setup — 2026-10-05
+
+- Classification: `NEW_WORK_REQUIRED`; base `cd419b6dd00686cd36a649e3675fe5a31abf7e58`.
+- Branch: `chore/playwright-codex-agents`; Sprint ID: NONE.
+- Adds reviewed planner/generator/healer definitions, pinned root test runner,
+  non-production target guards and a meaningful logged-out login-shell seed.
+- The healer preserves genuine failures. Only the three agent TOMLs are
+  allowlisted; local Codex state and authentication material remain ignored.
+- Existing S053 PR #654 owns hosted certification; this setup does not replace
+  it, provision credentials, certify a lifecycle or change sprint status.
+- Next five tasks: verify hosted PR checks; land the bounded setup; start an
+  approved local/Preview target; run the login seed; plan authenticated flows
+  only after the existing Beta Evidence fixture/data-plane prerequisites pass.
+
 ## Founder-authorized Today exception lane — 2026-10-04
 
 - Branch `feat/today-real-exception-queue`; PR #643 is ready for review directly on current `main` after Customer→Project #645 and S067 #644 merged. It is no longer stacked on the closed Customer→Project branch.
