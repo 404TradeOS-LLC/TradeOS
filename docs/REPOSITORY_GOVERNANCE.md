@@ -141,7 +141,9 @@ staging Supabase/data plane. The repair provisions or reuses exactly one managed
 encrypted `TRADEOS_STAGING_FIXTURE_SECRET` scoped to the staging Preview branch,
 refuses operator-owned conflicting values, masks the secret in Actions, and never
 writes it to retained evidence. It rebuilds the captured staging SHA from the
-fixed Git source so current project environment values are applied, verifies
+fixed Git source and passes the same masked managed fixture value directly to that
+non-production replacement because API-created Previews do not reliably inherit
+a newly provisioned branch-scoped secret. It verifies
 team/project/repository ownership, runtime SHA, database/schema readiness,
 invalid Supabase token rejection, and successful access to the dedicated
 synthetic fixture using the secret-gated identity. Browser/web auth bypass is

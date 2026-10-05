@@ -151,8 +151,11 @@ refuses operator-owned conflicting values, masks the secret in Actions, and
 never writes the secret to retained evidence.
 
 The repair then always creates a fresh Preview from the captured `staging`
-Git SHA with the build-skip optimization disabled for that deployment. It
-verifies team/project/repository ownership, polls only the returned immutable
+Git SHA with the build-skip optimization disabled for that deployment. The same
+managed fixture value is passed directly to this non-production replacement
+without logging or retaining it because API-created Previews do not reliably
+inherit a newly provisioned branch-scoped secret. It verifies
+team/project/repository ownership, polls only the returned immutable
 deployment ID, and probes that immutable hostname rather than a moving alias.
 Success requires matching `/health` SHA, database and schema `/ready` checks,
 a 401 from `/api/v1/auth/bootstrap` for a public deliberately invalid ES256

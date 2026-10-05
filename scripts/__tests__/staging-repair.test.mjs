@@ -94,6 +94,7 @@ test("recovers a missing deployment from staging only and rejects a branch SHA r
   assert.deepEqual(JSON.parse(mutation.init.body), {
     name: "tradeos-costbook", project: projectId,
     gitSource: { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging" },
+    env: { TRADEOS_STAGING_FIXTURE_SECRET: "f".repeat(48) },
     projectSettings: { commandForIgnoringBuildStep: "exit 1" },
   });
   await assert.rejects(runner({ sourceAvailable: false, replacement: { meta: { ...deployment().meta, githubCommitSha: "b".repeat(40) } } }).run());

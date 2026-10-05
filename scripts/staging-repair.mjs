@@ -106,6 +106,9 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch, 
     // The branch may move after capture, so assertStagingDeployment still fail-closes unless
     // the created deployment resolves to the exact captured expectedSha.
     payload.gitSource = { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging" };
+    // API-created Previews do not reliably inherit a newly provisioned branch-scoped secret.
+    // Pass the same managed value directly to this non-production replacement without logging it.
+    if (fixtureSecret) payload.env = { [STAGING_FIXTURE_SECRET_KEY]: fixtureSecret };
     payload.projectSettings = { commandForIgnoringBuildStep: "exit 1" };
   }
   await record(evidence);
