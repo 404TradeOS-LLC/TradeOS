@@ -59,11 +59,15 @@ Invoke the Codex agents by name:
 The seed checks Email, Password and Sign in on the logged-out `/login` page.
 The hosted evidence workflow can also reuse the existing governed Beta smoke
 identity to generate fresh runtime storage state outside the repository and run
-read-only authenticated checks against **Today** and **Estimates**. Those checks
-verify the canonical Today command board sections and that the Estimates
-workspace renders either its real queue or its truthful empty state without the
-known load-error fallback. They do not create, edit, send, accept, invoice, pay,
-schedule, or otherwise mutate contractor records.
+read-only authenticated checks across **Today**, **Customers**, **Projects**, and
+**Estimates**. The suite verifies the canonical Today command board, the
+Customers and Projects list workspaces, and the Estimates queue without the
+known load-error fallback. When sanitized smoke records exist, it follows their
+real hrefs with direct GET navigation to exercise Customer detail, Project
+detail, and the focused Estimate workspace; when a list is empty, the test
+requires the product's truthful empty state instead of inventing a fixture.
+These checks do not create, edit, send, accept, invoice, pay, schedule, or
+otherwise mutate contractor records.
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
@@ -104,15 +108,20 @@ agents. It resolves only the same approved Preview/Staging host contract as the
 agent target guard, requires explicit sanitized-tenant confirmation, installs
 Chromium plus Linux dependencies with
 `npx playwright install --with-deps chromium`, runs the root Chromium suite,
-and uploads the HTML report, test results, screenshots, failure traces/videos,
-Playwright version and discovered-test list for 30 days.
+and uploads the HTML report, test results, screenshots, permitted failure
+artifacts, Playwright version and discovered-test list for 30 days. Authenticated
+specs explicitly disable Playwright trace capture so session cookies cannot be
+retained in uploaded traces; the logged-out seed may still use the evidence-mode
+failure trace policy.
 
 By default the workflow also runs the bounded authenticated smoke. It consumes
 only the existing `BETA_RC_SMOKE_EMAIL` and `BETA_RC_SMOKE_PASSWORD` GitHub
-secrets, verifies the configured smoke organization through the existing
-`auth-setup.mjs` contract, writes storage state only under the runner temp
-directory, and removes it before artifact upload. The uploaded evidence may
-contain the redacted auth bootstrap report, but never the session file.
+secrets inside the prerequisite/authentication steps that need them, verifies
+the configured smoke organization through the existing `auth-setup.mjs`
+contract, writes storage state only under the runner temp directory, and removes
+it before artifact upload. The uploaded evidence may contain the redacted auth
+bootstrap report, but never the session file or an authenticated Playwright
+trace.
 
 The workflow does not run an LLM inside GitHub Actions; Codex remains the host
 for planner/generator/healer work. GitHub Actions executes the deterministic
