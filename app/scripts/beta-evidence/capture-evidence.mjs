@@ -512,16 +512,16 @@ try {
 
   await page.locator('[name="simpleScope"]').fill(scope);
   await page.getByRole("button", { name: "Create project" }).click();
-  await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
-
-  const projectLink = page.locator('a[href^="/projects/"]').filter({ hasText: projectName }).first();
-  const projectHref = await projectLink.getAttribute("href");
-  const projectId = projectHref ? /\/projects\/([^/?]+)/.exec(projectHref)?.[1] : undefined;
-  assertBusiness("project link resolves an id", Boolean(projectId), `href was ${projectHref ?? "missing"}`);
-  await projectLink.click();
-  await page.waitForURL(new RegExp(`/projects/${projectId}(?:$|[/?])`), { timeout: 60_000 });
+  // Canonical project creation opens the server-created Project workspace
+  // directly. Waiting for the Projects index is stale and races the redirect.
+  await page.waitForURL(
+    /\/projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:[/?]|$)/i,
+    { timeout: 60_000 },
+  );
+  const projectId = /\/projects\/([^/?]+)/.exec(page.url())?.[1];
+  assertBusiness("project workspace resolves an id", Boolean(projectId), `url was ${page.url()}`);
   await page.waitForLoadState("networkidle");
-  assertBusiness("project workspace resolves an id", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
+  assertBusiness("project workspace opens after creation", new URL(page.url()).pathname === `/projects/${projectId}`, `url was ${page.url()}`);
 
   if (scenario === "s052") {
     const readProject = async () => page.evaluate(async (id) => {
