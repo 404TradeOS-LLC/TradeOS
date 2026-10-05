@@ -42,6 +42,7 @@ function buildApp() {
 
 describe("requireAuth middleware", () => {
   const secret = "test-secret";
+  const stagingFixtureSecret = "fixture-secret-".padEnd(48, "s");
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
@@ -61,8 +62,9 @@ describe("requireAuth middleware", () => {
     process.env = originalEnv;
   });
 
-  it("rejects the staging marker while bypass is disabled", async () => {
-    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+  it("rejects a staging fixture bearer while bypass is disabled", async () => {
+    process.env.TRADEOS_STAGING_FIXTURE_SECRET = stagingFixtureSecret;
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${stagingFixtureSecret}`);
     expect(response.status).toBe(401);
     expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
   });
@@ -70,6 +72,7 @@ describe("requireAuth middleware", () => {
   it("resolves a protected API route to the dedicated owner tenant in Preview", async () => {
     Object.assign(process.env, {
       TRADEOS_AUTH_BYPASS: "true",
+      TRADEOS_STAGING_FIXTURE_SECRET: stagingFixtureSecret,
       NODE_ENV: "production",
       VERCEL_ENV: "preview",
       SUPABASE_URL: `https://${STAGING_AUTH.supabaseRef}.supabase.co`,
@@ -77,16 +80,30 @@ describe("requireAuth middleware", () => {
     });
     mockPrisma.appUser.findUnique.mockResolvedValue({ id: STAGING_AUTH.userId, email: STAGING_AUTH.email, isActive: true });
     mockPrisma.organizationMembership.findFirst.mockResolvedValue({ orgId: STAGING_AUTH.orgId, userId: STAGING_AUTH.userId, role: "owner", status: "active" });
-    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${stagingFixtureSecret}`);
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ userId: STAGING_AUTH.userId, orgId: STAGING_AUTH.orgId, role: "owner", email: STAGING_AUTH.email });
     expect(mockPrisma.appUser.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { authSubject: STAGING_AUTH.subject } }));
     expect(mockPrisma.organizationMembership.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ orgId: STAGING_AUTH.orgId, status: "active" }) }));
   });
 
+  it("rejects the former public fixture marker even when Preview bypass is enabled", async () => {
+    Object.assign(process.env, {
+      TRADEOS_AUTH_BYPASS: "true",
+      TRADEOS_STAGING_FIXTURE_SECRET: stagingFixtureSecret,
+      NODE_ENV: "production",
+      VERCEL_ENV: "preview",
+      SUPABASE_URL: `https://${STAGING_AUTH.supabaseRef}.supabase.co`,
+      DATABASE_URL: `postgresql://tradeos_app.${STAGING_AUTH.supabaseRef}:placeholder@aws-0-us-east-1.pooler.supabase.com:6543/postgres`,
+    });
+    const response = await request(buildApp()).get("/secure").set("Authorization", "Bearer tradeos-staging-fixture-v1");
+    expect(response.status).toBe(401);
+    expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
+  });
+
   it("denies every protected request when bypass is configured in Vercel Production", async () => {
     Object.assign(process.env, { TRADEOS_AUTH_BYPASS: "true", NODE_ENV: "production", VERCEL_ENV: "production" });
-    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${STAGING_AUTH.marker}`);
+    const response = await request(buildApp()).get("/secure").set("Authorization", `Bearer ${stagingFixtureSecret}`);
     expect(response.status).toBe(503);
     expect(mockPrisma.appUser.findUnique).not.toHaveBeenCalled();
   });
