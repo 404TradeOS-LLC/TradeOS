@@ -40,8 +40,8 @@ test("agent MCP startup constrains browser requests to the validated target", ()
   assert.match(launcher, /run-test-mcp-server/);
 });
 
-test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {
-  assert.equal((authenticated.match(/\n  test\('/g) ?? []).length, 8);
+test("authenticated evidence stays read-only across contractor, document, schedule, and field workspaces", () => {
+  assert.equal((authenticated.match(/\n  test\('/g) ?? []).length, 10);
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
   assert.match(authenticated, /test\.use\(\{ storageState, trace: 'off' \}\)/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
@@ -61,6 +61,17 @@ test("authenticated evidence stays read-only across contractor and document life
   assert.match(authenticated, /Contract overview/);
   assert.match(authenticated, /'invoices'[\s\S]*?Billing history and outstanding balances\./);
   assert.match(authenticated, /Invoice financial summary/);
+  assert.match(authenticated, /page\.goto\('\/dispatch'/);
+  assert.match(authenticated, /name: 'Schedule'/);
+  assert.match(authenticated, /Schedule views/);
+  assert.match(authenticated, /Attention queue/);
+  assert.match(authenticated, /page\.goto\('\/settings'/);
+  assert.match(authenticated, /fetch\('\/api\/proxy\/settings'\)/);
+  assert.match(authenticated, /page\.goto\('\/field'/);
+  assert.match(authenticated, /Technician workspace/);
+  assert.match(authenticated, /Field day/);
+  assert.match(authenticated, /Job schedule/);
+  assert.match(authenticated, /Job location/);
   assert.match(authenticated, /firstDetailHref/);
   assert.match(authenticated, /for \(const projectHref of projectHrefs\)/);
   assert.match(authenticated, /data-slot="card-title"/);
