@@ -340,11 +340,15 @@ against an approved sanitized non-production TradeOS target. It defaults to a
 bounded authenticated smoke using the existing Beta smoke identity: fresh
 runtime storage state is created outside the repository, the expected smoke
 organization is verified, and read-only checks cover **Today**, **Customers**,
-**Projects**, **Estimates**, **Proposals**, **Contracts**, and **Invoices**.
-When sanitized records exist, the suite follows their real hrefs to Customer,
-Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
-it requires truthful empty states. Authenticated trace capture is disabled and
-the runtime session file is removed before artifact publication. Browser
-reports remain diagnostic and do not replace Beta Evidence's exact-head,
-tenant-isolation, financial-integrity, or mutating lifecycle certification
-contract.
+**Projects**, **Estimates**, **Proposals**, **Contracts**, **Invoices**,
+**Schedule**, and the role-aware **Field** route. When sanitized records exist,
+the suite follows their real hrefs to Customer, Project, Estimate, Proposal,
+Contract, and Invoice detail surfaces; otherwise it requires truthful empty
+states. Schedule evidence validates the canonical dispatch views without
+writing schedule state. Field evidence derives the session's current role from
+the authenticated Settings API and verifies either the technician Field-day
+surface or the explicit non-technician restriction, without field mutations.
+Authenticated trace capture is disabled and the runtime session file is removed
+before artifact publication. Browser reports remain diagnostic and do not
+replace Beta/RC evidence for exact-head, tenant-isolation, dedicated-technician,
+financial-integrity, or mutating lifecycle certification.
