@@ -40,6 +40,7 @@ test("agent MCP startup constrains browser requests to the validated target", ()
 });
 
 test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {
+  assert.equal((authenticated.match(/\n  test\('/g) ?? []).length, 8);
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
   assert.match(authenticated, /test\.use\(\{ storageState, trace: 'off' \}\)/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
