@@ -85,7 +85,13 @@ describe("Regional supplier canonical match review", () => {
       where: {
         id: "11111111-1111-4111-8111-111111111111",
         orgId: "org-a",
+        name: "2x4 x 8 ft SPF stud",
+        description: null,
+        packageDescription: null,
+        purchaseUnit: "EA",
         canonicalMaterialKey: null,
+        sku: "STUD-248",
+        manufacturerPartNumber: null,
       },
       data: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
     });
@@ -178,7 +184,13 @@ describe("Regional supplier canonical match review", () => {
       where: {
         id: "11111111-1111-4111-8111-111111111111",
         orgId: "org-a",
+        name: "2x4 x 8 ft SPF stud",
+        description: null,
+        packageDescription: null,
+        purchaseUnit: "EA",
         canonicalMaterialKey: null,
+        sku: "STUD-248",
+        manufacturerPartNumber: null,
       },
       data: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
     });
