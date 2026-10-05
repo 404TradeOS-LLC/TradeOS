@@ -52,8 +52,6 @@ jobs:
       TRADEOS_AGENT_EVIDENCE: "true"
       TRADEOS_AGENT_AUTHENTICATED: ${{ inputs.authenticated_smoke }}
       BETA_EVIDENCE_DIR: artifacts/playwright-agent-evidence/auth
-      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
-      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
       BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
 
     steps:
@@ -136,6 +134,9 @@ jobs:
       - name: Require authenticated smoke prerequisites
         if: inputs.authenticated_smoke
         shell: bash
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
         run: |
           set -euo pipefail
           if [ -z "${BETA_SMOKE_EMAIL}" ] || [ -z "${BETA_SMOKE_PASSWORD}" ]; then
@@ -149,6 +150,9 @@ jobs:
 
       - name: Authenticate sanitized smoke tenant
         if: inputs.authenticated_smoke
+        env:
+          BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+          BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
         run: node app/scripts/beta-evidence/auth-setup.mjs
 
       - name: Record Playwright version and discovered tests
