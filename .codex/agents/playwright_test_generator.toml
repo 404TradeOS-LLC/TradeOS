@@ -66,6 +66,6 @@ application behavior.
 """
 
 [mcp_servers.playwright-test]
-command = "npx"
-args = ["--no-install", "playwright", "run-test-mcp-server", "--config", "playwright.config.ts"]
+command = "node"
+args = ["tests/playwright/mcp-server.mjs"]
 enabled_tools = ["browser_click", "browser_drag", "browser_evaluate", "browser_file_upload", "browser_handle_dialog", "browser_hover", "browser_navigate", "browser_press_key", "browser_select_option", "browser_snapshot", "browser_type", "browser_verify_element_visible", "browser_verify_list_visible", "browser_verify_text_visible", "browser_verify_value", "browser_wait_for", "generator_read_log", "generator_setup_page", "generator_write_test"]
