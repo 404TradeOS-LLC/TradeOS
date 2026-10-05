@@ -211,4 +211,62 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByText('Billing', { exact: true })).toBeVisible();
   });
 
+
+  test('Schedule workspace renders the canonical dispatch views read-only', async ({ page }) => {
+    const response = await page.goto('/dispatch', { waitUntil: 'domcontentloaded' });
+
+    expect(response?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/dispatch(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Schedule', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Schedule views' })).toBeVisible();
+
+    for (const view of ['Day', 'Week', 'Crew', 'Attention queue']) {
+      await expect(page.getByRole('link', { name: view, exact: true })).toBeVisible();
+    }
+
+    await expect(page.getByText("Couldn't load schedule data", { exact: true })).toHaveCount(0);
+  });
+
+  test('Field route renders the correct read-only surface for the authenticated role', async ({ page }) => {
+    const settingsResponse = await page.goto('/settings', { waitUntil: 'domcontentloaded' });
+    expect(settingsResponse?.status() ?? 0).toBeLessThan(400);
+
+    const settings = await page.evaluate(async () => {
+      const response = await fetch('/api/proxy/settings');
+      return {
+        status: response.status,
+        body: response.ok ? await response.json() : null,
+      };
+    });
+
+    expect(settings.status).toBe(200);
+    const currentRole = settings.body?.currentRole;
+    expect(typeof currentRole).toBe('string');
+
+    const fieldResponse = await page.goto('/field', { waitUntil: 'domcontentloaded' });
+    expect(fieldResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/field(?:[/?#]|$)/);
+
+    if (currentRole === 'technician') {
+      await expect(page.getByText('Field day', { exact: true })).toBeVisible();
+      const empty = page.getByText('No assigned jobs today', { exact: true });
+      const assigned = page.getByRole('navigation', { name: 'Field jobs' });
+      await expect(empty.or(assigned)).toBeVisible();
+
+      if (await assigned.isVisible()) {
+        await expect(page.getByRole('region', { name: 'Job schedule' })).toBeVisible();
+        await expect(page.getByRole('region', { name: 'Job location' })).toBeVisible();
+      }
+    } else {
+      await expect(page.getByText('Technician workspace', { exact: true })).toBeVisible();
+      await expect(
+        page.getByText(
+          'This workspace is available to technician accounts. Open Dispatch for organization scheduling and coordination.',
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(page.getByText('Field day', { exact: true })).toHaveCount(0);
+    }
+  });
+
 });
