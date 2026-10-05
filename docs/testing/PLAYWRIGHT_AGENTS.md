@@ -61,17 +61,28 @@ The seed checks Email, Password and Sign in on the logged-out `/login` page.
 The hosted evidence workflow can also reuse the existing governed Beta smoke
 identity to generate fresh runtime storage state outside the repository and run
 read-only authenticated checks across **Today**, **Customers**, **Projects**,
-**Estimates**, **Proposals**, **Contracts**, and **Invoices**. The suite verifies
-the canonical Today command board, Customer and Project workspaces, the
-Estimates queue, and the Project-backed proposal/contract/invoice tabs. When
-sanitized smoke records exist, it follows their real hrefs with direct GET
-navigation to exercise Customer, Project, Estimate, Proposal, Contract, and
-Invoice detail surfaces; when a relevant list is empty, the test requires the
-product's truthful empty state instead of inventing a fixture. These checks do
-not create, edit, send, accept, sign, invoice, record payment, pay, schedule, or
-otherwise mutate contractor records. With the current checked-in suite,
-authenticated mode contributes eight tests; together with the logged-out login
-seed, the hosted Chromium run discovers nine tests.
+**Estimates**, **Proposals**, **Contracts**, **Invoices**, **Schedule**, and the
+role-aware **Field** route. The suite verifies the canonical Today command
+board, Customer and Project workspaces, the Estimates queue, Project-backed
+proposal/contract/invoice tabs, and the Schedule workspace's Day/Week/Crew/
+Attention navigation without invoking schedule writes. When sanitized smoke
+records exist, it follows their real hrefs with direct GET navigation to
+exercise Customer, Project, Estimate, Proposal, Contract, and Invoice detail
+surfaces; when a relevant list is empty, the test requires the product's
+truthful empty state instead of inventing a fixture.
+
+The Field check first reads the authenticated session's existing Settings API
+role with a same-origin GET, then verifies the surface that role is actually
+allowed to see. Technician sessions must render Field day and either the
+truthful no-assignment state or assigned Field-job context; non-technician
+sessions must render the explicit Technician workspace restriction. It does not
+perform a field status transition or write a field note. The dedicated RC smoke
+remains authoritative for the organization-matched technician login and
+mutating Field lifecycle. These checks do not create, edit, send, accept, sign,
+invoice, record payment, pay, schedule, dispatch, or otherwise mutate
+contractor records. With the current checked-in suite, authenticated mode
+contributes ten tests; together with the logged-out login seed, the hosted
+Chromium run discovers eleven tests.
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
