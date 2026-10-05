@@ -402,7 +402,13 @@ try {
   await page.locator('[name="name"]').fill(customerName);
   await page.locator('[name="email"]').fill(customerEmail);
   await page.getByRole("button", { name: "Create customer" }).click();
-  await page.waitForURL(/\/customers\/[^/?]+(?:\?|$)/, { timeout: 60_000 });
+  // The create form itself lives at /customers/new, so a generic one-segment
+  // matcher can succeed before the server action redirect finishes and falsely
+  // treat "new" as a Customer id. Wait for the UUID-shaped detail route.
+  await page.waitForURL(
+    /\/customers\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?|$)/i,
+    { timeout: 60_000 },
+  );
   const customerId = /\/customers\/([^/?]+)/.exec(page.url())?.[1];
   assertBusiness("created customer resolves an id", Boolean(customerId), `url was ${page.url()}`);
 
