@@ -628,6 +628,6 @@ test("the destructive seed refuses to run against production and has no override
 
 
 test("S053 retained metadata uses exact PR head identity when provided", () => {
-  assert.match(validator, /commitSha: process\\.env\\.S053_EXPECTED_SHA \\?\\? process\\.env\\.GITHUB_SHA/);
-  assert.match(validator, /branch: process\\.env\\.S053_TARGET_BRANCH \\?\\? process\\.env\\.GITHUB_REF_NAME/);
+  assert.ok(validator.includes("commitSha: process.env.S053_EXPECTED_SHA ?? process.env.GITHUB_SHA ?? null,"));
+  assert.ok(validator.includes("branch: process.env.S053_TARGET_BRANCH ?? process.env.GITHUB_REF_NAME ?? null,"));
 });
