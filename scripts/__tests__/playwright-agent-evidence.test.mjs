@@ -38,6 +38,7 @@ test("agent MCP startup constrains browser requests to the validated target", ()
 });
 
 test("authenticated evidence stays read-only and covers Today plus Estimates", () => {
+  assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
   assert.match(authenticated, /name: 'Today'/);
   assert.match(authenticated, /'Needs you'/);
