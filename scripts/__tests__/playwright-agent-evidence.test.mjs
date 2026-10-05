@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { firstDetailHref } from "../../tests/playwright/evidence-links.mjs";
 
 const workflow = fs.readFileSync(".github/workflows/playwright-agent-evidence.yml", "utf8");
 const config = fs.readFileSync("playwright.config.ts", "utf8");
@@ -59,10 +60,34 @@ test("authenticated evidence stays read-only across contractor and document life
   assert.match(authenticated, /Contract overview/);
   assert.match(authenticated, /tab=invoices/);
   assert.match(authenticated, /Invoice financial summary/);
-  assert.match(authenticated, /function firstDetailHref/);
-  assert.match(authenticated, /detailId !== 'new'/);
+  assert.match(authenticated, /firstDetailHref/);
   assert.match(authenticated, /for \(const projectHref of projectHrefs\)/);
   assert.match(authenticated, /data-slot="card-title"/);
   assert.doesNotMatch(authenticated, /\.click\(/);
   assert.doesNotMatch(authenticated, /\.fill\(/);
+});
+
+test("document detail href selection rejects action and nested routes", () => {
+  const prefix = "/projects/project-1/proposals/";
+  assert.equal(
+    firstDetailHref(
+      [
+        `${prefix}new`,
+        `${prefix}proposal-1/preview`,
+        `${prefix}proposal-1`,
+      ],
+      prefix,
+    ),
+    `${prefix}proposal-1`,
+  );
+  assert.equal(
+    firstDetailHref(
+      [
+        `${prefix}new`,
+        `${prefix}proposal-1/preview`,
+      ],
+      prefix,
+    ),
+    undefined,
+  );
 });
