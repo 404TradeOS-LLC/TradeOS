@@ -330,3 +330,12 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 
 The Sprint governance workflow treats `main` as authoritative for READY/PLANNED and DONE transition-diff checks. Pull requests targeting non-main branches still run sprint-state, documentation, PR-preflight, and ownership validation; transition-specific diff classification is skipped so branch synchronization is not mistaken for a new readiness/completion promotion.
 
+
+
+### Playwright agent Chromium evidence
+
+The manual `.github/workflows/playwright-agent-evidence.yml` lane installs
+Chromium on a GitHub-hosted runner and executes the root Playwright suite
+against an approved sanitized non-production TradeOS target. It uploads browser
+artifacts for debugging and review. It remains diagnostic and does not replace
+the authenticated Beta Evidence certification contract.
