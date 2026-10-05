@@ -51,7 +51,10 @@ function hasPreviewTarget(target) {
 }
 
 export async function ensureStagingFixtureSecret({ api, makeSecret = () => randomBytes(48).toString("base64url") }) {
-  const payload = await api(`/v10/projects/${PROJECT_ID}/env?decrypt=true`);
+  // Never depend on reading an encrypted Vercel value back into CI. Generate the
+  // bearer in-memory, then create or rotate only the one managed staging variable
+  // to that exact value before the fresh deployment is requested.
+  const payload = await api(`/v10/projects/${PROJECT_ID}/env`);
   const envs = payload.envs ?? payload;
   const matches = envs.filter(env =>
     env?.key === STAGING_FIXTURE_SECRET_KEY &&
@@ -59,25 +62,32 @@ export async function ensureStagingFixtureSecret({ api, makeSecret = () => rando
     hasPreviewTarget(env.target)
   );
   assert.ok(matches.length <= 1, "Multiple staging fixture secrets are configured");
-  if (matches.length === 1) {
-    const env = matches[0];
-    assert.equal(env.comment, STAGING_FIXTURE_SECRET_COMMENT, "Refusing an operator-owned staging fixture secret");
-    assert.ok(typeof env.value === "string" && env.value.length >= 32, "Staging fixture secret is missing or too short");
-    return { value: env.value, created: false };
-  }
 
   const value = makeSecret();
   assert.ok(typeof value === "string" && value.length >= 32, "Generated staging fixture secret is too short");
+  const desired = {
+    key: STAGING_FIXTURE_SECRET_KEY,
+    value,
+    type: "encrypted",
+    target: ["preview"],
+    gitBranch: "staging",
+    comment: STAGING_FIXTURE_SECRET_COMMENT,
+  };
+
+  if (matches.length === 1) {
+    const env = matches[0];
+    assert.equal(env.comment, STAGING_FIXTURE_SECRET_COMMENT, "Refusing an operator-owned staging fixture secret");
+    assert.match(env.id ?? "", /^[A-Za-z0-9_-]+$/, "Managed staging fixture secret id is required");
+    await api(`/v9/projects/${PROJECT_ID}/env/${env.id}`, {
+      method: "PATCH",
+      body: JSON.stringify(desired),
+    });
+    return { value, created: false };
+  }
+
   await api(`/v10/projects/${PROJECT_ID}/env`, {
     method: "POST",
-    body: JSON.stringify({
-      key: STAGING_FIXTURE_SECRET_KEY,
-      value,
-      type: "encrypted",
-      target: ["preview"],
-      gitBranch: "staging",
-      comment: STAGING_FIXTURE_SECRET_COMMENT,
-    }),
+    body: JSON.stringify(desired),
   });
   return { value, created: true };
 }
