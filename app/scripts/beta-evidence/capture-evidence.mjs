@@ -218,16 +218,23 @@ async function runS053Certification(projectId, estimateId) {
       response.ok(),
       `Athena draft returned HTTP ${response.status()}`,
     );
+    const draft = await response.json();
     await page.getByRole("button", { name: "Run Athena review" }).waitFor({ timeout: 60_000 });
+    return draft;
   }
 
-  await generateAthenaDraft(setupScope);
+  const setupDraft = await generateAthenaDraft(setupScope);
   await page.getByText("Setup required", { exact: true }).waitFor({ timeout: 60_000 });
   const setupText = await page.locator("body").innerText();
+  const setupResolvedTargets = Array.isArray(setupDraft?.lineItems)
+    ? setupDraft.lineItems.filter((item) => Boolean(item?.targetId)).length
+    : -1;
   assertBusiness(
     "unmapped Athena scope fails safe as setup required",
-    /Setup required/i.test(setupText) && /No generated line item is currently tied to an existing estimate target/i.test(setupText),
-    "expected a blocked setup-required draft for the unmapped certification scope",
+    /Setup required/i.test(setupText) &&
+      setupDraft?.validation?.status === "blocked" &&
+      setupResolvedTargets === 0,
+    `expected blocked setup-required draft with zero resolved targets; status=${setupDraft?.validation?.status ?? "missing"} resolved=${setupResolvedTargets}`,
   );
   const afterSetupDraft = await readEstimateDetail(estimateId);
   assertBusiness(
