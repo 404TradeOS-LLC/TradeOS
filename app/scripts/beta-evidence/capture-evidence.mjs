@@ -69,6 +69,7 @@ const checkpoints = [];
 const assertions = [];
 const consoleErrors = [];
 const failedRequests = [];
+const s053ResolutionDiagnostics = [];
 
 function assertBusiness(name, condition, detail) {
   assertions.push({ name, passed: Boolean(condition), ...(detail ? { detail } : {}) });
@@ -219,6 +220,28 @@ async function runS053Certification(projectId, estimateId) {
       `Athena draft returned HTTP ${response.status()}`,
     );
     const draft = await response.json();
+    if (scenario === "s053") {
+      s053ResolutionDiagnostics.push({
+        scope: scopeValue,
+        detectedTrade: draft?.detectedTrade ?? null,
+        confidenceScore: draft?.confidenceScore ?? null,
+        validationStatus: draft?.validation?.status ?? null,
+        lineItems: Array.isArray(draft?.lineItems)
+          ? draft.lineItems.map((line) => ({
+              description: line?.description ?? null,
+              targetKind: line?.targetKind ?? null,
+              targetId: line?.targetId ?? null,
+              targetCode: line?.targetCode ?? null,
+              targetName: line?.targetName ?? null,
+              resolutionStatus: line?.targetResolution?.status ?? null,
+              resolutionReason: line?.targetResolution?.reason ?? null,
+              unitOfMeasure: line?.unitOfMeasure ?? null,
+              confidence: line?.confidence ?? null,
+              provenanceStatus: line?.provenanceStatus ?? null,
+            }))
+          : [],
+      });
+    }
     await page.getByRole("button", { name: "Run Athena review" }).waitFor({ timeout: 60_000 });
     return draft;
   }
@@ -716,6 +739,7 @@ try {
         assertions,
         consoleErrors,
         failedRequests,
+        s053ResolutionDiagnostics,
         result: failure ? "FAIL" : "PASS",
         error: failure instanceof Error ? failure.message : null,
       },
