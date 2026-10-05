@@ -343,11 +343,16 @@ Preview/Staging targets, uses read-only repository permissions, and uploads the
 HTML report plus browser artifacts. Its authenticated mode creates fresh
 Beta-smoke storage state outside the checkout, verifies the expected
 organization, then exercises **Today**, **Customers**, **Projects**,
-**Estimates**, **Proposals**, **Contracts**, and **Invoices** without mutating
-business or financial records. Existing sanitized records are used to prove the
-corresponding detail surfaces; missing records must render truthful empty
-states. Authenticated traces are disabled, agent MCP startup remains
-origin-constrained, and session state is removed before artifacts are uploaded.
-This broadens browser diagnostics but still does not establish exact-head
-release certification or payment/contract correctness; Beta Evidence remains
-authoritative for that proof.
+**Estimates**, **Proposals**, **Contracts**, **Invoices**, **Schedule**, and the
+role-aware **Field** route without mutating business, schedule, field, or
+financial records. Existing sanitized records are used to prove the document
+detail surfaces; missing records must render truthful empty states. Schedule
+proves the canonical view shell without dispatch writes. Field derives the
+current role from the authenticated Settings GET and proves either technician
+Field-day rendering or the non-technician restriction; the dedicated
+technician/mutating Field lifecycle remains in RC smoke. Authenticated traces
+are disabled, agent MCP startup remains origin-constrained, and session state
+is removed before artifacts are uploaded. This broadens browser diagnostics but
+still does not establish exact-head release certification, tenant-negative
+proof, dedicated-technician lifecycle certification, or payment/contract
+correctness; Beta/RC evidence remains authoritative for those proofs.
