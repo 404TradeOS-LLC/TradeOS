@@ -137,7 +137,7 @@ without changing product authentication or authorization policy.
 The companion `Repair staging Supabase auth configuration` workflow is a
 manual, confirmation-gated operational control. Its repository contract fixes
 the Vercel backend project, `staging` branch, Preview environment, and dedicated
-staging Supabase/data plane. The repair provisions or reuses exactly one managed,
+staging Supabase/data plane. The repair provisions or rotates exactly one managed,
 encrypted `TRADEOS_STAGING_FIXTURE_SECRET` scoped to the staging Preview branch,
 refuses operator-owned conflicting values, masks the secret in Actions, and never
 writes it to retained evidence. It rebuilds the captured staging SHA from the
@@ -429,7 +429,7 @@ Beta evidence is UNVERIFIED until a `full` run passes. Neither this document nor
 
 `.github/workflows/repair-rc-beta-vercel.yml` is manual-only and requires the exact `CLEANUP_RC` confirmation. It targets only the current TradeOS RC beta frontend/backend Preview deployments, updates branch-scoped Preview `BACKEND_API_URL`, `EMAIL_FROM`, and `APP_BASE_URL`, then redeploys those deployments. It must not be used for Production changes, database changes, or `RESEND_API_KEY` rotation. Its completion proves configuration/deployment actions only; authenticated reset-email smoke is still required to prove delivery.
 
-`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It fixes the backend project, `staging` branch, Preview environment, and dedicated staging Supabase/data plane; provisions or reuses exactly one managed encrypted `TRADEOS_STAGING_FIXTURE_SECRET` scoped to that branch; masks the secret in Actions; and refuses operator-owned conflicting values. The repair always creates a fresh Preview from the captured staging Git SHA with the build-skip optimization disabled, then checks the immutable hostname for matching runtime SHA, database/schema readiness, invalid Supabase-token rejection, and successful access to the dedicated synthetic fixture through the secret-gated identity. It may not target Production, copy Production secrets, accept an operator-selected deployment target/value, expose fixture-secret material, or weaken tenant/RLS checks.
+`.github/workflows/repair-staging-supabase-auth.yml` is manual-only and requires the exact `REPAIR_STAGING_AUTH` confirmation. It fixes the backend project, `staging` branch, Preview environment, and dedicated staging Supabase/data plane; provisions or rotates exactly one managed encrypted `TRADEOS_STAGING_FIXTURE_SECRET` scoped to that branch; masks the secret in Actions; and refuses operator-owned conflicting values. The repair always creates a fresh Preview from the captured staging Git SHA with the build-skip optimization disabled, then checks the immutable hostname for matching runtime SHA, database/schema readiness, invalid Supabase-token rejection, and successful access to the dedicated synthetic fixture through the secret-gated identity. It may not target Production, copy Production secrets, accept an operator-selected deployment target/value, expose fixture-secret material, or weaken tenant/RLS checks.
 
 ## Production migration history reconciliation
 
