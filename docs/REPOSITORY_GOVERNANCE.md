@@ -570,17 +570,27 @@ runner temp directory, and removes that state before artifact upload.
 
 Authenticated checks in this lane are intentionally read-only: they verify the
 canonical **Today**, **Customers**, **Projects**, **Estimates**, **Proposals**,
-**Contracts**, and **Invoices** workspaces without creating or changing
-contractor records or financial state. Customer, Project, Estimate, Proposal,
-Contract, and Invoice detail routes are exercised only from sanitized records
-already visible to the smoke tenant; absent records must render truthful empty
-states. The suite never submits proposal, signature, invoice, payment, or void
-controls. Authenticated Playwright trace capture stays disabled so session
-cookies are not published with failure artifacts. The lane must not receive
-production credentials, mutate Production, weaken Beta Evidence guards, or be
-treated as exact-head release certification. Broader or mutating contractor
-lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
-/ governed RC smoke.
+**Contracts**, **Invoices**, **Schedule**, and role-aware **Field** surfaces
+without creating or changing contractor records, schedule state, field state,
+or financial state. Customer, Project, Estimate, Proposal, Contract, and
+Invoice detail routes are exercised only from sanitized records already visible
+to the smoke tenant; absent records must render truthful empty states. Schedule
+checks verify the existing Day/Week/Crew/Attention views and reject the
+load-error fallback without invoking dispatch actions.
+
+For Field, the suite obtains only the current authenticated role through the
+same-origin Settings GET and then requires the corresponding surface: a
+technician sees Field day and assigned/empty Field-job context, while every
+other role sees the explicit Technician workspace restriction. It never
+performs a Job transition or field-note write. The separate governed RC smoke
+remains authoritative for the dedicated organization-matched technician login
+and mutating Field lifecycle. The suite also never submits proposal, signature,
+invoice, payment, or void controls. Authenticated Playwright trace capture stays
+disabled so session cookies are not published with failure artifacts. The lane
+must not receive production credentials, mutate Production, weaken Beta
+Evidence guards, or be treated as exact-head release certification. Broader or
+mutating contractor lifecycle, tenant-isolation, dedicated-technician, and
+financial proof remains owned by Beta Evidence / governed RC smoke.
 
 The checked-in Playwright agent MCP definitions launch through
 `tests/playwright/mcp-server.mjs`, which validates the same target contract and
