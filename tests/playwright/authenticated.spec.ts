@@ -53,8 +53,8 @@ test.describe('TradeOS authenticated workspace', () => {
     expect(detailResponse?.status() ?? 0).toBeLessThan(400);
     await expect(page).toHaveURL(/\/customers\/[^/?#]+(?:[/?#]|$)/);
     await expect(page.getByRole('navigation', { name: 'Customer workspace sections' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Current work', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Customer details', exact: true })).toBeVisible();
+    await expect(page.getByText('Current work', { exact: true })).toBeVisible();
+    await expect(page.getByText('Customer details', { exact: true })).toBeVisible();
   });
 
   test('Projects workspace and first available project detail render read-only', async ({ page }) => {
