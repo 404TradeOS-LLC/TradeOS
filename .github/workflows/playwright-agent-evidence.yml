@@ -22,6 +22,16 @@ on:
         required: true
         default: false
         type: boolean
+      authenticated_smoke:
+        description: Authenticate the governed smoke identity and run read-only Today/Estimates checks
+        required: true
+        default: true
+        type: boolean
+      smoke_tenant_label:
+        description: Sanitized smoke organization label expected after login
+        required: true
+        default: TradeOS Beta Smoke
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +50,13 @@ jobs:
       TRADEOS_AGENT_ENVIRONMENT: ${{ inputs.target_environment }}
       TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       TRADEOS_AGENT_EVIDENCE: "true"
+      TRADEOS_AGENT_AUTHENTICATED: ${{ inputs.authenticated_smoke }}
+      TRADEOS_AGENT_STORAGE_STATE: ${{ runner.temp }}/playwright-agent-storage-state.json
+      BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/playwright-agent-storage-state.json
+      BETA_EVIDENCE_DIR: artifacts/playwright-agent-evidence/auth
+      BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
+      BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
+      BETA_SMOKE_ORG_LABEL: ${{ inputs.smoke_tenant_label }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,7 +101,10 @@ jobs:
             throw new Error("GitHub-hosted evidence requires an approved HTTPS TradeOS Preview/Staging origin.");
           }
 
-          fs.appendFileSync(process.env.GITHUB_ENV, `TRADEOS_AGENT_BASE_URL=${target}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_ENV,
+            `TRADEOS_AGENT_BASE_URL=${target}\nBETA_RC_BASE_URL_RESOLVED=${target}\n`,
+          );
           fs.mkdirSync("artifacts/playwright-agent-evidence", { recursive: true });
           fs.writeFileSync(
             "artifacts/playwright-agent-evidence/run.json",
@@ -108,6 +128,24 @@ jobs:
       - name: Install Chromium and Linux dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Require authenticated smoke prerequisites
+        if: inputs.authenticated_smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${BETA_SMOKE_EMAIL}" ] || [ -z "${BETA_SMOKE_PASSWORD}" ]; then
+            echo "::error::BETA_RC_SMOKE_EMAIL and BETA_RC_SMOKE_PASSWORD are required for authenticated Playwright evidence."
+            exit 1
+          fi
+          if [ -z "${BETA_SMOKE_ORG_LABEL}" ]; then
+            echo "::error::smoke_tenant_label is required for authenticated Playwright evidence."
+            exit 1
+          fi
+
+      - name: Authenticate sanitized smoke tenant
+        if: inputs.authenticated_smoke
+        run: node app/scripts/beta-evidence/auth-setup.mjs
+
       - name: Record Playwright version and discovered tests
         shell: bash
         run: |
@@ -117,6 +155,11 @@ jobs:
 
       - name: Run Playwright agent suite in Chromium
         run: npx --no-install playwright test --project=chromium
+
+      - name: Remove runtime storage state
+        if: always()
+        shell: bash
+        run: rm -f "${TRADEOS_AGENT_STORAGE_STATE:-}"
 
       - name: Upload browser evidence
         if: always()
