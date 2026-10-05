@@ -196,7 +196,8 @@ async function runS053Certification(projectId, estimateId) {
     waitUntil: "networkidle",
     timeout: 60_000,
   });
-  await page.getByRole("heading", { name: "Scope of work" }).waitFor({ timeout: 60_000 });
+  await page.getByRole("heading", { name: "Athena Estimate Review" }).waitFor({ timeout: 60_000 });
+  await page.getByText("Scope of work", { exact: true }).first().waitFor({ timeout: 60_000 });
 
   const setupScope = `qzxvplm ntrksw unmapped certification scope ${scopeSuffix}`;
   const scopeInput = page.locator("textarea").first();
