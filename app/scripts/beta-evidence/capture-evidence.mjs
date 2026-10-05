@@ -473,10 +473,20 @@ try {
     );
   }
 
-  await page.goto(new URL("/projects/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
-  // The customer only appears in this select when it belongs to the signed-in
-  // tenant, so selecting it by label is itself a tenant-scoping assertion.
-  await page.locator("select[name=customerId]").selectOption({ label: customerName });
+  await page.goto(
+    new URL(`/projects/new?customerId=${encodeURIComponent(customerId)}`, parsedBaseUrl).toString(),
+    { waitUntil: "networkidle", timeout: 60_000 },
+  );
+  // Exercise the canonical Customer → Project continuity path instead of
+  // depending on the generic customer-list selector. The page resolves this
+  // Customer through the tenant-scoped getCustomer() read and renders the
+  // authoritative id as a hidden field only when that context is valid.
+  const linkedCustomerId = await page.locator('input[type="hidden"][name="customerId"]').inputValue();
+  assertBusiness(
+    "project creation carries the exact server-created customer",
+    linkedCustomerId === customerId,
+    `expected customerId=${customerId}; rendered ${linkedCustomerId || "missing"}`,
+  );
   await page.locator('[name="name"]').fill(projectName);
   await page.locator('[name="jobType"]').fill("Residential condo remodel");
   await page.locator('[name="siteAddress"]').fill("100 Evidence Way");
