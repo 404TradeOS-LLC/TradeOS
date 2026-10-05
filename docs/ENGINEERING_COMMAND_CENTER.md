@@ -333,3 +333,14 @@ Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; S067 is 
 
 The sprint-governance workflow applies READY/PLANNED transition-diff policing and DONE-evidence transition validation only to pull requests targeting `main`, where the numbered backlog is authoritative. Non-main synchronization PRs still run sprint-state validation, docs tests, PR preflight, and docs-ownership checks, but they no longer reinterpret historical main transitions against a stale branch base. This repairs the deterministic false positive reproduced by the staging synchronization lane without weakening main-branch sprint governance.
 
+
+
+### Playwright agent Chromium evidence
+
+A manual GitHub Actions lane now provides hosted Chromium execution for the
+root Playwright agent suite. The lane is restricted to approved sanitized
+Preview/Staging targets, uses read-only repository permissions, and uploads the
+HTML report plus browser artifacts. Agent MCP startup is origin-constrained
+from the same validated target. This improves repeatable browser diagnostics
+but does not establish authenticated or exact-head release certification; use
+Beta Evidence for that governed proof.
