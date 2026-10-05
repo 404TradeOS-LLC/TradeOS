@@ -336,11 +336,14 @@ The Sprint governance workflow treats `main` as authoritative for READY/PLANNED 
 
 The manual `.github/workflows/playwright-agent-evidence.yml` lane installs
 Chromium on a GitHub-hosted runner and executes the root Playwright suite
-against an approved sanitized non-production TradeOS target. It now defaults to
-a bounded authenticated smoke using the existing Beta smoke identity: fresh
+against an approved sanitized non-production TradeOS target. It defaults to a
+bounded authenticated smoke using the existing Beta smoke identity: fresh
 runtime storage state is created outside the repository, the expected smoke
-organization is verified, and read-only checks cover the canonical **Today**
-command board plus the **Estimates** workspace. The runtime session file is
-removed before artifact publication. Browser reports remain diagnostic and do
-not replace Beta Evidence's exact-head, tenant-isolation, or mutating lifecycle
-certification contract.
+organization is verified, and read-only checks now cover **Today**,
+**Customers**, **Projects**, and **Estimates**. When sanitized records exist,
+the suite follows their real hrefs to Customer, Project, and Estimate detail
+surfaces; otherwise it requires truthful empty states. Authenticated trace
+capture is disabled and the runtime session file is removed before artifact
+publication. Browser reports remain diagnostic and do not replace Beta
+Evidence's exact-head, tenant-isolation, or mutating lifecycle certification
+contract.
