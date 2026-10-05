@@ -337,10 +337,14 @@ The sprint-governance workflow applies READY/PLANNED transition-diff policing an
 
 ### Playwright agent Chromium evidence
 
-A manual GitHub Actions lane now provides hosted Chromium execution for the
-root Playwright agent suite. The lane is restricted to approved sanitized
+A manual GitHub Actions lane provides hosted Chromium execution for the root
+Playwright agent suite. The lane is restricted to approved sanitized
 Preview/Staging targets, uses read-only repository permissions, and uploads the
-HTML report plus browser artifacts. Agent MCP startup is origin-constrained
-from the same validated target. This improves repeatable browser diagnostics
-but does not establish authenticated or exact-head release certification; use
-Beta Evidence for that governed proof.
+HTML report plus browser artifacts. Its default authenticated mode now creates
+fresh Beta-smoke storage state outside the checkout, verifies the expected
+organization, then exercises **Today** and **Estimates** without mutating
+business records. Agent MCP startup remains origin-constrained from the same
+validated target, and session state is removed before artifacts are uploaded.
+This closes the basic authenticated-browser diagnostic gap but still does not
+establish exact-head release certification; Beta Evidence remains authoritative
+for that proof.
