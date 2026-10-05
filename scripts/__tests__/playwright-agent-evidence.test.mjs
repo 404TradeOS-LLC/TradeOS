@@ -19,7 +19,7 @@ test("Playwright agent evidence workflow stays manual, read-only, and Chromium-o
   assert.match(workflow, /BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}/);
   assert.match(workflow, /BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
   assert.match(workflow, /node app\/scripts\/beta-evidence\/auth-setup\.mjs/);
-  assert.match(workflow, /TRADEOS_AGENT_STORAGE_STATE:/);
+  assert.match(workflow, /TRADEOS_AGENT_STORAGE_STATE=/);
   assert.match(workflow, /Remove runtime storage state/);
 });
 
