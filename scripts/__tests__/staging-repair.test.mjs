@@ -65,6 +65,7 @@ test("redeploys by verified ID and proves runtime on that replacement's immutabl
   const mutation = r.calls.find(c => c.init.method === "POST" && c.route);
   assert.deepEqual(JSON.parse(mutation.init.body), {
     deploymentId: "dpl_staging", name: "tradeos-costbook", project: projectId,
+    env: { TRADEOS_STAGING_FIXTURE_SECRET: "f".repeat(48) },
   });
   const requests = r.calls.filter(c => c.url);
   assert.equal(requests.length, 4);
