@@ -1,6 +1,6 @@
 S053 authenticated browser evidence branch trigger.
 Exact repaired current-main branch: evidence/s053-current-main-20261004
-Current reconciled main: a4c8f28c6ead243e0a2add789283606e72d5c248
-Synchronized staging: c05c20d103f81b13201ee5b8b5c93a96ad1c5d87
+Current reconciled main: ec06df533f5468eed44d12a7973b5393e10cd82b
+Synchronized staging: 959e3ef455512013078ff1d5aae04e290e23aea9
 Secret-gated staging fixture auth and canonical smoke-org assertion are required.
 This file has no runtime behavior. It exists only so the frontend Preview is rebuilt from the exact evidence-branch SHA.
