@@ -54,7 +54,8 @@ export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | 
   if (env.NODE_ENV === "production" && vercelEnv !== "preview") return deny("Production runtime cannot enable auth bypass");
   if (vercelEnv && vercelEnv !== "preview") return deny("Only Vercel Preview can enable auth bypass");
   if (!vercelEnv && appEnv !== "staging") return deny("Local bypass requires APP_ENVIRONMENT=staging");
-  const supabaseRef = supabaseProjectRef(layer === "web" ? env.NEXT_PUBLIC_SUPABASE_URL : env.SUPABASE_URL);
+  if (layer === "web") return deny("Web authentication bypass is not supported");
+  const supabaseRef = supabaseProjectRef(env.SUPABASE_URL);
   if (supabaseRef !== STAGING_AUTH.supabaseRef) return deny("Supabase URL is not the dedicated staging project");
   if (layer === "api" && databaseProjectRef(env.DATABASE_URL) !== STAGING_AUTH.supabaseRef) {
     return deny("Database URL is not the dedicated staging project");
