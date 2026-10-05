@@ -186,8 +186,8 @@ async function main() {
     await fs.writeFile(REPORT_PATH, JSON.stringify(evidence, null, 2) + "\n");
   };
   const fixtureSecret = await ensureStagingFixtureSecret({ api });
-  console.log("::add-mask::" + fixtureSecret.value);
   if (process.env.GITHUB_ENV) {
+    console.log("::add-mask::" + fixtureSecret.value);
     await fs.appendFile(process.env.GITHUB_ENV, "S053_STAGING_FIXTURE_SECRET=" + fixtureSecret.value + "\n");
   }
   const result = await repairStagingBackend({
