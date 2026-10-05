@@ -59,17 +59,18 @@ Invoke the Codex agents by name:
 The seed checks Email, Password and Sign in on the logged-out `/login` page.
 The hosted evidence workflow can also reuse the existing governed Beta smoke
 identity to generate fresh runtime storage state outside the repository and run
-read-only authenticated checks across **Today**, **Customers**, **Projects**, and
-**Estimates**. The suite verifies the canonical Today command board, the
-Customers and Projects list workspaces, and the Estimates queue without the
-known load-error fallback. When sanitized smoke records exist, it follows their
-real hrefs with direct GET navigation to exercise Customer detail, Project
-detail, and the focused Estimate workspace; when a list is empty, the test
-requires the product's truthful empty state instead of inventing a fixture.
-These checks do not create, edit, send, accept, invoice, pay, schedule, or
+read-only authenticated checks across **Today**, **Customers**, **Projects**,
+**Estimates**, **Proposals**, **Contracts**, and **Invoices**. The suite verifies
+the canonical Today command board, Customer and Project workspaces, the
+Estimates queue, and the Project-backed proposal/contract/invoice tabs. When
+sanitized smoke records exist, it follows their real hrefs with direct GET
+navigation to exercise Customer, Project, Estimate, Proposal, Contract, and
+Invoice detail surfaces; when a relevant list is empty, the test requires the
+product's truthful empty state instead of inventing a fixture. These checks do
+not create, edit, send, accept, sign, invoice, record payment, pay, schedule, or
 otherwise mutate contractor records. With the current checked-in suite,
-authenticated mode contributes five tests; together with the logged-out login
-seed, the hosted Chromium run discovers six tests.
+authenticated mode contributes eight tests; together with the logged-out login
+seed, the hosted Chromium run discovers nine tests.
 
 Before any broader authenticated or mutating exploration, reuse the governed
 [Beta Evidence](BETA_EVIDENCE.md) fixture, non-production data-plane,
