@@ -120,18 +120,28 @@ test("resolved-price client contract carries source confidence freshness and exp
 });
 
 
-test("Supplier Evidence exposes observations and manager-reviewed canonical matching without price promotion", async () => {
+test("Supplier Evidence exposes truthful paged observations without price promotion", async () => {
   const page = await readSource("./supplier-evidence/page.tsx");
   const api = await readSource("../../../lib/costbook-api.ts");
   const action = await readSource("../../actions/costbook-supplier-evidence.ts");
 
   assert.match(page, /Regional observations/);
   assert.match(page, /Evidence is not the current Material price/);
+  assert.match(page, /type QueryValue = string \| string\[\] \| undefined/);
+  assert.match(page, /singleQueryValue\(query\.q\)/);
+  assert.match(page, /limit: PAGE_SIZE \+ 1/);
+  assert.match(page, /cursor,/);
+  assert.match(page, /row\.id === observationId/);
+  assert.match(page, /money\(row\.normalizedUnitPrice, row\.currency\)/);
+  assert.match(page, /Next page/);
   assert.match(page, /previewRegionalSupplierCanonicalMatch/);
   assert.match(page, /form action=\{reviewSupplierCanonicalMatchAction\}/);
   assert.match(page, /does not write/);
   assert.match(api, /supplierProductId: string/);
+  assert.match(api, /currency: string/);
+  assert.match(api, /cursor\?: string/);
   assert.match(api, /\/api\/v1\/costbook\/supplier-evidence/);
+  assert.match(action, /parseSupplierCanonicalMatchReview/);
   assert.match(action, /reviewRegionalSupplierCanonicalMatch/);
   assert.doesNotMatch(action, /unitCost|price-history|promote/i);
 });
