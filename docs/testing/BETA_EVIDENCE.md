@@ -142,6 +142,12 @@ per run and viewport, so parallel or repeated runs cannot collide and every
 synthetic record traces back to the run that made it via
 `<viewport>/workflow-records.json`.
 
+After the synthetic Customer is created, the browser evidence flow enters
+`/projects/new?customerId=<created-id>` and requires the Project form to carry
+that exact tenant-scoped Customer id. This exercises the shipped
+Customer → Project continuity contract directly; it does not depend on the
+Customer also appearing in a generic selector or on list ordering.
+
 Customer email addresses use the `example.invalid` reserved domain so no mail
 can ever be delivered.
 
