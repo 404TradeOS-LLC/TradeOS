@@ -54,11 +54,12 @@ test("authenticated evidence stays read-only across contractor and document life
   assert.match(authenticated, /page\.goto\('\/estimates'/);
   assert.match(authenticated, /name: 'Estimate from scope'/);
   assert.match(authenticated, /Athena review/);
-  assert.match(authenticated, /tab=proposals/);
+  assert.match(authenticated, /firstProjectDocumentHref/);
+  assert.match(authenticated, /'proposals'[\s\S]*?Customer-facing scope and pricing history\./);
   assert.match(authenticated, /Proposal Review/);
-  assert.match(authenticated, /tab=contracts/);
+  assert.match(authenticated, /'contracts'[\s\S]*?Signed and pending project agreements\./);
   assert.match(authenticated, /Contract overview/);
-  assert.match(authenticated, /tab=invoices/);
+  assert.match(authenticated, /'invoices'[\s\S]*?Billing history and outstanding balances\./);
   assert.match(authenticated, /Invoice financial summary/);
   assert.match(authenticated, /firstDetailHref/);
   assert.match(authenticated, /for \(const projectHref of projectHrefs\)/);
