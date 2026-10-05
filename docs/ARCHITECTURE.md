@@ -198,3 +198,12 @@ Deployment guidance:
 - if online index creation becomes necessary for larger production tables, a future migration can switch to `CREATE INDEX CONCURRENTLY` with the usual PostgreSQL migration constraints and extra rollout care
 
 Implementation-specific deep dives belong in module docs and ADRs, not in this file.
+
+## Staging fixture authentication boundary — 2026-10-04
+
+TradeOS does not provide a browser authentication bypass in Preview. The web application always establishes the normal local/Supabase session and the frontend proxy enforces that session before protected routes render.
+
+The backend retains one synthetic, non-production API fixture identity for governed staging evidence. It is available only when all of these conditions are true: `TRADEOS_AUTH_BYPASS=true`; the runtime is a Vercel Preview (or explicit local staging); the Supabase URL and database both resolve to the dedicated staging project; and the request presents the strong server-only `TRADEOS_STAGING_FIXTURE_SECRET`. The bearer is compared in constant time. A successful fixture match does not choose a tenant directly: the backend resolves the fixed synthetic subject through the normal active `AppUser` / `OrganizationMembership` path, verifies the expected owner identity and organization, and then establishes the same request-scoped database/RLS context as other authenticated requests.
+
+The guarded staging-repair control owns provisioning of that encrypted branch-scoped secret. It refuses conflicting operator-owned values, masks the value in GitHub Actions, rebuilds the exact staging Git SHA so current environment configuration is applied, and verifies the synthetic fixture before declaring staging readiness. Production and mismatched data planes fail closed.
+
