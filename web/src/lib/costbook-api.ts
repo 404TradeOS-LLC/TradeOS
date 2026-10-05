@@ -107,6 +107,7 @@ export interface RegionalSupplierEvidenceItem {
   marketCode: string | null;
   storeName: string | null;
   observedAt: string;
+  currency: string;
   priceStatus: RegionalSupplierPriceStatus;
   regularPrice: number | null;
   effectivePrice: number | null;
@@ -144,6 +145,7 @@ export function listRegionalSupplierEvidence(
     supplierId?: string;
     priceStatus?: RegionalSupplierPriceStatus;
     q?: string;
+    cursor?: string;
     limit?: number;
   } = {}
 ) {
@@ -151,6 +153,7 @@ export function listRegionalSupplierEvidence(
   if (params.supplierId) query.set("supplierId", params.supplierId);
   if (params.priceStatus) query.set("priceStatus", params.priceStatus);
   if (params.q) query.set("q", params.q);
+  if (params.cursor) query.set("cursor", params.cursor);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
   return apiFetch<RegionalSupplierEvidenceItem[]>(`/api/v1/costbook/supplier-evidence${suffix}`, { token });
