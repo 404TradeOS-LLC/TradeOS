@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { firstDetailHref } from './evidence-links.mjs';
 
 const authenticatedSmoke = process.env.TRADEOS_AGENT_AUTHENTICATED === 'true';
 const storageState = authenticatedSmoke ? process.env.TRADEOS_AGENT_STORAGE_STATE : undefined;
@@ -13,14 +14,6 @@ async function hrefs(page: Page, selector: string) {
       .map((link) => link.getAttribute('href'))
       .filter((href): href is string => Boolean(href)),
   );
-}
-
-function firstDetailHref(candidates: string[], prefix: string) {
-  return candidates.find((href) => {
-    if (!href.startsWith(prefix)) return false;
-    const detailId = href.slice(prefix.length);
-    return Boolean(detailId) && detailId !== 'new' && !detailId.includes('/');
-  });
 }
 
 async function firstProjectDocumentHref(
