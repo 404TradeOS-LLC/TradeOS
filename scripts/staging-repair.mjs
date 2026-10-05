@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 const TEAM_ID = "team_nY1VrcaEYEr4rcW7Gxweq7LP";
 const PROJECT_ID = "prj_BVJxF6rnO90wMdNjZ1Yn4QO1aGwD";
 const PROJECT_NAME = "tradeos-costbook";
+const STAGING_FIXTURE_SECRET_KEY = "TRADEOS_STAGING_FIXTURE_SECRET";
+const STAGING_FIXTURE_SECRET_COMMENT = "Managed staging-only synthetic fixture bearer; do not expose in logs or artifacts.";
+const STAGING_FIXTURE_ESTIMATE_ID = "70000000-0000-4000-8000-000000000004";
 // Public, deliberately invalid ES256 JWT: reaches Supabase issuer initialization
 // without authenticating a user or carrying any credential.
 export const INVALID_SUPABASE_PROBE_TOKEN = [
@@ -42,9 +46,45 @@ export function selectStagingDeployment(deployments, expectedSha) {
   return matches[0] ?? null;
 }
 
+function hasPreviewTarget(target) {
+  return Array.isArray(target) ? target.includes("preview") : target === "preview";
+}
+
+export async function ensureStagingFixtureSecret({ api, makeSecret = () => randomBytes(48).toString("base64url") }) {
+  const payload = await api(`/v10/projects/${PROJECT_ID}/env?decrypt=true`);
+  const envs = payload.envs ?? payload;
+  const matches = envs.filter(env =>
+    env?.key === STAGING_FIXTURE_SECRET_KEY &&
+    env.gitBranch === "staging" &&
+    hasPreviewTarget(env.target)
+  );
+  assert.ok(matches.length <= 1, "Multiple staging fixture secrets are configured");
+  if (matches.length === 1) {
+    const env = matches[0];
+    assert.equal(env.comment, STAGING_FIXTURE_SECRET_COMMENT, "Refusing an operator-owned staging fixture secret");
+    assert.ok(typeof env.value === "string" && env.value.length >= 32, "Staging fixture secret is missing or too short");
+    return { value: env.value, created: false };
+  }
+
+  const value = makeSecret();
+  assert.ok(typeof value === "string" && value.length >= 32, "Generated staging fixture secret is too short");
+  await api(`/v10/projects/${PROJECT_ID}/env`, {
+    method: "POST",
+    body: JSON.stringify({
+      key: STAGING_FIXTURE_SECRET_KEY,
+      value,
+      type: "encrypted",
+      target: ["preview"],
+      gitBranch: "staging",
+      comment: STAGING_FIXTURE_SECRET_COMMENT,
+    }),
+  });
+  return { value, created: true };
+}
+
 /** Replace the staging backend and retain identity evidence only after immutable runtime checks. */
-export async function repairStagingBackend({ expectedSha, api, request = fetch,
-  pause = ms => new Promise(resolve => setTimeout(resolve, ms)), record = async () => {} }) {
+export async function repairStagingBackend({ expectedSha, api, request = fetch, fixtureSecret,
+  forceGitSource = false, pause = ms => new Promise(resolve => setTimeout(resolve, ms)), record = async () => {} }) {
   assert.match(expectedSha, /^[a-f0-9]{40}$/, "A full staging SHA is required");
   const evidence = { expectedSha, branch: "staging", environment: "preview", status: "unverified" };
   await record(evidence);
@@ -52,7 +92,7 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch,
   const listing = await api("/v7/deployments?" + query);
   const source = selectStagingDeployment(listing.deployments ?? [], expectedSha);
   let payload = { name: PROJECT_NAME, project: PROJECT_ID };
-  if (source) {
+  if (source && !forceGitSource) {
     const sourceId = source.id ?? source.uid;
     assert.match(sourceId, /^dpl_[A-Za-z0-9]+$/, "Source deployment ID is required");
     const details = assertStagingDeployment(await api("/v13/deployments/" + sourceId), expectedSha);
@@ -62,7 +102,7 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch,
   } else {
     // Recover a deleted or skipped deployment without recycling an older commit.
     // Verify the captured SHA on the returned deployment before runtime probes.
-    payload.gitSource = { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging" };
+    payload.gitSource = { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging", sha: expectedSha };
     payload.projectSettings = { commandForIgnoringBuildStep: "exit 1" };
   }
   await record(evidence);
@@ -103,11 +143,24 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch,
     method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + INVALID_SUPABASE_PROBE_TOKEN }, body: "{}",
   });
   assert.equal(auth.status, 401, "Invalid Supabase token bootstrap must return 401; check the staging auth issuer configuration");
+  if (fixtureSecret) {
+    assert.ok(fixtureSecret.length >= 32, "Staging fixture secret is missing or too short");
+    const fixture = await runtime("/api/v1/estimates/" + STAGING_FIXTURE_ESTIMATE_ID, {
+      headers: { Authorization: "Bearer " + fixtureSecret, Accept: "application/json" },
+    });
+    assert.equal(fixture.status, 200, "Staging fixture secret did not resolve the dedicated synthetic estimate");
+  }
   // Re-check the exact ID after runtime probes; a moving branch alias is never evidence.
   const final = assertStagingDeployment(await api("/v13/deployments/" + created.id), expectedSha);
   assert.equal(final.readyState, "READY", "Replacement state changed during verification");
   assert.equal(final.url, replacement.url, "Replacement hostname changed during verification");
-  Object.assign(evidence, { status: "ready", database: "ok", schema: "ok", invalidSupabaseTokenBootstrap: 401 });
+  Object.assign(evidence, {
+    status: "ready",
+    database: "ok",
+    schema: "ok",
+    invalidSupabaseTokenBootstrap: 401,
+    fixtureAuthentication: fixtureSecret ? "verified" : "not-requested",
+  });
   await record(evidence);
   return evidence;
 }
@@ -132,7 +185,18 @@ async function main() {
     await fs.mkdir("artifacts/staging-repair", { recursive: true });
     await fs.writeFile(REPORT_PATH, JSON.stringify(evidence, null, 2) + "\n");
   };
-  const result = await repairStagingBackend({ expectedSha: process.env.STAGING_EXPECTED_SHA, api, record });
+  const fixtureSecret = await ensureStagingFixtureSecret({ api });
+  if (process.env.GITHUB_ENV) {
+    console.log("::add-mask::" + fixtureSecret.value);
+    await fs.appendFile(process.env.GITHUB_ENV, "S053_STAGING_FIXTURE_SECRET=" + fixtureSecret.value + "\n");
+  }
+  const result = await repairStagingBackend({
+    expectedSha: process.env.STAGING_EXPECTED_SHA,
+    api,
+    record,
+    fixtureSecret: fixtureSecret.value,
+    forceGitSource: true,
+  });
   if (process.env.GITHUB_STEP_SUMMARY) await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,
     `Staging backend READY: ${result.deploymentId} at ${result.url}, SHA ${result.expectedSha}. Database/schema checks passed; invalid Supabase token bootstrap returned 401 after issuer initialization. Authenticated browser certification is still required.\n`);
   console.log("Staging backend readiness verified: " + result.deploymentId);

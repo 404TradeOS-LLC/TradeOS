@@ -52,7 +52,7 @@ function createRequest(cookies) {
   };
 }
 
-function loadProxyModule(fetchImpl, bypass = { enabled: false, blocked: false }) {
+function loadProxyModule(fetchImpl) {
   const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
   const transpiled = ts.transpileModule(proxySource, {
     compilerOptions: {
@@ -105,7 +105,6 @@ function loadProxyModule(fetchImpl, bypass = { enabled: false, blocked: false })
           },
         };
       }
-      if (specifier === "@/lib/staging-auth") return { stagingAuthDecision: () => bypass };
       if (specifier === "@/lib/local-auth") {
         return {
           LOCAL_ACCESS_TOKEN_COOKIE: "tradeos_access_token",
@@ -146,16 +145,9 @@ describe("web auth proxy", () => {
     assert.equal(response.url.pathname, "/login");
   });
 
-  it("allows the protected app when the staged bypass is active", async () => {
-    const { updateSession } = loadProxyModule(async () => { throw new Error("unexpected fetch"); }, { enabled: true, blocked: false });
-    const response = await updateSession(createRequest({}));
-    assert.equal(response.kind, "next");
-  });
-
-  it("blocks protected app access for an unsafe bypass configuration", async () => {
-    const { updateSession } = loadProxyModule(async () => { throw new Error("unexpected fetch"); }, { enabled: false, blocked: true });
-    const response = await updateSession(createRequest({}));
-    assert.equal(response.status, 503);
+  it("does not contain a staging authentication bypass path", () => {
+    const proxySource = readFileSync(resolve(dirname, "proxy.ts"), "utf8");
+    assert.doesNotMatch(proxySource, /stagingAuthDecision|TRADEOS_AUTH_BYPASS|STAGING · AUTH BYPASS/);
   });
 
   it("refreshes a local session when only the refresh cookie remains", async () => {

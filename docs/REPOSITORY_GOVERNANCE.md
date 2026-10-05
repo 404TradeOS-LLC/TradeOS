@@ -136,19 +136,21 @@ without changing product authentication or authorization policy.
 
 The companion `Repair staging Supabase auth configuration` workflow is a
 manual, confirmation-gated operational control. Its repository contract fixes
-the Vercel project, `staging` branch, Preview environment, and public staging
-Supabase URL, then requires database-backed readiness. The repair resolves a
-READY Preview using structured Vercel data and the captured staging SHA,
-verifies team/project/repository ownership before redeploying by ID, and
-creates a fresh fixed-branch staging Preview if no matching READY deployment
-exists (requiring the same captured SHA), and checks the new immutable deployment URL for matching runtime SHA, database
-and schema readiness, and invalid Supabase token rejection after issuer initialization. The workflow
-retains only whitelisted deployment/readiness evidence, never environment
-values or response bodies. A passing repair is not authenticated browser
-certification or proof that staging equals current main. Changes that broaden it
-to Production, accept an operator-provided target/value, or expose the Vercel
-token require an explicit governance review and are prohibited by its contract
-test.
+the Vercel backend project, `staging` branch, Preview environment, and dedicated
+staging Supabase/data plane. The repair provisions or reuses exactly one managed,
+encrypted `TRADEOS_STAGING_FIXTURE_SECRET` scoped to the staging Preview branch,
+refuses operator-owned conflicting values, masks the secret in Actions, and never
+writes it to retained evidence. It rebuilds the captured staging SHA from the
+fixed Git source so current project environment values are applied, verifies
+team/project/repository ownership, runtime SHA, database/schema readiness,
+invalid Supabase token rejection, and successful access to the dedicated
+synthetic fixture using the secret-gated identity. Browser/web auth bypass is
+not permitted; browser certification uses the real login/session path. A passing
+repair is not authenticated browser certification or proof that staging equals
+current main. Changes that broaden the repair to Production, accept an
+operator-provided target/value, expose secret values, or weaken tenant/RLS
+checks require explicit governance review and are prohibited by its contract
+tests.
 
 Workflow-file changes are also subject to the supplemental `Workflow security` workflow. It runs pinned `actionlint` directly on the GitHub-hosted runner and rejects default-prohibited patterns including `pull_request_target`, `permissions: write-all`, `actions: write`, `id-token: write`, and direct interpolation of untrusted event payload content into shell/script commands. Exceptions require an explicit reviewed governance change. The workflow is not part of the documented required-check set unless live branch protection separately confirms it has been added there.
 
