@@ -1,6 +1,5 @@
 /** Public fixture identifiers, never credentials. The database owns authorization. */
 export const STAGING_AUTH = {
-  marker: "tradeos-staging-fixture-v1",
   subject: "staging-owner",
   userId: "70000000-0000-4000-8000-000000000001",
   orgId: "70000000-0000-4000-8000-000000000002",
@@ -12,6 +11,7 @@ export const STAGING_AUTH = {
 
 export interface StagingAuthEnvironment {
   TRADEOS_AUTH_BYPASS?: string;
+  TRADEOS_STAGING_FIXTURE_SECRET?: string;
   NODE_ENV?: string;
   VERCEL_ENV?: string;
   APP_ENVIRONMENT?: string;
@@ -58,6 +58,12 @@ export function evaluateStagingAuth(env: StagingAuthEnvironment, layer: "web" | 
   if (supabaseRef !== STAGING_AUTH.supabaseRef) return deny("Supabase URL is not the dedicated staging project");
   if (layer === "api" && databaseProjectRef(env.DATABASE_URL) !== STAGING_AUTH.supabaseRef) {
     return deny("Database URL is not the dedicated staging project");
+  }
+  if (layer === "api") {
+    const fixtureSecret = env.TRADEOS_STAGING_FIXTURE_SECRET?.trim();
+    if (!fixtureSecret || fixtureSecret.length < 32) {
+      return deny("Staging fixture secret is missing or too short");
+    }
   }
   return { enabled: true, blocked: false };
 }
