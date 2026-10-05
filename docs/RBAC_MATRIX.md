@@ -167,3 +167,17 @@ the authenticated organization and technician identifiers form the transaction
 lock scope, and the lock covers both conflict reads and the schedule/assignment
 write. This does not widen dispatcher permissions or allow a caller to select a
 different organization through request input.
+
+## Staging synthetic fixture identity — 2026-10-04
+
+The staging fixture bearer is **not** an RBAC bypass. It authenticates only the fixed synthetic staging subject after the staging-only environment/data-plane guard and secret check pass. Authorization then follows the normal membership model:
+
+- the synthetic user must exist and be active;
+- the fixed synthetic organization membership must be active;
+- the canonical role must resolve to `owner`;
+- the resolved user ID, organization ID, email, and owner role must match the dedicated staging fixture;
+- request-scoped database/RLS context is still established from that resolved membership;
+- a public marker, missing/weak secret, Production runtime, wrong Supabase project, wrong database, inactive/missing membership, or mismatched fixture identity fails closed.
+
+No browser role or permission is granted through this mechanism. Preview browser tests sign in through the real authentication flow and exercise the permissions of the authenticated smoke-tenant membership.
+

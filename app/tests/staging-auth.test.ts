@@ -2,6 +2,7 @@ import { evaluateStagingAuth, STAGING_AUTH } from "../domain";
 
 const staging = {
   TRADEOS_AUTH_BYPASS: "true",
+  TRADEOS_STAGING_FIXTURE_SECRET: "s".repeat(48),
   NODE_ENV: "production",
   VERCEL_ENV: "preview",
   NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_AUTH.supabaseRef}.supabase.co`,
@@ -13,9 +14,18 @@ describe("staging authentication environment guard", () => {
   it("leaves normal authentication unchanged when disabled", () => {
     expect(evaluateStagingAuth({ ...staging, TRADEOS_AUTH_BYPASS: "false" }, "api")).toEqual({ enabled: false, blocked: false });
   });
-  it("allows only an explicitly staged Preview with matching database and Supabase project", () => {
+  it("allows only the API fixture bypass on an explicitly staged Preview", () => {
     expect(evaluateStagingAuth(staging, "api")).toEqual({ enabled: true, blocked: false });
-    expect(evaluateStagingAuth(staging, "web")).toEqual({ enabled: true, blocked: false });
+    expect(evaluateStagingAuth(staging, "web")).toEqual({
+      enabled: false,
+      blocked: true,
+      reason: "Web authentication bypass is not supported",
+    });
+  });
+  it("fails closed for API bypass when the fixture secret is missing or weak", () => {
+    expect(evaluateStagingAuth({ ...staging, TRADEOS_STAGING_FIXTURE_SECRET: undefined }, "api").blocked).toBe(true);
+    expect(evaluateStagingAuth({ ...staging, TRADEOS_STAGING_FIXTURE_SECRET: "too-short" }, "api").blocked).toBe(true);
+    expect(evaluateStagingAuth({ ...staging, TRADEOS_STAGING_FIXTURE_SECRET: undefined }, "web").blocked).toBe(true);
   });
   it.each([
     { ...staging, VERCEL_ENV: "production" },
