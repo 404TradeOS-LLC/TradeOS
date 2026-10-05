@@ -266,8 +266,8 @@ const overall = everythingClean ? (isFullMatrix ? "PASS" : "PARTIAL") : "FAIL";
 // or storage state.
 const metadata = {
   repository: process.env.GITHUB_REPOSITORY ?? "404TradeOS-LLC/TradeOS",
-  commitSha: process.env.GITHUB_SHA ?? null,
-  branch: process.env.GITHUB_REF_NAME ?? null,
+  commitSha: process.env.S053_EXPECTED_SHA ?? process.env.GITHUB_SHA ?? null,
+  branch: process.env.S053_TARGET_BRANCH ?? process.env.GITHUB_REF_NAME ?? null,
   previewUrl: target?.baseUrl ?? null,
   environment: target?.environment ?? null,
   deploymentCommitSha: target?.deploymentCommitSha ?? null,

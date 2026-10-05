@@ -625,3 +625,9 @@ test("the destructive seed refuses to run against production and has no override
   assert.doesNotMatch(seedGuard, /SEED_ALLOW_DESTRUCTIVE/);
   assert.doesNotMatch(seedGuard, /process\.argv/);
 });
+
+
+test("S053 retained metadata uses exact PR head identity when provided", () => {
+  assert.match(validator, /commitSha: process\\.env\\.S053_EXPECTED_SHA \\?\\? process\\.env\\.GITHUB_SHA/);
+  assert.match(validator, /branch: process\\.env\\.S053_TARGET_BRANCH \\?\\? process\\.env\\.GITHUB_REF_NAME/);
+});
