@@ -445,6 +445,9 @@ test("S053 browser evidence proves review-first behavior before an explicit appl
   assert.match(capture, /pricing refreshes after the reviewed Athena apply/);
   assert.match(capture, /reviewed Athena lines survive builder reload/);
   assert.match(capture, /Documented source\|Unverified pricing\|Placeholder pricing/);
+  assert.match(capture, /s053ResolutionDiagnostics/);
+  assert.match(capture, /resolutionStatus: line\?\.targetResolution\?\.status/);
+  assert.match(capture, /resolutionReason: line\?\.targetResolution\?\.reason/);
 });
 
 test("S053 scenario validation requires its Athena checkpoints and passing assertions", () => {
