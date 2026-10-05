@@ -85,3 +85,27 @@ Test discovery and target guard checks validate the setup, not a live TradeOS
 release. Record any actual browser run separately with its exact deployment,
 SHA, environment and sanitized evidence. No numbered sprint changes status from
 this setup alone.
+
+
+## GitHub Actions Chromium evidence
+
+`.github/workflows/playwright-agent-evidence.yml` is a manual, read-only
+diagnostic lane for tests produced or healed by the checked-in Playwright
+agents. It resolves only the same approved Preview/Staging host contract as the
+agent target guard, requires explicit sanitized-tenant confirmation, installs
+Chromium plus Linux dependencies with
+`npx playwright install --with-deps chromium`, runs the root Chromium suite,
+and uploads the HTML report, test results, screenshots, failure traces/videos,
+Playwright version and discovered-test list for 30 days.
+
+The workflow does not run an LLM inside GitHub Actions; Codex remains the host
+for planner/generator/healer work. GitHub Actions executes the deterministic
+tests those agents produce. The MCP launcher now derives
+`PLAYWRIGHT_MCP_ALLOWED_ORIGINS` from the validated target before starting the
+Playwright test MCP server, which catches unintended cross-origin requests in
+addition to the initial target validation.
+
+This lane deliberately records
+`exactDeploymentShaCorrelated: false`. It is useful browser evidence, but it is
+not exact-head release certification and does not replace Beta Evidence, its
+authenticated fixtures, data-plane proof, cleanup, or SHA-correlation contract.

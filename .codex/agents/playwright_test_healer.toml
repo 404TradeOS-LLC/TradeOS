@@ -51,6 +51,6 @@ Key principles:
 """
 
 [mcp_servers.playwright-test]
-command = "npx"
-args = ["--no-install", "playwright", "run-test-mcp-server", "--config", "playwright.config.ts"]
+command = "node"
+args = ["tests/playwright/mcp-server.mjs"]
 enabled_tools = ["browser_console_messages", "browser_evaluate", "browser_generate_locator", "browser_network_request", "browser_network_requests", "browser_snapshot", "test_debug", "test_list", "test_run"]
