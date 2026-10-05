@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { firstDetailHref } from './evidence-links.mjs';
 
 const authenticatedSmoke = process.env.TRADEOS_AGENT_AUTHENTICATED === 'true';
 const storageState = authenticatedSmoke ? process.env.TRADEOS_AGENT_STORAGE_STATE : undefined;
@@ -13,6 +14,39 @@ async function hrefs(page: Page, selector: string) {
       .map((link) => link.getAttribute('href'))
       .filter((href): href is string => Boolean(href)),
   );
+}
+
+async function firstProjectDocumentHref(
+  page: Page,
+  tab: 'proposals' | 'contracts' | 'invoices',
+  description: string,
+  emptyText: string,
+) {
+  const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+  expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
+
+  const projectHrefs = (await hrefs(page, 'a[href^="/projects/"]')).filter(
+    (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+  );
+
+  if (projectHrefs.length === 0) {
+    await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
+    return null;
+  }
+
+  for (const projectHref of projectHrefs) {
+    const workspaceResponse = await page.goto(`${projectHref}?tab=${tab}`, { waitUntil: 'domcontentloaded' });
+    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page.getByText(description, { exact: true })).toBeVisible();
+
+    const prefix = `${projectHref}/${tab}/`;
+    const detailHref = firstDetailHref(await hrefs(page, `a[href^="${prefix}"]`), prefix);
+    if (detailHref) return detailHref;
+
+    await expect(page.getByText(emptyText, { exact: true })).toBeVisible();
+  }
+
+  return null;
 }
 
 test.describe('TradeOS authenticated workspace', () => {
@@ -123,4 +157,58 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByRole('link', { name: 'Athena review', exact: true })).toBeVisible();
     await expect(page.getByText(/Unable to load this estimate\./)).toHaveCount(0);
   });
+
+  test('Proposal workspace and first available proposal detail render read-only', async ({ page }) => {
+    const proposalHref = await firstProjectDocumentHref(
+      page,
+      'proposals',
+      'Customer-facing scope and pricing history.',
+      'No proposals yet. Build the first draft when the estimate is ready for customer review.',
+    );
+    if (!proposalHref) return;
+
+    const detailResponse = await page.goto(proposalHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/proposals\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Proposal Review', exact: true })).toBeVisible();
+    await expect(page.getByText('Proposal snapshot', { exact: true })).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]').filter({ hasText: /^Payment schedule$/ }),
+    ).toBeVisible();
+  });
+
+  test('Contract workspace and first available contract detail render read-only', async ({ page }) => {
+    const contractHref = await firstProjectDocumentHref(
+      page,
+      'contracts',
+      'Signed and pending project agreements.',
+      'No contracts yet. Create one from an accepted proposal to move the job into execution.',
+    );
+    if (!contractHref) return;
+
+    const detailResponse = await page.goto(contractHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/contracts\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Contract', exact: true })).toBeVisible();
+    await expect(page.getByText('Contract overview', { exact: true })).toBeVisible();
+    await expect(page.getByText('Terms', { exact: true })).toBeVisible();
+  });
+
+  test('Invoice workspace and first available invoice detail render read-only', async ({ page }) => {
+    const invoiceHref = await firstProjectDocumentHref(
+      page,
+      'invoices',
+      'Billing history and outstanding balances.',
+      'No invoices yet. Create one after the contract or approved work scope is ready to bill.',
+    );
+    if (!invoiceHref) return;
+
+    const detailResponse = await page.goto(invoiceHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/invoices\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: /^Invoice #/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Invoice financial summary' })).toBeVisible();
+    await expect(page.getByText('Billing', { exact: true })).toBeVisible();
+  });
+
 });

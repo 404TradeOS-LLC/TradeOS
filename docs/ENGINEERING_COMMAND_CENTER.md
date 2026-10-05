@@ -342,11 +342,12 @@ Playwright agent suite. The lane is restricted to approved sanitized
 Preview/Staging targets, uses read-only repository permissions, and uploads the
 HTML report plus browser artifacts. Its authenticated mode creates fresh
 Beta-smoke storage state outside the checkout, verifies the expected
-organization, then exercises **Today**, **Customers**, **Projects**, and
-**Estimates** without mutating business records. Existing sanitized records are
-used to prove Customer, Project, and Estimate detail rendering; empty lists must
-render truthful empty states. Authenticated traces are disabled, agent MCP
-startup remains origin-constrained, and session state is removed before
-artifacts are uploaded. This broadens browser diagnostics but still does not
-establish exact-head release certification; Beta Evidence remains authoritative
-for that proof.
+organization, then exercises **Today**, **Customers**, **Projects**,
+**Estimates**, **Proposals**, **Contracts**, and **Invoices** without mutating
+business or financial records. Existing sanitized records are used to prove the
+corresponding detail surfaces; missing records must render truthful empty
+states. Authenticated traces are disabled, agent MCP startup remains
+origin-constrained, and session state is removed before artifacts are uploaded.
+This broadens browser diagnostics but still does not establish exact-head
+release certification or payment/contract correctness; Beta Evidence remains
+authoritative for that proof.

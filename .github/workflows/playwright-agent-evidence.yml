@@ -23,7 +23,7 @@ on:
         default: false
         type: boolean
       authenticated_smoke:
-        description: Authenticate the governed smoke identity and run read-only core workspace checks
+        description: Authenticate the governed smoke identity and run read-only contractor lifecycle checks
         required: true
         default: true
         type: boolean

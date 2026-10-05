@@ -339,11 +339,12 @@ Chromium on a GitHub-hosted runner and executes the root Playwright suite
 against an approved sanitized non-production TradeOS target. It defaults to a
 bounded authenticated smoke using the existing Beta smoke identity: fresh
 runtime storage state is created outside the repository, the expected smoke
-organization is verified, and read-only checks now cover **Today**,
-**Customers**, **Projects**, and **Estimates**. When sanitized records exist,
-the suite follows their real hrefs to Customer, Project, and Estimate detail
-surfaces; otherwise it requires truthful empty states. Authenticated trace
-capture is disabled and the runtime session file is removed before artifact
-publication. Browser reports remain diagnostic and do not replace Beta
-Evidence's exact-head, tenant-isolation, or mutating lifecycle certification
+organization is verified, and read-only checks cover **Today**, **Customers**,
+**Projects**, **Estimates**, **Proposals**, **Contracts**, and **Invoices**.
+When sanitized records exist, the suite follows their real hrefs to Customer,
+Project, Estimate, Proposal, Contract, and Invoice detail surfaces; otherwise
+it requires truthful empty states. Authenticated trace capture is disabled and
+the runtime session file is removed before artifact publication. Browser
+reports remain diagnostic and do not replace Beta Evidence's exact-head,
+tenant-isolation, financial-integrity, or mutating lifecycle certification
 contract.

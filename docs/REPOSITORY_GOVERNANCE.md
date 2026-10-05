@@ -569,15 +569,18 @@ the established runtime-auth bootstrap, stores browser session state under the
 runner temp directory, and removes that state before artifact upload.
 
 Authenticated checks in this lane are intentionally read-only: they verify the
-canonical **Today**, **Customers**, **Projects**, and **Estimates** workspaces
-without creating or changing contractor records. Customer, Project, and
-Estimate detail routes are exercised only from sanitized records already
-visible to the smoke tenant; an empty tenant must render truthful empty states.
-Authenticated Playwright trace capture stays disabled so session cookies are not
-published with failure artifacts. The lane must not receive production
-credentials, mutate Production, weaken Beta Evidence guards, or be treated as
-exact-head release certification. Broader or mutating contractor lifecycle
-proof remains owned by Beta Evidence / governed RC smoke.
+canonical **Today**, **Customers**, **Projects**, **Estimates**, **Proposals**,
+**Contracts**, and **Invoices** workspaces without creating or changing
+contractor records or financial state. Customer, Project, Estimate, Proposal,
+Contract, and Invoice detail routes are exercised only from sanitized records
+already visible to the smoke tenant; absent records must render truthful empty
+states. The suite never submits proposal, signature, invoice, payment, or void
+controls. Authenticated Playwright trace capture stays disabled so session
+cookies are not published with failure artifacts. The lane must not receive
+production credentials, mutate Production, weaken Beta Evidence guards, or be
+treated as exact-head release certification. Broader or mutating contractor
+lifecycle, tenant-isolation, and financial proof remains owned by Beta Evidence
+/ governed RC smoke.
 
 The checked-in Playwright agent MCP definitions launch through
 `tests/playwright/mcp-server.mjs`, which validates the same target contract and

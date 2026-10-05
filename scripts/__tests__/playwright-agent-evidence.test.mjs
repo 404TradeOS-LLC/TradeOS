@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { firstDetailHref } from "../../tests/playwright/evidence-links.mjs";
 
 const workflow = fs.readFileSync(".github/workflows/playwright-agent-evidence.yml", "utf8");
 const config = fs.readFileSync("playwright.config.ts", "utf8");
@@ -39,7 +40,8 @@ test("agent MCP startup constrains browser requests to the validated target", ()
   assert.match(launcher, /run-test-mcp-server/);
 });
 
-test("authenticated evidence stays read-only and covers core contractor workspaces", () => {
+test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {
+  assert.equal((authenticated.match(/\n  test\('/g) ?? []).length, 8);
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
   assert.match(authenticated, /test\.use\(\{ storageState, trace: 'off' \}\)/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
@@ -52,6 +54,41 @@ test("authenticated evidence stays read-only and covers core contractor workspac
   assert.match(authenticated, /page\.goto\('\/estimates'/);
   assert.match(authenticated, /name: 'Estimate from scope'/);
   assert.match(authenticated, /Athena review/);
+  assert.match(authenticated, /firstProjectDocumentHref/);
+  assert.match(authenticated, /'proposals'[\s\S]*?Customer-facing scope and pricing history\./);
+  assert.match(authenticated, /Proposal Review/);
+  assert.match(authenticated, /'contracts'[\s\S]*?Signed and pending project agreements\./);
+  assert.match(authenticated, /Contract overview/);
+  assert.match(authenticated, /'invoices'[\s\S]*?Billing history and outstanding balances\./);
+  assert.match(authenticated, /Invoice financial summary/);
+  assert.match(authenticated, /firstDetailHref/);
+  assert.match(authenticated, /for \(const projectHref of projectHrefs\)/);
+  assert.match(authenticated, /data-slot="card-title"/);
   assert.doesNotMatch(authenticated, /\.click\(/);
   assert.doesNotMatch(authenticated, /\.fill\(/);
+});
+
+test("document detail href selection rejects action and nested routes", () => {
+  const prefix = "/projects/project-1/proposals/";
+  assert.equal(
+    firstDetailHref(
+      [
+        `${prefix}new`,
+        `${prefix}proposal-1/preview`,
+        `${prefix}proposal-1`,
+      ],
+      prefix,
+    ),
+    `${prefix}proposal-1`,
+  );
+  assert.equal(
+    firstDetailHref(
+      [
+        `${prefix}new`,
+        `${prefix}proposal-1/preview`,
+      ],
+      prefix,
+    ),
+    undefined,
+  );
 });
