@@ -327,7 +327,11 @@ If a deployment cannot produce a resolved priced suggestion, cannot prove the
 setup-required state, lacks exact deployed-SHA correlation, or cannot deny both
 foreign-estimate Athena draft and apply requests, the scenario fails. Those are
 evidence failures to investigate; the runner must not silently substitute a
-custom line or mark S053 certified.
+custom line or mark S053 certified. Failed S053 capture reports retain only
+sanitized scope/candidate resolution metadata (trade, validation state, candidate
+description, target-resolution reason, unit, confidence, and provenance state)
+so a missing tenant Costbook match can be diagnosed without retaining credentials
+or browser session state.
 
 ## Viewports
 
