@@ -10,14 +10,15 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Founder-authorized Costbook supplier-evidence review — 2026-10-05
+## Founder-authorized Costbook supplier-evidence review — merged 2026-10-05
 
-- Classification: `NEW_WORK_REQUIRED` from live GitHub overlap inspection; no open Costbook implementation PR owns the missing supplier-evidence review UI. The repository shell helper was unavailable in the connector execution path, so `npm run autonomy:reconcile` is not claimed.
-- Branch: `feat/costbook-supplier-evidence-review`; base `ec06df533f5468eed44d12a7973b5393e10cd82b`; Sprint ID: NONE.
-- Scope: expose the existing tenant-derived SupplierProduct id in evidence list DTOs, add typed web reads/review action, and add `/costbook/supplier-evidence` for truthful observation review plus confirmation of the existing governed pilot canonical-match suggestion.
-- Safety boundary: canonical review changes only `SupplierProduct.canonicalMaterialKey`; no `Material.unitCost`, supplier-price promotion, Estimate repricing, schema/migration, RLS, auth, or permission changes.
-- S082 remains BLOCKED on S073. PR #531 is already merged, so the stale PR #531 blocker text is reconciled without claiming S082 completion.
-- Next five tasks: run hosted App/Web/docs checks; repair deterministic findings; inspect review threads; merge only when required checks/branch freshness permit; then continue Costbook work at the S082/S083 boundary after S073 governance is satisfied.
+- Classification: `NO_ACTION_REQUIRED` for the implementation lane after verified merge of PR #670 as `ab6e541c925e0077aae9e14d2907c7968daa0a9e`.
+- Landed scope: tenant-scoped supplier-evidence review at `/costbook/supplier-evidence`, exact-observation selection, server-backed cursor pagination, stored-currency display, typed evidence/review APIs, and manager-gated confirmation of the governed matcher suggestion.
+- Review hardening: the mutation reruns the fresh canonical matcher against current supplier-product identity, rejects unsuggested keys and cross-key relinks, and fails closed on concurrent matcher-input changes.
+- Verification: exact-head repository verification, App/Web checks, docs consistency, dependency review, sprint governance, branch currency, and live documentation reconciliation passed before merge; all review threads were resolved.
+- Safety boundary remains unchanged: canonical review can update only `SupplierProduct.canonicalMaterialKey`; it does not promote evidence into `Material.unitCost`, reprice Estimates, import new supplier data, or change schema/migrations, RLS, auth, or permissions.
+- Sprint ID: NONE. S082 remains BLOCKED on S073; PR #670 does not complete S082.
+- Next safe action: finish the existing bounded Costbook mission here. A separate founder request such as `Run the next TradeOS sprint` is required before starting S073 or another numbered sprint under `NEXT_SPRINT_PROTOCOL.md`.
 
 ## Founder-authorized Codex Playwright setup — 2026-10-05
 
