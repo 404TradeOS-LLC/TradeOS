@@ -123,4 +123,116 @@ test.describe('TradeOS authenticated workspace', () => {
     await expect(page.getByRole('link', { name: 'Athena review', exact: true })).toBeVisible();
     await expect(page.getByText(/Unable to load this estimate\./)).toHaveCount(0);
   });
+
+  test('Proposal workspace and first available proposal detail render read-only', async ({ page }) => {
+    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+
+    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
+    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
+      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    );
+
+    if (!projectHref) {
+      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
+      return;
+    }
+
+    const workspaceResponse = await page.goto(`${projectHref}?tab=proposals`, { waitUntil: 'domcontentloaded' });
+    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page.getByText('Customer-facing scope and pricing history.', { exact: true })).toBeVisible();
+
+    const proposalPrefix = `${projectHref}/proposals/`;
+    const proposalHref = (await hrefs(page, `a[href^="${proposalPrefix}"]`)).find(
+      (href) => href.startsWith(proposalPrefix) && !href.slice(proposalPrefix.length).includes('/'),
+    );
+
+    if (!proposalHref) {
+      await expect(
+        page.getByText('No proposals yet. Build the first draft when the estimate is ready for customer review.', { exact: true }),
+      ).toBeVisible();
+      return;
+    }
+
+    const detailResponse = await page.goto(proposalHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/proposals\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Proposal Review', exact: true })).toBeVisible();
+    await expect(page.getByText('Proposal snapshot', { exact: true })).toBeVisible();
+    await expect(page.getByText('Payment schedule', { exact: true })).toBeVisible();
+  });
+
+  test('Contract workspace and first available contract detail render read-only', async ({ page }) => {
+    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+
+    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
+    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
+      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    );
+
+    if (!projectHref) {
+      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
+      return;
+    }
+
+    const workspaceResponse = await page.goto(`${projectHref}?tab=contracts`, { waitUntil: 'domcontentloaded' });
+    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page.getByText('Signed and pending project agreements.', { exact: true })).toBeVisible();
+
+    const contractPrefix = `${projectHref}/contracts/`;
+    const contractHref = (await hrefs(page, `a[href^="${contractPrefix}"]`)).find(
+      (href) => href.startsWith(contractPrefix) && !href.slice(contractPrefix.length).includes('/'),
+    );
+
+    if (!contractHref) {
+      await expect(
+        page.getByText('No contracts yet. Create one from an accepted proposal to move the job into execution.', { exact: true }),
+      ).toBeVisible();
+      return;
+    }
+
+    const detailResponse = await page.goto(contractHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/contracts\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Contract', exact: true })).toBeVisible();
+    await expect(page.getByText('Contract overview', { exact: true })).toBeVisible();
+    await expect(page.getByText('Terms', { exact: true })).toBeVisible();
+  });
+
+  test('Invoice workspace and first available invoice detail render read-only', async ({ page }) => {
+    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+
+    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
+    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
+      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    );
+
+    if (!projectHref) {
+      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
+      return;
+    }
+
+    const workspaceResponse = await page.goto(`${projectHref}?tab=invoices`, { waitUntil: 'domcontentloaded' });
+    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page.getByText('Billing history and outstanding balances.', { exact: true })).toBeVisible();
+
+    const invoicePrefix = `${projectHref}/invoices/`;
+    const invoiceHref = (await hrefs(page, `a[href^="${invoicePrefix}"]`)).find(
+      (href) => href.startsWith(invoicePrefix) && !href.slice(invoicePrefix.length).includes('/'),
+    );
+
+    if (!invoiceHref) {
+      await expect(
+        page.getByText('No invoices yet. Create one after the contract or approved work scope is ready to bill.', { exact: true }),
+      ).toBeVisible();
+      return;
+    }
+
+    const detailResponse = await page.goto(invoiceHref, { waitUntil: 'domcontentloaded' });
+    expect(detailResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/projects\/[^/?#]+\/invoices\/[^/?#]+(?:[/?#]|$)/);
+    await expect(page.getByRole('heading', { level: 1, name: /^Invoice #/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Invoice financial summary' })).toBeVisible();
+    await expect(page.getByText('Billing', { exact: true })).toBeVisible();
+  });
+
 });
