@@ -91,6 +91,100 @@ export function resolveCostbookPrice(
   if (input.unit) query.set("unit", input.unit);
   return apiFetch<CostbookResolvedPrice | null>(`/api/v1/costbook/pricing/resolve?${query.toString()}`, { token });
 }
+
+export type RegionalSupplierPriceStatus = "priced" | "unavailable" | "not-listed" | "needs-review";
+export type CanonicalMatchAction = "AUTO_LINK" | "HUMAN_REVIEW" | "CREATE_NEW_CANDIDATE";
+
+export interface RegionalSupplierEvidenceItem {
+  id: string;
+  supplierProductId: string;
+  observationKey: string;
+  supplierProductKey: string;
+  supplierProductName: string;
+  canonicalMaterialKey: string | null;
+  supplierId: string;
+  supplierName: string;
+  marketCode: string | null;
+  storeName: string | null;
+  observedAt: string;
+  priceStatus: RegionalSupplierPriceStatus;
+  regularPrice: number | null;
+  effectivePrice: number | null;
+  normalizedUnitPrice: number | null;
+  normalizedUnit: string | null;
+  sourceFile: string | null;
+  sourceRow: number | null;
+}
+
+export interface RegionalSupplierEvidenceSummary {
+  totalObservations: number;
+  priced: number;
+  unavailable: number;
+  notListed: number;
+  needsReview: number;
+  suppliers: number;
+}
+
+export interface RegionalSupplierCanonicalMatch {
+  supplierProductId: string;
+  currentCanonicalMaterialKey: string | null;
+  match: {
+    action: CanonicalMatchAction;
+    score: number;
+    canonicalMaterialKey: string | null;
+    displayName: string | null;
+    rationale: string;
+    normalizedText: string;
+  };
+}
+
+export function listRegionalSupplierEvidence(
+  token: string,
+  params: {
+    supplierId?: string;
+    priceStatus?: RegionalSupplierPriceStatus;
+    q?: string;
+    limit?: number;
+  } = {}
+) {
+  const query = new URLSearchParams();
+  if (params.supplierId) query.set("supplierId", params.supplierId);
+  if (params.priceStatus) query.set("priceStatus", params.priceStatus);
+  if (params.q) query.set("q", params.q);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return apiFetch<RegionalSupplierEvidenceItem[]>(`/api/v1/costbook/supplier-evidence${suffix}`, { token });
+}
+
+export function getRegionalSupplierEvidenceSummary(token: string) {
+  return apiFetch<RegionalSupplierEvidenceSummary>("/api/v1/costbook/supplier-evidence/summary", { token });
+}
+
+export function previewRegionalSupplierCanonicalMatch(token: string, supplierProductId: string) {
+  return apiFetch<RegionalSupplierCanonicalMatch>(
+    `/api/v1/costbook/supplier-evidence/products/${supplierProductId}/canonical-match`,
+    { token }
+  );
+}
+
+export function reviewRegionalSupplierCanonicalMatch(
+  token: string,
+  supplierProductId: string,
+  canonicalMaterialKey: string
+) {
+  return apiFetch<{
+    supplierProductId: string;
+    previousCanonicalMaterialKey: string | null;
+    canonicalMaterialKey: string;
+    displayName: string;
+    reviewedByUserId: string;
+    reviewed: true;
+  }>(`/api/v1/costbook/supplier-evidence/products/${supplierProductId}/canonical-match`, {
+    token,
+    method: "POST",
+    body: JSON.stringify({ canonicalMaterialKey }),
+  });
+}
 export interface CostbookPriceHistory {
   materialChanges: Array<{
     id: string;
