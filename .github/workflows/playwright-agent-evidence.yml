@@ -1,0 +1,131 @@
+name: Playwright Agent Chromium Evidence
+
+# Manual, diagnostic browser evidence for the root Playwright agent suite.
+# This is not a release-certification workflow and does not replace Beta Evidence.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Approved non-production TradeOS web origin; blank uses BETA_RC_BASE_URL
+        required: false
+        type: string
+      target_environment:
+        description: Non-production environment identity for the target
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - staging
+      sanitized_tenant:
+        description: Confirm the target contains only sanitized test data
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-agent-chromium-evidence
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Chromium browser evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      TRADEOS_AGENT_ENVIRONMENT: ${{ inputs.target_environment }}
+      TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
+      TRADEOS_AGENT_EVIDENCE: "true"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root test dependencies
+        run: npm ci
+
+      - name: Resolve approved hosted target
+        shell: bash
+        env:
+          REQUESTED_BASE_URL: ${{ inputs.base_url }}
+          DEFAULT_BASE_URL: ${{ vars.BETA_RC_BASE_URL }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { resolveAgentTarget } from "./tests/playwright/target.mjs";
+
+          const candidate =
+            (process.env.REQUESTED_BASE_URL || "").trim() ||
+            (process.env.DEFAULT_BASE_URL || "").trim();
+
+          if (!candidate) {
+            throw new Error("Provide base_url or configure the BETA_RC_BASE_URL repository variable.");
+          }
+
+          const target = resolveAgentTarget({
+            ...process.env,
+            TRADEOS_AGENT_BASE_URL: candidate,
+          });
+          const url = new URL(target);
+
+          if (url.protocol !== "https:" || !url.hostname.endsWith(".vercel.app")) {
+            throw new Error("GitHub-hosted evidence requires an approved HTTPS TradeOS Preview/Staging origin.");
+          }
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `TRADEOS_AGENT_BASE_URL=${target}\n`);
+          fs.mkdirSync("artifacts/playwright-agent-evidence", { recursive: true });
+          fs.writeFileSync(
+            "artifacts/playwright-agent-evidence/run.json",
+            JSON.stringify(
+              {
+                workflowSha: process.env.GITHUB_SHA,
+                target,
+                environment: process.env.TRADEOS_AGENT_ENVIRONMENT,
+                sanitizedTenant: process.env.TRADEOS_AGENT_SANITIZED_TENANT === "true",
+                exactDeploymentShaCorrelated: false,
+              },
+              null,
+              2,
+            ) + "\n",
+          );
+          NODE
+
+      - name: Validate target guardrails
+        run: npm run test:e2e:guards
+
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Record Playwright version and discovered tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install playwright --version | tee artifacts/playwright-agent-evidence/playwright-version.txt
+          npm run test:e2e:list | tee artifacts/playwright-agent-evidence/test-list.txt
+
+      - name: Run Playwright agent suite in Chromium
+        run: npx --no-install playwright test --project=chromium
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-agent-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/playwright-agent-evidence
+            playwright-report
+            test-results
+          if-no-files-found: error
+          retention-days: 30
