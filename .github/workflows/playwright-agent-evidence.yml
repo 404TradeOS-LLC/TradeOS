@@ -51,8 +51,6 @@ jobs:
       TRADEOS_AGENT_SANITIZED_TENANT: ${{ inputs.sanitized_tenant }}
       TRADEOS_AGENT_EVIDENCE: "true"
       TRADEOS_AGENT_AUTHENTICATED: ${{ inputs.authenticated_smoke }}
-      TRADEOS_AGENT_STORAGE_STATE: ${{ runner.temp }}/playwright-agent-storage-state.json
-      BETA_STORAGE_STATE_PATH: ${{ runner.temp }}/playwright-agent-storage-state.json
       BETA_EVIDENCE_DIR: artifacts/playwright-agent-evidence/auth
       BETA_SMOKE_EMAIL: ${{ secrets.BETA_RC_SMOKE_EMAIL }}
       BETA_SMOKE_PASSWORD: ${{ secrets.BETA_RC_SMOKE_PASSWORD }}
@@ -101,9 +99,16 @@ jobs:
             throw new Error("GitHub-hosted evidence requires an approved HTTPS TradeOS Preview/Staging origin.");
           }
 
+          const storageStatePath = `${process.env.RUNNER_TEMP}/playwright-agent-storage-state.json`;
           fs.appendFileSync(
             process.env.GITHUB_ENV,
-            `TRADEOS_AGENT_BASE_URL=${target}\nBETA_RC_BASE_URL_RESOLVED=${target}\n`,
+            [
+              `TRADEOS_AGENT_BASE_URL=${target}`,
+              `BETA_RC_BASE_URL_RESOLVED=${target}`,
+              `TRADEOS_AGENT_STORAGE_STATE=${storageStatePath}`,
+              `BETA_STORAGE_STATE_PATH=${storageStatePath}`,
+              "",
+            ].join("\n"),
           );
           fs.mkdirSync("artifacts/playwright-agent-evidence", { recursive: true });
           fs.writeFileSync(
