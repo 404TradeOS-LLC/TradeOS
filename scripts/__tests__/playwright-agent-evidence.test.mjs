@@ -13,7 +13,7 @@ test("Playwright agent evidence workflow stays manual, read-only, and Chromium-o
   assert.match(workflow, /npx playwright install --with-deps chromium/);
   assert.match(workflow, /playwright test --project=chromium/);
   assert.match(workflow, /TRADEOS_AGENT_EVIDENCE: "true"/);
-  assert.match(workflow, /actions\/upload-artifact@v7/);
+  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
 });
 
 test("evidence mode produces reviewable Playwright artifacts", () => {
