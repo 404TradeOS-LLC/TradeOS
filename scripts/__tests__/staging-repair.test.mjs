@@ -101,7 +101,7 @@ test("recovers a missing deployment from staging only and rejects a branch SHA r
 });
 
 
-test("provisions one encrypted staging-only fixture secret and reuses only the managed value", async () => {
+test("provisions or rotates one encrypted staging-only fixture secret without reading its value back", async () => {
   const calls = [];
   const api = async (route, init = {}) => {
     calls.push({ route, init });
@@ -118,37 +118,47 @@ test("provisions one encrypted staging-only fixture secret and reuses only the m
   assert.equal(body.gitBranch, "staging");
   assert.equal(body.value, "z".repeat(48));
 
+  const rotateCalls = [];
   const existing = await ensureStagingFixtureSecret({
-    api: async () => ({
-      envs: [{
-        key: "TRADEOS_STAGING_FIXTURE_SECRET",
-        value: "q".repeat(48),
-        target: ["preview"],
-        gitBranch: "staging",
-        comment: "Managed staging-only synthetic fixture bearer; do not expose in logs or artifacts.",
-      }],
-    }),
+    makeSecret: () => "r".repeat(48),
+    api: async (route, init = {}) => {
+      rotateCalls.push({ route, init });
+      if (!init.method) return {
+        envs: [{
+          id: "env_fixture",
+          key: "TRADEOS_STAGING_FIXTURE_SECRET",
+          type: "encrypted",
+          target: ["preview"],
+          gitBranch: "staging",
+          comment: "Managed staging-only synthetic fixture bearer; do not expose in logs or artifacts.",
+        }],
+      };
+      return { id: "env_fixture" };
+    },
   });
-  assert.deepEqual(existing, { value: "q".repeat(48), created: false });
+  assert.deepEqual(existing, { value: "r".repeat(48), created: false });
+  const rotation = rotateCalls.find(call => call.init.method === "PATCH");
+  assert.equal(rotation.route, `/v9/projects/${projectId}/env/env_fixture`);
+  const rotatedBody = JSON.parse(rotation.init.body);
+  assert.equal(rotatedBody.value, "r".repeat(48));
+  assert.equal(rotatedBody.type, "encrypted");
+  assert.deepEqual(rotatedBody.target, ["preview"]);
+  assert.equal(rotatedBody.gitBranch, "staging");
+  assert.ok(!rotateCalls[0].route.includes("decrypt=true"));
 });
 
-test("refuses operator-owned or weak staging fixture secrets", async () => {
+test("refuses operator-owned fixture variables or weak generated staging secrets", async () => {
   await assert.rejects(() => ensureStagingFixtureSecret({
     api: async () => ({ envs: [{
+      id: "env_fixture",
       key: "TRADEOS_STAGING_FIXTURE_SECRET",
-      value: "q".repeat(48),
       target: ["preview"],
       gitBranch: "staging",
       comment: "operator-owned",
     }] }),
   }));
   await assert.rejects(() => ensureStagingFixtureSecret({
-    api: async () => ({ envs: [{
-      key: "TRADEOS_STAGING_FIXTURE_SECRET",
-      value: "short",
-      target: ["preview"],
-      gitBranch: "staging",
-      comment: "Managed staging-only synthetic fixture bearer; do not expose in logs or artifacts.",
-    }] }),
+    api: async () => ({ envs: [] }),
+    makeSecret: () => "short",
   }));
 });
