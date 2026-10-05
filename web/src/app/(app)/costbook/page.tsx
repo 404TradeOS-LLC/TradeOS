@@ -255,6 +255,10 @@ export default async function CostbookPage({ searchParams }: { searchParams: Pro
                     <FlaskConical className="size-4" aria-hidden="true" />
                     Open Research Review
                   </Link>
+                  <Link href="/costbook/supplier-evidence" className={buttonVariants({ variant: "outline" })}>
+                    <Package className="size-4" aria-hidden="true" />
+                    Supplier Evidence
+                  </Link>
                   {workspace.permissions.canManage ? (
                     <Link href="/costbook/price-history" className={buttonVariants({ variant: "outline" })}>
                       <History className="size-4" aria-hidden="true" />
