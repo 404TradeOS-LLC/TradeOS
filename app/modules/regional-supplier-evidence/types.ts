@@ -64,6 +64,7 @@ export interface RegionalSupplierEvidenceListFilters {
 
 export interface RegionalSupplierEvidenceListItem {
   id: string;
+  supplierProductId: string;
   observationKey: string;
   supplierProductKey: string;
   supplierProductName: string;
