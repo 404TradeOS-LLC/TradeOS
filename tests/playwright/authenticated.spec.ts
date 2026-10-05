@@ -4,7 +4,7 @@ const authenticatedSmoke = process.env.TRADEOS_AGENT_AUTHENTICATED === 'true';
 const storageState = authenticatedSmoke ? process.env.TRADEOS_AGENT_STORAGE_STATE : undefined;
 
 if (storageState) {
-  test.use({ storageState });
+  test.use({ storageState, trace: 'off' });
 }
 
 test.describe('TradeOS authenticated workspace', () => {
