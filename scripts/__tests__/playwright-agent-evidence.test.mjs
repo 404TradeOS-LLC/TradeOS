@@ -5,6 +5,7 @@ import test from "node:test";
 const workflow = fs.readFileSync(".github/workflows/playwright-agent-evidence.yml", "utf8");
 const config = fs.readFileSync("playwright.config.ts", "utf8");
 const launcher = fs.readFileSync("tests/playwright/mcp-server.mjs", "utf8");
+const authenticated = fs.readFileSync("tests/playwright/authenticated.spec.ts", "utf8");
 
 test("Playwright agent evidence workflow stays manual, read-only, and Chromium-only", () => {
   assert.match(workflow, /workflow_dispatch:/);
@@ -14,6 +15,12 @@ test("Playwright agent evidence workflow stays manual, read-only, and Chromium-o
   assert.match(workflow, /playwright test --project=chromium/);
   assert.match(workflow, /TRADEOS_AGENT_EVIDENCE: "true"/);
   assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+  assert.match(workflow, /authenticated_smoke:/);
+  assert.match(workflow, /BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}/);
+  assert.match(workflow, /BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
+  assert.match(workflow, /node app\/scripts\/beta-evidence\/auth-setup\.mjs/);
+  assert.match(workflow, /TRADEOS_AGENT_STORAGE_STATE:/);
+  assert.match(workflow, /Remove runtime storage state/);
 });
 
 test("evidence mode produces reviewable Playwright artifacts", () => {
@@ -28,4 +35,14 @@ test("agent MCP startup constrains browser requests to the validated target", ()
   assert.match(launcher, /resolveAgentTarget\(process\.env\)/);
   assert.match(launcher, /PLAYWRIGHT_MCP_ALLOWED_ORIGINS: target/);
   assert.match(launcher, /run-test-mcp-server/);
+});
+
+test("authenticated evidence stays read-only and covers Today plus Estimates", () => {
+  assert.match(authenticated, /page\.goto\('\/dashboard'/);
+  assert.match(authenticated, /name: 'Today'/);
+  assert.match(authenticated, /name: 'Needs you'/);
+  assert.match(authenticated, /page\.goto\('\/estimates'/);
+  assert.match(authenticated, /name: 'Estimate from scope'/);
+  assert.doesNotMatch(authenticated, /\.click\(/);
+  assert.doesNotMatch(authenticated, /\.fill\(/);
 });
