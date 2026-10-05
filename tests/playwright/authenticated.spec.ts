@@ -23,6 +23,39 @@ function firstDetailHref(candidates: string[], prefix: string) {
   });
 }
 
+async function firstProjectDocumentHref(
+  page: Page,
+  tab: 'proposals' | 'contracts' | 'invoices',
+  description: string,
+  emptyText: string,
+) {
+  const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
+  expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
+
+  const projectHrefs = (await hrefs(page, 'a[href^="/projects/"]')).filter(
+    (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+  );
+
+  if (projectHrefs.length === 0) {
+    await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
+    return null;
+  }
+
+  for (const projectHref of projectHrefs) {
+    const workspaceResponse = await page.goto(`${projectHref}?tab=${tab}`, { waitUntil: 'domcontentloaded' });
+    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
+    await expect(page.getByText(description, { exact: true })).toBeVisible();
+
+    const prefix = `${projectHref}/${tab}/`;
+    const detailHref = firstDetailHref(await hrefs(page, `a[href^="${prefix}"]`), prefix);
+    if (detailHref) return detailHref;
+
+    await expect(page.getByText(emptyText, { exact: true })).toBeVisible();
+  }
+
+  return null;
+}
+
 test.describe('TradeOS authenticated workspace', () => {
   test.skip(!authenticatedSmoke || !storageState, 'Authenticated evidence requires an enabled authenticated smoke and storage state.');
 
@@ -133,66 +166,32 @@ test.describe('TradeOS authenticated workspace', () => {
   });
 
   test('Proposal workspace and first available proposal detail render read-only', async ({ page }) => {
-    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
-
-    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
-    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
-      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    const proposalHref = await firstProjectDocumentHref(
+      page,
+      'proposals',
+      'Customer-facing scope and pricing history.',
+      'No proposals yet. Build the first draft when the estimate is ready for customer review.',
     );
-
-    if (!projectHref) {
-      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
-      return;
-    }
-
-    const workspaceResponse = await page.goto(`${projectHref}?tab=proposals`, { waitUntil: 'domcontentloaded' });
-    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
-    await expect(page.getByText('Customer-facing scope and pricing history.', { exact: true })).toBeVisible();
-
-    const proposalPrefix = `${projectHref}/proposals/`;
-    const proposalHref = firstDetailHref(await hrefs(page, `a[href^="${proposalPrefix}"]`), proposalPrefix);
-
-    if (!proposalHref) {
-      await expect(
-        page.getByText('No proposals yet. Build the first draft when the estimate is ready for customer review.', { exact: true }),
-      ).toBeVisible();
-      return;
-    }
+    if (!proposalHref) return;
 
     const detailResponse = await page.goto(proposalHref, { waitUntil: 'domcontentloaded' });
     expect(detailResponse?.status() ?? 0).toBeLessThan(400);
     await expect(page).toHaveURL(/\/projects\/[^/?#]+\/proposals\/[^/?#]+(?:[/?#]|$)/);
     await expect(page.getByRole('heading', { level: 1, name: 'Proposal Review', exact: true })).toBeVisible();
     await expect(page.getByText('Proposal snapshot', { exact: true })).toBeVisible();
-    await expect(page.getByText('Payment schedule', { exact: true })).toBeVisible();
+    await expect(
+      page.locator('[data-slot="card-title"]').filter({ hasText: /^Payment schedule$/ }),
+    ).toBeVisible();
   });
 
   test('Contract workspace and first available contract detail render read-only', async ({ page }) => {
-    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
-
-    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
-    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
-      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    const contractHref = await firstProjectDocumentHref(
+      page,
+      'contracts',
+      'Signed and pending project agreements.',
+      'No contracts yet. Create one from an accepted proposal to move the job into execution.',
     );
-
-    if (!projectHref) {
-      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
-      return;
-    }
-
-    const workspaceResponse = await page.goto(`${projectHref}?tab=contracts`, { waitUntil: 'domcontentloaded' });
-    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
-    await expect(page.getByText('Signed and pending project agreements.', { exact: true })).toBeVisible();
-
-    const contractPrefix = `${projectHref}/contracts/`;
-    const contractHref = firstDetailHref(await hrefs(page, `a[href^="${contractPrefix}"]`), contractPrefix);
-
-    if (!contractHref) {
-      await expect(
-        page.getByText('No contracts yet. Create one from an accepted proposal to move the job into execution.', { exact: true }),
-      ).toBeVisible();
-      return;
-    }
+    if (!contractHref) return;
 
     const detailResponse = await page.goto(contractHref, { waitUntil: 'domcontentloaded' });
     expect(detailResponse?.status() ?? 0).toBeLessThan(400);
@@ -203,31 +202,13 @@ test.describe('TradeOS authenticated workspace', () => {
   });
 
   test('Invoice workspace and first available invoice detail render read-only', async ({ page }) => {
-    const projectsResponse = await page.goto('/projects', { waitUntil: 'domcontentloaded' });
-
-    expect(projectsResponse?.status() ?? 0).toBeLessThan(400);
-    const projectHref = (await hrefs(page, 'a[href^="/projects/"]')).find(
-      (href) => href !== '/projects/new' && /^\/projects\/[^/?#]+$/.test(href),
+    const invoiceHref = await firstProjectDocumentHref(
+      page,
+      'invoices',
+      'Billing history and outstanding balances.',
+      'No invoices yet. Create one after the contract or approved work scope is ready to bill.',
     );
-
-    if (!projectHref) {
-      await expect(page.getByText('No projects yet', { exact: true })).toBeVisible();
-      return;
-    }
-
-    const workspaceResponse = await page.goto(`${projectHref}?tab=invoices`, { waitUntil: 'domcontentloaded' });
-    expect(workspaceResponse?.status() ?? 0).toBeLessThan(400);
-    await expect(page.getByText('Billing history and outstanding balances.', { exact: true })).toBeVisible();
-
-    const invoicePrefix = `${projectHref}/invoices/`;
-    const invoiceHref = firstDetailHref(await hrefs(page, `a[href^="${invoicePrefix}"]`), invoicePrefix);
-
-    if (!invoiceHref) {
-      await expect(
-        page.getByText('No invoices yet. Create one after the contract or approved work scope is ready to bill.', { exact: true }),
-      ).toBeVisible();
-      return;
-    }
+    if (!invoiceHref) return;
 
     const detailResponse = await page.goto(invoiceHref, { waitUntil: 'domcontentloaded' });
     expect(detailResponse?.status() ?? 0).toBeLessThan(400);
