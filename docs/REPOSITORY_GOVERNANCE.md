@@ -569,8 +569,12 @@ the established runtime-auth bootstrap, stores browser session state under the
 runner temp directory, and removes that state before artifact upload.
 
 Authenticated checks in this lane are intentionally read-only: they verify the
-canonical **Today** command board and **Estimates** workspace without creating
-or changing contractor records. The lane must not receive production
+canonical **Today**, **Customers**, **Projects**, and **Estimates** workspaces
+without creating or changing contractor records. Customer, Project, and
+Estimate detail routes are exercised only from sanitized records already
+visible to the smoke tenant; an empty tenant must render truthful empty states.
+Authenticated Playwright trace capture stays disabled so session cookies are not
+published with failure artifacts. The lane must not receive production
 credentials, mutate Production, weaken Beta Evidence guards, or be treated as
 exact-head release certification. Broader or mutating contractor lifecycle
 proof remains owned by Beta Evidence / governed RC smoke.
