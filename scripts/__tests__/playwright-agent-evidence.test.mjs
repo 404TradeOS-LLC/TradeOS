@@ -59,6 +59,8 @@ test("authenticated evidence stays read-only across contractor and document life
   assert.match(authenticated, /Contract overview/);
   assert.match(authenticated, /tab=invoices/);
   assert.match(authenticated, /Invoice financial summary/);
+  assert.match(authenticated, /function firstDetailHref/);
+  assert.match(authenticated, /detailId !== 'new'/);
   assert.doesNotMatch(authenticated, /\.click\(/);
   assert.doesNotMatch(authenticated, /\.fill\(/);
 });
