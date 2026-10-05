@@ -16,8 +16,10 @@ test("Playwright agent evidence workflow stays manual, read-only, and Chromium-o
   assert.match(workflow, /TRADEOS_AGENT_EVIDENCE: "true"/);
   assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
   assert.match(workflow, /authenticated_smoke:/);
-  assert.match(workflow, /BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}/);
-  assert.match(workflow, /BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
+  assert.match(workflow, /Require authenticated smoke prerequisites[\s\S]*?env:[\s\S]*?BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}[\s\S]*?BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
+  assert.match(workflow, /Authenticate sanitized smoke tenant[\s\S]*?env:[\s\S]*?BETA_SMOKE_EMAIL: \$\{\{ secrets\.BETA_RC_SMOKE_EMAIL \}\}[\s\S]*?BETA_SMOKE_PASSWORD: \$\{\{ secrets\.BETA_RC_SMOKE_PASSWORD \}\}/);
+  const jobEnv = workflow.match(/    env:\n([\s\S]*?)\n\n    steps:/)?.[1] ?? "";
+  assert.doesNotMatch(jobEnv, /BETA_SMOKE_(?:EMAIL|PASSWORD)/);
   assert.match(workflow, /node app\/scripts\/beta-evidence\/auth-setup\.mjs/);
   assert.match(workflow, /TRADEOS_AGENT_STORAGE_STATE=/);
   assert.match(workflow, /Remove runtime storage state/);
@@ -39,6 +41,7 @@ test("agent MCP startup constrains browser requests to the validated target", ()
 
 test("authenticated evidence stays read-only and covers Today plus Estimates", () => {
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
+  assert.match(authenticated, /test\.use\(\{ storageState, trace: 'off' \}\)/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
   assert.match(authenticated, /name: 'Today'/);
   assert.match(authenticated, /'Needs you'/);
