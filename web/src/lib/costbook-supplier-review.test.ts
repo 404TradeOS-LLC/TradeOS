@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseSupplierCanonicalMatchReview } from "./costbook-supplier-review";
+import { parseSupplierCanonicalMatchReview } from "./costbook-supplier-review.ts";
 
 test("supplier canonical review preserves the submitted product and suggested key", () => {
   const formData = new FormData();
