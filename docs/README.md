@@ -330,3 +330,7 @@ The repository's CodeQL and frontend code-quality autofix workflows are governed
 
 The Sprint governance workflow treats `main` as authoritative for READY/PLANNED and DONE transition-diff checks. Pull requests targeting non-main branches still run sprint-state, documentation, PR-preflight, and ownership validation; transition-specific diff classification is skipped so branch synchronization is not mistaken for a new readiness/completion promotion.
 
+### S053 exact-head browser evidence
+
+The S053 certification workflow may run from its dedicated same-repository evidence pull request so GitHub and Vercel emit an observable exact-head event. It must use the pull request's head branch/SHA rather than the temporary merge SHA, remain non-production, keep temporary environment overrides cleanup-gated, and retain no bearer material. This is certification infrastructure only; S053 completion still requires a passing governed evidence matrix.
+

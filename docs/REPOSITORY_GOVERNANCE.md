@@ -544,3 +544,7 @@ The CodeQL autofix workflow pins `actions/github-script` v9.0.0 to an immutable 
 
 `docs/SPRINT_BACKLOG.md` state transitions are authoritative on `main`. Sprint governance therefore runs READY/PLANNED promotion-scope and DONE-evidence diff checks only for pull requests whose base is `main`. Pull requests targeting staging or another non-main synchronization branch still run the repository-wide sprint-state validator, documentation tests, PR preflight, and documentation-ownership checks. This prevents a stale non-main base from reclassifying historical main transitions as new promotions while preserving main-branch governance.
 
+### Secret-using certification pull requests
+
+A same-repository certification workflow may consume repository secrets on a narrowly scoped evidence pull request only when its trigger is explicitly branch-gated, exact head branch/SHA correlation is enforced, Production is refused, the PR carries no product-runtime changes beyond reviewed evidence tooling, temporary external configuration is cleanup-gated, and retained artifacts are credential-scanned. Such a pull request is an evidence transport mechanism, not an authorization to weaken authentication, RLS, tenant isolation, branch protection, or release gates.
+

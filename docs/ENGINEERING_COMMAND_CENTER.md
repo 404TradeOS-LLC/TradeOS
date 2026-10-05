@@ -333,3 +333,7 @@ Readiness PR #642 merged as `3333414e6c5d7939b0a7446c261cc619ae2bbb3c`; S067 is 
 
 The sprint-governance workflow applies READY/PLANNED transition-diff policing and DONE-evidence transition validation only to pull requests targeting `main`, where the numbered backlog is authoritative. Non-main synchronization PRs still run sprint-state validation, docs tests, PR preflight, and docs-ownership checks, but they no longer reinterpret historical main transitions against a stale branch base. This repairs the deterministic false positive reproduced by the staging synchronization lane without weakening main-branch sprint governance.
 
+## S053 exact-head browser evidence trigger — 2026-10-04
+
+The repaired S053 browser-certification lane uses a dedicated evidence PR/branch solely to emit an exact-head GitHub/Vercel event. The workflow resolves the pull request's head branch and SHA explicitly, verifies a READY staging backend for the landed staging SHA, refuses Production, attests the frontend Preview to the approved non-production Supabase data plane, captures 1440/1024/768/390 evidence, proves tenant denial, cleans temporary Preview overrides, and scans retained artifacts for bearer material. This tooling does not mark S053 DONE by itself and does not authorize product, auth/RLS, schema, pricing, or lifecycle changes.
+
