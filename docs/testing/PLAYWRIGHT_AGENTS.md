@@ -10,6 +10,7 @@ related_code:
   - playwright.config.ts
   - tests/playwright/seed.spec.ts
   - tests/playwright/authenticated.spec.ts
+  - tests/playwright/evidence-links.mjs
   - tests/playwright/target.mjs
   - .github/workflows/playwright-agent-evidence.yml
   - .codex/agents/playwright_test_planner.toml
