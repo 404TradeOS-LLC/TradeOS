@@ -378,6 +378,15 @@ test("S052 evidence is opt-in, fixture-gated, and cannot pass without explicit r
   assert.match(capture, /s052-project-reloaded/);
   assert.match(capture, /duplicate advice points to the existing customer without silently merging/);
   assert.match(capture, /customer project fields survive workspace reload/);
+  assert.ok(capture.includes('`/projects/new?customerId=${encodeURIComponent(customerId)}`'));
+  assert.ok(capture.includes('input[type="hidden"][name="customerId"]'));
+  assert.match(capture, /project creation carries the exact server-created customer/);
+  assert.doesNotMatch(capture, /select\[name=customerId\].*selectOption/);
+  assert.match(capture, /saved service address is carried into project creation/);
+  assert.ok(capture.includes('select[name="siteAddress"]'));
+  assert.ok(capture.includes('input[name="siteAddress"]'));
+  assert.match(capture, /beforeReload\.body\?\.siteAddress === expectedProjectSiteAddress/);
+  assert.match(capture, /afterReload\.body\?\.siteAddress === expectedProjectSiteAddress/);
   assert.match(capture, /data-s052-submit-count/);
   assert.match(capture, /invalidSubmitCount === 0/);
   assert.doesNotMatch(capture, /waitForTimeout\(150\)/);

@@ -473,13 +473,37 @@ try {
     );
   }
 
-  await page.goto(new URL("/projects/new", parsedBaseUrl).toString(), { waitUntil: "networkidle", timeout: 60_000 });
-  // The customer only appears in this select when it belongs to the signed-in
-  // tenant, so selecting it by label is itself a tenant-scoping assertion.
-  await page.locator("select[name=customerId]").selectOption({ label: customerName });
+  await page.goto(
+    new URL(`/projects/new?customerId=${encodeURIComponent(customerId)}`, parsedBaseUrl).toString(),
+    { waitUntil: "networkidle", timeout: 60_000 },
+  );
+  // Exercise the canonical Customer → Project continuity path instead of
+  // depending on the generic customer-list selector. The page resolves this
+  // Customer through the tenant-scoped getCustomer() read and renders the
+  // authoritative id as a hidden field only when that context is valid.
+  const linkedCustomerId = await page.locator('input[type="hidden"][name="customerId"]').inputValue();
+  assertBusiness(
+    "project creation carries the exact server-created customer",
+    linkedCustomerId === customerId,
+    `expected customerId=${customerId}; rendered ${linkedCustomerId || "missing"}`,
+  );
   await page.locator('[name="name"]').fill(projectName);
   await page.locator('[name="jobType"]').fill("Residential condo remodel");
-  await page.locator('[name="siteAddress"]').fill("100 Evidence Way");
+
+  let expectedProjectSiteAddress = "100 Evidence Way";
+  if (scenario === "s052") {
+    const savedAddressSelect = page.locator('select[name="siteAddress"]');
+    expectedProjectSiteAddress = await savedAddressSelect.inputValue();
+    assertBusiness(
+      "saved service address is carried into project creation",
+      expectedProjectSiteAddress.includes("200 Service Lane"),
+      `selected siteAddress=${expectedProjectSiteAddress || "missing"}`,
+    );
+    await savedAddressSelect.selectOption(expectedProjectSiteAddress);
+  } else {
+    await page.locator('input[name="siteAddress"]').fill(expectedProjectSiteAddress);
+  }
+
   await page.locator('[name="simpleScope"]').fill(scope);
   await page.getByRole("button", { name: "Create project" }).click();
   await page.waitForURL(/\/projects(?:\?|$)/, { timeout: 60_000 });
@@ -501,7 +525,7 @@ try {
     const beforeReload = await readProject();
     assertBusiness("customer-linked project API is readable", beforeReload.status === 200, `HTTP ${beforeReload.status}`);
     assertBusiness("project persists the selected customer", beforeReload.body?.customerId === customerId, `customerId=${beforeReload.body?.customerId}`);
-    assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === "100 Evidence Way", `siteAddress=${beforeReload.body?.siteAddress}`);
+    assertBusiness("project persists the jobsite address", beforeReload.body?.siteAddress === expectedProjectSiteAddress, `siteAddress=${beforeReload.body?.siteAddress}`);
     assertBusiness("project persists plain-language scope", beforeReload.body?.simpleScope === scope, "simpleScope did not match the submitted scope");
     await page.reload({ waitUntil: "networkidle", timeout: 60_000 });
     const afterReload = await readProject();
@@ -509,7 +533,7 @@ try {
       "customer project fields survive workspace reload",
       afterReload.status === 200 &&
         afterReload.body?.customerId === customerId &&
-        afterReload.body?.siteAddress === "100 Evidence Way" &&
+        afterReload.body?.siteAddress === expectedProjectSiteAddress &&
         afterReload.body?.simpleScope === scope,
       `HTTP ${afterReload.status}`,
     );
