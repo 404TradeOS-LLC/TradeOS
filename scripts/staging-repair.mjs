@@ -102,7 +102,10 @@ export async function repairStagingBackend({ expectedSha, api, request = fetch, 
   } else {
     // Recover a deleted or skipped deployment without recycling an older commit.
     // Verify the captured SHA on the returned deployment before runtime probes.
-    payload.gitSource = { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging", sha: expectedSha };
+    // Create a branch-based deployment so Vercel applies staging branch-scoped Preview env vars.
+    // The branch may move after capture, so assertStagingDeployment still fail-closes unless
+    // the created deployment resolves to the exact captured expectedSha.
+    payload.gitSource = { type: "github", org: "404TradeOS-LLC", repo: "TradeOS", ref: "staging" };
     payload.projectSettings = { commandForIgnoringBuildStep: "exit 1" };
   }
   await record(evidence);

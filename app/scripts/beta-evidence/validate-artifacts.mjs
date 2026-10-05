@@ -19,6 +19,9 @@ const outDir = process.env.BETA_EVIDENCE_DIR || "../artifacts/beta-evidence";
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 const scenario = process.env.BETA_SCENARIO || "canonical";
 
+// Always retain a machine-readable FAIL artifact when an upstream evidence prerequisite aborts.
+await fs.mkdir(outDir, { recursive: true });
+
 // A targeted single-viewport run validates only what it captured. It is a
 // debugging aid, never a release gate, so its verdict is PARTIAL rather than
 // PASS no matter how clean it is.
