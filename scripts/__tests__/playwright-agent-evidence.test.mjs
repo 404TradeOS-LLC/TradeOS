@@ -39,7 +39,7 @@ test("agent MCP startup constrains browser requests to the validated target", ()
   assert.match(launcher, /run-test-mcp-server/);
 });
 
-test("authenticated evidence stays read-only and covers core contractor workspaces", () => {
+test("authenticated evidence stays read-only across contractor and document lifecycle workspaces", () => {
   assert.match(authenticated, /TRADEOS_AGENT_AUTHENTICATED === 'true'/);
   assert.match(authenticated, /test\.use\(\{ storageState, trace: 'off' \}\)/);
   assert.match(authenticated, /page\.goto\('\/dashboard'/);
@@ -52,6 +52,12 @@ test("authenticated evidence stays read-only and covers core contractor workspac
   assert.match(authenticated, /page\.goto\('\/estimates'/);
   assert.match(authenticated, /name: 'Estimate from scope'/);
   assert.match(authenticated, /Athena review/);
+  assert.match(authenticated, /tab=proposals/);
+  assert.match(authenticated, /Proposal Review/);
+  assert.match(authenticated, /tab=contracts/);
+  assert.match(authenticated, /Contract overview/);
+  assert.match(authenticated, /tab=invoices/);
+  assert.match(authenticated, /Invoice financial summary/);
   assert.doesNotMatch(authenticated, /\.click\(/);
   assert.doesNotMatch(authenticated, /\.fill\(/);
 });
