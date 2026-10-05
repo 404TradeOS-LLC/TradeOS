@@ -556,3 +556,21 @@ Agents must preserve real failures and must not skip/fixme tests to pass a gate.
 See [the runbook](testing/PLAYWRIGHT_AGENTS.md) for commands, regeneration and
 authenticated evidence prerequisites. No production auth, tenant or release
 certification boundary is changed.
+
+
+## Playwright agent Chromium evidence workflow
+
+`.github/workflows/playwright-agent-evidence.yml` is manual-only and holds
+`contents: read`. It may execute the checked-in root Playwright suite only
+against a validated non-production TradeOS Preview/Staging origin with explicit
+sanitized-tenant confirmation. It installs only Chromium for the run and
+publishes diagnostic artifacts; it must not receive production credentials,
+mutate Production, weaken Beta Evidence guards, or be treated as exact-head
+release certification.
+
+The checked-in Playwright agent MCP definitions launch through
+`tests/playwright/mcp-server.mjs`, which validates the same target contract and
+sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
+starts. This is a defense-in-depth guard against accidental cross-origin
+browser requests, not a replacement for environment isolation or the governed
+authenticated evidence path.
