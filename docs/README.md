@@ -348,3 +348,8 @@ the runtime session file is removed before artifact publication. Browser
 reports remain diagnostic and do not replace Beta Evidence's exact-head,
 tenant-isolation, financial-integrity, or mutating lifecycle certification
 contract.
+
+## Costbook 47802 supplier evidence seed
+
+The manual `Seed 47802 Costbook supplier evidence` workflow (`.github/workflows/seed-costbook-supplier-prices-47802.yml`) is the governed operator path for importing the checked-in 3,188-row Terre Haute supplier corpus into the existing tenant-scoped `Supplier`, `SupplierProduct`, and `SupplierPriceObservation` boundaries. It is production-environment gated, confirmation-gated, serialized, and replay-idempotent. The workflow does not promote observations into `Material.unitCost`, reprice Estimates, or treat source workbook canonical keys as authoritative TradeOS identity.
+
