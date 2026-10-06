@@ -1,5 +1,5 @@
 /** Priced assembly components — material costs from supplier prices.
- * 140 of 326 material components matched (score>=0.4, units ok).
+ * 136 of 326 material components matched (score>=0.4, units ok).
  * Source: supplierPrices47802.ts (observed 2026-09-13).
  * Name-matched — review before use in bids. */
 export interface PricedAssemblyComponent { componentKey: string; label: string;
@@ -71,21 +71,6 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     productName: "2 in. x 4 in. x 104-5/8 in. #2 Stud Grade KD-HT Precut Stud", unitPrice: 5.47,
     priceUnit: "EA", extendedCost: 0.629,
     matchScore: 0.738 },
-  { componentKey: "mat_studs_2x6_spf", label: "2x6x92-5/8 in. Stud Grade SPF Lumber",
-    quantityPerUnit: 0.125, supplier: "Niehaus",
-    productName: "2 in. x 4 in. x 104-5/8 in. #2 Stud Grade KD-HT Precut Stud", unitPrice: 5.47,
-    priceUnit: "EA", extendedCost: 0.6837,
-    matchScore: 0.738 },
-  { componentKey: "mat_soleplate_2x6_pt", label: "2x6 #2 Pressure-Treated Pine Sole Plate Lumber",
-    quantityPerUnit: 0.138, supplier: "HomeDepot",
-    productName: "2 in. x 8 in. x 8 ft. #2 Ground Contact Pressure-Treated Southern Yellow Pine Lu", unitPrice: 1.69,
-    priceUnit: "LF", extendedCost: 0.2332,
-    matchScore: 0.574 },
-  { componentKey: "mat_top_plates_2x6_spf", label: "2x6 #2/Btr SPF Lumber (Double Top Plates)",
-    quantityPerUnit: 0.275, supplier: "Niehaus",
-    productName: "2 in. x 4 in. x 8 ft. #2 & Better Grade SPF Dimensional Lumber", unitPrice: 0.52,
-    priceUnit: "LF", extendedCost: 0.143,
-    matchScore: 0.45 },
   { componentKey: "mat_sill_seal_gasket", label: "5-1/2 in. Polyethylene Foam Sill Seal Gasket",
     quantityPerUnit: 0.138, supplier: "Niehaus",
     productName: "Owens Corning FoamSealR 5-1/2 in. x 50 ft. Sill Plate Gasket Roll", unitPrice: 0.2,
@@ -184,7 +169,7 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
   { componentKey: "mat_shingles_architectural_bundles", label: "Laminated Architectural Asphalt Shingles (3 Bundles/SQ)",
     quantityPerUnit: 3.3, supplier: "HomeDepot",
     productName: "GAF Timberline HDZ Charcoal Algae Resistant Laminated Shingles (33.33 sq. ft. / ", unitPrice: 116.94,
-    priceUnit: "SQ", extendedCost: 385.902,
+    priceUnit: "EA", extendedCost: 385.902,
     matchScore: 0.7 },
   { componentKey: "mat_shingles_hip_ridge_cap", label: "Matching Perforated Hip & Ridge Cap Shingles",
     quantityPerUnit: 0.15, supplier: "HomeDepot",
@@ -231,11 +216,6 @@ export const PRICED_ASSEMBLY_COMPONENTS: readonly PricedAssemblyComponent[] = [
     productName: "JELD-WEN 32 in. x 80 in. Colonist Primed Left-Hand Hollow Core Prehung Door", unitPrice: 134.0,
     priceUnit: "EA", extendedCost: 134.0,
     matchScore: 0.45 },
-  { componentKey: "fast_finish_nails_screws_door", label: "2-1/2 in. 15ga/16ga Finish Nails & 3 in. Hinge Security Screws",
-    quantityPerUnit: 16.0, supplier: "Menards",
-    productName: "Spring Hinge Self-Closing Interior Hinge 3-1/2 in.", unitPrice: 11.98,
-    priceUnit: "EA", extendedCost: 191.68,
-    matchScore: 0.43 },
   { componentKey: "mat_hardware_knobset_passage", label: "Standard Passage / Privacy Cylindrical Door Knob / Lever Set",
     quantityPerUnit: 1.0, supplier: "Menards",
     productName: "Passage Interior Door Knob (Satin Nickel)", unitPrice: 14.98,
@@ -739,8 +719,8 @@ export const ASSEMBLY_MATERIAL_COSTS: readonly AssemblyMaterialCost[] = [
     unitOfMeasure: "SF", pricedComponents: 1,
     totalComponents: 2, materialCostPerUnit: 0.63 },
   { assemblyId: "framing-wall-ext-2x6-16oc", assemblyName: "2x6 Exterior Load-Bearing Wall Framing (16 in. OC)",
-    unitOfMeasure: "SF", pricedComponents: 4,
-    totalComponents: 5, materialCostPerUnit: 1.09 },
+    unitOfMeasure: "SF", pricedComponents: 1,
+    totalComponents: 5, materialCostPerUnit: 0.03 },
   { assemblyId: "framing-floor-joist-2x10-16oc", assemblyName: "Floor Joist Framing System (2x10 Lumber, 16 in. OC)",
     unitOfMeasure: "SF", pricedComponents: 2,
     totalComponents: 2, materialCostPerUnit: 0.61 },
@@ -976,5 +956,6 @@ export const ASSEMBLY_MATERIAL_COSTS: readonly AssemblyMaterialCost[] = [
     unitOfMeasure: "LF", pricedComponents: 1,
     totalComponents: 6, materialCostPerUnit: 0.33 },
 ];
+/** Precomputed material-cost rollup for an assembly ID, or undefined. */
 export function assemblyMaterialCost(id: string): AssemblyMaterialCost | undefined {
   return ASSEMBLY_MATERIAL_COSTS.find((a) => a.assemblyId === id); }

@@ -3190,10 +3190,12 @@ export const TRADEOS_ASSEMBLIES: readonly TradeosAssembly[] = [
   },
 ];
 
+/** TradeOS assembly by exact ID, or undefined. */
 export function getTradeosAssembly(id: string): TradeosAssembly | undefined {
   return TRADEOS_ASSEMBLIES.find((a) => a.id === id);
 }
 
+/** Case-insensitive keyword search over assembly names, descriptions, and search terms. */
 export function searchTradeosAssemblies(keyword: string): TradeosAssembly[] {
   const q = keyword.toLowerCase();
   return TRADEOS_ASSEMBLIES.filter((a) =>
@@ -3202,6 +3204,7 @@ export function searchTradeosAssemblies(keyword: string): TradeosAssembly[] {
     a.searchTerms.some((t) => t.toLowerCase().includes(q)));
 }
 
+/** Assemblies for an exact trade name (case-insensitive), e.g. 'Framing'. */
 export function tradeosAssembliesByTrade(trade: string): TradeosAssembly[] {
   const q = trade.toLowerCase();
   return TRADEOS_ASSEMBLIES.filter((a) => a.trade.toLowerCase() === q);

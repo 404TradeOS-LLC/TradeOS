@@ -12764,9 +12764,11 @@ export const SUPPLIER_PRICES_47802_SOURCE = "Billy supplier costbooks (Google Dr
 export const SUPPLIER_PRICES_47802_REGION = "Terre Haute, IN 47802";
 export function supplierPricesBySupplier(s: string): SupplierPriceObservation[] {
   const q = s.toLowerCase(); return SUPPLIER_PRICES_47802.filter((p) => p.supplier.toLowerCase() === q); }
+/** Case-insensitive keyword search over supplier product and material names. */
 export function searchSupplierPrices(kw: string): SupplierPriceObservation[] {
   const q = kw.toLowerCase(); return SUPPLIER_PRICES_47802.filter((p) =>
     p.productName.toLowerCase().includes(q) || p.materialName.toLowerCase().includes(q)); }
+/** Lowest verified price for a canonical material key, or undefined. */
 export function cheapestSupplierPrice(ck: string): SupplierPriceObservation | undefined {
   const m = SUPPLIER_PRICES_47802.filter((p) => p.canonicalKey === ck);
   return m.length ? m.reduce((a, b) => (a.price <= b.price ? a : b)) : undefined; }
