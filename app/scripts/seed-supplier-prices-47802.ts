@@ -11,32 +11,35 @@ import {
 } from "../modules/costbook/supplierPrices47802Seed";
 
 interface CliArgs {
-  orgId: string;
-  userId: string;
+  orgId?: string;
+  userId?: string;
   batchSize: number;
+  dryRun: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliArgs {
   let orgId: string | undefined;
   let userId: string | undefined;
   let batchSize = 50;
+  let dryRun = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === "--org-id") orgId = argv[i + 1];
     if (argv[i] === "--user-id") userId = argv[i + 1];
     if (argv[i] === "--batch-size") batchSize = Number(argv[i + 1]);
+    if (argv[i] === "--dry-run") dryRun = true;
   }
 
-  if (!orgId || !userId) {
+  if (!dryRun && (!orgId || !userId)) {
     throw new Error(
-      "Usage: seed-supplier-prices-47802.ts --org-id <uuid> --user-id <uuid> [--batch-size 50]"
+      "Usage: seed-supplier-prices-47802.ts [--dry-run] --org-id <uuid> --user-id <uuid> [--batch-size 50]"
     );
   }
   if (!Number.isInteger(batchSize) || batchSize <= 0 || batchSize > 250) {
     throw new Error("--batch-size must be an integer between 1 and 250");
   }
 
-  return { orgId, userId, batchSize };
+  return { orgId, userId, batchSize, dryRun };
 }
 
 async function ensureSupplier(
@@ -61,8 +64,35 @@ async function ensureSupplier(
 }
 
 async function main() {
-  const { orgId, userId, batchSize } = parseArgs(process.argv.slice(2));
+  const { orgId, userId, batchSize, dryRun } = parseArgs(process.argv.slice(2));
   const batches = buildSupplierPrices47802SeedBatches(batchSize);
+
+  if (dryRun) {
+    const supplierCounts = new Map<string, number>();
+    for (const batch of batches) {
+      supplierCounts.set(
+        batch.supplier.displayName,
+        (supplierCounts.get(batch.supplier.displayName) ?? 0) + batch.products.length
+      );
+    }
+
+    console.log(JSON.stringify({
+      status: "dry-run",
+      wouldWrite: false,
+      supplierCount: SUPPLIER_PRICES_47802_SUPPLIERS.length,
+      products: SUPPLIER_PRICES_47802_EXPECTED_ROWS,
+      observations: SUPPLIER_PRICES_47802_EXPECTED_ROWS,
+      batchSize,
+      batches: batches.length,
+      suppliers: Object.fromEntries(supplierCounts),
+    }));
+    return;
+  }
+
+  if (!orgId || !userId) {
+    throw new Error("orgId and userId are required for a live supplier import");
+  }
+
   const supplierIds = new Map<string, string>();
   const service = new RegionalSupplierEvidenceService();
 
