@@ -44,8 +44,13 @@ import type { SupplierFeedFetcher } from "./types";
  * Environment (all required, otherwise the fetcher is a no-op returning []):
  * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET
  * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (user-token refresh token, pricing.read)
- * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute)
+ * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute; sandbox test
+ *   ship-tos only serve their own branches — the sandbox feed currently uses
+ *   "340" until production access lands)
  * - ABC_SUPPLY_SHIP_TO_NUMBER
+ *
+ * Routing: the default supplier feed fetcher (feed.ts) sends a sync target to
+ * this ABC fetcher only when its supplierId equals ABC_SUPPLY_SANDBOX_SUPPLIER_ID.
  */
 
 const SANDBOX_TOKEN_URL =
@@ -265,9 +270,23 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
       branchNumber: config.branchNumber,
       shipToNumber: config.shipToNumber,
     });
-    const materialBySku = new Map(materials.map((m) => [m.sku, m.id]));
+    // Map ABC item numbers back to materials. When two materials share one
+    // SKU the price cannot be attributed safely, so those SKUs are skipped
+    // rather than silently pricing the wrong material.
+    const materialBySku = new Map<string, string>();
+    const ambiguousSkus = new Set<string>();
+    for (const m of materials) {
+      if (ambiguousSkus.has(m.sku)) continue;
+      if (materialBySku.has(m.sku)) {
+        ambiguousSkus.add(m.sku);
+        materialBySku.delete(m.sku);
+      } else {
+        materialBySku.set(m.sku, m.id);
+      }
+    }
     const quotes: { materialId: string; proposedUnitCost: number }[] = [];
     for (const line of priced) {
+      if (ambiguousSkus.has(line.itemNumber)) continue;
       const materialId = materialBySku.get(line.itemNumber);
       if (!materialId) continue;
       if (line.statusCode !== "OK") continue;

@@ -319,4 +319,34 @@ describe("createAbcSupplyFeedFetcher", () => {
     await expect(fetcher("sup-1", "org-1")).resolves.toEqual([]);
     expect(fetchFn).not.toHaveBeenCalled();
   });
+
+  it("skips lines whose SKU maps to more than one material", async () => {
+    const fetchFn = jest.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/v1/token")) {
+        return { ok: true, status: 200, json: async () => tokenResponse() } as Response;
+      }
+      const body = JSON.parse(String(init?.body));
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          priceResponse(
+            body.lines.map((l: any) => ({ ...okLine(l.id, 42), itemNumber: l.itemNumber })),
+          ),
+      } as Response;
+    });
+    const loadMaterials = jest.fn(async () => [
+      { id: "mat-a", sku: "DUP-SKU" },
+      { id: "mat-b", sku: "DUP-SKU" },
+      { id: "mat-c", sku: "UNIQUE-SKU" },
+    ]);
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    const fetcher = createAbcSupplyFeedFetcher({ config, loadMaterials, auth, pricing });
+    // Only the unambiguous SKU produces a quote; the duplicated SKU is
+    // dropped rather than pricing the wrong material.
+    await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
+      { materialId: "mat-c", proposedUnitCost: 42 },
+    ]);
+  });
 });

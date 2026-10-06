@@ -74,9 +74,13 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 Supplier-SKU discovery/matching and provider-specific connectors remain future work; current feed rows must identify a TradeOS Material by `materialId`.
 
-### ABC Supply sandbox feed fetcher (PR #684)
+### ABC Supply sandbox feed fetcher (PR #684, wired by default)
 
-`app/modules/supplier-integration/abcSupply.ts` implements the `SupplierFeedFetcher` contract against the ABC Supply Connect Partner sandbox APIs. Sandbox-only: production hosts are absent from the module. Refresh-token user auth (`pricing.read` scope; pricing is unavailable via `client_credentials` for TPAs), access tokens cached with a 60s refresh margin, up to 50 line items per pricing request with `purpose=estimating`, non-OK or $0.00 lines skipped. Configuration is via `ABC_SUPPLY_SANDBOX_*` env vars; the fetcher is a no-op returning `[]` when unconfigured. Quotes flow into the existing proposal/approval queue — approval is still required before any Material price changes. Live sandbox validation is blocked (OAuth connector setup fails; VM egress proxy rejects token traffic); Billy decided to stay in sandbox.
+`app/modules/supplier-integration/abcSupply.ts` implements the `SupplierFeedFetcher` contract against the ABC Supply Connect Partner sandbox APIs. Sandbox-only: production hosts are absent from the module. Refresh-token user auth (`pricing.read` scope; pricing is unavailable via `client_credentials` for TPAs), access tokens cached with a 60s refresh margin, up to 50 line items per pricing request with `purpose=estimating`, non-OK or $0.00 lines skipped. Lines whose SKU maps to more than one Material are skipped rather than pricing the wrong material. Configuration is via `ABC_SUPPLY_SANDBOX_*` env vars; the fetcher is a no-op returning `[]` when unconfigured. Quotes flow into the existing proposal/approval queue — approval is still required before any Material price changes.
+
+Wiring: `SupplierIntegrationService` now defaults to `fetchDefaultSupplierFeed` (`app/modules/supplier-integration/feed.ts`), which routes the sync target to the ABC fetcher when its supplierId equals `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` and falls through to the generic HTTPS-endpoint fetcher otherwise — so the scheduler, worker, and HTTP controller all reach the ABC feed with no per-call-site changes. If ABC rotates the refresh token, the rotation is logged as an error telling the operator to update the `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` secret; there is no durable token store yet.
+
+Live validation (2026-10-06, via browser + ReqBin since the VM egress proxy blocks ABC traffic): OAuth authorization_code flow → token exchange → product search → pricing all returned HTTP 200 against the sandbox. The documented `lines` request shape is accepted. Sandbox branch is `340` (Orem UT) with ship-to `2010466-2` — the sandbox's only active ship-to serves UT/ID/MT branches only, so Billy's real Terre Haute branch `579` is rejected there with a 401 business error; `579` goes back into `ABC_SUPPLY_BRANCH_NUMBER` when ABC grants production access. Billy decided to stay in sandbox.
 
 ## Brand Studio compatibility
 
@@ -139,14 +143,14 @@ Representative coverage includes:
 ## Known limitations
 
 - supplier feeds require explicit trusted server configuration per supplier
-- supplier-SKU discovery/matching and provider-specific connectors are not implemented
+- the ABC Supply sandbox feed is the first provider-specific adapter; further supplier-SKU discovery/matching remains future work
 - internal admin surfaces are operational tooling, not contractor-facing product routes
 - brand-asset reconciliation is operator-invoked and dry-run by default; no automatic cleanup scheduler exists
 - remote PDF asset fetching and arbitrary font-file loading remain outside the approved document-rendering trust boundary
 
 ## Deferred work
 
-- supplier-specific adapters and SKU/product matching beyond the generic trusted-feed contract
+- supplier-specific adapters beyond the ABC Supply sandbox feed and SKU/product matching beyond the generic trusted-feed contract
 - additional operational reporting beyond the current queue/admin summaries
 - any automatic brand-asset cleanup schedule requires a separately governed retention/operations decision
 

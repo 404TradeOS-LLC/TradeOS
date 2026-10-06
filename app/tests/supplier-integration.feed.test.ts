@@ -4,7 +4,8 @@ const mockPrisma = {
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
 
-import { fetchConfiguredSupplierFeed } from "../modules/supplier-integration/feed";
+import { fetchConfiguredSupplierFeed, createDefaultSupplierFeedFetcher } from "../modules/supplier-integration/feed";
+import type { SupplierFeedFetcher } from "../modules/supplier-integration/types";
 
 const supplierId = "11111111-1111-4111-8111-111111111111";
 const materialId = "22222222-2222-4222-8222-222222222222";
@@ -121,5 +122,54 @@ describe("configured supplier price feed", () => {
     global.fetch = jest.fn().mockResolvedValue(new Response(stream));
 
     await expect(fetchConfiguredSupplierFeed(supplierId, orgId)).rejects.toThrow("size limit");
+  });
+});
+
+describe("default supplier price feed (ABC routing)", () => {
+  const abcSupplierId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const otherSupplierId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const originalAbcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+  const originalEndpoints = process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+
+  afterEach(() => {
+    if (originalAbcSupplierId === undefined) delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+    else process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = originalAbcSupplierId;
+    if (originalEndpoints === undefined) delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+    else process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = originalEndpoints;
+  });
+
+  it("routes the configured ABC supplier to the ABC fetcher", async () => {
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
+    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+    const abcFetcher: SupplierFeedFetcher = jest.fn(async () => [
+      { materialId, proposedUnitCost: 12.5 },
+    ]);
+    const fetcher = createDefaultSupplierFeedFetcher({ abcFetcher });
+    await expect(fetcher(abcSupplierId, orgId)).resolves.toEqual([
+      { materialId, proposedUnitCost: 12.5 },
+    ]);
+    expect(abcFetcher).toHaveBeenCalledWith(abcSupplierId, orgId);
+  });
+
+  it("falls back to the configured-endpoint fetcher for other suppliers", async () => {
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
+    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+    const abcFetcher: SupplierFeedFetcher = jest.fn(async () => [
+      { materialId, proposedUnitCost: 12.5 },
+    ]);
+    const fetcher = createDefaultSupplierFeedFetcher({ abcFetcher });
+    await expect(fetcher(otherSupplierId, orgId)).resolves.toEqual([]);
+    expect(abcFetcher).not.toHaveBeenCalled();
+  });
+
+  it("falls back when ABC_SUPPLY_SANDBOX_SUPPLIER_ID is not set", async () => {
+    delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
+    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+    const abcFetcher: SupplierFeedFetcher = jest.fn(async () => [
+      { materialId, proposedUnitCost: 12.5 },
+    ]);
+    const fetcher = createDefaultSupplierFeedFetcher({ abcFetcher });
+    await expect(fetcher(abcSupplierId, orgId)).resolves.toEqual([]);
+    expect(abcFetcher).not.toHaveBeenCalled();
   });
 });

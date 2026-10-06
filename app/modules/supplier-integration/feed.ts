@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
+import { AbcSupplyAuth, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -41,6 +42,55 @@ async function readBodyWithinLimit(response: Response): Promise<string> {
     reader.releaseLock();
   }
 }
+
+/**
+ * Default feed fetcher for SupplierIntegrationService, the scheduler, and
+ * the worker: routes the operator-designated ABC Supply sandbox supplier to
+ * the ABC fetcher and everything else to the operator-configured HTTPS
+ * endpoint fetcher.
+ *
+ * Set ABC_SUPPLY_SANDBOX_SUPPLIER_ID to the UUID of the Supplier row that
+ * represents ABC Supply. When it matches the sync target, the ABC sandbox
+ * pricing feed runs (a no-op [] when the ABC_SUPPLY_SANDBOX_* credentials
+ * are absent). All other supplier IDs fall through to
+ * fetchConfiguredSupplierFeed, preserving existing behavior exactly.
+ */
+export interface DefaultSupplierFeedDeps {
+  /** Override for tests; defaults to the live ABC fetcher. */
+  abcFetcher?: SupplierFeedFetcher;
+}
+
+function buildAbcFetcher(): SupplierFeedFetcher {
+  const config = loadAbcSupplyConfig();
+  if (!config) return async () => [];
+  const auth = new AbcSupplyAuth(config, fetch, Date.now, {
+    onRefreshTokenRotated: () => {
+      // No durable token store exists in this runtime; rotation must never
+      // be silent. The operator updates the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN
+      // secret from the new value ABC returns.
+      // eslint-disable-next-line no-console
+      console.error(
+        "[supplier-integration] ABC Supply refresh token rotated — update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret or the feed will stop authenticating",
+      );
+    },
+  });
+  return createAbcSupplyFeedFetcher({ config, auth });
+}
+
+export function createDefaultSupplierFeedFetcher(
+  deps: DefaultSupplierFeedDeps = {},
+): SupplierFeedFetcher {
+  return async (supplierId, orgId) => {
+    const abcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim();
+    if (abcSupplierId && abcSupplierId === supplierId) {
+      return (deps.abcFetcher ?? buildAbcFetcher())(supplierId, orgId);
+    }
+    return fetchConfiguredSupplierFeed(supplierId, orgId);
+  };
+}
+
+/** Default fetcher wired into SupplierIntegrationService. */
+export const fetchDefaultSupplierFeed: SupplierFeedFetcher = createDefaultSupplierFeedFetcher();
 
 /**
  * Pulls supplier quotes only from operator-configured HTTPS endpoints. The URL
