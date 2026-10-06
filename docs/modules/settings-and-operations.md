@@ -74,6 +74,10 @@ See [RBAC_MATRIX.md](../RBAC_MATRIX.md).
 
 Supplier-SKU discovery/matching and provider-specific connectors remain future work; current feed rows must identify a TradeOS Material by `materialId`.
 
+### ABC Supply sandbox feed fetcher (PR #684)
+
+`app/modules/supplier-integration/abcSupply.ts` implements the `SupplierFeedFetcher` contract against the ABC Supply Connect Partner sandbox APIs. Sandbox-only: production hosts are absent from the module. Refresh-token user auth (`pricing.read` scope; pricing is unavailable via `client_credentials` for TPAs), access tokens cached with a 60s refresh margin, up to 50 line items per pricing request with `purpose=estimating`, non-OK or $0.00 lines skipped. Configuration is via `ABC_SUPPLY_SANDBOX_*` env vars; the fetcher is a no-op returning `[]` when unconfigured. Quotes flow into the existing proposal/approval queue — approval is still required before any Material price changes. Live sandbox validation is blocked (OAuth connector setup fails; VM egress proxy rejects token traffic); Billy decided to stay in sandbox.
+
 ## Brand Studio compatibility
 
 S015 is merged and complete. Brand Studio is the canonical organization-brand source; Settings remains its compatibility/admin surface. Canonical values take precedence over legacy Settings fallbacks, legacy non-empty values can be adopted non-destructively, unrelated operational Settings JSON remains owned by Settings, and explicit clears do not repopulate stale shell values.
