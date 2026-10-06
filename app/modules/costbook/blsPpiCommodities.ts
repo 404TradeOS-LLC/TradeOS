@@ -33,7 +33,7 @@ export const BLS_PPI_COMMODITY_SERIES: readonly BlsPpiCommoditySeries[] = [
   { seriesId: "WPU13220161", title: "Cement", materialFamily: "CONCRETE",
     costbookTags: ["cement", "concrete", "masonry"],
     sourceUrl: "https://www.bls.gov/ppi/" },
-  { seriesId: "WPU1333", title: "Ready-mix concrete", materialFamily: "CONCRETE",
+  { seriesId: "WPU1333", title: "Ready-mix concrete", materialFamily: "READY_MIX_CONCRETE",
     costbookTags: ["concrete", "ready-mix", "flatwork", "foundation"],
     sourceUrl: "https://www.bls.gov/ppi/" },
   { seriesId: "WPU062101", title: "Architectural coatings", materialFamily: "PAINT",
@@ -785,7 +785,7 @@ export function escalateByPpi(observedPrice: number, indexThen: number, indexNow
   return observedPrice * (indexNow / indexThen);
 }
 
-/** Find the commodity series for a costbook material family (e.g. 'LUMBER'). */
+/** Find the commodity series for a costbook material family (e.g. 'LUMBER', 'CONCRETE' for cement, 'READY_MIX_CONCRETE' for ready-mix). */
 export function ppiSeriesForMaterialFamily(materialFamily: string): BlsPpiCommoditySeries | undefined {
   const key = materialFamily.toUpperCase();
   return BLS_PPI_COMMODITY_SERIES.find((s) => s.materialFamily === key);

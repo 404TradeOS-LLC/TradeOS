@@ -10559,6 +10559,7 @@ export const INDOT_2025_UNIT_PRICE_BENCHMARKS: readonly IndotUnitPriceBenchmark[
   },
 ];
 
+/** INDOT CY2025 benchmark for an exact pay-item number, or undefined. */
 export function getIndot2025UnitPriceBenchmark(payItemNumber: string): IndotUnitPriceBenchmark | undefined {
   return INDOT_2025_UNIT_PRICE_BENCHMARKS.find((item) => item.payItemNumber === payItemNumber);
 }

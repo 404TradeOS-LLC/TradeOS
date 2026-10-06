@@ -105,10 +105,12 @@ export const NHCCI_OBSERVATIONS: readonly NhcciObservation[] = [
   { year: 2026, quarter: 1 as 1|2|3|4, index: 3.134822428, indexSeasonallyAdjusted: 3.165451056 },
 ];
 
+/** Latest NHCCI observation (most recent quarter). */
 export function latestNhcci(): NhcciObservation {
   return NHCCI_OBSERVATIONS[NHCCI_OBSERVATIONS.length - 1];
 }
 
+/** NHCCI observation for an exact year/quarter, or undefined. */
 export function nhcciAt(year: number, quarter: 1|2|3|4): NhcciObservation | undefined {
   return NHCCI_OBSERVATIONS.find((o) => o.year === year && o.quarter === quarter);
 }

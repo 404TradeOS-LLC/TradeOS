@@ -28,6 +28,7 @@ describe('BLS PPI commodity series (WPU)', () => {
   it('maps material families to their index series', () => {
     expect(ppiSeriesForMaterialFamily('LUMBER')?.seriesId).toBe('WPU0811');
     expect(ppiSeriesForMaterialFamily('concrete')?.seriesId).toBe('WPU13220161');
+    expect(ppiSeriesForMaterialFamily('READY_MIX_CONCRETE')?.seriesId).toBe('WPU1333');
     expect(ppiSeriesForMaterialFamily('ELECTRICAL')?.seriesId).toBe('WPU117');
     expect(ppiSeriesForMaterialFamily('UNOBTAINIUM')).toBeUndefined();
   });

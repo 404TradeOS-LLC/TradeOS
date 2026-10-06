@@ -178,6 +178,7 @@ export const TRADEOS_ASSEMBLY_SOURCES: readonly TradeosAssemblySource[] = [
     sourceDocumentTitle: "2021 IRC Section R406 Foundation Waterproofing and Dampproofing & Tremco Barrier Solutions Specification", sourceUrl: "https://codes.iccsafe.org/content/IRC2021P1/chapter-4-foundations" },
 ];
 
+/** Assembly source record by exact source ID, or undefined when the ID is not in the registry. */
 export function getTradeosAssemblySource(sourceId: string): TradeosAssemblySource | undefined {
   return TRADEOS_ASSEMBLY_SOURCES.find((s) => s.sourceId === sourceId);
 }
