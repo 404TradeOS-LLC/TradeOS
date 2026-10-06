@@ -269,14 +269,6 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 - Preserve project-only intake. Do not create another scheduling table/model, new status, auth/RBAC/RLS policy, route/GPS tracking, notifications, external calendar sync, or unsupported drag-and-drop mutation.
 - S056 is a release-certification prerequisite and does not block S067 implementation.
 
-## Next Eligible Sprint
-
-Sprint ID: S073
-Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit and no overlapping S073 implementation lane exists.
-Dependencies: S051 — DONE through merged PR #538.
-Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
-Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
-
 ## Founder-authorized 47802 supplier evidence seed — in review
 
 - Classification: `NEW_WORK_REQUIRED`; no existing import/seed PR or branch overlapped the fixed PR #682 supplier corpus.
@@ -286,4 +278,12 @@ Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_R
 - Operator path: manual production-environment workflow with exact confirmation, explicit org/user context, fixed-corpus tests, serialized runs, 50-row batches, and final six-supplier/3,188-product/3,188-observation verification.
 - Existing live smoke state discovered during implementation: the target Costbook database contained zero supplier evidence before this work; a bounded ten-row ABC Supply replay-compatible smoke slice was written while validating the import contract. The governed seed is designed to reuse those real rows and finish the corpus without duplication.
 - Next safe action: complete exact-head CI/review for this branch, merge through normal governance when authorized, run the guarded workflow, then read back the verified ABC Supply supplier UUID for the ABC sandbox-feed configuration.
+
+## Next Eligible Sprint
+
+Sprint ID: S073
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit and no overlapping S073 implementation lane exists.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
+Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.
 
