@@ -1028,8 +1028,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in draft PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: continue S067 only through PR #644; do not create a competing scheduling/visit branch. S052/S053 evidence, S064/S066 review, Costbook, and customer/project lanes remain separate.
-Startup prompt: Continue S067 through PR #644: run exact-head Web/docs/governance verification, classify and repair deterministic review findings, then finish the smallest existing-Job-based Schedule Visit creation affordance only if it can reuse the current Job creation + Dispatch scheduling path without new persistence or policy. Keep browser/permission/tenant-negative/refresh evidence and S056 as completion/release gates.
+Sprint ID: S073
+Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; live overlap found no S073 PR or branch.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: create one isolated S073 implementation branch only after this readiness PR merges. Existing S052/S053/S064/S066/S067 evidence or review lanes remain separate and must not be duplicated.
+Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: derive the S052-S060 persisted-resource inventory from the S051 connection matrix/current route-service code, map each resource to exact forced-RLS policy/migration evidence, add missing disposable-PostgreSQL same-org/cross-org tests and deterministic matrix validation, and stop with an owned `GAP` before any schema/migration/RLS-policy/auth/permission change.
