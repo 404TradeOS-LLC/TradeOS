@@ -794,10 +794,13 @@ Acceptance: migration head and critical contract checks fail deployment safely w
 
 ### S073 — Release-critical RLS coverage matrix
 
-Status: PLANNED
+Status: READY
 Dependencies: S051
 Objective: Map every S052-S060 persisted resource to forced-RLS policy and live same-org/cross-org evidence.
 Acceptance: no critical resource is certified from application filters or mocks alone; gaps create blocking test ownership.
+Readiness reconciliation (2026-10-05): founder explicitly authorized S073. Current `main` at readiness start is `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; live GitHub overlap found no S073 PR or branch. The S051 connection matrix is the journey inventory source, while current schema/migrations and route/service code are authoritative for the actual persisted-resource set. S041's repository-wide RLS inventory remains useful precedent but was last verified 2026-08-25 and predates later release-critical persistence including `customer_portal_access_tokens` and `customer_portal_sessions`, so S073 cannot certify from that dated document alone. Current PostgreSQL integration already proves several core Customer/Project/Estimate/Proposal/Contract/Job/Invoice/Task/Activity boundaries, but direct live evidence is absent in `app/tests/rls.integration.ts` for at least portal identity rows, `estimate_line_items`, and `invoice_line_items`. S073 is bounded to a current S052-S060 matrix, deterministic validation, and additive disposable-PostgreSQL evidence. No schema/migration, RLS-policy, role/permission, authentication, portal-principal, or product-behavior change is authorized by this readiness promotion. If evidence exposes a real policy defect, record a blocking `GAP` with an owned failing test and stop before any protected policy/migration change. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
+Founder-decision boundary: NO for the bounded inventory/validator/additive live evidence; YES before any RLS policy, migration, role/permission, authentication, portal-principal, or production database change.
+Required validation: matrix/validator tests; focused `app/tests/rls.integration.ts` PostgreSQL evidence; `git diff --check`; `npm run pr:preflight -- --base origin/main`; `npm run pr:test`; `npm run docs:test`; `npm run docs:check -- --base origin/main`; and applicable App typecheck/unit/build/integration exact-head CI.
 
 ### S074 — Durable authentication and portal email delivery
 
@@ -1025,8 +1028,8 @@ Protected boundary: S064 must preserve explicit reviewed writes through Estimate
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in draft PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains dependency-blocked by S064.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: continue S067 only through PR #644; do not create a competing scheduling/visit branch. S052/S053 evidence, S064/S066 review, Costbook, and customer/project lanes remain separate.
-Startup prompt: Continue S067 through PR #644: run exact-head Web/docs/governance verification, classify and repair deterministic review findings, then finish the smallest existing-Job-based Schedule Visit creation affordance only if it can reuse the current Job creation + Dispatch scheduling path without new persistence or policy. Keep browser/permission/tenant-negative/refresh evidence and S056 as completion/release gates.
+Sprint ID: S073
+Eligibility: S073 is `READY`; dependency S051 is `DONE`; founder authorization is explicit; live overlap found no S073 PR or branch.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: create one isolated S073 implementation branch only after this readiness PR merges. Existing S052/S053/S064/S066/S067 evidence or review lanes remain separate and must not be duplicated.
+Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: derive the S052-S060 persisted-resource inventory from the S051 connection matrix/current route-service code, map each resource to exact forced-RLS policy/migration evidence, add missing disposable-PostgreSQL same-org/cross-org tests and deterministic matrix validation, and stop with an owned `GAP` before any schema/migration/RLS-policy/auth/permission change.

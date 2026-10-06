@@ -15,6 +15,11 @@ related_code:
 
 # TradeOS Bible
 
+## S073 readiness — 2026-10-05
+
+S073 — Release-critical RLS coverage matrix is promoted to `READY` after the founder explicitly authorized the sprint and live overlap found no competing S073 PR or branch. S051 is DONE and supplies the release-critical journey inventory. S073 must reconcile those S052-S060 journeys against current schema/migrations and live PostgreSQL evidence; the older S041 inventory is precedent, not current certification. The bounded sprint may add a matrix, validator, and disposable-PostgreSQL tests only. It may not redesign RLS, add migrations, broaden roles/permissions, change portal identity semantics, or use application filtering as a substitute for database evidence. Any real policy gap must remain a named failing `GAP` until a separately governed security change is authorized. See `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`.
+
+
 Costbook Data Foundation reconciliation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook rather than creating a parallel pricing domain. Existing Supplier/SupplierProduct/SupplierPriceObservation, research-candidate, forced-RLS, Assembly/AssemblyItem, MaterialPriceAudit, and EstimateLineItem snapshot boundaries remain authoritative. The slice adds the 12-item canonical pilot identity/review contract, BLS OEWS benchmark fallback with explicitly inferred national ECEC benefit load, append-oriented supplier price evidence, and the trust-first PriceResolver/API contract. It does not change numbered sprint status.
 
 Costbook review reconciliation (2026-10-05): the regional supplier evidence foundation from merged PR #531 and PR #628 may be surfaced through a bounded authenticated review workspace without changing pricing authority. Human canonical-identity review may update only the tenant-scoped `SupplierProduct.canonicalMaterialKey`; supplier observations remain evidence and do not become `Material.unitCost` or historical Estimate pricing by review alone. S082 remains mechanically blocked by S073 even though the stale PR #531 blocker has been resolved.
