@@ -1,5 +1,6 @@
 import {
   deriveSuppliers,
+  parseArgs,
   resolveTargetOrgId,
 } from '../scripts/import-suppliers-from-dataset';
 import {
@@ -45,6 +46,21 @@ describe('deriveSuppliers', () => {
 
   it('returns an empty list for an empty dataset', () => {
     expect(deriveSuppliers([])).toEqual([]);
+  });
+});
+
+describe('parseArgs', () => {
+  it('parses --dry-run and --org-id', () => {
+    expect(parseArgs(['--dry-run', '--org-id=abc-123'])).toEqual({ dryRun: true, orgId: 'abc-123' });
+    expect(parseArgs([])).toEqual({ dryRun: false, orgId: null });
+  });
+
+  it('rejects an empty --org-id operand instead of silently auto-selecting the org', () => {
+    expect(() => parseArgs(['--org-id='])).toThrow(/non-empty/);
+  });
+
+  it('rejects unknown arguments', () => {
+    expect(() => parseArgs(['--bogus'])).toThrow(/unknown argument/);
   });
 });
 

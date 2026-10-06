@@ -93,13 +93,16 @@ export function resolveTargetOrgId(
   return orgs[0].id;
 }
 
-function parseArgs(argv: readonly string[]): { dryRun: boolean; orgId: string | null } {
+export function parseArgs(argv: readonly string[]): { dryRun: boolean; orgId: string | null } {
   let dryRun = false;
   let orgId: string | null = null;
   for (const arg of argv) {
     if (arg === "--dry-run") dryRun = true;
-    else if (arg.startsWith("--org-id=")) orgId = arg.slice("--org-id=".length).trim() || null;
-    else throw new Error(`unknown argument: ${arg}`);
+    else if (arg.startsWith("--org-id=")) {
+      const value = arg.slice("--org-id=".length).trim();
+      if (!value) throw new Error("--org-id requires a non-empty UUID value");
+      orgId = value;
+    } else throw new Error(`unknown argument: ${arg}`);
   }
   return { dryRun, orgId };
 }
@@ -125,13 +128,23 @@ async function main() {
 
   const results: { code: string; id: string; action: string }[] = [];
   for (const s of suppliers) {
-    const existing =
-      (await basePrisma.supplier.findFirst({
-        where: { orgId: targetOrgId, apiIntegrationKey: s.supplierCode },
-      })) ??
-      (await basePrisma.supplier.findFirst({
-        where: { orgId: targetOrgId, name: s.name },
-      }));
+    const byKey = await basePrisma.supplier.findFirst({
+      where: { orgId: targetOrgId, apiIntegrationKey: s.supplierCode },
+    });
+    // Name fallback only adopts rows that carry no integration key. A row with
+    // the same name but a different key belongs to another integration — never
+    // silently reassign it.
+    const byName = byKey
+      ? null
+      : await basePrisma.supplier.findFirst({
+          where: { orgId: targetOrgId, name: s.name },
+        });
+    if (byName && byName.apiIntegrationKey && byName.apiIntegrationKey !== s.supplierCode) {
+      throw new Error(
+        `refusing to reassign supplier "${s.name}" (${byName.id}): it already carries apiIntegrationKey "${byName.apiIntegrationKey}"`,
+      );
+    }
+    const existing = byKey ?? byName;
 
     if (dryRun) {
       results.push({ code: s.supplierCode, id: existing?.id ?? "(would create)", action: existing ? "would update" : "would create" });

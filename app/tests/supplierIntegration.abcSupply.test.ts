@@ -123,6 +123,15 @@ describe("AbcSupplyAuth", () => {
     expect(onRefreshTokenRotated).toHaveBeenCalledWith("rt-new");
   });
 
+  it("forwards the abort signal to the token request", async () => {
+    const fetchFn = mockFetch(() => tokenResponse());
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const controller = new AbortController();
+    await auth.getPricingToken(controller.signal);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn.mock.calls[0][1]?.signal).toBe(controller.signal);
+  });
+
   it("throws a clear error when the token endpoint rejects", async () => {
     const fetchFn = jest.fn(async () => ({ ok: false, status: 401 }) as Response);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
@@ -202,6 +211,26 @@ describe("AbcSupplyPricingClient", () => {
       shipToNumber: "1008710",
     });
     expect(authHeaders).toEqual(["Bearer user-token-1"]);
+  });
+
+  it("forwards the abort signal to the token and pricing requests", async () => {
+    const signals: (AbortSignal | null)[] = [];
+    const fetchFn = jest.fn(async (url: string, init?: RequestInit) => {
+      signals.push(init?.signal ?? null);
+      if (String(url).includes("/v1/token")) {
+        return { ok: true, status: 200, json: async () => tokenResponse() } as Response;
+      }
+      return { ok: true, status: 200, json: async () => priceResponse([]) } as Response;
+    });
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    const controller = new AbortController();
+    await pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "579", shipToNumber: "1008710" },
+      controller.signal,
+    );
+    expect(signals).toEqual([controller.signal, controller.signal]);
   });
 
   it("batches more than 50 lines into separate requests", async () => {

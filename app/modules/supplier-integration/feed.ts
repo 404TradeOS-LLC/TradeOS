@@ -63,21 +63,49 @@ export interface DefaultSupplierFeedDeps {
   abcFetcher?: SupplierFeedFetcher;
 }
 
+/** Deadline applied to the ABC Supply sandbox route, matching the generic endpoint fetcher. */
+const ABC_FEED_TIMEOUT_MS = 15_000;
+
+/**
+ * Refresh token most recently issued by ABC's rotation, retained in memory for
+ * the life of this process. Written only by the rotation hook in
+ * buildAbcFetcher; never logged.
+ */
+let retainedAbcRefreshToken: string | null = null;
+
 function buildAbcFetcher(): SupplierFeedFetcher {
   const config = loadAbcSupplyConfig();
   if (!config) return async () => [];
-  const auth = new AbcSupplyAuth(config, fetch, Date.now, {
-    onRefreshTokenRotated: () => {
-      // No durable token store exists in this runtime; rotation must never
-      // be silent. The operator updates the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN
-      // secret from the new value ABC returns.
+  // A rotated refresh token is retained in memory for the life of this process
+  // so subsequent syncs keep authenticating instead of resubmitting the
+  // invalidated secret. Durability across restarts still requires the operator
+  // to update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret (rotation is logged
+  // as an error); the token value itself is never logged.
+  const refreshToken = retainedAbcRefreshToken ?? config.refreshToken;
+  const authConfig = { ...config, refreshToken };
+  const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
+    onRefreshTokenRotated: (next) => {
+      retainedAbcRefreshToken = next;
       // eslint-disable-next-line no-console
       console.error(
-        "[supplier-integration] ABC Supply refresh token rotated — update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret or the feed will stop authenticating",
+        "[supplier-integration] ABC Supply refresh token rotated — in-memory token updated for this process; update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret or the feed will stop authenticating after a restart",
       );
     },
   });
-  return createAbcSupplyFeedFetcher({ config, auth });
+  return async (supplierId, orgId) => {
+    // Same 15-second deadline as the generic endpoint fetcher: a stalled ABC
+    // token or pricing request must not hold the scheduler/worker indefinitely.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
+    try {
+      return await createAbcSupplyFeedFetcher({ config: authConfig, auth, signal: controller.signal })(
+        supplierId,
+        orgId,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 }
 
 export function createDefaultSupplierFeedFetcher(

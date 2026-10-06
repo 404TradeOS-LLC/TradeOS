@@ -1,5 +1,6 @@
 const mockPrisma = {
   supplier: { findFirst: jest.fn() },
+  material: { findMany: jest.fn() },
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
@@ -130,12 +131,27 @@ describe("default supplier price feed (ABC routing)", () => {
   const otherSupplierId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const originalAbcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
   const originalEndpoints = process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+  const abcSecretEnvKeys = [
+    "ABC_SUPPLY_SANDBOX_CLIENT_ID",
+    "ABC_SUPPLY_SANDBOX_CLIENT_SECRET",
+    "ABC_SUPPLY_SANDBOX_REFRESH_TOKEN",
+    "ABC_SUPPLY_BRANCH_NUMBER",
+    "ABC_SUPPLY_SHIP_TO_NUMBER",
+  ];
+  const originalAbcSecrets: Record<string, string | undefined> = Object.fromEntries(
+    abcSecretEnvKeys.map((k) => [k, process.env[k]]),
+  );
 
   afterEach(() => {
     if (originalAbcSupplierId === undefined) delete process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID;
     else process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = originalAbcSupplierId;
     if (originalEndpoints === undefined) delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
     else process.env.SUPPLIER_PRICE_FEED_ENDPOINTS = originalEndpoints;
+    for (const k of abcSecretEnvKeys) {
+      if (originalAbcSecrets[k] === undefined) delete process.env[k];
+      else process.env[k] = originalAbcSecrets[k] as string;
+    }
+    jest.useRealTimers();
   });
 
   it("routes the configured ABC supplier to the ABC fetcher", async () => {
@@ -171,5 +187,38 @@ describe("default supplier price feed (ABC routing)", () => {
     const fetcher = createDefaultSupplierFeedFetcher({ abcFetcher });
     await expect(fetcher(abcSupplierId, orgId)).resolves.toEqual([]);
     expect(abcFetcher).not.toHaveBeenCalled();
+  });
+
+  it("aborts a stalled ABC sandbox request at the feed deadline", async () => {
+    process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID = abcSupplierId;
+    process.env.ABC_SUPPLY_SANDBOX_CLIENT_ID = "cid";
+    process.env.ABC_SUPPLY_SANDBOX_CLIENT_SECRET = "csecret";
+    process.env.ABC_SUPPLY_SANDBOX_REFRESH_TOKEN = "rt";
+    process.env.ABC_SUPPLY_BRANCH_NUMBER = "340";
+    process.env.ABC_SUPPLY_SHIP_TO_NUMBER = "2010466-2";
+    delete process.env.SUPPLIER_PRICE_FEED_ENDPOINTS;
+    mockPrisma.material.findMany.mockResolvedValue([{ id: materialId, sku: "SKU-1" }]);
+    // fetch hangs until the abort signal fires, like a stalled provider
+    global.fetch = jest.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("The operation was aborted.", "AbortError")),
+          );
+        }),
+    ) as unknown as typeof fetch;
+
+    jest.useFakeTimers();
+    try {
+      const fetcher = createDefaultSupplierFeedFetcher();
+      const pending = fetcher(abcSupplierId, orgId);
+      // Attach the assertion before the deadline fires so the abort
+      // rejection is observed rather than unhandled.
+      const assertion = expect(pending).rejects.toThrow(/abort/i);
+      await jest.advanceTimersByTimeAsync(15_000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
