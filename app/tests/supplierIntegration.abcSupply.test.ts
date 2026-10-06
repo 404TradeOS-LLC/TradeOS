@@ -123,6 +123,15 @@ describe("AbcSupplyAuth", () => {
     expect(onRefreshTokenRotated).toHaveBeenCalledWith("rt-new");
   });
 
+  it("forwards the abort signal to the token request", async () => {
+    const fetchFn = mockFetch(() => tokenResponse());
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const controller = new AbortController();
+    await auth.getPricingToken(controller.signal);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFn.mock.calls[0][1]?.signal).toBe(controller.signal);
+  });
+
   it("throws a clear error when the token endpoint rejects", async () => {
     const fetchFn = jest.fn(async () => ({ ok: false, status: 401 }) as Response);
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
@@ -202,6 +211,26 @@ describe("AbcSupplyPricingClient", () => {
       shipToNumber: "1008710",
     });
     expect(authHeaders).toEqual(["Bearer user-token-1"]);
+  });
+
+  it("forwards the abort signal to the token and pricing requests", async () => {
+    const signals: (AbortSignal | null)[] = [];
+    const fetchFn = jest.fn(async (url: string, init?: RequestInit) => {
+      signals.push(init?.signal ?? null);
+      if (String(url).includes("/v1/token")) {
+        return { ok: true, status: 200, json: async () => tokenResponse() } as Response;
+      }
+      return { ok: true, status: 200, json: async () => priceResponse([]) } as Response;
+    });
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    const controller = new AbortController();
+    await pricing.priceItems(
+      [{ id: "line-0", itemNumber: "SKU-1", quantity: 1 }],
+      { branchNumber: "579", shipToNumber: "1008710" },
+      controller.signal,
+    );
+    expect(signals).toEqual([controller.signal, controller.signal]);
   });
 
   it("batches more than 50 lines into separate requests", async () => {
@@ -318,5 +347,35 @@ describe("createAbcSupplyFeedFetcher", () => {
     });
     await expect(fetcher("sup-1", "org-1")).resolves.toEqual([]);
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("skips lines whose SKU maps to more than one material", async () => {
+    const fetchFn = jest.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/v1/token")) {
+        return { ok: true, status: 200, json: async () => tokenResponse() } as Response;
+      }
+      const body = JSON.parse(String(init?.body));
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          priceResponse(
+            body.lines.map((l: any) => ({ ...okLine(l.id, 42), itemNumber: l.itemNumber })),
+          ),
+      } as Response;
+    });
+    const loadMaterials = jest.fn(async () => [
+      { id: "mat-a", sku: "DUP-SKU" },
+      { id: "mat-b", sku: "DUP-SKU" },
+      { id: "mat-c", sku: "UNIQUE-SKU" },
+    ]);
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
+    const pricing = new AbcSupplyPricingClient(auth, fetchFn as unknown as typeof fetch);
+    const fetcher = createAbcSupplyFeedFetcher({ config, loadMaterials, auth, pricing });
+    // Only the unambiguous SKU produces a quote; the duplicated SKU is
+    // dropped rather than pricing the wrong material.
+    await expect(fetcher("sup-1", "org-1")).resolves.toEqual([
+      { materialId: "mat-c", proposedUnitCost: 42 },
+    ]);
   });
 });

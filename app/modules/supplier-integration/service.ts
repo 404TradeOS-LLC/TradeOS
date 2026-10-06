@@ -4,7 +4,7 @@ import { AuthContext } from "../../backend/auth/context";
 import { Prisma } from "@prisma/client";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
-import { fetchConfiguredSupplierFeed } from "./feed";
+import { fetchDefaultSupplierFeed } from "./feed";
 import {
   EnqueuePriceUpdateInput,
   ListQueueFilters,
@@ -15,11 +15,12 @@ import {
 } from "./types";
 
 // Supplier Integrations module: supplier-fed prices are proposals, never direct
-// autonomous writes. The default fetcher is operator-configured and remains a
-// no-op when no endpoint mapping is configured. Approval is still required
-// before a Material price changes.
+// autonomous writes. The default fetcher routes the ABC_SUPPLY_SANDBOX_SUPPLIER_ID
+// target to the ABC Supply sandbox feed and everything else to the
+// operator-configured endpoint fetcher; both remain a no-op when unconfigured.
+// Approval is still required before a Material price changes.
 export class SupplierIntegrationService {
-  constructor(private readonly fetchFeed: SupplierFeedFetcher = fetchConfiguredSupplierFeed) {}
+  constructor(private readonly fetchFeed: SupplierFeedFetcher = fetchDefaultSupplierFeed) {}
 
   async listQueue(orgId: string, filters: ListQueueFilters = {}): Promise<SupplierPriceUpdateDTO[]> {
     const rows = await prisma.supplierPriceUpdate.findMany({

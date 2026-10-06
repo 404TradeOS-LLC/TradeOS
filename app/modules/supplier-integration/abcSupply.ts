@@ -44,8 +44,13 @@ import type { SupplierFeedFetcher } from "./types";
  * Environment (all required, otherwise the fetcher is a no-op returning []):
  * - ABC_SUPPLY_SANDBOX_CLIENT_ID / ABC_SUPPLY_SANDBOX_CLIENT_SECRET
  * - ABC_SUPPLY_SANDBOX_REFRESH_TOKEN (user-token refresh token, pricing.read)
- * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute)
+ * - ABC_SUPPLY_BRANCH_NUMBER (e.g. "579" for Terre Haute; sandbox test
+ *   ship-tos only serve their own branches — the sandbox feed currently uses
+ *   "340" until production access lands)
  * - ABC_SUPPLY_SHIP_TO_NUMBER
+ *
+ * Routing: the default supplier feed fetcher (feed.ts) sends a sync target to
+ * this ABC fetcher only when its supplierId equals ABC_SUPPLY_SANDBOX_SUPPLIER_ID.
  */
 
 const SANDBOX_TOKEN_URL =
@@ -98,7 +103,7 @@ export class AbcSupplyAuth {
     private readonly hooks: AbcSupplyAuthHooks = {},
   ) {}
 
-  async getPricingToken(): Promise<string> {
+  async getPricingToken(signal?: AbortSignal): Promise<string> {
     const nowMs = this.now();
     if (this.cached && this.cached.expiresAtMs - TOKEN_EXPIRY_MARGIN_MS > nowMs) {
       return this.cached.accessToken;
@@ -118,6 +123,7 @@ export class AbcSupplyAuth {
         ).toString("base64")}`,
       },
       body,
+      signal,
     });
     if (!response.ok) {
       throw new Error(`ABC Supply token refresh failed: HTTP ${response.status}`);
@@ -171,11 +177,12 @@ export class AbcSupplyPricingClient {
   async priceItems(
     lines: AbcPriceRequestLine[],
     opts: { branchNumber: string; shipToNumber: string; requestId?: string },
+    signal?: AbortSignal,
   ): Promise<AbcPricedLine[]> {
     const priced: AbcPricedLine[] = [];
     for (let i = 0; i < lines.length; i += MAX_LINES_PER_REQUEST) {
       const batch = lines.slice(i, i + MAX_LINES_PER_REQUEST);
-      priced.push(...(await this.priceBatch(batch, opts)));
+      priced.push(...(await this.priceBatch(batch, opts, signal)));
     }
     return priced;
   }
@@ -183,8 +190,9 @@ export class AbcSupplyPricingClient {
   private async priceBatch(
     lines: AbcPriceRequestLine[],
     opts: { branchNumber: string; shipToNumber: string; requestId?: string },
+    signal?: AbortSignal,
   ): Promise<AbcPricedLine[]> {
-    const token = await this.auth.getPricingToken();
+    const token = await this.auth.getPricingToken(signal);
     const response = await this.fetchFn(`${SANDBOX_API_BASE}${PRICING_PATH}`, {
       method: "POST",
       headers: {
@@ -198,6 +206,7 @@ export class AbcSupplyPricingClient {
         purpose: "estimating",
         lines: lines.map((l) => ({ id: l.id, itemNumber: l.itemNumber, quantity: l.quantity })),
       }),
+      signal,
     });
     if (!response.ok) {
       throw new Error(`ABC Supply Price Items request failed: HTTP ${response.status}`);
@@ -229,6 +238,8 @@ export interface AbcSupplyFeedDeps {
   loadMaterials?: (supplierId: string, orgId: string) => Promise<AbcSupplyMaterial[]>;
   auth?: AbcSupplyAuth;
   pricing?: AbcSupplyPricingClient;
+  /** Abort signal bounding the whole fetch (token + pricing); the caller owns the deadline. */
+  signal?: AbortSignal;
 }
 
 async function defaultLoadMaterials(supplierId: string, orgId: string): Promise<AbcSupplyMaterial[]> {
@@ -261,13 +272,31 @@ export function createAbcSupplyFeedFetcher(deps: AbcSupplyFeedDeps = {}): Suppli
       itemNumber: m.sku,
       quantity: 1,
     }));
-    const priced = await pricing.priceItems(lines, {
-      branchNumber: config.branchNumber,
-      shipToNumber: config.shipToNumber,
-    });
-    const materialBySku = new Map(materials.map((m) => [m.sku, m.id]));
+    const priced = await pricing.priceItems(
+      lines,
+      {
+        branchNumber: config.branchNumber,
+        shipToNumber: config.shipToNumber,
+      },
+      deps.signal,
+    );
+    // Map ABC item numbers back to materials. When two materials share one
+    // SKU the price cannot be attributed safely, so those SKUs are skipped
+    // rather than silently pricing the wrong material.
+    const materialBySku = new Map<string, string>();
+    const ambiguousSkus = new Set<string>();
+    for (const m of materials) {
+      if (ambiguousSkus.has(m.sku)) continue;
+      if (materialBySku.has(m.sku)) {
+        ambiguousSkus.add(m.sku);
+        materialBySku.delete(m.sku);
+      } else {
+        materialBySku.set(m.sku, m.id);
+      }
+    }
     const quotes: { materialId: string; proposedUnitCost: number }[] = [];
     for (const line of priced) {
+      if (ambiguousSkus.has(line.itemNumber)) continue;
       const materialId = materialBySku.get(line.itemNumber);
       if (!materialId) continue;
       if (line.statusCode !== "OK") continue;
