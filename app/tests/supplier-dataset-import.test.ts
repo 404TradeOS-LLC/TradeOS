@@ -2,6 +2,7 @@ import {
   deriveSuppliers,
   parseArgs,
   resolveTargetOrgId,
+  supplierUpdateData,
 } from '../scripts/import-suppliers-from-dataset';
 import {
   SUPPLIER_PRICES_47802,
@@ -61,6 +62,24 @@ describe('parseArgs', () => {
 
   it('rejects unknown arguments', () => {
     expect(() => parseArgs(['--bogus'])).toThrow(/unknown argument/);
+  });
+});
+
+describe('supplierUpdateData', () => {
+  it('includes the website when the dataset provides one', () => {
+    expect(
+      supplierUpdateData({ supplierCode: 'ABC_SUPPLY', name: 'ABC Supply', website: 'https://www.abcsupply.com' }),
+    ).toEqual({
+      name: 'ABC Supply',
+      apiIntegrationKey: 'ABC_SUPPLY',
+      website: 'https://www.abcsupply.com',
+    });
+  });
+
+  it('omits website when the dataset has none so reruns preserve the stored value', () => {
+    const data = supplierUpdateData({ supplierCode: 'NIEHAUS', name: 'Niehaus', website: null });
+    expect(data).toEqual({ name: 'Niehaus', apiIntegrationKey: 'NIEHAUS' });
+    expect('website' in data).toBe(false);
   });
 });
 

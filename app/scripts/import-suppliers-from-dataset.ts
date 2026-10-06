@@ -93,6 +93,25 @@ export function resolveTargetOrgId(
   return orgs[0].id;
 }
 
+export interface SupplierUpdateData {
+  name: string;
+  apiIntegrationKey: string;
+  website?: string | null;
+}
+
+/**
+ * Update payload for an existing Supplier row. A null dataset website must not
+ * overwrite a stored website on reruns, so website is omitted unless the
+ * dataset provides one. Pure — unit-tested.
+ */
+export function supplierUpdateData(s: DatasetSupplier): SupplierUpdateData {
+  return {
+    name: s.name,
+    apiIntegrationKey: s.supplierCode,
+    ...(s.website ? { website: s.website } : {}),
+  };
+}
+
 export function parseArgs(argv: readonly string[]): { dryRun: boolean; orgId: string | null } {
   let dryRun = false;
   let orgId: string | null = null;
@@ -152,9 +171,11 @@ async function main() {
     }
 
     if (existing) {
+      // Never null out a stored website on reruns when the dataset has none
+      // (e.g. NIEHAUS); only overwrite website when the dataset provides one.
       const updated = await basePrisma.supplier.update({
         where: { id: existing.id },
-        data: { name: s.name, website: s.website, apiIntegrationKey: s.supplierCode },
+        data: supplierUpdateData(s),
       });
       results.push({ code: s.supplierCode, id: updated.id, action: "updated" });
     } else {
