@@ -17,6 +17,7 @@
     "db:seed": "prisma db seed",
     "admin:bootstrap": "ts-node scripts/bootstrap-admin.ts",
     "jobs:supplier-price-sync": "ts-node scripts/run-supplier-price-sync.ts",
+    "db:import-suppliers": "ts-node scripts/import-suppliers-from-dataset.ts",
     "costbook:ingest-bls-oews": "ts-node scripts/ingest-bls-oews-terre-haute-candidates.ts",
     "jobs:athena-observability-retention": "ts-node scripts/run-athena-observability-retention.ts",
     "jobs:athena-observability-export": "ts-node scripts/run-athena-observability-export.ts",

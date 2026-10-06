@@ -50,10 +50,13 @@ async function readBodyWithinLimit(response: Response): Promise<string> {
  * endpoint fetcher.
  *
  * Set ABC_SUPPLY_SANDBOX_SUPPLIER_ID to the UUID of the Supplier row that
- * represents ABC Supply. When it matches the sync target, the ABC sandbox
- * pricing feed runs (a no-op [] when the ABC_SUPPLY_SANDBOX_* credentials
- * are absent). All other supplier IDs fall through to
- * fetchConfiguredSupplierFeed, preserving existing behavior exactly.
+ * represents ABC Supply. Create that row with
+ * `npm run db:import-suppliers` (app/scripts/import-suppliers-from-dataset.ts),
+ * which derives Supplier rows from the static costbook dataset and prints the
+ * supplierCode -> UUID table — do not hand-make the row. When it matches the
+ * sync target, the ABC sandbox pricing feed runs (a no-op [] when the
+ * ABC_SUPPLY_SANDBOX_* credentials are absent). All other supplier IDs fall
+ * through to fetchConfiguredSupplierFeed, preserving existing behavior exactly.
  */
 export interface DefaultSupplierFeedDeps {
   /** Override for tests; defaults to the live ABC fetcher. */
