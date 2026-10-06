@@ -35,14 +35,14 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.3",
+    "dotenv": "^18.0.5",
     "express": "^4.22.3",
     "express-rate-limit": "^8.7.0",
     "jose": "^4.15.9",
     "node-cron": "^4.6.0",
     "pdfkit": "^0.20.2",
     "zod": "^3.23.8",
-    "@vercel/functions": "^3.9.9"
+    "@vercel/functions": "^3.9.11"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
