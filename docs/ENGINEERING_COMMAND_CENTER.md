@@ -43,6 +43,11 @@ related_code:
 
 # TradeOS Engineering Command Center
 
+## S073 release-critical RLS coverage — READY 2026-10-05
+
+Founder authorization starts S073 from current `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`. Dependency S051 is DONE and no live S073 implementation lane exists. The implementation target is evidence, not policy redesign: derive every S052-S060 persisted resource from the S051 matrix/current route-service code, map it to current forced-RLS migration/policy evidence, and require disposable-PostgreSQL same-org/cross-org proof. Existing `rls.integration.ts` covers many core records, but direct live coverage is absent for at least customer-portal token/session rows, estimate line items, and invoice line items. If testing exposes a policy defect, record a blocking owner and stop before schema/migration/RLS/auth changes.
+
+
 Costbook Data Foundation (merged 2026-10-04): founder-authorized non-numbered PR #628 landed on `main` as `8d37fdbe146a4b45c40c1d58a4c1e5678eee14cf`, extending the existing Costbook supplier-evidence, canonical-key, BLS research-candidate, forced-RLS, Assembly, and Estimate snapshot boundaries. It does not create a second Costbook or change the numbered-sprint selector.
 
 Costbook supplier-evidence review continuation (2026-10-05): founder-authorized non-numbered branch `feat/costbook-supplier-evidence-review` adds the missing authenticated review surface over the already-merged regional supplier evidence and canonical-match contracts. PR #531 is merged, so it is no longer S082's blocker; S082 remains `BLOCKED` on its explicit S073 dependency. This continuation may show observations and record manager-reviewed canonical identity only; it must not promote supplier observations into `Material.unitCost`, reprice Estimates, add a parallel pricing store, or change numbered-sprint selection.

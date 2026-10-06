@@ -10,6 +10,17 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
+## S073 release-critical RLS coverage — readiness active 2026-10-05
+
+- Sprint: `S073 — Release-critical RLS coverage matrix`.
+- Founder explicitly authorized starting S073.
+- Readiness base: `main` `37deee0bad44d8c3ca4ad65f7e89d15190d7cae3`; S051 is DONE; no S073 PR/branch overlap found.
+- Readiness branch: `docs/s073-rls-coverage-readiness`.
+- Scope: current S052-S060 persisted-resource inventory, exact forced-RLS policy/migration mapping, deterministic matrix validation, and additive live same-org/cross-org PostgreSQL evidence.
+- Known evidence gaps at readiness: no direct `app/tests/rls.integration.ts` coverage for at least `customer_portal_access_tokens`, `customer_portal_sessions`, `estimate_line_items`, and `invoice_line_items`.
+- Safety: no schema/migration or RLS-policy redesign, no role/permission/auth/portal-principal change, no production DB access. A discovered policy defect becomes a blocking `GAP`; it is not silently repaired inside S073.
+- Next five tasks: merge readiness; create the isolated S073 implementation branch; build the release-critical resource/policy matrix; add missing live PostgreSQL evidence and validator coverage; run exact-head App integration/repository checks and stop on any protected security-policy gap.
+
 ## Founder-authorized Costbook supplier-evidence review — merged 2026-10-05
 
 - Classification: `NO_ACTION_REQUIRED` for the implementation lane after verified merge of PR #670 as `ab6e541c925e0077aae9e14d2907c7968daa0a9e`.
@@ -260,8 +271,8 @@ active resume contract is the S066 / PR #634 block at the end of this handoff.
 
 ## Next Eligible Sprint
 
-Sprint ID: NONE
-Eligibility: No numbered sprint is currently `READY`; S067 is `IN_REVIEW` in PR #644, S052/S053/S064/S066 remain `IN_REVIEW`, and S065 remains blocked by S064.
-Dependencies: N/A while no sprint is eligible.
-Overlap check: continue S067 only through PR #644; do not create another S067 implementation branch. Existing evidence, Costbook, Today, and customer/project lanes remain separate.
-Startup prompt: Continue S067 through PR #644 by running exact-head verification and repairing scoped findings. Then add only the smallest contractor-facing Schedule Visit creation affordance that reuses existing Job creation and conflict-aware Dispatch scheduling; stop if it requires a second persistence model, new status/policy, permission/auth/RLS, schema/migration, or provider integration.
+Sprint ID: S073
+Eligibility: S073 is `READY`; S051 is `DONE`; founder authorization is explicit and no overlapping S073 implementation lane exists.
+Dependencies: S051 — DONE through merged PR #538.
+Overlap check: after the readiness PR merges, create exactly one isolated S073 implementation branch. Do not reopen or duplicate S052/S053/S064/S066/S067 lanes.
+Startup prompt: Execute S073 from current `main` using `docs/architecture/S073_RELEASE_CRITICAL_RLS_COVERAGE_PLAN.md`: build the release-critical S052-S060 resource/policy matrix, add missing live PostgreSQL same-org/cross-org and narrower-scope evidence, validate the matrix deterministically, and stop on any protected RLS/migration/auth/permission gap rather than widening policy inside S073.

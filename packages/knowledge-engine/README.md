@@ -155,6 +155,12 @@ Dependency maintenance on 2026-09-07 updates the canonical Loki sample backend l
 resolution from 6.15.3 to 6.16.0. This remains isolated vendored sample maintenance and does not
 make the sample runtime-critical or TradeOS-authored.
 
+Dependency maintenance on 2026-10-06 updates the canonical Loki sample backend lockfile's
+`proxy-addr` resolution from 2.0.7 to 2.0.8 and the canonical Loki sample frontend lockfile's
+`source-map-js` resolution from 1.2.1 to 1.2.2. These are isolated vendored-sample security
+updates; they do not make either sample runtime-critical or TradeOS-authored, and they do not
+change the live TradeOS Knowledge Runtime or Costbook data.
+
 ## 5. Generated outputs and offline tooling
 
 `exports/`, `pipelines/exports/`, and `runtime/*.json` are pipeline-generated, not hand-authored.
