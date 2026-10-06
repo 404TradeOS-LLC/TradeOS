@@ -1,0 +1,87 @@
+name: Seed 47802 Costbook supplier evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type IMPORT_47802_SUPPLIER_EVIDENCE to authorize the additive production seed
+        required: true
+        type: string
+      org_id:
+        description: Target TradeOS organization UUID
+        required: true
+        type: string
+      user_id:
+        description: Active owner/admin user UUID used for the scoped background database session
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: costbook-supplier-seed-47802-production
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed tenant-scoped supplier evidence
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Validate explicit operator inputs
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMATION" != "IMPORT_47802_SUPPLIER_EVIDENCE" ]]; then
+            echo "Refusing seed: confirmation phrase did not match." >&2
+            exit 1
+          fi
+          uuid_re='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+          if [[ ! "$ORG_ID" =~ $uuid_re ]]; then
+            echo "Refusing seed: org_id is not a UUID." >&2
+            exit 1
+          fi
+          if [[ ! "$USER_ID" =~ $uuid_re ]]; then
+            echo "Refusing seed: user_id is not a UUID." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify fixed seed contract
+        run: npx jest --runInBand --runTestsByPath tests/costbook-supplier-prices-47802-seed.test.ts tests/costbook-supplier-prices-47802.test.ts
+
+      - name: Import verified 47802 supplier evidence
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          ORG_ID: ${{ inputs.org_id }}
+          USER_ID: ${{ inputs.user_id }}
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          npx ts-node scripts/seed-supplier-prices-47802.ts \
+            --org-id "$ORG_ID" \
+            --user-id "$USER_ID" \
+            --batch-size 50 | tee /tmp/costbook-47802-seed.log
+          {
+            echo "## Costbook 47802 supplier seed"
+            echo
+            tail -n 1 /tmp/costbook-47802-seed.log
+          } >> "$GITHUB_STEP_SUMMARY"
