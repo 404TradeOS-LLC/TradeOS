@@ -44,9 +44,23 @@ alter default privileges in schema public grant usage, select on sequences to :"
 alter default privileges in schema public grant execute on functions to :"role_name";
 
 -- Private operational helpers are not part of the Data API/public schema.
--- The supplier-credential migration always creates tradeos_private, while its
--- Vault-backed functions are present only when supabase_vault is installed.
-grant usage on schema tradeos_private to :"role_name";
-grant execute on all functions in schema tradeos_private to :"role_name";
-alter default privileges in schema tradeos_private revoke execute on functions from public;
-alter default privileges in schema tradeos_private grant execute on functions to :"role_name";
+-- Keep this conditional so standalone role provisioning still works before a
+-- deployment has applied the supplier-credential migration. Grant only the two
+-- reviewed helper signatures rather than every future function in the schema.
+select format('grant usage on schema tradeos_private to %I', :'role_name')
+where exists (select 1 from pg_namespace where nspname = 'tradeos_private')
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.get_abc_supply_refresh_token(uuid, uuid) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.get_abc_supply_refresh_token(uuid,uuid)') is not null
+\gexec
+
+select format(
+  'grant execute on function tradeos_private.put_abc_supply_refresh_token(uuid, uuid, text) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.put_abc_supply_refresh_token(uuid,uuid,text)') is not null
+\gexec
