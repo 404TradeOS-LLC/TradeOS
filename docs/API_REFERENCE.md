@@ -190,15 +190,28 @@ Change-order reads require `billing.read`; all change-order mutations, including
 
 `GET /api/v1/intelligence/financial-summary` requires `billing.read` and derives organization scope only from the authenticated request. It returns `generatedAt` plus five source-aware sections: `cashCollected`, `receivables`, `unsignedOpportunity`, `projectedCommittedMargin`, and `actualJobCosts`. Cash uses recorded Payment rows in the current organization week. Receivables aggregate every non-paid/non-void invoice balance after recorded payments and identify overdue exposure at the generated instant. Unsigned opportunity sums known `Proposal.finalPrice` values and reports partial coverage when an unsigned proposal has no final price. Projected committed margin uses unique Estimate snapshots linked to accepted proposals, overhead-adjusted persisted cost, and pre-tax persisted sell value. `actualJobCosts` remains `null`/`unavailable` because no actual job-cost ledger exists. A source read failure returns null values and `coverage.status = "unavailable"`; unknown financial values are never coerced to zero.
 
-Background scheduler jobs are not REST endpoints. The existing one-shot supplier
-price-sync and Athena observability scripts run each configured organization
-and worker identity through `runWithBackgroundDatabaseSession`; supplier sync
-serializes one organization/supplier pair per transaction, and scheduler
-outcomes expose a safe status, attempt number, correlation ID, failure code,
-and bounded next-attempt timestamp. Event subscribers receive an
-organization-scoped stable idempotency key and attempt metadata. These
-contracts do not claim that production scheduling or live failure rehearsal has
-been configured.
+Background scheduler jobs are not REST endpoints, with one deliberate exception.
+The existing one-shot supplier price-sync and Athena observability scripts run
+each configured organization and worker identity through
+`runWithBackgroundDatabaseSession`; supplier sync serializes one
+organization/supplier pair per transaction, and scheduler outcomes expose a
+safe status, attempt number, correlation ID, failure code, and bounded
+next-attempt timestamp. Event subscribers receive an organization-scoped
+stable idempotency key and attempt metadata. These contracts do not claim
+that production scheduling or live failure rehearsal has been configured.
+
+The exception: `GET /api/cron/supplier-price-sync` is the Vercel Cron
+entrypoint for scheduled supplier price syncs. The in-process node-cron
+scheduler never starts inside the Vercel serverless deployment, so
+`SUPPLIER_PRICE_SYNC_JOBS` alone schedules nothing there; instead Vercel Cron
+calls this path on the `crons` schedule in `app/vercel.json` (daily 11:00 UTC)
+and the handler runs the same `runSupplierPriceSyncJobs()` path as the
+one-shot CLI. It is mounted outside the authenticated `/api/v1` chain and
+accepts only `Authorization: Bearer <CRON_SECRET>` — the secret Vercel
+attaches to cron invocations when `CRON_SECRET` is set on the project. Any
+other caller gets 401; when `CRON_SECRET` itself is unset the endpoint fails
+closed with 500. Set `CRON_SECRET` (Production + Preview, sensitive) alongside
+`SUPPLIER_PRICE_SYNC_JOBS` or the scheduled sync cannot run.
 
 `POST /api/v1/invoices/:id/void` keeps the canonical invoice lifecycle concept `voided`, but persists the raw status `void` because that is the value permitted by the live `invoices_status_check` constraint. Delivery/activity metadata continues to use `invoice.voided` and `newStatus: "voided"`; no schema or API-shape change is required.
 

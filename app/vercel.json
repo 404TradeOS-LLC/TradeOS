@@ -13,5 +13,11 @@
     "index.ts": {
       "includeFiles": "{vendor/knowledge-engine/**,node_modules/pdfkit/js/standard-fonts/**}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/supplier-price-sync",
+      "schedule": "0 11 * * *"
+    }
+  ]
 }

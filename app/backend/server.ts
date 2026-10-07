@@ -48,6 +48,7 @@ import { athenaRouter } from "./routes/athena.routes";
 import { athenaObservabilityRouter } from "./routes/athenaObservability.routes";
 import { customerPortalRouter } from "./routes/customerPortal.routes";
 import { billingRouter } from "./routes/billing.routes";
+import { cronRouter } from "./routes/cron.routes";
 import { stripeWebhookRouter } from "./routes/stripeWebhook.routes";
 
 export function createServer() {
@@ -87,6 +88,9 @@ export function createServer() {
   });
 
   app.use("/admin", adminUiRouter);
+  // Vercel Cron entrypoint. Mounted outside the authenticated /api/v1 chain on
+  // purpose: the CRON_SECRET bearer check inside the handler is the credential.
+  app.use("/api/cron", cronRouter);
   app.use("/api/v1/platform", organizationProvisioningRouter);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/customer-portal", customerPortalRouter);
