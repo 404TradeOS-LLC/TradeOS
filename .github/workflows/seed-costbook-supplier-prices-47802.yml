@@ -70,12 +70,21 @@ jobs:
 
       - name: Import verified 47802 supplier evidence
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_ADMIN_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_ADMIN_URL: ${{ secrets.DATABASE_ADMIN_URL }}
           ORG_ID: ${{ inputs.org_id }}
           USER_ID: ${{ inputs.user_id }}
           NODE_ENV: production
         run: |
           set -euo pipefail
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            echo "Refusing seed: production DATABASE_URL (restricted application role) is not configured." >&2
+            exit 1
+          fi
+          if [[ -n "${DATABASE_ADMIN_URL:-}" && "$DATABASE_URL" == "$DATABASE_ADMIN_URL" ]]; then
+            echo "Refusing seed: DATABASE_URL resolves to the admin connection; use the restricted application role." >&2
+            exit 1
+          fi
           npx ts-node scripts/seed-supplier-prices-47802.ts \
             --org-id "$ORG_ID" \
             --user-id "$USER_ID" \
