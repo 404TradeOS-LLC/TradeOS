@@ -15,9 +15,9 @@
     "db:deploy": "bash scripts/deploy-migrations.sh",
     "db:provision-role": "bash scripts/provision-app-role.sh",
     "db:seed": "prisma db seed",
-    "db:import-suppliers": "ts-node scripts/seed-supplier-prices-47802.ts",
     "admin:bootstrap": "ts-node scripts/bootstrap-admin.ts",
     "jobs:supplier-price-sync": "ts-node scripts/run-supplier-price-sync.ts",
+    "db:import-suppliers": "ts-node scripts/import-suppliers-from-dataset.ts",
     "costbook:ingest-bls-oews": "ts-node scripts/ingest-bls-oews-terre-haute-candidates.ts",
     "jobs:athena-observability-retention": "ts-node scripts/run-athena-observability-retention.ts",
     "jobs:athena-observability-export": "ts-node scripts/run-athena-observability-export.ts",
@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "cors": "^4.22.3",
+    "cors": "^2.8.5",
     "dotenv": "^18.0.5",
     "express": "^4.22.3",
     "express-rate-limit": "^8.7.0",
@@ -46,7 +46,7 @@
     "@vercel/functions": "^3.9.11"
   },
   "devDependencies": {
-    "@types/cors": "^4.17.21",
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.4",
