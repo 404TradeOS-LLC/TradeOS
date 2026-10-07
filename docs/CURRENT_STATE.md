@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-03
+last_verified: 2026-10-07
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -13,8 +13,7 @@ related_code:
   - app/prisma/schema.prisma
   - app/prisma/migrations/20260912044500_add_stripe_billing
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
-  - app/prisma/migrations/20260908120000_add_active_job_assignment_lookup
-  - app/backend/routes
+  - app/prisma/migrations/20260908120000_add_active_job_assignment_lookup\n  - app/prisma/migrations/20261007031500_add_supplier_refresh_token_vault\n  - app/backend/routes
   - app/modules/payments
   - app/modules/costbook
   - app/modules/cost-database
@@ -59,6 +58,12 @@ related_code:
   - web/src/lib/proxy-origin.ts
   - .github/workflows/verify-repository.yml
 ---
+
+## Supplier feed serverless activation — 2026-10-07
+
+The backend now has a Vercel-native supplier-price cron boundary at `GET /api/cron/supplier-price-sync`, scheduled daily by `app/vercel.json`. It is protected by `CRON_SECRET` plus a bounded IP rate limit, consumes only explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and reuses the existing membership-derived background database session and review-first supplier pricing flow.
+
+ABC Supply serverless scheduling is hardened for OAuth refresh-token rotation. The environment refresh token is bootstrap/recovery configuration; the current rotated token is read from and persisted to Supabase Vault through private `tradeos_private` SQL wrappers. Those wrappers validate active owner/admin tenant context and the canonical `ABC_SUPPLY` supplier row. The restricted `tradeos_app` role receives execute-only access to those helpers, not direct Vault access. If a rotation cannot be persisted, pricing does not continue, preventing a Vercel cold start from losing the replacement token.
 
 ## S053 certification hardening — 2026-10-04
 
