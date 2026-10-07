@@ -129,7 +129,7 @@ jobs:
       - run: npm run costbook:audit-provenance
 
   app-supplier-import-dry-run:
-    name: Costbook supplier import dry run
+    name: Costbook supplier evidence seed dry run
     needs: changes
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
@@ -142,9 +142,12 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - run: npm --prefix app ci
-      - name: Execute non-mutating supplier import plan
-        run: npm run db:import-suppliers -- --dry-run
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+      - name: Execute non-mutating supplier evidence seed plan
+        working-directory: app
+        run: npx ts-node scripts/seed-supplier-prices-47802.ts --dry-run
 
   app-build:
     name: App build and dependency audit
