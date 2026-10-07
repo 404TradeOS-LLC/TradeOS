@@ -16,12 +16,12 @@ function createSupplierPriceSyncCronRateLimit(
 ) {
   return rateLimit({
     windowMs:
-      options.rateLimitWindowMs ??
-      Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_WINDOW_MS) ||
+      (options.rateLimitWindowMs ??
+        Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_WINDOW_MS)) ||
       15 * 60 * 1000,
     max:
-      options.rateLimitMax ??
-      Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_MAX) ||
+      (options.rateLimitMax ??
+        Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_MAX)) ||
       10,
     standardHeaders: true,
     legacyHeaders: false,
