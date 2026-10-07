@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import rateLimit from "express-rate-limit";
 import { logError, logInfo } from "../logging";
 import {
   parseSupplierPriceSyncJobSpecs,
@@ -6,6 +7,18 @@ import {
 } from "../../modules/supplier-integration/scheduler";
 
 export const supplierPriceSyncCronRouter = Router();
+
+const supplierPriceSyncCronRateLimit = rateLimit({
+  windowMs:
+    Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_WINDOW_MS) ||
+    15 * 60 * 1000,
+  max: Number(process.env.SUPPLIER_PRICE_SYNC_CRON_RATE_LIMIT_MAX) || 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req: Request, res: Response) => {
+    res.status(429).json({ error: "too_many_supplier_sync_attempts" });
+  },
+});
 
 function isAuthorizedCronRequest(req: Request): boolean {
   const cronSecret = process.env.CRON_SECRET?.trim();
@@ -90,5 +103,6 @@ export async function handleSupplierPriceSyncCron(req: Request, res: Response) {
 
 supplierPriceSyncCronRouter.get(
   "/supplier-price-sync",
+  supplierPriceSyncCronRateLimit,
   handleSupplierPriceSyncCron
 );
