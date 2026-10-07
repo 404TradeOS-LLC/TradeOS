@@ -494,7 +494,7 @@ Use this for the Vercel backend. `app/vercel.json` schedules:
 GET /api/cron/supplier-price-sync
 ```
 
-The first production slice runs daily at `0 12 * * *` (12:00 UTC). Vercel must have both `CRON_SECRET` and `SUPPLIER_PRICE_SYNC_JOBS` configured. The route returns non-2xx when configuration is missing/invalid or when any supplier target fails, so failed runs remain visible in Vercel logs.
+The first production slice runs daily at `0 12 * * *` (12:00 UTC). Vercel must have both `CRON_SECRET` and `SUPPLIER_PRICE_SYNC_JOBS` configured. Before scheduling ABC Supply, deploy the supplier-refresh-token Vault migration and reprovision `tradeos_app`; `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` remains the bootstrap/recovery value while provider rotations are stored durably in Supabase Vault. The cron route returns non-2xx when configuration is missing/invalid, credential persistence fails, or any supplier target fails, so failed runs remain visible in Vercel logs.
 
 ### Option 3: external scheduler
 
@@ -514,7 +514,7 @@ from Kubernetes CronJob, GitHub Actions, ECS scheduled task, systemd timer, or h
   with `pgbouncer=true&connection_limit=1&sslmode=require`;
   session pooling on port `5432` must not be used by serverless runtime
   instances. Confirm the active Production deployment after rollout.
-- `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.
+- `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.\n- Supabase Vault is installed before enabling ABC serverless scheduling; `tradeos_app` receives only execute access to the private credential wrapper functions, never direct Vault table/view access.
 - `PLATFORM_PROVISIONING_SECRET` is high entropy and rotated when needed.
 - provisioning routes are also protected by network controls.
 - `TRUST_PROXY` is set correctly for the deployment topology.
