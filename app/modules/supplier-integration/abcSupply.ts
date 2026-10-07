@@ -88,20 +88,23 @@ const tokenResponseSchema = z
   .passthrough();
 
 export interface AbcSupplyAuthHooks {
-  /** Called when the token endpoint rotates the refresh token, so the operator can persist it. */
-  onRefreshTokenRotated?: (refreshToken: string) => void;
+  /** Called when the token endpoint rotates the refresh token. May persist durably before auth proceeds. */
+  onRefreshTokenRotated?: (refreshToken: string) => void | Promise<void>;
 }
 
 /** Mints and caches ABC Supply user access tokens via the refresh_token grant. */
 export class AbcSupplyAuth {
   private cached: { accessToken: string; expiresAtMs: number } | null = null;
+  private refreshToken: string;
 
   constructor(
     private readonly config: AbcSupplyConfig,
     private readonly fetchFn: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
     private readonly hooks: AbcSupplyAuthHooks = {},
-  ) {}
+  ) {
+    this.refreshToken = config.refreshToken;
+  }
 
   async getPricingToken(signal?: AbortSignal): Promise<string> {
     const nowMs = this.now();
@@ -110,7 +113,7 @@ export class AbcSupplyAuth {
     }
     const body = new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: this.config.refreshToken,
+      refresh_token: this.refreshToken,
       scope: "pricing.read",
     });
     const response = await this.fetchFn(SANDBOX_TOKEN_URL, {
@@ -129,10 +132,11 @@ export class AbcSupplyAuth {
       throw new Error(`ABC Supply token refresh failed: HTTP ${response.status}`);
     }
     const parsed = tokenResponseSchema.parse(await response.json());
-    this.cached = { accessToken: parsed.access_token, expiresAtMs: nowMs + parsed.expires_in * 1000 };
-    if (parsed.refresh_token && parsed.refresh_token !== this.config.refreshToken) {
-      this.hooks.onRefreshTokenRotated?.(parsed.refresh_token);
+    if (parsed.refresh_token && parsed.refresh_token !== this.refreshToken) {
+      await this.hooks.onRefreshTokenRotated?.(parsed.refresh_token);
+      this.refreshToken = parsed.refresh_token;
     }
+    this.cached = { accessToken: parsed.access_token, expiresAtMs: nowMs + parsed.expires_in * 1000 };
     return parsed.access_token;
   }
 }
