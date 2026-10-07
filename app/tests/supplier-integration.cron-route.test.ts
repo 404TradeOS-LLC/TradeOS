@@ -13,7 +13,7 @@ jest.mock("../backend/logging", () => ({
 
 import express from "express";
 import request from "supertest";
-import { supplierPriceSyncCronRouter } from "../backend/routes/supplierPriceSyncCron.routes";
+import { createSupplierPriceSyncCronRouter } from "../backend/routes/supplierPriceSyncCron.routes";
 
 const validSpec = {
   orgId: "00000000-0000-0000-0000-000000000001",
@@ -22,9 +22,9 @@ const validSpec = {
   label: "ABC Supply",
 };
 
-function buildApp() {
+function buildApp(options: { rateLimitWindowMs?: number; rateLimitMax?: number } = {}) {
   const app = express();
-  app.use("/api/cron", supplierPriceSyncCronRouter);
+  app.use("/api/cron", createSupplierPriceSyncCronRouter(options));
   return app;
 }
 
@@ -81,6 +81,31 @@ describe("supplier price sync Vercel cron route", () => {
       error: "supplier_price_sync_configuration_invalid",
     });
     expect(runSupplierPriceSyncJobs).not.toHaveBeenCalled();
+  });
+
+  it("rate limits repeated cron attempts before invoking the supplier worker again", async () => {
+    runSupplierPriceSyncJobs.mockResolvedValue([
+      {
+        spec: validSpec,
+        status: "succeeded",
+        attempt: 1,
+        correlationId: "corr-rate-limit",
+        result: { proposed: 0, skipped: 0 },
+      },
+    ]);
+
+    const app = buildApp({ rateLimitMax: 1, rateLimitWindowMs: 60_000 });
+    const first = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer test-cron-secret");
+    const second = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer test-cron-secret");
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+    expect(second.body).toEqual({ error: "too_many_supplier_sync_attempts" });
+    expect(runSupplierPriceSyncJobs).toHaveBeenCalledTimes(1);
   });
 
   it("runs the configured sync jobs and returns aggregate success counts", async () => {
