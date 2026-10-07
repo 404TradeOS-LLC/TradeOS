@@ -42,3 +42,11 @@ grant execute on all functions in schema public to :"role_name";
 alter default privileges in schema public grant select, insert, update, delete on tables to :"role_name";
 alter default privileges in schema public grant usage, select on sequences to :"role_name";
 alter default privileges in schema public grant execute on functions to :"role_name";
+
+-- Private operational helpers are not part of the Data API/public schema.
+-- The supplier-credential migration always creates tradeos_private, while its
+-- Vault-backed functions are present only when supabase_vault is installed.
+grant usage on schema tradeos_private to :"role_name";
+grant execute on all functions in schema tradeos_private to :"role_name";
+alter default privileges in schema tradeos_private revoke execute on functions from public;
+alter default privileges in schema tradeos_private grant execute on functions to :"role_name";
