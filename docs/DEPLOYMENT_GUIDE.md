@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-08-17
+last_verified: 2026-10-06
 source_of_truth: false
 related_code:
   - app/backend/start.ts
@@ -210,7 +210,7 @@ The backend can run in either of these modes:
 
 For long-lived deployments, the API can also run the in-process supplier sync scheduler when configured.
 
-For serverless deployments, do not rely on the in-process scheduler. Use the one-shot job runner from external cron or an equivalent platform scheduler.
+For serverless deployments, do not rely on the in-process scheduler. The Vercel backend uses a native Vercel Cron entry from `app/vercel.json` that calls `GET /api/cron/supplier-price-sync`. The route requires `CRON_SECRET`, parses the same explicit `SUPPLIER_PRICE_SYNC_JOBS` target list, and runs each target through the existing tenant-scoped background-session boundary.
 
 ### Frontend
 
@@ -262,13 +262,16 @@ Client components use the same-origin proxy route so bearer tokens stay out of b
 - `PLATFORM_PROVISIONING_RATE_LIMIT_WINDOW_MS`
 - `PLATFORM_PROVISIONING_RATE_LIMIT_MAX`
 
-### Backend optional supplier sync variables
+### Backend supplier sync variables
 
-- `SUPPLIER_PRICE_SYNC_CRON_SCHEDULE`
 - `SUPPLIER_PRICE_SYNC_JOBS`
+  Explicit JSON array of `{ orgId, userId, supplierId, label? }` targets. Required by both the one-shot runner and the Vercel Cron route.
+- `CRON_SECRET`
+  Required for the Vercel Cron route. Use a high-entropy server-only value; Vercel sends it as `Authorization: Bearer <CRON_SECRET>`.
+- `SUPPLIER_PRICE_SYNC_CRON_SCHEDULE`
+  Optional and used only by long-lived Node deployments. If this and `SUPPLIER_PRICE_SYNC_JOBS` are set, the long-lived process starts the in-process scheduler.
 
-If both are set, the long-lived backend process starts the in-process scheduler.
-If either is missing, the scheduler stays off.
+The Vercel deployment does not start `node-cron`. Its production schedule is declared in `app/vercel.json`.
 
 ### Frontend required
 
@@ -483,26 +486,26 @@ Set:
 
 This starts scheduled sync execution inside the API process.
 
-### Option 2: external scheduler
+### Option 2: Vercel Cron
 
-Recommended for serverless or container orchestration environments.
+Use this for the Vercel backend. `app/vercel.json` schedules:
 
-Run:
+```text
+GET /api/cron/supplier-price-sync
+```
+
+The first production slice runs daily at `0 12 * * *` (12:00 UTC). Vercel must have both `CRON_SECRET` and `SUPPLIER_PRICE_SYNC_JOBS` configured. The route returns non-2xx when configuration is missing/invalid or when any supplier target fails, so failed runs remain visible in Vercel logs.
+
+### Option 3: external scheduler
+
+For other serverless/container environments, run:
 
 ```bash
 cd app
 npm run jobs:supplier-price-sync
 ```
 
-on a platform scheduler such as:
-
-- Kubernetes CronJob
-- GitHub Actions scheduled workflow
-- ECS scheduled task
-- systemd timer
-- host cron
-
-The job exits non-zero if any configured target fails, which is better for alerting.
+from Kubernetes CronJob, GitHub Actions, ECS scheduled task, systemd timer, or host cron. The one-shot runner exits non-zero if any configured target fails.
 
 ## Security checklist
 
