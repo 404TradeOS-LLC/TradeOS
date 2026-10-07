@@ -1,4 +1,5 @@
 import "dotenv/config";
+import type { AuthContext } from "../backend/auth/context";
 import { basePrisma, prisma } from "../db/client";
 import { runWithBackgroundDatabaseSession } from "../db/requestSession";
 import { RegionalSupplierEvidenceService } from "../modules/regional-supplier-evidence/service";
@@ -40,6 +41,14 @@ function parseArgs(argv: readonly string[]): CliArgs {
   }
 
   return { orgId, userId, batchSize, dryRun };
+}
+
+function requireCostbookManage(auth: AuthContext): void {
+  if (!auth.permissions?.includes("costbook.manage")) {
+    throw new Error(
+      "Supplier evidence seed identity must have costbook.manage permission"
+    );
+  }
 }
 
 async function ensureSupplier(
@@ -104,7 +113,10 @@ async function main() {
         orgId,
         userId,
       },
-      () => ensureSupplier(orgId, supplier)
+      (auth) => {
+        requireCostbookManage(auth);
+        return ensureSupplier(orgId, supplier);
+      }
     );
     supplierIds.set(supplier.sourceName, supplierId);
     console.log(
@@ -129,13 +141,16 @@ async function main() {
         orgId,
         userId,
       },
-      () => service.ingest({
-        orgId,
-        supplierId,
-        sourceFile: SUPPLIER_PRICES_47802_SOURCE_FILE,
-        products: batch.products,
-        observations: batch.observations,
-      })
+      (auth) => {
+        requireCostbookManage(auth);
+        return service.ingest({
+          orgId,
+          supplierId,
+          sourceFile: SUPPLIER_PRICES_47802_SOURCE_FILE,
+          products: batch.products,
+          observations: batch.observations,
+        });
+      }
     );
 
     productsProcessed += result.productsUpserted;
@@ -154,7 +169,8 @@ async function main() {
       orgId,
       userId,
     },
-    async () => {
+    async (auth) => {
+      requireCostbookManage(auth);
       const suppliers = await prisma.supplier.findMany({
         where: {
           orgId,
