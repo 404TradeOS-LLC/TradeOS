@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "../../db/client";
 import type { SupplierFeedFetcher } from "./types";
+import { AbcSupplyAuth, createAbcSupplyFeedFetcher, loadAbcSupplyConfig } from "./abcSupply";
 
 const endpointMapSchema = z.record(z.string().uuid(), z.string().url());
 const feedSchema = z.object({
@@ -41,6 +42,86 @@ async function readBodyWithinLimit(response: Response): Promise<string> {
     reader.releaseLock();
   }
 }
+
+/**
+ * Default feed fetcher for SupplierIntegrationService, the scheduler, and
+ * the worker: routes the operator-designated ABC Supply sandbox supplier to
+ * the ABC fetcher and everything else to the operator-configured HTTPS
+ * endpoint fetcher.
+ *
+ * Set ABC_SUPPLY_SANDBOX_SUPPLIER_ID to the UUID of the Supplier row that
+ * represents ABC Supply. Create that row with
+ * `npm run db:import-suppliers` (app/scripts/import-suppliers-from-dataset.ts),
+ * which derives Supplier rows from the static costbook dataset and prints the
+ * supplierCode -> UUID table — do not hand-make the row. When it matches the
+ * sync target, the ABC sandbox pricing feed runs (a no-op [] when the
+ * ABC_SUPPLY_SANDBOX_* credentials are absent). All other supplier IDs fall
+ * through to fetchConfiguredSupplierFeed, preserving existing behavior exactly.
+ */
+export interface DefaultSupplierFeedDeps {
+  /** Override for tests; defaults to the live ABC fetcher. */
+  abcFetcher?: SupplierFeedFetcher;
+}
+
+/** Deadline applied to the ABC Supply sandbox route, matching the generic endpoint fetcher. */
+const ABC_FEED_TIMEOUT_MS = 15_000;
+
+/**
+ * Refresh token most recently issued by ABC's rotation, retained in memory for
+ * the life of this process. Written only by the rotation hook in
+ * buildAbcFetcher; never logged.
+ */
+let retainedAbcRefreshToken: string | null = null;
+
+function buildAbcFetcher(): SupplierFeedFetcher {
+  const config = loadAbcSupplyConfig();
+  if (!config) return async () => [];
+  // A rotated refresh token is retained in memory for the life of this process
+  // so subsequent syncs keep authenticating instead of resubmitting the
+  // invalidated secret. Durability across restarts still requires the operator
+  // to update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret (rotation is logged
+  // as an error); the token value itself is never logged.
+  const refreshToken = retainedAbcRefreshToken ?? config.refreshToken;
+  const authConfig = { ...config, refreshToken };
+  const auth = new AbcSupplyAuth(authConfig, fetch, Date.now, {
+    onRefreshTokenRotated: (next) => {
+      retainedAbcRefreshToken = next;
+      // eslint-disable-next-line no-console
+      console.error(
+        "[supplier-integration] ABC Supply refresh token rotated — in-memory token updated for this process; update the ABC_SUPPLY_SANDBOX_REFRESH_TOKEN secret or the feed will stop authenticating after a restart",
+      );
+    },
+  });
+  return async (supplierId, orgId) => {
+    // Same 15-second deadline as the generic endpoint fetcher: a stalled ABC
+    // token or pricing request must not hold the scheduler/worker indefinitely.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ABC_FEED_TIMEOUT_MS);
+    try {
+      return await createAbcSupplyFeedFetcher({ config: authConfig, auth, signal: controller.signal })(
+        supplierId,
+        orgId,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+}
+
+export function createDefaultSupplierFeedFetcher(
+  deps: DefaultSupplierFeedDeps = {},
+): SupplierFeedFetcher {
+  return async (supplierId, orgId) => {
+    const abcSupplierId = process.env.ABC_SUPPLY_SANDBOX_SUPPLIER_ID?.trim();
+    if (abcSupplierId && abcSupplierId === supplierId) {
+      return (deps.abcFetcher ?? buildAbcFetcher())(supplierId, orgId);
+    }
+    return fetchConfiguredSupplierFeed(supplierId, orgId);
+  };
+}
+
+/** Default fetcher wired into SupplierIntegrationService. */
+export const fetchDefaultSupplierFeed: SupplierFeedFetcher = createDefaultSupplierFeedFetcher();
 
 /**
  * Pulls supplier quotes only from operator-configured HTTPS endpoints. The URL
