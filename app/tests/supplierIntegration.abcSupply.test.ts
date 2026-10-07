@@ -123,6 +123,35 @@ describe("AbcSupplyAuth", () => {
     expect(onRefreshTokenRotated).toHaveBeenCalledWith("rt-new");
   });
 
+  it("awaits refresh-token persistence and reuses the rotated token on the next refresh", async () => {
+    let nowMs = 1_000_000;
+    const refreshBodies: string[] = [];
+    const onRefreshTokenRotated = jest.fn(async () => undefined);
+    const fetchFn = jest.fn(async (_url: string, init?: RequestInit) => {
+      refreshBodies.push(String(init?.body));
+      const first = refreshBodies.length === 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => tokenResponse(first ? { refresh_token: "rt-new" } : {}),
+      } as Response;
+    });
+    const auth = new AbcSupplyAuth(
+      config,
+      fetchFn as unknown as typeof fetch,
+      () => nowMs,
+      { onRefreshTokenRotated },
+    );
+
+    await auth.getPricingToken();
+    nowMs += 1800 * 1000;
+    await auth.getPricingToken();
+
+    expect(onRefreshTokenRotated).toHaveBeenCalledTimes(1);
+    expect(refreshBodies[0]).toContain("refresh_token=rt");
+    expect(refreshBodies[1]).toContain("refresh_token=rt-new");
+  });
+
   it("forwards the abort signal to the token request", async () => {
     const fetchFn = mockFetch(() => tokenResponse());
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
