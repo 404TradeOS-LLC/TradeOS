@@ -140,6 +140,8 @@ pool instead of returning a transaction-acquisition `500` after two seconds.
 
 Mounted route groups from `app/backend/server.ts`:
 
+- `/api/cron/supplier-price-sync` — Vercel/platform cron boundary, not a user JWT route. `GET` requires `Authorization: Bearer <CRON_SECRET>`, is IP-rate-limited, parses only the explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and returns non-2xx when configuration or any target fails. Each target still enters the existing membership-derived background database session; the route does not discover tenants or bypass RLS.
+
 - `/api/v1/account`
 - `/api/v1/auth`
 - `/api/v1/platform`
@@ -175,7 +177,7 @@ Mounted route groups from `app/backend/server.ts`:
   - `POST /api/v1/athena/chat` — authenticated Athena kernel request boundary. Selected scope narrows context but does not authorize it; existing service permissions, approval/risk policy, idempotency, request-scoped database session, and forced RLS remain authoritative.
 - `/api/v1/athena/observability`
 
-Change-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
+ABC Supply refresh-token rotation is durable-first: `ABC_SUPPLY_SANDBOX_REFRESH_TOKEN` is bootstrap/recovery configuration, while the default supplier feed reads/writes the current rotated token through private `tradeos_private` functions backed by Supabase Vault. Those functions require the active owner/admin tenant session and the configured `ABC_SUPPLY` supplier row; `tradeos_app` is not granted direct Vault table/view access.\n\nChange-order reads require `billing.read`; all change-order mutations, including line-item changes and approval/rejection, require `billing.write`. Supplier reads at `/api/v1/suppliers` require `costbook.read`; supplier create, update, and delete require `costbook.manage`. Both surfaces remain organization-scoped through the authenticated request session and forced RLS.
 
 ### CRM Customer search and service addresses
 
