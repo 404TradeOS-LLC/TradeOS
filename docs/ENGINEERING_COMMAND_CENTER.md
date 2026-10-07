@@ -358,3 +358,8 @@ origin-constrained, and session state is removed before artifacts are uploaded.
 This broadens browser diagnostics but still does not establish exact-head
 release certification or payment/contract correctness; Beta Evidence remains
 authoritative for that proof.
+
+## Costbook 47802 supplier evidence seed lane
+
+Founder-authorized operational work adds a bounded import path for the 3,188 verified Terre Haute supplier observations merged in PR #682. The implementation reuses the existing Regional Supplier Evidence service and background database session, creates only supplier records represented by the checked-in corpus, imports in bounded batches, and verifies exactly six suppliers plus 3,188 source products/observations. Source workbook canonical keys are deliberately not trusted during seed; existing governed matcher/review boundaries remain authoritative. The production workflow is manual, confirmation-gated, serialized, and scoped to one explicit organization/user context. No `Material.unitCost`, Estimate pricing, schema, RLS, auth, or numbered-sprint state changes are included.
+

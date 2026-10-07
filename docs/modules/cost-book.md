@@ -349,3 +349,10 @@ No organization-wide “price health” score or stale-age threshold is derived 
 ## Last verified date
 
 2026-09-28
+
+## Terre Haute 47802 supplier evidence seed
+
+`app/scripts/seed-supplier-prices-47802.ts` imports the fixed 3,188-row `app/modules/costbook/supplierPrices47802.ts` corpus through `RegionalSupplierEvidenceService` rather than writing a parallel Costbook store. The transform creates deterministic supplier-product and observation keys, preserves dated source URL/file/row evidence, and imports in bounded batches under a tenant-scoped background database session. Missing supplier records are created only for the six suppliers actually represented by the corpus; existing same-tenant supplier records are reused.
+
+The seed intentionally omits the corpus's `canonicalKey` from import input. Only the existing governed matcher may auto-link a newly seen product when current product evidence is unambiguous; otherwise canonical identity remains null/reviewable. Imported observations remain evidence only: they do not change `Material.unitCost`, approve queued supplier price changes, or alter historical Estimate snapshots. Exact replay is idempotent, while changed evidence under an existing observation key fails closed.
+

@@ -588,3 +588,10 @@ sets `PLAYWRIGHT_MCP_ALLOWED_ORIGINS` to that target before the MCP server
 starts. This is a defense-in-depth guard against accidental cross-origin
 browser requests, not a replacement for environment isolation or the governed
 authenticated evidence path.
+
+## Production Costbook 47802 supplier evidence seed
+
+`.github/workflows/seed-costbook-supplier-prices-47802.yml` is a manual-only production operator lane for the fixed `supplierPrices47802.ts` corpus. It requires the exact `IMPORT_47802_SUPPLIER_EVIDENCE` confirmation plus explicit organization and active owner/admin user UUIDs, uses the existing `production` GitHub Environment, and serializes runs so two imports cannot race. The job verifies the fixed corpus tests immediately before mutation and then executes only the tenant-scoped background-session seed runner.
+
+The seed is additive and replay-idempotent through the existing Regional Supplier Evidence service. It may create missing supplier records represented by the checked-in corpus, upsert supplier products, and append/replay immutable price observations. It must not mutate `Material.unitCost`, approve `SupplierPriceUpdate` rows, reprice Estimate snapshots, change schema/RLS/auth, scrape live retail sites, or promote the corpus's source canonical-key vocabulary into authoritative TradeOS identity. Any changed evidence under an existing observation key remains a hard conflict rather than an overwrite.
+
