@@ -1,7 +1,7 @@
 const mockPrisma = {
   supplier: { findFirst: jest.fn() },
   material: { findMany: jest.fn() },
-  $queryRaw: jest.fn(async () => [{ refresh_token: null }]),
+  $queryRaw: jest.fn(async (..._args: unknown[]) => [{ refresh_token: null }] as Array<Record<string, unknown>>),
 };
 
 jest.mock("../db/client", () => ({ prisma: mockPrisma }));
