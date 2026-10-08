@@ -227,7 +227,7 @@ The generated assembly-price evidence also fails closed on the known 2x4 precut-
 
 ### Legacy generated assembly-price audit — 2026-10-08
 
-`pricedAssemblies.ts` is a historical generated snapshot, not an authoritative cross-supplier pricing surface. `legacyAssemblyMatchAudit.ts` carries a conservative rejection registry for rows whose checked-in assembly requirement and supplier product conflict on an identity-defining dimension, product type, or material/use specification. `auditLegacyAssemblyPriceMatches()` reports those findings and `TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` filters them without selecting replacements. The raw rows remain unchanged for provenance.
+`pricedAssemblies.ts` is a historical generated snapshot, not an authoritative cross-supplier pricing surface. `legacyAssemblyMatchAudit.ts` carries a conservative rejection registry for rows whose checked-in assembly requirement and supplier product conflict on an identity-defining dimension, product type, or material/use specification. `auditLegacyAssemblyPriceMatches()` reports those findings and `AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` filters them without selecting replacements. The raw rows remain unchanged for provenance.
 
 This audit does not certify every remaining generated match, regenerate the historical `ASSEMBLY_MATERIAL_COSTS` rollups, write SupplierProduct mappings, change Material prices, or reprice Estimates. Current supplier comparison must continue through the governed canonical-identity and tenant-scoped price-resolution paths.
 
