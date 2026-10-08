@@ -7,7 +7,7 @@ async function readSource(relativePath: string) {
 }
 
 test("web Material DTO accepts the nullable classification fields from the merged backend", async () => {
-  const api = await readSource("../../../lib/api.ts");
+  const api = await readSource("../../../../lib/api.ts");
 
   const materialContract = api.slice(
     api.indexOf("export interface CostbookMaterial {"),
@@ -19,7 +19,7 @@ test("web Material DTO accepts the nullable classification fields from the merge
 });
 
 test("Material catalog surfaces read-only classification on desktop and mobile", async () => {
-  const source = await readSource("../../../components/costbook/materials-catalog.tsx");
+  const source = await readSource("../../../../components/costbook/materials-catalog.tsx");
 
   assert.match(source, /<th scope="col" className="px-4 py-3 font-medium">Classification<\/th>/);
   assert.equal((source.match(/<MaterialClassification/g) ?? []).length, 2);
@@ -35,7 +35,7 @@ test("Material catalog surfaces read-only classification on desktop and mobile",
 });
 
 test("classification UI never converts a code into a verification or price claim", async () => {
-  const source = await readSource("../../../components/costbook/material-classification.tsx");
+  const source = await readSource("../../../../components/costbook/material-classification.tsx");
 
   assert.match(source, /unspsc\?\.trim\(\) \|\| null/);
   assert.match(source, /omniclass23\?\.trim\(\) \|\| null/);
