@@ -29,7 +29,7 @@ jest.mock("../db/requestSession", () => ({
   runInDatabaseTransaction: jest.fn((_client, operation: (tx: typeof mockTransaction) => unknown) => operation(mockTransaction)),
 }));
 
-import { RegionalSupplierEvidenceService } from "../modules/regional-supplier-evidence/service";
+import { RegionalSupplierEvidenceService, prepareRegionalSupplierEvidence } from "../modules/regional-supplier-evidence/service";
 
 describe("Regional supplier canonical match review", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -86,7 +86,6 @@ describe("Regional supplier canonical match review", () => {
   });
 
   it("validates supplier classification even for imports not originating in the HTTP controller", () => {
-    const { prepareRegionalSupplierEvidence } = require("../modules/regional-supplier-evidence/service");
     expect(() => prepareRegionalSupplierEvidence({
       orgId: "org-a",
       supplierId: "supplier-a",
