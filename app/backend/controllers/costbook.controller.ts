@@ -33,6 +33,8 @@ const materialSchema = z.object({
   unitCost: requiredNumberSchema,
   wasteFactorPct: optionalPercentSchema,
   supplierId: z.string().uuid().nullable().optional(),
+  omniclass23: z.string().trim().min(1).max(80).nullable().optional(),
+  unspsc: z.string().trim().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").nullable().optional(),
 }).strict();
 
 const materialUpdateSchema = materialSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
