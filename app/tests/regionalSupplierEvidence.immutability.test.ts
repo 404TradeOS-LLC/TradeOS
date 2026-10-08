@@ -106,6 +106,50 @@ describe("RegionalSupplierEvidenceService immutable observation history", () => 
     });
   });
 
+  it("crosswalks an incoming supplier canonical key into the TradeOS identity", async () => {
+    observationFindUnique.mockResolvedValue(null);
+
+    await new RegionalSupplierEvidenceService().ingest({
+      ...input,
+      products: [{
+        supplierProductKey: "SKU-1",
+        name: "2 x 4 x 92-5/8 in. Construction/Framing Lumber",
+        canonicalMaterialKey: "LUMBER-SPF-2X4-92-5_8IN-STUD",
+      }],
+    });
+
+    expect(supplierProductUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      }),
+      update: expect.not.objectContaining({
+        canonicalMaterialKey: expect.anything(),
+      }),
+    }));
+  });
+
+  it("keeps a conflicting re-import from clearing a human-reviewed canonical link", async () => {
+    observationFindUnique.mockResolvedValue(null);
+
+    await new RegionalSupplierEvidenceService().ingest({
+      ...input,
+      products: [{
+        supplierProductKey: "SKU-1",
+        name: "2 in. x 4 in. x 104-5/8 in. #2 Stud Grade KD-HT Precut Stud",
+        canonicalMaterialKey: "LUMBER-SPF-2X4-92_5_8-STUD",
+      }],
+    });
+
+    expect(supplierProductUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        canonicalMaterialKey: null,
+      }),
+      update: expect.not.objectContaining({
+        canonicalMaterialKey: expect.anything(),
+      }),
+    }));
+  });
+
   it("creates a new observation and never mutates an existing history row", async () => {
     observationFindUnique.mockResolvedValue(null);
     observationCreateMany.mockResolvedValue({ count: 1 });

@@ -1,3 +1,5 @@
+import { canonicalIdentityConflictsWithProductText, resolveTradeOsCanonicalMaterialKey } from "./supplierCanonicalIdentity";
+
 export type CanonicalMatchAction = "AUTO_LINK" | "HUMAN_REVIEW" | "CREATE_NEW_CANDIDATE";
 
 export interface CanonicalPilotItem {
@@ -39,8 +41,57 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     requiredPatterns: [/\b2x4\b/, /\b(8ft|96in)\b/, /\b(stud|lumber)\b/],
     hardConflictPatterns: [
       /\b2x6\b/,
+      /\b(92\.625in|104\.625in|116\.625in)\b/,
       /\b10ft\b/,
       /\b12ft\b/,
+      /\bpressure treated\b/,
+      /\bpt\b/,
+      /\bsyp\b/,
+      /\bcedar\b/,
+      /\bsteel\b/,
+    ],
+  },
+  {
+    canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+    displayName: "2×4 × 92-5/8 in SPF Precut Stud",
+    normalizedUnit: "EACH",
+    materialFamily: "LUMBER",
+    requiredPatterns: [/\b2x4\b/, /\b92\.625in\b/, /\b(stud|precut|lumber)\b/],
+    hardConflictPatterns: [
+      /\b2x6\b/,
+      /\b(8ft|96in|104\.625in|116\.625in)\b/,
+      /\bpressure treated\b/,
+      /\bpt\b/,
+      /\bsyp\b/,
+      /\bcedar\b/,
+      /\bsteel\b/,
+    ],
+  },
+  {
+    canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.104_5_8IN",
+    displayName: "2×4 × 104-5/8 in SPF Precut Stud",
+    normalizedUnit: "EACH",
+    materialFamily: "LUMBER",
+    requiredPatterns: [/\b2x4\b/, /\b104\.625in\b/, /\b(stud|precut|lumber)\b/],
+    hardConflictPatterns: [
+      /\b2x6\b/,
+      /\b(8ft|92\.625in|96in|116\.625in)\b/,
+      /\bpressure treated\b/,
+      /\bpt\b/,
+      /\bsyp\b/,
+      /\bcedar\b/,
+      /\bsteel\b/,
+    ],
+  },
+  {
+    canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.116_5_8IN",
+    displayName: "2×4 × 116-5/8 in SPF Precut Stud",
+    normalizedUnit: "EACH",
+    materialFamily: "LUMBER",
+    requiredPatterns: [/\b2x4\b/, /\b116\.625in\b/, /\b(stud|precut|lumber)\b/],
+    hardConflictPatterns: [
+      /\b2x6\b/,
+      /\b(8ft|92\.625in|96in|104\.625in)\b/,
       /\bpressure treated\b/,
       /\bpt\b/,
       /\bsyp\b/,
@@ -179,6 +230,11 @@ export function normalizeSupplierProductText(input: SupplierProductForMatching):
     .replace(/nm\s*[- ]?b/g, "nmb")
     .replace(/r\s*[- ]?13/g, "r13")
     .replace(/(\d+)\s*(?:feet|foot|ft\.?|')(?=\s|$|[^a-z0-9])/g, (_match, feet: string) => `${Number(feet)}ft`)
+    .replace(/\b(\d+)\s*[- ]\s*(\d+)\/(\d+)\s*(?:inches|inch|in\.?|")(?=\s|$|[^a-z0-9])/g,
+      (_match, whole: string, numerator: string, denominator: string) => {
+        const divisor = Number(denominator);
+        return divisor > 0 ? `${Number(whole) + Number(numerator) / divisor}in` : _match;
+      })
     .replace(/\b(\d+\/\d+)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, fraction: string) => `${fraction} `)
     .replace(/(\d+(?:\.\d+)?)\s*(?:inches|inch|in\.?|")(?=\s|$)/g, (_match, inches: string) => `${Number(inches)}in`)
     .replace(/\b2\s*[x×]\s*4\b/g, "2x4")
@@ -192,11 +248,27 @@ export function normalizeSupplierProductText(input: SupplierProductForMatching):
 
 export function matchPilotCanonicalProduct(input: SupplierProductForMatching): CanonicalMatchResult {
   const normalizedText = normalizeSupplierProductText(input);
-  const explicitKey = input.canonicalMaterialKey?.trim();
+  const explicitKeyRaw = input.canonicalMaterialKey?.trim();
+  const explicitKey = explicitKeyRaw
+    ? resolveTradeOsCanonicalMaterialKey(explicitKeyRaw) ?? explicitKeyRaw
+    : undefined;
 
   if (explicitKey) {
     const exact = COSTBOOK_PILOT_CANONICAL_ITEMS.find((item) => item.canonicalMaterialKey === explicitKey);
     if (exact) {
+      if (
+        exact.hardConflictPatterns?.some((pattern) => pattern.test(normalizedText)) ||
+        canonicalIdentityConflictsWithProductText(exact.canonicalMaterialKey, normalizedText)
+      ) {
+        return {
+          action: "CREATE_NEW_CANDIDATE",
+          score: 0,
+          canonicalMaterialKey: null,
+          displayName: null,
+          rationale: "The supplied canonical key conflicts with identity-defining product dimensions or specifications.",
+          normalizedText,
+        };
+      }
       return {
         action: "AUTO_LINK",
         score: 1,

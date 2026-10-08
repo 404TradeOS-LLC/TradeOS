@@ -217,6 +217,14 @@ The October 2 data-foundation slice extends the existing Costbook rather than ad
 
 See `docs/architecture/COSTBOOK_IMPLEMENTATION_RECONCILIATION.md` for the requirement-to-existing-system reconciliation that justified each reuse/modify decision.
 
+### Cross-supplier canonical identity — 2026-10-06
+
+Cross-supplier price comparison must use a TradeOS-owned identity, never equality of supplier workbook keys. Static Terre Haute supplier rows therefore keep their original `canonicalKey` for provenance, while `tradeOsCanonicalKeyForSupplierPrice()` resolves only governed aliases and rejects rows whose product text conflicts with the governed identity. `supplierPricesForCanonicalIdentity()` groups only those compatible rows; `cheapestSupplierPrice()` may compare across suppliers only after that mapping succeeds. An unmapped raw key that appears under multiple suppliers returns no comparison instead of silently joining unrelated vocabulary.
+
+The database-backed `CostbookPricingService.resolveCanonicalPrice()` applies the same boundary: governed supplier aliases resolve to a TradeOS identity and query only that identity plus its reviewed legacy aliases inside the authenticated organization. Legacy exact-key lookup remains compatible for a single supplier, but the same ungoverned key spanning multiple suppliers returns no comparison; SPF-stud-shaped keys outside the governed registry are rejected. Governed groups also fail closed on incompatible comparison units when no explicit unit was requested. Supplier-evidence import may establish a governed canonical link on initial creation but never rewrites `SupplierProduct.canonicalMaterialKey` on re-import; the manager review route remains the mutation path for existing mappings. No schema, migration, RLS, permission, Material price, or Estimate snapshot behavior changes in this slice.
+
+The generated assembly-price evidence also fails closed on the known 2x4 precut-stud mismatch: a 104-5/8 in. Niehaus stud is no longer used to price the 92-5/8 in. interior-wall stud component. Until compatible evidence and unit conversion are both governed, that component remains unpriced rather than substituting a dimensionally different product. Other generated assembly matches remain legacy name/unit evidence and still require their own canonical-quality audit.
+
 ### Research candidate review queue (Stage 6)
 
 `docs/architecture/COSTBOOK_RESEARCH_INGESTION_DESIGN.md` Stage 6: a persisted, org-scoped queue for researched candidates awaiting human review before any of their fields may become a real `CostItem`/`Material`/`LaborRate`/`Equipment` row.

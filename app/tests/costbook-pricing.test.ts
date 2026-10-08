@@ -103,7 +103,7 @@ describe("CostbookPricingService", () => {
           gte: new Date("2026-07-04T12:00:00.000Z"),
           lte: new Date("2026-10-02T12:00:00.000Z"),
         },
-        supplierProduct: { canonicalMaterialKey: "LUMBER.SPF.2X4.8FT.STUD" },
+        supplierProduct: { canonicalMaterialKey: { in: ["LUMBER.SPF.2X4.8FT.STUD"] } },
         OR: expect.arrayContaining([
           expect.objectContaining({
             normalizedUnitPrice: { not: null },
@@ -123,6 +123,271 @@ describe("CostbookPricingService", () => {
       verifiedVsInferred: "observed",
       freshness: "current",
     });
+  });
+
+  it("resolves a supplier source-key alias through the governed TradeOS identity", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-stud",
+      normalizedUnitPrice: 4.25,
+      effectivePrice: 4.25,
+      salePrice: null,
+      regularPrice: 4.49,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/stud",
+      supplierProduct: {
+        purchaseUnit: "EA",
+        supplier: { id: "supplier-1", name: "Example Supplier" },
+      },
+    }]);
+
+    const resolved = await new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER-SPF-2X4-92-5_8IN-STUD",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    });
+
+    expect(mockPrisma.supplierPriceObservation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          orgId: "org-1",
+          supplierProduct: {
+            canonicalMaterialKey: {
+              in: expect.arrayContaining([
+                "LUMBER.SPF.STUD.2X4.92_5_8IN",
+                "LUMBER-SPF-2X4-92_5_8-STUD",
+                "LUMBER-SPF-2X4-92-5_8IN-STUD",
+                "STUD-SPF-2X4-92_5_8",
+                "LUMBER-SPF-STUD-2X4-92_58",
+              ]),
+            },
+          },
+        }),
+      })
+    );
+    expect(resolved).toMatchObject({
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      selectedPrice: 4.25,
+    });
+  });
+
+  it("keeps legacy supplier aliases queryable without treating them as canonical identity", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-legacy-stud",
+      normalizedUnitPrice: 4.1,
+      effectivePrice: 4.1,
+      salePrice: null,
+      regularPrice: 4.35,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/legacy-stud",
+      supplierProduct: {
+        name: "2 in. x 4 in. x 92-5/8 in. SPF Precut Stud",
+        description: null,
+        packageDescription: null,
+        purchaseUnit: "EA",
+        supplier: { id: "supplier-legacy", name: "Legacy Supplier" },
+      },
+    }]);
+
+    const resolved = await new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    });
+
+    const query = mockPrisma.supplierPriceObservation.findMany.mock.calls.at(-1)?.[0];
+    expect(query.where.supplierProduct.canonicalMaterialKey.in)
+      .toContain("LUMBER-SPF-2X4-92_5_8-STUD");
+    expect(resolved).toMatchObject({
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      selectedPrice: 4.1,
+      supplierName: "Legacy Supplier",
+    });
+  });
+
+  it("filters legacy alias rows whose current product dimensions conflict", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-conflicting-stud",
+      normalizedUnitPrice: 4.1,
+      effectivePrice: 4.1,
+      salePrice: null,
+      regularPrice: 4.35,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/conflicting-stud",
+      supplierProduct: {
+        name: "2 in. x 4 in. x 104-5/8 in. SPF Precut Stud",
+        description: null,
+        packageDescription: null,
+        purchaseUnit: "EA",
+        supplier: { id: "supplier-legacy", name: "Legacy Supplier" },
+      },
+    }]);
+
+    await expect(new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
+  });
+
+  it("fails closed before querying when an SPF stud-shaped key is outside the governed registry", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockClear();
+
+    await expect(new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER-SPF-2X4-84-STUD",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
+
+    expect(mockPrisma.supplierPriceObservation.findMany).not.toHaveBeenCalled();
+  });
+
+  it("preserves exact-key pricing compatibility when legacy evidence belongs to one supplier", async () => {
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([{
+      id: "obs-legacy-exact",
+      normalizedUnitPrice: 9.25,
+      effectivePrice: 9.25,
+      salePrice: null,
+      regularPrice: 9.75,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/legacy-exact",
+      supplierProduct: {
+        name: "Legacy exact-key product",
+        description: null,
+        packageDescription: null,
+        purchaseUnit: "EA",
+        supplier: { id: "supplier-legacy", name: "Legacy Supplier" },
+      },
+    }]);
+
+    const resolved = await new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LEGACY-EXACT-KEY",
+      unit: "EACH",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    });
+
+    const query = mockPrisma.supplierPriceObservation.findMany.mock.calls.at(-1)?.[0];
+    expect(query.where.supplierProduct.canonicalMaterialKey.in).toEqual(["LEGACY-EXACT-KEY"]);
+    expect(resolved).toMatchObject({
+      canonicalMaterialKey: "LEGACY-EXACT-KEY",
+      selectedPrice: 9.25,
+      supplierName: "Legacy Supplier",
+    });
+  });
+
+  it("fails closed when governed canonical evidence mixes comparison units without an explicit unit", async () => {
+    const base = {
+      salePrice: null,
+      regularPrice: null,
+      currency: "USD",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/stud",
+    };
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([
+      {
+        ...base,
+        id: "obs-stud-lf",
+        normalizedUnitPrice: 0.48,
+        effectivePrice: 0.48,
+        normalizedUnit: "LINEAR_FT",
+        purchaseUnit: "LF",
+        supplierProduct: {
+          name: "2 in. x 4 in. x 92-5/8 in. SPF Precut Stud",
+          description: null,
+          packageDescription: null,
+          purchaseUnit: "LF",
+          supplier: { id: "supplier-a", name: "Supplier A" },
+        },
+      },
+      {
+        ...base,
+        id: "obs-stud-each",
+        normalizedUnitPrice: 4.25,
+        effectivePrice: 4.25,
+        normalizedUnit: "EACH",
+        purchaseUnit: "EA",
+        supplierProduct: {
+          name: "2 in. x 4 in. x 92-5/8 in. SPF Precut Stud",
+          description: null,
+          packageDescription: null,
+          purchaseUnit: "EA",
+          supplier: { id: "supplier-b", name: "Supplier B" },
+        },
+      },
+    ]);
+
+    await expect(new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LUMBER.SPF.STUD.2X4.92_5_8IN",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
+  });
+
+  it("fails closed when an ungoverned exact key spans multiple suppliers", async () => {
+    const base = {
+      normalizedUnitPrice: 9.25,
+      effectivePrice: 9.25,
+      salePrice: null,
+      regularPrice: 9.75,
+      currency: "USD",
+      normalizedUnit: "EACH",
+      purchaseUnit: "EA",
+      sourceConfidence: "high",
+      observedAt: new Date("2026-09-28T14:02:00.000Z"),
+      storeName: "Terre Haute",
+      postalCode: "47802",
+      sourceUrl: "https://example.test/legacy-exact",
+    };
+    mockPrisma.supplierPriceObservation.findMany.mockResolvedValue([
+      {
+        ...base,
+        id: "obs-legacy-a",
+        supplierProduct: {
+          name: "Legacy product A",
+          description: null,
+          packageDescription: null,
+          purchaseUnit: "EA",
+          supplier: { id: "supplier-a", name: "Supplier A" },
+        },
+      },
+      {
+        ...base,
+        id: "obs-legacy-b",
+        supplierProduct: {
+          name: "Legacy product B",
+          description: null,
+          packageDescription: null,
+          purchaseUnit: "EA",
+          supplier: { id: "supplier-b", name: "Supplier B" },
+        },
+      },
+    ]);
+
+    await expect(new CostbookPricingService().resolveCanonicalPrice("org-1", {
+      canonicalMaterialKey: "LEGACY-SHARED-KEY",
+      now: new Date("2026-10-02T12:00:00.000Z"),
+    })).resolves.toBeNull();
   });
 
   it("filters future and expired retail evidence before resolution", async () => {
