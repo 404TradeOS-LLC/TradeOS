@@ -225,11 +225,11 @@ export function auditLegacyAssemblyPriceMatches(
  * Rejected rows simply disappear; this helper never selects a replacement
  * supplier row and never mutates Costbook or Estimate state.
  */
-export function trustedLegacyAssemblyPriceMatches(
+export function filterAuditedLegacyAssemblyPriceMatches(
   components: readonly PricedAssemblyComponent[] = PRICED_ASSEMBLY_COMPONENTS
 ): PricedAssemblyComponent[] {
   return components.filter((component) => !rejectionFor(component));
 }
 
-export const TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS =
-  trustedLegacyAssemblyPriceMatches();
+export const AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS =
+  filterAuditedLegacyAssemblyPriceMatches();
