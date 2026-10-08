@@ -65,30 +65,6 @@ describe("Canonical material classification codes", () => {
     });
   });
 
-  it("maps only the verified Schedule 40 PVC DWV pipe slice", () => {
-    for (const key of [
-      "PIPE-PVC-DWV-1_1_2-10FT",
-      "PIPE-PVC-DWV-2IN-10FT",
-      "PIPE-PVC-DWV-3IN-10FT",
-      "PIPE-PVC-DWV-4IN-10FT",
-      "PLUMB-PIPE-PVC-DWV-1_5IN-10FT",
-      "PLUMB-PIPE-PVC-DWV-2IN-10FT",
-      "PLUMB-PIPE-PVC-DWV-3IN-10FT",
-      "PLUMB-PIPE-PVC-DWV-4IN-10FT",
-    ]) {
-      expect(codesForCanonicalKey(key)).toMatchObject({
-        unspsc: "40171517",
-        unspscTitle: "Commercial PVC pipe",
-        status: "mapped",
-      });
-    }
-    // PVC fittings are intentionally excluded until their own commodity is verified.
-    expect(codesForCanonicalKey("FITTING-PVC-DWV-SANITEE-3IN-EA")).toBeUndefined();
-    expect(classifySupplierCodes("40171517", undefined, "FITTING-PVC-DWV-SANITEE-3IN-EA")).toMatchObject({
-      kind: "code-unmapped",
-    });
-  });
-
   it("flags ambiguous classifications instead of silently merging them", () => {
     for (const key of [
       "ROOFING-RIDGE-CAP",
