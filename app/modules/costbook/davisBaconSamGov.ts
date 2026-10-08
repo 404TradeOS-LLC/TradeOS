@@ -311,7 +311,7 @@ function parseRateBlocks(
 
     const identifierMatch = RATE_IDENTIFIER_RE.test(line);
     if (identifierMatch) {
-      const parts = line.split(/\s+/);
+      const parts = line.replace(/^\*\s*/, "").split(/\s+/);
       current = {
         identifier: parts[0].replace(/^\*/, ""),
         identifierDate: parts[parts.length - 1],
