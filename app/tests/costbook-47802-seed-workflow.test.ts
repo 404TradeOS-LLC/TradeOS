@@ -39,6 +39,16 @@ describe("production supplier seed restricted database credentials", () => {
     expect(() => derivedUrl("postgresql://admin:admin@db.example.invalid/db", "admin")).toThrow();
   });
 
+  it("defaults to tradeos_app when the optional role override is blank", () => {
+    const url = derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "");
+    expect(url.username).toBe("tradeos_app");
+  });
+
+  it("rejects invalid role names and non-Postgres URL protocols", () => {
+    expect(() => derivedUrl("postgresql://postgres:admin@db.example.invalid/db", "bad role")).toThrow();
+    expect(() => derivedUrl("https://postgres:admin@db.example.invalid/db", "tradeos_app")).toThrow();
+  });
+
   it("retains the absent-secret and admin-URL fail-closed guards", () => {
     expect(workflow).toContain('-z "${APP_DB_ROLE_PASSWORD:-}"');
     expect(workflow).toContain('"$DATABASE_URL" == "$DATABASE_ADMIN_URL"');
