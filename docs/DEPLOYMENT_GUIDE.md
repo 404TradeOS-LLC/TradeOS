@@ -514,7 +514,8 @@ from Kubernetes CronJob, GitHub Actions, ECS scheduled task, systemd timer, or h
   with `pgbouncer=true&connection_limit=1&sslmode=require`;
   session pooling on port `5432` must not be used by serverless runtime
   instances. Confirm the active Production deployment after rollout.
-- `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.\n- Supabase Vault is installed before enabling ABC serverless scheduling; `tradeos_app` receives only execute access to the private credential wrapper functions, never direct Vault table/view access.
+- `DATABASE_ADMIN_URL` is available only to deploy tooling and trusted operators.
+- Supabase Vault is installed before enabling ABC serverless scheduling; `tradeos_app` receives only execute access to the private credential wrapper functions, never direct Vault table/view access.
 - `PLATFORM_PROVISIONING_SECRET` is high entropy and rotated when needed.
 - provisioning routes are also protected by network controls.
 - `TRUST_PROXY` is set correctly for the deployment topology.

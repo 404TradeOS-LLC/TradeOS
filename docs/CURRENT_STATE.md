@@ -13,7 +13,9 @@ related_code:
   - app/prisma/schema.prisma
   - app/prisma/migrations/20260912044500_add_stripe_billing
   - app/prisma/migrations/20260831214500_add_costbook_code_trgm_indexes
-  - app/prisma/migrations/20260908120000_add_active_job_assignment_lookup\n  - app/prisma/migrations/20261007031500_add_supplier_refresh_token_vault\n  - app/backend/routes
+  - app/prisma/migrations/20260908120000_add_active_job_assignment_lookup
+  - app/prisma/migrations/20261007031500_add_supplier_refresh_token_vault
+  - app/backend/routes
   - app/modules/payments
   - app/modules/costbook
   - app/modules/cost-database
@@ -58,6 +60,8 @@ related_code:
   - web/src/lib/proxy-origin.ts
   - .github/workflows/verify-repository.yml
 ---
+
+# TradeOS Current State
 
 ## Supplier feed serverless activation — 2026-10-07
 
@@ -346,7 +350,7 @@ Implemented Costbook surfaces include:
 - calculation-only pricing preview
 - Material price audit/history and Estimate pricing snapshots
 - supplier-feed proposal/review flow
-- ABC Supply sandbox feed fetcher (PR #684, wired by default): provider-specific `SupplierFeedFetcher` implementation against the Connect Partner sandbox APIs (refresh-token user auth, batched `purpose=estimating` pricing, no-op when unconfigured); `SupplierIntegrationService` now defaults to `fetchDefaultSupplierFeed`, which routes the `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` target to the ABC fetcher and everything else to the generic endpoint fetcher, so the scheduler/worker paths reach it (no HTTP controller sync route exists; the controller serves the review queue). Quotes flow into the existing proposal/approval queue. Live sandbox validation succeeded 2026-10-06 (OAuth → pricing HTTP 200; sandbox branch 340 + ship-to 2010466-2; real branch 579 is sandbox-rejected and returns at production access). Duplicate-SKU lines are skipped rather than misattributed; a rotated refresh token is retained in memory for the process lifetime and the rotation is logged so the operator updates the secret before the next restart. Billy decided to stay in sandbox.
+- ABC Supply sandbox feed fetcher (PR #684, wired by default): provider-specific `SupplierFeedFetcher` implementation against the Connect Partner sandbox APIs (refresh-token user auth, batched `purpose=estimating` pricing, no-op when unconfigured); `SupplierIntegrationService` now defaults to `fetchDefaultSupplierFeed`, which routes the `ABC_SUPPLY_SANDBOX_SUPPLIER_ID` target to the ABC fetcher and everything else to the generic endpoint fetcher, so the scheduler/worker paths reach it (no HTTP controller sync route exists; the controller serves the review queue). Quotes flow into the existing proposal/approval queue. Live sandbox validation succeeded 2026-10-06 (OAuth → pricing HTTP 200; sandbox branch 340 + ship-to 2010466-2; real branch 579 is sandbox-rejected and returns at production access). Duplicate-SKU lines are skipped rather than misattributed; a rotated refresh token is persisted in Supabase Vault before pricing continues, while the environment token remains bootstrap/recovery configuration. Billy decided to stay in sandbox.
 - regional supplier evidence intake (PR #531): normalized supplier workbooks are staged into tenant-scoped `SupplierProduct` and `SupplierPriceObservation` evidence through authenticated, manager-gated endpoints. Priced, unavailable, and not-listed states are preserved; the importer never changes `Material.unitCost` or creates `SupplierPriceUpdate` rows. The supplied validation bundle contains 8 workbooks, 5,189 products/observations, and 701 unavailable observations; Carter Lumber remains catalog-only because all 670 observations are unavailable. The authenticated `/costbook/supplier-evidence` review surface reads those same rows, shows stored availability/price/source facts, previews the governed pilot canonical matcher, and lets `costbook.manage` actors confirm only a suggested canonical identity through the existing reviewed-match endpoint. That review changes `SupplierProduct.canonicalMaterialKey` only; the mutation re-runs the governed matcher and rejects a different key or a relink of an already-linked product. The review surface preserves each observation's stored currency and pages through the evidence set with an organization-scoped cursor; it never promotes an observation into `Material.unitCost` or reprices an Estimate.
 - authenticated `/costbook/import` batching for governed composite installed-price benchmarks; its same-origin server proxy checks mutation origin before reading the HttpOnly session, keeps the bearer token server-side, accepts 1–500 row API batches, and the browser import client sends batches of up to 100 rows and up to 80 KiB of encoded request data while preserving the same authorization, tenant scope, validation, and idempotent upsert boundary; any individual encoded row larger than 80 KiB is rejected before upload so an oversized one-row batch cannot cross the backend parser boundary
 - bounded search/filter/sort/cursor pagination across canonical catalog collections

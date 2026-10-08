@@ -152,6 +152,50 @@ describe("AbcSupplyAuth", () => {
     expect(new URLSearchParams(refreshBodies[1]).get("refresh_token")).toBe("rt-new");
   });
 
+  it("does not return an access token until a rotated refresh token is durably persisted", async () => {
+    let releasePersist!: () => void;
+    let notifyPersistStarted!: () => void;
+    const persistGate = new Promise<void>((resolve) => { releasePersist = resolve; });
+    const persistStarted = new Promise<void>((resolve) => { notifyPersistStarted = resolve; });
+    const fetchFn = mockFetch(() => tokenResponse({ refresh_token: "rt-new" }));
+    const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch, Date.now, {
+      onRefreshTokenRotated: async () => {
+        notifyPersistStarted();
+        await persistGate;
+      },
+    });
+
+    let resolved = false;
+    const request = auth.getPricingToken().then(() => { resolved = true; });
+    await persistStarted;
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+    releasePersist();
+    await request;
+    expect(resolved).toBe(true);
+  });
+
+  it("retries using the original refresh token if persistence rejects", async () => {
+    const refreshTokens: string[] = [];
+    const fetchFn = jest.fn(async (_url: string, init?: RequestInit) => {
+      refreshTokens.push(new URLSearchParams(String(init?.body)).get("refresh_token") ?? "");
+      return { ok: true, status: 200, json: async () => tokenResponse({ refresh_token: "rt-new" }) } as Response;
+    });
+    const onRefreshTokenRotated = jest.fn()
+      .mockRejectedValueOnce(new Error("Vault persistence unavailable"))
+      .mockResolvedValue(undefined);
+    const auth = new AbcSupplyAuth(
+      config,
+      fetchFn as unknown as typeof fetch,
+      Date.now,
+      { onRefreshTokenRotated },
+    );
+
+    await expect(auth.getPricingToken()).rejects.toThrow("Vault persistence unavailable");
+    await expect(auth.getPricingToken()).resolves.toBeTruthy();
+    expect(refreshTokens).toEqual(["rt", "rt"]);
+  });
+
   it("forwards the abort signal to the token request", async () => {
     const fetchFn = mockFetch(() => tokenResponse());
     const auth = new AbcSupplyAuth(config, fetchFn as unknown as typeof fetch);
