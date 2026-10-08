@@ -369,6 +369,8 @@ function applyClassificationVerdict(
   const verdict = classifySupplierCodes(input.unspsc, input.omniclass23, staticKey);
   switch (verdict.kind) {
     case "code-confirmed":
+      // A broad commodity code never creates a candidate identity when text is too weak.
+      if (result.action === "CREATE_NEW_CANDIDATE") return result;
       if (result.action === "AUTO_LINK") {
         return {
           ...result,
