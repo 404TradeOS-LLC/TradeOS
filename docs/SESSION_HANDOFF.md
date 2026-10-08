@@ -10,7 +10,7 @@ related_docs:
   - docs/agent-prompts/NEXT_SPRINT_PROTOCOL.md
 ---
 
-## Founder-authorized Costbook cross-supplier canonicalization — active 2026-10-06
+## Founder-authorized Costbook cross-supplier canonicalization — merge-ready 2026-10-08
 
 - Initial classification was `NEW_WORK_REQUIRED`; continuation now classifies `EXISTING_WORK_FOUND` because PR #686 on branch `feat/costbook-cross-supplier-canonicalization` is the authoritative implementation lane. Base remains `main` `adfce90b3e81a29e280d8c18e07441542f1aa70e`; PR #685 is separate ABC Supply feed wiring.
 - Scope: establish TradeOS-owned SPF precut-stud canonical identities, crosswalk reviewed Lowe's/Menards/Home Depot/Niehaus source-key variants, hard-reject dimension/spec conflicts, and prevent raw workbook keys from becoming cross-supplier joins.
@@ -18,8 +18,8 @@ related_docs:
 - Import invariant: canonical mapping is create-only during supplier-evidence import. Re-import never mutates an existing `SupplierProduct.canonicalMaterialKey`; manager canonical review remains the explicit update path and therefore cannot be erased by a conflicting workbook replay.
 - Regression repair: the generated 92-5/8 in. wall-stud component → 104-5/8 in. Niehaus match is removed. No LF↔EA conversion is invented. Remaining generated assembly prices are still legacy name/unit matches, not a completed canonical-identity audit.
 - Safety boundary: no schema/migration, RLS, auth, permission, Material price mutation, Estimate repricing, or production-data write.
-- Verification still required on the latest PR head: exact-head App unit/typecheck/build/integration, docs/governance checks, fresh review reconciliation, branch currency, and merge evidence. Sprint ID: NONE.
-- Next five tasks: let exact-head CI finish; repair any deterministic failure; reconcile/resolve current PR review threads against the final head; verify branch currency and merge readiness; then audit the next highest-risk legacy assembly identity mismatches as a separate bounded slice.
+- Verification: rebased onto current `main` `8e3b171d9ee66bdfd6b114098afc8c65aa530617`; exact-head `ef7e7f5345051720e975e9e974d422e6a5c00dde` passed Verify repository, App unit/typecheck/build/integration, Athena smoke, Costbook provenance audit, supplier-evidence seed dry run, docs consistency, sprint governance, dependency review, live-doc reconciliation, CodeQL, and branch currency. CodeRabbit is green and no review threads remain unresolved. Sprint ID: NONE.
+- Next five tasks: merge PR #686 at exact head `ef7e7f5345051720e975e9e974d422e6a5c00dde`; verify the resulting `main` SHA and required post-merge checks; preserve the now-landed canonicalization boundary in Costbook docs; audit the next highest-risk legacy assembly identity mismatches as a separate bounded slice; expand governed identity families only from reviewed supplier corpus evidence.
 
 
 ## S073 release-critical RLS coverage — readiness active 2026-10-05
