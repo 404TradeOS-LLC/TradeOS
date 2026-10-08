@@ -37,6 +37,8 @@ model Organization {
   suppliers      Supplier[]
   materials      Material[]
   laborRates     LaborRate[]
+  davisBaconDeterminations DavisBaconDetermination[]
+  davisBaconRates DavisBaconRate[]
   equipment      Equipment[]
   subcontractors Subcontractor[]
   costItems      CostItem[]
@@ -625,6 +627,57 @@ model CostbookResearchCandidate {
 
   @@index([orgId, reviewStatus, createdAt])
   @@map("costbook_research_candidates")
+}
+
+// Davis-Bacon prevailing-wage determinations (SAM.gov, key-free feed).
+// Public reference data, but org-scoped like every other tenant table so the
+// established RLS policies apply. Rates are government-contract floors, not
+// open-market rates — provenance is recorded per row.
+model DavisBaconDetermination {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  wdNumber         String   @map("wd_number")
+  revisionNumber   Int      @map("revision_number")
+  state            String
+  stateName        String?  @map("state_name")
+  counties         Json     @default("[]")
+  constructionTypes Json    @default("[]") @map("construction_types")
+  modifiedDate     String?  @map("modified_date")
+  isActive         Boolean  @default(true) @map("is_active")
+  source           String   @default("sam.gov") // provenance flag
+  fetchedAt        DateTime @default(now()) @map("fetched_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rates        DavisBaconRate[]
+
+  @@unique([orgId, wdNumber])
+  @@index([orgId, state])
+  @@map("davis_bacon_determinations")
+}
+
+model DavisBaconRate {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+  determinationId String   @map("determination_id")
+  wdNumber        String   @map("wd_number")
+  revisionNumber  Int      @map("revision_number")
+  rateIdentifier  String   @map("rate_identifier")
+  identifierDate  String?  @map("identifier_date")
+  occupation      String
+  baseRate        Decimal  @map("base_rate") @db.Decimal(12, 2)
+  rateUnit        String   @default("hour") @map("rate_unit") // "hour" | "day"
+  fringe          Decimal? @db.Decimal(12, 2)
+  fringeExpression String? @map("fringe_expression")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  organization  Organization             @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  determination DavisBaconDetermination @relation(fields: [determinationId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, wdNumber])
+  @@index([orgId, occupation])
+  @@map("davis_bacon_rates")
 }
 
 model LaborRate {
