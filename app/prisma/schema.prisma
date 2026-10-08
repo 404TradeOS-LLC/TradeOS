@@ -506,6 +506,8 @@ model SupplierProduct {
   supplierProductKey    String    @map("supplier_product_key")
   sku                   String?
   manufacturerPartNumber String?  @map("manufacturer_part_number")
+  omniclass23           String?   @map("omniclass_23")
+  unspsc                String?   @map("unspsc")
   name                  String
   description           String?
   packageDescription    String?   @map("package_description")
