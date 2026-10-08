@@ -5,7 +5,18 @@ const mockPrisma = {
   $executeRaw: jest.fn(async (..._args: unknown[]) => 1),
 };
 
-jest.mock("../db/client", () => ({ prisma: mockPrisma }));
+jest.mock("../db/client", () => ({ prisma: mockPrisma, basePrisma: mockPrisma }));
+const mockRunWithDatabaseSession = jest.fn(async (
+  _client: unknown, _actor: unknown, action: () => Promise<unknown>
+) => action());
+jest.mock("../db/requestSession", () => ({
+  getCurrentDatabaseSessionActor: () => ({
+    orgId: "33333333-3333-4333-8333-333333333333",
+    userId: "44444444-4444-4444-8444-444444444444",
+    role: "owner",
+  }),
+  runWithDatabaseSession: mockRunWithDatabaseSession,
+}));
 
 import { fetchConfiguredSupplierFeed, createDefaultSupplierFeedFetcher } from "../modules/supplier-integration/feed";
 import type { SupplierFeedFetcher } from "../modules/supplier-integration/types";
