@@ -1,7 +1,7 @@
 ---
 status: current
 owner: platform
-last_verified: 2026-10-07
+last_verified: 2026-10-08
 source_of_truth: true
 related_code:
   - app/modules/auth
@@ -68,6 +68,21 @@ related_code:
 The backend now has a Vercel-native supplier-price cron boundary at `GET /api/cron/supplier-price-sync`, scheduled daily by `app/vercel.json`. It is protected by `CRON_SECRET` plus a bounded IP rate limit, consumes only explicit `SUPPLIER_PRICE_SYNC_JOBS` targets, and reuses the existing membership-derived background database session and review-first supplier pricing flow.
 
 ABC Supply serverless scheduling is hardened for OAuth refresh-token rotation. The environment refresh token is bootstrap/recovery configuration; the current rotated token is read from and persisted to Supabase Vault through private `tradeos_private` SQL wrappers. Those wrappers validate active owner/admin tenant context and the canonical `ABC_SUPPLY` supplier row. The restricted `tradeos_app` role receives execute-only access to those helpers, not direct Vault access. If a rotation cannot be persisted, pricing does not continue, preventing a Vercel cold start from losing the replacement token.
+
+
+## Costbook legacy assembly match audit — implementation slice 2026-10-08
+
+The checked-in `pricedAssemblies.ts` dataset remains historical generated evidence rather than a canonical pricing source. A new bounded audit registry identifies high-confidence false positives only when the assembly requirement and supplier product contradict on an identity-defining nominal dimension, product type, or material/use specification. The first pass covers more than twenty concrete rows including 2x10 joists matched to 2x4 lumber, 2x8 deck joists matched to 5/4 decking, roller sleeves matched to firebrick, helical-pile extensions matched to concrete brick, and interior finish paint matched to exterior paint.
+
+`AUDIT_FILTERED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` is a non-mutating filtered view for review/analysis. The raw legacy array is preserved for provenance, and the audit does not invent substitute products, modify Costbook records, change assembly recipes, mutate Estimate snapshots, or write production data. Existing precomputed assembly rollups remain historical and are not promoted to current governed pricing by this slice.
+
+
+## Costbook cross-supplier canonicalization — implementation slice 2026-10-06
+
+Supplier/workbook canonical-key strings are no longer treated as sufficient evidence for cross-supplier equality. The bounded Costbook slice introduces a TradeOS-owned SPF precut-stud crosswalk, normalizes recognized supplier aliases into stable identities, makes nominal size/length/species conflicts hard exclusions, and allows multi-supplier comparison only after a governed identity is established. Legacy exact-key price lookups remain compatible only when their eligible evidence belongs to one supplier; a shared ungoverned key fails closed rather than becoming an accidental cross-supplier join. Supplier-evidence imports may establish a canonical link when the product is first created, but subsequent imports never overwrite the stored link; manager review remains the explicit mutation path.
+
+The known generated assembly mismatch that priced a 92-5/8 in. 2x4 stud component from a 104-5/8 in. Niehaus product has been removed; the component remains unpriced rather than accepting a dimensionally different substitute or inventing a unit conversion. Governed comparisons also fail closed when candidate observations use incompatible comparison units. The slice adds no schema/migration, RLS/auth/permission change, Material price mutation, or Estimate repricing path. Exact-head verification passed on `ef7e7f5345051720e975e9e974d422e6a5c00dde`, including App unit/typecheck/build/integration, Costbook provenance + supplier-seed dry run, docs/governance, dependency review, CodeQL, branch currency, and CodeRabbit review with no unresolved threads.
+
 
 ## S053 certification hardening — 2026-10-04
 

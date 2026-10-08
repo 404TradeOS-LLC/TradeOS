@@ -15,6 +15,15 @@ describe('Priced assemblies', () => {
     }
   });
 
+  it('does not use a 104-5/8 in stud for the 92-5/8 in wall-stud component', () => {
+    const conflicting = PRICED_ASSEMBLY_COMPONENTS.find(
+      (component) =>
+        component.componentKey === 'mat_studs_2x4_spf' &&
+        component.productName.includes('104-5/8')
+    );
+    expect(conflicting).toBeUndefined();
+  });
+
   it('rolls up material costs per assembly', () => {
     expect(ASSEMBLY_MATERIAL_COSTS.length).toBe(88);
     const withCost = ASSEMBLY_MATERIAL_COSTS.filter((a) => a.pricedComponents > 0);

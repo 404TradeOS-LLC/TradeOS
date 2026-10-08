@@ -3,6 +3,7 @@ import { basePrisma, prisma } from "../../db/client";
 import { ApiError } from "../../backend/middleware/errorHandler";
 import { runInDatabaseTransaction } from "../../db/requestSession";
 import { COSTBOOK_PILOT_CANONICAL_ITEMS, matchPilotCanonicalProduct } from "../costbook/canonicalProductMatcher";
+import { canonicalIdentityConflictsWithProductText, resolveTradeOsCanonicalMaterialKey } from "../costbook/supplierCanonicalIdentity";
 import type {
   IngestRegionalSupplierEvidenceInput,
   IngestRegionalSupplierEvidenceResult,
@@ -443,7 +444,9 @@ function toProductCreate(input: IngestRegionalSupplierEvidenceInput, row: Region
     purchaseUnit: row.purchaseUnit ?? null,
     packageQuantity: row.packageQuantity ?? null,
     productUrl: row.productUrl ?? null,
-    canonicalMaterialKey: row.canonicalMaterialKey ?? (match?.action === "AUTO_LINK" ? match.canonicalMaterialKey : null),
+    canonicalMaterialKey:
+      normalizeIncomingCanonicalMaterialKey(row.canonicalMaterialKey, row) ??
+      (match?.action === "AUTO_LINK" ? match.canonicalMaterialKey : null),
     availabilityStatus: row.availabilityStatus ?? "unknown",
     isActive: row.isActive ?? true,
     sourceFile: row.sourceFile ?? input.sourceFile ?? null,
@@ -458,13 +461,33 @@ function toProductUpdate(input: IngestRegionalSupplierEvidenceInput, row: Region
     ...data
   } = toProductCreate(input, row);
 
-  // Import-time matching may auto-link a brand-new unambiguous listing, but a
-  // later import without an explicit canonical key must never erase or replace
-  // a human-reviewed link already stored on the supplier product.
-  return {
-    ...data,
-    ...(row.canonicalMaterialKey !== undefined ? { canonicalMaterialKey: row.canonicalMaterialKey } : {}),
-  };
+  // Canonical identity is create-only during evidence import. Once a supplier
+  // product exists, only the explicit manager review path may change its
+  // canonical link. Re-imports therefore cannot erase or replace a reviewed
+  // mapping, even when a workbook repeats a conflicting source key.
+  return data;
+}
+
+function normalizeIncomingCanonicalMaterialKey(
+  value: string | null | undefined,
+  row: RegionalSupplierProductInput
+): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const canonical = resolveTradeOsCanonicalMaterialKey(trimmed);
+  if (!canonical) return trimmed;
+
+  const evidenceText = [
+    row.name,
+    row.description ?? "",
+    row.packageDescription ?? "",
+  ].join(" ");
+
+  return canonicalIdentityConflictsWithProductText(canonical, evidenceText)
+    ? null
+    : canonical;
 }
 
 function toObservationCreate(input: IngestRegionalSupplierEvidenceInput, supplierProductId: string, row: RegionalSupplierPriceObservationInput) {
