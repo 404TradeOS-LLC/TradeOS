@@ -301,6 +301,8 @@ function toMaterialDTO(row: CostbookMaterialRecord): CostbookMaterialDTO {
     wasteFactorPct: row.wasteFactorPct,
     supplierId: row.supplierId,
     supplierName: row.supplierName,
+    omniclass23: row.omniclass23,
+    unspsc: row.unspsc,
     lastPriceUpdate: row.lastPriceUpdate?.toISOString() ?? null,
     isActive: row.isActive,
     createdAt: row.createdAt.toISOString(),
