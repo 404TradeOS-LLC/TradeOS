@@ -136,6 +136,22 @@ describe("supplier price sync Vercel cron route", () => {
     expect(runSupplierPriceSyncJobs).toHaveBeenCalledTimes(1);
   });
 
+  it("fails closed when the shared rate-limit store is unavailable", async () => {
+    const app = express();
+    app.use("/api/cron", createSupplierPriceSyncCronRouter({
+      storeFactory: () => ({
+        increment: async () => { throw new Error("shared store unavailable"); },
+      }) as never,
+    }));
+
+    const response = await request(app)
+      .get("/api/cron/supplier-price-sync")
+      .set("Authorization", "Bearer test-cron-secret");
+
+    expect(response.status).toBe(500);
+    expect(runSupplierPriceSyncJobs).not.toHaveBeenCalled();
+  });
+
   it("runs the configured sync jobs and returns aggregate success counts", async () => {
     runSupplierPriceSyncJobs.mockResolvedValue([
       {
