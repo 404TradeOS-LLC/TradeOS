@@ -22,6 +22,17 @@ export class SharedSupplierCronRateLimitStore implements Store {
     this.windowMs = options.windowMs;
   }
 
+  // express-rate-limit v8 requires these hooks, but this route never enables
+  // skipSuccessfulRequests/skipFailedRequests and never resets keys manually.
+  // Reject unexpected calls rather than silently desynchronizing shared counts.
+  async decrement(_key: string): Promise<void> {
+    throw new Error("Supplier Cron shared rate limiter does not refund hits");
+  }
+
+  async resetKey(_key: string): Promise<void> {
+    throw new Error("Supplier Cron shared rate limiter cannot reset keys from an instance");
+  }
+
   async increment(key: string): Promise<IncrementResponse> {
     const keyHash = createHash("sha256")
       .update(`supplier-sync-cron:${this.namespace}:${key}`)
