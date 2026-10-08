@@ -60,6 +60,13 @@ related_code:
   - .github/workflows/verify-repository.yml
 ---
 
+## Costbook legacy assembly match audit — implementation slice 2026-10-08
+
+The checked-in `pricedAssemblies.ts` dataset remains historical generated evidence rather than a canonical pricing source. A new bounded audit registry identifies high-confidence false positives only when the assembly requirement and supplier product contradict on an identity-defining nominal dimension, product type, or material/use specification. The first pass covers more than twenty concrete rows including 2x10 joists matched to 2x4 lumber, 2x8 deck joists matched to 5/4 decking, roller sleeves matched to firebrick, helical-pile extensions matched to concrete brick, and interior finish paint matched to exterior paint.
+
+`TRUSTED_LEGACY_PRICED_ASSEMBLY_COMPONENTS` is a non-mutating filtered view for review/analysis. The raw legacy array is preserved for provenance, and the audit does not invent substitute products, modify Costbook records, change assembly recipes, mutate Estimate snapshots, or write production data. Existing precomputed assembly rollups remain historical and are not promoted to trusted current pricing by this slice.
+
+
 ## Costbook cross-supplier canonicalization — implementation slice 2026-10-06
 
 Supplier/workbook canonical-key strings are no longer treated as sufficient evidence for cross-supplier equality. The bounded Costbook slice introduces a TradeOS-owned SPF precut-stud crosswalk, normalizes recognized supplier aliases into stable identities, makes nominal size/length/species conflicts hard exclusions, and allows multi-supplier comparison only after a governed identity is established. Legacy exact-key price lookups remain compatible only when their eligible evidence belongs to one supplier; a shared ungoverned key fails closed rather than becoming an accidental cross-supplier join. Supplier-evidence imports may establish a canonical link when the product is first created, but subsequent imports never overwrite the stored link; manager review remains the explicit mutation path.
