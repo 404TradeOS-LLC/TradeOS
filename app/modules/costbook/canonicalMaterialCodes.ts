@@ -132,6 +132,24 @@ export const CANONICAL_MATERIAL_CODES: Readonly<Record<string, CanonicalMaterial
     provenance: UNSPSC_V8_PROVENANCE,
     note: "Class 30151600 Roofing accessories.",
   },
+  // ---- Framing lumber: SPF dimension studs → UNSPSC 30103605 "Wood planks" ----
+  // Deliberately limited to the governed, untreated SPF stud identities. Pressure-treated,
+  // engineered, and ambiguous lumber stays unmapped until separately verified.
+  "LUMBER-SPF-2X4-92_5_8-STUD": {
+    unspsc: "30103605", unspscTitle: "Wood planks", status: "mapped",
+    provenance: "UNSPSC v17.1001, State of North Carolina published detailed codeset, verified 2026-10-08 (30103605: Wood planks); re-verify against the current licensed codeset before broad backfill.",
+    note: "Untreated SPF 2×4 framing stud; structural-products class 30103600.",
+  },
+  "LUMBER-SPF-2X4-104_5_8-STUD": {
+    unspsc: "30103605", unspscTitle: "Wood planks", status: "mapped",
+    provenance: "UNSPSC v17.1001, State of North Carolina published detailed codeset, verified 2026-10-08 (30103605: Wood planks); re-verify against the current licensed codeset before broad backfill.",
+    note: "Untreated SPF 2×4 framing stud; structural-products class 30103600.",
+  },
+  "LUMBER-SPF-2X4-116_5_8-STUD": {
+    unspsc: "30103605", unspscTitle: "Wood planks", status: "mapped",
+    provenance: "UNSPSC v17.1001, State of North Carolina published detailed codeset, verified 2026-10-08 (30103605: Wood planks); re-verify against the current licensed codeset before broad backfill.",
+    note: "Untreated SPF 2×4 framing stud; structural-products class 30103600.",
+  },
   // ---- Ambiguous: recorded, never silently merged ----
   "ROOFING-RIDGE-CAP": {
     status: "ambiguous",
