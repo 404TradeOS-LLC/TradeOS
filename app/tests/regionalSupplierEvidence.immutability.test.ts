@@ -106,6 +106,35 @@ describe("RegionalSupplierEvidenceService immutable observation history", () => 
     });
   });
 
+  it("stores supplier classifications on import without clearing them on a later code-free replay", async () => {
+    observationFindUnique.mockResolvedValue(null);
+    await new RegionalSupplierEvidenceService().ingest({
+      ...input,
+      products: [{
+        supplierProductKey: "SKU-1",
+        name: "architectural shingles bundle",
+        unspsc: "30151508",
+      }],
+    });
+    expect(supplierProductUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        unspsc: "30151508",
+        omniclass23: null,
+        canonicalMaterialKey: "ROOFING.SHINGLE.ARCHITECTURAL.BUNDLE",
+      }),
+      update: expect.objectContaining({ unspsc: "30151508" }),
+    }));
+
+    supplierProductUpsert.mockClear();
+    await new RegionalSupplierEvidenceService().ingest({
+      ...input,
+      products: [{ supplierProductKey: "SKU-1", name: "architectural shingles bundle" }],
+    });
+    expect(supplierProductUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({ unspsc: undefined, omniclass23: undefined }),
+    }));
+  });
+
   it("crosswalks an incoming supplier canonical key into the TradeOS identity", async () => {
     observationFindUnique.mockResolvedValue(null);
 

@@ -33,6 +33,8 @@ const materialSchema = z.object({
   unitCost: requiredNumberSchema,
   wasteFactorPct: optionalPercentSchema,
   supplierId: z.string().uuid().nullable().optional(),
+  omniclass23: z.string().trim().min(1).max(80).nullable().optional(),
+  unspsc: z.string().trim().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").nullable().optional(),
 }).strict();
 
 const materialUpdateSchema = materialSchema.partial().extend({ isActive: z.boolean().optional() }).refine(
@@ -95,6 +97,8 @@ const regionalSupplierProductSchema = z.object({
   supplierProductKey: z.string().trim().min(1).max(200),
   sku: z.string().trim().max(120).nullable().optional(),
   manufacturerPartNumber: z.string().trim().max(160).nullable().optional(),
+  omniclass23: z.string().trim().min(1).max(80).nullable().optional(),
+  unspsc: z.string().trim().regex(/^\d{8}$/, "unspsc must be an 8-digit commodity code").nullable().optional(),
   name: z.string().trim().min(1).max(400),
   description: z.string().trim().max(4000).nullable().optional(),
   packageDescription: z.string().trim().max(4000).nullable().optional(),

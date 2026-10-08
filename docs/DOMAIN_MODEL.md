@@ -276,6 +276,7 @@ C001 introduces `CostbookWorkspace` and `CostbookWorkspaceEvent` as organization
 C002 exposes the existing `Material` model through the unified Costbook boundary.
 
 - `Material` belongs to one organization and stores SKU, name, unit of measure, current unit cost, waste factor, optional supplier link, last price-update timestamp, and timestamps
+- migration `20261008132000_add_material_classification_codes` adds nullable `omniclass23` (OmniClass Table 23 product code, construction-native canonical key) and `unspsc` (8-digit UNSPSC commodity code, procurement crosswalk) to `Material`, plus an index on `omniclass23`. Both stay nullable — no NOT NULL until legacy data, supplier imports, and classification exceptions are accounted for. Codes are assigned progressively per canonical material (verified codes only); the static `CANONICAL_MATERIAL_CODES` map (`app/modules/costbook/canonicalMaterialCodes.ts`) tracks mapped/ambiguous/unmapped status with provenance and feeds classification-assisted matching, which narrows candidates but never silently merges on codes alone.
 - material reads remain tenant-scoped by `orgId`; C002 tightens material and material-price-audit writes to the owner/admin Costbook boundary through forced RLS
 - Costbook material create/update requests derive organization scope from the authenticated membership; caller-supplied organization IDs are not accepted
 - a material may link to a supplier only when that supplier belongs to the same authenticated organization

@@ -49,6 +49,8 @@ export interface CostbookMaterialRecord {
   wasteFactorPct: number;
   supplierId: string | null;
   supplierName: string | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: Date | null;
   isActive: boolean;
   createdAt: Date;
@@ -65,6 +67,8 @@ export interface CostbookMaterialDTO {
   wasteFactorPct: number;
   supplierId: string | null;
   supplierName: string | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: string | null;
   isActive: boolean;
   createdAt: string;
@@ -78,6 +82,8 @@ export interface CostbookMaterialInput {
   unitCost: number;
   wasteFactorPct?: number;
   supplierId?: string | null;
+  omniclass23?: string | null;
+  unspsc?: string | null;
 }
 
 export type CostbookMaterialUpdateInput = Partial<CostbookMaterialInput> & { isActive?: boolean };

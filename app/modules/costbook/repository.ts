@@ -203,6 +203,8 @@ export class CostbookRepository {
         unitCost: input.unitCost,
         wasteFactorPct: input.wasteFactorPct ?? 0,
         supplierId: normalizeOptionalString(input.supplierId),
+        omniclass23: normalizeOptionalString(input.omniclass23),
+        unspsc: normalizeOptionalString(input.unspsc),
         lastPriceUpdate: new Date(),
       },
       include: { supplier: { select: { id: true, name: true } } },
@@ -233,6 +235,8 @@ export class CostbookRepository {
           unitCost: input.unitCost,
           wasteFactorPct: input.wasteFactorPct,
           supplierId: input.supplierId === undefined ? undefined : normalizeOptionalString(input.supplierId),
+          omniclass23: normalizeOptionalString(input.omniclass23),
+          unspsc: normalizeOptionalString(input.unspsc),
           isActive: input.isActive,
           ...(priceChanged ? { lastPriceUpdate: new Date() } : {}),
         },
@@ -551,6 +555,8 @@ function toMaterialRecord(row: {
   wasteFactorPct: unknown;
   supplierId: string | null;
   supplier?: { id: string; name: string } | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: Date | null;
   isActive: boolean;
   createdAt: Date;
@@ -570,6 +576,8 @@ function toMaterialRecord(row: {
     wasteFactorPct: Number(row.wasteFactorPct),
     supplierId: row.supplierId,
     supplierName: row.supplier?.name ?? null,
+    omniclass23: row.omniclass23,
+    unspsc: row.unspsc,
     lastPriceUpdate: row.lastPriceUpdate,
     isActive: row.isActive,
     createdAt: row.createdAt,
