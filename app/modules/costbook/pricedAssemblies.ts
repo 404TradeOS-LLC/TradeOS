@@ -1,5 +1,5 @@
 /** Priced assembly components — historical generated material-price evidence.
- * The rows remain a legacy name/unit snapshot and are not a trusted canonical
+ * The rows remain a legacy name/unit snapshot and are not a governed canonical
  * comparison set. Use legacyAssemblyMatchAudit.ts to exclude audited
  * high-confidence false positives before any review or analysis.
  * Source: supplierPrices47802.ts (observed 2026-09-13).
