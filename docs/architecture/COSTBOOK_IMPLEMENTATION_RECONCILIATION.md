@@ -25,6 +25,18 @@ related_code:
 
 # Costbook Implementation Reconciliation
 
+## 2026-10-06 — cross-supplier canonicalization reconciliation
+
+Current supplier workbooks are internally normalized but do not share one canonical-key vocabulary. Source keys are therefore provenance, not identity. This slice keeps the existing `SupplierProduct.canonicalMaterialKey` persistence field and adds a TradeOS-owned code crosswalk rather than introducing a second catalog table or a migration.
+
+The first governed family covers SPF precut studs and normalizes known Lowe's, Menards, Home Depot, and Niehaus source-key shapes into stable TradeOS identities such as `LUMBER.SPF.STUD.2X4.92_5_8IN`. Nominal size, exact length, and conflicting species/treatment are hard compatibility gates. Unknown source vocabularies stay unlinked for cross-supplier comparison.
+
+Both pricing paths now apply that boundary. The static Terre Haute supplier-price helper groups suppliers only through the TradeOS crosswalk. The database-backed PriceResolver normalizes governed aliases before reading tenant-scoped supplier observations and includes reviewed legacy aliases in the bounded lookup so pre-existing rows remain usable. Ungoverned exact-key lookups remain backward-compatible only when all eligible evidence belongs to one supplier; if the same ungoverned key spans suppliers, resolution fails closed. SPF-stud-shaped identities outside the governed registry are rejected rather than falling through to that compatibility path.
+
+Supplier-evidence import treats canonical identity as create-only. A new row may receive a governed crosswalk/auto-match, but later imports never change `SupplierProduct.canonicalMaterialKey`; only the existing manager review path may mutate that stored mapping. This prevents a conflicting workbook replay from erasing a human-reviewed link. Governed price groups also reject incompatible comparison units when the caller has not selected a unit.
+
+The generated assembly pricing evidence removes the concrete 92-5/8 in. component → 104-5/8 in. supplier-product mismatch. No inferred LF↔EA conversion was added; the affected component remains unpriced until compatible evidence exists. The other generated assembly matches remain legacy name/unit matches and are not represented as a complete canonical-identity audit. This changes no schema, RLS, authentication, permissions, Material price, Estimate snapshot, or automatic repricing behavior.
+
 ## 2026-10-03 — branch-currency reconciliation
 
 PR #628 was rebuilt onto current `main` after nine unrelated commits landed during verification. The overlapping governance documents were reconciled onto the newer S052/S066 state instead of restoring stale copies. The app-unit failure from the prior head was also repaired by (1) accepting quoted-inch product text such as `96"` in the canonical normalizer and (2) matching the existing lower-case, unquoted supplier-evidence RLS migration syntax in the tenancy contract test. No Costbook scope or persistence model changed during this currency repair.

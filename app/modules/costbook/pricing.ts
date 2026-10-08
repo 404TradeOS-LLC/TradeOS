@@ -2,7 +2,12 @@ import { prisma } from "../../db/client";
 import { applyOverhead, marginFromMarkup, markupFromMargin, round2, sellPrice } from "../estimate-engine/formulas";
 import { pageCatalogRows, type CatalogPage, type CatalogQuery } from "../shared/catalog-query";
 import { resolvePrice, type PriceConfidence, type ResolvedPrice } from "./priceResolver";
-import { normalizeCostbookUnit } from "./canonicalProductMatcher";
+import { COSTBOOK_PILOT_CANONICAL_ITEMS, normalizeCostbookUnit } from "./canonicalProductMatcher";
+import {
+  canonicalIdentityConflictsWithProductText,
+  resolveTradeOsCanonicalMaterialKey,
+  supplierCanonicalAliasesForTradeOsIdentity,
+} from "./supplierCanonicalIdentity";
 
 export interface CostbookPricingPreviewInput {
   jobCost: number;
@@ -108,6 +113,11 @@ export class CostbookPricingService {
    * validation rather than being upgraded to account/negotiated pricing.
    */
   async resolveCanonicalPrice(orgId: string, input: ResolveCanonicalPriceInput): Promise<ResolvedPrice | null> {
+    const identity = resolveCanonicalPriceIdentity(input.canonicalMaterialKey);
+    if (!identity) return null;
+
+    const { canonicalMaterialKey, lookupKeys, allowCrossSupplier } = identity;
+
     const now = input.now ?? new Date();
     const freshnessFloor = new Date(now.getTime() - 90 * 86_400_000);
     const unitValues = input.unit ? costbookUnitDatabaseValues(input.unit) : [];
@@ -117,7 +127,7 @@ export class CostbookPricingService {
         orgId,
         priceStatus: "priced",
         observedAt: { gte: freshnessFloor, lte: now },
-        supplierProduct: { canonicalMaterialKey: input.canonicalMaterialKey },
+        supplierProduct: { canonicalMaterialKey: { in: lookupKeys } },
         ...(unitValues.length > 0
           ? {
               OR: [
@@ -140,13 +150,46 @@ export class CostbookPricingService {
       orderBy: [{ observedAt: "desc" }, { id: "desc" }],
     });
 
+    if (!allowCrossSupplier) {
+      const supplierIds = new Set(rows.map((row) => row.supplierProduct.supplier.id));
+      if (supplierIds.size > 1) return null;
+    } else if (!input.unit) {
+      const comparisonUnits = new Set(rows.flatMap((row) => {
+        const normalizedPairAvailable =
+          row.normalizedUnitPrice !== null && Boolean(row.normalizedUnit?.trim());
+        const price = normalizedPairAvailable
+          ? row.normalizedUnitPrice
+          : row.effectivePrice ?? row.salePrice ?? row.regularPrice;
+        if (price === null) return [];
+
+        return [normalizeCostbookUnit(
+          normalizedPairAvailable
+            ? row.normalizedUnit
+            : row.purchaseUnit ?? row.supplierProduct.purchaseUnit
+        )];
+      }));
+      if (comparisonUnits.size > 1) return null;
+    }
+
     return resolvePrice({
       tenantId: orgId,
-      canonicalMaterialKey: input.canonicalMaterialKey,
+      canonicalMaterialKey,
       unit: input.unit,
       postalCode: input.postalCode,
       now,
       candidates: rows.flatMap((row) => {
+        const supplierProductText = [
+          row.supplierProduct.name,
+          row.supplierProduct.description ?? "",
+          row.supplierProduct.packageDescription ?? "",
+        ].join(" ");
+        if (
+          allowCrossSupplier &&
+          canonicalIdentityConflictsWithProductText(canonicalMaterialKey, supplierProductText)
+        ) {
+          return [];
+        }
+
         const normalizedPairAvailable = row.normalizedUnitPrice !== null && Boolean(row.normalizedUnit?.trim());
         const price = normalizedPairAvailable
           ? row.normalizedUnitPrice
@@ -159,7 +202,7 @@ export class CostbookPricingService {
         );
         return [{
           id: row.id,
-          canonicalMaterialKey: input.canonicalMaterialKey,
+          canonicalMaterialKey,
           price: Number(price),
           currency: row.currency,
           unit,
@@ -325,6 +368,72 @@ export class CostbookPricingService {
       }),
     };
   }
+}
+
+interface CanonicalPriceIdentity {
+  canonicalMaterialKey: string;
+  lookupKeys: string[];
+  allowCrossSupplier: boolean;
+}
+
+/**
+ * Resolves price lookup identity without breaking legacy single-supplier
+ * callers. Cross-supplier comparison is allowed only for a governed TradeOS
+ * identity. Unknown exact keys remain readable only when their evidence comes
+ * from one supplier; SPF-stud-shaped keys outside the governed registry fail
+ * closed rather than becoming accidental identities.
+ */
+function resolveCanonicalPriceIdentity(value: string): CanonicalPriceIdentity | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const supplierMapped = resolveTradeOsCanonicalMaterialKey(trimmed);
+  if (supplierMapped) {
+    const governed = COSTBOOK_PILOT_CANONICAL_ITEMS.some(
+      (item) => item.canonicalMaterialKey === supplierMapped
+    );
+    if (!governed) return null;
+    return {
+      canonicalMaterialKey: supplierMapped,
+      lookupKeys: [...new Set([
+        supplierMapped,
+        ...supplierCanonicalAliasesForTradeOsIdentity(supplierMapped),
+      ])],
+      allowCrossSupplier: true,
+    };
+  }
+
+  const exactPilot = COSTBOOK_PILOT_CANONICAL_ITEMS.find(
+    (item) => item.canonicalMaterialKey === trimmed
+  );
+  if (exactPilot) {
+    return {
+      canonicalMaterialKey: exactPilot.canonicalMaterialKey,
+      lookupKeys: [...new Set([
+        exactPilot.canonicalMaterialKey,
+        ...supplierCanonicalAliasesForTradeOsIdentity(exactPilot.canonicalMaterialKey),
+      ])],
+      allowCrossSupplier: true,
+    };
+  }
+
+  if (looksLikeSpfStudCanonicalVocabulary(trimmed)) return null;
+
+  return {
+    canonicalMaterialKey: trimmed,
+    lookupKeys: [trimmed],
+    allowCrossSupplier: false,
+  };
+}
+
+function looksLikeSpfStudCanonicalVocabulary(value: string): boolean {
+  const key = value.trim().toUpperCase().replace(/\s+/g, "");
+  return (
+    /^LUMBER\.SPF\.STUD\./.test(key) ||
+    /^LUMBER-SPF-\d+X\d+-.+-STUD$/.test(key) ||
+    /^LUMBER-SPF-STUD-\d+X\d+-.+$/.test(key) ||
+    /^STUD-SPF-\d+X\d+-.+$/.test(key)
+  );
 }
 
 function observationConfidence(value: string | null): PriceConfidence {
