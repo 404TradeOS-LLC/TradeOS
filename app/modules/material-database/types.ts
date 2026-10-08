@@ -6,6 +6,8 @@ export interface CreateMaterialInput {
   unitCost: number;
   wasteFactorPct?: number;
   supplierId?: string;
+  omniclass23?: string;
+  unspsc?: string;
 }
 
 export type UpdateMaterialInput = Partial<CreateMaterialInput>;
@@ -19,6 +21,8 @@ export interface MaterialDTO {
   unitCost: number;
   wasteFactorPct: number;
   supplierId: string | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: Date | null;
 }
 
@@ -39,6 +43,8 @@ export interface BulkImportMaterialRow {
   unitCost: number;
   wasteFactorPct?: number;
   supplierId?: string;
+  omniclass23?: string;
+  unspsc?: string;
 }
 
 export interface BulkImportResult {

@@ -1,4 +1,5 @@
 import { canonicalIdentityConflictsWithProductText, resolveTradeOsCanonicalMaterialKey } from "./supplierCanonicalIdentity";
+import { classifySupplierCodes } from "./canonicalMaterialCodes";
 
 export type CanonicalMatchAction = "AUTO_LINK" | "HUMAN_REVIEW" | "CREATE_NEW_CANDIDATE";
 
@@ -9,6 +10,13 @@ export interface CanonicalPilotItem {
   materialFamily: string;
   requiredPatterns: readonly RegExp[];
   hardConflictPatterns?: readonly RegExp[];
+  /**
+   * Static-corpus canonicalKey (e.g. "ROOFING-SHINGLE-ARCHITECTURAL") for
+   * classification-assisted matching. When present and the supplier listing
+   * carries UNSPSC/OmniClass codes, the verified code map narrows or
+   * challenges the text-based verdict — never silently.
+   */
+  staticCanonicalKey?: string;
 }
 
 export interface SupplierProductForMatching {
@@ -21,6 +29,10 @@ export interface SupplierProductForMatching {
   upcGtin?: string | null;
   manufacturer?: string | null;
   manufacturerPartNumber?: string | null;
+  /** Supplier-provided UNSPSC commodity code, when the feed carries one. */
+  unspsc?: string | null;
+  /** Supplier-provided OmniClass Table 23 product code, when the feed carries one. */
+  omniclass23?: string | null;
 }
 
 export interface CanonicalMatchResult {
@@ -166,6 +178,7 @@ export const COSTBOOK_PILOT_CANONICAL_ITEMS: readonly CanonicalPilotItem[] = [
     materialFamily: "ROOFING",
     requiredPatterns: [/\b(shingle|shingles)\b/, /\barchitectural\b/],
     hardConflictPatterns: [/\b(ridge cap|ridgecap|starter|metal roofing|roofing panel)\b/],
+    staticCanonicalKey: "ROOFING-SHINGLE-ARCHITECTURAL",
   },
   {
     canonicalMaterialKey: "PAINT.INTERIOR.WALL.GALLON",
@@ -303,8 +316,9 @@ export function matchPilotCanonicalProduct(input: SupplierProductForMatching): C
   }).sort((a, b) => b.score - a.score);
 
   const best = scored[0];
+  let result: CanonicalMatchResult;
   if (!best || best.score < 0.88) {
-    return {
+    result = {
       action: "CREATE_NEW_CANDIDATE",
       score: best?.score ?? 0,
       canonicalMaterialKey: null,
@@ -312,10 +326,8 @@ export function matchPilotCanonicalProduct(input: SupplierProductForMatching): C
       rationale: "No pilot canonical item met the precision-first review threshold.",
       normalizedText,
     };
-  }
-
-  if (best.score >= 0.97) {
-    return {
+  } else if (best.score >= 0.97) {
+    result = {
       action: "AUTO_LINK",
       score: best.score,
       canonicalMaterialKey: best.item.canonicalMaterialKey,
@@ -323,16 +335,74 @@ export function matchPilotCanonicalProduct(input: SupplierProductForMatching): C
       rationale: "All governed identity attributes for the pilot item matched with no hard conflict.",
       normalizedText,
     };
+  } else {
+    result = {
+      action: "HUMAN_REVIEW",
+      score: best.score,
+      canonicalMaterialKey: best.item.canonicalMaterialKey,
+      displayName: best.item.displayName,
+      rationale: best.unitConflict
+        ? `The listing matches identity text, but purchase unit ${suppliedUnit} conflicts with canonical unit ${best.item.normalizedUnit}; human review is required.`
+        : "The listing is similar to a canonical pilot item but does not meet the auto-link precision gate.",
+      normalizedText,
+    };
   }
+  return applyClassificationVerdict(input, best?.item ?? null, result);
+}
 
-  return {
-    action: "HUMAN_REVIEW",
-    score: best.score,
-    canonicalMaterialKey: best.item.canonicalMaterialKey,
-    displayName: best.item.displayName,
-    rationale: best.unitConflict
-      ? `The listing matches identity text, but purchase unit ${suppliedUnit} conflicts with canonical unit ${best.item.normalizedUnit}; human review is required.`
-      : "The listing is similar to a canonical pilot item but does not meet the auto-link precision gate.",
-    normalizedText,
-  };
+/**
+ * Classification-assisted matching: when the supplier listing carries
+ * UNSPSC/OmniClass codes and the candidate pilot item bridges to a
+ * classified static-corpus key, the verified code map narrows or challenges
+ * the text verdict. Codes never auto-link on their own — they confirm an
+ * already-strong text match, or route ambiguity/conflict to human review.
+ * With no codes on either side, behavior is unchanged.
+ */
+function applyClassificationVerdict(
+  input: SupplierProductForMatching,
+  item: CanonicalPilotItem | null,
+  result: CanonicalMatchResult,
+): CanonicalMatchResult {
+  const staticKey = item?.staticCanonicalKey;
+  const hasCodes = !!(input.unspsc?.trim() || input.omniclass23?.trim());
+  if (!item || !staticKey || !hasCodes) return result;
+  const verdict = classifySupplierCodes(input.unspsc, input.omniclass23, staticKey);
+  switch (verdict.kind) {
+    case "code-confirmed":
+      if (result.action === "AUTO_LINK") {
+        return {
+          ...result,
+          rationale: `${result.rationale} Supplier classification code confirmed against the verified canonical map.`,
+        };
+      }
+      return {
+        ...result,
+        action: "HUMAN_REVIEW",
+        canonicalMaterialKey: item.canonicalMaterialKey,
+        displayName: item.displayName,
+        rationale:
+          `${result.rationale} Supplier classification code matches the verified code for ${staticKey}, ` +
+          "narrowing the candidate; human review required to verify identity, SKU, unit, and specs.",
+        normalizedText: result.normalizedText,
+      };
+    case "code-conflict":
+      return {
+        ...result,
+        action: "HUMAN_REVIEW",
+        rationale:
+          `${result.rationale} Supplier classification code matches a different canonical material (${verdict.conflictingKey}); ` +
+          "possible misattribution — human review required, never silently merged.",
+        normalizedText: result.normalizedText,
+      };
+    case "code-ambiguous":
+      return {
+        ...result,
+        action: "HUMAN_REVIEW",
+        rationale:
+          `${result.rationale} Canonical material ${staticKey} is ambiguously classified (${verdict.note}); human review required.`,
+        normalizedText: result.normalizedText,
+      };
+    case "code-unmapped":
+      return result;
+  }
 }

@@ -42,6 +42,8 @@ export class MaterialDatabaseService {
         unitCost: input.unitCost,
         wasteFactorPct: input.wasteFactorPct ?? 0,
         supplierId: input.supplierId,
+        omniclass23: input.omniclass23,
+        unspsc: input.unspsc,
         lastPriceUpdate: new Date(),
       },
     });
@@ -68,6 +70,8 @@ export class MaterialDatabaseService {
           unitCost: input.unitCost,
           wasteFactorPct: input.wasteFactorPct,
           supplierId: input.supplierId,
+          omniclass23: input.omniclass23,
+          unspsc: input.unspsc,
           ...(priceChanged ? { lastPriceUpdate: new Date() } : {}),
         },
       });
@@ -156,6 +160,8 @@ function toDTO(row: {
   unitCost: unknown;
   wasteFactorPct: unknown;
   supplierId: string | null;
+  omniclass23: string | null;
+  unspsc: string | null;
   lastPriceUpdate: Date | null;
 }): MaterialDTO {
   return {
@@ -167,6 +173,8 @@ function toDTO(row: {
     unitCost: Number(row.unitCost),
     wasteFactorPct: Number(row.wasteFactorPct),
     supplierId: row.supplierId,
+    omniclass23: row.omniclass23,
+    unspsc: row.unspsc,
     lastPriceUpdate: row.lastPriceUpdate,
   };
 }
