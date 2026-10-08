@@ -151,6 +151,16 @@ describe("Classification-assisted pilot matching", () => {
     expect(result.rationale).toContain("verified canonical map");
   });
 
+  it("never assigns a canonical identity from code alone when text is weak", () => {
+    const result = matchPilotCanonicalProduct({
+      name: "3-tab shingles",
+      unspsc: "30151508",
+    });
+    expect(result.action).toBe("CREATE_NEW_CANDIDATE");
+    expect(result.canonicalMaterialKey).toBeNull();
+    expect(result.displayName).toBeNull();
+  });
+
   it("downgrades a conflicting code to human review instead of silently merging", () => {
     const result = matchPilotCanonicalProduct({
       name: "architectural shingles bundle",
