@@ -64,3 +64,12 @@ select format(
 )
 where to_regprocedure('tradeos_private.put_abc_supply_refresh_token(uuid,uuid,text)') is not null
 \gexec
+
+-- The Vercel Cron limiter shares one atomic budget between function instances.
+-- The app role can execute only this private wrapper, never write its table.
+select format(
+  'grant execute on function tradeos_private.consume_supplier_cron_rate_limit(text, integer) to %I',
+  :'role_name'
+)
+where to_regprocedure('tradeos_private.consume_supplier_cron_rate_limit(text,integer)') is not null
+\gexec
